@@ -70,6 +70,10 @@ jobs:
         packages: write
         contents: read
     steps:
+      - name: Install earthly
+        uses: earthly/actions-setup@v1
+        with:
+            version: v0.8.4
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -192,7 +196,7 @@ jobs:
           # We only want the image tag, but the exec-planner only provides the full image name,
           # so we extract everything after the ":"
           TAG=$(echo ${{matrix.data.image}} | cut -d ':' -f 2)
-          PARENT_CONTAINER=$TAG ARTIFACT_REGISTRY_MIRROR=true IMAGE_REGISTRY=ghcr.io/freiheit-com/kuberpult ${{ matrix.data.command }}
+          EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY=true PARENT_CONTAINER=$TAG ARTIFACT_REGISTRY_MIRROR=true IMAGE_REGISTRY=ghcr.io/freiheit-com/kuberpult ${{ matrix.data.command }}
       - name: Post build actions
         uses: ./.github/actions/post-build-action
         with:

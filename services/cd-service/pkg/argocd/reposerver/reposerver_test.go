@@ -18,7 +18,6 @@ package reposerver
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"os"
 	"os/exec"
 	"path"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 
 	v1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
@@ -39,8 +40,22 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 var createOneAppInDevelopment []repository.Transformer = []repository.Transformer{
 	&repository.CreateEnvironment{
@@ -131,7 +146,7 @@ func TestGenerateManifest(t *testing.T) {
 		Setup             []repository.Transformer
 		Request           *argorepo.ManifestRequest
 		ExpectedResponse  *argorepo.ManifestResponse
-		ExpectedError     string
+		ExpectedError     error
 		ExpectedArgoError *regexp.Regexp
 	}{
 		{
@@ -235,7 +250,7 @@ func TestGenerateManifest(t *testing.T) {
 			},
 
 			ExpectedArgoError: regexp.MustCompile("\\AUnable to resolve 'not-our-branch' to a commit SHA\\z"),
-			ExpectedError:     "rpc error: code = NotFound desc = unknown revision \"not-our-branch\", I only know \"HEAD\", \"master\" and commit hashes",
+			ExpectedError:     errMatcher{"rpc error: code = NotFound desc = unknown revision \"not-our-branch\", I only know \"HEAD\", \"master\" and commit hashes"},
 		},
 		{
 			Name:  "rejectes unknown commit ids",
@@ -252,7 +267,7 @@ func TestGenerateManifest(t *testing.T) {
 
 			// The error message from argo cd contains the output log of git which differs slightly with the git version. Therefore, we don't match on that.
 			ExpectedArgoError: regexp.MustCompile("\\A.*rpc error: code = Internal desc = Failed to checkout revision b551320bc327abfabf9df32ee5a830f8ccb1e88d:"),
-			ExpectedError:     "rpc error: code = NotFound desc = unknown revision \"b551320bc327abfabf9df32ee5a830f8ccb1e88d\", I only know \"HEAD\", \"master\" and commit hashes",
+			ExpectedError:     errMatcher{"rpc error: code = NotFound desc = unknown revision \"b551320bc327abfabf9df32ee5a830f8ccb1e88d\", I only know \"HEAD\", \"master\" and commit hashes"},
 		},
 	}
 	for _, tc := range tcs {
@@ -282,37 +297,24 @@ func TestGenerateManifest(t *testing.T) {
 
 			srv := New(repo, cfg)
 			resp, err := srv.GenerateManifest(context.Background(), tc.Request)
-			if tc.ExpectedError == "" {
-				if err != nil {
-					t.Fatalf("expected no error, but got %q", err)
-				}
-
-				d := cmp.Diff(resp, tc.ExpectedResponse, protocmp.Transform())
-				if d != "" {
-					t.Errorf("unexpected response: %s", d)
-				}
-			} else {
-				if err.Error() != tc.ExpectedError {
-					t.Errorf("got wrong error, expected %q but got %q", tc.ExpectedError, err.Error())
-				}
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+
 			asrv := testArgoServer(t)
 			aresp, err := asrv.GenerateManifest(context.Background(), tc.Request)
-			if tc.ExpectedError == "" {
-				if err != nil {
-					t.Fatalf("expected no error, but got %q", err)
-				}
-
-				d := cmp.Diff(aresp, tc.ExpectedResponse, protocmp.Transform())
-				if d != "" {
-					t.Errorf("unexpected response: %s", d)
-				}
-			} else {
+			if tc.ExpectedError != nil {
 				if !tc.ExpectedArgoError.MatchString(err.Error()) {
-					t.Logf("actual error:\n%s\n", err.Error())
-					t.Logf("expected error:\n%s\n", tc.ExpectedArgoError.String())
 					t.Fatalf("got wrong error, expected to match %q but got %q", tc.ExpectedArgoError, err)
 				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %s", err.Error())
+			}
+			if diff := cmp.Diff(tc.ExpectedResponse, aresp, protocmp.Transform()); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -323,8 +325,8 @@ func TestResolveRevision(t *testing.T) {
 		Name              string
 		Setup             []repository.Transformer
 		Request           *argorepo.ResolveRevisionRequest
-		ExpectedError     string
-		ExpectedArgoError string
+		ExpectedError     error
+		ExpectedArgoError error
 	}{
 		{
 			Name:  "resolves HEAD",
@@ -378,9 +380,9 @@ func TestResolveRevision(t *testing.T) {
 				AmbiguousRevision: "not-our-branch",
 			},
 
-			ExpectedError: "rpc error: code = NotFound desc = unknown revision \"not-our-branch\", I only know \"HEAD\", \"master\" and commit hashes",
+			ExpectedError: errMatcher{"rpc error: code = NotFound desc = unknown revision \"not-our-branch\", I only know \"HEAD\", \"master\" and commit hashes"},
 
-			ExpectedArgoError: "Unable to resolve 'not-our-branch' to a commit SHA",
+			ExpectedArgoError: errMatcher{"Unable to resolve 'not-our-branch' to a commit SHA"},
 		},
 		{
 			Name:  "accepts unknown commit ids",
@@ -413,37 +415,46 @@ func TestResolveRevision(t *testing.T) {
 			}
 			asrv := testArgoServer(t)
 			aresp, err := asrv.ResolveRevision(context.Background(), tc.Request)
-			if tc.ExpectedError == "" {
-				if err != nil {
-					t.Fatalf("expected no error, but got %q", err)
-				}
-			} else {
-				if err == nil {
-
-					t.Fatalf("expected error %q but got response %#v", tc.ExpectedArgoError, aresp)
-				}
-				if err.Error() != tc.ExpectedArgoError {
-					t.Fatalf("got wrong error, expected %q but got %q", tc.ExpectedArgoError, err)
-				}
+			if diff := cmp.Diff(tc.ExpectedArgoError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			srv := New(repo, cfg)
 			resp, err := srv.ResolveRevision(context.Background(), tc.Request)
-			if tc.ExpectedError == "" {
-				if err != nil {
-					t.Fatalf("expected no error, but got %q", err)
-				}
-				// We only need to check here if both are the same
-				d := cmp.Diff(resp, aresp, protocmp.Transform())
-				if d != "" {
-					t.Errorf("unexpected response: %s", d)
-				}
-			} else {
-				if err.Error() != tc.ExpectedError {
-					t.Errorf("got wrong error, expected %q but got %q", tc.ExpectedError, err.Error())
-				}
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 
+			if tc.ExpectedError == nil {
+				// We only need to check here if both are the same
+				if diff := cmp.Diff(aresp, resp, protocmp.Transform()); diff != "" {
+					t.Errorf("responses mismatch (-want, +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestGetRevisionMetadata(t *testing.T) {
+	tcs := []struct {
+		Name string
+	}{
+		{
+			Name: "returns a dummy",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			srv := (*reposerver)(nil)
+			req := argorepo.RepoServerRevisionMetadataRequest{}
+			_, err := srv.GetRevisionMetadata(
+				context.Background(),
+				&req,
+			)
+			if err != nil {
+				t.Errorf("expected no error, but got %q", err)
+			}
 		})
 	}
 }
@@ -455,9 +466,10 @@ func testRepository(t *testing.T) (repository.Repository, repository.RepositoryC
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	cmd.Run()
 	cfg := repository.RepositoryConfig{
-		URL:    "file://" + remoteDir,
-		Path:   localDir,
-		Branch: "master",
+		URL:                 "file://" + remoteDir,
+		Path:                localDir,
+		Branch:              "master",
+		ArgoCdGenerateFiles: true,
 	}
 	repo, err := repository.New(
 		testutil.MakeTestContext(),

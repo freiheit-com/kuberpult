@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -55,9 +54,8 @@ type shutdown struct {
 // Setup structure that holds only the shutdown callbacks for all
 // grpc and http server for endpoints, metrics, health checks, etc.
 type setup struct {
-	health          HealthServer
-	shutdown        []shutdown
-	shutdownChannel chan bool
+	health   HealthServer
+	shutdown []shutdown
 }
 
 type BasicAuth struct {
@@ -107,13 +105,14 @@ type ServerConfig struct {
 }
 
 func Run(ctx context.Context, config ServerConfig) {
+	//exhaustruct:ignore
 	s := &setup{}
 
 	ctx, cancel := context.WithCancel(ctx)
 	pv, handler, _ := metrics.Init()
 	ctx = metrics.WithProvider(ctx, pv)
 
-	pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+	_, _ = pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
 		reports := s.health.reports()
 		for name, report := range reports {
 			var value int64
@@ -166,14 +165,10 @@ func (s *setup) listenToShutdownSignal(ctx context.Context, cancelFunc context.C
 	cancelFunc()
 
 	// call shutdown hooks
-	gracefulShutdown(ctx, s, 30*time.Second)
+	gracefulShutdown(ctx, s)
 }
 
-func gracefulShutdown(ctx context.Context, s *setup, timeout time.Duration) {
-	// Instantiate background context
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
+func gracefulShutdown(ctx context.Context, s *setup) {
 	for i := len(s.shutdown) - 1; i >= 0; i-- {
 		sd := s.shutdown[i]
 		if err := sd.fn(ctx); err != nil {
@@ -235,6 +230,7 @@ func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port st
 		handler = NewBasicAuthHandler(basicAuth, handler)
 	}
 
+	//exhaustruct:ignore
 	httpS := &http.Server{
 		Handler: handler,
 	}

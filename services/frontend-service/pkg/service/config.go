@@ -31,7 +31,10 @@ func (c *FrontendConfigServiceServer) GetConfig(
 	ctx context.Context,
 	in *api.GetFrontendConfigRequest) (*api.GetFrontendConfigResponse, error) {
 	result := api.GetFrontendConfigResponse{
-		ArgoCd: &api.GetFrontendConfigResponse_ArgoCD{BaseUrl: c.Config.ArgoCd.BaseUrl},
+		ArgoCd: &api.GetFrontendConfigResponse_ArgoCD{
+			BaseUrl:   c.Config.ArgoCd.BaseUrl,
+			Namespace: c.Config.ArgoCd.Namespace,
+		},
 		AuthConfig: &api.GetFrontendConfigResponse_Auth{
 			AzureAuth: &api.GetFrontendConfigResponse_Auth_AzureAuthConfig{
 				Enabled:       c.Config.Auth.AzureAuth.Enabled,

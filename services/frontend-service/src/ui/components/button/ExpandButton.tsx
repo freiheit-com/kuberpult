@@ -58,6 +58,7 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                     className={'button-main env-card-deploy-btn mdc-button--unelevated'}
                     key={'button-first-key'}
                     label={props.defaultButtonLabel}
+                    highlightEffect={false}
                 />
                 {/* the button to expand the dialog: */}
                 <Button
@@ -66,6 +67,7 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                     key={'button-second-key'}
                     label={''}
                     icon={<div className={'dropdown-arrow'}>⌄</div>}
+                    highlightEffect={false}
                 />
             </div>
             {expanded && (
@@ -83,6 +85,7 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                                 key={'button-second-key'}
                                 label={'Deploy only'}
                                 icon={undefined}
+                                highlightEffect={true}
                             />
                         </div>
                     </>

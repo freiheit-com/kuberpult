@@ -1,4 +1,5 @@
 VERSION 0.7
+IMPORT ../infrastructure/earthly/go AS go-build
 
 deps:
     FROM ../+deps
@@ -12,10 +13,12 @@ lint:
     FROM +deps
     WORKDIR pkg
     RUN buf lint
+    DO go-build+LINT --skip_lint_errors=false
 test:
     FROM +deps
+    ARG GO_TEST_ARGS
     WORKDIR pkg
-    RUN go test ./...
+    RUN go test $GO_TEST_ARGS ./...
 build-all:
     BUILD +lint
     BUILD +test

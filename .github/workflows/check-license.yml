@@ -1,0 +1,16 @@
+name: "Check license"
+'on':
+  pull_request:
+    branches:
+      - main
+jobs:
+  check-license:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3.1.0
+      with:
+        fetch-depth: 0
+    - name: Run license checking script
+      run: |
+        bash check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)

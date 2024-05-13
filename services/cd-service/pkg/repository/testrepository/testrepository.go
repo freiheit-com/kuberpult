@@ -25,6 +25,7 @@ import (
 )
 
 func Failing(err error) repository.Repository {
+	//exhaustruct:ignore
 	return &failingRepository{err: err}
 }
 
@@ -41,15 +42,17 @@ func (fr *failingRepository) Push(ctx context.Context, pushAction func() error) 
 	return fr.err
 }
 
-func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, transformers ...repository.Transformer) ([]string, *repository.State, []*repository.TransformerResult, error) {
-	return nil, nil, nil, fr.err
+func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, transformers ...repository.Transformer) ([]string, *repository.State, []*repository.TransformerResult, *repository.TransformerBatchApplyError) {
+	return nil, nil, nil, &repository.TransformerBatchApplyError{TransformerError: fr.err, Index: 0}
 }
 
 func (fr *failingRepository) State() *repository.State {
+	//exhaustruct:ignore
 	return &repository.State{}
 }
 
 func (fr *failingRepository) StateAt(oid *git.Oid) (*repository.State, error) {
+	//exhaustruct:ignore
 	return &repository.State{}, nil
 }
 

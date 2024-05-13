@@ -17,9 +17,8 @@ Copyright 2023 freiheit.com*/
 package repository
 
 import (
-	"fmt"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type CreateReleaseError struct {
@@ -31,7 +30,18 @@ func (e *CreateReleaseError) Error() string {
 }
 
 func (e *CreateReleaseError) Response() *api.CreateReleaseResponse {
+	if e == nil {
+		return nil
+	}
 	return &e.response
+}
+
+func (e *CreateReleaseError) Is(target error) bool {
+	tgt, ok := target.(*CreateReleaseError)
+	if !ok {
+		return false
+	}
+	return proto.Equal(e.Response(), tgt.Response())
 }
 
 func GetCreateReleaseGeneralFailure(err error) *CreateReleaseError {
@@ -98,31 +108,14 @@ func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32
 	}
 }
 
-type InternalError struct {
-	inner error
-}
-
-func (i *InternalError) String() string {
-	return fmt.Sprintf("repository internal: %s", i.inner)
-}
-
-func (i *InternalError) Unwrap() error {
-	return i.inner
-}
-
-func (i *InternalError) Error() string {
-	return i.String()
-}
-
-var _ error = (*InternalError)(nil)
-
 type LockedError struct {
 	EnvironmentApplicationLocks map[string]Lock
 	EnvironmentLocks            map[string]Lock
+	TeamLocks                   map[string]Lock
 }
 
 func (l *LockedError) String() string {
-	return fmt.Sprintf("locked")
+	return "locked"
 }
 
 func (l *LockedError) Error() string {
@@ -130,3 +123,16 @@ func (l *LockedError) Error() string {
 }
 
 var _ error = (*LockedError)(nil)
+
+type TeamNotFoundErr struct {
+	err error
+}
+
+func (e *TeamNotFoundErr) Error() string {
+	return e.err.Error()
+}
+
+func (e *TeamNotFoundErr) Is(target error) bool {
+	_, ok := target.(*TeamNotFoundErr)
+	return ok
+}

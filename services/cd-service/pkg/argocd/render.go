@@ -17,9 +17,12 @@ Copyright 2023 freiheit.com*/
 package argocd
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"sigs.k8s.io/yaml"
 
@@ -36,9 +39,10 @@ type AppData struct {
 	TeamName string
 }
 
-var ApiVersions []ApiVersion = []ApiVersion{V1Alpha1}
+func Render(ctx context.Context, gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) (map[ApiVersion][]byte, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "Render")
+	defer span.Finish()
 
-func Render(gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) (map[ApiVersion][]byte, error) {
 	if config.ArgoCd == nil {
 		return nil, fmt.Errorf("no ArgoCd configured for environment %s", env)
 	}
@@ -98,7 +102,10 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	project := v1alpha1.AppProject{
 		TypeMeta: v1alpha1.AppProjectTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
-			Name: env,
+			Annotations: nil,
+			Labels:      nil,
+			Finalizers:  nil,
+			Name:        env,
 		},
 		Spec: v1alpha1.AppProjectSpec{
 			Description:              env,

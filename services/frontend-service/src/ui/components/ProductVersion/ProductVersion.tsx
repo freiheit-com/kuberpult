@@ -15,11 +15,22 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import './ProductVersion.scss';
 import * as React from 'react';
-import { refreshTags, useTags, getSummary, useSummaryDisplay, useEnvironmentGroups } from '../../utils/store';
+import {
+    refreshTags,
+    useTags,
+    useEnvironmentGroups,
+    useEnvironments,
+    addAction,
+    showSnackbarError,
+} from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
-import { EnvironmentGroup, ProductSummary } from '../../../api/api';
+import { EnvironmentGroup, GetProductSummaryResponse, ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
+import { Button } from '../button';
+import { EnvSelectionDialog } from '../ServiceLane/EnvSelectionDialog';
+import { useState } from 'react';
+import { useApi } from '../../utils/GrpcApi';
 
 export type TableProps = {
     productSummary: ProductSummary[];
@@ -105,94 +116,157 @@ export const ProductVersion: React.FC = () => {
     const envList = useEnvironmentGroupCombinations(envGroupResponse);
     const [searchParams, setSearchParams] = useSearchParams();
     const [environment, setEnvironment] = React.useState(searchParams.get('env') || envList[0]);
-    const summaryResponse = useSummaryDisplay();
+    const [showSummary, setShowSummary] = useState(false);
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [productSummaries, setProductSummaries] = useState(Array<ProductSummary>());
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
-    const openClose = React.useCallback(
+    const [selectedTag, setSelectedTag] = React.useState('');
+    const envsList = useEnvironments();
+    const tagsResponse = useTags();
+
+    const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            const env = splitCombinedGroupName(environment);
-            getSummary(e.target.value, env[0], env[1]);
             setSelectedTag(e.target.value);
             searchParams.set('tag', e.target.value);
             setSearchParams(searchParams);
         },
-        [environment, searchParams, setSearchParams]
+        [searchParams, setSearchParams]
     );
-    const [selectedTag, setSelectedTag] = React.useState('');
+    React.useEffect(() => {
+        let tag = searchParams.get('tag');
+        if (tag === null) {
+            if (tagsResponse.response.tagData.length === 0) return;
+            tag = tagsResponse.response.tagData[0].commitId;
+            if (tag === null) return;
+            setSelectedTag(tag);
+            searchParams.set('tag', tag);
+            setSearchParams(searchParams);
+        }
+        const env = splitCombinedGroupName(environment);
+        setShowSummary(true);
+        setSummaryLoading(true);
+        useApi
+            .gitService()
+            .GetProductSummary({ commitHash: tag, environment: env[0], environmentGroup: env[1] })
+            .then((result: GetProductSummaryResponse) => {
+                setProductSummaries(result.productSummary);
+            })
+            .catch((e) => {
+                showSnackbarError(e.message);
+            });
+        setSummaryLoading(false);
+    }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams]);
 
-    const tagsResponse = useTags();
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            const env = splitCombinedGroupName(e.target.value);
             searchParams.set('env', e.target.value);
-            searchParams.set('tag', selectedTag);
             setEnvironment(e.target.value);
             setSearchParams(searchParams);
-            getSummary(selectedTag, env[0], env[1]);
         },
-        [setSearchParams, searchParams, selectedTag]
+        [setSearchParams, searchParams]
     );
-    const [displaySummary, setDisplayVersion] = React.useState(false);
-
-    React.useEffect(() => {
-        if (tagsResponse.response.tagData.length > 0) {
-            const env = splitCombinedGroupName(environment);
-            if (searchParams.get('tag') === '') {
-                setSelectedTag(tagsResponse.response.tagData[0].commitId);
-                searchParams.set('tag', tagsResponse.response.tagData[0].commitId);
-                setSearchParams(searchParams);
-                getSummary(tagsResponse.response.tagData[0].commitId, env[0], env[1]);
-            } else {
-                getSummary(searchParams.get('tag') || tagsResponse.response.tagData[0].commitId, env[0], env[1]);
+    const [showReleaseTrainEnvs, setShowReleaseTrainEnvs] = React.useState(false);
+    const handleClose = React.useCallback(() => {
+        setShowReleaseTrainEnvs(false);
+    }, []);
+    const openDialog = React.useCallback(() => {
+        setShowReleaseTrainEnvs(true);
+    }, []);
+    const confirmReleaseTrainFunction = React.useCallback(
+        (selectedEnvs: string[]) => {
+            if (teams.length < 1) {
+                selectedEnvs.forEach((env) => {
+                    addAction({
+                        action: {
+                            $case: 'releaseTrain',
+                            releaseTrain: { target: env, commitHash: selectedTag, team: '' },
+                        },
+                    });
+                });
+                return;
             }
-            setDisplayVersion(true);
-        }
-    }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams]);
+            if (teams.length > 1) {
+                showSnackbarError('Can only run one release train action at a time, should only select one team');
+                return;
+            }
+            selectedEnvs.forEach((env) => {
+                addAction({
+                    action: {
+                        $case: 'releaseTrain',
+                        releaseTrain: { target: env, commitHash: selectedTag, team: teams[0] },
+                    },
+                });
+            });
+            return;
+        },
+        [selectedTag, teams]
+    );
+
     if (!tagsResponse.tagsReady) {
         return <Spinner message="Loading Git Tags" />;
     }
-    if (!summaryResponse.summaryReady) {
+    if (summaryLoading) {
         return <Spinner message="Loading Production Version" />;
     }
+
+    const dialog = (
+        <EnvSelectionDialog
+            environments={envsList
+                .filter((env, index) => splitCombinedGroupName(environment)[0] === env.config?.upstream?.environment)
+                .map((env) => env.name)}
+            open={showReleaseTrainEnvs}
+            onCancel={handleClose}
+            onSubmit={confirmReleaseTrainFunction}
+            envSelectionDialog={false}
+        />
+    );
 
     return (
         <div className="product_version">
             <h1 className="environment_name">{'Product Version Page'}</h1>
-
+            {dialog}
             {tagsResponse.response.tagData.length > 0 ? (
-                <div className="dropdown_div">
-                    <select
-                        onChange={openClose}
-                        onSelect={openClose}
-                        className="drop_down"
-                        data-testid="drop_down"
-                        value={selectedTag}>
-                        <option value="default" disabled>
-                            Select a Tag
-                        </option>
-                        {tagsResponse.response.tagData.map((tag) => (
-                            <option value={tag.commitId} key={tag.tag}>
-                                {tag.tag.slice(10)}
+                <div className="space_apart_row">
+                    <div className="dropdown_div">
+                        <select
+                            onChange={onChangeTag}
+                            className="drop_down"
+                            data-testid="drop_down"
+                            value={selectedTag}>
+                            <option value="default" disabled>
+                                Select a Tag
                             </option>
-                        ))}
-                    </select>
-                    <select className="env_drop_down" onChange={changeEnv} value={environment}>
-                        <option value="default" disabled>
-                            Select an Environment or Environment Group
-                        </option>
-                        {envList.map((env) => (
-                            <option value={env} key={env}>
-                                {env}
+                            {tagsResponse.response.tagData.map((tag) => (
+                                <option value={tag.commitId} key={tag.tag}>
+                                    {tag.tag.slice(10)}
+                                </option>
+                            ))}
+                        </select>
+                        <select className="env_drop_down" onChange={changeEnv} value={environment}>
+                            <option value="default" disabled>
+                                Select an Environment or Environment Group
                             </option>
-                        ))}
-                    </select>
+                            {envList.map((env) => (
+                                <option value={env} key={env}>
+                                    {env}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <Button
+                        label={'Run Release Train'}
+                        className="release_train_button"
+                        onClick={openDialog}
+                        highlightEffect={false}
+                    />
                 </div>
             ) : (
                 <div />
             )}
             <div>
-                {displaySummary ? (
+                {showSummary ? (
                     <div className="table_padding">
-                        <TableFiltered productSummary={summaryResponse.response.productSummary} teams={teams} />
+                        <TableFiltered productSummary={productSummaries} teams={teams} />
                     </div>
                 ) : (
                     <div className="page_description">

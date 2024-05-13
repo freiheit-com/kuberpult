@@ -114,7 +114,7 @@ func (b *treeBuilderBlob) insert() (*git.Oid, git.Filemode, error) {
 }
 
 func (b *treeBuilderBlob) osInfo() os.FileInfo {
-	b.load()
+	b.load() //nolint: errcheck
 	return &fileInfo{
 		name: b.name,
 		size: int64(len(b.content)),
@@ -136,7 +136,10 @@ func (b *treeBuilderBlob) Write(p []byte) (int, error) {
 }
 
 func (b *treeBuilderBlob) Read(p []byte) (int, error) {
-	b.load()
+	err := b.load()
+	if err != nil {
+		return 0, err
+	}
 	n := copy(p, b.content[b.pos:])
 	b.pos += n
 	if n == 0 {
@@ -213,6 +216,7 @@ func (b *treeBuilderSymlink) insert() (*git.Oid, git.Filemode, error) {
 
 func (b *treeBuilderSymlink) osInfo() os.FileInfo {
 	return &fileInfo{
+		size: 0,
 		name: b.name,
 		mode: os.ModeSymlink | os.ModePerm,
 	}
@@ -239,7 +243,9 @@ func (t *TreeBuilderFS) load() error {
 			switch entry.Filemode {
 			case git.FilemodeTree:
 				result[entry.Name] = &TreeBuilderFS{
+					entries: nil,
 					info: fileInfo{
+						size: 0,
 						name: entry.Name,
 						mode: os.ModeDir | os.ModePerm,
 					},
@@ -249,12 +255,16 @@ func (t *TreeBuilderFS) load() error {
 				}
 			case git.FilemodeBlob:
 				result[entry.Name] = &treeBuilderBlob{
+					content:    nil,
+					mode:       0,
+					pos:        0,
 					name:       entry.Name,
 					repository: t.repository,
 					oid:        entry.Id,
 				}
 			case git.FilemodeLink:
 				result[entry.Name] = &treeBuilderSymlink{
+					target:     "",
 					name:       entry.Name,
 					repository: t.repository,
 					oid:        entry.Id,
@@ -344,6 +354,8 @@ func (t *TreeBuilderFS) OpenFile(filename string, flag int, perm os.FileMode) (b
 	} else {
 		if flag&os.O_CREATE != 0 {
 			file := &treeBuilderBlob{
+				oid:        nil,
+				pos:        0,
 				name:       name,
 				repository: t.repository,
 				mode:       writeMode,
@@ -520,6 +532,7 @@ func (t *TreeBuilderFS) Symlink(target, filename string) error {
 		return err
 	}
 	link := &treeBuilderSymlink{
+		oid:        nil,
 		name:       name,
 		target:     target,
 		repository: t.repository,
@@ -530,7 +543,11 @@ func (t *TreeBuilderFS) Symlink(target, filename string) error {
 
 func NewEmptyTreeBuildFS(repo *git.Repository) *TreeBuilderFS {
 	return &TreeBuilderFS{
+		oid:    nil,
+		parent: nil,
 		info: fileInfo{
+			name: "",
+			size: 0,
 			mode: os.ModeDir | os.ModePerm,
 		},
 		repository: repo,
@@ -540,7 +557,11 @@ func NewEmptyTreeBuildFS(repo *git.Repository) *TreeBuilderFS {
 
 func NewTreeBuildFS(repo *git.Repository, oid *git.Oid) *TreeBuilderFS {
 	return &TreeBuilderFS{
+		entries: nil,
+		parent:  nil,
 		info: fileInfo{
+			name: "",
+			size: 0,
 			mode: os.ModeDir | os.ModePerm,
 		},
 		repository: repo,

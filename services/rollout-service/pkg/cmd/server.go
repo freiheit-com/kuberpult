@@ -145,6 +145,7 @@ func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClie
 			msg := "failed to read CA certificates"
 			return nil, nil, fmt.Errorf(msg)
 		}
+		//exhaustruct:ignore
 		cred = credentials.NewTLS(&tls.Config{
 			RootCAs: systemRoots,
 		})
@@ -228,39 +229,45 @@ func runServer(ctx context.Context, config Config) error {
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{
-			Name: "consume argocd events",
+			Shutdown: nil,
+			Name:     "consume argocd events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return service.ConsumeEvents(ctx, appClient, dispatcher, health)
 			},
 		},
 		{
-			Name: "consume kuberpult events",
+			Shutdown: nil,
+			Name:     "consume kuberpult events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return versionC.ConsumeEvents(ctx, broadcast, health)
 			},
 		},
 		{
-			Name: "consume self-manage events",
+			Shutdown: nil,
+			Name:     "consume self-manage events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return versionC.GetArgoProcessor().Consume(ctx, health)
 			},
 		},
 		{
-			Name: "consume argo events",
+			Shutdown: nil,
+			Name:     "consume argo events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return versionC.GetArgoProcessor().ConsumeArgo(ctx, health)
 			},
 		},
 		{
-			Name: "dispatch argocd events",
-			Run:  dispatcher.Work,
+			Shutdown: nil,
+			Name:     "dispatch argocd events",
+			Run:      dispatcher.Work,
 		},
 	}
 
 	if config.ArgocdRefreshEnabled {
 
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
-			Name: "refresh argocd",
+			Shutdown: nil,
+			Name:     "refresh argocd",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				notify := notifier.New(appClient, config.ArgocdRefreshConcurrency)
 				return notifier.Subscribe(ctx, notify, broadcast, health)
@@ -275,7 +282,8 @@ func runServer(ctx context.Context, config Config) error {
 		}
 		revolutionDora := revolution.New(revolutionConfig)
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
-			Name: "revolution dora",
+			Shutdown: nil,
+			Name:     "revolution dora",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				health.ReportReady("pushing")
 				return revolutionDora.Subscribe(ctx, broadcast)
@@ -299,7 +307,8 @@ func runServer(ctx context.Context, config Config) error {
 	}
 
 	backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
-		Name: "create metrics",
+		Shutdown: nil,
+		Name:     "create metrics",
 		Run: func(ctx context.Context, health *setup.HealthReporter) error {
 			health.ReportReady("reporting")
 			return metrics.Metrics(ctx, broadcast, pkgmetrics.FromContext(ctx), nil, func() {})
@@ -309,12 +318,16 @@ func runServer(ctx context.Context, config Config) error {
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
 			{
-				Port: "8080",
+				Register:  nil,
+				BasicAuth: nil,
+				Shutdown:  nil,
+				Port:      "8080",
 			},
 		},
 		Background: backgroundTasks,
 		GRPC: &setup.GRPCConfig{
-			Port: "8443",
+			Shutdown: nil,
+			Port:     "8443",
 			Opts: []grpc.ServerOption{
 				grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 				grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),

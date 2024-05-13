@@ -1,0 +1,131 @@
+VERSION 0.7
+
+
+
+godeps:
+    FROM golang:1.22-alpine
+
+    RUN apk add curl
+
+    RUN curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz"
+    RUN echo 0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5 helm-v3.14.2-linux-amd64.tar.gz | sha256sum -c
+    RUN tar xzf helm-v3.14.2-linux-amd64.tar.gz
+    RUN mv linux-amd64/helm /usr/local/bin/helm
+    RUN chmod +x /usr/local/bin/helm
+
+deps:
+    FROM python:3.12-alpine
+    WORKDIR /deps
+
+    RUN apk add envsubst curl git
+    
+    RUN pip install yamale yamllint
+
+    RUN curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz"
+    RUN echo 0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5 helm-v3.14.2-linux-amd64.tar.gz | sha256sum -c
+    RUN tar xzf helm-v3.14.2-linux-amd64.tar.gz
+    RUN mv linux-amd64/helm /usr/local/bin/helm
+    RUN chmod +x /usr/local/bin/helm
+
+    RUN curl --fail --silent --show-error --location --remote-name "https://github.com/mikefarah/yq/releases/download/v4.41.1/yq_linux_amd64" 
+    RUN echo ce0d5a61c256a463fd32f67f133e0c2948bc2cf77d44c42ff335a40e6bef34bf yq_linux_amd64 | sha256sum -c
+    RUN mv yq_linux_amd64 /usr/local/bin/yq
+    RUN chmod +x /usr/local/bin/yq
+
+    RUN curl --fail --silent --show-error --location --remote-name "https://github.com/helm/chart-testing/releases/download/v3.10.1/chart-testing_3.10.1_linux_amd64.tar.gz"
+    RUN echo 6f48140d92d4c4be52b31bf84a8b5d50fb815df721920d6751d4cbccdd3bac2b chart-testing_3.10.1_linux_amd64.tar.gz | sha256sum -c
+    RUN tar xzf chart-testing_3.10.1_linux_amd64.tar.gz
+    RUN mv ct /usr/local/bin/ct
+    RUN chmod +x /usr/local/bin/ct
+
+chart.yaml:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+
+    FROM +deps
+    WORKDIR /kp
+
+    COPY Chart.yaml.tpl .
+    
+    RUN env VERSION=$VERSION envsubst < Chart.yaml.tpl > Chart.yaml
+
+    SAVE ARTIFACT Chart.yaml AS LOCAL Chart.yaml
+
+chart-tarball:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+    
+    FROM +deps
+    WORKDIR /kp
+
+    COPY +chart.yaml/Chart.yaml .
+    COPY values.yaml .
+    COPY templates templates
+
+    RUN helm dependency update
+    RUN rm -rf charts
+    RUN helm dependency update
+    RUN tar -xzvf charts/*.tgz --directory=charts
+
+    RUN helm package .
+
+    SAVE ARTIFACT kuberpult-${VERSION}.tgz AS LOCAL kuberpult-$VERSION.tgz
+
+test-values.yaml:
+    FROM +deps
+    WORKDIR /kp
+
+    COPY values.yaml .
+    COPY ci ci
+
+    RUN grep -o '^[^#]*' values.yaml > ci/test-values.yaml
+	RUN yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' ci/test-values.yaml ci/test-values-override.yaml 
+
+    SAVE ARTIFACT ci/test-values.yaml AS LOCAL ci/test-values.yaml
+
+ct-test:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+    
+    FROM +deps
+    WORKDIR /kp
+    
+    COPY ci ci
+    COPY (+chart.yaml/Chart.yaml --VERSION=$VERSION) .
+    COPY values.yaml .
+    COPY templates templates
+    
+    RUN ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git
+
+test-helm:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+
+    FROM +godeps
+    WORKDIR /kp
+
+    COPY (+chart-tarball/kuberpult-*.tgz --VERSION=$VERSION) .
+
+    COPY (+chart.yaml/Chart.yaml --VERSION=$VERSION) .
+
+    RUN helm lint kuberpult-*.tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
+    COPY tests ./tests
+    COPY values.yaml .
+    COPY templates templates
+
+
+    RUN helm dependency build && cd tests && go mod init test-helm && go mod tidy && go test
+
+test:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+    
+    BUILD +ct-test --VERSION=$VERSION
+    BUILD +test-helm --VERSION=$VERSION
+
+clean:
+    LOCALLY
+
+    RUN rm -rf Chart.yaml
+    RUN rm -rf ci/test-values.yaml
+    RUN rm -rf kuberpult-*.tgz

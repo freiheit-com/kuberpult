@@ -29,6 +29,9 @@
 
 # Copyright 2023 freiheit.com
 
+{{- if .Values.frontend.tag }}
+{{ fail "Values.frontend.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
+{{ end -}}
 
 ---
 apiVersion: apps/v1
@@ -49,9 +52,9 @@ spec:
 {{- if .Values.datadogTracing.enabled }}
         tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
         tags.datadoghq.com/service: kuberpult-frontend-service
-        tags.datadoghq.com/version: {{ .Values.frontend.tag }}
+        tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
       annotations:
-        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ .Values.frontend.tag }}"}'
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
 {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
@@ -60,7 +63,7 @@ spec:
       {{- end }}
       containers:
       - name: service
-        image: "{{ .Values.hub }}/{{ .Values.frontend.image }}:{{ .Values.frontend.tag }}"
+        image: "{{ .Values.hub }}/{{ .Values.frontend.image }}:{{ $.Chart.AppVersion }}"
         ports:
           - name: http
             containerPort: 8081
@@ -91,8 +94,12 @@ spec:
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_ARGOCD_BASE_URL
           value: {{ .Values.argocd.baseUrl | quote }}
+        - name: KUBERPULT_ARGOCD_NAMESPACE
+          value: {{ .Values.argocd.namespace | quote }}
+        - name: KUBERPULT_BATCH_CLIENT_TIMEOUT
+          value: {{ .Values.frontend.batchClient.timeout | quote }}
         - name: KUBERPULT_VERSION
-          value: {{ .Values.frontend.tag | quote}}
+          value: {{ $.Chart.AppVersion | quote}}
         - name: KUBERPULT_SOURCE_REPO_URL
           value: {{ .Values.git.sourceRepoUrl | quote}}
         - name: KUBERPULT_MANIFEST_REPO_URL
@@ -103,12 +110,18 @@ spec:
           value: {{ .Values.log.level | quote }}
         - name: KUBERPULT_GKE_BACKEND_SERVICE_ID
           value: "{{ .Values.gke.backend_service_id }}"
+        - name: KUBERPULT_GKE_BACKEND_SERVICE_NAME
+          value: "{{ .Values.gke.backend_service_name }}"
         - name: KUBERPULT_GKE_PROJECT_NUMBER
           value: "{{ .Values.gke.project_number }}"
         - name: KUBERPULT_ALLOWED_ORIGINS
           value: "https://{{ .Values.ingress.domainName }}"
         - name: KUBERPULT_GIT_BRANCH
           value: {{ .Values.git.branch | quote }}
+        - name: KUBERPULT_IAP_ENABLED
+          value: {{ .Values.ingress.iap.enabled | quote }}
+        - name: KUBERPULT_API_ENABLE_DESPITE_NO_AUTH
+          value: {{ .Values.auth.api.enableDespiteNoAuth | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

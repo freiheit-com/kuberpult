@@ -29,7 +29,7 @@ ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
 SERVICE_NAME := $(shell basename $$PWD)
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-rollout-service:${VERSION}
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:${VERSION}
-EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
+EARTHLY := earthly
 GARBAGE := *.sentinel
 proto:
 	$(MAKE) -C../../pkg/api all
@@ -47,11 +47,11 @@ build: bin/main
 
 build-pr:
 	echo "build on pull request"
-	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --no-output --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 build-main:
 	echo "build on main"
-	$(EARTHLY) --push --max-remote-cache +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --no-output --push +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 .PHONY: cleanup-pr
 cleanup-pr:
@@ -68,10 +68,10 @@ clean:
 	git clean -Xfd
 
 test:
-	$(EARTHLY) +unit-test
+	$(EARTHLY) +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
 
 test-go: $(GO_FILES) proto
-	$(GO) test ./...
+	$(GO) test $(GO_TEST_ARGS) ./...
 
 docker:
 	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)

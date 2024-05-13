@@ -27,8 +27,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	eventmod "github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -76,13 +74,22 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			for _, env := range group.Environments {
 				if env.Name == *in.Environment {
 					for _, app := range env.Applications {
-						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{App: app.Name, Version: strconv.FormatUint(app.Version, 10), Environment: *in.Environment})
+						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
+							CommitId:       "",
+							DisplayVersion: "",
+							Team:           "",
+							App:            app.Name,
+							Version:        strconv.FormatUint(app.Version, 10),
+							Environment:    *in.Environment,
+						})
 					}
 				}
 			}
 		}
 		if len(summaryFromEnv) == 0 {
-			return &api.GetProductSummaryResponse{}, nil
+			return &api.GetProductSummaryResponse{
+				ProductSummary: nil,
+			}, nil
 		}
 		sort.Slice(summaryFromEnv, func(i, j int) bool {
 			a := summaryFromEnv[i].App
@@ -95,7 +102,14 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 				for _, env := range group.Environments {
 					var singleEnvSummary []api.ProductSummary
 					for _, app := range env.Applications {
-						singleEnvSummary = append(singleEnvSummary, api.ProductSummary{App: app.Name, Version: strconv.FormatUint(app.Version, 10), Environment: env.Name})
+						singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
+							CommitId:       "",
+							DisplayVersion: "",
+							Team:           "",
+							App:            app.Name,
+							Version:        strconv.FormatUint(app.Version, 10),
+							Environment:    env.Name,
+						})
 					}
 					sort.Slice(singleEnvSummary, func(i, j int) bool {
 						a := singleEnvSummary[i].App
@@ -112,7 +126,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 	}
 
 	var productVersion []*api.ProductSummary
-	for _, row := range summaryFromEnv {
+	for _, row := range summaryFromEnv { //nolint: govet
 		for _, app := range response.Applications {
 			if row.App == app.Name {
 				for _, release := range app.Releases {
@@ -154,6 +168,26 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		commitMessage = string(dat)
 	}
 
+	var previousCommitMessagePath = fs.Join(commitPath, "previousCommit")
+	var previousCommitId string
+	if data, err := util.ReadFile(fs, previousCommitMessagePath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("could not open the previous commit file at %s, err: %w", previousCommitMessagePath, err)
+		}
+	} else {
+		previousCommitId = string(data)
+	}
+
+	var nextCommitMessagePath = fs.Join(commitPath, "nextCommit")
+	var nextCommitId string
+	if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("could not open the next commit file at %s, err: %w", nextCommitMessagePath, err)
+		} //If no file exists, there is no next commit
+	} else {
+		nextCommitId = string(data)
+	}
+
 	commitApplicationsDirPath := fs.Join(commitPath, "applications")
 	dirs, err := fs.ReadDir(commitApplicationsDirPath)
 	if err != nil {
@@ -171,15 +205,19 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}
 
 	return &api.GetCommitInfoResponse{
-		CommitHash:    commitID,
-		CommitMessage: commitMessage,
-		TouchedApps:   touchedApps,
-		Events:        events,
+		CommitHash:         commitID,
+		CommitMessage:      commitMessage,
+		TouchedApps:        touchedApps,
+		Events:             events,
+		PreviousCommitHash: previousCommitId,
+		NextCommitHash:     nextCommitId,
 	}, nil
 }
 
 func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPath string) ([]*api.Event, error) {
 	var result []*api.Event
+	parts := strings.Split(commitPath, "/")
+	commitID := parts[len(parts)-2] + parts[len(parts)-1]
 	allEventsPath := fs.Join(commitPath, "events")
 	potentialEventDirs, err := fs.ReadDir(allEventsPath)
 	if err != nil {
@@ -202,6 +240,25 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 			result = append(result, event)
 		}
 	}
+
+	if s.Config.DBHandler != nil {
+		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, commitID)
+		if err != nil {
+			return nil, fmt.Errorf("could not read events from DB: %v", err)
+		}
+		for _, currEvent := range events {
+			ev, err := eventmod.UnMarshallEvent(currEvent.EventType, currEvent.EventJson)
+			if err != nil {
+				return nil, fmt.Errorf("error processing event from DB: %v", err)
+			}
+			rawUUID, err := timeuuid.ParseUUID(currEvent.Uuid)
+			if err != nil {
+				return nil, fmt.Errorf("could not parse UUID: '%s'. Error: %v", currEvent.Uuid, err)
+			}
+
+			result = append(result, eventmod.ToProto(rawUUID, ev.EventData))
+		}
+	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].CreatedAt.AsTime().UnixNano() < result[j].CreatedAt.AsTime().UnixNano()
 	})
@@ -209,44 +266,11 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 }
 
 func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPath string, eventId timeuuid.UUID) (*api.Event, error) {
-	eventTypePath := fs.Join(eventPath, "eventType")
-	eventTypeRaw, err := util.ReadFile(fs, eventTypePath) // full path: commits/<commitHash2>/<commitHash38>/events/<eventUUID>/eventType
+	event, err := eventmod.Read(fs, eventPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not read eventType in path %s - %v", eventTypePath, err)
+		return nil, err
 	}
-	var eventType = string(eventTypeRaw)
-
-	if eventType == eventmod.NewReleaseEventName {
-		eventEnvsPath := fs.Join(eventPath, "environments")
-
-		potentialEnvironmentDirs, err := fs.ReadDir(eventEnvsPath)
-		if err != nil {
-			return nil, fmt.Errorf("could not read events environments directory '%s' - %v", eventEnvsPath, err)
-		}
-
-		var envs []string = nil
-		for i := range potentialEnvironmentDirs {
-			envDir := potentialEnvironmentDirs[i]
-			fileName := envDir.Name()
-			if envDir.IsDir() {
-				envs = append(envs, fileName)
-			} else {
-				logger.FromContext(ctx).Sugar().Warnf(
-					"found entry in %s that was not an environment directory", fs.Join(eventEnvsPath, fileName))
-			}
-		}
-
-		var result = &api.Event{
-			CreatedAt: uuid.GetTime(&eventId),
-			EventType: &api.Event_CreateReleaseEvent{
-				CreateReleaseEvent: &api.CreateReleaseEvent{
-					EnvironmentNames: envs,
-				},
-			},
-		}
-		return result, nil
-	}
-	return nil, fmt.Errorf("could not read event, did not recognize event type '%s'", eventType)
+	return eventmod.ToProto(eventId, event), nil
 }
 
 // findCommitID checks if the "commits" directory in the given

@@ -13,9 +13,8 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useRef, useEffect, cloneElement } from 'react';
+import { useRef, cloneElement } from 'react';
 import classNames from 'classnames';
-import { MDCRipple } from '@material/ripple';
 import * as React from 'react';
 
 export const Button = (props: {
@@ -25,26 +24,23 @@ export const Button = (props: {
     label?: string;
     icon?: JSX.Element;
     onClick?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+    testId?: string;
+    highlightEffect: boolean;
 }): JSX.Element => {
-    const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
-    const { id, disabled, className, label, icon, onClick } = props;
-
-    useEffect(() => {
-        if (control.current) {
-            MDComponent.current = new MDCRipple(control.current);
-        }
-        return (): void => MDComponent.current?.destroy();
-    }, []);
+    const { id, highlightEffect, disabled, className, label, icon, onClick, testId } = props;
 
     return (
         <button
             id={id}
             disabled={disabled}
-            className={classNames('mdc-button', className)}
+            className={classNames('mdc-button', className, {
+                highlight: highlightEffect,
+            })}
             onClick={onClick}
             ref={control}
-            aria-label={label || ''}>
+            aria-label={label || ''}
+            data-testid={testId}>
             <div className="mdc-button__ripple" />
             {icon &&
                 cloneElement(icon, {

@@ -51,7 +51,7 @@ function waitForDeployment() {
   sleep 10
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
-    sleep 4s
+    sleep 4
     print "logs:"
     kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
     print "describe pod:"
@@ -74,7 +74,7 @@ function portForwardAndWait() {
   sleep 10
   until nc -vz localhost "$portHere"
   do
-    sleep 3s
+    sleep 3
     print "logs:"
     kubectl -n "$ns" logs "$deployment"
     print "describe deployment:"
@@ -120,7 +120,8 @@ cp -r ../../../infrastructure/scripts/create-testdata/testdata_template/environm
 git add environments
 GIT_AUTHOR_NAME='Initial Kuberpult Commiter' GIT_COMMITTER_NAME='Initial Kuberpult Commiter' GIT_AUTHOR_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'  GIT_COMMITTER_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com' git commit -m "add initial environments from template"
 print "pushing environments to manifest repo..."
-GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client' git push origin main
+GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client' git checkout -B main
+GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client' git push -f origin main
 cd -
 
 
@@ -171,7 +172,10 @@ print "$frontend_imagename"
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
-
+kind load docker-image quay.io/argoproj/argocd:v2.7.4
+kind load docker-image ghcr.io/dexidp/dex:v2.36.0
+kind load docker-image gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+kind load docker-image public.ecr.aws/docker/library/redis:7.0.11-alpine
 
 ## argoCd
 
@@ -269,7 +273,9 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_KUBERPULT}"
+  db:
+    dbOption: sqlite
+    location: /sqlite
 frontend:
   resources:
     limits:
@@ -278,7 +284,6 @@ frontend:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_KUBERPULT}"
 rollout:
   enabled: true
   resources:
@@ -288,7 +293,6 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_KUBERPULT}"
 ingress:
   domainName: kuberpult.example.com
 log:
@@ -312,6 +316,9 @@ argocd:
 manageArgoApplications:
   enabled: false
   filter: ""
+datadogProfiling:
+  enabled: false
+  apiKey: invalid-3
 pgp:
   keyRing: |
 $(sed -e "s/^/    /" <./kuberpult-keyring.gpg)

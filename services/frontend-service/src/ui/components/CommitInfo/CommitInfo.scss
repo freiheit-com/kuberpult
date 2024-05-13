@@ -1,0 +1,71 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MIT License for more details.
+
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+Copyright 2023 freiheit.com*/
+
+.commit-page {
+    .next-prev-buttons {
+        display: flex;
+        flex-direction: row;
+    }
+
+    .history-button-container {
+        width: auto;
+        padding: 5px;
+    }
+
+    .history-text-container {
+        width: auto;
+        padding: 5px;
+    }
+
+    table,
+    th,
+    td {
+        border: 1px solid var(--mdc-theme-primary);
+        border-collapse: collapse;
+    }
+
+    table {
+        width: 100%;
+    }
+
+    .metadata {
+        th.hash {
+            width: 25%;
+        }
+
+        th.message {
+            width: 50%;
+        }
+
+        th.apps {
+            width: 25%;
+        }
+    }
+
+    .events {
+        th.date {
+            width: 25%;
+        }
+
+        th.description {
+            width: 50%;
+        }
+
+        th.environments {
+            width: 25%;
+        }
+    }
+}

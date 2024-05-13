@@ -37,13 +37,16 @@ type Credentials struct {
 func base64encode(c []byte) string {
 	var buf bytes.Buffer
 	enc := base64.NewEncoder(base64.StdEncoding, &buf)
-	enc.Write(c)
+	enc.Write(c) //nolint: errcheck
 	enc.Close()
 	return buf.String()
 }
 
 func (c *Credentials) load() (*credentialsStore, error) {
-	store := &credentialsStore{}
+	store := &credentialsStore{
+		sshPrivateKey: "",
+		sshPublicKey:  "",
+	}
 	if c.SshKey != "" {
 		pkey, err := os.Open(c.SshKey)
 		if err != nil {

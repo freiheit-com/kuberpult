@@ -66,6 +66,7 @@ describe('Test useLocksSimilarTo', () => {
             expectedLocks: {
                 appLocks: [],
                 environmentLocks: [],
+                teamLocks: [],
             },
         },
         {
@@ -100,6 +101,7 @@ describe('Test useLocksSimilarTo', () => {
             expectedLocks: {
                 appLocks: [],
                 environmentLocks: [],
+                teamLocks: [],
             },
         },
         {
@@ -148,6 +150,7 @@ describe('Test useLocksSimilarTo', () => {
                         environment: 'staging',
                     }),
                 ],
+                teamLocks: [],
             },
         },
         {
@@ -178,6 +181,8 @@ describe('Test useLocksSimilarTo', () => {
                                         l1: makeLock({ lockId: 'l1' }),
                                     },
                                     version: 666,
+                                    teamLocks: {},
+                                    team: 'test-team',
                                     undeployVersion: false,
                                     queuedVersion: 0,
                                     argoCd: undefined,
@@ -200,6 +205,7 @@ describe('Test useLocksSimilarTo', () => {
                     }),
                 ],
                 environmentLocks: [],
+                teamLocks: [],
             },
         },
         {
@@ -230,6 +236,8 @@ describe('Test useLocksSimilarTo', () => {
                                     locks: {
                                         l1: makeLock({ lockId: 'l1' }),
                                     },
+                                    teamLocks: { l1: makeLock({ lockId: 'l1' }) },
+                                    team: 'test-team',
                                     version: 666,
                                     undeployVersion: false,
                                     queuedVersion: 0,
@@ -273,6 +281,14 @@ describe('Test useLocksSimilarTo', () => {
                         message: 'lock msg 1',
                     }),
                 ],
+                teamLocks: [
+                    makeDisplayLock({
+                        environment: 'dev',
+                        lockId: 'l1',
+                        team: 'test-team',
+                        message: 'lock msg 1',
+                    }),
+                ],
             },
         },
     ];
@@ -290,6 +306,7 @@ describe('Test useLocksSimilarTo', () => {
             // then
             expect(actions.appLocks).toStrictEqual(testcase.expectedLocks.appLocks);
             expect(actions.environmentLocks).toStrictEqual(testcase.expectedLocks.environmentLocks);
+            expect(actions.teamLocks).toStrictEqual(testcase.expectedLocks.teamLocks);
         });
     });
 });
@@ -553,6 +570,29 @@ describe('Test addAction duplicate detection', () => {
             },
         },
         {
+            name: 'delete team lock',
+            firstAction: {
+                action: {
+                    $case: 'deleteEnvironmentTeamLock',
+                    deleteEnvironmentTeamLock: {
+                        environment: 'dev',
+                        team: 'team1',
+                        lockId: 'foo',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'deleteEnvironmentTeamLock',
+                    deleteEnvironmentTeamLock: {
+                        environment: 'dev',
+                        team: 'team2',
+                        lockId: 'foo',
+                    },
+                },
+            },
+        },
+        {
             name: 'deploy',
             firstAction: {
                 action: {
@@ -759,6 +799,8 @@ describe('Test useLocksConflictingWithActions', () => {
                             },
                             queuedVersion: 0,
                             undeployVersion: false,
+                            teamLocks: {},
+                            team: 'test-team',
                         },
                     },
                     distanceToUpstream: 0,
@@ -816,6 +858,8 @@ describe('Test useLocksConflictingWithActions', () => {
                                     message: 'i do not like this app',
                                 }),
                             },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },
@@ -850,6 +894,139 @@ describe('Test useLocksConflictingWithActions', () => {
             // then
             expect(actualLocks.environmentLocks).toStrictEqual(testcase.expectedEnvLocks);
             expect(actualLocks.appLocks).toStrictEqual(testcase.expectedAppLocks);
+        });
+    });
+});
+
+describe('Test addAction blocking release train additions', () => {
+    type TestDataStore = {
+        name: string;
+        firstAction: BatchAction;
+        differentAction: BatchAction;
+        expectedActions: number;
+    };
+
+    const testdata: TestDataStore[] = [
+        {
+            name: 'deploy 2 in a row',
+            expectedActions: 2,
+            firstAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app1',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app2',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+        },
+        {
+            name: 'can not add release train after deploy action',
+            expectedActions: 1,
+            firstAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app1',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'dev',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+        },
+        {
+            name: 'can not add release train after release train',
+            expectedActions: 1,
+            firstAction: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'dev',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'stagin',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+        },
+        {
+            name: 'can not add deploy action after release train',
+            expectedActions: 1,
+            firstAction: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'dev',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app1',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+        },
+    ];
+
+    describe.each(testdata)('with', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            updateActions([]);
+
+            // when
+            addAction(testcase.firstAction);
+            // then
+            expect(UpdateAction.get().actions.length).toStrictEqual(1);
+
+            // when
+            addAction(testcase.differentAction);
+            // then
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.expectedActions);
         });
     });
 });

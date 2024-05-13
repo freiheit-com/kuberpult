@@ -7,10 +7,10 @@ deps:
     ARG USERARCH
     IF [ "$USERARCH" = "arm64" ]
         FROM golang:1.21-bookworm
-        RUN apt update && apt install --auto-remove ca-certificates tzdata -y
+        RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
     ELSE
         FROM golang:1.21-alpine3.18
-        RUN apk add --no-cache ca-certificates tzdata bash
+        RUN apk add --no-cache ca-certificates tzdata bash libgit2-dev sqlite-dev alpine-sdk
     END
     
     COPY buf_sha256.txt .
@@ -24,7 +24,19 @@ deps:
         SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
         echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
     
+    ARG GO_CI_LINT_VERSION="v1.51.2"
+    RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
+
+    RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.2.0.tar.gz -O exhaustruct.tar.gz
+    RUN echo 511d0ba05092386a59dca74b6cbeb99f510b814261cc04b68213a9ae31cf8bf6  exhaustruct.tar.gz | sha256sum -c
+    RUN tar xzf exhaustruct.tar.gz
+    WORKDIR go-exhaustruct-3.2.0
+    RUN go build ./cmd/exhaustruct
+    RUN mv exhaustruct /usr/local/bin/exhaustruct
+
     WORKDIR /kp
+    RUN mkdir -p cd_database/migrations
+    COPY cd_database/migrations cd_database/migrations
     COPY go.mod go.sum ./
     RUN go mod download
 
@@ -81,18 +93,17 @@ integration-test-deps:
     SAVE ARTIFACT /usr/bin/argocd
 
 integration-test:
-    FROM docker:24.0.7-dind-alpine3.18
-
-    ARG --required kuberpult_version
-
+# We pick ubuntu here because it seems to have the least amount of issues.
+# With alpine:3.18, we get occasional issues with gpg that says there's a process running already, even though there shouldn't be.
+# Ubuntu:22.04 seems to solve this issue.
+    FROM ubuntu:22.04
+    RUN apt update && apt install --auto-remove -y curl gpg gpg-agent gettext bash git golang netcat-openbsd docker.io
+    ARG GO_TEST_ARGS
     # K3S environment variables
     ENV KUBECONFIG=/kp/kubeconfig.yaml
     ENV K3S_TOKEN="Random"
-
     # Kuberpult/ArgoCd environment variables
-    ENV VERSION=$kuberpult_version
     ENV ARGO_NAMESPACE=default
-
     # Git environment variables
     ENV GIT_NAMESPACE=git
     ENV SSH_HOST_PORT=2222
@@ -103,28 +114,33 @@ integration-test:
     ENV GIT_COMMITTER_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'
     WORKDIR /kp
 
-    RUN apk add --no-cache curl gpg gpg-agent gettext bash git go
-
     COPY +integration-test-deps/* /usr/bin/
     COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
+
+    RUN --no-cache echo GPG gen starting...
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN --no-cache echo GPG export starting...
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > /kp/kuberpult-keyring.gpg
+    # Note that multiple commands here are writing to "." which is slightly dangerous, because
+    # if there are files with the same name, old ones will be overridden.
     COPY charts/kuberpult .
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
+
     COPY infrastructure/scripts/create-testdata/create-release.sh .
     COPY tests/integration-tests integration-tests
     COPY go.mod go.sum .
     COPY pkg/ptr pkg/ptr
-    
-    RUN envsubst < Chart.yaml.tpl > Chart.yaml
-    RUN envsubst < values.yaml.tpl > values.yaml
 
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
+    ARG --required kuberpult_version
+    ENV VERSION=$kuberpult_version
+    RUN envsubst < Chart.yaml.tpl > Chart.yaml
+
     WITH DOCKER --compose docker-compose-k3s.yml
         RUN --no-cache \
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
             ./integration-tests/cluster-setup/setup-cluster-ssh.sh; sleep 3; \
             ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            cd integration-tests && go test ./... && \
+            cd integration-tests && go test $GO_TEST_ARGS ./... && \
             echo ============ SUCCESS ============
     END

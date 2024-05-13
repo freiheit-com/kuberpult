@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"regexp"
 	"sync"
 	"sync/atomic"
 
@@ -58,13 +57,13 @@ func (o *OverviewServiceServer) GetOverview(
 	if in.GitRevision != "" {
 		oid, err := git.NewOid(in.GitRevision)
 		if err != nil {
-			return nil, err
+			return nil, grpc.PublicError(ctx, fmt.Errorf("getOverview: could not find revision %v: %v", in.GitRevision, err))
 		}
 		state, err := o.Repository.StateAt(oid)
 		if err != nil {
 			var gerr *git.GitError
 			if errors.As(err, &gerr) {
-				if gerr.Code == git.ErrNotFound {
+				if gerr.Code == git.ErrorCodeNotFound {
 					return nil, status.Error(codes.NotFound, "not found")
 				}
 			}
@@ -83,6 +82,8 @@ func (o *OverviewServiceServer) getOverview(
 		rev = s.Commit.Id().String()
 	}
 	result := api.GetOverviewResponse{
+		Branch:            "",
+		ManifestRepoUrl:   "",
 		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
@@ -96,12 +97,15 @@ func (o *OverviewServiceServer) getOverview(
 		for envName, config := range envs {
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
+			//exhaustruct:ignore
 			argocd := &api.EnvironmentConfig_ArgoCD{}
 			if config.ArgoCd != nil {
 				argocd = mapper.TransformArgocd(*config.ArgoCd)
 			}
 			env := api.Environment{
-				Name: envName,
+				DistanceToUpstream: 0,
+				Priority:           api.Priority_PROD,
+				Name:               envName,
 				Config: &api.EnvironmentConfig{
 					Upstream:         mapper.TransformUpstream(config.Upstream),
 					Argocd:           argocd,
@@ -127,15 +131,45 @@ func (o *OverviewServiceServer) getOverview(
 				}
 				envInGroup.Locks = env.Locks
 			}
+
 			if apps, err := s.GetEnvironmentApplications(envName); err != nil {
 				return nil, err
 			} else {
+
 				for _, appName := range apps {
+					teamName, err := s.GetTeamName(appName)
 					app := api.Environment_Application{
-						Name:               appName,
-						Locks:              map[string]*api.Lock{},
-						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{},
+						Version:         0,
+						QueuedVersion:   0,
+						UndeployVersion: false,
+						ArgoCd:          nil,
+						Name:            appName,
+						Locks:           map[string]*api.Lock{},
+						TeamLocks:       map[string]*api.Lock{},
+						Team:            teamName,
+						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+							DeployAuthor: "",
+							DeployTime:   "",
+						},
 					}
+					if err == nil {
+						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
+							return nil, teamErr
+						} else {
+							for lockId, lock := range teamLocks {
+								app.TeamLocks[lockId] = &api.Lock{
+									Message:   lock.Message,
+									LockId:    lockId,
+									CreatedAt: timestamppb.New(lock.CreatedAt),
+									CreatedBy: &api.Actor{
+										Name:  lock.CreatedBy.Name,
+										Email: lock.CreatedBy.Email,
+									},
+								}
+							}
+						}
+					} // Err != nil means no team name was found so no need to parse team locks
+
 					var version *uint64
 					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
@@ -163,6 +197,7 @@ func (o *OverviewServiceServer) getOverview(
 							app.UndeployVersion = release.UndeployVersion
 						}
 					}
+
 					if appLocks, err := s.GetEnvironmentApplicationLocks(envName, appName); err != nil {
 						return nil, err
 					} else {
@@ -203,15 +238,17 @@ func (o *OverviewServiceServer) getOverview(
 			envInGroup.Applications = env.Applications
 		}
 	}
-	if apps, err := s.GetApplications(); err != nil {
+	if apps, err := s.GetApplicationsFromFile(); err != nil {
 		return nil, err
 	} else {
 		for _, appName := range apps {
 			app := api.Application{
-				Name:          appName,
-				Releases:      []*api.Release{},
-				SourceRepoUrl: "",
-				Team:          "",
+				UndeploySummary: 0,
+				Warnings:        nil,
+				Name:            appName,
+				Releases:        []*api.Release{},
+				SourceRepoUrl:   "",
+				Team:            "",
 			}
 			if rels, err := s.GetApplicationReleases(appName); err != nil {
 				return nil, err
@@ -220,17 +257,8 @@ func (o *OverviewServiceServer) getOverview(
 					if rel, err := s.GetApplicationRelease(appName, id); err != nil {
 						return nil, err
 					} else {
-						release := &api.Release{
-							Version:         id,
-							SourceAuthor:    rel.SourceAuthor,
-							SourceCommitId:  rel.SourceCommitId,
-							SourceMessage:   rel.SourceMessage,
-							UndeployVersion: rel.UndeployVersion,
-							CreatedAt:       timestamppb.New(rel.CreatedAt),
-							DisplayVersion:  rel.DisplayVersion,
-						}
-
-						release.PrNumber = extractPrNumber(release.SourceMessage)
+						release := rel.ToProto()
+						release.Version = id
 
 						app.Releases = append(app.Releases, release)
 					}
@@ -402,10 +430,8 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 		// Channels obtained from subscribe are by default triggered
 		//
 		// This means, we have to wait here until the first overview is loaded.
-		select {
-		case <-ch:
-			o.update(o.Repository.State())
-		}
+		<-ch
+		o.update(o.Repository.State())
 		go func() {
 			defer unsub()
 			for {
@@ -428,15 +454,4 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	}
 	o.response.Store(r)
 	o.notify.Notify()
-}
-
-func extractPrNumber(sourceMessage string) string {
-	re := regexp.MustCompile("\\(#(\\d+)\\)")
-	res := re.FindAllStringSubmatch(sourceMessage, -1)
-
-	if len(res) == 0 {
-		return ""
-	} else {
-		return res[len(res)-1][1]
-	}
 }

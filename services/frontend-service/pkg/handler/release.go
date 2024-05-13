@@ -31,8 +31,6 @@ import (
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -72,8 +70,8 @@ func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byt
 		return
 	}
 	w.WriteHeader(status)
-	w.Write(jsonBlob)
-	w.Write([]byte("\n"))
+	w.Write(jsonBlob)     //nolint:errcheck
+	w.Write([]byte("\n")) //nolint:errcheck
 }
 
 func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail string) {
@@ -84,7 +82,18 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	tf := api.CreateReleaseRequest{
-		Manifests: map[string]string{},
+		Environment:      "",
+		Application:      "",
+		Team:             "",
+		Version:          0,
+		SourceCommitId:   "",
+		SourceAuthor:     "",
+		SourceMessage:    "",
+		SourceRepoUrl:    "",
+		PreviousCommitId: "",
+		NextCommitId:     "",
+		DisplayVersion:   "",
+		Manifests:        map[string]string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -155,7 +164,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 				}
 				if !validSignature {
 					w.WriteHeader(400)
-					fmt.Fprintf(w, fmt.Sprintf("signature not found for %s", environmentName))
+					fmt.Fprintf(w, "signature is invalid or it was not found for environment %s", environmentName)
 					return
 				}
 
@@ -184,6 +193,18 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		}
 	}
 
+	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
+		if len(previousCommitId) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of previous commit IDs provided. Expecting 1, got %d", len(previousCommitId))
+		}
+		if !isCommitId(previousCommitId[0]) {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Provided commit id (%s) is not valid.", previousCommitId[0])
+		}
+		tf.PreviousCommitId = previousCommitId[0]
+	}
+
 	if sourceAuthor, ok := form.Value["source_author"]; ok {
 		if len(sourceAuthor) == 1 && isAuthor(sourceAuthor[0]) {
 			tf.SourceAuthor = sourceAuthor[0]
@@ -210,7 +231,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	if displayVersion, ok := form.Value["display_version"]; ok {
 		if len(displayVersion) != 1 {
 			w.WriteHeader(400)
-			fmt.Fprintf(w, fmt.Sprintf("Invalid number of display versions provided: %d, ", len(displayVersion)))
+			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(displayVersion))
 		}
 		if len(displayVersion[0]) > 15 {
 			w.WriteHeader(400)
@@ -229,12 +250,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		}},
 	})
 	if err != nil {
-		s, ok := status.FromError(err)
-		if ok && s.Code() == codes.InvalidArgument {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		handleGRPCError(ctx, w, err)
 		return
 	}
 	if len(response.Results) != 1 {
@@ -286,7 +302,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		{
 			msg := "unknown response type in /release"
 			jsonBlob, err := json.Marshal(releaseResponse)
-			jsonBlobRequest, _ := json.Marshal(tf)
+			jsonBlobRequest, _ := json.Marshal(&tf)
 			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
 			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: request: %s, response: %s", msg, jsonBlobRequest, jsonBlob)), err, http.StatusInternalServerError)
 		}

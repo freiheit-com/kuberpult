@@ -130,6 +130,9 @@ print 'installing kuberpult helm chart...'
 
 cat <<VALUES > vals.yaml
 cd:
+  db:
+    dbOption: sqlite
+    location: /sqlite
   resources:
     limits:
       memory: 200Mi
@@ -137,7 +140,6 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${VERSION}"
 frontend:
   resources:
     limits:
@@ -146,7 +148,6 @@ frontend:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${VERSION}"
 rollout:
   enabled: true
   resources:
@@ -156,7 +157,6 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${VERSION}"
 ingress:
   domainName: kuberpult.example.com
 log:

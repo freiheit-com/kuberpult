@@ -3,16 +3,14 @@
 exports[`Tooltip Renders a tooltip 1`] = `
 <div
   class="tooltip-container"
+  data-tooltip-delay-hide="50"
+  data-tooltip-html="<div>I&#x27;m inside the tooltip</div>"
+  data-tooltip-id="kuberpult-tooltip"
+  data-tooltip-place="bottom"
+  id="tooltiptest-tooltip"
 >
-  <a
-    data-tooltip-delay-hide="50"
-    data-tooltip-place="bottom"
-    href="#"
-    id="tooltiptest-tooltip"
-  >
-    <button>
-      click me
-    </button>
-  </a>
+  <button>
+    click me
+  </button>
 </div>
 `;

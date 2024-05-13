@@ -8,7 +8,7 @@ name: "Execution Plan on main"
 
 jobs:
   execution-plan:
-    uses: ./.github/workflows/execution-plan-snippet.yml
+    uses: ./.github/workflows/execution-plan-snippet-earthly.yml
     with:
       trigger: main
     secrets: inherit
@@ -18,3 +18,11 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       trigger: main
+    secrets: inherit
+  
+  trivy-scan:
+    needs: [execution-plan]
+    uses: ./.github/workflows/trivy-scan.yml
+    with:
+      trigger: main
+    secrets: inherit

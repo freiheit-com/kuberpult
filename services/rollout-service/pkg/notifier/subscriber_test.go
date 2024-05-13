@@ -206,7 +206,7 @@ func TestSubscriberHandlesReconnects(t *testing.T) {
 			ctx, cancel := context.WithCancel(ctx)
 			eCh := make(chan error, 1)
 			hs := &setup.HealthServer{}
-			hs.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(1*time.Nanosecond) }
+			hs.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(1 * time.Nanosecond) }
 			go func() {
 				eCh <- Subscribe(ctx, mn, bc, hs.Reporter("notify"))
 			}()

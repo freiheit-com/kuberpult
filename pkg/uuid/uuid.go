@@ -39,3 +39,8 @@ func GetTime(id *UUID) *timestamppb.Timestamp {
 	result := timestamppb.New(ts)
 	return result
 }
+
+func TimeFromUUID(uuidStr string) *timestamppb.Timestamp {
+	uuidVar, _ := timeuuid.ParseUUID(uuidStr)
+	return GetTime(&uuidVar)
+}

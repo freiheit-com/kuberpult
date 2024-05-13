@@ -19,17 +19,16 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/grpc/codes"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/prototext"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -38,6 +37,19 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func getBatchActions() []*api.BatchAction {
 	opDeploy := &api.BatchAction_Deploy{
@@ -76,12 +88,29 @@ func getBatchActions() []*api.BatchAction {
 			LockId:      "5678",
 		},
 	}
+	opCreateTeamLock := &api.BatchAction_CreateEnvironmentTeamLock{ // this deletes the existing lock in the transformers
+		CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
+			Environment: "production",
+			Team:        "test-team",
+			LockId:      "teamlock",
+			Message:     "Test Create a Team lock",
+		},
+	}
+	opDeleteTeamLock := &api.BatchAction_DeleteEnvironmentTeamLock{ // this deletes the existing lock in the transformers
+		DeleteEnvironmentTeamLock: &api.DeleteEnvironmentTeamLockRequest{
+			Environment: "production",
+			Team:        "test-team",
+			LockId:      "91011",
+		},
+	}
 	ops := []*api.BatchAction{ // it works through the batch in order
 		{Action: opDeleteEnvLock},
 		{Action: opDeleteAppLock},
+		{Action: opDeleteTeamLock},
 		{Action: opDeploy},
 		{Action: opCreateEnvLock},
 		{Action: opCreateAppLock},
+		{Action: opCreateTeamLock},
 	}
 	return ops
 }
@@ -115,7 +144,7 @@ func TestBatchServiceWorks(t *testing.T) {
 		Setup         []repository.Transformer
 		context       context.Context
 		svc           *BatchServer
-		expectedError string
+		expectedError error
 	}{
 		{
 			Name: "5 sample actions",
@@ -129,6 +158,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						prod: "manifest",
 					},
+					Team: "test-team",
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment: prod,
@@ -141,7 +171,14 @@ func TestBatchServiceWorks(t *testing.T) {
 					LockId:      "5678",
 					Message:     "AppLock",
 				},
+				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
+					Environment: prod,
+					Team:        "test-team",
+					LockId:      "91011",
+					Message:     "TeamLock",
+				},
 			},
+
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContext(),
 			svc:     &BatchServer{},
@@ -158,6 +195,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
+					Team: "test-team",
 				},
 				&repository.CreateEnvironmentLock{
 					Environment: "production",
@@ -170,16 +208,23 @@ func TestBatchServiceWorks(t *testing.T) {
 					LockId:      "5678",
 					Message:     "no message",
 				},
+				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
+					Environment: prod,
+					Team:        "test-team",
+					LockId:      "91011",
+					Message:     "TeamLock",
+				},
 			},
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContextDexEnabled(),
 			svc: &BatchServer{
 				RBACConfig: auth.RBACConfig{
 					DexEnabled: true,
-					Policy: map[string]*auth.Permission{
-						"developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
-						"developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
-						"developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
+					Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
+						"p,role:developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
+						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
+					},
 					},
 				},
 			},
@@ -193,8 +238,9 @@ func TestBatchServiceWorks(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
-					t.Fatalf("error during setup: %v", err)
+				err := repo.Apply(tc.context, tr)
+				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 			}
 
@@ -205,11 +251,11 @@ func TestBatchServiceWorks(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if err != nil && err.Error() == tc.expectedError {
-				return
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
-			if err != nil {
-				t.Fatalf("error during processBatch: %v", err.Error())
+			if tc.expectedError != nil {
+				return
 			}
 
 			if len(resp.Results) != len(tc.Batch) {
@@ -264,6 +310,24 @@ func TestBatchServiceWorks(t *testing.T) {
 					t.Error("lock was not deleted")
 				}
 			}
+			//Check that Team lock was created
+			{
+				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks("production", "test-team")
+				if err != nil {
+					t.Fatal(err)
+				}
+				lock, exists := teamLocks["teamlock"]
+				if !exists {
+					t.Error("Team lock was not created")
+				}
+				if lock.Message != "Test Create a Team lock" {
+					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+				}
+				_, exists = teamLocks["91011"]
+				if exists {
+					t.Error("lock was not deleted")
+				}
+			}
 
 		})
 	}
@@ -271,12 +335,13 @@ func TestBatchServiceWorks(t *testing.T) {
 
 func TestBatchServiceFails(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		Batch         []*api.BatchAction
-		Setup         []repository.Transformer
-		context       context.Context
-		svc           *BatchServer
-		expectedError string
+		Name               string
+		Batch              []*api.BatchAction
+		Setup              []repository.Transformer
+		context            context.Context
+		svc                *BatchServer
+		expectedError      error
+		expectedSetupError error
 	}{
 		{
 			Name: "testing Dex setup without permissions",
@@ -298,10 +363,10 @@ func TestBatchServiceFails(t *testing.T) {
 					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
 				},
 			},
-			Batch:         []*api.BatchAction{},
-			context:       testutil.MakeTestContextDexEnabled(),
-			svc:           &BatchServer{},
-			expectedError: status.Errorf(codes.PermissionDenied, "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'").Error(),
+			Batch:              []*api.BatchAction{},
+			context:            testutil.MakeTestContextDexEnabled(),
+			svc:                &BatchServer{},
+			expectedSetupError: errMatcher{"error at index 0 of transformer batch: the desired action can not be performed because Dex is enabled without any RBAC policies"},
 		},
 	}
 	for _, tc := range tcs {
@@ -311,10 +376,20 @@ func TestBatchServiceFails(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			errSetupObserved := false
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
-					t.Fatalf("error during setup: %v", err)
+				err := repo.Apply(tc.context, tr)
+				if err != nil {
+					if diff := cmp.Diff(tc.expectedSetupError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Fatalf("error during setup mismatch (-want, +got):\n%s", diff)
+					} else {
+						errSetupObserved = true
+					}
 				}
+			}
+			if tc.expectedSetupError != nil && !errSetupObserved {
+				// ensure we fail on unobserved error
+				t.Errorf("did not oberve error during setup: %s", tc.expectedSetupError.Error())
 			}
 
 			tc.svc.Repository = repo
@@ -324,11 +399,8 @@ func TestBatchServiceFails(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if err != nil && err.Error() == tc.expectedError {
-				return
-			}
-			if err != nil {
-				t.Fatalf("error during processBatch: %v", err.Error())
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			if len(resp.Results) != len(tc.Batch) {
@@ -343,8 +415,8 @@ func TestBatchServiceErrors(t *testing.T) {
 		Name             string
 		Batch            []*api.BatchAction
 		Setup            []repository.Transformer
-		ExpectedResponse string
-		ExpectedError    string
+		ExpectedResponse *api.BatchResponse
+		ExpectedError    error
 	}{
 		{
 			// tests that in ProcessBatch, transformer errors are returned without wrapping them in a
@@ -362,8 +434,11 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedResponse: "",
-			ExpectedError:    "deployment failed: could not open manifest for app myapp with release 666 on env dev 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
+			ExpectedResponse: nil,
+			ExpectedError: &repository.TransformerBatchApplyError{
+				Index:            0,
+				TransformerError: errMatcher{"deployment failed: could not open manifest for app myapp with release 666 on env dev 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist"},
+			},
 		},
 		{
 			Name:  "create release endpoint fails app validity check",
@@ -383,17 +458,30 @@ func TestBatchServiceErrors(t *testing.T) {
 							SourceRepoUrl:  "4",
 						},
 					},
-				}},
-			ExpectedResponse: `results:{create_release_response:{too_long:{app_name:"myappIsWayTooLongDontYouThink" reg_exp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z" max_len:39}}}`,
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_TooLong{
+									TooLong: &api.CreateReleaseResponseAppNameTooLong{
+										AppName: "myappIsWayTooLongDontYouThink",
+										RegExp:  "\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z",
+										MaxLen:  39,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			var expectedResponseObject api.BatchResponse
-			if err := prototext.Unmarshal([]byte(tc.ExpectedResponse), &expectedResponseObject); err != nil {
-				t.Fatalf("failed to unmarshal the expected response object: %v", err)
-			}
 			repo, err := setupRepositoryTest(t)
 			if err != nil {
 				t.Fatal(err)
@@ -412,11 +500,11 @@ func TestBatchServiceErrors(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if tc.ExpectedResponse != "" && !proto.Equal(response, &expectedResponseObject) {
-				t.Fatalf("expected:\n%s\ngot:\n%s\n%s", tc.ExpectedResponse, response.String(), processErr)
+			if diff := cmp.Diff(tc.ExpectedError, processErr, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
-			if tc.ExpectedResponse == "" && tc.ExpectedError != processErr.Error() {
-				t.Fatalf("expected error\n%s\ngot:\n%s\n%s", tc.ExpectedError, response.String(), processErr)
+			if diff := cmp.Diff(tc.ExpectedResponse, response, protocmp.Transform()); diff != "" {
+				t.Fatalf("response mismatch, diff (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -516,8 +604,7 @@ func TestBatchServiceLimit(t *testing.T) {
 	}
 }
 
-func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
-	t.Parallel()
+func setupRepositoryTestWithDB(t *testing.T, dbConfig *repository.DBConfig) (repository.Repository, error) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -525,20 +612,43 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	cmd.Start()
 	cmd.Wait()
 	t.Logf("test created dir: %s", localDir)
+
+	repoCfg := repository.RepositoryConfig{
+		URL:                    remoteDir,
+		Path:                   localDir,
+		CommitterEmail:         "kuberpult@freiheit.com",
+		CommitterName:          "kuberpult",
+		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+		ArgoCdGenerateFiles:    true,
+	}
+	if dbConfig != nil {
+		dbConfig.DbHost = dir
+
+		migErr := repository.RunDBMigrations(*dbConfig)
+		if migErr != nil {
+			t.Fatal(migErr)
+		}
+
+		db, err := repository.Connect(*dbConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		repoCfg.DBHandler = db
+		fmt.Println(dbConfig.DbHost)
+	}
+
 	repo, err := repository.New(
 		testutil.MakeTestContext(),
-		repository.RepositoryConfig{
-			URL:                    remoteDir,
-			Path:                   localDir,
-			CommitterEmail:         "kuberpult@freiheit.com",
-			CommitterName:          "kuberpult",
-			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-		},
+		repoCfg,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return repo, nil
+}
+
+func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
+	return setupRepositoryTestWithDB(t, nil)
 }
 
 func TestReleaseTrain(t *testing.T) {

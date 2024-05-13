@@ -24,7 +24,7 @@ import { Button } from '../button';
 
 export type DropdownProps = {
     className?: string;
-    floatingLabel?: string;
+    placeholder?: string;
     leadingIcon?: string;
 };
 
@@ -96,6 +96,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
                                 className="mdc-button--unelevated button-confirm"
                                 label={'Select All'}
                                 onClick={onSelectAll}
+                                highlightEffect={false}
                             />
                         </div>
                         <div className={'item'} key={'button-menu-all'} title={'ESC also closes the dialog'}>
@@ -103,6 +104,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
                                 className="mdc-button--unelevated button-confirm"
                                 label={allTeamsLabel}
                                 onClick={onClear}
+                                highlightEffect={false}
                             />
                         </div>
                     </div>
@@ -113,7 +115,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
 };
 
 export const Dropdown = (props: DropdownProps): JSX.Element => {
-    const { className, floatingLabel, leadingIcon } = props;
+    const { className, placeholder, leadingIcon } = props;
     const control = useRef<HTMLDivElement>(null);
     const teams = useTeamNames();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -122,7 +124,7 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
         'mdc-select',
         'mdc-select--outlined',
         {
-            'mdc-select--no-label': !floatingLabel,
+            'mdc-select--no-label': !placeholder,
             'mdc-select--with-leading-icon': leadingIcon,
         },
         className

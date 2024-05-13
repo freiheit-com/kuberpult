@@ -4,15 +4,26 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
+      - KUBERPULT_DB_ENABLED=true
+      - KUBERPULT_DB_LOCATION=/kp/database
+      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations
+      - KUBERPULT_DB_OPTION=sqlite
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DEX_MOCK=false
       - KUBERPULT_DEX_ENABLED=false
+      - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
+      - KUBERPULT_DEX_MOCK_ROLE=developer
+      - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
+      - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
+      - KUBERPULT_ALLOW_LONG_APP_NAMES=true
+      - KUBERPULT_ARGO_CD_GENERATE_FILES=true
     ports:
       - "8080:8080"
       - "8443:8443"
     volumes:
       - ./services/cd-service:/kp/kuberpult
+      - ./cd_database:/kp/database
     stop_grace_period: 0.5s
   frontend-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:local
@@ -26,9 +37,12 @@ services:
       - KUBERPULT_GIT_AUTHOR_NAME=user-local-dev-docker-compose
       - KUBERPULT_GIT_AUTHOR_EMAIL=user-local-dev@example.com
       - KUBERPULT_ARGOCD_BASE_URL=https://cd.dev.freiheit.systems/
+      - KUBERPULT_ARGOCD_NAMESPACE=tools
       - KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
       - KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
       - KUBERPULT_GIT_BRANCH=main
+      - KUBERPULT_API_ENABLE_DESPITE_NO_AUTH=true
+      - KUBERPULT_BATCH_CLIENT_TIMEOUT=2m
     ports:
       - "8081:8081"
     depends_on:
@@ -47,3 +61,5 @@ services:
       - ./services/frontend-service/src:/kp/src
       - ./services/frontend-service/public:/kp/public
     stop_grace_period: 0.5s
+volumes:
+  cd_database:

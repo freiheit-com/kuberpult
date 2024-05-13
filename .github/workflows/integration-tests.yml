@@ -10,6 +10,7 @@ on:
 jobs:
   integration-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env: 
       IMAGE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
     steps: 
@@ -20,7 +21,15 @@ jobs:
     - name: Install earthly
       uses: earthly/actions-setup@v1
       with:
-          version: v0.7.21
+          version: v0.8.4
+    - name: Setup remote runner
+      uses: ./.github/actions/setup-earthly-runner
+      with:
+        remote_buildkit_host: ${{ vars.EARTHLY_BUILDKIT_HOST }}
+        tlsca: ${{ secrets.EARTHLY_CA_CERT }}
+        tlscert: ${{ secrets.EARTHLY_CLIENT_CERT }}
+        tlskey: ${{ secrets.EARTHLY_CLIENT_KEY }}
+        tls_enabled: "true"
     - name: Setup environment
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
@@ -45,6 +54,9 @@ jobs:
         echo Using registry: $IMAGE_REGISTRY
         echo Using tag: $IMAGE_TAG_KUBERPULT
         echo PR tag: $(make version)
+    - name: Run helm chart tests
+      run: |
+        make -C charts/kuberpult test-helm
     - name: Run integration tests
       run: |
         make integration-test   

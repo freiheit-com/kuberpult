@@ -45,12 +45,6 @@ func New(client SimplifiedApplicationInterface, concurrencyLimit int) Notifier {
 	return n
 }
 
-type queueElement struct {
-	ctx         context.Context
-	environment string
-	application string
-}
-
 type notifier struct {
 	client   SimplifiedApplicationInterface
 	errGroup errgroup.Group
@@ -65,7 +59,7 @@ func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application st
 		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		l := logger.FromContext(ctx).With(zap.String("environment", environment), zap.String("application", application))
-
+		//exhaustruct:ignore
 		_, err = n.client.Get(ctx, &argoapplication.ApplicationQuery{
 			Name:    ptr.FromString(fmt.Sprintf("%s-%s", environment, application)),
 			Refresh: ptr.FromString(string(argoappv1.RefreshTypeNormal)),

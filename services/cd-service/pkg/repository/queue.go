@@ -19,7 +19,7 @@ package repository
 /**
 This queue contains transformers. Do not confuse with the "queuedVersion" field in protobuf (api.proto).
 The queue here is used because applying a change to git (pushing) takes some time.
-Still, every request waits for the transformer AND push to finish (that's what the `result` channel is for in the "element struct" below).
+Still, every request waits for the transformer AND push to finish (that's what the `result` channel is for in the "transformerBatch struct" below).
 This queue improves the throughput when there are many parallel requests, because the "push" operation is done only once for multiple requests (a request here is essentially the same as a transformer).
 Many parallel requests can happen in a CI with many microservices that all call the "release" endpoint almost at the same time.
 This queue does not improve the latency, because each request still waits for the push to finish.
@@ -27,36 +27,62 @@ This queue does not improve the latency, because each request still waits for th
 
 import (
 	"context"
+	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 type queue struct {
-	elements chan element
+	transformerBatches chan transformerBatch
 }
 
-type element struct {
+var ErrQueueFull error
+
+type transformerBatch struct {
 	ctx          context.Context
 	transformers []Transformer
 	result       chan error
 }
 
+func (t *transformerBatch) finish(err error) {
+	select {
+	case t.result <- err:
+		close(t.result)
+	default:
+	}
+}
+
 func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan error {
 	resultChannel := make(chan error, 1)
-	e := element{
+	e := transformerBatch{
 		ctx:          ctx,
 		transformers: transformers,
 		result:       resultChannel,
 	}
+
+	defer q.GaugeQueueSize(ctx)
+
 	select {
-	case q.elements <- e:
+	case q.transformerBatches <- e:
 		return resultChannel
-	case <-ctx.Done():
-		resultChannel <- ctx.Err()
+	default:
+		//Channel is full, we don't want to put anything else there.
+		ErrQueueFull = fmt.Errorf("queue is full. Queue Capacity: %d.", cap(q.transformerBatches))
+		e.finish(ErrQueueFull)
 		return resultChannel
 	}
 }
 
-func makeQueue() queue {
+func makeQueueN(size uint) queue {
 	return queue{
-		elements: make(chan element, 5),
+		transformerBatches: make(chan transformerBatch, size),
+	}
+}
+
+func (q *queue) GaugeQueueSize(ctx context.Context) {
+	if ddMetrics != nil {
+		queueSize := len(q.transformerBatches)
+		if err := ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1); err != nil {
+			logger.FromContext(ctx).Warn("Error gauging queue size datadog metric.")
+		}
 	}
 }

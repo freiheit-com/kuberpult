@@ -1,0 +1,57 @@
+name: "Kuberpult Vulberability Scanning"
+on:
+  workflow_call:
+    inputs:
+      trigger:
+        required: true
+        type: string
+        description: 'The trigger which calls the workflow, one of [pull-request, main, tag]'
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    env: 
+      IMAGE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+    steps: 
+    - name: Checkout repository
+      uses: actions/checkout@v3.1.0
+      with:
+        fetch-depth: 0
+    - name: Install earthly
+      uses: earthly/actions-setup@v1
+      with:
+          version: v0.8.4
+    - name: Setup remote runner
+      uses: ./.github/actions/setup-earthly-runner
+      with:
+        remote_buildkit_host: ${{ vars.EARTHLY_BUILDKIT_HOST }}
+        tlsca: ${{ secrets.EARTHLY_CA_CERT }}
+        tlscert: ${{ secrets.EARTHLY_CLIENT_CERT }}
+        tlskey: ${{ secrets.EARTHLY_CLIENT_KEY }}
+        tls_enabled: "true"
+    - name: Check if tag exists
+      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
+      run: |
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
+          echo "No valid images found in the registry for the backend service"
+          exit 1
+        fi
+
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
+          echo "No valid images found in the registry for the frontend service"
+          exit 1
+        fi
+
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
+          echo "No valid images found in the registry for the rollout service"
+          exit 1
+        fi
+        echo "IMAGE_TAG_KUBERPULT=$(make version)" >> $GITHUB_ENV
+    - name: Run trivy scan
+      run: |
+        cd trivy
+        earthly +scan-all --kuberpult_version="$IMAGE_TAG_KUBERPULT" --trigger=${{ inputs.trigger }}
+    - name: Archive reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: vulnerability-report
+        path: trivy/kuberpult*.tar.gz

@@ -1,3 +1,18 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright 2023 freiheit.com
 # Default values for ..
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -37,6 +52,12 @@ git:
   # Disabling this option does not delete the `/commit` directory.
   enableWritingCommitData: false
 
+  # Kuberpult tries to reduce the number of pushes and can bundle concurrent commits into a single push.
+  # This can reduce the time it takes to process requests ariving at the same time and improve throughput.
+  # The correct number largely depends on the performance of the git host and repository size. For small to medium sized deployments the default is good.
+  # We recommend values between 1 and 20.
+  maximumCommitsPerPush: 5
+
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
 log:
@@ -46,13 +67,16 @@ log:
   level: "WARN"
 cd:
   image: kuberpult-cd-service
-# In MOST cases, do NOT overwrite the "tag".
-# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
-# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
-  tag: "$VERSION"
+# By default, kuberpult allows names of apps to be max 39 characters.
+# This is usually enough. If you want to extend the length to up to 70 characters,
+# You need to ensure that ArgoCD has no issue with this. Set the Argo CD helm parameter:
+# `configs.cm.application.resourceTrackingMethod: annotation+label`
+# Note that there is no simple way in kuberpult to rename an app.
+  allowLongAppNames: false
   backendConfig:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
+    queueSize: 5
   resources:
     limits:
       cpu: 2
@@ -60,18 +84,37 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
-  enableSqlite: true
+# The Database is not ready for use on production and the helm options might change in the near future.
+  db:
+    location: "127.0.0.1"
+    authProxyPort: 5432
+    dbOption: "NO_DB"
+# k8sName is required if `dbOption = "cloudsql"`, otherwise it's ignored.
+# k8sName is the name of the kubernetes service account.
+    k8sName: "k8sname"
+    dbConnectionName: "connectioname"
+    dbName: "databaseName"
+    dbUser: "username"
+    dbPassword: "password"
+    migrations: /migrations
+    requests:
+      cpu: "100m"
+      memory: "200Mi"
   probes:
     liveness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
       initialDelaySeconds: 5
     readiness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
       initialDelaySeconds: 5
 frontend:
   image: kuberpult-frontend-service
-# In MOST cases, do NOT overwrite the "tag".
-# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
-# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
-  tag: "$VERSION"
 # Annotations given here will be added to kuberpult-frontend-service annotations.
 # See frontend-service.yaml for automatically added annotations.
   service:
@@ -86,13 +129,12 @@ frontend:
 # Limit for the wait time for resources that support waiting on conditions ( e.g. rollout-status ).
 # This MUST be lower than the combined timeouts of ALL http proxies in use.
   maxWaitDuration: 10m
+  batchClient:
+    # This value needs to be higher than the network timeout for git
+    timeout: 2m
 rollout:
   enabled: false
   image: kuberpult-rollout-service
-# In MOST cases, do NOT overwrite the "tag".
-# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
-# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
-  tag: "$VERSION"
   resources:
     limits:
       cpu: 500m
@@ -157,10 +199,18 @@ argocd:
     # The number is determined by the power of the deployed argocd.
     concurrency: 50
 
+  generateFiles: true
+
 datadogTracing:
   enabled: false
   debugging: false
   environment: "shared"
+
+datadogProfiling:
+  # Note that the profiling environment is taken from the field `datadogTracing.environment`
+  enabled: false
+  # In order to use the datadog profile, you must provide a datadog api key:
+  apiKey: ""
 
 dogstatsdMetrics:
   # send metrics:
@@ -188,7 +238,10 @@ gke:
   # ```
   # gcloud compute backend-services describe --global $(gcloud compute backend-services list | grep "kuberpult-frontend-service-80" | cut -d" " -f1) | yq .id
   # ```
+  # Alternatively, you can set the name of the backend service as regex, and kuberpult will try to get the id of the first matching backend service using google compute SDK.
+  # Only one of backend_service_id and backend_service_name should be set. Setting both is not supported and lead to an error.
   backend_service_id: ""
+  backend_service_name: ""
   #
   # Use this bash script to obtain the project number:
   #
@@ -236,20 +289,27 @@ auth:
     baseURL: ""
     # List of scopes to validate the token. Please add them as comma separated values.
     scopes: ""
+  api:
+    # New api endpoints (starting with `/api/`), are by default only turned on when IAP is enabled.
+    # As of now this applies only to the manifest endpoint `/api/application/<application>/release/<release>/manifests`.
+    # If you do not have Googles IAP enabled, but still want to use the API, be aware that it is publicly available,
+    # so you would need a protection outside of kuberpult (e.g. a VPN).
+    # If `enableDespiteNoAuth=true`, then the API will respond, even if IAP is disabled in this helm chart (`ingress.iap.enabled=true`).
+    enableDespiteNoAuth: false
 
 # The Dex configuration values. For more information please check the Dex repository https://github.com/dexidp/dex
 dex:
   # List of environment variables to be added to the dex service pod.
   # Example, if you want your DEX service to have access to to the OAUTH_CLIENT_ID, you can specify
-  # it the following way: 
-  # 
+  # it the following way:
+  #
   #  - name: OAUTH_CLIENT_ID
   #    valueFrom:
   #      secretKeyRef:
   #      name: kuberpult-oauth-client-id
   #        key: kuberpult-oauth-client-id
   envVars: []
-  # The configuration of the OAUTH provider. 
+  # The configuration of the OAUTH provider.
   # For more information on the connectors to use see https://dexidp.io/docs/connectors/
   # Here is an example on how to connect with Google connector:
   #

@@ -52,20 +52,54 @@ message GetCommitInfoResponse {
   string commit_message = 1;
   repeated string touched_apps = 2;
   repeated Event events = 3;
+  string next_commit_hash = 5;
+  string previous_commit_hash = 6;
 }
 
 message Event {
   // data that ALL events have:
   google.protobuf.Timestamp created_at = 1;
-
+  string uuid = 2;
   // data that is different per event type:
   oneof event_type {
-    CreateReleaseEvent create_release_event = 2;
+    CreateReleaseEvent create_release_event = 3;
+    DeploymentEvent deployment_event = 4;
+    LockPreventedDeploymentEvent lock_prevented_deployment_event = 5;
+    ReplacedByEvent replaced_by_event = 6;
   }
 }
 
 message CreateReleaseEvent {
   repeated string environment_names = 1;
+}
+
+message DeploymentEvent {
+  message ReleaseTrainSource {
+    string upstream_environment = 1;
+    optional string target_environment_group = 2;
+  }
+  string application = 1;
+  string target_environment = 2;
+  optional ReleaseTrainSource release_train_source = 3;
+}
+
+message LockPreventedDeploymentEvent {
+  enum LockType {
+    LOCK_TYPE_UNKNOWN = 0;
+    LOCK_TYPE_ENV = 1;
+    LOCK_TYPE_APP = 2;
+    LOCK_TYPE_TEAM = 3;
+  }
+  string application = 1;
+  string environment = 2;
+  string lock_message = 3;
+  LockType lock_type = 4;
+}
+
+message ReplacedByEvent{
+  string replaced_by_commit_id = 1;
+  string application = 2;
+  string environment = 3;
 }
 
 message TagData {
@@ -96,6 +130,8 @@ message BatchAction {
     CreateReleaseRequest create_release = 11;
     CreateEnvironmentGroupLockRequest create_environment_group_lock = 12;
     DeleteEnvironmentGroupLockRequest delete_environment_group_lock = 13;
+    CreateEnvironmentTeamLockRequest create_environment_team_lock = 14;
+    DeleteEnvironmentTeamLockRequest delete_environment_team_lock = 15;
   }
 }
 
@@ -146,6 +182,19 @@ message DeleteEnvironmentApplicationLockRequest {
   string lock_id = 3;
 }
 
+message CreateEnvironmentTeamLockRequest {
+  string environment = 1;
+  string team = 2;
+  string lock_id = 3;
+  string message = 4;
+}
+
+message DeleteEnvironmentTeamLockRequest {
+  string environment = 1;
+  string team = 2;
+  string lock_id = 3;
+}
+
 
 message CreateReleaseRequest {
   string environment = 1;
@@ -159,6 +208,8 @@ message CreateReleaseRequest {
   string source_message = 8;
   string source_repo_url = 9;
   string display_version = 10;
+  string previous_commit_id = 11;
+  string next_commit_id = 12;
 }
 
 message CreateReleaseResponseSuccess {
@@ -254,6 +305,7 @@ message Lock {
 message LockedError {
   map<string, Lock> environment_locks = 1;
   map<string, Lock> environment_application_locks = 2;
+  map<string, Lock> environment_team_locks = 3;
 }
 
 service FrontendConfigService {
@@ -266,6 +318,7 @@ message GetFrontendConfigRequest {
 message GetFrontendConfigResponse {
   message ArgoCD {
     string base_url = 1;
+    string namespace = 2;
   }
   message Auth {
     message AzureAuthConfig {
@@ -299,6 +352,7 @@ message GetVersionResponse {
 
 service VersionService {
   rpc GetVersion (GetVersionRequest) returns (GetVersionResponse) {}
+  rpc GetManifests (GetManifestsRequest) returns (GetManifestsResponse) {}
 }
 
 service OverviewService {
@@ -466,6 +520,8 @@ message Environment {
     bool undeploy_version = 6;
     ArgoCD argo_cd = 7;
     DeploymentMetaData deployment_meta_data = 8;
+    map<string, Lock> team_locks = 9; //Keep in mind that team lock information will be duplicated if there is a team with more than one application (which is usually the case)
+    string team = 10;
   }
 
   string name = 1;
@@ -553,4 +609,60 @@ message GetStatusResponse {
   }
   RolloutStatus status = 1;
   repeated ApplicationStatus applications = 2;
+}
+
+service ReleaseTrainPrognosisService {
+  rpc GetReleaseTrainPrognosis (ReleaseTrainRequest) returns (GetReleaseTrainPrognosisResponse) {}
+}
+
+enum ReleaseTrainAppSkipCause {
+  APP_HAS_NO_VERSION_IN_UPSTREAM_ENV = 0;
+  APP_ALREADY_IN_UPSTREAM_VERSION = 1;
+  APP_IS_LOCKED = 2;
+  APP_DOES_NOT_EXIST_IN_ENV = 3;
+  APP_IS_LOCKED_BY_ENV = 4; // there is an env lock that prevents deployment for this app
+}
+
+message ReleaseTrainAppPrognosis {
+  oneof outcome {
+    ReleaseTrainAppSkipCause skip_cause = 1;
+    uint64 deployed_version = 2;
+  }
+}
+
+enum ReleaseTrainEnvSkipCause {
+  ENV_HAS_NO_UPSTREAM = 0;
+  ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV = 1;
+  ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV = 2;
+  UPSTREAM_ENV_CONFIG_NOT_FOUND = 3;
+  ENV_IS_LOCKED = 4;
+}
+
+message ReleaseTrainEnvPrognosis {
+  message AppsPrognosesWrapper {
+    map<string, ReleaseTrainAppPrognosis> prognoses = 1;
+  }
+  oneof outcome {
+    ReleaseTrainEnvSkipCause skip_cause = 1;
+    AppsPrognosesWrapper apps_prognoses = 2;
+  }
+}
+
+message GetReleaseTrainPrognosisResponse {
+  map<string, ReleaseTrainEnvPrognosis> envs_prognoses = 1;
+}
+
+message GetManifestsRequest {
+  string application = 1;
+  string release = 2;
+}
+
+message Manifest {
+  string environment = 1;
+  string content = 2;
+}
+
+message GetManifestsResponse {
+  Release release = 1;
+  map<string, Manifest> manifests = 2;
 }

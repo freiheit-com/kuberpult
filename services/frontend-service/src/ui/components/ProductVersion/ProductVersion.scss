@@ -14,6 +14,8 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 /* The actual timeline (the vertical ruler) */
+@import '../../../assets/variables';
+
 .product_version {
     position: relative;
     max-width: 1200px;
@@ -32,8 +34,8 @@ Copyright 2023 freiheit.com*/
 .page_description {
     font-style: normal;
     position: relative;
-    font-weight: 700;
-    line-height: 32px;
+    font-weight: $small-warn-button-font-weight;
+    line-height: $nav-list-item-gap;
     padding: 10px 40px;
     color: var(--mdc-theme-on-surface);
     justify-content: space-between;
@@ -41,8 +43,22 @@ Copyright 2023 freiheit.com*/
     background: linear-gradient(var(--mdc-theme-primary), var(--mdc-theme-primary)) left 9px top 14px/2px 100% no-repeat;
 }
 
-.dropdown_div {
+.space_apart_row {
+    justify-content: space-between;
+    display: flex;
+    padding: 20px;
     padding-left: 35px;
+}
+
+.release_train_button {
+    position: relative;
+    margin-left: auto;
+    margin-right: $environment-actions-right-displacement;
+    margin-top: $environment-actions-top-displacement;
+    border: $environment-add-lock-button-border;
+    border-radius: $environment-add-lock-button-border-radius;
+    color: $environment-add-lock-button-color;
+    margin: $environment-buttons-column-margin;
 }
 
 .drop_down {

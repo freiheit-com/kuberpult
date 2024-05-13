@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment, EnvironmentGroup, Priority, ProductSummary, TagData } from '../../../api/api';
 import { ProductVersion, TableFiltered } from './ProductVersion';
@@ -21,12 +21,8 @@ import { Spy } from 'spy4js';
 
 const mock_UseEnvGroups = Spy('envGroup');
 const mock_UseTags = Spy('Overview');
-const mock_UseSummaryDisplay = Spy('Status');
 
 jest.mock('../../utils/store', () => ({
-    getSummary() {
-        return {};
-    },
     refreshTags() {
         return {};
     },
@@ -36,9 +32,10 @@ jest.mock('../../utils/store', () => ({
     useTags() {
         return mock_UseTags();
     },
-    useSummaryDisplay() {
-        return mock_UseSummaryDisplay();
+    useEnvironments() {
+        return [];
     },
+    showSnackbarError() {},
 }));
 
 jest.mock('../../utils/Links', () => ({
@@ -50,6 +47,17 @@ jest.mock('../../utils/Links', () => ({
     },
 }));
 
+const mockGetProductSummary = jest.fn();
+
+jest.mock('../../utils/GrpcApi', () => ({
+    get useApi() {
+        return {
+            gitService: () => ({
+                GetProductSummary: () => mockGetProductSummary(),
+            }),
+        };
+    },
+}));
 const sampleEnvsA: Environment[] = [
     {
         name: 'tester',
@@ -141,19 +149,17 @@ describe('Product Version Data', () => {
 
     describe.each(data)(`Displays Product Version Page`, (testCase) => {
         // given
-        it(testCase.name, () => {
+        it(testCase.name, async () => {
             // replicate api calls
             mock_UseEnvGroups.returns(testCase.environmentGroups);
             mock_UseTags.returns({ response: { tagData: testCase.tags }, tagsReady: true });
-            mock_UseSummaryDisplay.returns({
-                response: { productSummary: testCase.productSummary },
-                summaryReady: true,
-            });
+            mockGetProductSummary.mockResolvedValue({ productSummary: testCase.productSummary });
             render(
                 <MemoryRouter>
                     <ProductVersion />
                 </MemoryRouter>
             );
+            await act(global.nextTick);
             expect(document.body).toMatchSnapshot();
             if (testCase.expectedDropDown !== '') {
                 expect(document.querySelector('.drop_down')?.textContent).toContain(testCase.expectedDropDown);
@@ -166,6 +172,10 @@ describe('Product Version Data', () => {
                 expect(document.querySelector('.page_description')?.textContent).toContain(
                     'This page shows the version'
                 );
+            }
+            const releaseTrainButton = screen.queryByText('Run Release Train');
+            if (testCase.tags.length > 0) {
+                expect(releaseTrainButton).toBeInTheDocument();
             }
         });
     });

@@ -11,6 +11,9 @@ exports[`Product Version Data Displays Product Version Page No tags to Display 1
       >
         Product Version Page
       </h1>
+      <div
+        class=""
+      />
       <div />
       <div>
         <div
@@ -36,49 +39,69 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
         Product Version Page
       </h1>
       <div
-        class="dropdown_div"
+        class=""
+      />
+      <div
+        class="space_apart_row"
       >
-        <select
-          class="drop_down"
-          data-testid="drop_down"
+        <div
+          class="dropdown_div"
         >
-          <option
-            disabled=""
-            value="default"
+          <select
+            class="drop_down"
+            data-testid="drop_down"
           >
-            Select a Tag
-          </option>
-          <option
-            value="123"
+            <option
+              disabled=""
+              value="default"
+            >
+              Select a Tag
+            </option>
+            <option
+              value="123"
+            >
+              dummyTag
+            </option>
+            <option
+              value="859"
+            >
+              dummyTag2
+            </option>
+          </select>
+          <select
+            class="env_drop_down"
           >
-            dummyTag
-          </option>
-          <option
-            value="859"
-          >
-            dummyTag2
-          </option>
-        </select>
-        <select
-          class="env_drop_down"
+            <option
+              disabled=""
+              value="default"
+            >
+              Select an Environment or Environment Group
+            </option>
+            <option
+              value="g1"
+            >
+              g1
+            </option>
+            <option
+              value="g1/tester"
+            >
+              g1/tester
+            </option>
+          </select>
+        </div>
+        <button
+          aria-label="Run Release Train"
+          class="mdc-button release_train_button"
         >
-          <option
-            disabled=""
-            value="default"
+          <div
+            class="mdc-button__ripple"
+          />
+          <span
+            class="mdc-button__label"
           >
-            Select an Environment or Environment Group
-          </option>
-          <option
-            value="g1"
-          >
-            g1
-          </option>
-          <option
-            value="g1/tester"
-          >
-            g1/tester
-          </option>
-        </select>
+            Run Release Train
+          </span>
+        </button>
       </div>
       <div>
         <div
@@ -165,44 +188,64 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
         Product Version Page
       </h1>
       <div
-        class="dropdown_div"
+        class=""
+      />
+      <div
+        class="space_apart_row"
       >
-        <select
-          class="drop_down"
-          data-testid="drop_down"
+        <div
+          class="dropdown_div"
         >
-          <option
-            disabled=""
-            value="default"
+          <select
+            class="drop_down"
+            data-testid="drop_down"
           >
-            Select a Tag
-          </option>
-          <option
-            value="123"
+            <option
+              disabled=""
+              value="default"
+            >
+              Select a Tag
+            </option>
+            <option
+              value="123"
+            >
+              dummyTag
+            </option>
+          </select>
+          <select
+            class="env_drop_down"
           >
-            dummyTag
-          </option>
-        </select>
-        <select
-          class="env_drop_down"
+            <option
+              disabled=""
+              value="default"
+            >
+              Select an Environment or Environment Group
+            </option>
+            <option
+              value="g1"
+            >
+              g1
+            </option>
+            <option
+              value="g1/tester"
+            >
+              g1/tester
+            </option>
+          </select>
+        </div>
+        <button
+          aria-label="Run Release Train"
+          class="mdc-button release_train_button"
         >
-          <option
-            disabled=""
-            value="default"
+          <div
+            class="mdc-button__ripple"
+          />
+          <span
+            class="mdc-button__label"
           >
-            Select an Environment or Environment Group
-          </option>
-          <option
-            value="g1"
-          >
-            g1
-          </option>
-          <option
-            value="g1/tester"
-          >
-            g1/tester
-          </option>
-        </select>
+            Run Release Train
+          </span>
+        </button>
       </div>
       <div>
         <div

@@ -14,6 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
+// nolint: errcheck
 package testssh
 
 import (
@@ -38,6 +39,7 @@ type TestServer struct {
 	KnownHosts string
 	ClientKey  string
 	Url        string
+	Pushes     uint
 	l          net.Listener
 	execDelay  time.Duration
 }
@@ -56,19 +58,23 @@ type exitReq struct {
 }
 
 func New(workdir string) *TestServer {
+	//exhaustruct:ignore
 	ts := TestServer{}
 	// Allocate a new listening port
+	//exhaustruct:ignore
 	ts.l, _ = net.ListenTCP("tcp", &net.TCPAddr{})
 	ts.Port = ts.l.Addr().(*net.TCPAddr).Port
 
 	// Setup a private key for the server and write a known hosts file
 	_, servPriv, _ := ed25519.GenerateKey(nil)
 	ps, _ := ssh.NewSignerFromSigner(servPriv)
-	kh := knownhosts.Line([]string{fmt.Sprintf("127.0.0.1")}, ps.PublicKey())
+	kh := knownhosts.Line([]string{"127.0.0.1"}, ps.PublicKey())
 	ts.KnownHosts = filepath.Join(workdir, "known_hosts")
 	os.WriteFile(ts.KnownHosts, []byte(kh), 0644)
+	//exhaustruct:ignore
 	sc := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			//exhaustruct:ignore
 			return &ssh.Permissions{}, nil
 		},
 	}
@@ -78,8 +84,9 @@ func New(workdir string) *TestServer {
 	_, clientPriv, _ := ed25519.GenerateKey(nil)
 	ts.ClientKey = filepath.Join(workdir, "id_ed25519")
 	key := pem.EncodeToMemory(&pem.Block{
-		Type:  "OPENSSH PRIVATE KEY",
-		Bytes: edkey.MarshalED25519PrivateKey(clientPriv),
+		Headers: nil,
+		Type:    "OPENSSH PRIVATE KEY",
+		Bytes:   edkey.MarshalED25519PrivateKey(clientPriv),
 	})
 	os.WriteFile(ts.ClientKey, key, 0600)
 
@@ -133,8 +140,11 @@ func (ts *TestServer) handleConn(con net.Conn, workdir string, sc *ssh.ServerCon
 					ch.Close()
 					return
 				}
+				if args[0] == "git-receive-pack" {
+					ts.Pushes = ts.Pushes + 1
+				}
 				args[1] = filepath.Join(workdir, args[1])
-				cmd := exec.Command(args[0], args[1:len(args)]...)
+				cmd := exec.Command(args[0], args[1:]...)
 				cmd.Env = env
 				stdin, _ := cmd.StdinPipe()
 				stdout, _ := cmd.StdoutPipe()

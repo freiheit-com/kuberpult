@@ -75,7 +75,12 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
                     <div className={environmentConfigDialogDataClass}>
                         <div className={environmentConfigDialogNameClass}>Environment Config for {environmentName}</div>
                     </div>
-                    <Button onClick={onClose} className={environmentConfigDialogCloseClass} icon={<Close />} />
+                    <Button
+                        onClick={onClose}
+                        className={environmentConfigDialogCloseClass}
+                        icon={<Close />}
+                        highlightEffect={false}
+                    />
                 </div>
                 {loading ? (
                     <Spinner message="loading" />

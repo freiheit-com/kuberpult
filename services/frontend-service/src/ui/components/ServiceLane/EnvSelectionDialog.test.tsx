@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { act, render } from '@testing-library/react';
+import { act, render, getByTestId } from '@testing-library/react';
 import { documentQuerySelectorSafe } from '../../../setupTests';
 import { EnvSelectionDialog, EnvSelectionDialogProps } from './EnvSelectionDialog';
 
@@ -22,31 +22,82 @@ type TestDataSelection = {
     input: EnvSelectionDialogProps;
     expectedNumItems: number;
     clickOnButton: string;
+    secondClick: string;
     expectedNumSelectedAfterClick: number;
     expectedNumDeselectedAfterClick: number;
+    expectedNumSelectedAfterSecondClick: number;
 };
 
 const mySubmitSpy = jest.fn();
 const myCancelSpy = jest.fn();
 
-const confirmButtonSelector = '.test-button-confirm';
+const confirmButtonTestId = 'test-confirm-button-confirm';
+const cancelButtonTestId = 'test-confirm-button-cancel';
 
 const dataSelection: TestDataSelection[] = [
     {
         name: 'renders 2 item list',
-        input: { environments: ['dev', 'staging'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
+        input: {
+            environments: ['dev', 'staging'],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+            envSelectionDialog: true,
+        },
         expectedNumItems: 2,
         clickOnButton: 'dev',
         expectedNumSelectedAfterClick: 1,
         expectedNumDeselectedAfterClick: 1,
+        secondClick: 'staging',
+        expectedNumSelectedAfterSecondClick: 2,
     },
     {
         name: 'renders 3 item list',
-        input: { environments: ['dev', 'staging', 'prod'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
+        input: {
+            environments: ['dev', 'staging', 'prod'],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+            envSelectionDialog: true,
+        },
         expectedNumItems: 3,
         clickOnButton: 'staging',
         expectedNumSelectedAfterClick: 1,
         expectedNumDeselectedAfterClick: 2,
+        secondClick: 'prod',
+        expectedNumSelectedAfterSecondClick: 2,
+    },
+    {
+        name: 'only one item allowed for release trains',
+        input: {
+            environments: ['dev', 'staging', 'prod'],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+            envSelectionDialog: false,
+        },
+        expectedNumItems: 3,
+        clickOnButton: 'staging',
+        expectedNumSelectedAfterClick: 1,
+        expectedNumDeselectedAfterClick: 2,
+        secondClick: 'prod',
+        expectedNumSelectedAfterSecondClick: 1,
+    },
+    {
+        name: 'renders empty item list',
+        input: {
+            environments: [],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+            envSelectionDialog: true,
+        },
+        expectedNumItems: 0,
+        clickOnButton: '',
+        expectedNumSelectedAfterClick: 0,
+        expectedNumDeselectedAfterClick: 0,
+        secondClick: '',
+        expectedNumSelectedAfterSecondClick: 0,
     },
 ];
 
@@ -63,6 +114,7 @@ const dataOpenClose: TestDataOpenClose[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
+            envSelectionDialog: true,
         },
         expectedNumElements: 1,
     },
@@ -73,6 +125,7 @@ const dataOpenClose: TestDataOpenClose[] = [
             open: false,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
+            envSelectionDialog: true,
         },
         expectedNumElements: 0,
     },
@@ -93,8 +146,9 @@ const dataCallbacks: TestDataCallbacks[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
+            envSelectionDialog: true,
         },
-        clickThis: '.test-button-cancel',
+        clickThis: cancelButtonTestId,
         expectedCancelCallCount: 1,
         expectedSubmitCallCount: 0,
     },
@@ -105,10 +159,11 @@ const dataCallbacks: TestDataCallbacks[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
+            envSelectionDialog: true,
         },
-        clickThis: confirmButtonSelector,
+        clickThis: confirmButtonTestId,
         expectedCancelCallCount: 0,
-        expectedSubmitCallCount: 1,
+        expectedSubmitCallCount: 0,
     },
 ];
 
@@ -128,15 +183,30 @@ describe('EnvSelectionDialog', () => {
             expect(document.querySelectorAll('.envs-dropdown-select .test-button-checkbox').length).toEqual(
                 testcase.expectedNumItems
             );
-            const result = documentQuerySelectorSafe('.id-' + testcase.clickOnButton);
-            act(() => {
-                result.click();
-            });
+            if (testcase.clickOnButton !== '') {
+                const result = documentQuerySelectorSafe('.id-' + testcase.clickOnButton);
+                act(() => {
+                    result.click();
+                });
+            } else {
+                expect(document.querySelector('.env-selection-dialog')?.textContent).toContain(
+                    'There are no environments'
+                );
+            }
             expect(document.querySelectorAll('.test-button-checkbox.enabled').length).toEqual(
                 testcase.expectedNumSelectedAfterClick
             );
             expect(document.querySelectorAll('.test-button-checkbox.disabled').length).toEqual(
                 testcase.expectedNumDeselectedAfterClick
+            );
+            if (testcase.secondClick !== '') {
+                const result = documentQuerySelectorSafe('.id-' + testcase.secondClick);
+                act(() => {
+                    result.click();
+                });
+            }
+            expect(document.querySelectorAll('.test-button-checkbox.enabled').length).toEqual(
+                testcase.expectedNumSelectedAfterSecondClick
             );
         });
     });
@@ -153,13 +223,13 @@ describe('EnvSelectionDialog', () => {
             expect(mySubmitSpy).toHaveBeenCalledTimes(0);
             expect(myCancelSpy).toHaveBeenCalledTimes(0);
 
-            getWrapper(testcase.input);
+            const { container } = getWrapper(testcase.input);
 
-            const theButton = documentQuerySelectorSafe(testcase.clickThis);
+            const theButton = getByTestId(container, testcase.clickThis);
             act(() => {
                 theButton.click();
             });
-            documentQuerySelectorSafe(testcase.clickThis); // should not crash
+            getByTestId(container, testcase.clickThis); // should not crash
 
             expect(myCancelSpy).toHaveBeenCalledTimes(testcase.expectedCancelCallCount);
             expect(mySubmitSpy).toHaveBeenCalledTimes(testcase.expectedSubmitCallCount);
@@ -182,6 +252,7 @@ describe('EnvSelectionDialog', () => {
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
+                envSelectionDialog: true,
             },
             clickTheseTeams: ['dev'],
             expectedCancelCallCount: 0,
@@ -195,6 +266,7 @@ describe('EnvSelectionDialog', () => {
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
+                envSelectionDialog: true,
             },
             clickTheseTeams: ['staging', 'prod'],
             expectedCancelCallCount: 0,
@@ -208,6 +280,7 @@ describe('EnvSelectionDialog', () => {
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
+                envSelectionDialog: true,
             },
             clickTheseTeams: ['dev', 'staging', 'staging'],
             expectedCancelCallCount: 0,
@@ -222,7 +295,7 @@ describe('EnvSelectionDialog', () => {
             expect(mySubmitSpy).toHaveBeenCalledTimes(0);
             expect(myCancelSpy).toHaveBeenCalledTimes(0);
 
-            getWrapper(testcase.input);
+            const { container } = getWrapper(testcase.input);
 
             testcase.clickTheseTeams.forEach((value, index) => {
                 const teamButton = documentQuerySelectorSafe('.id-' + value);
@@ -230,7 +303,7 @@ describe('EnvSelectionDialog', () => {
                     teamButton.click();
                 });
             });
-            const confirmButton = documentQuerySelectorSafe(confirmButtonSelector);
+            const confirmButton = getByTestId(container, confirmButtonTestId);
             act(() => {
                 confirmButton.click();
             });

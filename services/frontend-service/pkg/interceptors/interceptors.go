@@ -18,11 +18,13 @@ package interceptors
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -40,6 +42,8 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 
 	authHeader, ok := md["authorization"]
 	if !ok {
+		// this happens if the caller does not pass the "authHeader".
+		// correct example: api.overviewService().StreamOverview({}, authHeader)
 		return nil, status.Errorf(codes.Unauthenticated, "Authorization token not supplied")
 	}
 
@@ -52,8 +56,9 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	var u *auth.User = nil
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		u = &auth.User{
-			Email: claims["email"].(string),
-			Name:  claims["name"].(string),
+			DexAuthContext: nil,
+			Email:          claims["email"].(string),
+			Name:           claims["name"].(string),
 		}
 	}
 
@@ -94,6 +99,31 @@ func StreamAuthInterceptor(
 	return handler(srv, stream)
 }
 
+// GoogleIAPInterceptor intercepts HTTP calls to the frontend service.
+// If the user us not logged in or no JWT is found, an Unauthenticated error is returned.
+func GoogleIAPInterceptor(
+	w http.ResponseWriter,
+	req *http.Request,
+	httpHandler http.HandlerFunc,
+	backendServiceId, gkeProjectNumber string,
+) {
+	iapJWT := req.Header.Get("X-Goog-IAP-JWT-Assertion")
+	if iapJWT == "" {
+		http.Error(w, "iap.jwt header was not found or doesn't exist", http.StatusUnauthorized)
+		return
+	}
+
+	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", gkeProjectNumber, backendServiceId)
+	// NOTE: currently we just validate that the token exists, but no handlers are using data from the payload.
+	// This might change in the future.
+	_, err := idtoken.Validate(req.Context(), iapJWT, aud)
+	if err != nil {
+		http.Error(w, "iap.jwt could not be validated", http.StatusUnauthorized)
+		return
+	}
+	httpHandler(w, req)
+}
+
 // DexLoginInterceptor intercepts HTTP calls to the frontend service.
 // DexLoginInterceptor must only be used if dex is enabled.
 // If the user us not logged in, it redirected the calls to the Dex login page.
@@ -101,16 +131,17 @@ func StreamAuthInterceptor(
 func DexLoginInterceptor(
 	w http.ResponseWriter,
 	req *http.Request,
-	httpHandler handler.Server,
+	httpHandler http.HandlerFunc,
 	clientID, baseURL string,
 ) {
 	role, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
 	if err != nil {
+		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 	}
 	auth.WriteUserRoleToHttpHeader(req, role)
 	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)
 	req = req.WithContext(httpCtx)
-	httpHandler.Handle(w, req)
+	httpHandler(w, req)
 }

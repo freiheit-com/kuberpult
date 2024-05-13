@@ -56,11 +56,13 @@ func transformUpstreamToConfig(upstream *api.EnvironmentConfig_Upstream) *config
 	}
 	if upstream.GetLatest() {
 		return &config.EnvironmentConfigUpstream{
-			Latest: true,
+			Environment: "",
+			Latest:      true,
 		}
 	}
 	if upstream.GetEnvironment() != "" {
 		return &config.EnvironmentConfigUpstream{
+			Latest:      false,
 			Environment: upstream.GetEnvironment(),
 		}
 	}
@@ -82,9 +84,12 @@ func transformArgoCdToApi(in *config.EnvironmentConfigArgoCd) *api.EnvironmentCo
 		return nil
 	}
 	return &api.EnvironmentConfig_ArgoCD{
-		SyncWindows: transformSyncWindowsToApi(in.SyncWindows),
-		Destination: transformDestinationToApi(&in.Destination),
-		AccessList:  transformAccessEntryToApi(in.ClusterResourceWhitelist),
+		ApplicationAnnotations: nil,
+		IgnoreDifferences:      nil,
+		SyncOptions:            nil,
+		SyncWindows:            transformSyncWindowsToApi(in.SyncWindows),
+		Destination:            transformDestinationToApi(&in.Destination),
+		AccessList:             transformAccessEntryToApi(in.ClusterResourceWhitelist),
 	}
 }
 
@@ -105,9 +110,10 @@ func transformSyncWindowsToApi(in []config.ArgoCdSyncWindow) []*api.EnvironmentC
 	var out []*api.EnvironmentConfig_ArgoCD_SyncWindows
 	for _, syncWindow := range in {
 		out = append(out, &api.EnvironmentConfig_ArgoCD_SyncWindows{
-			Kind:     syncWindow.Kind,
-			Schedule: syncWindow.Schedule,
-			Duration: syncWindow.Duration,
+			Applications: nil,
+			Kind:         syncWindow.Kind,
+			Schedule:     syncWindow.Schedule,
+			Duration:     syncWindow.Duration,
 		})
 	}
 	return out
@@ -151,24 +157,9 @@ func transformIgnoreDifferencesToConfig(ignoreDifferences []*api.EnvironmentConf
 	return transformedIgnoreDifferences
 }
 
-func transformIgnoreDifferencesToApi(in []*config.ArgoCdIgnoreDifference) []api.EnvironmentConfig_ArgoCD_IgnoreDifferences {
-	var out []api.EnvironmentConfig_ArgoCD_IgnoreDifferences
-	for _, ignoreDifference := range in {
-		out = append(out, api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
-			Group:                 ignoreDifference.Group,
-			Kind:                  ignoreDifference.Kind,
-			Name:                  ignoreDifference.Name,
-			Namespace:             ignoreDifference.Namespace,
-			JsonPointers:          ignoreDifference.JSONPointers,
-			JqPathExpressions:     ignoreDifference.JqPathExpressions,
-			ManagedFieldsManagers: ignoreDifference.ManagedFieldsManagers,
-		})
-	}
-	return out
-}
-
 func transformDestinationToConfig(in *api.EnvironmentConfig_ArgoCD_Destination) config.ArgoCdDestination {
 	if in == nil {
+		//exhaustruct:ignore
 		return config.ArgoCdDestination{}
 	}
 	return config.ArgoCdDestination{
@@ -182,6 +173,7 @@ func transformDestinationToConfig(in *api.EnvironmentConfig_ArgoCD_Destination) 
 
 func transformDestinationToApi(in *config.ArgoCdDestination) *api.EnvironmentConfig_ArgoCD_Destination {
 	if in == nil {
+		//exhaustruct:ignore
 		return &api.EnvironmentConfig_ArgoCD_Destination{}
 	}
 	return &api.EnvironmentConfig_ArgoCD_Destination{

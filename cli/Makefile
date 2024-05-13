@@ -14,29 +14,10 @@
 
 # Copyright 2023 freiheit.com
 
-include ../../../Makefile.variables
+include ../Makefile.variables
 
-.PHONY: check-license
-check-license:
-	@make -C ../../.. check-license
+build-pr:
+	earthly --push +build-pr --VERSION=$(VERSION)
 
-.PHONY: build-main
-build-main: check-license
-	echo "on main"
-
-.PHONY: build-pr
-build-pr: check-license
-	echo "on pull request"
-
-.PHONY: cleanup-pr
-cleanup-pr:
-	echo "Nothing to clean"
-
-.PHONY: cleanup-main
-cleanup-main:
-	echo "Nothing to clean"
-
-
-.PHONY: get-builder-image
-get-builder-image:
-	@echo "$(KUBERPULT_BUILDER)"
+build-main:
+	earthly --push +build-main --VERSION=$(VERSION)

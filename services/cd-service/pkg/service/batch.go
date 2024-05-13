@@ -77,6 +77,16 @@ func ValidateEnvironmentApplicationLock(
 	return nil
 }
 
+func ValidateEnvironmentTeamLock(
+	actionType string, // "create" | "delete"
+	env string,
+	team string,
+	id string,
+) error {
+
+	return nil
+}
+
 func ValidateDeployment(
 	env string,
 	app string,
@@ -147,14 +157,38 @@ func (d *BatchServer) processAction(
 			LockId:         act.LockId,
 			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
+	case *api.BatchAction_CreateEnvironmentTeamLock:
+		act := action.CreateEnvironmentTeamLock
+		if err := ValidateEnvironmentTeamLock("create", act.Environment, act.Team, act.LockId); err != nil {
+			return nil, nil, err
+		}
+		return &repository.CreateEnvironmentTeamLock{
+			Environment:    act.Environment,
+			Team:           act.Team,
+			LockId:         act.LockId,
+			Message:        act.Message,
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+		}, nil, nil
+	case *api.BatchAction_DeleteEnvironmentTeamLock:
+		act := action.DeleteEnvironmentTeamLock
+		if err := ValidateEnvironmentTeamLock("delete", act.Environment, act.Team, act.LockId); err != nil {
+			return nil, nil, err
+		}
+		return &repository.DeleteEnvironmentTeamLock{
+			Environment:    act.Environment,
+			Team:           act.Team,
+			LockId:         act.LockId,
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+		}, nil, nil
 	case *api.BatchAction_PrepareUndeploy:
 		act := action.PrepareUndeploy
 		if err := ValidateApplication(act.Application); err != nil {
 			return nil, nil, err
 		}
 		return &repository.CreateUndeployApplicationVersion{
-			Application:    act.Application,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Application:     act.Application,
+			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
+			WriteCommitData: d.Config.WriteCommitData,
 		}, nil, nil
 	case *api.BatchAction_Undeploy:
 		act := action.Undeploy
@@ -171,17 +205,19 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		b := act.LockBehavior
-		if act.IgnoreAllLocks {
+		if act.IgnoreAllLocks { //nolint: staticcheck
 			// the UI currently sets this to true,
 			// in that case, we still want to ignore locks (for emergency deployments)
 			b = api.LockBehavior_IGNORE
 		}
 		return &repository.DeployApplicationVersion{
-			Environment:    act.Environment,
-			Application:    act.Application,
-			Version:        act.Version,
-			LockBehaviour:  b,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			SourceTrain:     nil,
+			Environment:     act.Environment,
+			Application:     act.Application,
+			Version:         act.Version,
+			LockBehaviour:   b,
+			WriteCommitData: d.Config.WriteCommitData,
+			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
@@ -199,11 +235,12 @@ func (d *BatchServer) processAction(
 			return nil, nil, status.Error(codes.InvalidArgument, "invalid Team name")
 		}
 		return &repository.ReleaseTrain{
-				Target:         in.Target,
-				Team:           in.Team,
-				Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
-				Repo:           d.Repository,
-				CommitHash:     in.CommitHash,
+				Repo:            d.Repository,
+				Target:          in.Target,
+				Team:            in.Team,
+				CommitHash:      in.CommitHash,
+				WriteCommitData: d.Config.WriteCommitData,
+				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},
@@ -220,6 +257,8 @@ func (d *BatchServer) processAction(
 				SourceAuthor:    in.SourceAuthor,
 				SourceMessage:   in.SourceMessage,
 				SourceRepoUrl:   in.SourceRepoUrl,
+				PreviousCommit:  in.PreviousCommitId,
+				NextCommit:      in.NextCommitId,
 				Team:            in.Team,
 				DisplayVersion:  in.DisplayVersion,
 				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
@@ -237,6 +276,7 @@ func (d *BatchServer) processAction(
 		in := action.CreateEnvironment
 		conf := in.Config
 		if conf == nil {
+			//exhaustruct:ignore
 			conf = &api.EnvironmentConfig{}
 		}
 		var argocd *config.EnvironmentConfigArgoCd
@@ -289,42 +329,46 @@ func (d *BatchServer) ProcessBatch(
 ) (*api.BatchResponse, error) {
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return nil, grpc.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err))
 	}
 	ctx = auth.WriteUserToContext(ctx, *user)
 	if len(in.GetActions()) > maxBatchActions {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
 	}
 
-	results := make([]*api.BatchResult, len(in.GetActions()))
+	results := make([]*api.BatchResult, 0, len(in.GetActions()))
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
-	for i, batchAction := range in.GetActions() {
+	for _, batchAction := range in.GetActions() {
 		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
 			return nil, err
 		}
 		transformers = append(transformers, transformer)
-		results[i] = result
+		results = append(results, result)
 	}
-
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		switch createReleaseError := err.(type) {
+		var applyErr *repository.TransformerBatchApplyError
+		if errors.Is(err, repository.ErrQueueFull) {
+			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
+		}
+		if !errors.As(err, &applyErr) {
+			return nil, err
+		}
+		switch transformerError := applyErr.TransformerError.(type) {
 		case *repository.CreateReleaseError:
 			{
-				// very hackerish way to handle create release errors for now
-				// if you really e.g. batch three release creations you wont know
-				// which failed and which succeeded.
-				// see SRX-OS3BVE to resolve this
 				errorResults := make([]*api.BatchResult, 1)
 				errorResults[0] = &api.BatchResult{
 					Result: &api.BatchResult_CreateReleaseResponse{
-						CreateReleaseResponse: createReleaseError.Response(),
+						CreateReleaseResponse: transformerError.Response(),
 					},
 				}
 				return &api.BatchResponse{Results: errorResults}, nil
 			}
+		case *repository.TeamNotFoundErr:
+			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", applyErr.TransformerError.Error()))
 		default:
 			return nil, err
 		}

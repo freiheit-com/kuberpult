@@ -61,7 +61,8 @@ func makeEnv(envName string, groupName string, upstream *api.EnvironmentConfig_U
 			Upstream:         upstream,
 			EnvironmentGroup: &groupName,
 		},
-		Locks:              map[string]*api.Lock{},
+		Locks: map[string]*api.Lock{},
+
 		Applications:       apps,
 		DistanceToUpstream: 0,
 		Priority:           api.Priority_UPSTREAM, // we are 1 away from prod, hence pre-prod
@@ -296,6 +297,12 @@ func TestOverviewService(t *testing.T) {
 					LockId:      "manual",
 					Message:     "no",
 				},
+				&repository.CreateEnvironmentTeamLock{
+					Environment: "development",
+					Team:        "test-team",
+					LockId:      "manual-team-lock",
+					Message:     "team lock message",
+				},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
 				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
@@ -352,7 +359,6 @@ func TestOverviewService(t *testing.T) {
 				if releases[0].PrNumber == "" {
 					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
 				}
-
 				// Check Dev
 				// Note that EnvironmentGroups are sorted, so it's dev,staging,production (see MapEnvironmentsToGroups for details on sorting)
 				devGroup := resp.EnvironmentGroups[0]
@@ -378,6 +384,15 @@ func TestOverviewService(t *testing.T) {
 					t.Errorf("development environment doesn't contain manual lock: %#v", dev.Locks)
 				} else {
 					if lck.Message != "please" {
+						t.Errorf("development environment manual lock has wrong message: %q", lck.Message)
+					}
+				}
+
+				// check team lock
+				if lck, ok := dev.Applications["test-with-team"].TeamLocks["manual-team-lock"]; !ok {
+					t.Errorf("development environment doesn't contain manual-team lock: %#v", dev.Locks)
+				} else {
+					if lck.Message != "team lock message" {
 						t.Errorf("development environment manual lock has wrong message: %q", lck.Message)
 					}
 				}
@@ -641,6 +656,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						Manifests: map[string]string{
 							"development": "dev",
 						},
+
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "deadbeef",
 						SourceMessage:  "changed something (#678)",
@@ -705,6 +721,14 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 					Transformer: &repository.CreateEnvironmentApplicationLock{
 						Environment: "production",
 						Application: "test",
+						LockId:      "manual",
+						Message:     "no",
+					},
+				},
+				{
+					Transformer: &repository.CreateEnvironmentTeamLock{
+						Environment: "production",
+						Team:        "test-team",
 						LockId:      "manual",
 						Message:     "no",
 					},

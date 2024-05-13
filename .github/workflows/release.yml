@@ -7,6 +7,10 @@ jobs:
     name: Release kuberpult with semantic versioning
     runs-on: ubuntu-latest
     steps:
+      - name: Install earthly
+        uses: earthly/actions-setup@v1
+        with:
+            version: v0.8.4
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # needed for git describe/VERSION in Makefile
@@ -23,6 +27,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run helm chart tests
+        run: |
+          make -C charts/kuberpult test-helm
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag VERSION=v${{ steps.new-semrel-version.outputs.version }}
@@ -54,6 +61,14 @@ jobs:
         run: |
           echo $VERSION
           gh release upload v$VERSION charts/kuberpult/kuberpult-v$VERSION.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.semrel.outputs.version }}
+      - name: Append vulnerability reports to release
+        run: |
+          echo $VERSION
+          earthly ./trivy+scan-all --kuberpult_version=v${VERSION}
+          gh release upload v$VERSION trivy/kuberpult-v${VERSION}-reports.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semrel.outputs.version }}

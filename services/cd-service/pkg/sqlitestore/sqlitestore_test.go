@@ -13,11 +13,13 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
+
 package sqlitestore
 
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	git "github.com/libgit2/git2go/v34"
 )
 
@@ -43,7 +45,7 @@ func TestWriteAndRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(result.Data()) != data {
-		t.Errorf("unexpected result, expected: %q, actual: %q", data, string(result.Data()))
+	if diff := cmp.Diff(data, string(result.Data())); diff != "" {
+		t.Errorf("result mismatch (-want, +got):\n%s", diff)
 	}
 }

@@ -18,9 +18,13 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
@@ -43,31 +47,47 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
+const datadogNameCd = "kuberpult-cd-service"
+
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl             string        `required:"true" split_words:"true"`
-	GitBranch          string        `default:"master" split_words:"true"`
-	BootstrapMode      bool          `default:"false" split_words:"true"`
-	GitCommitterEmail  string        `default:"kuberpult@freiheit.com" split_words:"true"`
-	GitCommitterName   string        `default:"kuberpult" split_words:"true"`
-	GitSshKey          string        `default:"/etc/ssh/identity" split_words:"true"`
-	GitSshKnownHosts   string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
-	GitNetworkTimeout  time.Duration `default:"1m" split_words:"true"`
-	GitWriteCommitData bool          `default:"false" split_words:"true"`
-	PgpKeyRingPath     string        `split_words:"true"`
-	AzureEnableAuth    bool          `default:"false" split_words:"true"`
-	DexEnabled         bool          `default:"false" split_words:"true"`
-	DexRbacPolicyPath  string        `split_words:"true"`
-	EnableTracing      bool          `default:"false" split_words:"true"`
-	EnableMetrics      bool          `default:"false" split_words:"true"`
-	EnableEvents       bool          `default:"false" split_words:"true"`
-	DogstatsdAddr      string        `default:"127.0.0.1:8125" split_words:"true"`
-	EnableSqlite       bool          `default:"true" split_words:"true"`
-	DexMock            bool          `default:"false" split_words:"true"`
-	DexMockRole        string        `default:"Developer" split_words:"true"`
-	ArgoCdServer       string        `default:"" split_words:"true"`
-	ArgoCdInsecure     bool          `default:"false" split_words:"true"`
-	GitWebUrl          string        `default:"" split_words:"true"`
+	GitUrl                   string        `required:"true" split_words:"true"`
+	GitBranch                string        `default:"master" split_words:"true"`
+	BootstrapMode            bool          `default:"false" split_words:"true"`
+	GitCommitterEmail        string        `default:"kuberpult@freiheit.com" split_words:"true"`
+	GitCommitterName         string        `default:"kuberpult" split_words:"true"`
+	GitSshKey                string        `default:"/etc/ssh/identity" split_words:"true"`
+	GitSshKnownHosts         string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
+	GitNetworkTimeout        time.Duration `default:"1m" split_words:"true"`
+	GitWriteCommitData       bool          `default:"false" split_words:"true"`
+	PgpKeyRingPath           string        `split_words:"true"`
+	AzureEnableAuth          bool          `default:"false" split_words:"true"`
+	DexEnabled               bool          `default:"false" split_words:"true"`
+	DexRbacPolicyPath        string        `split_words:"true"`
+	EnableTracing            bool          `default:"false" split_words:"true"`
+	EnableMetrics            bool          `default:"false" split_words:"true"`
+	EnableEvents             bool          `default:"false" split_words:"true"`
+	DogstatsdAddr            string        `default:"127.0.0.1:8125" split_words:"true"`
+	EnableProfiling          bool          `default:"false" split_words:"true"`
+	DatadogApiKeyLocation    string        `default:"" split_words:"true"`
+	EnableSqlite             bool          `default:"true" split_words:"true"`
+	DexMock                  bool          `default:"false" split_words:"true"`
+	DexMockRole              string        `default:"Developer" split_words:"true"`
+	ArgoCdServer             string        `default:"" split_words:"true"`
+	ArgoCdInsecure           bool          `default:"false" split_words:"true"`
+	GitWebUrl                string        `default:"" split_words:"true"`
+	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
+	MaximumQueueSize         uint          `default:"5" split_words:"true"`
+	AllowLongAppNames        bool          `default:"false" split_words:"true"`
+	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
+	DbOption                 string        `default:"NO_DB" split_words:"true"`
+	DbLocation               string        `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance       string        `default:"" split_words:"true"`
+	DbName                   string        `default:"" split_words:"true"`
+	DbUserName               string        `default:"" split_words:"true"`
+	DbUserPassword           string        `default:"" split_words:"true"`
+	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
+	DbMigrationsLocation     string        `default:"" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -79,7 +99,7 @@ func (c *Config) storageBackend() repository.StorageBackend {
 }
 
 func RunServer() {
-	logger.Wrap(context.Background(), func(ctx context.Context) error {
+	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
 
 		var c Config
 
@@ -88,14 +108,31 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
 		}
 
+		if c.EnableProfiling {
+			ddFilename := c.DatadogApiKeyLocation
+			if ddFilename == "" {
+				logger.FromContext(ctx).Fatal("config.profiler.apikey.notfound", zap.Error(err))
+			}
+			fileContentBytes, err := os.ReadFile(ddFilename)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("config.profiler.apikey.file", zap.Error(err))
+			}
+			fileContent := string(fileContentBytes)
+			err = profiler.Start(profiler.WithAPIKey(fileContent), profiler.WithService(datadogNameCd))
+			if err != nil {
+				logger.FromContext(ctx).Fatal("config.profiler.error", zap.Error(err))
+			}
+			defer profiler.Stop()
+		}
+
 		var reader auth.GrpcContextReader
 		if c.DexMock {
 			if !c.DexEnabled {
 				logger.FromContext(ctx).Fatal("dexEnabled must be true if dexMock is true")
 			}
-			//if c.DexMockRole = nil {
-			//	logger.FromContext(ctx).Fatal("dexMockRole must be set to a role (e.g 'DEVELOPER'")
-			//}
+			if c.DexMockRole == "" {
+				logger.FromContext(ctx).Fatal("dexMockRole must be set to a role (e.g 'DEVELOPER' because dexEnabled=true")
+			}
 			reader = &auth.DummyGrpcContextReader{Role: c.DexMockRole}
 		} else {
 			reader = &auth.DexGrpcContextReader{DexEnabled: c.DexEnabled}
@@ -129,10 +166,10 @@ func RunServer() {
 			defer tracer.Stop()
 
 			grpcStreamInterceptors = append(grpcStreamInterceptors,
-				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-cd-service"))),
+				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName(datadogNameCd))),
 			)
 			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
-				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-cd-service"))),
+				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName(datadogNameCd))),
 			)
 		}
 
@@ -141,7 +178,7 @@ func RunServer() {
 			if err != nil {
 				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 			}
-			ctx = context.WithValue(ctx, "ddMetrics", ddMetrics)
+			ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
 		}
 
 		// If the tracer is not started, calling this function is a no-op.
@@ -152,12 +189,64 @@ func RunServer() {
 				zap.String("url", c.GitUrl),
 				zap.String("details", "https is not supported for git communication, only ssh is supported"))
 		}
+		if c.GitMaximumCommitsPerPush == 0 {
+			logger.FromContext(ctx).Fatal("git.config",
+				zap.String("details", "the maximum number of commits per push must be at least 1"),
+			)
+		}
+		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
+			logger.FromContext(ctx).Fatal("cd.config",
+				zap.String("details", "the size of the queue must be between 2 and 100"),
+			)
+		}
+
+		var dbHandler *repository.DBHandler = nil
+		if c.DbOption != "NO_DB" {
+			var dbCfg repository.DBConfig
+			if c.DbOption == "cloudsql" {
+				dbCfg = repository.DBConfig{
+					DbHost:         c.DbLocation,
+					DbPort:         c.DbAuthProxyPort,
+					DriverName:     "postgres",
+					DbName:         c.DbName,
+					DbPassword:     c.DbUserPassword,
+					DbUser:         c.DbUserName,
+					MigrationsPath: c.DbMigrationsLocation,
+				}
+			} else if c.DbOption == "sqlite" {
+				dbCfg = repository.DBConfig{
+					DbHost:         c.DbLocation,
+					DbPort:         c.DbAuthProxyPort,
+					DriverName:     "sqlite3",
+					DbName:         c.DbName,
+					DbPassword:     c.DbUserPassword,
+					DbUser:         c.DbUserName,
+					MigrationsPath: c.DbMigrationsLocation,
+				}
+			} else {
+				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
+			}
+			dbHandler, err = repository.Connect(dbCfg)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+			}
+			pErr := dbHandler.DB.Ping()
+			if pErr != nil {
+				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
+			}
+
+			migErr := repository.RunDBMigrations(dbCfg)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
+			}
+		}
 
 		cfg := repository.RepositoryConfig{
-			URL:            c.GitUrl,
-			Path:           "./repository",
-			CommitterEmail: c.GitCommitterEmail,
-			CommitterName:  c.GitCommitterName,
+			WebhookResolver: nil,
+			URL:             c.GitUrl,
+			Path:            "./repository",
+			CommitterEmail:  c.GitCommitterEmail,
+			CommitterName:   c.GitCommitterName,
 			Credentials: repository.Credentials{
 				SshKey: c.GitSshKey,
 			},
@@ -175,6 +264,11 @@ func RunServer() {
 			NetworkTimeout:         c.GitNetworkTimeout,
 			DogstatsdEvents:        c.EnableMetrics,
 			WriteCommitData:        c.GitWriteCommitData,
+			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
+			MaximumQueueSize:       c.MaximumQueueSize,
+			AllowLongAppNames:      c.AllowLongAppNames,
+			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
+			DBHandler:              dbHandler,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
@@ -184,6 +278,13 @@ func RunServer() {
 		repositoryService := &service.Service{
 			Repository: repo,
 		}
+		if c.DbOption != "NO_DB" {
+			logger.FromContext(ctx).Warn("running custom migrations")
+			migErr := dbHandler.RunCustomMigrations(ctx, repo)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
+			}
+		}
 
 		span.Finish()
 
@@ -192,18 +293,21 @@ func RunServer() {
 		setup.Run(ctx, setup.ServerConfig{
 			HTTP: []setup.HTTPConfig{
 				{
-					Port: "8080",
+					BasicAuth: nil,
+					Shutdown:  nil,
+					Port:      "8080",
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
 						if c.EnableTracing {
-							handler = httptrace.WrapHandler(handler, "kuberpult-cd-service", "/")
+							handler = httptrace.WrapHandler(handler, datadogNameCd, "/")
 						}
 						mux.Handle("/", handler)
 					},
 				},
 			},
 			GRPC: &setup.GRPCConfig{
-				Port: "8443",
+				Shutdown: nil,
+				Port:     "8443",
 				Opts: []grpc.ServerOption{
 					grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
@@ -229,6 +333,13 @@ func RunServer() {
 					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv})
 					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 					api.RegisterEnvironmentServiceServer(srv, &service.EnvironmentServiceServer{Repository: repo})
+					api.RegisterReleaseTrainPrognosisServiceServer(srv, &service.ReleaseTrainPrognosisServer{
+						Repository: repo,
+						RBACConfig: auth.RBACConfig{
+							DexEnabled: c.DexEnabled,
+							Policy:     dexRbacPolicy,
+						},
+					})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 
@@ -236,7 +347,8 @@ func RunServer() {
 			},
 			Background: []setup.BackgroundTaskConfig{
 				{
-					Name: "ddmetrics",
+					Shutdown: nil,
+					Name:     "ddmetrics",
 					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 						reporter.ReportReady("sending metrics")
 						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository) {
@@ -246,8 +358,9 @@ func RunServer() {
 					},
 				},
 				{
-					Name: "push queue",
-					Run:  repoQueue,
+					Shutdown: nil,
+					Name:     "push queue",
+					Run:      repoQueue,
 				},
 			},
 			Shutdown: func(ctx context.Context) error {
@@ -258,4 +371,7 @@ func RunServer() {
 
 		return nil
 	})
+	if err != nil {
+		fmt.Printf("error in logger.wrap: %v %#v", err, err)
+	}
 }

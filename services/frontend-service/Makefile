@@ -34,7 +34,7 @@ ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-regis
 GARBAGE := *.sentinel
 
 SERVICE_NAME := $(shell basename $$PWD)
-EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
+EARTHLY := earthly
 image-name:
 	@echo "$(IMAGENAME)"
 
@@ -59,11 +59,11 @@ build: bin/main
 
 build-pr:
 	echo "build on pull request"
-	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --no-output --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 build-main:
 	echo "build on main"
-	$(EARTHLY) --push --max-remote-cache +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --no-output --push +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 .PHONY: cleanup-pr
 cleanup-pr:
@@ -88,11 +88,11 @@ test-dependencies:
 	make -C ../../pkg/api test
 
 test:
-	$(EARTHLY) +unit-test
+	$(EARTHLY) +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
 	$(EARTHLY) +unit-test-ui
 
 test-go: $(ALL_GO_FILES) | proto
-	$(GO) test ./...
+	$(GO) test $(GO_TEST_ARGS) ./...
 
 test-ts: src/api/api.ts
 	pnpm eslint

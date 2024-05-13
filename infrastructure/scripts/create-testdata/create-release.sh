@@ -1,7 +1,6 @@
 #!/bin/bash
 set -eu
 set -o pipefail
-#set -x
 
 # usage
 # ./create-release.sh my-service-name [my-team-name]
@@ -9,6 +8,8 @@ set -o pipefail
 
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
+prev=${3:-""}
+
 # 40 is the length of a full git commit hash.
 commit_id=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 40 ; echo '')
 authors[0]="urbansky"
@@ -44,7 +45,9 @@ msgs[10]="Allow deleting locks on locks page"
 sizeMsgs=${#msgs[@]}
 index=$(($RANDOM % $sizeMsgs))
 echo $index
-echo "${msgs[$index]}" > "${commit_message_file}"
+echo -e "${msgs[$index]}\n" > "${commit_message_file}"
+echo "1: ${msgs[$index]}" >> "${commit_message_file}"
+echo "2: ${msgs[$index]}" >> "${commit_message_file}"
 
 ls "${commit_message_file}"
 
@@ -89,19 +92,27 @@ FRONTEND_PORT=8081 # see docker-compose.yml
 
 if [[ $(uname -o) == Darwin ]];
 then
-  EMAIL=$(echo -n "script-user@example.com" | base64 -b0)
-  AUTHOR=$(echo -n "script-user" | base64 -b0)
+  EMAIL=$(echo -n "script-user@example.com" | base64 -b 0)
+  AUTHOR=$(echo -n "script-user" | base64 -b 0)
 else
   EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
   AUTHOR=$(echo -n "script-user" | base64 -w 0)
 fi
 
+inputs=()
+inputs+=(--form-string "application=$name")
+inputs+=(--form-string "source_commit_id=$commit_id")
+inputs+=(--form-string "source_author=$author")
+
+if [ "$prev" != "" ];
+then
+  inputs+=(--form-string "previous_commit_id=${prev}")
+fi
+
 curl http://localhost:${FRONTEND_PORT}/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
-  --form-string "application=$name" \
-  --form-string "source_commit_id=${commit_id}" \
-  --form-string "source_author=${author}" \
+  "${inputs[@]}" \
   ${release_version} \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
@@ -109,4 +120,3 @@ curl http://localhost:${FRONTEND_PORT}/release \
   "${manifests[@]}" -v
 
 echo # curl sometimes does not print a trailing \n
-

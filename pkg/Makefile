@@ -29,7 +29,7 @@ all:
 lint:
 	earthly +lint
 test:
-	earthly +test
+	earthly +test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
 
 api/v1/api.EnvironmentConfig_grpc.pb.go api/v1/api.pb.go api/v1/api.pb.gw.go api/v1/api_grpc.pb.go: api/v1/api.proto buf.yaml buf.gen.yaml buf.lock
 	if grep -q '^import "google/api/annotations.proto"' $< || grep -q '^import "google/api/http.proto"' $< ; then echo 'Instead of using google.api.http protobuf annotations we write HTTP handlers by hand' ; exit 1 ; fi

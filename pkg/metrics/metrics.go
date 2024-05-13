@@ -46,6 +46,7 @@ func Init() (metric.MeterProvider, http.Handler, error) {
 		sdkmetric.WithReader(promExp),
 	)
 
+	//exhaustruct:ignore
 	return meterProvider, promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), nil
 }
 

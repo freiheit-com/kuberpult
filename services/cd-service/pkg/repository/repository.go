@@ -25,11 +25,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
@@ -60,14 +61,51 @@ import (
 	git "github.com/libgit2/git2go/v34"
 )
 
+type contextKey string
+
+const DdMetricsKey contextKey = "ddMetrics"
+
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, error)
+	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
+}
+
+type TransformerBatchApplyError struct {
+	TransformerError error // the error that caused the batch to fail. nil if no error happened
+	Index            int   // the index of the transformer that caused the batch to fail or -1 if the error happened outside one specific transformer
+}
+
+func (err *TransformerBatchApplyError) Error() string {
+	if err == nil {
+		return ""
+	}
+	if err.Index < 0 {
+		return fmt.Sprintf("error not specific to one transformer of this batch: %s", err.TransformerError.Error())
+	}
+	return fmt.Sprintf("error at index %d of transformer batch: %s", err.Index, err.TransformerError.Error())
+}
+
+func (err *TransformerBatchApplyError) Is(target error) bool {
+	tgt, ok := target.(*TransformerBatchApplyError)
+	if !ok {
+		return false
+	}
+	if err == nil {
+		return target == nil
+	}
+	if target == nil {
+		return false
+	}
+	// now both target and err are guaranteed to be non-nil
+	if err.Index != tgt.Index {
+		return false
+	}
+	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
 func defaultBackOffProvider() backoff.BackOff {
@@ -109,6 +147,8 @@ type repository struct {
 	notify notify.Notify
 
 	backOffProvider func() backoff.BackOff
+
+	DB *DBHandler
 }
 
 type WebhookResolver interface {
@@ -118,13 +158,18 @@ type WebhookResolver interface {
 type DefaultWebhookResolver struct{}
 
 func (r DefaultWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
-	tr := &http.Transport{
-		// we reach argo from within the cluster, so there's no ssl:
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecure,
-		},
+	//exhaustruct:ignore
+	TLSClientConfig := &tls.Config{
+		InsecureSkipVerify: insecure,
 	}
-	client := &http.Client{Transport: tr}
+	//exhaustruct:ignore
+	tr := &http.Transport{
+		TLSClientConfig: TLSClientConfig,
+	}
+	//exhaustruct:ignore
+	client := &http.Client{
+		Transport: tr,
+	}
 	return client.Do(req)
 }
 
@@ -154,10 +199,18 @@ type RepositoryConfig struct {
 	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
 	ArgoWebhookUrl string
 	// the url to the git repo, like the browser requires it (https protocol)
-	WebURL          string
-	DogstatsdEvents bool
-	WriteCommitData bool
-	WebhookResolver WebhookResolver
+	WebURL                string
+	DogstatsdEvents       bool
+	WriteCommitData       bool
+	WebhookResolver       WebhookResolver
+	MaximumCommitsPerPush uint
+	MaximumQueueSize      uint
+	// Extend maximum AppName length
+	AllowLongAppNames bool
+
+	ArgoCdGenerateFiles bool
+
+	DBHandler *DBHandler
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -165,8 +218,11 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 	if err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrNotFound {
-				os.MkdirAll(path, 0777)
+			if gerr.Code == git.ErrorCodeNotFound {
+				err = os.MkdirAll(path, 0777)
+				if err != nil {
+					return nil, err
+				}
 				repo2, err = git.InitRepository(path, true)
 				if err != nil {
 					return nil, err
@@ -218,12 +274,21 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	}
 
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		CredentialsCallback:      credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+	}
 	fetchOptions := git.FetchOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:      credentials.CredentialsCallback(ctx),
-			CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+		Prune:           git.FetchPruneUnspecified,
+		UpdateFetchhead: false,
+		Headers:         nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
 		},
-		DownloadTags: git.DownloadTagsAll,
+		RemoteCallbacks: RemoteCallbacks,
+		DownloadTags:    git.DownloadTagsAll,
 	}
 	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
@@ -272,16 +337,18 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	go bg(ctx, nil)
+	go bg(ctx, nil) //nolint: errcheck
 	return repo, err
 }
 
 func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
-	ddMetricsFromCtx := ctx.Value("ddMetrics")
+	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
 	if ddMetricsFromCtx != nil {
 		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
+	} else {
+		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
 	}
 
 	if cfg.Branch == "" {
@@ -299,6 +366,14 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
 	}
+	if cfg.MaximumCommitsPerPush == 0 {
+		cfg.MaximumCommitsPerPush = 1
+
+	}
+	if cfg.MaximumQueueSize == 0 {
+		cfg.MaximumQueueSize = 5
+	}
+
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -323,39 +398,53 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return nil, nil, err
 		} else {
 			result := &repository{
+				writesDone:      0,
+				headLock:        sync.Mutex{},
+				notify:          notify.Notify{},
+				writeLock:       sync.Mutex{},
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
 				repository:      repo2,
-				queue:           makeQueue(),
+				queue:           makeQueueN(cfg.MaximumQueueSize),
 				backOffProvider: defaultBackOffProvider,
+				DB:              cfg.DBHandler,
 			}
 			result.headLock.Lock()
 
 			defer result.headLock.Unlock()
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-			fetchOptions := git.FetchOptions{
-				RemoteCallbacks: git.RemoteCallbacks{
-					UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-						logger.Debug("git.fetched",
-							zap.String("refname", refname),
-							zap.String("revision.new", b.String()),
-						)
-						return nil
-					},
-					CredentialsCallback:      credentials.CredentialsCallback(ctx),
-					CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+			//exhaustruct:ignore
+			RemoteCallbacks := git.RemoteCallbacks{
+				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+					logger.Debug("git.fetched",
+						zap.String("refname", refname),
+						zap.String("revision.new", b.String()),
+					)
+					return nil
 				},
+				CredentialsCallback:      credentials.CredentialsCallback(ctx),
+				CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+			}
+			fetchOptions := git.FetchOptions{
+				Prune:           git.FetchPruneUnspecified,
+				UpdateFetchhead: false,
+				DownloadTags:    git.DownloadTagsUnspecified,
+				Headers:         nil,
+				ProxyOptions: git.ProxyOptions{
+					Type: git.ProxyTypeNone,
+					Url:  "",
+				},
+				RemoteCallbacks: RemoteCallbacks,
 			}
 			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 			if err != nil {
 				return nil, nil, err
 			}
-			var zero git.Oid
-			var rev *git.Oid = &zero
+			var rev *git.Oid
 			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
 				var gerr *git.GitError
-				if errors.As(err, &gerr) && gerr.Code == git.ErrNotFound {
+				if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
 					// not found
 					// nothing to do
 				} else {
@@ -387,12 +476,12 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
 	defer func() {
-		close(r.queue.elements)
-		for e := range r.queue.elements {
-			e.result <- ctx.Err()
+		close(r.queue.transformerBatches)
+		for e := range r.queue.transformerBatches {
+			e.finish(ctx.Err())
 		}
 	}()
-	tick := time.Tick(r.config.NetworkTimeout)
+	tick := time.Tick(r.config.NetworkTimeout) //nolint: staticcheck
 	ttl := r.config.NetworkTimeout * 3
 	for {
 		/*
@@ -411,42 +500,43 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
 		case <-ctx.Done():
 			return nil
-		case e := <-r.queue.elements:
+		case e := <-r.queue.transformerBatches:
 			r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
 		}
 	}
 }
 
-func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool) ([]transformerBatch, error, *TransformerResult) {
+	//exhaustruct:ignore
 	var changes = &TransformerResult{}
-	for i := 0; i < len(elements); {
-		e := elements[i]
+	for i := 0; i < len(transformerBatches); {
+		e := transformerBatches[i]
 		subChanges, applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
 		changes.Combine(subChanges)
 		if applyErr != nil {
-			if errors.Is(applyErr, InvalidJson) && allowFetchAndReset {
+			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
-					return elements, err, nil
+					return transformerBatches, err, nil
 				}
-				return r.applyElements(elements, false)
+				return r.applyTransformerBatches(transformerBatches, false)
 			} else {
-				e.result <- applyErr
-				// here, we keep all elements "behind i".
-				// these are the elements that have not been applied yet
-				elements = append(elements[:i], elements[i+1:]...)
+				e.finish(applyErr)
+				// here, we keep all transformerBatches "behind i".
+				// these are the transformerBatches that have not been applied yet
+				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 			}
 		} else {
 			i++
 		}
 	}
-	return elements, nil, changes
+	return transformerBatches, nil, changes
 }
 
 var panicError = errors.New("Panic")
 
-func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) error) error {
+func (r *repository) useRemote(callback func(*git.Remote) error) error {
 	remote, err := r.repository.Remotes.CreateAnonymous(r.config.URL)
 	if err != nil {
 		return fmt.Errorf("opening remote %q: %w", r.config.URL, err)
@@ -469,22 +559,32 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 	}
 }
 
-func (r *repository) drainQueue() []element {
-	elements := []element{}
-	for {
+func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
+	if r.config.MaximumCommitsPerPush < 2 {
+		return nil
+	}
+	limit := r.config.MaximumCommitsPerPush - 1
+	transformerBatches := []transformerBatch{}
+	defer r.queue.GaugeQueueSize(ctx)
+	for uint(len(transformerBatches)) < limit {
 		select {
-		case f := <-r.queue.elements:
+		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
 			select {
 			case <-f.ctx.Done():
-				f.result <- f.ctx.Err()
+				f.finish(f.ctx.Err())
 			default:
-				elements = append(elements, f)
+				transformerBatches = append(transformerBatches, f)
 			}
 		default:
-			return elements
+			return transformerBatches
 		}
 	}
+	return transformerBatches
+}
+
+func (r *repository) GaugeQueueSize(ctx context.Context) {
+	r.queue.GaugeQueueSize(ctx)
 }
 
 // It returns always nil
@@ -504,7 +604,7 @@ type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
 // DefaultPushActionCallback is public for testing reasons only.
 func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushActionFunc {
 	return func() error {
-		return r.useRemote(context.Background(), func(remote *git.Remote) error {
+		return r.useRemote(func(remote *git.Remote) error {
 			return remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
 		})
 	}
@@ -512,42 +612,53 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
-func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
+func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
 	logger := logger.FromContext(ctx)
 	var err error = panicError
-	elements := []element{e}
-	defer func() {
-		for _, el := range elements {
-			el.result <- err
-		}
-	}()
-	// Check that the first element is not already canceled
+
+	// Check that the first transformerBatch is not already canceled
 	select {
 	case <-e.ctx.Done():
-		e.result <- e.ctx.Err()
+		e.finish(e.ctx.Err())
 		return
 	default:
 	}
 
+	transformerBatches := []transformerBatch{e}
+	defer func() {
+		for _, el := range transformerBatches {
+			el.finish(err)
+		}
+	}()
+
 	// Try to fetch more items from the queue in order to push more things together
-	elements = append(elements, r.drainQueue()...)
+	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
 
 	var pushSuccess = true
+
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
+		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
+		PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
+	}
 	pushOptions := git.PushOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
-			CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
-			PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
+		PbParallelism: 0,
+		Headers:       nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
 		},
+		RemoteCallbacks: RemoteCallbacks,
 	}
 
 	// Apply the items
-	elements, err, changes := r.applyElements(elements, true)
+	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
 	if err != nil {
 		return
 	}
 
-	if len(elements) == 0 {
+	if len(transformerBatches) == 0 {
 		return
 	}
 
@@ -562,18 +673,18 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 				return
 			}
 			// Apply the items
-			elements, err, changes = r.applyElements(elements, false)
-			if err != nil || len(elements) == 0 {
+			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
+			if err != nil || len(transformerBatches) == 0 {
 				return
 			}
 			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
-				err = &InternalError{inner: pushErr}
+				err = pushErr
 			}
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			err = grpc.CanceledError(ctx, err)
 		} else {
 			logger.Error(fmt.Sprintf("error while pushing: %s", err))
-			err = grpc.PublicError(ctx, errors.New(fmt.Sprintf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)))
+			err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
 		}
 	} else {
 		if !pushSuccess {
@@ -585,7 +696,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, r.State(), changes, time.Now())
+		ddError := UpdateDatadogMetrics(ctx, r.State(), r, changes, time.Now())
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}
@@ -621,7 +732,8 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 		htmlUrl:  r.config.WebURL, // if this does not match, argo will completely ignore the request and return 200
 		revision: "refs/heads/" + r.config.Branch,
 		change: changeInfo{
-			payloadAfter: changes.Commits.Current.String(),
+			payloadBefore: "",
+			payloadAfter:  changes.Commits.Current.String(),
 		},
 		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
 		Commits: []commit{
@@ -681,15 +793,18 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	l := logger.FromContext(ctx)
 	l.Info(fmt.Sprintf("doWebhookPostRequest: URL: %s", url))
 
+	//exhaustruct:ignore
+	Repository := v1alpha1.Repository{
+		HTMLURL:       data.htmlUrl,
+		DefaultBranch: data.defaultBranch,
+	}
+	//exhaustruct:ignore
 	var argoFormat = v1alpha1.PushPayload{
-		Ref:    data.revision,
-		Before: data.change.payloadBefore,
-		After:  data.change.payloadAfter,
-		Repository: v1alpha1.Repository{
-			HTMLURL:       data.htmlUrl,
-			DefaultBranch: data.defaultBranch,
-		},
-		Commits: toArgoCommits(data.Commits),
+		Ref:        data.revision,
+		Before:     data.change.payloadBefore,
+		After:      data.change.payloadAfter,
+		Repository: Repository,
+		Commits:    toArgoCommits(data.Commits),
 	}
 
 	jsonBytes, err := json.MarshalIndent(argoFormat, " ", " ")
@@ -698,6 +813,9 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	}
 	l.Info(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return fmt.Errorf("Could not create new request: %s", err.Error()), false
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// now pretend that we are GitHub by adding this header, otherwise argo will ignore our request:
@@ -709,7 +827,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	}
 	resp, err := webhookResolver.Resolve(repoConfig.ArgoInsecure, req)
 	if err != nil {
-		return errors.New(fmt.Sprintf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error())), false
+		return fmt.Errorf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error()), false
 	}
 	defer resp.Body.Close()
 
@@ -722,7 +840,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	}
 	validResponseCodes := []int{200}
 	if resp.StatusCode >= 500 {
-		return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode)), true
+		return fmt.Errorf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode), true
 	}
 
 	if contains(validResponseCodes, resp.StatusCode) {
@@ -731,7 +849,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	}
 	// in any other case we should not do a retry (e.g. status 4xx):
 	l.Warn(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
-	return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode)), false
+	return fmt.Errorf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode), false
 }
 
 func toArgoCommits(commits []commit) []v1alpha1.Commit {
@@ -753,12 +871,20 @@ func toArgoCommits(commits []commit) []v1alpha1.Commit {
 				Name     string `json:"name"`
 				Email    string `json:"email"`
 				Username string `json:"username"`
-			}{},
+			}{
+				Name:     "",
+				Email:    "",
+				Username: "",
+			},
 			Committer: struct {
 				Name     string `json:"name"`
 				Email    string `json:"email"`
 				Username string `json:"username"`
-			}{},
+			}{
+				Name:     "",
+				Email:    "",
+				Username: "",
+			},
 			Added:    c.Added,
 			Removed:  c.Removed,
 			Modified: c.Modified,
@@ -785,16 +911,20 @@ type ArgoWebhookData struct {
 	Commits       []commit
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, error) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
 	if state, err := r.StateAt(nil); err != nil {
-		return nil, nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
+		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
 		ctxWithTime := WithTimeNow(ctx, time.Now())
-		for _, t := range transformers {
+		for i, t := range transformers {
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state); err != nil {
-				return nil, nil, nil, err
+				applyErr := TransformerBatchApplyError{
+					TransformerError: err,
+					Index:            i,
+				}
+				return nil, nil, nil, &applyErr
 			} else {
 				commitMsg = append(commitMsg, msg)
 				changes = append(changes, subChanges)
@@ -858,6 +988,7 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 }
 
 func CombineArray(others []*TransformerResult) *TransformerResult {
+	//exhaustruct:ignore
 	var r *TransformerResult = &TransformerResult{}
 	for i := range others {
 		r.Combine(others[i])
@@ -865,18 +996,18 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 	return r
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, error) {
-	commitMsg, state, changes, err := r.ApplyTransformersInternal(ctx, transformers...)
-	if err != nil {
-		return nil, err
+func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transformers...)
+	if applyErr != nil {
+		return nil, applyErr
 	}
 	if err := r.afterTransform(ctx, *state); err != nil {
-		return nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err))
+		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
-	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-	if err != nil {
-		return nil, &InternalError{inner: err}
+	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+	if insertError != nil {
+		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
 	}
 	committer := &git.Signature{
 		Name:  r.config.CommitterName,
@@ -884,10 +1015,13 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		When:  time.Now(),
 	}
 
-	user, err := auth.ReadUserFromContext(ctx)
+	user, readUserErr := auth.ReadUserFromContext(ctx)
 
-	if err != nil {
-		return nil, err
+	if readUserErr != nil {
+		return nil, &TransformerBatchApplyError{
+			TransformerError: readUserErr,
+			Index:            -1,
+		}
 	}
 
 	author := &git.Signature{
@@ -903,7 +1037,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 	oldCommitId := rev
 
-	newCommitId, err := r.repository.CreateCommitFromIds(
+	newCommitId, createErr := r.repository.CreateCommitFromIds(
 		fmt.Sprintf("refs/heads/%s", r.config.Branch),
 		author,
 		committer,
@@ -911,8 +1045,11 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		treeId,
 		rev,
 	)
-	if err != nil {
-		return nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err))
+	if createErr != nil {
+		return nil, &TransformerBatchApplyError{
+			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
+			Index:            -1,
+		}
 	}
 	result := CombineArray(changes)
 	result.Commits = &CommitIds{
@@ -928,30 +1065,40 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 func (r *repository) FetchAndReset(ctx context.Context) error {
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
 	logger := logger.FromContext(ctx)
-	fetchOptions := git.FetchOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-				logger.Debug("git.fetched",
-					zap.String("refname", refname),
-					zap.String("revision.new", b.String()),
-				)
-				return nil
-			},
-			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+			logger.Debug("git.fetched",
+				zap.String("refname", refname),
+				zap.String("revision.new", b.String()),
+			)
+			return nil
 		},
+		CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
 	}
-	err := r.useRemote(ctx, func(remote *git.Remote) error {
+	fetchOptions := git.FetchOptions{
+		Prune:           git.FetchPruneUnspecified,
+		UpdateFetchhead: false,
+		DownloadTags:    git.DownloadTagsUnspecified,
+		Headers:         nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+		RemoteCallbacks: RemoteCallbacks,
+	}
+	err := r.useRemote(func(remote *git.Remote) error {
 		return remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	})
 	if err != nil {
-		return &InternalError{inner: err}
+		return err
 	}
 	var zero git.Oid
 	var rev *git.Oid = &zero
 	if remoteRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", r.config.Branch)); err != nil {
 		var gerr *git.GitError
-		if errors.As(err, &gerr) && gerr.Code == git.ErrNotFound {
+		if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
 			// not found
 			// nothing to do
 		} else {
@@ -971,6 +1118,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	//exhaustruct:ignore
 	err = r.repository.ResetToCommit(commit, git.ResetSoft, &git.CheckoutOptions{Strategy: git.CheckoutForce})
 	if err != nil {
 		return err
@@ -1040,10 +1188,14 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 }
 
 func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
+	defer span.Finish()
 	fs := state.Filesystem
 	if apps, err := state.GetEnvironmentApplications(env); err != nil {
 		return err
 	} else {
+		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
+		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
 		for _, appName := range apps {
@@ -1072,16 +1224,24 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 				TeamName: team,
 			})
 		}
-		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, env, appData); err != nil {
-			return err
-		} else {
-			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-					return err
-				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
-					return err
+		spanCollectData.Finish()
+
+		if r.config.ArgoCdGenerateFiles {
+			spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+			defer spanRenderAndWrite.Finish()
+			if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
+				return err
+			} else {
+				spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
+				defer spanWrite.Finish()
+				for apiVersion, content := range manifests {
+					if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+						return err
+					}
+					target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
+					if err := util.WriteFile(fs, target, content, 0666); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -1103,11 +1263,13 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
 			var gerr *git.GitError
 			if errors.As(err, &gerr) {
-				if gerr.Code == git.ErrNotFound {
+				if gerr.Code == git.ErrorCodeNotFound {
 					return &State{
+						Commit:                 nil,
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+						DBHandler:              r.DB,
 					}, nil
 				}
 			}
@@ -1130,6 +1292,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+		DBHandler:              r.DB,
 	}, nil
 }
 
@@ -1211,7 +1374,7 @@ func (r *repository) maybeGc(ctx context.Context) {
 		return
 	}
 	statsAfter, _ := r.countObjects(ctx)
-	log.Info("git.repack", zap.Duration("duration", time.Now().Sub(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
+	log.Info("git.repack", zap.Duration("duration", time.Since(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
 }
 
 type State struct {
@@ -1219,6 +1382,8 @@ type State struct {
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	// DbHandler will be nil if the DB is disabled
+	DBHandler *DBHandler
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {
@@ -1266,7 +1431,14 @@ type Lock struct {
 }
 
 func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
-	lock := &Lock{}
+	lock := &Lock{
+		Message: "",
+		CreatedBy: Actor{
+			Name:  "",
+			Email: "",
+		},
+		CreatedAt: time.Time{},
+	}
 
 	if cnt, err := readFile(fs, fs.Join(lockDir, "message")); err != nil {
 		if !os.IsNotExist(err) {
@@ -1318,7 +1490,9 @@ func (s *State) GetEnvLockDir(environment string, lockId string) string {
 func (s *State) GetAppLocksDir(environment string, application string) string {
 	return s.Filesystem.Join("environments", environment, "applications", application, "locks")
 }
-
+func (s *State) GetTeamLocksDir(environment string, team string) string {
+	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
+}
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
 	base := s.GetEnvLocksDir(environment)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
@@ -1358,7 +1532,25 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 		return result, nil
 	}
 }
-
+func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lock, error) {
+	base := s.GetTeamLocksDir(environment, team)
+	if entries, err := s.Filesystem.ReadDir(base); err != nil {
+		return nil, err
+	} else {
+		result := make(map[string]Lock, len(entries))
+		for _, e := range entries {
+			if !e.IsDir() {
+				return nil, fmt.Errorf("error getting team locks: found file in the locks directory. run migration script to generate correct metadata")
+			}
+			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
+				return nil, err
+			} else {
+				result[e.Name()] = *lock
+			}
+		}
+		return result, nil
+	}
+}
 func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
@@ -1386,6 +1578,12 @@ func (s *State) GetDeploymentMetaData(environment, application string) (string, 
 	}
 
 	return string(author), deployedAt, nil
+}
+
+func (s *State) DeleteTeamLockIfEmpty(ctx context.Context, environment string, team string) error {
+	dir := s.GetTeamLocksDir(environment, team)
+	_, err := s.DeleteDirIfEmpty(dir)
+	return err
 }
 
 func (s *State) DeleteAppLockIfEmpty(ctx context.Context, environment string, application string) error {
@@ -1476,6 +1674,18 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 	}
 }
 
+func (s *State) GetTeamName(application string) (string, error) {
+	fs := s.Filesystem
+
+	teamFilePath := fs.Join("applications", application, "team")
+
+	if teamName, err := util.ReadFile(fs, teamFilePath); err != nil {
+		return "", err
+	} else {
+		return string(teamName), nil
+	}
+}
+
 var InvalidJson = errors.New("JSON file is not valid")
 
 func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFor string) bool {
@@ -1518,7 +1728,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
 		result := map[string]config.EnvironmentConfig{}
-		buf, err := ioutil.ReadFile(s.EnvironmentConfigsPath)
+		buf, err := os.ReadFile(s.EnvironmentConfigsPath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return result, nil
@@ -1573,7 +1783,7 @@ func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error)
 		}
 	}
 	if len(groupEnvNames) == 0 {
-		return nil, errors.New(fmt.Sprintf("No environment found with given group '%s'", envGroup))
+		return nil, fmt.Errorf("No environment found with given group '%s'", envGroup)
 	}
 	sort.Strings(groupEnvNames)
 	return groupEnvNames, nil
@@ -1584,7 +1794,20 @@ func (s *State) GetEnvironmentApplications(environment string) ([]string, error)
 	return names(s.Filesystem, appDir)
 }
 
-func (s *State) GetApplications() ([]string, error) {
+// GetApplications returns apps from either the db (if enabled), or otherwise the filesystem
+func (s *State) GetApplications(ctx context.Context) ([]string, error) {
+	if s.DBHandler != nil {
+		result, err := s.DBHandler.DBSelectAllApplications(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return result.Apps, nil
+	}
+	return s.GetApplicationsFromFile()
+}
+
+// GetApplicationsFromFile returns apps from the filesystem
+func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
 }
 
@@ -1619,6 +1842,33 @@ type Release struct {
 	DisplayVersion  string
 }
 
+func (rel *Release) ToProto() *api.Release {
+	if rel == nil {
+		return nil
+	}
+	return &api.Release{
+		PrNumber:        extractPrNumber(rel.SourceMessage),
+		Version:         rel.Version,
+		SourceAuthor:    rel.SourceAuthor,
+		SourceCommitId:  rel.SourceCommitId,
+		SourceMessage:   rel.SourceMessage,
+		UndeployVersion: rel.UndeployVersion,
+		CreatedAt:       timestamppb.New(rel.CreatedAt),
+		DisplayVersion:  rel.DisplayVersion,
+	}
+}
+
+func extractPrNumber(sourceMessage string) string {
+	re := regexp.MustCompile(`\(#(\d+)\)`)
+	res := re.FindAllStringSubmatch(sourceMessage, -1)
+
+	if len(res) == 0 {
+		return ""
+	} else {
+		return res[len(res)-1][1]
+	}
+}
+
 func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
@@ -1640,7 +1890,15 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	if err != nil {
 		return nil, wrapFileError(err, base, "could not call stat")
 	}
-	release := Release{Version: version}
+	release := Release{
+		Version:         version,
+		UndeployVersion: false,
+		SourceAuthor:    "",
+		SourceCommitId:  "",
+		SourceMessage:   "",
+		CreatedAt:       time.Time{},
+		DisplayVersion:  "",
+	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
@@ -1687,6 +1945,36 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		}
 	}
 	return &release, nil
+}
+
+func (s *State) GetApplicationReleaseManifests(application string, version uint64) (map[string]*api.Manifest, error) {
+	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
+
+	entries, err := s.Filesystem.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("reading manifest directory: %w", err)
+	}
+	manifests := map[string]*api.Manifest{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		manifestPath := filepath.Join(dir, entry.Name(), "manifests.yaml")
+		file, err := s.Filesystem.Open(manifestPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open %s: %w", manifestPath, err)
+		}
+		content, err := io.ReadAll(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", manifestPath, err)
+		}
+
+		manifests[entry.Name()] = &api.Manifest{
+			Environment: entry.Name(),
+			Content:     string(content),
+		}
+	}
+	return manifests, nil
 }
 
 func (s *State) GetApplicationTeamOwner(application string) (string, error) {

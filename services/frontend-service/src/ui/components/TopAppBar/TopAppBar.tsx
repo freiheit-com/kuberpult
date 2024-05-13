@@ -30,7 +30,7 @@ import {
     useSidebarShown,
 } from '../../utils/store';
 import { Warning } from '../../../api/api';
-import { hideWithoutWarnings, setHideWithoutWarnings } from '../../utils/Links';
+import { hideWithoutWarnings, KuberpultGitHubLink, setHideWithoutWarnings } from '../../utils/Links';
 
 export type TopAppBarProps = {
     showAppFilter: boolean;
@@ -46,7 +46,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const appNameParam = params.get('application') || '';
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
-    const version = useKuberpultVersion();
+    const version = useKuberpultVersion() || '2.6.0';
 
     const hideWithoutWarningsValue = hideWithoutWarnings(params);
     const allWarnings: Warning[] = useAllWarnings();
@@ -66,14 +66,27 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             </div>
         );
 
+    const [searchParams, setSearchParams] = useSearchParams(
+        appNameParam === '' ? undefined : { application: `${appNameParam}` }
+    );
+    const onChangeApplication = useCallback(
+        (event: any) => {
+            if (event.target.value !== '') searchParams.set('application', event.target.value);
+            else searchParams.delete('application');
+            setSearchParams(searchParams);
+        },
+        [searchParams, setSearchParams]
+    );
+
     const renderedAppFilter =
         props.showAppFilter === true ? (
             <div className="mdc-top-app-bar__section top-app-bar--wide-filter">
                 <Textfield
                     className={'top-app-bar-search-field'}
-                    floatingLabel={'Application Name'}
+                    placeholder={'Application Name'}
                     value={appNameParam}
                     leadingIcon={'search'}
+                    onChange={onChangeApplication}
                 />
             </div>
         ) : (
@@ -82,7 +95,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const renderedTeamsFilter =
         props.showTeamFilter === true ? (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter">
-                <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
+                <Dropdown className={'top-app-bar-search-field'} placeholder={'Teams'} leadingIcon={'search'} />
             </div>
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
@@ -101,11 +114,14 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
+
     return (
         <div className="mdc-top-app-bar">
             <div className="mdc-top-app-bar__row">
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                    <span className="mdc-top-app-bar__title">Kuberpult {version}</span>
+                    <span className="mdc-top-app-bar__title">
+                        Kuberpult <KuberpultGitHubLink version={version} />
+                    </span>
                 </div>
                 {renderedAppFilter}
                 {renderedTeamsFilter}
@@ -117,6 +133,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                         className="mdc-show-button mdc-button--unelevated"
                         icon={<ShowBarWhite />}
                         onClick={toggleSideBar}
+                        highlightEffect={false}
                     />
                     <SideBar
                         className={classNames(`mdc-drawer-sidebar mdc-drawer-sidebar-container`, {

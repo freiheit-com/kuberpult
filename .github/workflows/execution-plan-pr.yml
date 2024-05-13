@@ -3,9 +3,12 @@ name: "Execution Plan on Pull Request"
   pull_request:
     branches:
       - main
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   execution-plan:
-    uses: ./.github/workflows/execution-plan-snippet.yml
+    uses: ./.github/workflows/execution-plan-snippet-earthly.yml
     with:
       trigger: pull-request
     secrets: inherit
@@ -15,3 +18,11 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       trigger: pull-request
+    secrets: inherit
+  
+  trivy-scan:
+    needs: [execution-plan]
+    uses: ./.github/workflows/trivy-scan.yml
+    with:
+      trigger: pull-request
+    secrets: inherit

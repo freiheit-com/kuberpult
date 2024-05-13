@@ -24,8 +24,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
-	"time"
 
 	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 
@@ -46,6 +46,7 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -57,7 +58,49 @@ import (
 )
 
 var c config.ServerConfig
+var backendServiceId string = ""
 
+func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
+	if c.GKEBackendServiceID == "" && c.GKEBackendServiceName == "" {
+		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! missing backend_service_id or backend_service_name")
+		return ""
+	}
+
+	if c.GKEBackendServiceID != "" && c.GKEBackendServiceName != "" {
+		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! backend_service_id and backend_service_name cannot be set simultaneously")
+		return ""
+	}
+
+	if c.GKEBackendServiceID != "" {
+		return c.GKEBackendServiceID
+	}
+	regex, err := regexp.Compile(c.GKEBackendServiceName)
+	if err != nil {
+		logger.FromContext(ctx).Warn("Error compiling regex for backend_service_name: %v", zap.Error(err))
+		return ""
+	}
+	computeService, err := compute.NewService(ctx)
+	if err != nil {
+		logger.FromContext(ctx).Warn("Failed to create Compute Service client: %v", zap.Error(err))
+		return ""
+	}
+	backendServices, err := computeService.BackendServices.List(c.GKEProjectNumber).Do()
+	if err != nil {
+		logger.FromContext(ctx).Warn("Failed to get backend service: %v", zap.Error(err))
+		return ""
+	}
+
+	serviceId := ""
+	for _, backendService := range backendServices.Items {
+		if regex.MatchString(backendService.Name) {
+			serviceId = fmt.Sprint(backendService.Id)
+		}
+	}
+	if serviceId == "" {
+		logger.FromContext(ctx).Warn("No backend services found matching:", zap.String("pattern", c.GKEBackendServiceName))
+	}
+	return serviceId
+}
 func readAllAndClose(r io.ReadCloser, maxBytes int64) {
 	_, _ = io.ReadAll(io.LimitReader(r, maxBytes))
 	_ = r.Close()
@@ -76,7 +119,10 @@ func readPgpKeyRing() (openpgp.KeyRing, error) {
 }
 
 func RunServer() {
-	logger.Wrap(context.Background(), runServer)
+	err := logger.Wrap(context.Background(), runServer)
+	if err != nil {
+		fmt.Printf("error: %v %#v", err, err)
+	}
 }
 
 func runServer(ctx context.Context) error {
@@ -86,7 +132,6 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Error("config.parse", zap.Error(err))
 		return err
 	}
-	logger.FromContext(ctx).Warn(fmt.Sprintf("config: \n%v", c))
 	if c.GitAuthorEmail == "" {
 		msg := "DefaultGitAuthorEmail must not be empty"
 		logger.FromContext(ctx).Error(msg)
@@ -106,8 +151,14 @@ func runServer(ctx context.Context) error {
 			return err
 		}
 	}
+
 	logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 	logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
+	logger.FromContext(ctx).Info("config.gke_backend_service_name: " + c.GKEBackendServiceName + "\n")
+
+	if c.GKEProjectNumber != "" {
+		backendServiceId = getBackendServiceId(c, ctx)
+	}
 
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
@@ -125,6 +176,7 @@ func runServer(ctx context.Context) error {
 			msg := "failed to read CA certificates"
 			return fmt.Errorf(msg)
 		}
+		//exhaustruct:ignore
 		cred = credentials.NewTLS(&tls.Config{
 			RootCAs: systemRoots,
 		})
@@ -156,8 +208,9 @@ func runServer(ctx context.Context) error {
 	}
 
 	var defaultUser = auth.User{
-		Email: c.GitAuthorEmail,
-		Name:  c.GitAuthorName,
+		DexAuthContext: nil,
+		Email:          c.GitAuthorEmail,
+		Name:           c.GitAuthorName,
 	}
 
 	if c.AzureEnableAuth {
@@ -179,6 +232,8 @@ func runServer(ctx context.Context) error {
 		grpcStreamInterceptors = append(grpcStreamInterceptors, AzureStreamInterceptor)
 	}
 
+	mux := http.NewServeMux()
+	http.DefaultServeMux = mux
 	if c.DexEnabled {
 		// Registers Dex handlers.
 		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
@@ -216,14 +271,18 @@ func runServer(ctx context.Context) error {
 
 	batchClient := &service.BatchServiceWithDefaultTimeout{
 		Inner:          api.NewBatchServiceClient(cdCon),
-		DefaultTimeout: 2 * time.Minute,
+		DefaultTimeout: c.BatchClientTimeout,
 	}
+
+	releaseTrainPrognosisClient := api.NewReleaseTrainPrognosisServiceClient(cdCon)
+
 	gproxy := &GrpcProxy{
-		OverviewClient:           api.NewOverviewServiceClient(cdCon),
-		BatchClient:              batchClient,
-		RolloutServiceClient:     rolloutClient,
-		GitClient:                api.NewGitServiceClient(cdCon),
-		EnvironmentServiceClient: api.NewEnvironmentServiceClient(cdCon),
+		OverviewClient:              api.NewOverviewServiceClient(cdCon),
+		BatchClient:                 batchClient,
+		RolloutServiceClient:        rolloutClient,
+		GitClient:                   api.NewGitServiceClient(cdCon),
+		EnvironmentServiceClient:    api.NewEnvironmentServiceClient(cdCon),
+		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
@@ -233,7 +292,10 @@ func runServer(ctx context.Context) error {
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
-			ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl},
+			ArgoCd: &config.ArgoCdConfig{
+				BaseUrl:   c.ArgocdBaseUrl,
+				Namespace: c.ArgocdNamespace,
+			},
 			Auth: &config.AuthConfig{
 				AzureAuth: &config.AzureAuthConfig{
 					Enabled:       c.AzureEnableAuth,
@@ -254,34 +316,52 @@ func runServer(ctx context.Context) error {
 
 	grpcWebServer := grpcweb.WrapServer(gsrv)
 	httpHandler := handler.Server{
-		BatchClient:   batchClient,
-		RolloutClient: rolloutClient,
-		Config:        c,
-		KeyRing:       pgpKeyRing,
-		AzureAuth:     c.AzureEnableAuth,
+		BatchClient:                 batchClient,
+		RolloutClient:               rolloutClient,
+		VersionClient:               api.NewVersionServiceClient(cdCon),
+		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+		Config:                      c,
+		KeyRing:                     pgpKeyRing,
+		AzureAuth:                   c.AzureEnableAuth,
 	}
-	mux := http.NewServeMux()
-	mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL)
+			return
 		}
 		httpHandler.Handle(w, req)
-	}))
-	mux.Handle("/environment-groups/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	})
+	for _, endpoint := range []string{
+		"/environments",
+		"/environments/",
+		"/environment-groups",
+		"/environment-groups/",
+		"/release",
+	} {
+		mux.Handle(endpoint, restHandler)
+	}
+
+	// api is only accessible via IAP for now unless explicitly disabled
+	restApiHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
-		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+		if c.ApiEnableDespiteNoAuth {
+			httpHandler.HandleAPI(w, req)
+			return
 		}
-		httpHandler.Handle(w, req)
-	}))
-	mux.Handle("/release", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		defer readAllAndClose(req.Body, 1024)
-		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+
+		if !c.IapEnabled {
+			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
+			return
 		}
-		httpHandler.Handle(w, req)
-	}))
+		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, backendServiceId, c.GKEProjectNumber)
+	})
+	for _, endpoint := range []string{
+		"/api",
+		"/api/",
+	} {
+		mux.Handle(endpoint, restApiHandler)
+	}
 
 	mux.Handle("/", http.FileServer(http.Dir("build")))
 	// Split HTTP REST from gRPC Web requests, as suggested in the documentation:
@@ -357,6 +437,7 @@ func runServer(ctx context.Context) error {
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
 			return &setup.CORSPolicy{
+				MaxAge:           0,
 				AllowMethods:     "POST",
 				AllowHeaders:     "content-type,x-grpc-web,authorization",
 				AllowOrigin:      c.AllowedOrigins,
@@ -367,9 +448,14 @@ func runServer(ctx context.Context) error {
 	}
 
 	setup.Run(ctx, setup.ServerConfig{
+		GRPC:       nil,
+		Background: nil,
+		Shutdown:   nil,
 		HTTP: []setup.HTTPConfig{
 			{
-				Port: "8081",
+				BasicAuth: nil,
+				Shutdown:  nil,
+				Port:      "8081",
 				Register: func(mux *http.ServeMux) {
 					mux.Handle("/", corsHandler)
 				},
@@ -388,20 +474,18 @@ type Auth struct {
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
-
 	if iapJWT == "" {
 		// not using iap (local), default user
 		logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
 		return nil
 	}
 
-	if c.GKEProjectNumber == "" || c.GKEBackendServiceID == "" {
-		// environment variables not set up correctly
-		logger.FromContext(ctx).Info("iap.jke environment variables are not set up correctly")
+	if backendServiceId == "" {
+		logger.FromContext(ctx).Warn("Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
 		return nil
 	}
 
-	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
+	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, backendServiceId)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
 		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
@@ -412,7 +496,9 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 
 	// get the authenticated email
 	u := &auth.User{
-		Email: payload.Claims["email"].(string),
+		Name:           "",
+		DexAuthContext: nil,
+		Email:          payload.Claims["email"].(string),
 	}
 	return u
 }
@@ -422,12 +508,12 @@ func getRequestAuthorFromAzure(ctx context.Context, r *http.Request) (*auth.User
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger.Wrap(r.Context(), func(ctx context.Context) error {
+	err := logger.Wrap(r.Context(), func(ctx context.Context) error {
 		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
 		defer span.Finish()
 		var user *auth.User = nil
-		var err error = nil
-		var source = ""
+		var err error
+		var source string
 		if c.AzureEnableAuth {
 			user, err = getRequestAuthorFromAzure(ctx, r)
 			if err != nil {
@@ -451,17 +537,23 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	})
+	if err != nil {
+		fmt.Printf("error: %v %#v", err, err)
+	}
 }
 
 // GrpcProxy passes through gRPC messages to another server.
+// This is needed for the UI to communicate with other services via gRPC over web.
+// The UI _only_ communicates via gRPC over web (+ static files), while the REST API is only intended for automated processes like build pipelines.
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	OverviewClient           api.OverviewServiceClient
-	BatchClient              api.BatchServiceClient
-	RolloutServiceClient     api.RolloutServiceClient
-	GitClient                api.GitServiceClient
-	EnvironmentServiceClient api.EnvironmentServiceClient
+	OverviewClient              api.OverviewServiceClient
+	BatchClient                 api.BatchServiceClient
+	RolloutServiceClient        api.RolloutServiceClient
+	GitClient                   api.GitServiceClient
+	EnvironmentServiceClient    api.EnvironmentServiceClient
+	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -551,4 +643,12 @@ func (p *GrpcProxy) GetStatus(ctx context.Context, in *api.GetStatusRequest) (*a
 		return nil, status.Error(codes.Unimplemented, "rollout service not configured")
 	}
 	return p.RolloutServiceClient.GetStatus(ctx, in)
+}
+
+func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.ReleaseTrainRequest) (*api.GetReleaseTrainPrognosisResponse, error) {
+	if p.ReleaseTrainPrognosisClient == nil {
+		logger.FromContext(ctx).Error("release train prognosis service received a request when it is not configured")
+		return nil, status.Error(codes.Internal, "release train prognosis service not configured")
+	}
+	return p.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(ctx, in)
 }

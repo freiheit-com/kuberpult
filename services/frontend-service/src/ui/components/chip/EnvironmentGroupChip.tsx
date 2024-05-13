@@ -14,9 +14,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
-import { Environment } from '../../../api/api';
+import { Environment, EnvironmentGroup } from '../../../api/api';
 import React from 'react';
-import { EnvironmentGroupExtended, getPriorityClassName, useCurrentlyDeployedAtGroup } from '../../utils/store';
+import {
+    EnvironmentGroupExtended,
+    getPriorityClassName,
+    useCurrentlyDeployedAtGroup,
+    useArgoCDNamespace,
+} from '../../utils/store';
 import { LocksWhite } from '../../../images';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { ArgoAppEnvLink } from '../../utils/Links';
@@ -38,9 +43,27 @@ export const AppLockSummary: React.FC<{
     );
 };
 
+export const TeamLockSummary: React.FC<{
+    team: string;
+    numLocks: number;
+}> = ({ team, numLocks }) => {
+    const plural = numLocks === 1 ? 'lock' : 'locks';
+    return (
+        <div
+            key={'app-lock-hint-' + team}
+            title={'"' + team + '" has ' + numLocks + ' team ' + plural + '. Click on an icon to see details.'}>
+            <div>
+                &nbsp;
+                <LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />
+            </div>
+        </div>
+    );
+};
+
 export type EnvironmentChipProps = {
     className: string;
     env: Environment;
+    envGroup: EnvironmentGroup;
     app: string;
     groupNameOverride?: string;
     numberEnvsDeployed?: number;
@@ -49,9 +72,12 @@ export type EnvironmentChipProps = {
 };
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
-    const { className, env, smallEnvChip, app } = props;
-    const priorityClassName = getPriorityClassName(env);
+    const { className, env, envGroup, smallEnvChip, app } = props;
+    const priorityClassName = getPriorityClassName(envGroup);
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
+
+    const namespace = useArgoCDNamespace();
+
     const numberString =
         props.numberEnvsDeployed && props.numberEnvsInGroup
             ? props.numberEnvsDeployed !== props.numberEnvsInGroup
@@ -82,7 +108,11 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
                 <span className="mdc-evolution-chip__text-name">
-                    {smallEnvChip ? name[0].toUpperCase() : <ArgoAppEnvLink app={app} env={name} />}
+                    {smallEnvChip ? (
+                        name[0].toUpperCase()
+                    ) : (
+                        <ArgoAppEnvLink app={app} env={name} namespace={namespace} />
+                    )}
                 </span>{' '}
                 <span className="mdc-evolution-chip__text-numbers">{numberString}</span>
                 {locks}
@@ -107,6 +137,7 @@ export const EnvironmentGroupChip = (props: {
                 <EnvironmentChip
                     className={className}
                     env={envGroup.environments[0]}
+                    envGroup={envGroup}
                     app={app}
                     groupNameOverride={envGroup.environmentGroupName}
                     numberEnvsDeployed={envGroup.environments.length}
@@ -121,6 +152,7 @@ export const EnvironmentGroupChip = (props: {
         <EnvironmentChip
             className={className}
             env={envGroup.environments[0]}
+            envGroup={envGroup}
             app={app}
             groupNameOverride={undefined}
             numberEnvsDeployed={1}

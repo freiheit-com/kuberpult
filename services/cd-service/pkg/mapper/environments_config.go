@@ -37,14 +37,19 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		var bucket, ok = buckets[groupName]
 		if !ok {
 			bucket = &api.EnvironmentGroup{
+				DistanceToUpstream:   0,
+				Priority:             api.Priority_PROD,
 				EnvironmentGroupName: groupNameCopy,
 				Environments:         []*api.Environment{},
 			}
 			buckets[groupNameCopy] = bucket
 		}
 		var newEnv = &api.Environment{
-			Name: envName,
+			DistanceToUpstream: 0,
+			Priority:           api.Priority_PROD,
+			Name:               envName,
 			Config: &api.EnvironmentConfig{
+				Argocd:           nil,
 				Upstream:         TransformUpstream(env.Upstream),
 				EnvironmentGroup: &groupNameCopy,
 			},
@@ -156,24 +161,24 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 }
 
 func calculateGroupPriority(distanceToUpstream, downstreamDepth uint32) api.Priority {
-	lookup := [][]api.Priority {
-		[]api.Priority {api.Priority_YOLO},
-		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PROD},
-		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_PROD},
-		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
-		[]api.Priority {api.Priority_UPSTREAM, api.Priority_OTHER, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
+	lookup := [][]api.Priority{
+		[]api.Priority{api.Priority_YOLO},
+		[]api.Priority{api.Priority_UPSTREAM, api.Priority_PROD},
+		[]api.Priority{api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_PROD},
+		[]api.Priority{api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
+		[]api.Priority{api.Priority_UPSTREAM, api.Priority_OTHER, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
 	}
-	if downstreamDepth > uint32(len(lookup) - 1) {
+	if downstreamDepth > uint32(len(lookup)-1) {
 		if distanceToUpstream == 0 {
 			return api.Priority_UPSTREAM
 		}
 		if distanceToUpstream == downstreamDepth {
 			return api.Priority_PROD
 		}
-		if distanceToUpstream == downstreamDepth - 1 {
+		if distanceToUpstream == downstreamDepth-1 {
 			return api.Priority_CANARY
 		}
-		if distanceToUpstream == downstreamDepth - 2 {
+		if distanceToUpstream == downstreamDepth-2 {
 			return api.Priority_PRE_PROD
 		}
 		return api.Priority_OTHER
@@ -259,6 +264,7 @@ func max(a uint32, b uint32) uint32 {
 	return b
 }
 
+// EnvironmentByDistance is there to sort by distance first and by name second
 type EnvironmentByDistance []*api.Environment
 
 func (s EnvironmentByDistance) Len() int {
@@ -301,11 +307,13 @@ func TransformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 	}
 	if upstream.Latest {
 		return &api.EnvironmentConfig_Upstream{
-			Latest: &upstream.Latest,
+			Environment: nil,
+			Latest:      &upstream.Latest,
 		}
 	}
 	if upstream.Environment != "" {
 		return &api.EnvironmentConfig_Upstream{
+			Latest:      nil,
 			Environment: &upstream.Environment,
 		}
 	}
@@ -331,9 +339,6 @@ func TransformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string)
 }
 
 func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConfig_ArgoCD {
-	if &config == nil {
-		return nil
-	}
 	var syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows
 	var accessList []*api.EnvironmentConfig_ArgoCD_AccessEntry
 	var ignoreDifferences []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences

@@ -90,7 +90,9 @@ func (u *UsageCollector) used(op Operation, filename string) {
 	}
 	_, ok := u.usage[FileOperation{op, filename}]
 	if !ok {
-		u.usage[FileOperation{op, filename}] = value{}
+		u.usage[FileOperation{op, filename}] = value{
+			errored: false,
+		}
 	}
 }
 
@@ -139,6 +141,7 @@ func (uc *UsageCollector) WithError(fs billy.Filesystem, op Operation, filename 
 	return &Filesystem{
 		Inner: fs,
 		errorInjector: errorInjector{
+			used:      false,
 			operation: op,
 			filename:  filename,
 			err:       err,

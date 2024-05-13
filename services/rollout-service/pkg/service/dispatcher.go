@@ -21,16 +21,13 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
-
-type unresolvedArgoEvent struct {
-	Key
-	event *v1alpha1.ApplicationWatchEvent
-}
 
 type knownRevision struct {
 	revision string
@@ -54,6 +51,7 @@ func NewDispatcher(sink ArgoEventProcessor, vc versions.VersionClient) *Dispatch
 	bo.MaxElapsedTime = 0
 	bo.MaxInterval = 5 * time.Minute
 	rs := &Dispatcher{
+		mx:            sync.Mutex{},
 		sink:          sink,
 		versionClient: vc,
 		known:         map[Key]*knownRevision{},
@@ -74,8 +72,11 @@ func (r *Dispatcher) Dispatch(ctx context.Context, k Key, ev *v1alpha1.Applicati
 func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.ApplicationWatchEvent) *versions.VersionInfo {
 	r.mx.Lock()
 	defer r.mx.Unlock()
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "tryResolve")
+	defer ddSpan.Finish()
 	revision := ev.Application.Status.Sync.Revision
-	// 0. Check if this is delete event, if yes then we can delete the entry right away
+	ddSpan.SetTag("argoSyncRevision", revision)
+	// 0. Check if this is the delete event, if yes then we can delete the entry right away
 	if ev.Type == "DELETED" {
 		version := &versions.ZeroVersion
 		r.known[k] = &knownRevision{

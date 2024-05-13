@@ -39,6 +39,7 @@ export const Checkbox: React.FC<CheckboxProps> = (props) => {
                     onClick={onClick}
                     className={'test-button-checkbox id-' + props.id + ' ' + (props.enabled ? 'enabled' : 'disabled')}
                     label={props.enabled ? '☑' : '☐'}
+                    highlightEffect={false}
                 />
                 {props.label}
             </div>
