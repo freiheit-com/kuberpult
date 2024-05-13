@@ -532,11 +532,13 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if c.DexEnabled {
 			source = "dex"
-			user = getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexRbacPolicyPath)
-			if user.DexAuthContext.Role == "" {
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexRbacPolicyPath)
+			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
+			} else {
+				user.DexAuthContext = dexAuthContext
+				logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
 			}
-			logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
 		}
 		if user != nil {
 			span.SetTag("current-user-name", user.Name)
@@ -559,26 +561,25 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, DexRbacPolicyPath string) *auth.User {
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, DexRbacPolicyPath string) *auth.DexAuthContext {
 	policy, err := auth.ReadRbacPolicy(c.DexEnabled, c.DexRbacPolicyPath)
 	if err != nil {
-		return &auth.User{}
+		return nil
 	}
 	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy)
 	if err != nil {
-		return &auth.User{}
+		return nil
 	}
 	roleUntyped := httpCtx.Value(auth.HeaderUserRole)
 	role64, roleOk := roleUntyped.(string)
 	if !roleOk {
-		return &auth.User{}
+		return nil
 	}
 	role, err := auth.Decode64(role64)
 	if err != nil {
-		return &auth.User{}
+		return nil
 	}
-	return &auth.User{
-		DexAuthContext: &auth.DexAuthContext{Role: role}}
+	return &auth.DexAuthContext{Role: role}
 }
 
 // GrpcProxy passes through gRPC messages to another server.
