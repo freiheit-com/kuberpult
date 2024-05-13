@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS events
     timestamp TIMESTAMP,
     commitHash VARCHAR(64),
     eventType VARCHAR(32),
-    json VARCHAR(255),
+    json VARCHAR(1024),
     PRIMARY KEY(uuid)
 );
 
