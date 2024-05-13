@@ -533,6 +533,9 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if c.DexEnabled {
 			source = "dex"
 			user = getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexRbacPolicyPath)
+			if user.DexAuthContext.Role == "" {
+				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
+			}
 			logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
 		}
 		if user != nil {

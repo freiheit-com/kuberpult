@@ -201,7 +201,7 @@ func WriteUserToHttpHeader(r *http.Request, user User) {
 // WriteUserRoleToHttpHeader writes the user role into http headers
 // it is used for requests like /release and managing locks which are delegated from frontend-service to cd-service
 func WriteUserRoleToHttpHeader(r *http.Request, role string) {
-	r.Header.Add(HeaderUserRole, Encode64(role))
+	r.Header.Set(HeaderUserRole, Encode64(role))
 }
 
 func GetUserOrDefault(u *User, defaultUser User) User {
