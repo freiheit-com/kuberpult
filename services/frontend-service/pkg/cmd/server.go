@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/MicahParks/keyfunc/v2"
 	"io"
 	"net/http"
 	"os"
@@ -33,6 +32,7 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
 
+	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 
@@ -327,7 +327,6 @@ func runServer(ctx context.Context) error {
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			fmt.Println("DEX ENABLED")
 			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL)
 			return
 		}

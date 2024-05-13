@@ -134,15 +134,11 @@ func DexLoginInterceptor(
 	httpHandler http.HandlerFunc,
 	clientID, baseURL string,
 ) {
-	fmt.Println("Intercepted")
 	role, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
-	fmt.Printf("%s\n", role)
 	if err != nil {
 		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
-		fmt.Println("Redirected")
-		http.Redirect(w, req, baseURL+auth.LoginPATH, http.StatusFound)
-		return
+		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 	}
 	auth.WriteUserRoleToHttpHeader(req, role)
 	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)

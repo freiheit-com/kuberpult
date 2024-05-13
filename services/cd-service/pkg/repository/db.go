@@ -118,13 +118,13 @@ func GetConnectionAndDriver(cfg DBConfig) (*sql.DB, database.Driver, error) {
 	return nil, nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
 }
 
-func (d *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
-	if d.DriverName == "postgres" {
-		return migrate.NewWithDatabaseInstance("file://"+d.MigrationsPath, d.DbName, *d.DBDriver)
-	} else if d.DriverName == "sqlite3" {
-		return migrate.NewWithDatabaseInstance("file://"+d.MigrationsPath, "", *d.DBDriver) //FIX ME
+func (h *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
+	if h.DriverName == "postgres" {
+		return migrate.NewWithDatabaseInstance("file://"+h.MigrationsPath, h.DbName, *h.DBDriver)
+	} else if h.DriverName == "sqlite3" {
+		return migrate.NewWithDatabaseInstance("file://"+h.MigrationsPath, "", *h.DBDriver) //FIX ME
 	}
-	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", d.DriverName)
+	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", h.DriverName)
 }
 
 func RunDBMigrations(cfg DBConfig) error {
@@ -225,7 +225,6 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 		return fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
 	}
 	err = tx.Commit()
-
 	if err != nil {
 		return fmt.Errorf("could not commit transaction. Error: %w", err)
 	}
