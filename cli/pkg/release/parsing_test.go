@@ -320,6 +320,72 @@ func TestReadArgs(t *testing.T) {
 			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--source_message", "another test source message"},
 			expectedErrorMsg: "the --source_message arg must be set at most once",
 		},
+		{
+			name: "--version is specified",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234"},
+			expectedCmdArgs: &cmdArguments{
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"potato-team",
+					},
+				},
+				sourceCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"0123abcdef0123abcdef0123abcdef0123abcdef",
+					},
+				},
+				previousCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					},
+				},
+				sourceAuthor: cli_utils.RepeatedString{
+					Values: []string{
+						"potato@tomato.com",
+					},
+				},
+				sourceMessage: cli_utils.RepeatedString{
+					Values: []string{
+						"test source message",
+					},
+				},
+				version: cli_utils.RepeatedString{
+					Values: []string{
+						"1234",
+					},
+				},
+			},
+		},
+		{
+			name:             "--version is specified twice",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--version", "456"},
+			expectedErrorMsg: "the --version arg must be set at most once",
+		},
+		{
+			name:             "--version is set to non-integer value",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "abc"},
+			expectedErrorMsg: "the --version arg must be an integer value",
+		},
+		{
+			name:             "--version is set to negative integer value",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "-123"},
+			expectedErrorMsg: "the --version arg value must be positive",
+		},
 	}
 
 	for _, tc := range tcs {

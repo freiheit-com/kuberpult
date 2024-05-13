@@ -48,6 +48,10 @@ func strPtr(s string) *string {
 	return &s
 }
 
+func intPtr(n uint64) *uint64 {
+	return &n
+}
+
 func TestRequestCreation(t *testing.T) {
 	// simplified version of multipart.FileHeader
 	type simpleMultipartFormFileHeader struct {
@@ -346,6 +350,46 @@ func TestRequestCreation(t *testing.T) {
 				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 				"source_author":      {"potato@tomato.com"},
 				"source_message":     {"test\nsource\nmessage"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "version is set",
+			params: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"development": "some development manifest",
+					"production":  "some production manifest",
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test\nsource\nmessage"),
+				Version:          intPtr(123123),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test\nsource\nmessage"},
+				"version":            {"123123"},
 			},
 			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				"manifests[development]": {

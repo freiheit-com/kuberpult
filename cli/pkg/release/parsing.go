@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
@@ -36,7 +37,8 @@ type cmdArguments struct {
 	sourceCommitId   cli_utils.RepeatedString // same hack as application field here
 	previousCommitId cli_utils.RepeatedString // same hack as application field here
 	sourceAuthor     cli_utils.RepeatedString // same hack as application field here
-	sourceMessage	 cli_utils.RepeatedString // same hack as application field here
+	sourceMessage    cli_utils.RepeatedString // same hack as application field here
+	version          cli_utils.RepeatedString // same hack as application field here
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -59,11 +61,13 @@ func environmentManifestsPaired(args []string) (result bool, message string) {
 }
 
 var commitIDRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+
 func isCommitID(s string) bool {
 	return commitIDRegex.MatchString(s)
 }
 
 var authorIDRegex = regexp.MustCompile(`^[^<\n]+( <[^@\n]+@[^>\n]+>)?$`)
+
 func isAuthorID(s string) bool {
 	return authorIDRegex.MatchString(s)
 }
@@ -113,9 +117,23 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 			return false, fmt.Sprintf("the --source_author must be assigned a proper author identifier, matching the regex %s", authorIDRegex)
 		}
 	}
-	
+
 	if len(cmdArgs.sourceMessage.Values) > 1 {
 		return false, "the --source_message arg must be set at most once"
+	}
+
+	if len(cmdArgs.version.Values) > 1 {
+		return false, "the --version arg must be set at most once"
+	}
+
+	if len(cmdArgs.version.Values) == 1 {
+		if val, err := strconv.Atoi(cmdArgs.version.Values[0]); err != nil {
+			return false, "the --version arg must be an integer value"
+		} else {
+			if val <= 0 {
+				return false, "the --version arg value must be positive"
+			}
+		}
 	}
 
 	return true, ""
@@ -134,6 +152,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	fs.Var(&cmdArgs.previousCommitId, "previous_commit_id", "the SHA1 hash of the previous commit (must not be set more than once and can only be set when source_commit_id is set)")
 	fs.Var(&cmdArgs.sourceAuthor, "source_author", "the souce author (must not be set more than once)")
 	fs.Var(&cmdArgs.sourceMessage, "source_message", "the source commit message (must not be set more than once)")
+	fs.Var(&cmdArgs.version, "version", "the release version (must be a positive integer)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -150,7 +169,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	if ok, msg := environmentManifestsPaired(args); !ok {
 		return nil, fmt.Errorf(msg)
 	}
-
+	
 	return &cmdArgs, nil
 }
 
@@ -187,6 +206,11 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 	}
 	if len(cmdArgs.sourceMessage.Values) == 1 {
 		rp.SourceMessage = &cmdArgs.sourceMessage.Values[0]
+	}
+	if len(cmdArgs.version.Values) == 1 {
+		version, _ := strconv.Atoi(cmdArgs.version.Values[0]);
+		version64 := uint64(version)
+		rp.Version = &version64
 	}
 
 	return &rp, nil

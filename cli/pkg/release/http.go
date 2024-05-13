@@ -74,6 +74,12 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 		}
 	}
 
+	if parsedArgs.Version != nil {
+		if err := writer.WriteField("version", fmt.Sprintf("%v", *parsedArgs.Version)); err != nil {
+			return nil, fmt.Errorf("error writing version field, error: %w", err)
+		}
+	}
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}
