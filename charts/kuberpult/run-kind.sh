@@ -3,12 +3,6 @@
 set -eu
 set -o pipefail
 
-sourcedir="$(dirname "$(greadlink -m "${BASH_SOURCE[0]}")")"
-standard_setup="${FDC_STANDARD_SETUP:-${sourcedir}/../../../../fdc-standard-setup}"
-secrets_file="${standard_setup}/secrets/fdc-standard-setup-dev-env-925fe612820f.json"
-iap_clientId=$(sops exec-file "${secrets_file}" "jq -r '.client_id' {}")
-iap_clientSecret=$(sops exec-file "${secrets_file}" "jq -r '.private_key' {}")
-
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
 # rm -rf ./manifests/; make clean; LOCAL_EXECUTION=true ./run-kind.sh
@@ -18,7 +12,7 @@ cd "$(dirname "$0")"
 
 # prefix every call to "echo" with the name of the script:
 function print() {
-  /usr/bin/env echo "$0:" "$@"
+  /bin/echo "$0:" "$@"
 }
 
 cleanup() {
@@ -175,11 +169,6 @@ fi
 print 'loading docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
-
-kind load docker-image quay.io/argoproj/argocd:v2.7.4
-kind load docker-image ghcr.io/dexidp/dex:v2.36.0
-kind load docker-image gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0
-kind load docker-image public.ecr.aws/docker/library/redis:7.0.11-alpine
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
@@ -200,7 +189,7 @@ cat <<YAML > argocd-values.yml
 configs:
   ssh:
     knownHosts: |
-$(gsed -e "s/^/        /" <../../services/cd-service/known_hosts)
+$(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
     timeout.reconciliation: 0s
@@ -315,9 +304,9 @@ git:
   networkTimeout: 1s
 ssh:
   identity: |
-$(gsed -e "s/^/    /" <../../services/cd-service/client)
+$(sed -e "s/^/    /" <../../services/cd-service/client)
   known_hosts: |
-$(gsed -e "s/^/    /" <../../services/cd-service/known_hosts)
+$(sed -e "s/^/    /" <../../services/cd-service/known_hosts)
 argocd:
   token: "$token"
   server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local:443"
@@ -332,76 +321,13 @@ datadogProfiling:
   apiKey: invalid-3
 pgp:
   keyRing: |
-$(gsed -e "s/^/    /" <./kuberpult-keyring.gpg)
-auth:
-  dexAuth:
-    enabled: true
-    installDex: true
-    policy_csv: |
-      p, role:Developer, CreateLock, *:*, *, allow
-      p, role:Developer, DeleteLock, *:*, *, allow
-      p, role:Developer, CreateRelease, *:*, *, allow
-      p, role:Developer, DeployRelease, *:*, *, allow
-      p, role:Developer, CreateUndeploy, *:*, *, allow
-      p, role:Developer, DeployUndeploy, *:*, *, allow
-      p, role:Developer, CreateEnvironment, *:*, *, allow
-      p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
-      p, role:Developer, DeployReleaseTrain, *:*, *, allow
-    clientId: "kuberpult-dex"
-    clientSecret: "kuberpult-dex-secret"
-    baseURL: https://kuberpult-cd-service-565bb85ccc-68wng.default.svc.cluster.local
-    scopes: "openid, groups, email, profile, federated:id"
-dex:
-  # Set it to a valid URL
-  # Enable at least one connector
-  # See https://dexidp.io/docs/connectors/ for more options
-  enablePasswordDB: true
-  oauth2:
-     #grantTypes determines the allowed set of authorization flows.
-   grantTypes:
-   - "authorization_code"
-   - "refresh_token"
-   - "implicit"
-   - "password"
-   - "urn:ietf:params:oauth:grant-type:device_code"
-   - "urn:ietf:params:oauth:grant-type:token-exchange"
-  config:
-    issuer: https://kuberpult-cd-service-565bb85ccc-68wng.default.svc.cluster.local/dex
-
-    # See https://dexidp.io/docs/storage/ for more options
-    storage:
-      type: memory
-    staticClients:
-    - id: kuberpult-dex
-      secret: kuberpult-dex-secret
-      name: 'kuberpult'
-      redirectURIs:
-        - 'https://kuberpult-cd-service-565bb85ccc-68wng.default.svc.cluster.local/callback'
-    enablePasswordDB: true
-    staticPasswords:
-      - email: "cicd"
-        # bcrypt hash of the string "cicd"
-        hash: "\$2a\$12\$8x2fhzu58fwIwQRKmd/sPeeqAsPKdD3xlzCveATqJPAJxlQyTO5E2"
-        username: "cicd"
-        userID: "1"
-    connectors:
-    - type: google
-      id: google
-      name: Google
-      config:
-        redirectURI: https://kuberpult-cd-service-565bb85ccc-68wng.default.svc.cluster.local/callback
-        clientID: "${iap_clientId}"
-        clientSecret: |
-$(gsed -e "s/^/          /" <<<"${iap_clientSecret}")
+$(sed -e "s/^/    /" <./kuberpult-keyring.gpg)
 VALUES
-echo "here"
 
 # Get helm dependency charts and unzip them
-#(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -x "$filename" && rm -f "$filename"; done;)
+(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
 
-echo "Creating tmp.mpl"
 helm template ./ --values vals.yaml > tmp.tmpl
-echo "helm install"
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
 
