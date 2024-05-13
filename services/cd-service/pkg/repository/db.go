@@ -224,10 +224,13 @@ const (
 
 // DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
 func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
 
@@ -245,15 +248,18 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 }
 
 func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql.Tx, previousVersion int64, applications []string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
 	defer span.Finish()
 	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
-	jsonToInsert, _ := json.Marshal(AllApplicationsJson{
+	jsonToInsert, err := json.Marshal(AllApplicationsJson{
 		Apps: applications,
 	})
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
 	span.SetTag("query", insertQuery)
-	_, err := transaction.Exec(
+	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
 		time.Now(),
@@ -266,7 +272,7 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 }
 
 func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
+	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	insertQuery := h.AdaptQuery("INSERT INTO events (uuid, timestamp, commitHash, eventType, json)  VALUES (?, ?, ?, ?, ?);")
 

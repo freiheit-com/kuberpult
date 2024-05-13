@@ -5056,13 +5056,13 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual: %d", rel.Version)
 					}
 					if rel.SourceAuthor != "" {
-						t.Errorf("unexpected source author: expected \"\", actual: %q", rel.SourceAuthor)
+						t.Errorf("unexpected source Author: expected \"\", actual: %q", rel.SourceAuthor)
 					}
 					if rel.SourceCommitId != "" {
 						t.Errorf("unexpected source commit id: expected \"\", actual: %q", rel.SourceCommitId)
 					}
 					if rel.SourceMessage != "" {
-						t.Errorf("unexpected source author: expected \"\", actual: %q", rel.SourceMessage)
+						t.Errorf("unexpected source Author: expected \"\", actual: %q", rel.SourceMessage)
 					}
 				}
 			},
@@ -5093,13 +5093,13 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual: %d", rel.Version)
 					}
 					if rel.SourceAuthor != "test <test@example.com>" {
-						t.Errorf("unexpected source author: expected \"test <test@example.com>\", actual: %q", rel.SourceAuthor)
+						t.Errorf("unexpected source Author: expected \"test <test@example.com>\", actual: %q", rel.SourceAuthor)
 					}
 					if rel.SourceCommitId != "deadbeef" {
 						t.Errorf("unexpected source commit id: expected \"deadbeef\", actual: %q", rel.SourceCommitId)
 					}
 					if rel.SourceMessage != "changed something" {
-						t.Errorf("unexpected source author: expected \"changed something\", actual: %q", rel.SourceMessage)
+						t.Errorf("unexpected source Author: expected \"changed something\", actual: %q", rel.SourceMessage)
 					}
 					if rel.CreatedAt != timeNowOld {
 						t.Errorf("unexpected created at: expected: %q, actual: %q", timeNowOld, rel.SourceMessage)
