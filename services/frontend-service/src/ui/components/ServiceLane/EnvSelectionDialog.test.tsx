@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { act, render, getByTestId } from '@testing-library/react';
 import { documentQuerySelectorSafe } from '../../../setupTests';
 import { EnvSelectionDialog, EnvSelectionDialogProps } from './EnvSelectionDialog';
