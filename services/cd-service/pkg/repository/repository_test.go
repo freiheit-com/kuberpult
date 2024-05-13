@@ -1053,6 +1053,10 @@ type SlowTransformer struct {
 	started  chan struct{}
 }
 
+func (s *SlowTransformer) GetDBEventType() EventType {
+	panic("implement me")
+}
+
 func (s *SlowTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	s.started <- struct{}{}
 	<-s.finished
@@ -1061,11 +1065,19 @@ func (s *SlowTransformer) Transform(ctx context.Context, state *State, transform
 
 type EmptyTransformer struct{}
 
+func (p *EmptyTransformer) GetDBEventType() EventType {
+	panic("implement me")
+}
+
 func (p *EmptyTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "nothing happened", nil
 }
 
 type PanicTransformer struct{}
+
+func (p *PanicTransformer) GetDBEventType() EventType {
+	panic("panic tranformer")
+}
 
 func (p *PanicTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	panic("panic tranformer")
@@ -1075,11 +1087,19 @@ var TransformerError = errors.New("error transformer")
 
 type ErrorTransformer struct{}
 
+func (p *ErrorTransformer) GetDBEventType() EventType {
+	panic("implement me")
+}
+
 func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "error", TransformerError
 }
 
 type InvalidJsonTransformer struct{}
+
+func (p *InvalidJsonTransformer) GetDBEventType() EventType {
+	panic("implement me")
+}
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "error", InvalidJson
@@ -2253,7 +2273,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			_, applyErr := repo.(*repository).ApplyTransformers(ctx, transformers, nil)
+			_, applyErr := repo.(*repository).ApplyTransformers(ctx, nil, transformers...)
 
 			state = repo.State() //update state
 			if applyErr != nil {
