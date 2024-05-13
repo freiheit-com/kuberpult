@@ -247,6 +247,40 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	return nil
 }
 
+type EslEventRow struct {
+	Created   time.Time
+	EventType EventType
+	EventJson string
+}
+
+// only for testing
+func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx) (*EslEventRow, error) {
+	selectQuery := h.AdaptQuery("SELECT (created, event_type , json) FROM event_sourcing_light ORDER BY created DESC LIMIT 1;")
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	for rows.Next() {
+		var row = EslEventRow{
+			Created:   time.Unix(0, 0),
+			EventType: "",
+			EventJson: "",
+		}
+		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+		}
+		return &row, nil
+	}
+	return nil, fmt.Errorf("could not find any rows in DB. Error: %w\n", err)
+}
+
 func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql.Tx, previousVersion int64, applications []string) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
 	defer span.Finish()
