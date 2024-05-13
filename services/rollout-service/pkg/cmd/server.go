@@ -71,6 +71,7 @@ type Config struct {
 	DataDogAPIURL          string        `split_words:"true" default:""`
 	DataDogAPIKey          string        `split_words:"true" default:""`
 	DataDogDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
+	DataDogDoraConcurrency int           `default:"10" split_words:"true"`
 
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
@@ -120,6 +121,7 @@ func (config *Config) DataDogDoraConfig() (datadogdora.Config, error) {
 		URL:         config.DataDogAPIURL,
 		APIKey:      config.DataDogAPIKey,
 		MaxEventAge: config.RevolutionDoraMaxEventAge,
+		Concurrency: config.DataDogDoraConcurrency,
 	}, nil
 }
 
@@ -298,7 +300,8 @@ func runServer(ctx context.Context, config Config) error {
 		}
 		datadogDora := datadogdora.New(datadogDoraConfig)
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
-			Name: "datadog dora",
+			Shutdown: nil,
+			Name:     "datadog dora",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				health.ReportReady("pushing")
 				return datadogDora.Subscribe(ctx, broadcast)

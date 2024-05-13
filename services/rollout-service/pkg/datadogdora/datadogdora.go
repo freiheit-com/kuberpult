@@ -54,7 +54,15 @@ type Config struct {
 
 func New(config Config) *Subscriber {
 	sub := &Subscriber{
-		group: errgroup.Group{},
+		url:           "",
+		ready:         nil,
+		state:         nil,
+		maxAge:        0,
+		now:           nil,
+		group:         errgroup.Group{},
+		apiKey:        "",
+		doraAPI:       nil,
+		RepositoryUrl: "",
 	}
 	sub.group.SetLimit(config.Concurrency)
 	sub.url = config.URL
@@ -155,13 +163,24 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		span.SetTag("datadogAPI.url", s.url)
 		span.SetTag("environment", ev.Environment)
 		span.SetTag("application", ev.Application)
+		// nolint
 		body := datadogV2.DORADeploymentRequest{
+			AdditionalProperties: nil,
+			UnparsedObject:       nil,
 			Data: datadogV2.DORADeploymentRequestData{
+				AdditionalProperties: nil,
+				UnparsedObject:       nil,
 				Attributes: datadogV2.DORADeploymentRequestAttributes{
-					FinishedAt: ev.ArgocdVersion.DeployedAt.UnixNano(),
+					Env:                  &ev.Environment,
+					Id:                   &ev.KuberpultVersion.SourceCommitId,
+					AdditionalProperties: nil,
+					UnparsedObject:       nil,
+					FinishedAt:           ev.ArgocdVersion.DeployedAt.UnixNano(),
 					Git: &datadogV2.DORAGitInfo{
-						CommitSha:     ev.ArgocdVersion.SourceCommitId,
-						RepositoryUrl: s.RepositoryUrl,
+						AdditionalProperties: nil,
+						UnparsedObject:       nil,
+						CommitSha:            ev.ArgocdVersion.SourceCommitId,
+						RepositoryUrl:        s.RepositoryUrl,
 					},
 					Service: ev.Application,
 					// TODO(BJ) get the time the sync was triggered?
@@ -175,7 +194,8 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 			datadog.ContextAPIKeys,
 			map[string]datadog.APIKey{
 				"apiKeyAuth": {
-					Key: s.apiKey,
+					Key:    s.apiKey,
+					Prefix: "",
 				},
 			},
 		)
