@@ -40,9 +40,9 @@ The frontend-service also allows overwriting the default values, see function `g
 The cd-service generally expects these headers, either in the grpc context or the http headers.
 */
 const (
-	HeaderUserName      = "author-name"
-	HeaderUserEmail     = "author-email"
-	HeaderUserRole  key = "author-role"
+	HeaderUserName  = "author-name"
+	HeaderUserEmail = "author-email"
+	HeaderUserRole  = "author-role"
 )
 
 func Encode64(s string) string {

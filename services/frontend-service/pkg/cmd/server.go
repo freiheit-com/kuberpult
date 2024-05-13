@@ -234,11 +234,16 @@ func runServer(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	http.DefaultServeMux = mux
+	var policy *auth.RBACPolicies
 	if c.DexEnabled {
 		// Registers Dex handlers.
 		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
+		}
+		policy, err = auth.ReadRbacPolicy(true, c.DexRbacPolicyPath)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("error getting RBAC policy: ", zap.Error(err))
 		}
 	}
 
@@ -327,7 +332,7 @@ func runServer(ctx context.Context) error {
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, c.DexRbacPolicyPath)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, policy)
 			return
 		}
 		httpHandler.Handle(w, req)
@@ -552,7 +557,11 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, DexRbacPolicyPath string) *auth.User {
-	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicyPath)
+	policy, err := auth.ReadRbacPolicy(c.DexEnabled, c.DexRbacPolicyPath)
+	if err != nil {
+		return &auth.User{}
+	}
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy)
 	if err != nil {
 		return &auth.User{}
 	}
@@ -563,7 +572,6 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL,
 	}
 	role, err := auth.Decode64(role64)
 	if err != nil {
-
 		return &auth.User{}
 	}
 	return &auth.User{
