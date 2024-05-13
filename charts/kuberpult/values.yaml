@@ -282,8 +282,7 @@ auth:
       p, role:Developer, CreateEnvironment, *:*, *, allow
       p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
       p, role:Developer, DeployReleaseTrain, *:*, *, allow
-      
-      g,
+
     clientId: "kuberpult-dex"
     clientSecret: "kuberpult-dex-secret"
     baseURL: "https://kuberpult.dev.freiheit.systems"
@@ -345,6 +344,11 @@ dex:
           redirectURI: "https://kuberpult.dev.freiheit.systems/dex/callback"
           clientID: "client_id"
           clientSecret: "client_secret"
+          serviceAccountFilePath: "path_to_json"
+          adminEmail: "admin_email"
+          groups:
+            - "developers@placeholder.com"
+            - "developers@placeholder.com"
 # Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
 revolution:
   dora:
