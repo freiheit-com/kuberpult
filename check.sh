@@ -18,7 +18,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/"
+Copyright freiheit.com*/"
 
 YAML_COPY_RIGHT="# This file is part of kuberpult.
 
@@ -34,7 +34,7 @@ YAML_COPY_RIGHT="# This file is part of kuberpult.
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com"
+# Copyright freiheit.com"
 
 RET_CODE=0
 set eu -pipefail
