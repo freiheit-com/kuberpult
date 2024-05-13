@@ -272,6 +272,7 @@ auth:
   dexAuth:
     enabled: true
     installDex: true
+    defaultUserEnabled: false
     policy_csv: |
       p, role:Developer, CreateLock, *:*, *, allow
       p, role:Developer, DeleteLock, *:*, *, allow
@@ -282,7 +283,6 @@ auth:
       p, role:Developer, CreateEnvironment, *:*, *, allow
       p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
       p, role:Developer, DeployReleaseTrain, *:*, *, allow
-
     clientId: "kuberpult-dex"
     clientSecret: "kuberpult-dex-secret"
     baseURL: "https://kuberpult.dev.freiheit.systems"
