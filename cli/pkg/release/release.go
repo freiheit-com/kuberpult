@@ -30,6 +30,7 @@ type ReleaseParameters struct {
 	SourceAuthor     *string
 	SourceMessage    *string
 	Version          *uint64
+	DisplayVersion   *string
 }
 
 // calls the Release endpoint with the specified parameters

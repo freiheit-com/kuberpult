@@ -19,6 +19,7 @@ package release
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 )
@@ -26,7 +27,7 @@ import (
 func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
-	
+
 	if err := writer.WriteField("application", parsedArgs.Application); err != nil {
 		return nil, fmt.Errorf("error writing application field, error: %w", err)
 	}
@@ -80,6 +81,12 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 		}
 	}
 
+	if parsedArgs.DisplayVersion != nil {
+		if err := writer.WriteField("display_version", *parsedArgs.DisplayVersion); err != nil {
+			return nil, fmt.Errorf("error writing display_version field, error: %w", err)
+		}
+	}
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}
@@ -102,7 +109,11 @@ func issueHttpRequest(req *http.Request) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("response was not OK or Accepted, response code: %v", resp.StatusCode)
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		strBody := string(body)
+		
+		return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body:\n   %v", resp.StatusCode, strBody)
 	}
 
 	return nil

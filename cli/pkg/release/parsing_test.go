@@ -386,6 +386,72 @@ func TestReadArgs(t *testing.T) {
 			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "-123"},
 			expectedErrorMsg: "the --version arg value must be positive",
 		},
+		{
+			name: "--display_version is specified",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234", "--display_version", "1.23.4"},
+			expectedCmdArgs: &cmdArguments{
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"potato-team",
+					},
+				},
+				sourceCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"0123abcdef0123abcdef0123abcdef0123abcdef",
+					},
+				},
+				previousCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					},
+				},
+				sourceAuthor: cli_utils.RepeatedString{
+					Values: []string{
+						"potato@tomato.com",
+					},
+				},
+				sourceMessage: cli_utils.RepeatedString{
+					Values: []string{
+						"test source message",
+					},
+				},
+				version: cli_utils.RepeatedString{
+					Values: []string{
+						"1234",
+					},
+				},
+				displayVersion: cli_utils.RepeatedString{
+					Values: []string{
+						"1.23.4",
+					},
+				},
+			},
+		},
+		{
+			name:             "--display_version is specified twice",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "1.23", "--display_version", "a.bc"},
+			expectedErrorMsg: "the --display_version arg must be set at most once",
+		},
+		{
+			name:             "--display_version is specified but is too long",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "loooooooooooooooooooooooooooooooooooooooooong"},
+			expectedErrorMsg: "the --display_version arg must be at most 15 characters long",
+		},
 	}
 
 	for _, tc := range tcs {

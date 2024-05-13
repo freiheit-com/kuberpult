@@ -156,7 +156,7 @@ func TestRequestCreation(t *testing.T) {
 					},
 				},
 			},
-			expectedErrorMsg: "error while issuing HTTP request, error: response was not OK or Accepted, response code: 400",
+			expectedErrorMsg: "error while issuing HTTP request, error: response was not OK or Accepted\nresponse code: 400\nresponse body:\n   ",
 			responseCode:     http.StatusBadRequest,
 		},
 		{
@@ -390,6 +390,48 @@ func TestRequestCreation(t *testing.T) {
 				"source_author":      {"potato@tomato.com"},
 				"source_message":     {"test\nsource\nmessage"},
 				"version":            {"123123"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "display_version is set",
+			params: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"development": "some development manifest",
+					"production":  "some production manifest",
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test\nsource\nmessage"),
+				Version:          intPtr(123123),
+				DisplayVersion:   strPtr("1.23.4"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test\nsource\nmessage"},
+				"version":            {"123123"},
+				"display_version":    {"1.23.4"},
 			},
 			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				"manifests[development]": {

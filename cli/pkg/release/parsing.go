@@ -39,6 +39,7 @@ type cmdArguments struct {
 	sourceAuthor     cli_utils.RepeatedString // same hack as application field here
 	sourceMessage    cli_utils.RepeatedString // same hack as application field here
 	version          cli_utils.RepeatedString // same hack as application field here
+	displayVersion   cli_utils.RepeatedString // same hack as application field here
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -136,6 +137,16 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 		}
 	}
 
+	if len(cmdArgs.displayVersion.Values) > 1 {
+		return false, "the --display_version arg must be set at most once"
+	}
+
+	if len(cmdArgs.displayVersion.Values) == 1 {
+		if len(cmdArgs.displayVersion.Values[0]) > 15 {
+			return false, "the --display_version arg must be at most 15 characters long"
+		}
+	}
+
 	return true, ""
 }
 
@@ -153,6 +164,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	fs.Var(&cmdArgs.sourceAuthor, "source_author", "the souce author (must not be set more than once)")
 	fs.Var(&cmdArgs.sourceMessage, "source_message", "the source commit message (must not be set more than once)")
 	fs.Var(&cmdArgs.version, "version", "the release version (must be a positive integer)")
+	fs.Var(&cmdArgs.displayVersion, "display_version", "display version (must be a string between 1 and characters long)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -169,7 +181,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	if ok, msg := environmentManifestsPaired(args); !ok {
 		return nil, fmt.Errorf(msg)
 	}
-	
+
 	return &cmdArgs, nil
 }
 
@@ -208,9 +220,12 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 		rp.SourceMessage = &cmdArgs.sourceMessage.Values[0]
 	}
 	if len(cmdArgs.version.Values) == 1 {
-		version, _ := strconv.Atoi(cmdArgs.version.Values[0]);
+		version, _ := strconv.Atoi(cmdArgs.version.Values[0])
 		version64 := uint64(version)
 		rp.Version = &version64
+	}
+	if len(cmdArgs.displayVersion.Values) == 1 {
+		rp.DisplayVersion = &cmdArgs.displayVersion.Values[0]
 	}
 
 	return &rp, nil
