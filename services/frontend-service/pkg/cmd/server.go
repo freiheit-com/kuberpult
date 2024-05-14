@@ -234,11 +234,16 @@ func runServer(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	http.DefaultServeMux = mux
+	var policy *auth.RBACPolicies
 	if c.DexEnabled {
 		// Registers Dex handlers.
 		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
+		}
+		policy, err = auth.ReadRbacPolicy(true, c.DexRbacPolicyPath)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("error getting RBAC policy: ", zap.Error(err))
 		}
 	}
 
@@ -327,7 +332,7 @@ func runServer(ctx context.Context) error {
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, policy)
 			return
 		}
 		httpHandler.Handle(w, req)
@@ -433,6 +438,7 @@ func runServer(ctx context.Context) error {
 		HttpServer:  splitGrpcHandler,
 		DefaultUser: defaultUser,
 		KeyRing:     pgpKeyRing,
+		Policy:      policy,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -470,6 +476,7 @@ type Auth struct {
 	DefaultUser auth.User
 	// KeyRing is as of now required because we do not have technical users yet. So we protect public endpoints by requiring a signature
 	KeyRing openpgp.KeyRing
+	Policy  *auth.RBACPolicies
 }
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
@@ -524,6 +531,19 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			user = getRequestAuthorFromGoogleIAP(ctx, r)
 			source = "iap"
 		}
+		if c.DexEnabled {
+			source = "dex"
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, p.Policy)
+			if dexAuthContext == nil {
+				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
+			} else {
+				if user == nil {
+					user = &p.DefaultUser
+				}
+				user.DexAuthContext = dexAuthContext
+				logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
+			}
+		}
 		if user != nil {
 			span.SetTag("current-user-name", user.Name)
 			span.SetTag("current-user-email", user.Email)
@@ -534,12 +554,29 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		auth.WriteUserToHttpHeader(r, combinedUser)
 		ctx = auth.WriteUserToContext(ctx, combinedUser)
 		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
+		if user != nil && user.DexAuthContext != nil {
+			ctx = auth.WriteUserRoleToGrpcContext(ctx, user.DexAuthContext.Role)
+		}
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	})
 	if err != nil {
 		fmt.Printf("error: %v %#v", err, err)
 	}
+}
+
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies) *auth.DexAuthContext {
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy)
+	if err != nil {
+		return nil
+	}
+	headerRole64 := req.Header.Get(auth.HeaderUserRole)
+	headerRole, err := auth.Decode64(headerRole64)
+	if err != nil {
+		logger.FromContext(httpCtx).Info("could not decode user role")
+		return nil
+	}
+	return &auth.DexAuthContext{Role: headerRole}
 }
 
 // GrpcProxy passes through gRPC messages to another server.
