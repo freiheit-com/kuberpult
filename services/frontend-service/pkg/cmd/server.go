@@ -339,7 +339,6 @@ func runServer(ctx context.Context) error {
 	})
 	for _, endpoint := range []string{
 		"/environments",
-		"/api.v1.BatchService/ProcessBatch",
 		"/environments/",
 		"/environment-groups",
 		"/environment-groups/",
@@ -439,6 +438,7 @@ func runServer(ctx context.Context) error {
 		HttpServer:  splitGrpcHandler,
 		DefaultUser: defaultUser,
 		KeyRing:     pgpKeyRing,
+		Policy:      policy,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -476,6 +476,7 @@ type Auth struct {
 	DefaultUser auth.User
 	// KeyRing is as of now required because we do not have technical users yet. So we protect public endpoints by requiring a signature
 	KeyRing openpgp.KeyRing
+	Policy  *auth.RBACPolicies
 }
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
@@ -532,7 +533,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if c.DexEnabled {
 			source = "dex"
-			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexRbacPolicyPath)
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, p.Policy)
 			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
 			} else {
@@ -564,11 +565,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, DexRbacPolicyPath string) *auth.DexAuthContext {
-	policy, err := auth.ReadRbacPolicy(c.DexEnabled, c.DexRbacPolicyPath)
-	if err != nil {
-		return nil
-	}
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies) *auth.DexAuthContext {
 	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy)
 	if err != nil {
 		return nil
