@@ -665,7 +665,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	// Apply the items
 	var tx *sql.Tx = nil
 	if r.DB != nil {
-		var txErr error = nil
+		var txErr error
 		tx, txErr = r.DB.DB.BeginTx(ctx, nil)
 		if txErr != nil {
 			err = txErr

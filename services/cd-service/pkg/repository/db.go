@@ -269,7 +269,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx) (*Es
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
-	for rows.Next() {
+	if rows.Next() {
 		var row = EslEventRow{
 			Created:   time.Unix(0, 0),
 			EventType: "",
