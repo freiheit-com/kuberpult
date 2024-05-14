@@ -550,7 +550,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		auth.WriteUserToHttpHeader(r, combinedUser)
 		ctx = auth.WriteUserToContext(ctx, combinedUser)
 		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
-		if user.DexAuthContext != nil {
+		if user != nil && user.DexAuthContext != nil {
 			ctx = auth.WriteUserRoleToGrpcContext(ctx, user.DexAuthContext.Role)
 		}
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
