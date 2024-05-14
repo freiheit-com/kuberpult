@@ -140,8 +140,11 @@ func DexLoginInterceptor(
 		// If user is not authenticated redirect to the login page.
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 	}
+	logger.FromContext(req.Context()).Warn(fmt.Sprintf("[DexLoginInterceptor] Token Verified Successfully"))
 	auth.WriteUserRoleToHttpHeader(req, role)
 	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)
+	logger.FromContext(req.Context()).Warn(fmt.Sprintf("[DexLoginInterceptor] Wrote the context"))
 	req = req.WithContext(httpCtx)
+	logger.FromContext(req.Context()).Warn(fmt.Sprintf("[DexLoginInterceptor] Handling request"))
 	httpHandler(w, req)
 }
