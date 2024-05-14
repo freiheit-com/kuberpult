@@ -30,7 +30,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"net/http"
 )
 
 // authorize returns an error when the authentication failed
@@ -153,10 +152,6 @@ func DexLoginInterceptor(
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 		return
 	}
-	logger.FromContext(req.Context()).Warn("[DexLoginInterceptor] Token Verified Successfully")
-	auth.WriteUserRoleToHttpHeader(req, role)
-	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)
-	logger.FromContext(req.Context()).Warn("[DexLoginInterceptor] Wrote the context")
 	req = req.WithContext(httpCtx)
 	logger.FromContext(req.Context()).Warn("[DexLoginInterceptor] Handling request")
 	httpHandler(w, req)
