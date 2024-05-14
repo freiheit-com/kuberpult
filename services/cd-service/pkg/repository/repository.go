@@ -663,24 +663,36 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}
 
 	// Apply the items
-	tx, txErr := r.DB.DB.BeginTx(ctx, nil)
-	if txErr != nil {
-		err = txErr
-		return
+	var tx *sql.Tx = nil
+	if r.DB != nil {
+		var txErr error = nil
+		tx, txErr = r.DB.DB.BeginTx(ctx, nil)
+		if txErr != nil {
+			err = txErr
+			return
+		}
+		defer func(tx *sql.Tx) {
+			_ = tx.Rollback()
+		}(tx)
 	}
-	defer func(tx *sql.Tx) {
-		_ = tx.Rollback()
-	}(tx)
-
 	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true, tx)
 	if err != nil {
-		logger.Sugar().Warnf("rolling back transaction because of %v", err)
-		_ = tx.Rollback()
+		if r.DB != nil {
+
+			logger.Sugar().Warnf("rolling back transaction because of %v", err)
+
+			//
+			//
+
+			_ = tx.Rollback()
+		}
 		return
 	}
-	err = tx.Commit()
-	if err != nil {
-		return
+	if r.DB != nil {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
 	}
 
 	if len(transformerBatches) == 0 {
@@ -944,7 +956,14 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 		commitMsg := []string{}
 		ctxWithTime := WithTimeNow(ctx, time.Now())
 		for i, t := range transformers {
-			err := r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t)
+			if r.DB != nil && transaction == nil {
+				applyErr := TransformerBatchApplyError{
+					TransformerError: errors.New("no transaction provided, but DB enabled"),
+					Index:            i,
+				}
+				return nil, nil, nil, &applyErr
+			}
+			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t)
 			if err != nil {
 				return nil, nil, nil, &TransformerBatchApplyError{
 					TransformerError: err,

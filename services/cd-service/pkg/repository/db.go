@@ -224,6 +224,12 @@ const (
 
 // DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
 func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
+	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
 
@@ -253,9 +259,9 @@ type EslEventRow struct {
 	EventJson string
 }
 
-// only for testing
+// DBReadEslEventInternal is only public for testing
 func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx) (*EslEventRow, error) {
-	selectQuery := h.AdaptQuery("SELECT (created, event_type , json) FROM event_sourcing_light ORDER BY created DESC LIMIT 1;")
+	selectQuery := h.AdaptQuery("SELECT created, event_type , json FROM event_sourcing_light ORDER BY created DESC LIMIT 1;")
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -276,6 +282,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx) (*Es
 			}
 			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
 		}
+		logger.FromContext(ctx).Sugar().Warnf("read row: %s", row)
 		return &row, nil
 	}
 	return nil, fmt.Errorf("could not find any rows in DB. Error: %w\n", err)

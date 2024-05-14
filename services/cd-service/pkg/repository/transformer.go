@@ -1096,16 +1096,14 @@ func (u *UndeployApplication) Transform(
 		}
 	}
 	if state.DBHandler != nil {
-		err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-			applications, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
-			if err != nil {
-				return err
-			}
-			applications.Apps = Remove(applications.Apps, u.Application)
-			return state.DBHandler.DBWriteAllApplications(ctx, transaction, applications.Version, applications.Apps)
-		})
+		applications, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not apply transaction for application '%v': '%w'", u.Application, err)
+			return "", fmt.Errorf("UndeployApplication: could not select all apps '%v': '%w'", u.Application, err)
+		}
+		applications.Apps = Remove(applications.Apps, u.Application)
+		err = state.DBHandler.DBWriteAllApplications(ctx, transaction, applications.Version, applications.Apps)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not write all apps '%v': '%w'", u.Application, err)
 		}
 	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil

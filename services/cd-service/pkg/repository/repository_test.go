@@ -1054,7 +1054,7 @@ type SlowTransformer struct {
 }
 
 func (s *SlowTransformer) GetDBEventType() EventType {
-	panic("implement me")
+	return "invalid"
 }
 
 func (s *SlowTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
@@ -1066,7 +1066,7 @@ func (s *SlowTransformer) Transform(ctx context.Context, state *State, transform
 type EmptyTransformer struct{}
 
 func (p *EmptyTransformer) GetDBEventType() EventType {
-	panic("implement me")
+	return "invalid"
 }
 
 func (p *EmptyTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
@@ -1076,7 +1076,7 @@ func (p *EmptyTransformer) Transform(ctx context.Context, state *State, transfor
 type PanicTransformer struct{}
 
 func (p *PanicTransformer) GetDBEventType() EventType {
-	panic("panic tranformer")
+	return "invalid"
 }
 
 func (p *PanicTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
@@ -1088,7 +1088,7 @@ var TransformerError = errors.New("error transformer")
 type ErrorTransformer struct{}
 
 func (p *ErrorTransformer) GetDBEventType() EventType {
-	panic("implement me")
+	return "invalid"
 }
 
 func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
@@ -1098,7 +1098,7 @@ func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transfor
 type InvalidJsonTransformer struct{}
 
 func (p *InvalidJsonTransformer) GetDBEventType() EventType {
-	panic("implement me")
+	return "invalid"
 }
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {

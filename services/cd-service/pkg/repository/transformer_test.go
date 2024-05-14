@@ -1880,20 +1880,43 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
+			var err error = nil
+			var updatedState *State = nil
+			migrationsPath, err := CreateMigrationsPath()
+			if err != nil {
+				t.Fatalf("CreateMigrationsPath error: %v", err)
+			}
 			if tc.db {
 				cfg := DBConfig{
-					MigrationsPath: "/kp/cd_database/migrations",
+					MigrationsPath: migrationsPath,
 					DriverName:     "sqlite3",
 				}
 				repo, _ = setupRepositoryTestWithDB(t, &cfg)
-
+				r := repo.(*repository)
+				err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+					var err2 *TransformerBatchApplyError = nil
+					_, updatedState, _, err2 = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+					if err2 != nil {
+						// Note that we cannot just `return err2` here,
+						// because it's a "TransformerBatchApplyError", not an "error"
+						return err2
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
+				}
 			} else {
 				repo = setupRepositoryTest(t)
+				var batchError *TransformerBatchApplyError = nil
+				_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
+				if batchError != nil {
+					t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
+				}
 			}
 
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if err != nil {
-				t.Fatalf("encountered error but no error is expected here: %v", err)
+				t.Fatalf("encountered error but no error is expected here: '%v'", err)
 			}
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
