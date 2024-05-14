@@ -62,7 +62,7 @@ spec:
       containers:
       - name: service
         #image: "{{ .Values.hub }}/{{ .Values.rollout.image }}:{{ $.Chart.AppVersion }}"
-        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:v2.31.0-57-g8e31150f"
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:v2.31.1-76-gc66c603d"
         ports:
           - name: http
             containerPort: 8080
