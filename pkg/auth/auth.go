@@ -144,6 +144,10 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	// RBAC Role of the user. only mandatory if DEX is enabled.
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
+
+		for i, role := range rolesInHeader {
+			fmt.Printf("Role('%d'): '%s'\n", i, role)
+		}
 		if len(rolesInHeader) == 0 {
 			if x.DexDefaultUserEnabled {
 				u.DexAuthContext = &DexAuthContext{
