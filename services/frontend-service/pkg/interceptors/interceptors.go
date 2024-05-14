@@ -19,7 +19,7 @@ package interceptors
 import (
 	"context"
 	"fmt"
-	
+
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
