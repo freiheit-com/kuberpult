@@ -1894,12 +1894,12 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				repo, _ = setupRepositoryTestWithDB(t, &cfg)
 				r := repo.(*repository)
 				err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-					var err2 *TransformerBatchApplyError = nil
-					_, updatedState, _, err2 = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-					if err2 != nil {
+					var batchError *TransformerBatchApplyError = nil
+					_, updatedState, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+					if batchError != nil {
 						// Note that we cannot just `return err2` here,
 						// because it's a "TransformerBatchApplyError", not an "error"
-						return err2
+						return batchError
 					}
 					return nil
 				})
