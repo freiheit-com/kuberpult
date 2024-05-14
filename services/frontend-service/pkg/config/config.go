@@ -38,6 +38,7 @@ type ServerConfig struct {
 	DexEnabled             bool          `default:"false" split_words:"true"`
 	DexClientId            string        `default:"" split_words:"true"`
 	DexClientSecret        string        `default:"" split_words:"true"`
+	DexRbacPolicyPath      string        `split_words:"true"`
 	DexBaseURL             string        `default:"" split_words:"true"`
 	DexScopes              string        `default:"" split_words:"true"`
 	Version                string        `default:""`

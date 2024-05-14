@@ -155,6 +155,8 @@ spec:
           value: "{{ .Values.auth.dexAuth.baseURL }}"
         - name: KUBERPULT_DEX_SCOPES
           value: "{{ .Values.auth.dexAuth.scopes }}"
+        - name: KUBERPULT_DEX_RBAC_POLICY_PATH
+          value: /kuberpult-rbac/policy.csv
 {{- end }}
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING_PATH
@@ -185,11 +187,20 @@ spec:
         - name: keyring
           mountPath: /keyring
 {{- end }}
+{{- if .Values.auth.dexAuth.enabled }}
+        - name: kuberpult-rbac
+          mountPath: /kuberpult-rbac
+{{- end }} 
       volumes:
 {{- if .Values.pgp.keyRing }}
       - name: keyring
         configMap:
           name: kuberpult-keyring
+{{- end }}
+{{- if .Values.auth.dexAuth.enabled }}
+      - name: kuberpult-rbac
+        configMap:
+          name: kuberpult-rbac
 {{- end }}
 
 ---
