@@ -536,6 +536,9 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
 			} else {
+				if user == nil {
+					user = &p.DefaultUser
+				}
 				user.DexAuthContext = dexAuthContext
 				logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
 			}
