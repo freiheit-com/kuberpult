@@ -570,7 +570,7 @@ func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 		return nil
 	}
 	if r.DB != nil {
-		logger.FromContext(ctx).Sugar().Warnf("configured commit queue size is ignore, because database is enabled")
+		logger.FromContext(ctx).Sugar().Warnf("configured commit queue size is ignored, because database is enabled")
 		return nil
 	}
 	limit := r.config.MaximumCommitsPerPush - 1
