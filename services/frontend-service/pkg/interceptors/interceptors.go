@@ -19,8 +19,7 @@ package interceptors
 import (
 	"context"
 	"fmt"
-	"net/http"
-
+	
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -29,6 +28,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"net/http"
 )
 
 // authorize returns an error when the authentication failed
@@ -140,11 +140,11 @@ func DexLoginInterceptor(
 		// If user is not authenticated redirect to the login page.
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 	}
-	logger.FromContext(req.Context()).Warn(fmt.Sprintf("[DexLoginInterceptor] Token Verified Successfully"))
+	logger.FromContext(req.Context()).Warn("[DexLoginInterceptor] Token Verified Successfully")
 	auth.WriteUserRoleToHttpHeader(req, role)
 	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)
-	logger.FromContext(req.Context()).Warn(fmt.Sprintf("[DexLoginInterceptor] Wrote the context"))
+	logger.FromContext(req.Context()).Warn("[DexLoginInterceptor] Wrote the context")
 	req = req.WithContext(httpCtx)
-	logger.FromContext(req.Context()).Warn(fmt.Sprintf("[DexLoginInterceptor] Handling request"))
+	logger.FromContext(req.Context()).Warn("[DexLoginInterceptor] Handling request")
 	httpHandler(w, req)
 }
