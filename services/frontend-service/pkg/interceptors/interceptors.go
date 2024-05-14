@@ -28,7 +28,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"github.com/MicahParks/keyfunc/v2"	
+	"github.com/MicahParks/keyfunc/v2"
 )
 
 // authorize returns an error when the authentication failed
