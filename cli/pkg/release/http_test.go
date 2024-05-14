@@ -103,6 +103,36 @@ func TestRequestCreation(t *testing.T) {
 			responseCode: http.StatusOK,
 		},
 		{
+			name: "one environment manifest with signature",
+			params: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"development": "some development manifest",
+				},
+				Signatures: map[string][]byte{
+					"development": []byte("some development signature"),
+				},
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"signatures[development]": {
+					{
+						filename: "development-signature",
+						content: "some development signature",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
 			name: "multiple environment manifests",
 			params: &ReleaseParameters{
 				Application: "potato",
@@ -127,6 +157,51 @@ func TestRequestCreation(t *testing.T) {
 						content:  "some production manifest",
 					},
 				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "multiple environment manifests with signatures",
+			params: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"development": "some development manifest",
+					"production":  "some production manifest",
+				},
+				Signatures: map[string][]byte{
+					"development": []byte("some development signature"),
+					"production": []byte("some production signature"),
+				},
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+				"signatures[development]": {
+					{
+						filename: "development-signature",
+						content: "some development signature",
+					},
+				},
+				"signatures[production]": {
+					{
+						filename: "production-signature",
+						content: "some production signature",
+					},
+				},
+				
 			},
 			responseCode: http.StatusOK,
 		},

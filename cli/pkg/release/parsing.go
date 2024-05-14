@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -40,10 +41,12 @@ type cmdArguments struct {
 	sourceMessage    cli_utils.RepeatedString // same hack as application field here
 	version          cli_utils.RepeatedString // same hack as application field here
 	displayVersion   cli_utils.RepeatedString // same hack as application field here
+	skipSignatures   bool
+	signatures       cli_utils.RepeatedString
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
-func environmentManifestsPaired(args []string) (result bool, message string) {
+func environmentsManifestsPaired(args []string) (result bool, message string) {
 	for i, arg := range args {
 		if arg == "--environment" {
 			nextIndex := i + 2
@@ -51,10 +54,29 @@ func environmentManifestsPaired(args []string) (result bool, message string) {
 				return false, "all --environment args must have a --manifest arg set immediately afterwards"
 			}
 		}
-		prevIndex := i - 2
 		if arg == "--manifest" {
+			prevIndex := i - 2
 			if prevIndex < 0 || args[prevIndex] != "--environment" {
 				return false, "all --manifest args must be set immediately after an --environment arg"
+			}
+		}
+	}
+	return true, ""
+}
+
+// checks whether every --environment arg is matched with a --manifest arg
+func manifestsSignaturesPaired(args []string) (result bool, message string) {
+	for i, arg := range args {
+		if arg == "--manifest" {
+			nextIndex := i + 2
+			if nextIndex >= len(args) || args[nextIndex] != "--signature" {
+				return false, "all --manifest args must have a --signature arg set immediately afterwards, unless --skip_signatures is set"
+			}
+		}
+		if arg == "--signature" {
+			prevIndex := i - 2
+			if prevIndex < 0 || args[prevIndex] != "--manifest" {
+				return false, "all --signature args must be set immediately after a --manifest arg"
 			}
 		}
 	}
@@ -165,6 +187,8 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	fs.Var(&cmdArgs.sourceMessage, "source_message", "the source commit message (must not be set more than once)")
 	fs.Var(&cmdArgs.version, "version", "the release version (must be a positive integer)")
 	fs.Var(&cmdArgs.displayVersion, "display_version", "display version (must be a string between 1 and characters long)")
+	fs.BoolVar(&cmdArgs.skipSignatures, "skip_signatures", false, "if set to true, then the command line does not accept the --signature args")
+	fs.Var(&cmdArgs.signatures, "signature", "the name of the file containing the signature of the manifest to be deployed (must be set immediately after --manifest)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -178,7 +202,15 @@ func parseArgs(args []string) (*cmdArguments, error) {
 		return nil, fmt.Errorf(msg)
 	}
 
-	if ok, msg := environmentManifestsPaired(args); !ok {
+	if ok, msg := environmentsManifestsPaired(args); !ok {
+		return nil, fmt.Errorf(msg)
+	}
+
+	if cmdArgs.skipSignatures {
+		if slices.Contains(args, "--signature") {
+			return nil, fmt.Errorf("--signature args are not allowed when --skip_signatures is set")
+		}
+	} else if ok, msg := manifestsSignaturesPaired(args); !ok {
 		return nil, fmt.Errorf(msg)
 	}
 
@@ -194,15 +226,28 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 	rp := ReleaseParameters{}
 	rp.Application = cmdArgs.application.Values[0]
 	rp.Manifests = make(map[string]string)
+	if !cmdArgs.skipSignatures {
+		rp.Signatures = make(map[string][]byte)
+	}
 	for i := range cmdArgs.environments.Values {
 		manifestFile := cmdArgs.manifests.Values[i]
-		environemnt := cmdArgs.environments.Values[i]
+		environment := cmdArgs.environments.Values[i]
 
 		manifestBytes, err := os.ReadFile(manifestFile)
 		if err != nil {
 			return nil, fmt.Errorf("error while reading the manifest file %s, error: %w", manifestFile, err)
 		}
-		rp.Manifests[environemnt] = string(manifestBytes)
+		rp.Manifests[environment] = string(manifestBytes)
+
+		if !cmdArgs.skipSignatures {
+			signatureFile := cmdArgs.signatures.Values[i];
+			
+			signatureBytes, err := os.ReadFile(signatureFile)
+			if err != nil {
+				return nil, fmt.Errorf("error while reading the signature file %s, error: %w", signatureFile, err)
+			}
+			rp.Signatures[environment] = signatureBytes
+		}
 	}
 	if len(cmdArgs.team.Values) == 1 {
 		rp.Team = &cmdArgs.team.Values[0]

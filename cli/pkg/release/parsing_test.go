@@ -51,33 +51,34 @@ func TestReadArgs(t *testing.T) {
 	tcs := []testCase{
 		{
 			name:             "some unrecognized positional arguments",
-			args:             []string{"potato", "tomato"},
+			args:             []string{"--skip_signatures", "potato", "tomato"},
 			expectedErrorMsg: "these arguments are not recognized: \"potato tomato\"",
 		},
 		{
 			name:             "some flags that don't exist",
-			args:             []string{"--potato", "tomato"},
+			args:             []string{"--skip_signatures", "--potato", "tomato"},
 			expectedErrorMsg: "error while parsing command line arguments, error: flag provided but not defined: -potato",
 		},
 		{
 			name:             "nothing provided",
-			args:             []string{},
+			args:             []string{"--skip_signatures"},
 			expectedErrorMsg: "the --application arg must be set exactly once",
 		},
 		{
 			name:             "only --application is properly provided but without --environment and --manifest",
-			args:             []string{"--application", "potato"},
+			args:             []string{"--skip_signatures", "--application", "potato"},
 			expectedErrorMsg: "the args --enviornment and --manifest must be set at least once",
 		},
 		{
 			name:             "--environment is specified without --manifest",
-			args:             []string{"--application", "potato", "--environment", "production"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production"},
 			expectedErrorMsg: "all --environment args must have a --manifest arg set immediately afterwards",
 		},
 		{
 			name: "--environment and --manifest are specified",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml"},
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml"},
 			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -96,14 +97,104 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "--environment and --manifest are specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest1-file.yaml", "--environment", "development", "--manifest", "manifest2-file.yaml"},
+			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+						"development",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest1-file.yaml",
+						"manifest2-file.yaml",
+					},
+				},
+			},
+		},
+		{
 			name:             "--environment and --manifest are specified but with an extra --manifest",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--manifest", "something-else.yaml"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--manifest", "something-else.yaml"},
 			expectedErrorMsg: "all --manifest args must be set immediately after an --environment arg",
 		},
 		{
-			name: "--team is specified",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team"},
+			name: "signatures not skipped, --environment and --manifest and --signature are specified",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature-file.gpg"},
 			expectedCmdArgs: &cmdArguments{
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				signatures: cli_utils.RepeatedString{
+					Values: []string{
+						"signature-file.gpg",
+					},
+				},
+			},
+		},
+		{
+			name: "signatures not skipped, --environment and --manifest and --signature are specified twice",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest1-file.yaml", "--signature", "signature1-file.gpg", "--environment", "development", "--manifest", "manifest2-file.yaml", "--signature", "signature2-file.gpg"},
+			expectedCmdArgs: &cmdArguments{
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+						"development",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest1-file.yaml",
+						"manifest2-file.yaml",
+					},
+				},
+				signatures: cli_utils.RepeatedString{
+					Values: []string{
+						"signature1-file.gpg",
+						"signature2-file.gpg",
+					},
+				},
+			},
+		},
+		{
+			name:             "signatures not skipped, --environment and --manifest are specified without signature",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml"},
+			expectedErrorMsg: "all --manifest args must have a --signature arg set immediately afterwards, unless --skip_signatures is set",
+		},
+		{
+			name:             "signatures not skipped, --environment and --manifest is specified with multiple signatures",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature1-file.gpg", "--signature", "signature2-file.gpg"},
+			expectedErrorMsg: "all --signature args must be set immediately after a --manifest arg",
+		},
+		{
+			name: "--team is specified",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team"},
+			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -128,13 +219,14 @@ func TestReadArgs(t *testing.T) {
 		},
 		{
 			name:             "--team is specified twice",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--team", "tomato-team"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--team", "tomato-team"},
 			expectedErrorMsg: "the --team arg must be set at most once",
 		},
 		{
 			name: "--source_commit_id is specified",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
 			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -164,18 +256,19 @@ func TestReadArgs(t *testing.T) {
 		},
 		{
 			name:             "--source_commit_id is specified but has an invalid value",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "potato-commit"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "potato-commit"},
 			expectedErrorMsg: "the --source_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
 		},
 		{
 			name:             "--source_commit_id is specified twice",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
 			expectedErrorMsg: "the --source_commit_id arg must be set at most once",
 		},
 		{
 			name: "--previous_commit_id is specified",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -210,23 +303,24 @@ func TestReadArgs(t *testing.T) {
 		},
 		{
 			name:             "--previous_commit_id is specified without --source_commit_id",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 			expectedErrorMsg: "the --previous_commit_id arg can be set only if --source_commit_id is set",
 		},
 		{
 			name:             "--previous_commit_id is specified twice",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--previous_commit_id", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--previous_commit_id", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
 			expectedErrorMsg: "the --previous_commit_id arg must be set at most once",
 		},
 		{
 			name:             "--previous_commit_id is specified but with an invalid value",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "potato"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "potato"},
 			expectedErrorMsg: "the --previous_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
 		},
 		{
 			name: "--source_author is specified",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com"},
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com"},
 			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -266,13 +360,14 @@ func TestReadArgs(t *testing.T) {
 		},
 		{
 			name:             "--source_author is specified twice",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_author", "foo@bar.com"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_author", "foo@bar.com"},
 			expectedErrorMsg: "the --source_author arg must be set at most once",
 		},
 		{
 			name: "--source_message is specified",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message"},
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message"},
 			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -317,13 +412,14 @@ func TestReadArgs(t *testing.T) {
 		},
 		{
 			name:             "--source_message is specified twice",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--source_message", "another test source message"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--source_message", "another test source message"},
 			expectedErrorMsg: "the --source_message arg must be set at most once",
 		},
 		{
 			name: "--version is specified",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234"},
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234"},
 			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -373,23 +469,24 @@ func TestReadArgs(t *testing.T) {
 		},
 		{
 			name:             "--version is specified twice",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--version", "456"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--version", "456"},
 			expectedErrorMsg: "the --version arg must be set at most once",
 		},
 		{
 			name:             "--version is set to non-integer value",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "abc"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "abc"},
 			expectedErrorMsg: "the --version arg must be an integer value",
 		},
 		{
 			name:             "--version is set to negative integer value",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "-123"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "-123"},
 			expectedErrorMsg: "the --version arg value must be positive",
 		},
 		{
 			name: "--display_version is specified",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234", "--display_version", "1.23.4"},
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234", "--display_version", "1.23.4"},
 			expectedCmdArgs: &cmdArguments{
+				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -444,12 +541,12 @@ func TestReadArgs(t *testing.T) {
 		},
 		{
 			name:             "--display_version is specified twice",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "1.23", "--display_version", "a.bc"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "1.23", "--display_version", "a.bc"},
 			expectedErrorMsg: "the --display_version arg must be set at most once",
 		},
 		{
 			name:             "--display_version is specified but is too long",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "loooooooooooooooooooooooooooooooooooooooooong"},
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "loooooooooooooooooooooooooooooooooooooooooong"},
 			expectedErrorMsg: "the --display_version arg must be at most 15 characters long",
 		},
 	}
@@ -489,7 +586,7 @@ func TestParseArgs(t *testing.T) {
 		{
 			setup:            []fileCreation{},
 			name:             "no enviornments and manifests",
-			cmdArgs:          []string{"--application", "potato"},
+			cmdArgs:          []string{"--skip_signatures", "--application", "potato"},
 			expectedErrorMsg: "error while reading command line arguments, error: the args --enviornment and --manifest must be set at least once",
 		},
 		{
@@ -500,11 +597,34 @@ func TestParseArgs(t *testing.T) {
 				},
 			},
 			name:    "with environment and manifest",
-			cmdArgs: []string{"--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml"},
+			cmdArgs: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string]string{
 					"production": "some production manifest",
+				},
+			},
+		},
+		{
+			setup: []fileCreation{
+				{
+					filename: "production-manifest.yaml",
+					content:  "some production manifest",
+				},
+				{
+					filename: "production-signature.gpg",
+					content:  "some production signature",
+				},
+			},
+			name:    "with environment and manifest and signatures",
+			cmdArgs: []string{"--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml", "--signature", "production-signature.gpg"},
+			expectedParams: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"production": "some production manifest",
+				},
+				Signatures: map[string][]byte{
+					"production": []byte("some production signature"),
 				},
 			},
 		},
@@ -520,7 +640,7 @@ func TestParseArgs(t *testing.T) {
 				},
 			},
 			name:    "with environment and manifest multiple times",
-			cmdArgs: []string{"--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--environment", "production", "--manifest", "production-manifest.yaml"},
+			cmdArgs: []string{"--skip_signatures", "--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--environment", "production", "--manifest", "production-manifest.yaml"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string]string{
@@ -530,8 +650,41 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
+			setup: []fileCreation{
+				{
+					filename: "development-manifest.yaml",
+					content:  "some development manifest",
+				},
+				{
+					filename: "production-manifest.yaml",
+					content:  "some production manifest",
+				},
+				{
+					filename: "development-signature.gpg",
+					content:  "some development signature",
+				},
+				{
+					filename: "production-signature.gpg",
+					content:  "some production signature",
+				},
+			},
+			name:    "with environment and manifest and signature multiple times",
+			cmdArgs: []string{"--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--signature", "development-signature.gpg", "--environment", "production", "--manifest", "production-manifest.yaml", "--signature", "production-signature.gpg"},
+			expectedParams: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"development": "some development manifest",
+					"production":  "some production manifest",
+				},
+				Signatures: map[string][]byte{
+					"development": []byte("some development signature"),
+					"production":  []byte("some production signature"),
+				},
+			},
+		},
+		{
 			name:             "some error occurs in argument parsing",
-			cmdArgs:          []string{"--application"},
+			cmdArgs:          []string{"--skip_signatures", "--application"},
 			expectedParams:   nil,
 			expectedErrorMsg: "error while reading command line arguments, error: error while parsing command line arguments, error: flag needs an argument: -application",
 		},
@@ -557,6 +710,9 @@ func TestParseArgs(t *testing.T) {
 			}
 			for i, arg := range tc.cmdArgs {
 				if arg == "--manifest" {
+					tc.cmdArgs[i+1] = filepath.Join(dir, tc.cmdArgs[i+1])
+				}
+				if arg == "--signature" {
 					tc.cmdArgs[i+1] = filepath.Join(dir, tc.cmdArgs[i+1])
 				}
 			}

@@ -45,6 +45,19 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 		}
 	}
 
+	for environment, signature := range parsedArgs.Signatures {
+		part, err := writer.CreateFormFile(fmt.Sprintf("signatures[%s]", environment), fmt.Sprintf("%s-signature", environment))
+		if err != nil {
+			writer.Close()
+			return nil, fmt.Errorf("error creating the form entry for environment %s with signature file %s, error: %w", environment, signature, err)
+		}
+		_, err = part.Write([]byte(signature))
+		if err != nil {
+			writer.Close()
+			return nil, fmt.Errorf("error writing the form entry for environment %s with signature file %s, error: %w", environment, signature, err)
+		}
+	}
+
 	if parsedArgs.Team != nil {
 		if err := writer.WriteField("team", *parsedArgs.Team); err != nil {
 			return nil, fmt.Errorf("error writing team field, error: %w", err)
