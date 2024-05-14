@@ -130,7 +130,6 @@ func AddRoleToContext(httpCtx context.Context, w http.ResponseWriter, req *http.
 		if policyGroup.Group == userGroup {
 			auth.WriteUserRoleToHttpHeader(req, policyGroup.Role)
 			httpCtx = auth.WriteUserRoleToGrpcContext(req.Context(), policyGroup.Role)
-			httpCtx = context.WithValue(httpCtx, auth.HeaderUserRole, auth.Encode64(policyGroup.Role)) // nolint: staticcheck
 		}
 	}
 	return httpCtx
