@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -64,7 +63,7 @@ func environmentsManifestsPaired(args []string) (result bool, message string) {
 	return true, ""
 }
 
-// checks whether every --environment arg is matched with a --manifest arg
+// checks whether every --manifest arg is matched with a --signature arg
 func manifestsSignaturesPaired(args []string) (result bool, message string) {
 	for i, arg := range args {
 		if arg == "--manifest" {
@@ -169,6 +168,12 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 		}
 	}
 
+	if cmdArgs.skipSignatures {
+		if len(cmdArgs.signatures.Values) > 0 {
+			return false, "--signature args are not allowed when --skip_signatures is set"
+		}
+	}
+
 	return true, ""
 }
 
@@ -197,20 +202,18 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
 		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
 	}
-
-	if ok, msg := parsedArgsValid(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
-	}
-
+	
 	if ok, msg := environmentsManifestsPaired(args); !ok {
 		return nil, fmt.Errorf(msg)
 	}
 
-	if cmdArgs.skipSignatures {
-		if slices.Contains(args, "--signature") {
-			return nil, fmt.Errorf("--signature args are not allowed when --skip_signatures is set")
+	if !cmdArgs.skipSignatures {
+		if ok, msg := manifestsSignaturesPaired(args); !ok {
+			return nil, fmt.Errorf(msg)
 		}
-	} else if ok, msg := manifestsSignaturesPaired(args); !ok {
+	}
+
+	if ok, msg := parsedArgsValid(&cmdArgs); !ok {
 		return nil, fmt.Errorf(msg)
 	}
 

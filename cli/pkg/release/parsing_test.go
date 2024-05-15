@@ -152,6 +152,11 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "signatures skipped, --environment and --manifest and --signature are specified",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature-file.gpg"},
+			expectedErrorMsg: "--signature args are not allowed when --skip_signatures is set",
+		},
+		{
 			name: "signatures not skipped, --environment and --manifest and --signature are specified twice",
 			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest1-file.yaml", "--signature", "signature1-file.gpg", "--environment", "development", "--manifest", "manifest2-file.yaml", "--signature", "signature2-file.gpg"},
 			expectedCmdArgs: &cmdArguments{
