@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 #include <git2/sys/odb_backend.h>
 
 int kp_backend_sqlite(git_odb_backend **backend_out, const char *sqlite_db, const char **err_out);

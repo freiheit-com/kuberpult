@@ -12,7 +12,7 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com
+# Copyright freiheit.com
 # This file is part of kuberpult.
 
 # Kuberpult is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com
+# Copyright freiheit.com
 
 {{- if .Values.frontend.tag }}
 {{ fail "Values.frontend.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
@@ -152,7 +152,9 @@ spec:
         - name: KUBERPULT_DEX_BASE_URL
           value: {{ .Values.auth.dexAuth.baseURL | quote }}
         - name: KUBERPULT_DEX_SCOPES
-          value: {{ .Values.auth.dexAuth.scopes }}
+          value: "{{ .Values.auth.dexAuth.scopes }}"
+        - name: KUBERPULT_DEX_RBAC_POLICY_PATH
+          value: /kuberpult-rbac/policy.csv
 {{- end }}
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING_PATH
@@ -183,11 +185,20 @@ spec:
         - name: keyring
           mountPath: /keyring
 {{- end }}
+{{- if .Values.auth.dexAuth.enabled }}
+        - name: kuberpult-rbac
+          mountPath: /kuberpult-rbac
+{{- end }} 
       volumes:
 {{- if .Values.pgp.keyRing }}
       - name: keyring
         configMap:
           name: kuberpult-keyring
+{{- end }}
+{{- if .Values.auth.dexAuth.enabled }}
+      - name: kuberpult-rbac
+        configMap:
+          name: kuberpult-rbac
 {{- end }}
 
 ---

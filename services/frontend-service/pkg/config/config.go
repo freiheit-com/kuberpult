@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package config
 
@@ -38,6 +38,7 @@ type ServerConfig struct {
 	DexEnabled             bool          `default:"false" split_words:"true"`
 	DexClientId            string        `default:"" split_words:"true"`
 	DexClientSecret        string        `default:"" split_words:"true"`
+	DexRbacPolicyPath      string        `split_words:"true"`
 	DexBaseURL             string        `default:"" split_words:"true"`
 	DexScopes              string        `default:"" split_words:"true"`
 	Version                string        `default:""`

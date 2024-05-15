@@ -74,7 +74,7 @@ jobs:
       - name: Install earthly
         uses: earthly/actions-setup@v1
         with:
-            version: v0.8.4
+            version: v0.8.10
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -163,7 +163,7 @@ jobs:
       - name: Install earthly
         uses: earthly/actions-setup@v1
         with:
-          version: v0.8.4
+          version: v0.8.10
       - name: Setup remote runner
         uses: ./.github/actions/setup-earthly-runner
         with:
