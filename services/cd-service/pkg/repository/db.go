@@ -135,8 +135,12 @@ func RunDBMigrations(cfg DBConfig) error {
 	}
 	defer d.DB.Close()
 
-	files, _ := os.ReadDir(d.MigrationsPath)
+	files, err := os.ReadDir(d.MigrationsPath)
+	if err != nil {
+		return fmt.Errorf("Error opening migrations folder. Error: %w\n", err)
+	}
 
+	//If migrations folder exists and there are no migration to be done, without this check, migrations fail.
 	if len(files) == 0 {
 		return nil
 	}

@@ -2,8 +2,8 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kuberpult-migrations
-{{- if and ( .Values.generateMigrations) }}
 data:
+  {{- if .Values.generateMigrations }}
   {{- range $k, $v := .Files.Glob  "migrations/**.sql" }}
     {{ $k | trimPrefix "migrations/" }}: {{ $.Files.Get $k | toYaml | indent 4 }}
   {{- end }}
