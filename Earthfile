@@ -35,8 +35,8 @@ deps:
     RUN mv exhaustruct /usr/local/bin/exhaustruct
 
     WORKDIR /kp
-    RUN mkdir -p cd_database/migrations
-    COPY cd_database/migrations cd_database/migrations
+    RUN mkdir -p database/migrations
+    COPY database/migrations database/migrations
     COPY go.mod go.sum ./
     RUN go mod download
 
