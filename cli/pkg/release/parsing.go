@@ -217,7 +217,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	return &cmdArgs, nil
 }
 
-func ProcessArgs(args []string) (*ReleaseParameters, error) {
+func ParseArgs(args []string) (*ReleaseParameters, error) {
 	cmdArgs, err := parseArgs(args)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
@@ -240,8 +240,8 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 		rp.Manifests[environment] = string(manifestBytes)
 
 		if !cmdArgs.skipSignatures {
-			signatureFile := cmdArgs.signatures.Values[i];
-			
+			signatureFile := cmdArgs.signatures.Values[i]
+
 			signatureBytes, err := os.ReadFile(signatureFile)
 			if err != nil {
 				return nil, fmt.Errorf("error while reading the signature file %s, error: %w", signatureFile, err)

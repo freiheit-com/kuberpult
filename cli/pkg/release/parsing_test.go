@@ -724,7 +724,7 @@ func TestParseArgs(t *testing.T) {
 				}
 			}
 
-			params, err := ProcessArgs(tc.cmdArgs)
+			params, err := ParseArgs(tc.cmdArgs)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
