@@ -145,6 +145,9 @@ func RunDBMigrations(cfg DBConfig) error {
 		return nil
 	}
 
+	for _, file := range files {
+		fmt.Println(file)
+	}
 	m, err := d.getMigrationHandler()
 
 	if err != nil {
