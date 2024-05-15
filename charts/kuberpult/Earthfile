@@ -64,7 +64,7 @@ chart-tarball:
     COPY templates templates
 
     RUN helm dependency update
-    RUN helm template -s templates/migrations.yaml ./ -f values.yaml --set generateMigrations=true --set git.url=test --set ingress.domainName=kuberpult.example.com > templates/generated-migrations.yaml
+    RUN helm template -s templates/migrations.yaml ./ -f values.yaml --set git.url=test --set ingress.domainName=kuberpult.example.com > templates/generated-migrations.yaml
     RUN rm -rf charts
     RUN rm -rf migrations
     RUN rm templates/migrations.yaml
