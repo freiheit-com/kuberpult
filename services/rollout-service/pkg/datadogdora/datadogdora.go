@@ -30,35 +30,30 @@ import (
 )
 
 type Config struct {
-	URL         string
-	APIKey      string
-	Concurrency int
-	MaxEventAge time.Duration
+	URL           string
+	APIKey        string
+	RepositoryUrl string
+	Concurrency   int
+	MaxEventAge   time.Duration
 }
 
 func New(config Config) *Subscriber {
-	sub := &Subscriber{
-		url:           "",
-		ready:         nil,
-		state:         nil,
-		maxAge:        0,
-		now:           nil,
-		group:         errgroup.Group{},
-		apiKey:        "",
-		doraAPI:       nil,
-		RepositoryUrl: "",
-	}
-	sub.group.SetLimit(config.Concurrency)
-	sub.url = config.URL
-	sub.apiKey = config.APIKey
-	sub.ready = func() {}
-	sub.maxAge = config.MaxEventAge
-	sub.now = time.Now
 	configuration := datadog.NewConfiguration()
+	// as the dora API is still in beta the datadog api client only allows to call it with unstable operations enabled.
 	configuration.SetUnstableOperationEnabled("v2.CreateDORADeployment", true)
 	apiClient := datadog.NewAPIClient(configuration)
-	sub.doraAPI = datadogV2.NewDORAMetricsApi(apiClient)
-
+	sub := &Subscriber{
+		url:           config.URL,
+		ready:         func() {},
+		state:         nil,
+		maxAge:        config.MaxEventAge,
+		now:           time.Now,
+		group:         errgroup.Group{},
+		apiKey:        config.APIKey,
+		doraAPI:       datadogV2.NewDORAMetricsApi(apiClient),
+		RepositoryUrl: config.RepositoryUrl,
+	}
+	sub.group.SetLimit(config.Concurrency)
 	return sub
 }
 
@@ -128,13 +123,7 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 
 func shouldNotify(old *service.BroadcastEvent, nu *service.BroadcastEvent) bool {
 	// check for fields that must be present to generate the request
-	if nu.ArgocdVersion == nil || nu.IsProduction == nil || nu.ArgocdVersion.SourceCommitId == "" {
-		return false
-	}
-	if old == nil || old.ArgocdVersion == nil || old.IsProduction == nil {
-		return true
-	}
-	if old.ArgocdVersion.SourceCommitId != nu.ArgocdVersion.SourceCommitId || old.ArgocdVersion.DeployedAt != nu.ArgocdVersion.DeployedAt {
+	if old == nil || old.ArgocdVersion == nil || old.IsProduction == nil || old.ArgocdVersion.SourceCommitId != nu.ArgocdVersion.SourceCommitId || old.ArgocdVersion.DeployedAt != nu.ArgocdVersion.DeployedAt {
 		return true
 	}
 	return false
@@ -142,7 +131,7 @@ func shouldNotify(old *service.BroadcastEvent, nu *service.BroadcastEvent) bool 
 func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) func() error {
 
 	return func() error {
-		span, _ := tracer.StartSpanFromContext(ctx, "datadogdora.notify")
+		span, ctx := tracer.StartSpanFromContext(ctx, "datadogdora.notify")
 		defer span.Finish()
 		span.SetTag("datadogAPI.url", s.url)
 		span.SetTag("environment", ev.Environment)
@@ -174,7 +163,7 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 			},
 		}
 		ctx = context.WithValue(
-			context.Background(),
+			ctx,
 			datadog.ContextAPIKeys,
 			map[string]datadog.APIKey{
 				"apiKeyAuth": {

@@ -67,11 +67,12 @@ type Config struct {
 	RevolutionDoraConcurrency int           `default:"10" split_words:"true"`
 	RevolutionDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
 
-	DataDogDoraEnabled     bool          `split_words:"true"`
-	DataDogAPIURL          string        `split_words:"true" default:""`
-	DataDogAPIKey          string        `split_words:"true" default:""`
-	DataDogDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
-	DataDogDoraConcurrency int           `default:"10" split_words:"true"`
+	DatadogDoraEnabled       bool          `split_words:"true" default:"false"`
+	DatadogAPIURL            string        `split_words:"true" default:""`
+	DatadogAPIKey            string        `split_words:"true" default:""`
+	DatadogDoraMaxEventAge   time.Duration `default:"0" split_words:"true"`
+	DatadogDoraConcurrency   int           `default:"10" split_words:"true"`
+	DatadogDoraRepositoryURL string        `default:"" split_words:"true"`
 
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
@@ -110,18 +111,19 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 	}, nil
 }
 
-func (config *Config) DataDogDoraConfig() (datadogdora.Config, error) {
-	if config.DataDogAPIURL == "" {
+func (config *Config) DatadogDoraConfig() (datadogdora.Config, error) {
+	if config.DatadogAPIURL == "" {
 		return datadogdora.Config{}, fmt.Errorf("KUBERPULT_DATADOGAPI_URL must be a valid url")
 	}
-	if config.DataDogAPIKey == "" {
+	if config.DatadogAPIKey == "" {
 		return datadogdora.Config{}, fmt.Errorf("KUBERPULT_DATADOG_APIKEY  must not be empty")
 	}
 	return datadogdora.Config{
-		URL:         config.DataDogAPIURL,
-		APIKey:      config.DataDogAPIKey,
-		MaxEventAge: config.RevolutionDoraMaxEventAge,
-		Concurrency: config.DataDogDoraConcurrency,
+		URL:           config.DatadogAPIURL,
+		APIKey:        config.DatadogAPIKey,
+		MaxEventAge:   config.DatadogDoraMaxEventAge,
+		Concurrency:   config.DatadogDoraConcurrency,
+		RepositoryUrl: config.DatadogDoraRepositoryURL,
 	}, nil
 }
 
@@ -293,8 +295,8 @@ func runServer(ctx context.Context, config Config) error {
 		})
 	}
 
-	if config.DataDogDoraEnabled {
-		datadogDoraConfig, err := config.DataDogDoraConfig()
+	if config.DatadogDoraEnabled {
+		datadogDoraConfig, err := config.DatadogDoraConfig()
 		if err != nil {
 			return err
 		}
