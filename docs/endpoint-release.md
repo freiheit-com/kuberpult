@@ -25,3 +25,47 @@ The `/release` endpoint accepts several parameters:
 ### Caveats
 Note that the `/release` endpoint can be rather slow. This is because it involves running `git push` to a real repository, which in itself is a slow operation. Usually this takes about 1 second, but it highly depends on your Git Hosting Provider. This applies to all endpoints that have to write to the git repo (which is most of the endpoints).
 
+### CLI
+
+There is a Kubeprult command line client for communicating with the `/release` endpoint now at [`cli`](https://github.com/freiheit-com/kuberpult/tree/main/cli). The usage is as follows:
+
+```
+kuberpult-client release \
+    --application=google \
+    --environment=development --manifest=manifest-dev.yaml  --signature=signature-dev.gpg \
+    --environment=production  --manifest=manifest-prod.yaml --signature=signature-prod.gpg --team=blabla-team \
+    --previous_commit_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+    --source_commit_id=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+    --source_author=someone@something.com \
+    --source_message="some commit message\nthat can be multiline" \
+    --version=1234 \
+    --display-version=v1.23.4
+```
+
+The flags:
+```
+  -application value
+        the name of the application to deploy (must be set exactly once)
+  -display_version value
+        display version (must be a string between 1 and characters long)
+  -environment value
+        an environment to deploy to (must have --manifest set immediately afterwards)
+  -manifest value
+        the name of the file containing manifests to be deployed (must be set immediately after --environment)
+  -previous_commit_id value
+        the SHA1 hash of the previous commit (must not be set more than once and can only be set when source_commit_id is set)
+  -signature value
+        the name of the file containing the signature of the manifest to be deployed (must be set immediately after --manifest)
+  -skip_signatures
+        if set to true, then the command line does not accept the --signature args
+  -source_author value
+        the souce author (must not be set more than once)
+  -source_commit_id value
+        the SHA1 hash of the source commit (must not be set more than once)
+  -source_message value
+        the source commit message (must not be set more than once)
+  -team value
+        the name of the team to which this release belongs (must not be set more than once)
+  -version value
+        the release version (must be a positive integer)
+```
