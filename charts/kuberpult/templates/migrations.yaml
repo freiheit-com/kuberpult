@@ -1,3 +1,4 @@
+{{- if .Values.generateMigrations }}
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
 apiVersion: v1
 kind: ConfigMap
@@ -9,3 +10,4 @@ data:
   {{- end }}
 {{- end }}
 ---
+{{- end }} 

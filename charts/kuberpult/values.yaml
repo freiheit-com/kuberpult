@@ -338,3 +338,5 @@ manageArgoApplications:
   enabled: false
   # List of teams that should be self managed by the rollout service.
   filter: []
+
+generateMigrations: false 
