@@ -118,9 +118,11 @@ func issueHttpRequest(req *http.Request) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body could not be be read, error: %w", resp.StatusCode, err)
+		}
 		strBody := string(body)
-		
 		return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body:\n   %v", resp.StatusCode, strBody)
 	}
 
