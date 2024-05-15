@@ -202,19 +202,16 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("failed to get token: %v", err), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("Token Exchange performed.")
 	idTokenRAW, ok := token.Extra("id_token").(string)
 	if !ok {
 		http.Error(w, "no id_token in token response", http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("Validating OIDC Token...")
 	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to verify the token: %v", err), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("Checking claims...")
 	var claims jwt.MapClaims
 	err = idToken.Claims(&claims)
 	if err != nil {

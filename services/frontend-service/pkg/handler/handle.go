@@ -39,7 +39,6 @@ type Server struct {
 }
 
 func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
-	logger.FromContext(req.Context()).Warn("[Handle]")
 	group, tail := xpath.Shift(req.URL.Path)
 	switch group {
 	case "environments":
