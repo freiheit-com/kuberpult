@@ -131,6 +131,7 @@ integration-test:
     # Note that multiple commands here are writing to "." which is slightly dangerous, because
     # if there are files with the same name, old ones will be overridden.
     COPY charts/kuberpult .
+    COPY cd_database/migrations migrations
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
     COPY infrastructure/scripts/create-testdata/create-release.sh .
