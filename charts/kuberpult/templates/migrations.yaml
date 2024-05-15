@@ -1,5 +1,4 @@
-{{- if .Values.generateMigrations }}
-{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+{{- if or ( .Values.generateMigrations) (ne .Values.cd.db.dbOption "NO_DB")}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,6 +7,5 @@ data:
   {{- range $k, $v := .Files.Glob  "migrations/**.sql" }}
     {{ $k | trimPrefix "migrations/" }}: {{ $.Files.Get $k | toYaml | indent 4 }}
   {{- end }}
-{{- end }}
 ---
 {{- end }} 

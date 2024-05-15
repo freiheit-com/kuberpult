@@ -88,7 +88,7 @@ cd:
   db:
     location: "127.0.0.1"
     authProxyPort: 5432
-    dbOption: "NO_DB"
+    dbOption: "cloudsql"
 # k8sName is required if `dbOption = "cloudsql"`, otherwise it's ignored.
 # k8sName is the name of the kubernetes service account.
     k8sName: "k8sname"
@@ -339,4 +339,4 @@ manageArgoApplications:
   # List of teams that should be self managed by the rollout service.
   filter: []
 
-generateMigrations: false 
+generateMigrations: false
