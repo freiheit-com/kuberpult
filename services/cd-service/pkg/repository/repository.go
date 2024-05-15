@@ -624,6 +624,20 @@ type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
 func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
 	logger := logger.FromContext(ctx)
+
+	/**
+	Note that this function has a bit different error handling.
+	The error is not returned, but send to the transformer in `el.finish(err)`
+	in order to inform the transformers request handler that this request failed.
+	Therefore, in the function instead of
+	if err != nil {
+	  return err
+	}
+	we do:
+	if err != nil {
+	  return
+	}
+	*/
 	var err error = panicError
 
 	// Check that the first transformerBatch is not already canceled
@@ -678,12 +692,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true, tx)
 	if err != nil {
 		if r.DB != nil {
-
 			logger.Sugar().Warnf("rolling back transaction because of %v", err)
-
-			//
-			//
-
 			_ = tx.Rollback()
 		}
 		return
