@@ -182,11 +182,11 @@ VALUES
 
 # Get helm dependency charts and unzip them
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
-
-helm template ./ --values vals.yaml > tmp.tmpl
+cd -r ../../cd_database/migrations migrations
+helm template ./ --values vals.yaml --set generateMigrations=true > tmp.tmpl
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
-
+rm -rf migrations
 kubectl get deployment
 kubectl get pods
 
