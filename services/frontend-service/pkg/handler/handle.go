@@ -18,7 +18,6 @@ package handler
 
 import (
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"net/http"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
