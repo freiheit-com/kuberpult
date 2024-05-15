@@ -431,4 +431,5 @@ metadata:
 data:
   1713956693027648_all_apps.up.sql: "CREATE TABLE IF NOT EXISTS all_apps(version BIGINT, created TIMESTAMP, json VARCHAR(255), PRIMARY KEY(version));"
   1714726277027648_events.up.sql: "CREATE TABLE IF NOT EXISTS events(uuid VARCHAR(64), timestamp TIMESTAMP, commitHash VARCHAR(64), eventType VARCHAR(32), json VARCHAR, PRIMARY KEY(uuid)); CREATE INDEX commitHashIdx on events (commitHash);"
+  1714995407000000_event_sourcing_light.up.sql: "CREATE TABLE IF NOT EXISTS event_sourcing_light (eslId UUID, created TIMESTAMP, event_type VARCHAR(255), json VARCHAR, PRIMARY KEY(eslId));"
 {{- end }}

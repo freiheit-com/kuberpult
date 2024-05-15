@@ -18,6 +18,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -257,16 +258,17 @@ func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 
 // A Transformer updates the files in the worktree
 type Transformer interface {
-	Transform(context.Context, *State, TransformerContext) (commitMsg string, e error)
+	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
+	GetDBEventType() EventType
 }
 
 type TransformerContext interface {
-	Execute(Transformer) error
+	Execute(t Transformer, transaction *sql.Tx) error
 	AddAppEnv(app string, env string, team string)
 	DeleteEnvFromApp(app string, env string)
 }
 
-func RunTransformer(ctx context.Context, t Transformer, s *State) (string, *TransformerResult, error) {
+func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx) (string, *TransformerResult, error) {
 	runner := transformerRunner{
 		ChangedApps:     nil,
 		DeletedRootApps: nil,
@@ -275,7 +277,7 @@ func RunTransformer(ctx context.Context, t Transformer, s *State) (string, *Tran
 		State:           s,
 		Stack:           [][]string{nil},
 	}
-	if err := runner.Execute(t); err != nil {
+	if err := runner.Execute(t, transaction); err != nil {
 		return "", nil, err
 	}
 	commitMsg := ""
@@ -302,9 +304,9 @@ type transformerRunner struct {
 	Commits         *CommitIds
 }
 
-func (r *transformerRunner) Execute(t Transformer) error {
+func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
-	msg, err := t.Transform(r.Context, r.State, r)
+	msg, err := t.Transform(r.Context, r.State, r, transaction)
 	if err != nil {
 		return err
 	}
@@ -343,19 +345,23 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env string) {
 }
 
 type CreateApplicationVersion struct {
-	Authentication
-	Version         uint64
-	Application     string
-	Manifests       map[string]string
-	SourceCommitId  string
-	SourceAuthor    string
-	SourceMessage   string
-	SourceRepoUrl   string
-	Team            string
-	DisplayVersion  string
-	WriteCommitData bool
-	PreviousCommit  string
-	NextCommit      string
+	Authentication  `json:"-"`
+	Version         uint64            `json:"version"`
+	Application     string            `json:"app"`
+	Manifests       map[string]string `json:"manifests"`
+	SourceCommitId  string            `json:"sourceCommitId"`
+	SourceAuthor    string            `json:"sourceCommitAuthor"`
+	SourceMessage   string            `json:"sourceCommitMessage"`
+	SourceRepoUrl   string            `json:"sourceRepoUrl"`
+	Team            string            `json:"team"`
+	DisplayVersion  string            `json:"displayVersion"`
+	WriteCommitData bool              `json:"writeCommitData"`
+	PreviousCommit  string            `json:"previousCommit"`
+	NextCommit      string            `json:"nextCommit"`
+}
+
+func (c *CreateApplicationVersion) GetDBEventType() EventType {
+	return EvtCreateApplicationVersion
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -392,6 +398,7 @@ func (c *CreateApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	version, err := c.calculateVersion(state)
 	if err != nil {
@@ -402,32 +409,26 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
 	if state.DBHandler != nil {
-		err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
-			allApps, err := state.DBHandler.DBSelectAllApplications(ctx)
-			if err != nil {
-				return err
-			}
-			if allApps == nil {
-				allApps = &AllApplicationsGo{
-					Version: 1,
-					AllApplicationsJson: AllApplicationsJson{
-						Apps: []string{},
-					},
-					Created: time.Now(),
-				}
-			}
-
-			if !slices.Contains(allApps.Apps, c.Application) {
-				allApps.Apps = append(allApps.Apps, c.Application)
-				err := state.DBHandler.DBWriteAllApplications(ctx, allApps.Version, allApps.Apps)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+		allApps, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		if allApps == nil {
+			allApps = &AllApplicationsGo{
+				Version: 1,
+				AllApplicationsJson: AllApplicationsJson{
+					Apps: []string{},
+				},
+				Created: time.Now(),
+			}
+		}
+
+		if !slices.Contains(allApps.Apps, c.Application) {
+			allApps.Apps = append(allApps.Apps, c.Application)
+			err := state.DBHandler.DBWriteAllApplications(ctx, transaction, allApps.Version, allApps.Apps)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
 		}
 	}
 
@@ -561,9 +562,9 @@ func (c *CreateApplicationVersion) Transform(
 				LockBehaviour:   api.LockBehavior_RECORD,
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
-				author:          c.SourceAuthor,
+				Author:          c.SourceAuthor,
 			}
-			err := t.Execute(d)
+			err := t.Execute(d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -833,17 +834,23 @@ func isLatestsVersion(state *State, application string, version uint64) (bool, e
 }
 
 type CreateUndeployApplicationVersion struct {
-	Authentication
-	Application     string
-	WriteCommitData bool
+	Authentication  `json:"-"`
+	Application     string `json:"app"`
+	WriteCommitData bool   `json:"writeCommitData"`
+}
+
+func (c *CreateUndeployApplicationVersion) GetDBEventType() EventType {
+	return EvtCreateUndeployApplicationVersion
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
+
 	lastRelease, err := GetLastRelease(fs, c.Application)
 	if err != nil {
 		return "", err
@@ -906,9 +913,9 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				LockBehaviour:   api.LockBehavior_RECORD,
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
-				author:          "",
+				Author:          "",
 			}
-			err := t.Execute(d)
+			err := t.Execute(d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -979,14 +986,19 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 }
 
 type UndeployApplication struct {
-	Authentication
-	Application string
+	Authentication `json:"-"`
+	Application    string `json:"app"`
+}
+
+func (u *UndeployApplication) GetDBEventType() EventType {
+	return EvtUndeployApplication
 }
 
 func (u *UndeployApplication) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
 	lastRelease, err := GetLastRelease(fs, u.Application)
@@ -1084,36 +1096,40 @@ func (u *UndeployApplication) Transform(
 		}
 	}
 	if state.DBHandler != nil {
-		err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
-			applications, err := state.DBHandler.DBSelectAllApplications(ctx)
-			if err != nil {
-				return err
-			}
-			applications.Apps = Remove(applications.Apps, u.Application)
-			return state.DBHandler.DBWriteAllApplications(ctx, applications.Version, applications.Apps)
-		})
+		applications, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not apply transaction for application '%v': '%w'", u.Application, err)
+			return "", fmt.Errorf("UndeployApplication: could not select all apps '%v': '%w'", u.Application, err)
+		}
+		applications.Apps = Remove(applications.Apps, u.Application)
+		err = state.DBHandler.DBWriteAllApplications(ctx, transaction, applications.Version, applications.Apps)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not write all apps '%v': '%w'", u.Application, err)
 		}
 	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 
 type DeleteEnvFromApp struct {
-	Authentication
-	Application string
-	Environment string
+	Authentication `json:"-"`
+	Application    string `json:"app"`
+	Environment    string `json:"env"`
+}
+
+func (u *DeleteEnvFromApp) GetDBEventType() EventType {
+	return EvtDeleteEnvFromApp
 }
 
 func (u *DeleteEnvFromApp) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig)
 	if err != nil {
 		return "", err
 	}
+
 	fs := state.Filesystem
 	thisSprintf := func(format string, a ...any) string {
 		return fmt.Sprintf("DeleteEnvFromApp app '%s' on env '%s': %s", u.Application, u.Environment, fmt.Sprintf(format, a...))
@@ -1149,6 +1165,10 @@ func (u *DeleteEnvFromApp) Transform(
 
 type CleanupOldApplicationVersions struct {
 	Application string
+}
+
+func (c *CleanupOldApplicationVersions) GetDBEventType() EventType {
+	panic("CleanupOldApplicationVersions GetDBEventType")
 }
 
 // Finds old releases for an application
@@ -1195,6 +1215,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
 	oldVersions, err := findOldApplicationVersions(state, c.Application)
@@ -1246,10 +1267,14 @@ type Authentication struct {
 }
 
 type CreateEnvironmentLock struct {
-	Authentication
-	Environment string
-	LockId      string
-	Message     string
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	LockId         string `json:"lockId"`
+	Message        string `json:"message"`
+}
+
+func (c *CreateEnvironmentLock) GetDBEventType() EventType {
+	return EvtCreateEnvironmentLock
 }
 
 func (s *State) checkUserPermissions(ctx context.Context, env, application, action, team string, RBACConfig auth.RBACConfig) error {
@@ -1300,6 +1325,7 @@ func (c *CreateEnvironmentLock) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
@@ -1361,15 +1387,20 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 }
 
 type DeleteEnvironmentLock struct {
-	Authentication
-	Environment string
-	LockId      string
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	LockId         string `json:"lockId"`
+}
+
+func (c *DeleteEnvironmentLock) GetDBEventType() EventType {
+	return EvtDeleteEnvironmentLock
 }
 
 func (c *DeleteEnvironmentLock) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
 	if err != nil {
@@ -1419,16 +1450,21 @@ func (c *DeleteEnvironmentLock) Transform(
 }
 
 type CreateEnvironmentGroupLock struct {
-	Authentication
-	EnvironmentGroup string
-	LockId           string
-	Message          string
+	Authentication   `json:"-"`
+	EnvironmentGroup string `json:"env"`
+	LockId           string `json:"lockId"`
+	Message          string `json:"message"`
+}
+
+func (c *CreateEnvironmentGroupLock) GetDBEventType() EventType {
+	return EvtCreateEnvironmentGroupLock
 }
 
 func (c *CreateEnvironmentGroupLock) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
@@ -1438,6 +1474,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	if err != nil {
 		return "", grpc.PublicError(ctx, err)
 	}
+	logger.FromContext(ctx).Sugar().Warnf("envNamesSorted: %v", envNamesSorted)
 	for index := range envNamesSorted {
 		envName := envNamesSorted[index]
 		x := CreateEnvironmentLock{
@@ -1446,7 +1483,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 			LockId:         c.LockId, // the IDs should be the same for all. See `useLocksSimilarTo` in store.tsx
 			Message:        c.Message,
 		}
-		if err := t.Execute(&x); err != nil {
+		if err := t.Execute(&x, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -1454,15 +1491,20 @@ func (c *CreateEnvironmentGroupLock) Transform(
 }
 
 type DeleteEnvironmentGroupLock struct {
-	Authentication
-	EnvironmentGroup string
-	LockId           string
+	Authentication   `json:"-"`
+	EnvironmentGroup string `json:"envGroup"`
+	LockId           string `json:"lockId"`
+}
+
+func (c *DeleteEnvironmentGroupLock) GetDBEventType() EventType {
+	return EvtDeleteEnvironmentGroupLock
 }
 
 func (c *DeleteEnvironmentGroupLock) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
 	if err != nil {
@@ -1479,7 +1521,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 			Environment:    envName,
 			LockId:         c.LockId,
 		}
-		if err := t.Execute(&x); err != nil {
+		if err := t.Execute(&x, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -1487,17 +1529,22 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 }
 
 type CreateEnvironmentApplicationLock struct {
-	Authentication
-	Environment string
-	Application string
-	LockId      string
-	Message     string
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	Application    string `json:"app"`
+	LockId         string `json:"lockId"`
+	Message        string `json:"message"`
+}
+
+func (c *CreateEnvironmentApplicationLock) GetDBEventType() EventType {
+	return EvtCreateEnvironmentApplicationLock
 }
 
 func (c *CreateEnvironmentApplicationLock) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
 	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionCreateLock, "", c.RBACConfig)
@@ -1527,16 +1574,21 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 }
 
 type DeleteEnvironmentApplicationLock struct {
-	Authentication
-	Environment string
-	Application string
-	LockId      string
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	Application    string `json:"app"`
+	LockId         string `json:"lockId"`
+}
+
+func (c *DeleteEnvironmentApplicationLock) GetDBEventType() EventType {
+	return EvtDeleteEnvironmentApplicationLock
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeleteLock, "", c.RBACConfig)
 	if err != nil {
@@ -1573,17 +1625,22 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 }
 
 type CreateEnvironmentTeamLock struct {
-	Authentication
-	Environment string
-	Team        string
-	LockId      string
-	Message     string
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	Team           string `json:"team"`
+	LockId         string `json:"lockId"`
+	Message        string `json:"message"`
+}
+
+func (c *CreateEnvironmentTeamLock) GetDBEventType() EventType {
+	return EvtCreateEnvironmentTeamLock
 }
 
 func (c *CreateEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
 	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig)
@@ -1642,16 +1699,21 @@ func (c *CreateEnvironmentTeamLock) Transform(
 }
 
 type DeleteEnvironmentTeamLock struct {
-	Authentication
-	Environment string
-	Team        string
-	LockId      string
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	Team           string `json:"team"`
+	LockId         string `json:"lockId"`
+}
+
+func (c *DeleteEnvironmentTeamLock) GetDBEventType() EventType {
+	return EvtDeleteEnvironmentTeamLock
 }
 
 func (c *DeleteEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig)
 	if err != nil {
@@ -1695,15 +1757,20 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 }
 
 type CreateEnvironment struct {
-	Authentication
-	Environment string
-	Config      config.EnvironmentConfig
+	Authentication `json:"-"`
+	Environment    string                   `json:"env"`
+	Config         config.EnvironmentConfig `json:"config"`
+}
+
+func (c *CreateEnvironment) GetDBEventType() EventType {
+	return EvtCreateEnvironment
 }
 
 func (c *CreateEnvironment) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissionsCreateEnvironment(ctx, c.RBACConfig, c.Config)
 	if err != nil {
@@ -1745,6 +1812,7 @@ func (c *QueueApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
 	// Create a symlink to the release
@@ -1766,25 +1834,30 @@ func (c *QueueApplicationVersion) Transform(
 }
 
 type DeployApplicationVersion struct {
-	Authentication
-	Environment     string
-	Application     string
-	Version         uint64
-	LockBehaviour   api.LockBehavior
-	WriteCommitData bool
-	SourceTrain     *DeployApplicationVersionSource
-	author          string
+	Authentication  `json:"-"`
+	Environment     string                          `json:"env"`
+	Application     string                          `json:"app"`
+	Version         uint64                          `json:"version"`
+	LockBehaviour   api.LockBehavior                `json:"lockBehaviour"`
+	WriteCommitData bool                            `json:"writeCommitData"`
+	SourceTrain     *DeployApplicationVersionSource `json:"sourceTrain"`
+	Author          string                          `json:"author"`
+}
+
+func (c *DeployApplicationVersion) GetDBEventType() EventType {
+	return EvtDeployApplicationVersion
 }
 
 type DeployApplicationVersionSource struct {
-	TargetGroup *string
-	Upstream    string
+	TargetGroup *string `json:"targetGroup"`
+	Upstream    string  `json:"upstream"`
 }
 
 func (c *DeployApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig)
 	if err != nil {
@@ -1875,7 +1948,7 @@ func (c *DeployApplicationVersion) Transform(
 					Application: c.Application,
 					Version:     c.Version,
 				}
-				return q.Transform(ctx, state, t)
+				return q.Transform(ctx, state, t, nil)
 			case api.LockBehavior_FAIL:
 				return "", &LockedError{
 					EnvironmentApplicationLocks: appLocks,
@@ -1962,7 +2035,7 @@ func (c *DeployApplicationVersion) Transform(
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 	}
-	if err := t.Execute(d); err != nil {
+	if err := t.Execute(d, transaction); err != nil {
 		return "", err
 	}
 
@@ -1976,10 +2049,7 @@ func (c *DeployApplicationVersion) Transform(
 			gen := getGenerator(ctx)
 			eventUuid := gen.Generate()
 
-			err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
-				return state.DBHandler.DBWriteDeploymentEvent(ctx, eventUuid, newReleaseCommitId, c.author, deploymentEvent)
-			})
-
+			err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, eventUuid, newReleaseCommitId, c.Author, deploymentEvent)
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
@@ -2079,13 +2149,18 @@ func createReplacedByEvent(application, environment, commitId string) *event.Rep
 }
 
 type ReleaseTrain struct {
-	Authentication
-	Target          string
-	Team            string
-	CommitHash      string
-	WriteCommitData bool
-	Repo            Repository
+	Authentication  `json:"-"`
+	Target          string     `json:"target"`
+	Team            string     `json:"team,omitempty"`
+	CommitHash      string     `json:"commitHash"`
+	WriteCommitData bool       `json:"writeCommitData"`
+	Repo            Repository `json:"-"`
 }
+
+func (c *ReleaseTrain) GetDBEventType() EventType {
+	return EvtReleaseTrain
+}
+
 type Overview struct {
 	App     string
 	Version uint64
@@ -2301,6 +2376,7 @@ func (c *ReleaseTrain) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	prognosis := c.Prognosis(ctx, state)
 
@@ -2332,7 +2408,7 @@ func (c *ReleaseTrain) Transform(
 			EnvGroupConfigs: envGroupConfigs,
 			WriteCommitData: c.WriteCommitData,
 			TrainGroup:      trainGroup,
-		}); err != nil {
+		}, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -2349,6 +2425,10 @@ type envReleaseTrain struct {
 	EnvGroupConfigs map[string]config.EnvironmentConfig
 	WriteCommitData bool
 	TrainGroup      *string
+}
+
+func (c *envReleaseTrain) GetDBEventType() EventType {
+	panic("envReleaseTrain GetDBEventType")
 }
 
 func (c *envReleaseTrain) prognosis(
@@ -2617,6 +2697,7 @@ func (c *envReleaseTrain) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
@@ -2716,9 +2797,9 @@ func (c *envReleaseTrain) Transform(
 				Upstream:    upstreamEnvName,
 				TargetGroup: c.TrainGroup,
 			},
-			author: "",
+			Author: "",
 		}
-		if err := t.Execute(d); err != nil {
+		if err := t.Execute(d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}
 	}
@@ -2728,7 +2809,7 @@ func (c *envReleaseTrain) Transform(
 	}
 	if err := t.Execute(&skippedServices{
 		Messages: skipped,
-	}); err != nil {
+	}, transaction); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Release Train to '%s' environment:\n\n"+
@@ -2743,16 +2824,21 @@ type skippedServices struct {
 	Messages []string
 }
 
+func (c *skippedServices) GetDBEventType() EventType {
+	panic("GetDBEventType for skippedServices")
+}
+
 func (c *skippedServices) Transform(
-	ctx context.Context,
-	state *State,
+	_ context.Context,
+	_ *State,
 	t TransformerContext,
+	transaction *sql.Tx,
 ) (string, error) {
 	if len(c.Messages) == 0 {
 		return "", nil
 	}
 	for _, msg := range c.Messages {
-		if err := t.Execute(&skippedService{Message: msg}); err != nil {
+		if err := t.Execute(&skippedService{Message: msg}, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -2763,10 +2849,10 @@ type skippedService struct {
 	Message string
 }
 
-func (c *skippedService) Transform(
-	ctx context.Context,
-	state *State,
-	t TransformerContext,
-) (string, error) {
+func (c *skippedService) GetDBEventType() EventType {
+	panic("GetDBEventType for skippedService")
+}
+
+func (c *skippedService) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (string, error) {
 	return c.Message, nil
 }

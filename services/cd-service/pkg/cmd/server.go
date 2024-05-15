@@ -240,6 +240,7 @@ func RunServer() {
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 			}
+			logger.FromContext(ctx).Info("Finished with basic database migration.")
 		}
 
 		cfg := repository.RepositoryConfig{
