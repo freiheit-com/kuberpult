@@ -29,7 +29,7 @@ import (
 
 // a simple container for the command line args, not meant for anything except the use of flag.Parse
 // unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see releaseParameters instead
-type cmdArguments struct {
+type commandLineArguments struct {
 	application      cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
 	environments     cli_utils.RepeatedString
 	manifests        cli_utils.RepeatedString
@@ -94,7 +94,7 @@ func isAuthorID(s string) bool {
 	return authorIDRegex.MatchString(s)
 }
 
-func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
+func parsedArgsValid(cmdArgs *commandLineArguments) (result bool, message string) {
 	if len(cmdArgs.application.Values) != 1 {
 		return false, "the --application arg must be set exactly once"
 	}
@@ -177,8 +177,8 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 	return true, ""
 }
 
-func parseArgs(args []string) (*cmdArguments, error) {
-	cmdArgs := cmdArguments{}
+func readArgs(args []string) (*commandLineArguments, error) {
+	cmdArgs := commandLineArguments{}
 
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
@@ -202,7 +202,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
 		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
 	}
-	
+
 	if ok, msg := environmentsManifestsPaired(args); !ok {
 		return nil, fmt.Errorf(msg)
 	}
@@ -220,38 +220,14 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	return &cmdArgs, nil
 }
 
-func ParseArgs(args []string) (*ReleaseParameters, error) {
-	cmdArgs, err := parseArgs(args)
-	if err != nil {
-		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
-	}
-
+func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 	rp := ReleaseParameters{}
-	rp.Application = cmdArgs.application.Values[0]
 	rp.Manifests = make(map[string]string)
 	if !cmdArgs.skipSignatures {
 		rp.Signatures = make(map[string][]byte)
 	}
-	for i := range cmdArgs.environments.Values {
-		manifestFile := cmdArgs.manifests.Values[i]
-		environment := cmdArgs.environments.Values[i]
 
-		manifestBytes, err := os.ReadFile(manifestFile)
-		if err != nil {
-			return nil, fmt.Errorf("error while reading the manifest file %s, error: %w", manifestFile, err)
-		}
-		rp.Manifests[environment] = string(manifestBytes)
-
-		if !cmdArgs.skipSignatures {
-			signatureFile := cmdArgs.signatures.Values[i]
-
-			signatureBytes, err := os.ReadFile(signatureFile)
-			if err != nil {
-				return nil, fmt.Errorf("error while reading the signature file %s, error: %w", signatureFile, err)
-			}
-			rp.Signatures[environment] = signatureBytes
-		}
-	}
+	rp.Application = cmdArgs.application.Values[0]
 	if len(cmdArgs.team.Values) == 1 {
 		rp.Team = &cmdArgs.team.Values[0]
 	}
@@ -275,6 +251,38 @@ func ParseArgs(args []string) (*ReleaseParameters, error) {
 	if len(cmdArgs.displayVersion.Values) == 1 {
 		rp.DisplayVersion = &cmdArgs.displayVersion.Values[0]
 	}
+	for i := range cmdArgs.environments.Values {
+		manifestFile := cmdArgs.manifests.Values[i]
+		environment := cmdArgs.environments.Values[i]
 
+		manifestBytes, err := os.ReadFile(manifestFile)
+		if err != nil {
+			return nil, fmt.Errorf("error while reading the manifest file %s, error: %w", manifestFile, err)
+		}
+		rp.Manifests[environment] = string(manifestBytes)
+
+		if !cmdArgs.skipSignatures {
+			signatureFile := cmdArgs.signatures.Values[i]
+
+			signatureBytes, err := os.ReadFile(signatureFile)
+			if err != nil {
+				return nil, fmt.Errorf("error while reading the signature file %s, error: %w", signatureFile, err)
+			}
+			rp.Signatures[environment] = signatureBytes
+		}
+	}
 	return &rp, nil
+}
+
+func ParseArgs(args []string) (*ReleaseParameters, error) {
+	cmdArgs, err := readArgs(args)
+	if err != nil {
+		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
+	}
+	rp, err := convertToParams(*cmdArgs)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating /release endpoint params, error: %w", err)
+	}
+
+	return rp, nil
 }

@@ -44,7 +44,7 @@ func TestReadArgs(t *testing.T) {
 	type testCase struct {
 		name             string
 		args             []string
-		expectedCmdArgs  *cmdArguments
+		expectedCmdArgs  *commandLineArguments
 		expectedErrorMsg string
 	}
 
@@ -77,7 +77,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--environment and --manifest are specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -99,7 +99,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--environment and --manifest are specified twice",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest1-file.yaml", "--environment", "development", "--manifest", "manifest2-file.yaml"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -128,7 +128,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "signatures not skipped, --environment and --manifest and --signature are specified",
 			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature-file.gpg"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -152,14 +152,14 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "signatures skipped, --environment and --manifest and --signature are specified",
-			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature-file.gpg"},
+			name:             "signatures skipped, --environment and --manifest and --signature are specified",
+			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature-file.gpg"},
 			expectedErrorMsg: "--signature args are not allowed when --skip_signatures is set",
 		},
 		{
 			name: "signatures not skipped, --environment and --manifest and --signature are specified twice",
 			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest1-file.yaml", "--signature", "signature1-file.gpg", "--environment", "development", "--manifest", "manifest2-file.yaml", "--signature", "signature2-file.gpg"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				application: cli_utils.RepeatedString{
 					Values: []string{
 						"potato",
@@ -198,7 +198,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--team is specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -230,7 +230,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--source_commit_id is specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -272,7 +272,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--previous_commit_id is specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -324,7 +324,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--source_author is specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -371,7 +371,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--source_message is specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -423,7 +423,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--version is specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -490,7 +490,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name: "--display_version is specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234", "--display_version", "1.23.4"},
-			expectedCmdArgs: &cmdArguments{
+			expectedCmdArgs: &commandLineArguments{
 				skipSignatures: true,
 				application: cli_utils.RepeatedString{
 					Values: []string{
@@ -561,13 +561,13 @@ func TestReadArgs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cmdArgs, err := parseArgs(tc.args)
+			cmdArgs, err := readArgs(tc.args)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
-			if !cmp.Equal(cmdArgs, tc.expectedCmdArgs, cmp.AllowUnexported(cmdArguments{})) {
+			if !cmp.Equal(cmdArgs, tc.expectedCmdArgs, cmp.AllowUnexported(commandLineArguments{})) {
 				t.Fatalf("expected args %v, got %v", tc.expectedCmdArgs, cmdArgs)
 			}
 		})
@@ -736,7 +736,7 @@ func TestParseArgs(t *testing.T) {
 			}
 
 			// check result
-			if !cmp.Equal(params, tc.expectedParams, cmp.AllowUnexported(cmdArguments{})) {
+			if !cmp.Equal(params, tc.expectedParams, cmp.AllowUnexported(commandLineArguments{})) {
 				t.Fatalf("expected args %v, got %v", tc.expectedParams, params)
 			}
 		})
