@@ -122,7 +122,6 @@ func issueHttpRequest(req *http.Request) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
 		strBody := string(body)
 		
