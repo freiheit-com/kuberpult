@@ -10,7 +10,7 @@ jobs:
       - name: Install earthly
         uses: earthly/actions-setup@v1
         with:
-            version: v0.8.4
+            version: v0.8.10
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # needed for git describe/VERSION in Makefile
