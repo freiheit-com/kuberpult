@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package interceptors
 
@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -124,6 +125,16 @@ func GoogleIAPInterceptor(
 	httpHandler(w, req)
 }
 
+func AddRoleToContext(httpCtx context.Context, w http.ResponseWriter, req *http.Request, userGroup string, policy *auth.RBACPolicies) context.Context {
+	for _, policyGroup := range policy.Groups {
+		if policyGroup.Group == userGroup {
+			auth.WriteUserRoleToHttpHeader(req, policyGroup.Role)
+			httpCtx = auth.WriteUserRoleToGrpcContext(req.Context(), policyGroup.Role)
+		}
+	}
+	return httpCtx
+}
+
 // DexLoginInterceptor intercepts HTTP calls to the frontend service.
 // DexLoginInterceptor must only be used if dex is enabled.
 // If the user us not logged in, it redirected the calls to the Dex login page.
@@ -132,16 +143,43 @@ func DexLoginInterceptor(
 	w http.ResponseWriter,
 	req *http.Request,
 	httpHandler http.HandlerFunc,
-	clientID, baseURL string,
+	clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies,
 ) {
-	role, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
+	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicy)
 	if err != nil {
 		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
+		return
 	}
-	auth.WriteUserRoleToHttpHeader(req, role)
-	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)
 	req = req.WithContext(httpCtx)
 	httpHandler(w, req)
+}
+
+func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies) (context.Context, error) {
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
+	if err != nil {
+		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
+		return req.Context(), err
+	}
+	httpCtx := req.Context()
+	// switch case to handle multiple types of claims that can be extracted from the Dex Response
+	switch val := claims["groups"].(type) {
+	case []interface{}:
+		for _, group := range val {
+			groupName := strings.Trim(group.(string), "\"")
+			httpCtx = AddRoleToContext(httpCtx, w, req, groupName, DexRbacPolicy)
+		}
+	case []string:
+		httpCtx = AddRoleToContext(httpCtx, w, req, strings.Join(val, ","), DexRbacPolicy)
+	case string:
+		httpCtx = AddRoleToContext(httpCtx, w, req, val, DexRbacPolicy)
+	}
+
+	if claims["email"].(string) != "" {
+		httpCtx = AddRoleToContext(httpCtx, w, req, claims["email"].(string), DexRbacPolicy)
+	} else if claims["groups"] == nil {
+		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login")
+	}
+	return httpCtx, nil
 }

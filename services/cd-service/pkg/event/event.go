@@ -12,20 +12,29 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package event
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
-	"slices"
-
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/go-git/go-billy/v5"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"io/fs"
+	"slices"
+)
+
+type EventType string
+
+const (
+	EventTypeDeployment             EventType = "deployment"
+	EventTypeLockPreventeDeployment EventType = "lock-prevented-deployment"
+	EventTypeReplaceBy              EventType = "replaced-by"
+	EventTypeNewRelease             EventType = "new-release"
 )
 
 type eventType struct {
@@ -39,7 +48,7 @@ type NewRelease struct {
 }
 
 func (_ *NewRelease) eventType() string {
-	return "new-release"
+	return string(EventTypeNewRelease)
 }
 
 func (ev *NewRelease) toProto(trg *api.Event) {
@@ -58,14 +67,14 @@ func (ev *NewRelease) toProto(trg *api.Event) {
 // Deployment is an event that denotes that an application of a commit
 // has been released to an environment.
 type Deployment struct {
-	Application                 string  `fs:"application"`
-	Environment                 string  `fs:"environment"`
-	SourceTrainEnvironmentGroup *string `fs:"source_train_environment_group"`
-	SourceTrainUpstream         *string `fs:"source_train_upstream"`
+	Application                 string  `fs:"application" json:"Application"`
+	Environment                 string  `fs:"environment" json:"Environment"`
+	SourceTrainEnvironmentGroup *string `fs:"source_train_environment_group" json:"SourceTrainEnvironmentGroup"`
+	SourceTrainUpstream         *string `fs:"source_train_upstream" json:"SourceTrainUpstream"`
 }
 
 func (_ *Deployment) eventType() string {
-	return "deployment"
+	return string(EventTypeDeployment)
 }
 
 func (ev *Deployment) toProto(trg *api.Event) {
@@ -99,7 +108,7 @@ type LockPreventedDeployment struct {
 }
 
 func (_ *LockPreventedDeployment) eventType() string {
-	return "lock-prevented-deployment"
+	return string(EventTypeLockPreventeDeployment)
 }
 
 func (ev *LockPreventedDeployment) toProto(trg *api.Event) {
@@ -131,7 +140,7 @@ type ReplacedBy struct {
 }
 
 func (_ *ReplacedBy) eventType() string {
-	return "replaced-by"
+	return string(EventTypeReplaceBy)
 }
 
 func (ev *ReplacedBy) toProto(trg *api.Event) {
@@ -179,6 +188,36 @@ func Read(fs billy.Filesystem, eventDir string) (Event, error) {
 	return result, nil
 }
 
+func UnMarshallEvent(eventType EventType, eventJson string) (DBEventGo, error) {
+
+	var generalEvent DBEventGo
+
+	switch eventType {
+	case "new-release":
+		//exhaustruct:ignore
+		generalEvent.EventData = &NewRelease{}
+	case "deployment":
+		//exhaustruct:ignore
+		generalEvent.EventData = &Deployment{}
+	case "lock-prevented-deployment":
+		//exhaustruct:ignore
+		generalEvent.EventData = &LockPreventedDeployment{}
+	case "replaced-by":
+		//exhaustruct:ignore
+		generalEvent.EventData = &ReplacedBy{}
+	default:
+		return DBEventGo{}, fmt.Errorf("unknown event type: %q", eventType)
+	}
+
+	err := json.Unmarshal([]byte(eventJson), &generalEvent)
+
+	if err != nil {
+		return DBEventGo{}, fmt.Errorf("Error processing general event. Json Unmarshall of general event failed: %s\n", eventJson)
+	}
+
+	return generalEvent, nil
+}
+
 // Write an event to a filesystem
 func Write(filesystem billy.Filesystem, eventDir string, event Event) error {
 	_, err := filesystem.Stat(eventDir)
@@ -202,4 +241,14 @@ func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 	}
 	ev.toProto(result)
 	return result
+}
+
+type Metadata struct {
+	AuthorEmail string
+	Uuid        string
+}
+
+type DBEventGo struct {
+	EventData     Event
+	EventMetadata Metadata
 }

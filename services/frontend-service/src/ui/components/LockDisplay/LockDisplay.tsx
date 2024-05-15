@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
 import { addAction, DisplayLock } from '../../utils/store';
@@ -43,6 +43,17 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     },
                 },
             });
+        } else if (lock.team) {
+            addAction({
+                action: {
+                    $case: 'deleteEnvironmentTeamLock',
+                    deleteEnvironmentTeamLock: {
+                        environment: lock.environment,
+                        lockId: lock.lockId,
+                        team: lock.team,
+                    },
+                },
+            });
         } else {
             addAction({
                 action: {
@@ -54,7 +65,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                 },
             });
         }
-    }, [lock.application, lock.environment, lock.lockId]);
+    }, [lock.application, lock.environment, lock.lockId, lock.team]);
     return (
         <div className="lock-display">
             <div className="lock-display__table">
@@ -62,6 +73,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     {!!lock.date && <FormattedDate createdAt={lock.date} className={allClassNames} />}
                     <div className="lock-display-info">{lock.environment}</div>
                     {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
+                    {!!lock.team && <div className="lock-display-info">{lock.team}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
                     <div className="lock-display-info">{lock.message}</div>
                     <div className="lock-display-info">{lock.authorName}</div>

@@ -1,4 +1,4 @@
-VERSION 0.7
+VERSION 0.8
 FROM busybox
 ARG --global UID=1000
 ARG --global target=docker
@@ -35,6 +35,8 @@ deps:
     RUN mv exhaustruct /usr/local/bin/exhaustruct
 
     WORKDIR /kp
+    RUN mkdir -p cd_database/migrations
+    COPY cd_database/migrations cd_database/migrations
     COPY go.mod go.sum ./
     RUN go mod download
 

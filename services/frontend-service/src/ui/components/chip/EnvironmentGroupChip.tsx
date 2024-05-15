@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import classNames from 'classnames';
 import { Environment, EnvironmentGroup } from '../../../api/api';
 import React from 'react';
@@ -35,6 +35,23 @@ export const AppLockSummary: React.FC<{
         <div
             key={'app-lock-hint-' + app}
             title={'"' + app + '" has ' + numLocks + ' application ' + plural + '. Click on a tile to see details.'}>
+            <div>
+                &nbsp;
+                <LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />
+            </div>
+        </div>
+    );
+};
+
+export const TeamLockSummary: React.FC<{
+    team: string;
+    numLocks: number;
+}> = ({ team, numLocks }) => {
+    const plural = numLocks === 1 ? 'lock' : 'locks';
+    return (
+        <div
+            key={'app-lock-hint-' + team}
+            title={'"' + team + '" has ' + numLocks + ' team ' + plural + '. Click on an icon to see details.'}>
             <div>
                 &nbsp;
                 <LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />

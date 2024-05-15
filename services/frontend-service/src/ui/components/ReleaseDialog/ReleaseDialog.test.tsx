@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
 import { UpdateAction, UpdateOverview, UpdateRolloutStatus, UpdateSidebar } from '../../utils/store';
@@ -87,6 +87,8 @@ describe('Release Dialog', () => {
                             name: 'test1',
                             version: 2,
                             locks: {},
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },
@@ -138,6 +140,8 @@ describe('Release Dialog', () => {
                             name: 'test1',
                             version: 2,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },
@@ -187,6 +191,8 @@ describe('Release Dialog', () => {
                             name: 'test1',
                             version: 2,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                             deploymentMetaData: { deployAuthor: 'test', deployTime: '1688467491' },
@@ -225,6 +231,8 @@ describe('Release Dialog', () => {
                             name: 'test1',
                             version: 2,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },
@@ -240,6 +248,8 @@ describe('Release Dialog', () => {
                             name: 'test1',
                             version: 3,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            teamLocks: { teamLock: { message: 'teamLock', lockId: 'ui-teamlock' } },
+                            team: 'test-team',
                             queuedVersion: 666,
                             undeployVersion: false,
                         },

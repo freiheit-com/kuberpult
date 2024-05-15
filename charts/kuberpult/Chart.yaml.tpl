@@ -12,7 +12,7 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com
+# Copyright freiheit.com
 apiVersion: v2
 name: kuberpult
 description: freiheit.com contiuous delivery
@@ -45,7 +45,7 @@ appVersion: "${VERSION}"
 dependencies:
 - name: dex
   condition: auth.dexAuth.installDex
-  version: "0.14.2"
+  version: "0.17.1"
   repository: https://charts.dexidp.io
 
 maintainers:

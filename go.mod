@@ -10,8 +10,9 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/go-git/go-billy/v5 v5.5.0
-	github.com/golang-jwt/jwt/v5 v5.0.0
-	github.com/golang-migrate/migrate/v4 v4.17.0
+	github.com/golang-jwt/jwt/v4 v4.5.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -26,9 +27,9 @@ require (
 	github.com/mikesmitty/edkey v0.0.0-20170222072505-3356ea4e686a
 	github.com/onokonem/sillyQueueServer v0.0.0-20170829113733-84501ce98da1
 	github.com/prometheus/client_golang v1.19.0
-	go.opentelemetry.io/otel/exporters/prometheus v0.44.0
-	go.opentelemetry.io/otel/metric v1.25.0
-	go.opentelemetry.io/otel/sdk/metric v1.25.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.48.0
+	go.opentelemetry.io/otel/metric v1.26.0
+	go.opentelemetry.io/otel/sdk/metric v1.26.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.22.0
 	golang.org/x/oauth2 v0.19.0
@@ -107,8 +108,8 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
-	go.opentelemetry.io/otel v1.25.0
-	go.opentelemetry.io/otel/trace v1.25.0 // indirect
+	go.opentelemetry.io/otel v1.26.0
+	go.opentelemetry.io/otel/trace v1.26.0 // indirect
 	go.starlark.net v0.0.0-20220328144851-d1966c6b9fcd // indirect
 	golang.org/x/sync v0.7.0
 	golang.org/x/term v0.19.0 // indirect
@@ -155,7 +156,6 @@ require (
 	github.com/go-redis/cache/v9 v9.0.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-github/v53 v53.2.0 // indirect
@@ -182,7 +182,7 @@ require (
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
+	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/redis/go-redis/v9 v9.1.0 // indirect
@@ -196,7 +196,7 @@ require (
 	github.com/tinylib/msgp v1.1.8 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.25.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.26.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
