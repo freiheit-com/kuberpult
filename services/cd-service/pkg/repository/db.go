@@ -27,7 +27,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"os"
 	"path"
 	"reflect"
 	"slices"
@@ -135,19 +134,6 @@ func RunDBMigrations(cfg DBConfig) error {
 	}
 	defer d.DB.Close()
 
-	files, err := os.ReadDir(d.MigrationsPath)
-	if err != nil {
-		return fmt.Errorf("Error opening migrations folder. Error: %w\n", err)
-	}
-
-	//If migrations folder exists and there are no migration to be done, without this check, migrations fail.
-	if len(files) == 0 {
-		return nil
-	}
-
-	for _, file := range files {
-		fmt.Println(file)
-	}
 	m, err := d.getMigrationHandler()
 
 	if err != nil {
