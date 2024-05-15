@@ -1,4 +1,4 @@
-VERSION 0.7
+VERSION 0.8
 
 ARG --global IMAGE_REGISTRY="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
 LOCALLY
