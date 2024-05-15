@@ -153,7 +153,6 @@ func DexLoginInterceptor(
 		return
 	}
 	req = req.WithContext(httpCtx)
-	logger.FromContext(req.Context()).Warn("[DexLoginInterceptor] Handling request")
 	httpHandler(w, req)
 }
 
