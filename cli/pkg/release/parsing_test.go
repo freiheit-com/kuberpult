@@ -465,9 +465,9 @@ func TestReadArgs(t *testing.T) {
 						"test source message",
 					},
 				},
-				version: cli_utils.RepeatedString{
-					Values: []string{
-						"1234",
+				version: cli_utils.RepeatedInt{
+					Values: []int64{
+						1234,
 					},
 				},
 			},
@@ -480,7 +480,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name:             "--version is set to non-integer value",
 			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "abc"},
-			expectedErrorMsg: "the --version arg must be an integer value",
+			expectedErrorMsg: "error while parsing command line arguments, error: invalid value \"abc\" for flag -version: the provided value \"abc\" is not an integer",
 		},
 		{
 			name:             "--version is set to negative integer value",
@@ -532,9 +532,9 @@ func TestReadArgs(t *testing.T) {
 						"test source message",
 					},
 				},
-				version: cli_utils.RepeatedString{
-					Values: []string{
-						"1234",
+				version: cli_utils.RepeatedInt{
+					Values: []int64{
+						1234,
 					},
 				},
 				displayVersion: cli_utils.RepeatedString{
@@ -605,8 +605,8 @@ func TestParseArgs(t *testing.T) {
 			cmdArgs: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"production": "some production manifest",
+				Manifests: map[string][]byte{
+					"production": []byte("some production manifest"),
 				},
 			},
 		},
@@ -625,8 +625,8 @@ func TestParseArgs(t *testing.T) {
 			cmdArgs: []string{"--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml", "--signature", "production-signature.gpg"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"production": "some production manifest",
+				Manifests: map[string][]byte{
+					"production": []byte("some production manifest"),
 				},
 				Signatures: map[string][]byte{
 					"production": []byte("some production signature"),
@@ -648,9 +648,9 @@ func TestParseArgs(t *testing.T) {
 			cmdArgs: []string{"--skip_signatures", "--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--environment", "production", "--manifest", "production-manifest.yaml"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
 				},
 			},
 		},
@@ -677,9 +677,9 @@ func TestParseArgs(t *testing.T) {
 			cmdArgs: []string{"--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--signature", "development-signature.gpg", "--environment", "production", "--manifest", "production-manifest.yaml", "--signature", "production-signature.gpg"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Signatures: map[string][]byte{
 					"development": []byte("some development signature"),

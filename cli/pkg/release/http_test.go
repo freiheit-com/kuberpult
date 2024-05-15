@@ -84,8 +84,8 @@ func TestRequestCreation(t *testing.T) {
 			name: "one environment manifest",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -106,8 +106,8 @@ func TestRequestCreation(t *testing.T) {
 			name: "one environment manifest with signature",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
 				},
 				Signatures: map[string][]byte{
 					"development": []byte("some development signature"),
@@ -136,9 +136,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "multiple environment manifests",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -164,9 +164,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "multiple environment manifests with signatures",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Signatures: map[string][]byte{
 					"development": []byte("some development signature"),
@@ -209,9 +209,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "multiple environment manifests with response code BadRequest",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -238,9 +238,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "multiple environment manifests with teams set",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Team: strPtr("potato-team"),
 			},
@@ -268,9 +268,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "source commit ID is set",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Team:           strPtr("potato-team"),
 				SourceCommitId: strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -300,9 +300,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "previous commit ID is set",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -334,9 +334,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "source_author is set",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -370,9 +370,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "source_message is set",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -408,9 +408,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "source_message is set with newlines",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -446,9 +446,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "version is set",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -486,9 +486,9 @@ func TestRequestCreation(t *testing.T) {
 			name: "display_version is set",
 			params: &ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production": []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),

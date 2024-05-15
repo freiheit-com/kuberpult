@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
@@ -30,22 +29,25 @@ import (
 // a simple container for the command line args, not meant for anything except the use of flag.Parse
 // unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see ReleaseParameters instead
 type commandLineArguments struct {
-	application      cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
+	// Technically `application` may not be set multiple times. However, the Go flag package doesn't offer a simple way of checking whether a flag was set multiple times.
+	// Therefore, we set the value of `application` to RepeatedString and later we check if it's been set more than once and raise an error accordingly.
+	// The same trick is used for all fields other than environments, manifests, and signatures.
+	application      cli_utils.RepeatedString
 	environments     cli_utils.RepeatedString
 	manifests        cli_utils.RepeatedString
-	team             cli_utils.RepeatedString // same hack as application field here
-	sourceCommitId   cli_utils.RepeatedString // same hack as application field here
-	previousCommitId cli_utils.RepeatedString // same hack as application field here
-	sourceAuthor     cli_utils.RepeatedString // same hack as application field here
-	sourceMessage    cli_utils.RepeatedString // same hack as application field here
-	version          cli_utils.RepeatedString // same hack as application field here
-	displayVersion   cli_utils.RepeatedString // same hack as application field here
+	team             cli_utils.RepeatedString
+	sourceCommitId   cli_utils.RepeatedString
+	previousCommitId cli_utils.RepeatedString
+	sourceAuthor     cli_utils.RepeatedString
+	sourceMessage    cli_utils.RepeatedString
+	version          cli_utils.RepeatedInt
+	displayVersion   cli_utils.RepeatedString
 	skipSignatures   bool
-	signatures       cli_utils.RepeatedString // same hack as application field here
+	signatures       cli_utils.RepeatedString
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
-func environmentsManifestsPaired(args []string) (result bool, message string) {
+func environmentsManifestsPaired(args []string) (result bool, errorMessage string) {
 	for i, arg := range args {
 		if arg == "--environment" {
 			nextIndex := i + 2
@@ -64,7 +66,7 @@ func environmentsManifestsPaired(args []string) (result bool, message string) {
 }
 
 // checks whether every --manifest arg is matched with a --signature arg
-func manifestsSignaturesPaired(args []string) (result bool, message string) {
+func manifestsSignaturesPaired(args []string) (result bool, errorMessage string) {
 	for i, arg := range args {
 		if arg == "--manifest" {
 			nextIndex := i + 2
@@ -82,17 +84,18 @@ func manifestsSignaturesPaired(args []string) (result bool, message string) {
 	return true, ""
 }
 
-func argsValid(cmdArgs *commandLineArguments) (result bool, message string) {
+func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string) {
 	var commitIDRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 	isCommitID := func(s string) bool {
 		return commitIDRegex.MatchString(s)
 	}
 
+	// this regex is identical to the regex from services/frontend-service/pkg/handler/release.go
 	var authorIDRegex = regexp.MustCompile(`^[^<\n]+( <[^@\n]+@[^>\n]+>)?$`)
 	isAuthorID := func(s string) bool {
 		return authorIDRegex.MatchString(s)
 	}
-	
+
 	if len(cmdArgs.application.Values) != 1 {
 		return false, "the --application arg must be set exactly once"
 	}
@@ -147,12 +150,8 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, message string) {
 	}
 
 	if len(cmdArgs.version.Values) == 1 {
-		if val, err := strconv.Atoi(cmdArgs.version.Values[0]); err != nil {
-			return false, "the --version arg must be an integer value"
-		} else {
-			if val <= 0 {
-				return false, "the --version arg value must be positive"
-			}
+		if cmdArgs.version.Values[0] <= 0 {
+			return false, "the --version arg value must be positive"
 		}
 	}
 
@@ -225,9 +224,9 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		// this should never happen, as the validation is already peformed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
-	
+
 	rp := ReleaseParameters{}
-	rp.Manifests = make(map[string]string)
+	rp.Manifests = make(map[string][]byte)
 	if !cmdArgs.skipSignatures {
 		rp.Signatures = make(map[string][]byte)
 	}
@@ -249,7 +248,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		rp.SourceMessage = &cmdArgs.sourceMessage.Values[0]
 	}
 	if len(cmdArgs.version.Values) == 1 {
-		version, _ := strconv.Atoi(cmdArgs.version.Values[0])
+		version := cmdArgs.version.Values[0]
 		version64 := uint64(version)
 		rp.Version = &version64
 	}
@@ -264,7 +263,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error while reading the manifest file %s, error: %w", manifestFile, err)
 		}
-		rp.Manifests[environment] = string(manifestBytes)
+		rp.Manifests[environment] = manifestBytes
 
 		if !cmdArgs.skipSignatures {
 			signatureFile := cmdArgs.signatures.Values[i]

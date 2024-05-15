@@ -35,12 +35,10 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	for environment, manifest := range parsedArgs.Manifests {
 		part, err := writer.CreateFormFile(fmt.Sprintf("manifests[%s]", environment), fmt.Sprintf("%s-manifest", environment))
 		if err != nil {
-			writer.Close()
 			return nil, fmt.Errorf("error creating the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
 		_, err = part.Write([]byte(manifest))
 		if err != nil {
-			writer.Close()
 			return nil, fmt.Errorf("error writing the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
 	}
@@ -48,12 +46,10 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	for environment, signature := range parsedArgs.Signatures {
 		part, err := writer.CreateFormFile(fmt.Sprintf("signatures[%s]", environment), fmt.Sprintf("%s-signature", environment))
 		if err != nil {
-			writer.Close()
 			return nil, fmt.Errorf("error creating the form entry for environment %s with signature file %s, error: %w", environment, signature, err)
 		}
 		_, err = part.Write([]byte(signature))
 		if err != nil {
-			writer.Close()
 			return nil, fmt.Errorf("error writing the form entry for environment %s with signature file %s, error: %w", environment, signature, err)
 		}
 	}
