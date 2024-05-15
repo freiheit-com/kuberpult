@@ -102,6 +102,9 @@ cd:
     dbUser: "username"
     dbPassword: "password"
     migrations: /migrations
+    # If set to true, kuberpult will write only the ESL table.
+    # This is useful to already collect historical data in the database, while waiting for the full database implementation.
+    writeEslTableOnly: false
     requests:
       cpu: "100m"
       memory: "200Mi"
