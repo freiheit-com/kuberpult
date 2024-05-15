@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,7 +70,7 @@ const DdMetricsKey contextKey = "ddMetrics"
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
+	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
@@ -506,12 +507,12 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 	}
 }
 
-func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool) ([]transformerBatch, error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool, transaction *sql.Tx) ([]transformerBatch, error, *TransformerResult) {
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
 	for i := 0; i < len(transformerBatches); {
 		e := transformerBatches[i]
-		subChanges, applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
+		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
 		changes.Combine(subChanges)
 		if applyErr != nil {
 			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
@@ -520,9 +521,14 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 				if err != nil {
 					return transformerBatches, err, nil
 				}
-				return r.applyTransformerBatches(transformerBatches, false)
+				return r.applyTransformerBatches(transformerBatches, false, transaction)
 			} else {
 				e.finish(applyErr)
+				if r.DB != nil {
+					// if we use the DB at all, then we only do one transformer per git push
+					// AND we need to handle the error in the caller to rollback in case of an error:
+					return nil, applyErr, nil
+				}
 				// here, we keep all transformerBatches "behind i".
 				// these are the transformerBatches that have not been applied yet
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
@@ -561,6 +567,10 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 
 func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
+		return nil
+	}
+	if r.DB != nil {
+		logger.FromContext(ctx).Sugar().Warnf("configured commit queue size is ignored, because database is enabled")
 		return nil
 	}
 	limit := r.config.MaximumCommitsPerPush - 1
@@ -614,6 +624,20 @@ type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
 func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
 	logger := logger.FromContext(ctx)
+
+	/**
+	Note that this function has a bit different error handling.
+	The error is not returned, but send to the transformer in `el.finish(err)`
+	in order to inform the transformers request handler that this request failed.
+	Therefore, in the function instead of
+	if err != nil {
+	  return err
+	}
+	we do:
+	if err != nil {
+	  return
+	}
+	*/
 	var err error = panicError
 
 	// Check that the first transformerBatch is not already canceled
@@ -653,9 +677,31 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}
 
 	// Apply the items
-	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
+	var tx *sql.Tx = nil
+	if r.DB != nil {
+		var txErr error
+		tx, txErr = r.DB.DB.BeginTx(ctx, nil)
+		if txErr != nil {
+			err = txErr
+			return
+		}
+		defer func(tx *sql.Tx) {
+			_ = tx.Rollback()
+		}(tx)
+	}
+	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true, tx)
 	if err != nil {
+		if r.DB != nil {
+			logger.Sugar().Warnf("rolling back transaction because of %v", err)
+			_ = tx.Rollback()
+		}
 		return
+	}
+	if r.DB != nil {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
 	}
 
 	if len(transformerBatches) == 0 {
@@ -673,7 +719,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 				return
 			}
 			// Apply the items
-			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
+			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false, nil)
 			if err != nil || len(transformerBatches) == 0 {
 				return
 			}
@@ -911,7 +957,7 @@ type ArgoWebhookData struct {
 	Commits       []commit
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
@@ -919,7 +965,21 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 		commitMsg := []string{}
 		ctxWithTime := WithTimeNow(ctx, time.Now())
 		for i, t := range transformers {
-			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state); err != nil {
+			if r.DB != nil && transaction == nil {
+				applyErr := TransformerBatchApplyError{
+					TransformerError: errors.New("no transaction provided, but DB enabled"),
+					Index:            i,
+				}
+				return nil, nil, nil, &applyErr
+			}
+			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t)
+			if err != nil {
+				return nil, nil, nil, &TransformerBatchApplyError{
+					TransformerError: err,
+					Index:            i,
+				}
+			}
+			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
 					TransformerError: err,
 					Index:            i,
@@ -996,8 +1056,8 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 	return r
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
-	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transformers...)
+func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
 	}
@@ -1795,9 +1855,9 @@ func (s *State) GetEnvironmentApplications(environment string) ([]string, error)
 }
 
 // GetApplications returns apps from either the db (if enabled), or otherwise the filesystem
-func (s *State) GetApplications(ctx context.Context) ([]string, error) {
+func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
 	if s.DBHandler != nil {
-		result, err := s.DBHandler.DBSelectAllApplications(ctx)
+		result, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
 			return nil, err
 		}

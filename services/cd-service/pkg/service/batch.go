@@ -218,6 +218,7 @@ func (d *BatchServer) processAction(
 			LockBehaviour:   b,
 			WriteCommitData: d.Config.WriteCommitData,
 			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
+			Author:          "",
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp

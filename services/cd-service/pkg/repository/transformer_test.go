@@ -18,6 +18,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -313,7 +314,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			t.Parallel()
 
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -382,7 +383,7 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
@@ -447,7 +448,7 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 			repo := setupRepositoryTest(t)
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if applyErr != nil {
 				t.Fatalf("expected no error but transformer failed with %v", applyErr)
 			}
@@ -819,7 +820,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 
 			// optimization: no need to set up the repository if this fails
 			repo := setupRepositoryTest(t)
-			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, nil, tc.Transformers...)
 			if err == nil {
 				t.Fatalf("expected error, got none.")
 			}
@@ -1361,7 +1362,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if applyErr != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", applyErr)
 			}
@@ -1879,20 +1880,43 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
+			var err error = nil
+			var updatedState *State = nil
+			migrationsPath, err := CreateMigrationsPath()
+			if err != nil {
+				t.Fatalf("CreateMigrationsPath error: %v", err)
+			}
 			if tc.db {
 				cfg := DBConfig{
-					MigrationsPath: "/kp/cd_database/migrations",
+					MigrationsPath: migrationsPath,
 					DriverName:     "sqlite3",
 				}
 				repo, _ = setupRepositoryTestWithDB(t, &cfg)
-
+				r := repo.(*repository)
+				err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+					var batchError *TransformerBatchApplyError = nil
+					_, updatedState, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+					if batchError != nil {
+						// Note that we cannot just `return err2` here,
+						// because it's a "TransformerBatchApplyError", not an "error"
+						return batchError
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
+				}
 			} else {
 				repo = setupRepositoryTest(t)
+				var batchError *TransformerBatchApplyError = nil
+				_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
+				if batchError != nil {
+					t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
+				}
 			}
 
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
-				t.Fatalf("encountered error but no error is expected here: %v", err)
+				t.Fatalf("encountered error but no error is expected here: '%v'", err)
 			}
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
@@ -2119,7 +2143,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", err)
 			}
@@ -2253,7 +2277,7 @@ func TestReplacedByEvent(t *testing.T) {
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", err)
 			}
@@ -2375,7 +2399,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if applyErr != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", applyErr)
 			}
@@ -2479,7 +2503,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctxWithTime, nil, tc.Transformers...)
 			if applyErr != nil {
 				t.Fatalf("Expected no error when applying: %v", applyErr)
 			}
@@ -2614,7 +2638,7 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 
@@ -2714,7 +2738,7 @@ func TestUndeployErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -2994,7 +3018,7 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 				t.Fatalf("release train prognosis is wrong, wanted the error %v, got %v", tc.expectedPrognosis.Error, prognosis.Error)
 			}
 
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), []Transformer{&tc.ReleaseTrain}...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, []Transformer{&tc.ReleaseTrain}...)
 
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -3292,7 +3316,7 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
 			}
 
-			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContext(), releaseTrain)
+			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, releaseTrain)
 
 			if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -3554,7 +3578,7 @@ func TestTransformerChanges(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			msgs, _, actualChanges, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			msgs, _, actualChanges, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			// we only diff the changes from the last transformer here:
 			lastChanges := actualChanges[len(actualChanges)-1]
 			// note that we only check the LAST error here:
@@ -5055,13 +5079,13 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual: %d", rel.Version)
 					}
 					if rel.SourceAuthor != "" {
-						t.Errorf("unexpected source author: expected \"\", actual: %q", rel.SourceAuthor)
+						t.Errorf("unexpected source Author: expected \"\", actual: %q", rel.SourceAuthor)
 					}
 					if rel.SourceCommitId != "" {
 						t.Errorf("unexpected source commit id: expected \"\", actual: %q", rel.SourceCommitId)
 					}
 					if rel.SourceMessage != "" {
-						t.Errorf("unexpected source author: expected \"\", actual: %q", rel.SourceMessage)
+						t.Errorf("unexpected source Author: expected \"\", actual: %q", rel.SourceMessage)
 					}
 				}
 			},
@@ -5092,13 +5116,13 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual: %d", rel.Version)
 					}
 					if rel.SourceAuthor != "test <test@example.com>" {
-						t.Errorf("unexpected source author: expected \"test <test@example.com>\", actual: %q", rel.SourceAuthor)
+						t.Errorf("unexpected source Author: expected \"test <test@example.com>\", actual: %q", rel.SourceAuthor)
 					}
 					if rel.SourceCommitId != "deadbeef" {
 						t.Errorf("unexpected source commit id: expected \"deadbeef\", actual: %q", rel.SourceCommitId)
 					}
 					if rel.SourceMessage != "changed something" {
-						t.Errorf("unexpected source author: expected \"changed something\", actual: %q", rel.SourceMessage)
+						t.Errorf("unexpected source Author: expected \"changed something\", actual: %q", rel.SourceMessage)
 					}
 					if rel.CreatedAt != timeNowOld {
 						t.Errorf("unexpected created at: expected: %q, actual: %q", timeNowOld, rel.SourceMessage)
@@ -6377,10 +6401,10 @@ type injectErr struct {
 	err       error
 }
 
-func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
 	original := state.Filesystem
 	state.Filesystem = i.collector.WithError(state.Filesystem, i.operation, i.filename, i.err)
-	s, err := i.Transformer.Transform(ctx, state, t)
+	s, err := i.Transformer.Transform(ctx, state, t, transaction)
 	state.Filesystem = original
 	return s, err
 }
@@ -6842,7 +6866,7 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 
 			if err != nil {
 				t.Fatalf("Got an unexpected error: %v", err)
@@ -6950,7 +6974,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			ddMetrics = client
 			repo := setupRepositoryTest(t)
 
-			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.transformers...)
+			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.transformers...)
 			if applyErr != nil {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
@@ -7190,7 +7214,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 			ddMetrics = client
 			repo := setupRepositoryTest(t)
 
-			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.transformers...)
+			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.transformers...)
 			if applyErr != nil {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
@@ -7350,7 +7374,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -7453,7 +7477,7 @@ func TestDeleteLocks(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -7612,7 +7636,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
