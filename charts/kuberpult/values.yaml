@@ -19,7 +19,7 @@
 
 git:
   # The git url of the manifest repository (git protocol)
-  url: git@github.com/.../...
+  url:  # git@github.com/.../...
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
@@ -50,6 +50,11 @@ git:
 
   # If enabled, write data to the `/commit` directory in the manifest repo on every release.
   # Disabling this option does not delete the `/commit` directory.
+  # In order to make use of this feature, the commit hashes provided to kuberpult (via the /release endpoint)
+  # need to be the full 40 characters. For details see https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md
+  # Kuberpult will not break if you enable this flag and do not provide the 40 characters, but you won't be able to use this feature.
+  # Note that this features writes more files into the manifest repository. It is currently not recommended to be used on
+  # setups with a huge manifest repository.
   enableWritingCommitData: false
 
   # Kuberpult tries to reduce the number of pushes and can bundle concurrent commits into a single push.
@@ -151,7 +156,7 @@ ingress:
   create: true
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
-  domainName: "s"
+  domainName: null
   # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:
     enabled: false
@@ -288,6 +293,7 @@ auth:
     clientId: ""
     clientSecret: ""
     baseURL: ""
+    # List of scopes to validate the token. Please add them as comma separated values.
     scopes: ""
   api:
     # New api endpoints (starting with `/api/`), are by default only turned on when IAP is enabled.
@@ -308,8 +314,6 @@ dex:
   #      secretKeyRef:
   #      name: kuberpult-oauth-client-id
   #        key: kuberpult-oauth-client-id
-  service:
-    annotations: {}
   envVars: []
   # The configuration of the OAUTH provider.
   # For more information on the connectors to use see https://dexidp.io/docs/connectors/
@@ -324,6 +328,7 @@ dex:
   #       clientSecret: $GOOGLE_CLIENT_SECRET
   #       redirectURI: http://127.0.0.1:5556/callback
   config: {}
+# Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
 revolution:
   dora:
     enabled: false
