@@ -123,9 +123,17 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-			m, err := db.DBSelectAllApplications(ctx)
+			tx, err := db.DB.BeginTx(ctx, nil)
+			if err != nil {
+				t.Fatalf("Error creating transaction. Error: %v\n", err)
+			}
+			m, err := db.DBSelectAllApplications(ctx, tx)
 			if err != nil {
 				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
+			}
+			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Error commiting transaction. Error: %v\n", err)
 			}
 
 			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
@@ -180,9 +188,17 @@ func TestDeploymentStorage(t *testing.T) {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
 
-			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tc.metadata.Uuid, tc.commitHash, tc.email, &tc.event)
+			tx, err := db.DB.BeginTx(ctx, nil)
+			if err != nil {
+				t.Fatalf("Error creating transaction. Error: %v\n", err)
+			}
+			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tx, tc.metadata.Uuid, tc.commitHash, tc.email, &tc.event)
 			if writeDeploymentError != nil {
 				t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
+			}
+			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Error commiting transaction. Error: %v\n", err)
 			}
 
 			m, err := db.DBSelectAllEventsForCommit(ctx, tc.commitHash)
