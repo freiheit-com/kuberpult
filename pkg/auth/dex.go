@@ -198,20 +198,24 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	ctx := oidc.ClientContext(r.Context(), a.Client)
 	token, err := oauth2Config.Exchange(ctx, code)
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get token: %v", err), http.StatusInternalServerError)
 		return
 	}
+
 	idTokenRAW, ok := token.Extra("id_token").(string)
 	if !ok {
 		http.Error(w, "no id_token in token response", http.StatusInternalServerError)
 		return
 	}
+
 	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to verify the token: %v", err), http.StatusInternalServerError)
 		return
 	}
+	
 	var claims jwt.MapClaims
 	err = idToken.Claims(&claims)
 	if err != nil {
