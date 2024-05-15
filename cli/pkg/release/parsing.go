@@ -28,7 +28,7 @@ import (
 )
 
 // a simple container for the command line args, not meant for anything except the use of flag.Parse
-// unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see releaseParameters instead
+// unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see ReleaseParameters instead
 type commandLineArguments struct {
 	application      cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
 	environments     cli_utils.RepeatedString
@@ -82,19 +82,17 @@ func manifestsSignaturesPaired(args []string) (result bool, message string) {
 	return true, ""
 }
 
-var commitIDRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+func argsValid(cmdArgs *commandLineArguments) (result bool, message string) {
+	var commitIDRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+	isCommitID := func(s string) bool {
+		return commitIDRegex.MatchString(s)
+	}
 
-func isCommitID(s string) bool {
-	return commitIDRegex.MatchString(s)
-}
-
-var authorIDRegex = regexp.MustCompile(`^[^<\n]+( <[^@\n]+@[^>\n]+>)?$`)
-
-func isAuthorID(s string) bool {
-	return authorIDRegex.MatchString(s)
-}
-
-func parsedArgsValid(cmdArgs *commandLineArguments) (result bool, message string) {
+	var authorIDRegex = regexp.MustCompile(`^[^<\n]+( <[^@\n]+@[^>\n]+>)?$`)
+	isAuthorID := func(s string) bool {
+		return authorIDRegex.MatchString(s)
+	}
+	
 	if len(cmdArgs.application.Values) != 1 {
 		return false, "the --application arg must be set exactly once"
 	}
@@ -177,6 +175,7 @@ func parsedArgsValid(cmdArgs *commandLineArguments) (result bool, message string
 	return true, ""
 }
 
+// takes the raw command line flags and converts them to an intermediate represnetations for easy validation
 func readArgs(args []string) (*commandLineArguments, error) {
 	cmdArgs := commandLineArguments{}
 
@@ -213,14 +212,20 @@ func readArgs(args []string) (*commandLineArguments, error) {
 		}
 	}
 
-	if ok, msg := parsedArgsValid(&cmdArgs); !ok {
+	if ok, msg := argsValid(&cmdArgs); !ok {
 		return nil, fmt.Errorf(msg)
 	}
 
 	return &cmdArgs, nil
 }
 
+// converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
 func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
+	if ok, msg := argsValid(&cmdArgs); !ok {
+		// this should never happen, as the validation is already peformed by the readArgs function
+		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
+	}
+	
 	rp := ReleaseParameters{}
 	rp.Manifests = make(map[string]string)
 	if !cmdArgs.skipSignatures {
@@ -274,6 +279,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 	return &rp, nil
 }
 
+// parses the command line flags provided to the release subcommand (not including the release subcommand itself) into a struct that can be passed to the Release function
 func ParseArgs(args []string) (*ReleaseParameters, error) {
 	cmdArgs, err := readArgs(args)
 	if err != nil {
