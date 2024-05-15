@@ -182,7 +182,6 @@ func (a *DexAppClient) handleDexLogin(w http.ResponseWriter, r *http.Request) {
 
 // HandleCallback is the callback handler for an OAuth2 login flow.
 func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
-
 	oauth2Config, err := a.oauth2Config(nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -198,7 +197,6 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	ctx := oidc.ClientContext(r.Context(), a.Client)
 	token, err := oauth2Config.Exchange(ctx, code)
-
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get token: %v", err), http.StatusInternalServerError)
 		return
@@ -215,7 +213,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("failed to verify the token: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	var claims jwt.MapClaims
 	err = idToken.Claims(&claims)
 	if err != nil {
