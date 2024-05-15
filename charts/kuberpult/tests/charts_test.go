@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package main_test
 
@@ -104,13 +104,28 @@ func getDeployments(fileName string) (map[string]apps.Deployment, error) {
 }
 
 func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
-
 	tcs := []struct {
 		Name            string
 		Values          string
 		ExpectedEnvs    []core.EnvVar
 		ExpectedMissing []core.EnvVar
 	}{
+		{
+			Name: "Minimal values.yaml leads to proper default values",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "NO_DB",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 		{
 			Name: "Basic Parsing works",
 			Values: `
@@ -466,6 +481,110 @@ cd:
 					}
 				}
 
+			}
+		})
+	}
+}
+
+func TestHelmChartsKuberpultFrontendEnvVariables(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Values          string
+		ExpectedEnvs    []core.EnvVar
+		ExpectedMissing []core.EnvVar
+	}{
+		{
+			Name: "Test out that parsing to front end works as expected with minimal value",
+			Values: `
+git:
+  url: "testURL"
+  author:  
+    name: "SRE"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_AUTHOR_NAME",
+					Value: "SRE",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test out dex auth not enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+auth:
+  dexAuth: 
+    enabled: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_ENABLED",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_CLIENT_ID",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DEX_RBAC_POLICY_PATH",
+					Value: "",
+				},
+			},
+		},
+		{
+			Name: "Test out dex auth not enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+auth:
+  dexAuth: 
+    enabled: true
+    policy_csv: "testing"
+
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_DEX_RBAC_POLICY_PATH",
+					Value: "/kuberpult-rbac/policy.csv",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile := runHelm(t, []byte(tc.Values), testDirName)
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			} else {
+				targetDocument := out["kuberpult-frontend-service"]
+				for _, env := range tc.ExpectedEnvs {
+					if !CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
+					}
+				}
+				for _, env := range tc.ExpectedMissing {
+					if CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
+					}
+				}
 			}
 		})
 	}

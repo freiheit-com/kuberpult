@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { createStore } from 'react-use-sub';
 import {
     Application,
@@ -45,6 +45,7 @@ export interface DisplayLock {
     date?: Date;
     environment: string;
     application?: string;
+    team?: string;
     message: string;
     lockId: string;
     authorName?: string;
@@ -222,6 +223,21 @@ export const addAction = (action: BatchAction): void => {
             )
                 return;
             break;
+        case 'deleteEnvironmentTeamLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deleteEnvironmentTeamLock' &&
+                        action.action?.$case === 'deleteEnvironmentTeamLock' &&
+                        act.action.deleteEnvironmentTeamLock.environment ===
+                            action.action.deleteEnvironmentTeamLock.environment &&
+                        act.action.deleteEnvironmentTeamLock.lockId ===
+                            action.action.deleteEnvironmentTeamLock.lockId &&
+                        act.action.deleteEnvironmentTeamLock.team === action.action.deleteEnvironmentTeamLock.team
+                )
+            )
+                return;
+            break;
         case 'deploy':
             if (
                 actions.some(
@@ -322,6 +338,7 @@ export const useTeamNames = (): string[] =>
                 .sort((a, b) => a.localeCompare(b))
         ),
     ]);
+export const useApplications = (): { [p: string]: Application } => useOverview(({ applications }) => applications);
 
 export const useTeamFromApplication = (app: string): string | undefined =>
     useOverview(({ applications }) => applications[app]?.team?.trim());
@@ -349,6 +366,32 @@ export const useEnvironments = (): Environment[] =>
  */
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
+export const useTeamLocks = (): DisplayLock[] =>
+    Object.values(useEnvironments())
+        .map((env) =>
+            Object.values(env.applications)
+                .map((app) =>
+                    Object.values(app.teamLocks).map((lock) => ({
+                        date: lock.createdAt,
+                        environment: env.name,
+                        team: app.team,
+                        lockId: lock.lockId,
+                        message: lock.message,
+                        authorName: lock.createdBy?.name,
+                        authorEmail: lock.createdBy?.email,
+                    }))
+                )
+                .flat()
+        )
+        .flat()
+        .filter(
+            (value: DisplayLock, index: number, self: DisplayLock[]) =>
+                index ===
+                self.findIndex(
+                    (t: DisplayLock) =>
+                        t.lockId === value.lockId && t.team === value.team && t.environment === value.environment
+                )
+        );
 /**
  * returns the classname according to the priority of an environment, used to color environments
  */
@@ -413,6 +456,8 @@ export const useFilteredApplicationLocks = (appNameParam: string | null): Displa
 export const useLocksConflictingWithActions = (): AllLocks => {
     const allActions = useActions();
     const locks = useAllLocks();
+    const appMap = useApplications();
+
     return {
         environmentLocks: locks.environmentLocks.filter((envLock: DisplayLock) => {
             const actions = allActions.filter((action) => {
@@ -434,6 +479,21 @@ export const useLocksConflictingWithActions = (): AllLocks => {
                     const env = action.action.deploy.environment;
                     if (envLock.environment === env && envLock.application === app) {
                         // found an app lock that matches
+                        return true;
+                    }
+                }
+                return false;
+            });
+            return actions.length > 0;
+        }),
+        teamLocks: locks.teamLocks.filter((teamLock: DisplayLock) => {
+            const actions = allActions.filter((action) => {
+                if (action.action?.$case === 'deploy') {
+                    const app = action.action.deploy.application;
+                    const env = action.action.deploy.environment;
+                    const appTeam = appMap[app].team;
+                    if (teamLock.environment === env && teamLock.team === appTeam) {
+                        // found a team lock that matches
                         return true;
                     }
                 }
@@ -487,12 +547,49 @@ export const searchCustomFilter = (queryContent: string | null, val: string | un
 export type AllLocks = {
     environmentLocks: DisplayLock[];
     appLocks: DisplayLock[];
+    teamLocks: DisplayLock[];
+};
+
+export const useTeamLocksFilterByTeam = (team: string): DisplayLock[] => {
+    const envs = useEnvironments();
+    const teamLocks: DisplayLock[] = [];
+    envs.forEach((env: Environment) => {
+        for (const applicationsKey in env.applications) {
+            const app = env.applications[applicationsKey];
+            if (team === app.team) {
+                for (const locksKey in app.teamLocks) {
+                    const lock = app.teamLocks[locksKey];
+                    const displayLock: DisplayLock = {
+                        lockId: lock.lockId,
+                        team: app.team,
+                        date: lock.createdAt,
+                        environment: env.name,
+                        message: lock.message,
+                        authorName: lock.createdBy?.name,
+                        authorEmail: lock.createdBy?.email,
+                    };
+                    if (
+                        !teamLocks.some(
+                            (e) =>
+                                e.lockId === displayLock.lockId &&
+                                e.team === displayLock.team &&
+                                e.environment === displayLock.environment
+                        )
+                    ) {
+                        teamLocks.push(displayLock);
+                    }
+                }
+            }
+        }
+    });
+    return teamLocks;
 };
 
 export const useAllLocks = (): AllLocks => {
     const envs = useEnvironments();
     const environmentLocks: DisplayLock[] = [];
     const appLocks: DisplayLock[] = [];
+    const teamLocks: DisplayLock[] = [];
     envs.forEach((env: Environment) => {
         for (const locksKey in env.locks) {
             const lock = env.locks[locksKey];
@@ -521,17 +618,41 @@ export const useAllLocks = (): AllLocks => {
                 };
                 appLocks.push(displayLock);
             }
+            for (const locksKey in app.teamLocks) {
+                const lock = app.teamLocks[locksKey];
+                const displayLock: DisplayLock = {
+                    lockId: lock.lockId,
+                    team: app.team,
+                    date: lock.createdAt,
+                    environment: env.name,
+                    message: lock.message,
+                    authorName: lock.createdBy?.name,
+                    authorEmail: lock.createdBy?.email,
+                };
+                if (
+                    !teamLocks.some(
+                        (l) =>
+                            l.lockId === displayLock.lockId &&
+                            l.environment === displayLock.environment &&
+                            l.team === displayLock.team
+                    ) // 2 Team locks that don't have the same environment or team might, in theory, have the same lock ID, so the lock id does not uniquely identify a lock, but the combination of env + team + ID should.
+                ) {
+                    teamLocks.push(displayLock);
+                }
+            }
         }
     });
     return {
         environmentLocks,
         appLocks,
+        teamLocks,
     };
 };
 
 type DeleteActionData = {
     env: string;
     app: string | undefined;
+    team: string | undefined;
     lockId: string;
 };
 
@@ -540,6 +661,7 @@ const extractDeleteActionData = (batchAction: BatchAction): DeleteActionData | u
         return {
             env: batchAction.action.deleteEnvironmentApplicationLock.environment,
             app: batchAction.action.deleteEnvironmentApplicationLock.application,
+            team: undefined,
             lockId: batchAction.action.deleteEnvironmentApplicationLock.lockId,
         };
     }
@@ -547,7 +669,16 @@ const extractDeleteActionData = (batchAction: BatchAction): DeleteActionData | u
         return {
             env: batchAction.action.deleteEnvironmentLock.environment,
             app: undefined,
+            team: undefined,
             lockId: batchAction.action.deleteEnvironmentLock.lockId,
+        };
+    }
+    if (batchAction.action?.$case === 'deleteEnvironmentTeamLock') {
+        return {
+            env: batchAction.action.deleteEnvironmentTeamLock.environment,
+            app: undefined,
+            team: batchAction.action.deleteEnvironmentTeamLock.team,
+            lockId: batchAction.action.deleteEnvironmentTeamLock.lockId,
         };
     }
     return undefined;
@@ -560,13 +691,14 @@ export const useLocksSimilarTo = (cartItemAction: BatchAction | undefined): AllL
     const actions = useActions();
 
     if (!cartItemAction) {
-        return { appLocks: [], environmentLocks: [] };
+        return { appLocks: [], environmentLocks: [], teamLocks: [] };
     }
     const data = extractDeleteActionData(cartItemAction);
     if (!data) {
         return {
             appLocks: [],
             environmentLocks: [],
+            teamLocks: [],
         };
     }
     const isInCart = (lock: DisplayLock): boolean =>
@@ -575,12 +707,18 @@ export const useLocksSimilarTo = (cartItemAction: BatchAction | undefined): AllL
             if (!data) {
                 return false;
             }
-            return lock.lockId === data.lockId && lock.application === data.app && lock.environment === data.env;
+            return (
+                lock.lockId === data.lockId &&
+                lock.team === data.team &&
+                lock.application === data.app &&
+                lock.environment === data.env
+            );
         }) !== undefined;
 
     const resultLocks: AllLocks = {
         environmentLocks: [],
         appLocks: [],
+        teamLocks: [],
     };
     allLocks.environmentLocks.forEach((envLock: DisplayLock) => {
         if (isInCart(envLock)) {
@@ -598,6 +736,15 @@ export const useLocksSimilarTo = (cartItemAction: BatchAction | undefined): AllL
         // if the id is the same, but we are on a different environment or different app:
         if (appLock.lockId === data.lockId && (appLock.environment !== data.env || appLock.application !== data.app)) {
             resultLocks.appLocks.push(appLock);
+        }
+    });
+    allLocks.teamLocks.forEach((teamLock: DisplayLock) => {
+        if (isInCart(teamLock)) {
+            return;
+        }
+        // if the id is the same, but we are on a different environment or different team:
+        if (teamLock.lockId === data.lockId && (teamLock.environment !== data.env || teamLock.team !== data.team)) {
+            resultLocks.teamLocks.push(teamLock);
         }
     });
     return resultLocks;

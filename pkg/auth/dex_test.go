@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package auth
 
@@ -226,10 +226,10 @@ func TestVerifyToken(t *testing.T) {
 	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes)
 
 	testCases := []struct {
-		Name     string
-		claims   jwtV5.MapClaims
-		wantErr  string
-		wantUser string
+		Name      string
+		claims    jwtV5.MapClaims
+		wantErr   string
+		wantClaim jwtV5.MapClaims
 	}{
 		{
 			Name: "Token Verifier works as expected with the correct token value",
@@ -239,17 +239,19 @@ func TestVerifyToken(t *testing.T) {
 				"name":          "User",
 				"email":         "user@mail.com",
 				"groups":        []string{"Developer"}},
-			wantUser: "Developer,",
+			wantClaim: jwtV5.MapClaims{
+				"email":  "user@mail.com",
+				"name":   string("User"),
+				"groups": []any{string("Developer")},
+			},
 		},
 		{
 			Name: "Token Verifier works as expected with no name",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
 				jwt.IssuerKey:   appDex.IssuerURL,
-				"name":          "",
-				"email":         "user@mail.com",
-				"groups":        []string{}},
-			wantErr: "failed to verify token: no group defined",
+				"name":          ""},
+			wantErr: "need required fields to determine group of user",
 		},
 	}
 	for _, tc := range testCases {
@@ -287,8 +289,8 @@ func TestVerifyToken(t *testing.T) {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			} else {
-				if diff := cmp.Diff(u, tc.wantUser); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantUser, diff)
+				if diff := cmp.Diff(u["groups"], tc.wantClaim["groups"]); diff != "" {
+					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantClaim, diff)
 				}
 			}
 		})

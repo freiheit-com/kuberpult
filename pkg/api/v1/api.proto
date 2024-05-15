@@ -520,6 +520,8 @@ message Environment {
     bool undeploy_version = 6;
     ArgoCD argo_cd = 7;
     DeploymentMetaData deployment_meta_data = 8;
+    map<string, Lock> team_locks = 9; //Keep in mind that team lock information will be duplicated if there is a team with more than one application (which is usually the case)
+    string team = 10;
   }
 
   string name = 1;

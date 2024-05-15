@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 .release-dialog {
     min-width: 960px;
 
@@ -140,6 +140,10 @@ Copyright 2023 freiheit.com*/
                     }
                 }
 
+                .env-card-locks {
+                    display: flex;
+                }
+
                 .env-card-app-locks {
                     display: flex;
                     position: relative;
@@ -147,6 +151,7 @@ Copyright 2023 freiheit.com*/
                     flex-direction: row;
                     align-items: center;
                     gap: 0;
+                    overflow: auto;
 
                     svg {
                         min-width: 16px;

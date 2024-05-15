@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
 import { UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
@@ -109,6 +109,8 @@ describe('Release Card', () => {
                             queuedVersion: 0,
                             name: 'test2',
                             locks: {},
+                            teamLocks: {},
+                            team: 'test-team',
                             undeployVersion: false,
                         },
                     },
@@ -142,6 +144,8 @@ describe('Release Card', () => {
                             queuedVersion: 0,
                             name: 'test2',
                             locks: {},
+                            teamLocks: {},
+                            team: 'test-team',
                             undeployVersion: false,
                         },
                     },
@@ -166,6 +170,7 @@ describe('Release Card', () => {
             environments: {
                 other: {
                     locks: {},
+
                     distanceToUpstream: 0,
                     priority: 0,
                     name: 'other',
@@ -175,6 +180,8 @@ describe('Release Card', () => {
                             queuedVersion: 0,
                             name: 'test2',
                             locks: {},
+                            teamLocks: {},
+                            team: 'test-team',
                             undeployVersion: false,
                         },
                     },
@@ -274,6 +281,8 @@ describe('Release Card Rollout Status', () => {
                                     version: 2,
                                     name: '',
                                     locks: {},
+                                    teamLocks: {},
+                                    team: 'test-team',
                                     queuedVersion: 0,
                                     undeployVersion: false,
                                 },
@@ -289,6 +298,8 @@ describe('Release Card Rollout Status', () => {
                                     version: 2,
                                     name: '',
                                     locks: {},
+                                    teamLocks: {},
+                                    team: 'test-team',
                                     queuedVersion: 0,
                                     undeployVersion: false,
                                 },
@@ -311,6 +322,8 @@ describe('Release Card Rollout Status', () => {
                                     version: 2,
                                     name: '',
                                     locks: {},
+                                    teamLocks: {},
+                                    team: 'test-team',
                                     queuedVersion: 0,
                                     undeployVersion: false,
                                 },

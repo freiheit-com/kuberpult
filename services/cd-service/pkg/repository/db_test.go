@@ -12,12 +12,13 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package repository
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"os"
@@ -130,6 +131,81 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
+		})
+	}
+}
+
+func TestDeploymentStorage(t *testing.T) {
+	tcs := []struct {
+		Name       string
+		commitHash string
+		email      string
+		event      event.Deployment
+		metadata   event.Metadata
+	}{
+		{
+			Name:       "Simple Deployment event",
+			commitHash: "abcdefabcdef",
+			email:      "test@email.com",
+			event: event.Deployment{
+				Environment:                 envProduction,
+				Application:                 "test-app",
+				SourceTrainUpstream:         nil,
+				SourceTrainEnvironmentGroup: nil,
+			},
+			metadata: event.Metadata{
+				AuthorEmail: "test@email.com",
+				Uuid:        "00000000-0000-0000-0000-000000000001",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			dbDir := t.TempDir()
+			cfg := DBConfig{
+				DriverName:     "sqlite3",
+				DbHost:         dbDir,
+				MigrationsPath: "/kp/cd_database/migrations",
+			}
+			migErr := RunDBMigrations(cfg)
+			if migErr != nil {
+				t.Fatalf("Error running migration script. Error: %v\n", migErr)
+			}
+
+			db, err := Connect(cfg)
+			if err != nil {
+				t.Fatal("Error establishing DB connection: ", zap.Error(err))
+			}
+
+			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tc.metadata.Uuid, tc.commitHash, tc.email, &tc.event)
+			if writeDeploymentError != nil {
+				t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
+			}
+
+			m, err := db.DBSelectAllEventsForCommit(ctx, tc.commitHash)
+			if err != nil {
+				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
+			}
+
+			for _, currEvent := range m {
+				e, err := event.UnMarshallEvent("deployment", currEvent.EventJson)
+
+				if err != nil {
+					t.Fatalf("Error obtaining event from DB. Error: %v\n", err)
+				}
+
+				if diff := cmp.Diff(e.EventData, &tc.event); diff != "" {
+					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				}
+
+				if diff := cmp.Diff(e.EventMetadata, tc.metadata); diff != "" {
+					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				}
+			}
+
 		})
 	}
 }

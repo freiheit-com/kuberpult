@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { act, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
 import { DisplayLock } from '../../utils/store';
@@ -79,6 +79,11 @@ describe('Test delete lock button', () => {
             date: new Date(2022, 0, 2),
             lock: { ...lock, application: 'test-app' },
         },
+        {
+            name: 'Test team lock delete button',
+            date: new Date(2022, 0, 2),
+            lock: { ...lock, team: 'test-team' },
+        },
     ];
 
     describe.each(data)('lock type', (testcase) => {
@@ -95,6 +100,10 @@ describe('Test delete lock button', () => {
             if (testcase.lock.application) {
                 expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
                     'deleteEnvironmentApplicationLock'
+                );
+            } else if (testcase.lock.team) {
+                expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
+                    'deleteEnvironmentTeamLock'
                 );
             } else {
                 expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
