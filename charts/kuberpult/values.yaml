@@ -50,6 +50,11 @@ git:
 
   # If enabled, write data to the `/commit` directory in the manifest repo on every release.
   # Disabling this option does not delete the `/commit` directory.
+  # In order to make use of this feature, the commit hashes provided to kuberpult (via the /release endpoint)
+  # need to be the full 40 characters. For details see https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md
+  # Kuberpult will not break if you enable this flag and do not provide the 40 characters, but you won't be able to use this feature.
+  # Note that this features writes more files into the manifest repository. It is currently not recommended to be used on
+  # setups with a huge manifest repository.
   enableWritingCommitData: false
 
   # Kuberpult tries to reduce the number of pushes and can bundle concurrent commits into a single push.
