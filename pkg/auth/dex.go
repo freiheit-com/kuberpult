@@ -237,14 +237,23 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedAudience string) (token *oidc.IDToken, err error) {
-	p, err := oidc.NewProvider(ctx, issuerURL)
-	if err != nil {
-		return nil, err
+	// When using e.g. GCP IAP, calls to https://kuberpult.com/dex/.well-known/openid-configuration will not return the needed JSON, so we do cluster-internal calls instead to e.g. http://kuberpult-dex:5556/dex
+	discoveryBaseURL := dexServiceURL + issuerPATH
+	pc := &oidc.ProviderConfig{
+		IssuerURL:     discoveryBaseURL,
+		AuthURL:       discoveryBaseURL + "/auth",
+		TokenURL:      discoveryBaseURL + "/token",
+		DeviceAuthURL: discoveryBaseURL + "/device/code",
+		UserInfoURL:   discoveryBaseURL + "/userinfo",
+		JWKSURL:       discoveryBaseURL + "/keys",
+		Algorithms:    []string{"RS256"},
 	}
+	p := pc.NewProvider(ctx)
 
 	// Token must be verified against an allowed audience.
+	// As the issuer is e.g. https://kuberpult.com/dex and the providerBaseUrl is http://kuberpult-dex:5556/dex we need to SkipIssuerChecks
 	//exhaustruct:ignore
-	config := oidc.Config{ClientID: allowedAudience}
+	config := oidc.Config{ClientID: allowedAudience, SkipIssuerCheck: true}
 	verifier := p.Verifier(&config)
 	idToken, err := verifier.Verify(ctx, rawToken)
 	if err != nil {
