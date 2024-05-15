@@ -188,7 +188,6 @@ rm templates/migrations.yaml
 helm template ./ --values vals.yaml --set generateMigrations=true > tmp.tmpl
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
-rm -rf migrations
 kubectl get deployment
 kubectl get pods
 
