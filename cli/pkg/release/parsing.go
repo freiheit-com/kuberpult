@@ -41,7 +41,7 @@ type commandLineArguments struct {
 	version          cli_utils.RepeatedString // same hack as application field here
 	displayVersion   cli_utils.RepeatedString // same hack as application field here
 	skipSignatures   bool
-	signatures       cli_utils.RepeatedString
+	signatures       cli_utils.RepeatedString // same hack as application field here
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
