@@ -27,6 +27,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"os"
 	"path"
 	"reflect"
 	"slices"
@@ -133,6 +134,12 @@ func RunDBMigrations(cfg DBConfig) error {
 		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)
 	}
 	defer d.DB.Close()
+
+	files, _ := os.ReadDir(d.MigrationsPath)
+
+	if len(files) == 0 {
+		return nil
+	}
 
 	m, err := d.getMigrationHandler()
 
