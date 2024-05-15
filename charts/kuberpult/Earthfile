@@ -1,5 +1,7 @@
 VERSION 0.7
 
+
+
 godeps:
     FROM golang:1.22-alpine
 
@@ -57,8 +59,6 @@ chart-tarball:
     WORKDIR /kp
 
     COPY ../../+migration-deps/* migrations
-
-
     COPY +chart.yaml/Chart.yaml .
     COPY values.yaml .
     COPY templates templates
