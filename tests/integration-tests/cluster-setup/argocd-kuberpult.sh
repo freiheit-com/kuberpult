@@ -182,6 +182,9 @@ VALUES
 
 # Get helm dependency charts and unzip them
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
+helm template -s templates/migrations.yaml ./ -f values.yaml --set generateMigrations=true --set git.url=test --set ingress.domainName=kuberpult.example.com > templates/generated-migrations.yaml
+rm -rf migrations
+rm templates/migrations.yaml
 helm template ./ --values vals.yaml --set generateMigrations=true > tmp.tmpl
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
