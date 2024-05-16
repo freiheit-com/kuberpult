@@ -31,7 +31,7 @@ There is a Kubeprult command line client for communicating with the `/release` e
 
 ```
 kuberpult-client release \
-    --application=google \
+    --application=my-customer-data-service \
     --environment=development --manifest=manifest-dev.yaml  --signature=signature-dev.gpg \
     --environment=production  --manifest=manifest-prod.yaml --signature=signature-prod.gpg --team=blabla-team \
     --previous_commit_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
