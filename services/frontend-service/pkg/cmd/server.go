@@ -237,7 +237,7 @@ func runServer(ctx context.Context) error {
 	var policy *auth.RBACPolicies
 	if c.DexEnabled {
 		// Registers Dex handlers.
-		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
+		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
 		}
@@ -332,7 +332,7 @@ func runServer(ctx context.Context) error {
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, policy)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
 			return
 		}
 		httpHandler.Handle(w, req)
@@ -533,7 +533,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if c.DexEnabled {
 			source = "dex"
-			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, p.Policy)
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, p.Policy, c.DexUseClusterInternalCommunication)
 			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
 			} else {
@@ -565,8 +565,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies) *auth.DexAuthContext {
-	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy)
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy, useClusterInternalCommunication)
 	if err != nil {
 		return nil
 	}
