@@ -15,9 +15,8 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import * as React from 'react';
 import { useState } from 'react';
-import { Checkbox } from '../dropdown/checkbox';
-import { ConfirmationDialog } from '../dialog/ConfirmationDialog';
 import { showSnackbarError } from '../../utils/store';
+import { GenericSelectionDialog } from '../SelectionDialog/GenericSelectionDialog';
 
 export type EnvSelectionDialogProps = {
     environments: string[];
@@ -44,64 +43,24 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
         setSelectedEnvs([]);
     }, [props]);
 
-    const addEnv = React.useCallback(
-        (env: string) => {
-            const newEnv = env;
-            const indexOf = selectedEnvs.indexOf(newEnv);
-            if (indexOf >= 0) {
-                const copy = selectedEnvs.concat();
-                copy.splice(indexOf, 1);
-                setSelectedEnvs(copy);
-            } else if (!props.envSelectionDialog) {
-                setSelectedEnvs([newEnv]);
-            } else {
-                setSelectedEnvs(selectedEnvs.concat(newEnv));
-            }
-        },
-        [props.envSelectionDialog, selectedEnvs]
-    );
+    const headerLabel = props.envSelectionDialog
+        ? 'Select all environments to be removed:'
+        : 'Select which environments to run release train to:';
+    const confirmLabel = props.envSelectionDialog ? 'Remove app from environments' : 'Release Train';
+    const onEmptyLabel = props.envSelectionDialog
+        ? 'There are no environments to list'
+        : 'There are no available environments to run a release train to based on the current environment/environmentGroup';
 
     return (
-        <ConfirmationDialog
-            classNames={'env-selection-dialog'}
-            onConfirm={onConfirm}
-            onCancel={onCancel}
+        <GenericSelectionDialog
+            selectables={props.environments}
             open={props.open}
-            headerLabel={
-                props.envSelectionDialog
-                    ? 'Select all environments to be removed:'
-                    : 'Select which environments to run release train to:'
-            }
-            confirmLabel={props.envSelectionDialog ? 'Remove app from environments' : 'Release Train'}>
-            {props.environments.length > 0 ? (
-                <div className="envs-dropdown-select">
-                    {props.environments.map((env: string, index: number) => {
-                        const enabled = selectedEnvs.includes(env);
-                        return (
-                            <div key={env}>
-                                <Checkbox
-                                    enabled={enabled}
-                                    onClick={addEnv}
-                                    id={String(env)}
-                                    label={env}
-                                    classes={'env' + env}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
-            ) : (
-                <div className="envs-dropdown-select">
-                    {props.envSelectionDialog ? (
-                        <div id="missing_envs">There are no environments to list</div>
-                    ) : (
-                        <div id="missing_envs">
-                            There are no available environments to run a release train to based on the current
-                            environment/environmentGroup
-                        </div>
-                    )}
-                </div>
-            )}
-        </ConfirmationDialog>
+            onSubmit={onConfirm}
+            onCancel={onCancel}
+            multiSelect={props.envSelectionDialog}
+            confirmLabel={confirmLabel}
+            headerLabel={headerLabel}
+            onEmptyLabel={onEmptyLabel}
+        />
     );
 };

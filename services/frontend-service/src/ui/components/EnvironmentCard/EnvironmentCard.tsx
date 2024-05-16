@@ -23,7 +23,7 @@ import classNames from 'classnames';
 import { ProductVersionLink, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { useSearchParams } from 'react-router-dom';
 import { useCallback, useState } from 'react';
-import { TeamSelectionDialog } from './TeamSelectionDialog';
+import { GenericSelectionDialog } from '../SelectionDialog/GenericSelectionDialog';
 
 export const EnvironmentCard: React.FC<{ environment: Environment; group: EnvironmentGroup | undefined }> = (props) => {
     const { environment, group } = props;
@@ -48,7 +48,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
         });
     }, [environment.name]);
 
-    const popup = React.useCallback(() => {
+    const popupSelectTeams = React.useCallback(() => {
         setShowTeamSelectionDialog(true);
     }, [setShowTeamSelectionDialog]);
 
@@ -75,13 +75,15 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
         [environment.name]
     );
     const dialog = (
-        <TeamSelectionDialog
-            teams={teams}
-            environment={environment.name}
+        <GenericSelectionDialog
+            selectables={teams}
             open={showTeamSelectionDialog}
             onSubmit={confirmTeamLockCreate}
             onCancel={handleCloseTeamSelectionDialog}
-            teamSelectionDialog={true}
+            multiSelect={true}
+            confirmLabel={'Select Teams'}
+            headerLabel={'Select teams for team lock:'}
+            onEmptyLabel={'No teams to show.'}
         />
     );
     return (
@@ -117,7 +119,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         className="environment-action service-action--prepare-undeploy test-lock-env"
                         label={'Add Team Lock in ' + environment.name}
                         icon={<Locks />}
-                        onClick={popup}
+                        onClick={popupSelectTeams}
                         highlightEffect={false}
                     />
                     <Button

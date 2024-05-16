@@ -28,9 +28,10 @@ import { Spinner } from '../Spinner/Spinner';
 import { EnvironmentGroup, GetProductSummaryResponse, ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
-import { EnvSelectionDialog } from '../ServiceLane/EnvSelectionDialog';
+import { GenericSelectionDialog } from '../SelectionDialog/GenericSelectionDialog';
 import { useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
+import { EnvSelectionDialog } from '../ServiceLane/EnvSelectionDialog';
 
 export type TableProps = {
     productSummary: ProductSummary[];
