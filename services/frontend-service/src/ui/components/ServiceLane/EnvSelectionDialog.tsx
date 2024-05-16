@@ -44,7 +44,7 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
         setSelectedEnvs([]);
     }, [props]);
 
-    const addTeam = React.useCallback(
+    const addEnv = React.useCallback(
         (env: string) => {
             const newEnv = env;
             const indexOf = selectedEnvs.indexOf(newEnv);
@@ -81,7 +81,7 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
                             <div key={env}>
                                 <Checkbox
                                     enabled={enabled}
-                                    onClick={addTeam}
+                                    onClick={addEnv}
                                     id={String(env)}
                                     label={env}
                                     classes={'env' + env}

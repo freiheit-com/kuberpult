@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs } from '../../utils/store';
+import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs, useTeamNames } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
@@ -22,12 +22,16 @@ import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
 import { ProductVersionLink, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { useSearchParams } from 'react-router-dom';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { TeamSelectionDialog } from './TeamSelectionDialog';
 
 export const EnvironmentCard: React.FC<{ environment: Environment; group: EnvironmentGroup | undefined }> = (props) => {
     const { environment, group } = props;
     const [params, setParams] = useSearchParams();
     const locks = useFilteredEnvironmentLockIDs(environment.name);
+    const teams = useTeamNames();
+
+    const [showTeamSelectionDialog, setShowTeamSelectionDialog] = useState(false);
 
     const priorityClassName = group !== undefined ? getPriorityClassName(group) : getPriorityClassName(environment);
     const onShowConfigClick = useCallback((): void => {
@@ -43,8 +47,46 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
             },
         });
     }, [environment.name]);
+
+    const popup = React.useCallback(() => {
+        setShowTeamSelectionDialog(true);
+    }, [setShowTeamSelectionDialog]);
+
+    const handleCloseTeamSelectionDialog = useCallback(() => {
+        setShowTeamSelectionDialog(false);
+    }, []);
+    const confirmTeamLockCreate = useCallback(
+        (selectedTeams: string[]) => {
+            selectedTeams.forEach((team) => {
+                addAction({
+                    action: {
+                        $case: 'createEnvironmentTeamLock',
+                        createEnvironmentTeamLock: {
+                            team: team,
+                            environment: environment.name,
+                            lockId: '',
+                            message: '',
+                        },
+                    },
+                });
+            });
+            setShowTeamSelectionDialog(false);
+        },
+        [environment.name]
+    );
+    const dialog = (
+        <TeamSelectionDialog
+            teams={teams}
+            environment={environment.name}
+            open={showTeamSelectionDialog}
+            onSubmit={confirmTeamLockCreate}
+            onCancel={handleCloseTeamSelectionDialog}
+            teamSelectionDialog={true}
+        />
+    );
     return (
         <div className="environment-lane">
+            {dialog}
             <div className={classNames('environment-lane__header', priorityClassName)}>
                 <div className="environment__name" title={'Name of the environment'}>
                     {environment.name}
@@ -69,6 +111,13 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         label={'Add Environment Lock in ' + environment.name}
                         icon={<Locks />}
                         onClick={addLock}
+                        highlightEffect={false}
+                    />
+                    <Button
+                        className="environment-action service-action--prepare-undeploy test-lock-env"
+                        label={'Add Team Lock in ' + environment.name}
+                        icon={<Locks />}
+                        onClick={popup}
                         highlightEffect={false}
                     />
                     <Button
