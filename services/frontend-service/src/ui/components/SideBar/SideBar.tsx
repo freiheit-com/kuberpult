@@ -153,7 +153,7 @@ export const getActionDetails = (
                 tooltip:
                     'A team lock will prevent automated process from changing the deployed version - note that kuberpult users can still deploy despite locks.',
                 environment: action.createEnvironmentTeamLock.environment,
-                application: action.createEnvironmentTeamLock.team,
+                team: action.createEnvironmentTeamLock.team,
             };
         case 'deleteEnvironmentTeamLock':
             const findMatchingTeamLock = (
