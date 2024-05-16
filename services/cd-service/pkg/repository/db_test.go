@@ -18,6 +18,7 @@ package repository
 
 import (
 	"context"
+	db2 "github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
@@ -46,7 +47,7 @@ func TestConnection(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
-			cfg := DBConfig{
+			cfg := db2.DBConfig{
 				DriverName: "sqlite3",
 				DbHost:     dir,
 			}
@@ -97,7 +98,7 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			t.Parallel()
 			ctx := context.Background()
 			dbDir := t.TempDir()
-			cfg := DBConfig{
+			cfg := db2.DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
 				MigrationsPath: dbDir + "/migrations",
@@ -173,7 +174,7 @@ func TestDeploymentStorage(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 			dbDir := t.TempDir()
-			cfg := DBConfig{
+			cfg := db2.DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
 				MigrationsPath: "/kp/database/migrations",

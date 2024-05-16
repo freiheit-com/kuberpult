@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
@@ -40,17 +41,6 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 )
-
-type DBConfig struct {
-	DbUser         string
-	DbHost         string
-	DbPort         string
-	DbName         string
-	DriverName     string
-	DbPassword     string
-	MigrationsPath string
-	WriteEslOnly   bool
-}
 
 type DBHandler struct {
 	DbName         string
@@ -76,7 +66,7 @@ func (h *DBHandler) ShouldUseOtherTables() bool {
 	return h != nil && !h.WriteEslOnly
 }
 
-func Connect(cfg DBConfig) (*DBHandler, error) {
+func Connect(cfg db.DBConfig) (*DBHandler, error) {
 	db, driver, err := GetConnectionAndDriver(cfg)
 
 	if err != nil {
@@ -92,7 +82,7 @@ func Connect(cfg DBConfig) (*DBHandler, error) {
 	}, nil
 }
 
-func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
+func GetDBConnection(cfg db.DBConfig) (*sql.DB, error) {
 	if cfg.DriverName == "postgres" {
 		dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
 			cfg.DbHost, cfg.DbUser, cfg.DbPassword, cfg.DbPort, cfg.DbName)
@@ -109,7 +99,7 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
 }
 
-func GetConnectionAndDriver(cfg DBConfig) (*sql.DB, database.Driver, error) {
+func GetConnectionAndDriver(cfg db.DBConfig) (*sql.DB, database.Driver, error) {
 	db, err := GetDBConnection(cfg)
 	if err != nil {
 		return nil, nil, err
@@ -145,7 +135,7 @@ func (h *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
 	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", h.DriverName)
 }
 
-func RunDBMigrations(cfg DBConfig) error {
+func RunDBMigrations(cfg db.DBConfig) error {
 	d, err := Connect(cfg)
 	if err != nil {
 		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)

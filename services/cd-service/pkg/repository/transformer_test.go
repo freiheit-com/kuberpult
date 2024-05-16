@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"io"
 	"math/rand"
@@ -1887,7 +1888,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
 			if tc.db {
-				cfg := DBConfig{
+				cfg := db.DBConfig{
 					MigrationsPath: migrationsPath,
 					DriverName:     "sqlite3",
 				}
@@ -6311,7 +6312,7 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 	return res
 }
 
-func setupRepositoryTestWithDB(t *testing.T, dbConfig *DBConfig) (Repository, error) {
+func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (Repository, error) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
