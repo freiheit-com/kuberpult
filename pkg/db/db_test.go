@@ -14,11 +14,12 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package repository
+package db
 
 import (
 	"context"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"os"
@@ -156,7 +157,7 @@ func TestDeploymentStorage(t *testing.T) {
 			commitHash: "abcdefabcdef",
 			email:      "test@email.com",
 			event: event.Deployment{
-				Environment:                 envProduction,
+				Environment:                 repository.envProduction,
 				Application:                 "test-app",
 				SourceTrainUpstream:         nil,
 				SourceTrainEnvironmentGroup: nil,

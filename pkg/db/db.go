@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package repository
+package db
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path"
@@ -441,13 +442,13 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	return &resultGo, nil
 }
 
-func (h *DBHandler) RunCustomMigrations(ctx context.Context, repo Repository) error {
+func (h *DBHandler) RunCustomMigrations(ctx context.Context, repo repository.Repository) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
 	return h.RunCustomMigrationAllTables(ctx, repo)
 }
 
-func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Repository) error {
+func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo repository.Repository) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)

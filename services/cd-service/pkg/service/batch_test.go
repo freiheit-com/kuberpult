@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -604,7 +605,7 @@ func TestBatchServiceLimit(t *testing.T) {
 	}
 }
 
-func setupRepositoryTestWithDB(t *testing.T, dbConfig *repository.DBConfig) (repository.Repository, error) {
+func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.Repository, error) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -624,12 +625,12 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *repository.DBConfig) (rep
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
 
-		migErr := repository.RunDBMigrations(*dbConfig)
+		migErr := db.RunDBMigrations(*dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)
 		}
 
-		db, err := repository.Connect(*dbConfig)
+		db, err := db.Connect(*dbConfig)
 		if err != nil {
 			t.Fatal(err)
 		}

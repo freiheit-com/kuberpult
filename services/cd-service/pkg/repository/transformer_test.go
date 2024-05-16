@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"io"
 	"math/rand"
@@ -1887,7 +1888,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
 			if tc.db {
-				cfg := DBConfig{
+				cfg := db.DBConfig{
 					MigrationsPath: migrationsPath,
 					DriverName:     "sqlite3",
 				}
@@ -6311,7 +6312,7 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 	return res
 }
 
-func setupRepositoryTestWithDB(t *testing.T, dbConfig *DBConfig) (Repository, error) {
+func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (Repository, error) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -6331,12 +6332,12 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *DBConfig) (Repository, er
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
 
-		migErr := RunDBMigrations(*dbConfig)
+		migErr := db.RunDBMigrations(*dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)
 		}
 
-		db, err := Connect(*dbConfig)
+		db, err := db.Connect(*dbConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -7653,7 +7654,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 }
 
 // DBParseToEvents gets all events from Raw DB data
-func DBParseToEvents(rows []EventRow) ([]event.Event, error) {
+func DBParseToEvents(rows []db.EventRow) ([]event.Event, error) {
 	var result []event.Event
 	for _, row := range rows {
 		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
