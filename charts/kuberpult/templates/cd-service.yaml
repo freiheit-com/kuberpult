@@ -217,8 +217,8 @@ spec:
 {{- if .Values.auth.dexAuth.enabled }}
         - name: KUBERPULT_DEX_RBAC_POLICY_PATH
           value: /kuberpult-rbac/policy.csv
-        - name: KUBERPULT_DEX_DEFAULT_USER_ENABLED
-          value: "{{ .Values.auth.dexAuth.defaultUserEnabled }}"
+        - name: KUBERPULT_DEX_DEFAULT_ROLE_ENABLED
+          value: "{{ .Values.auth.dexAuth.defaultRoleEnabled }}"
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"

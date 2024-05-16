@@ -87,7 +87,7 @@ type GrpcContextReader interface {
 
 type DexGrpcContextReader struct {
 	DexEnabled            bool
-	DexDefaultUserEnabled bool
+	DexDefaultRoleEnabled bool
 }
 
 type DummyGrpcContextReader struct {
@@ -146,7 +146,7 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 		rolesInHeader := md.Get(HeaderUserRole)
 
 		if len(rolesInHeader) == 0 {
-			if x.DexDefaultUserEnabled {
+			if x.DexDefaultRoleEnabled {
 				u.DexAuthContext = &DexAuthContext{
 					Role: "default",
 				}

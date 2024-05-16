@@ -280,7 +280,7 @@ auth:
     installDex: false
     #If kuberpult cannot find a role in the dex response, it will use the role "default".
     #This is only recommended for when you want the simplest possible setup, or for testing purposes."
-    defaultUserEnabled: false
+    defaultRoleEnabled: false
     # Defines the rbac policy when using Dex.
     # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
     #

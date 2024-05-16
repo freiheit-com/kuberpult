@@ -88,7 +88,7 @@ type Config struct {
 	DbUserPassword           string        `default:"" split_words:"true"`
 	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
 	DbMigrationsLocation     string        `default:"" split_words:"true"`
-	DexDefaultUserEnabled    bool          `default:"false" split_words:"true"`
+	DexDefaultRoleEnabled    bool          `default:"false" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -136,7 +136,7 @@ func RunServer() {
 			}
 			reader = &auth.DummyGrpcContextReader{Role: c.DexMockRole}
 		} else {
-			reader = &auth.DexGrpcContextReader{DexEnabled: c.DexEnabled, DexDefaultUserEnabled: c.DexDefaultUserEnabled}
+			reader = &auth.DexGrpcContextReader{DexEnabled: c.DexEnabled, DexDefaultRoleEnabled: c.DexDefaultRoleEnabled}
 		}
 		dexRbacPolicy, err := auth.ReadRbacPolicy(c.DexEnabled, c.DexRbacPolicyPath)
 		if err != nil {
