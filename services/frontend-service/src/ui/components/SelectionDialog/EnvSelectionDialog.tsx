@@ -16,7 +16,7 @@ Copyright freiheit.com*/
 import * as React from 'react';
 import { useState } from 'react';
 import { showSnackbarError } from '../../utils/store';
-import { GenericSelectionDialog } from '../SelectionDialog/GenericSelectionDialog';
+import { GenericSelectionDialog } from './GenericSelectionDialog';
 
 export type EnvSelectionDialogProps = {
     environments: string[];

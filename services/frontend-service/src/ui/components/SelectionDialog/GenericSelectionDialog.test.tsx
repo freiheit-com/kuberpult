@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { act, render, getByTestId } from '@testing-library/react';
 import { documentQuerySelectorSafe } from '../../../setupTests';
-import { EnvSelectionDialog, EnvSelectionDialogProps } from '../ServiceLane/EnvSelectionDialog';
+import { EnvSelectionDialog, EnvSelectionDialogProps } from './EnvSelectionDialog';
 
 type TestDataSelection = {
     name: string;

@@ -23,7 +23,7 @@ import classNames from 'classnames';
 import { ProductVersionLink, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { useSearchParams } from 'react-router-dom';
 import { useCallback, useState } from 'react';
-import { TeamSelectionDialog } from '../ServiceLane/EnvSelectionDialog';
+import { TeamSelectionDialog } from '../SelectionDialog/EnvSelectionDialog';
 
 export const EnvironmentCard: React.FC<{ environment: Environment; group: EnvironmentGroup | undefined }> = (props) => {
     const { environment, group } = props;
