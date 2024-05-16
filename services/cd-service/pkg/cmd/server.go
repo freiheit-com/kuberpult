@@ -202,7 +202,7 @@ func RunServer() {
 			)
 		}
 
-		var dbHandler *repository.DBHandler = nil
+		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg db.DBConfig
 			if c.DbOption == "cloudsql" {
@@ -230,7 +230,7 @@ func RunServer() {
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
 			}
-			dbHandler, err = repository.Connect(dbCfg)
+			dbHandler, err = db.Connect(dbCfg)
 			if err != nil {
 				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -239,7 +239,7 @@ func RunServer() {
 				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 			}
 
-			migErr := repository.RunDBMigrations(dbCfg)
+			migErr := db.RunDBMigrations(dbCfg)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 			}

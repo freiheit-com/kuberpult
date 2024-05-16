@@ -51,7 +51,7 @@ func TestConnection(t *testing.T) {
 				DriverName: "sqlite3",
 				DbHost:     dir,
 			}
-			db, err := Connect(cfg)
+			db, err := db2.Connect(cfg)
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
@@ -68,7 +68,7 @@ func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		migrationFile string
-		expectedData  *AllApplicationsGo
+		expectedData  *db2.AllApplicationsGo
 	}{
 		{
 			Name: "Simple migration",
@@ -83,10 +83,10 @@ CREATE TABLE IF NOT EXISTS all_apps
 
 INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
 INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
-			expectedData: &AllApplicationsGo{
+			expectedData: &db2.AllApplicationsGo{
 				Version: 1,
 				Created: time.Unix(1713218400, 0).UTC(),
-				AllApplicationsJson: AllApplicationsJson{
+				AllApplicationsJson: db2.AllApplicationsJson{
 					Apps: []string{"my-test-app"},
 				},
 			},
@@ -115,12 +115,12 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
 
-			migErr := RunDBMigrations(cfg)
+			migErr := db2.RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(cfg)
+			db, err := db2.Connect(cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -179,12 +179,12 @@ func TestDeploymentStorage(t *testing.T) {
 				DbHost:         dbDir,
 				MigrationsPath: "/kp/database/migrations",
 			}
-			migErr := RunDBMigrations(cfg)
+			migErr := db2.RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(cfg)
+			db, err := db2.Connect(cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -259,7 +259,7 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			actualQuery := SqliteToPostgresQuery(tc.inputQuery)
+			actualQuery := db2.SqliteToPostgresQuery(tc.inputQuery)
 			if diff := cmp.Diff(tc.expectedQuery, actualQuery); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
@@ -270,7 +270,7 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 func TestHelperFunctions(t *testing.T) {
 	tcs := []struct {
 		Name                string
-		inputHandler        *DBHandler
+		inputHandler        *db2.DBHandler
 		expectedEslTable    bool
 		expectedOtherTables bool
 	}{
@@ -282,7 +282,7 @@ func TestHelperFunctions(t *testing.T) {
 		},
 		{
 			Name: "esl only",
-			inputHandler: &DBHandler{
+			inputHandler: &db2.DBHandler{
 				WriteEslOnly: true,
 			},
 			expectedEslTable:    true,
@@ -290,7 +290,7 @@ func TestHelperFunctions(t *testing.T) {
 		},
 		{
 			Name: "other tables",
-			inputHandler: &DBHandler{
+			inputHandler: &db2.DBHandler{
 				WriteEslOnly: false,
 			},
 			expectedEslTable:    true,

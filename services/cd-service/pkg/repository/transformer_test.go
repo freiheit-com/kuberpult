@@ -6332,12 +6332,12 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (Repository,
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
 
-		migErr := RunDBMigrations(*dbConfig)
+		migErr := db.RunDBMigrations(*dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)
 		}
 
-		db, err := Connect(*dbConfig)
+		db, err := db.Connect(*dbConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -7654,7 +7654,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 }
 
 // DBParseToEvents gets all events from Raw DB data
-func DBParseToEvents(rows []EventRow) ([]event.Event, error) {
+func DBParseToEvents(rows []db.EventRow) ([]event.Event, error) {
 	var result []event.Event
 	for _, row := range rows {
 		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)

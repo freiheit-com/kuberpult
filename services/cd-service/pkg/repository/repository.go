@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"io"
 	"net/http"
 	"os"
@@ -149,7 +150,7 @@ type repository struct {
 
 	backOffProvider func() backoff.BackOff
 
-	DB *DBHandler
+	DB *db.DBHandler
 }
 
 type WebhookResolver interface {
@@ -211,7 +212,7 @@ type RepositoryConfig struct {
 
 	ArgoCdGenerateFiles bool
 
-	DBHandler *DBHandler
+	DBHandler *db.DBHandler
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -1443,7 +1444,7 @@ type State struct {
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
 	// DbHandler will be nil if the DB is disabled
-	DBHandler *DBHandler
+	DBHandler *db.DBHandler
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {

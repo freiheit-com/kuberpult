@@ -316,7 +316,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				t.Errorf("setup error\n%v", err)
 			}
 			r := repo.(*repository)
-			row := &EslEventRow{}
+			row := &db.EslEventRow{}
 			err = repo.Apply(ctx, setupTransformers...)
 			if err != nil {
 				t.Errorf("setup error could not set up transformers \n%v", err)

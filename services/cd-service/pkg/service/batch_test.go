@@ -625,12 +625,12 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
 
-		migErr := repository.RunDBMigrations(*dbConfig)
+		migErr := db.RunDBMigrations(*dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)
 		}
 
-		db, err := repository.Connect(*dbConfig)
+		db, err := db.Connect(*dbConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
