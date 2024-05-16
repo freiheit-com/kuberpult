@@ -55,6 +55,8 @@ type DexAppClient struct {
 	Scopes []string
 	// The http client used.
 	Client *http.Client
+	// Whether dex should be accessed via internal cluster communication.
+	UseClusterInternalCommunication bool
 }
 
 const (
@@ -73,15 +75,16 @@ const (
 )
 
 // NewDexAppClient a Dex Client.
-func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string) (*DexAppClient, error) {
+func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string, useClusterInternalCommunication bool) (*DexAppClient, error) {
 	a := DexAppClient{
-		Client:       nil,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Scopes:       scopes,
-		BaseURL:      baseURL,
-		RedirectURI:  baseURL + callbackPATH,
-		IssuerURL:    baseURL + issuerPATH,
+		Client:                          nil,
+		ClientID:                        clientID,
+		ClientSecret:                    clientSecret,
+		Scopes:                          scopes,
+		BaseURL:                         baseURL,
+		RedirectURI:                     baseURL + callbackPATH,
+		IssuerURL:                       baseURL + issuerPATH,
+		UseClusterInternalCommunication: useClusterInternalCommunication,
 	}
 	//exhaustruct:ignore
 	transport := &http.Transport{
@@ -208,7 +211,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID)
+	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID, a.UseClusterInternalCommunication)
 	if err != nil {
 		http.Error(w, "failed to verify the token", http.StatusInternalServerError)
 		return
@@ -236,24 +239,33 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.BaseURL, http.StatusSeeOther)
 }
 
-func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedAudience string) (token *oidc.IDToken, err error) {
-	// When using e.g. GCP IAP, calls to https://kuberpult.com/dex/.well-known/openid-configuration will not return the needed JSON, so we do cluster-internal calls instead to e.g. http://kuberpult-dex:5556/dex
-	discoveryBaseURL := dexServiceURL + issuerPATH
-	pc := &oidc.ProviderConfig{
-		IssuerURL:     discoveryBaseURL,
-		AuthURL:       discoveryBaseURL + "/auth",
-		TokenURL:      discoveryBaseURL + "/token",
-		DeviceAuthURL: discoveryBaseURL + "/device/code",
-		UserInfoURL:   discoveryBaseURL + "/userinfo",
-		JWKSURL:       discoveryBaseURL + "/keys",
-		Algorithms:    []string{"RS256"},
-	}
-	p := pc.NewProvider(ctx)
-
+func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedAudience string, useClusterInternalCommunication bool) (token *oidc.IDToken, err error) {
+	var p *oidc.Provider
 	// Token must be verified against an allowed audience.
-	// As the issuer is e.g. https://kuberpult.com/dex and the providerBaseUrl is http://kuberpult-dex:5556/dex we need to SkipIssuerChecks
 	//exhaustruct:ignore
-	config := oidc.Config{ClientID: allowedAudience, SkipIssuerCheck: true}
+	config := oidc.Config{ClientID: allowedAudience}
+	if useClusterInternalCommunication {
+		// When using e.g. GCP IAP, calls to https://kuberpult.com/dex/.well-known/openid-configuration will not return the needed JSON, so we do cluster-internal calls instead to e.g. http://kuberpult-dex:5556/dex
+		discoveryBaseURL := dexServiceURL + issuerPATH
+		pc := &oidc.ProviderConfig{
+			IssuerURL:     discoveryBaseURL,
+			AuthURL:       discoveryBaseURL + "/auth",
+			TokenURL:      discoveryBaseURL + "/token",
+			DeviceAuthURL: discoveryBaseURL + "/device/code",
+			UserInfoURL:   discoveryBaseURL + "/userinfo",
+			JWKSURL:       discoveryBaseURL + "/keys",
+			Algorithms:    []string{"RS256"},
+		}
+		p = pc.NewProvider(ctx)
+		// As the issuer is e.g. https://kuberpult.com/dex and the providerBaseUrl is http://kuberpult-dex:5556/dex we need to SkipIssuerChecks
+		config.SkipIssuerCheck = true
+	} else {
+		p, err = oidc.NewProvider(ctx, issuerURL)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	verifier := p.Verifier(&config)
 	idToken, err := verifier.Verify(ctx, rawToken)
 	if err != nil {
@@ -280,7 +292,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 }
 
 // Verifies if the user is authenticated.
-func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string) (jwt.MapClaims, error) {
+func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 	if err != nil {
@@ -290,7 +302,7 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string)
 	tokenString := cookie.Value
 
 	// Validates token audience and expiring date.
-	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID)
+	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID, useClusterInternalCommunication)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify token: %s", err)
 	}
