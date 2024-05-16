@@ -265,3 +265,50 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 		})
 	}
 }
+
+func TestHelperFunctions(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		inputHandler        *DBHandler
+		expectedEslTable    bool
+		expectedOtherTables bool
+	}{
+		{
+			Name:                "nil handler",
+			inputHandler:        nil,
+			expectedEslTable:    false,
+			expectedOtherTables: false,
+		},
+		{
+			Name: "esl only",
+			inputHandler: &DBHandler{
+				WriteEslOnly: true,
+			},
+			expectedEslTable:    true,
+			expectedOtherTables: false,
+		},
+		{
+			Name: "other tables",
+			inputHandler: &DBHandler{
+				WriteEslOnly: false,
+			},
+			expectedEslTable:    true,
+			expectedOtherTables: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			actualEslTable := tc.inputHandler.ShouldUseEslTable()
+			if diff := cmp.Diff(tc.expectedEslTable, actualEslTable); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+			actualOtherTables := tc.inputHandler.ShouldUseOtherTables()
+			if diff := cmp.Diff(tc.expectedOtherTables, actualOtherTables); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}

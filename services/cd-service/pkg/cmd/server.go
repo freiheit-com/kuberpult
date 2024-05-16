@@ -88,6 +88,7 @@ type Config struct {
 	DbUserPassword           string        `default:"" split_words:"true"`
 	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
 	DbMigrationsLocation     string        `default:"" split_words:"true"`
+	DbWriteEslTableOnly      bool          `default:"false" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -212,6 +213,7 @@ func RunServer() {
 					DbPassword:     c.DbUserPassword,
 					DbUser:         c.DbUserName,
 					MigrationsPath: c.DbMigrationsLocation,
+					WriteEslOnly:   c.DbWriteEslTableOnly,
 				}
 			} else if c.DbOption == "sqlite" {
 				dbCfg = repository.DBConfig{
@@ -222,6 +224,7 @@ func RunServer() {
 					DbPassword:     c.DbUserPassword,
 					DbUser:         c.DbUserName,
 					MigrationsPath: c.DbMigrationsLocation,
+					WriteEslOnly:   c.DbWriteEslTableOnly,
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
@@ -279,12 +282,14 @@ func RunServer() {
 		repositoryService := &service.Service{
 			Repository: repo,
 		}
-		if c.DbOption != "NO_DB" {
-			logger.FromContext(ctx).Warn("running custom migrations")
+		if dbHandler.ShouldUseOtherTables() {
+			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=true")
 			migErr := dbHandler.RunCustomMigrations(ctx, repo)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
 			}
+		} else {
+			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 		}
 
 		span.Finish()
