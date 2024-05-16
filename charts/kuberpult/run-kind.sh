@@ -132,6 +132,9 @@ then
   print 'building cd service...'
   make -C ../../services/cd-service/ docker
 
+  print 'building manifest-repo-export service...'
+  make -C ../../services/manifest-repo-export-service/ docker
+
   print 'building frontend service...'
   make -C ../../services/frontend-service/ docker
 
@@ -148,6 +151,7 @@ IMAGE_TAG_KUBERPULT=${IMAGE_TAG_KUBERPULT:-$VERSION}
 print "IMAGE_TAG_KUBERPULT is now ${IMAGE_TAG_KUBERPULT}"
 
 cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT}"
+manifest_repo_export_imagename="${IMAGE_REGISTRY}/kuberpult-manifest-repo-export-service:${IMAGE_TAG_KUBERPULT}"
 frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_KUBERPULT}"
 rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT}"
 
@@ -158,6 +162,8 @@ if ! "$LOCAL_EXECUTION"
 then
   print 'pulling cd service...'
   docker pull "$cd_imagename"
+  print 'pulling manifest_repo_export service...'
+  docker pull "$manifest_repo_export_imagename"
   print 'pulling frontend service...'
   docker pull "$frontend_imagename"
   print 'pulling rollout service...'
@@ -170,6 +176,7 @@ print 'loading docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
 kind load docker-image "$cd_imagename"
+kind load docker-image "$manifest_repo_export_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
 kind load docker-image quay.io/argoproj/argocd:v2.7.4
