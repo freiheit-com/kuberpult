@@ -565,8 +565,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies, dexUseClusterInternalCommunication bool) *auth.DexAuthContext {
-	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy, dexUseClusterInternalCommunication)
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy, useClusterInternalCommunication)
 	if err != nil {
 		return nil
 	}
