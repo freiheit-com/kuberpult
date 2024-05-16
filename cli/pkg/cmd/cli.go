@@ -25,7 +25,7 @@ import (
 )
 
 func handleRelease(args []string) {
-	parsedArgs, err := rl.ProcessArgs(args)
+	parsedArgs, err := rl.ParseArgs(args)
 
 	if err != nil {
 		log.Fatalf("error while parsing command line args, error: %v", err)
