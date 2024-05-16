@@ -24,7 +24,6 @@ import (
 
 func RunCLI() {
 	params, other, err := parseArgs(os.Args[1:])
-
 	if err != nil {
 		log.Fatalf("error while parsing command line arguments, error: %v", err)
 	}
@@ -33,6 +32,11 @@ func RunCLI() {
 		log.Fatalf("a subcommand must be specified")
 	}
 
+	var iapToken *string
+	if envVar, envVarExists := os.LookupEnv("KUBERPULT_IAP_TOKEN"); envVarExists {
+		iapToken = &envVar
+	}
+	
 	subcommand := other[0]
 	subflags := other[1:]
 
@@ -40,7 +44,7 @@ func RunCLI() {
 	case "help":
 		fmt.Println(helpMessage)
 	case "release":
-		handleRelease(params.url, subflags)
+		handleRelease(params.url, iapToken, subflags)
 	default:
 		log.Fatalf("unknown subcommand %s", subcommand)
 	}

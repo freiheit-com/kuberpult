@@ -32,13 +32,12 @@ type ReleaseParameters struct {
 	SourceMessage    *string
 	Version          *uint64
 	DisplayVersion   *string
-	IAPToken         *string
 }
 
 // calls the Release endpoint with the specified parameters
 // this function might be used in the future for programmatic interaction with Kuberpult, hence its separation
-func Release(url string, params *ReleaseParameters) error {
-	req, err := prepareHttpRequest(url, params)
+func Release(url string, iapToken *string, params *ReleaseParameters) error {
+	req, err := prepareHttpRequest(url, iapToken, params)
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
