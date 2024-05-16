@@ -32,6 +32,7 @@ type ReleaseParameters struct {
 	SourceMessage    *string
 	Version          *uint64
 	DisplayVersion   *string
+	IAPToken         *string
 }
 
 // calls the Release endpoint with the specified parameters

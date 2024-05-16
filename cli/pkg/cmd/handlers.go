@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"log"
+	"os"
+
 	rl "github.com/freiheit-com/kuberpult/cli/pkg/release"
 )
 
@@ -26,6 +28,10 @@ func handleRelease(url string, args []string) {
 
 	if err != nil {
 		log.Fatalf("error while parsing command line args, error: %v", err)
+	}
+
+	if IAPToken, envVarExists := os.LookupEnv("KUBERPULT_IAP_TOKEN"); envVarExists {
+		parsedArgs.IAPToken = &IAPToken
 	}
 
 	if err = rl.Release(url, parsedArgs); err != nil {
