@@ -32,8 +32,8 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.26.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.23.0
-	golang.org/x/oauth2 v0.20.0
-	google.golang.org/api v0.179.0
+	golang.org/x/oauth2 v0.19.0
+	google.golang.org/api v0.176.1
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/DataDog/dd-trace-go.v1 v1.63.1
