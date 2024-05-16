@@ -103,6 +103,7 @@ func TestNewDexAppClient(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
+			http.DefaultServeMux = http.NewServeMux()
 			a, err := NewDexAppClient(tc.clientID, tc.clientSecret, tc.baseURL, tc.scopes, tc.useClusterInternalCommunication)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
