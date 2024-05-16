@@ -44,6 +44,13 @@ deps:
     SAVE ARTIFACT go.sum
     SAVE ARTIFACT $BUF_BIN_PATH/buf
 
+migration-deps:
+    FROM scratch
+
+    COPY cd_database/ cd_database/
+
+    SAVE ARTIFACT cd_database/migrations
+
 cd-service:
     BUILD ./services/cd-service+$target --UID=$UID --service=cd-service
 
@@ -124,6 +131,7 @@ integration-test:
     # Note that multiple commands here are writing to "." which is slightly dangerous, because
     # if there are files with the same name, old ones will be overridden.
     COPY charts/kuberpult .
+    COPY cd_database/migrations migrations
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
     COPY infrastructure/scripts/create-testdata/create-release.sh .
