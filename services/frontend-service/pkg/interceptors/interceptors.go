@@ -143,9 +143,9 @@ func DexLoginInterceptor(
 	w http.ResponseWriter,
 	req *http.Request,
 	httpHandler http.HandlerFunc,
-	clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies,
+	clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool,
 ) {
-	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicy)
+	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
@@ -156,8 +156,8 @@ func DexLoginInterceptor(
 	httpHandler(w, req)
 }
 
-func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies) (context.Context, error) {
-	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
+func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		return req.Context(), err
