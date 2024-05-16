@@ -431,13 +431,13 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	return &resultGo, nil
 }
 
-func (h *DBHandler) RunCustomMigrations(ctx context.Context, repo Repository) error {
+func (h *DBHandler) RunCustomMigrations(ctx context.Context, getAllAppsFun func() ([]string, error)) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
-	return h.RunCustomMigrationAllTables(ctx, repo)
+	return h.RunCustomMigrationAllTables(ctx, getAllAppsFun)
 }
 
-func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Repository) error {
+func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsFun func() ([]string, error)) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
@@ -446,7 +446,7 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Reposi
 			allAppsDb = nil
 		}
 
-		allAppsRepo, err := repo.State().GetApplicationsFromFile()
+		allAppsRepo, err := getAllAppsFun()
 		if err != nil {
 			return fmt.Errorf("could not get applications to run custom migrations: %v", err)
 		}
