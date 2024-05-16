@@ -33,7 +33,7 @@ type kuberpultClientParameters struct {
 func readArgs(args []string) (*commandLineArguments, []string, error) {
 	cmdArgs := commandLineArguments{}
 	
-	fs := flag.NewFlagSet("top level", flag.ExitOnError)
+	fs := flag.NewFlagSet("top level", flag.ContinueOnError)
 
 	fs.Var(&cmdArgs.url, "url", "the URL of the Kuberpult instance (must be set exactly once)")
 

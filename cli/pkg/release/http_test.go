@@ -537,7 +537,7 @@ func TestRequestCreation(t *testing.T) {
 			server := httptest.NewServer(mockServer)
 
 			// check errors
-			err := Release(server.URL, tc.params)
+			err := Release(server.URL, nil, tc.params)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
