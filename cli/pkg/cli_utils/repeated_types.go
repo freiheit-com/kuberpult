@@ -16,18 +16,11 @@ Copyright freiheit.com*/
 
 package cli_utils
 
-import "regexp"
-import "fmt"
-import "strings"
-
-const wellBehavedStringRegex = "^[a-zA-Z0-9_\\./-]+$"
-
-// checks if a string is free of surprises.
-// many Kuberpult endpoints don't mind special characters, this is meant to make the CLI simpler
-func isWellBehavedString(s string) bool {
-	match, err := regexp.MatchString(wellBehavedStringRegex, s)
-	return match && err == nil
-}
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 // a RepeatedString corresponds to a command line string argument that can be specified multiple times (possibly zero times)
 // we further make the simplifying assumption that the string must be well-behaved
@@ -36,14 +29,31 @@ type RepeatedString struct {
 }
 
 func (rs *RepeatedString) Set(s string) error {
-	if !isWellBehavedString(s) {
-		return fmt.Errorf("the string \"%s\" may not be used as a flag value, all values must match the regex %s", s, wellBehavedStringRegex)
-	}
-
 	rs.Values = append(rs.Values, s)
 	return nil
 }
 
 func (rs *RepeatedString) String() string {
 	return strings.Join(rs.Values, ",")
+}
+
+type RepeatedInt struct {
+	Values []int64
+}
+
+func (rs *RepeatedInt) Set(s string) error {
+	value, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return fmt.Errorf("the provided value \"%s\" is not an integer", s)
+	}
+	rs.Values = append(rs.Values, value)
+	return nil
+}
+
+func (rs *RepeatedInt) String() string {
+	valuesAsStrings := make([]string, 0)
+	for _, value := range rs.Values {
+		valuesAsStrings = append(valuesAsStrings, fmt.Sprintf("%v", value))
+	}
+	return strings.Join(valuesAsStrings, ",")
 }

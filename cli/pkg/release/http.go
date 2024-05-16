@@ -19,6 +19,7 @@ package release
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 )
@@ -26,7 +27,7 @@ import (
 func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
-	
+
 	if err := writer.WriteField("application", parsedArgs.Application); err != nil {
 		return nil, fmt.Errorf("error writing application field, error: %w", err)
 	}
@@ -34,13 +35,64 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	for environment, manifest := range parsedArgs.Manifests {
 		part, err := writer.CreateFormFile(fmt.Sprintf("manifests[%s]", environment), fmt.Sprintf("%s-manifest", environment))
 		if err != nil {
-			writer.Close()
 			return nil, fmt.Errorf("error creating the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
 		_, err = part.Write([]byte(manifest))
 		if err != nil {
-			writer.Close()
 			return nil, fmt.Errorf("error writing the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
+		}
+	}
+
+	for environment, signature := range parsedArgs.Signatures {
+		part, err := writer.CreateFormFile(fmt.Sprintf("signatures[%s]", environment), fmt.Sprintf("%s-signature", environment))
+		if err != nil {
+			return nil, fmt.Errorf("error creating the form entry for environment %s with signature file %s, error: %w", environment, signature, err)
+		}
+		_, err = part.Write([]byte(signature))
+		if err != nil {
+			return nil, fmt.Errorf("error writing the form entry for environment %s with signature file %s, error: %w", environment, signature, err)
+		}
+	}
+
+	if parsedArgs.Team != nil {
+		if err := writer.WriteField("team", *parsedArgs.Team); err != nil {
+			return nil, fmt.Errorf("error writing team field, error: %w", err)
+		}
+	}
+
+	if parsedArgs.SourceCommitId != nil {
+		if err := writer.WriteField("source_commit_id", *parsedArgs.SourceCommitId); err != nil {
+			return nil, fmt.Errorf("error writing source_commit_id field, error: %w", err)
+		}
+	}
+
+	if parsedArgs.PreviousCommitId != nil {
+		if err := writer.WriteField("previous_commit_id", *parsedArgs.PreviousCommitId); err != nil {
+			return nil, fmt.Errorf("error writing previous_commit_id field, error: %w", err)
+		}
+	}
+
+	if parsedArgs.SourceAuthor != nil {
+		if err := writer.WriteField("source_author", *parsedArgs.SourceAuthor); err != nil {
+			return nil, fmt.Errorf("error writing source_author field, error: %w", err)
+		}
+	}
+
+	if parsedArgs.SourceMessage != nil {
+		if err := writer.WriteField("source_message", *parsedArgs.SourceMessage); err != nil {
+			return nil, fmt.Errorf("error writing source_message field, error: %w", err)
+		}
+	}
+
+	if parsedArgs.Version != nil {
+		if err := writer.WriteField("version", fmt.Sprintf("%v", *parsedArgs.Version)); err != nil {
+			return nil, fmt.Errorf("error writing version field, error: %w", err)
+		}
+	}
+
+	if parsedArgs.DisplayVersion != nil {
+		if err := writer.WriteField("display_version", *parsedArgs.DisplayVersion); err != nil {
+			return nil, fmt.Errorf("error writing display_version field, error: %w", err)
 		}
 	}
 
@@ -57,12 +109,7 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	return req, nil
 }
 
-func issueHttpRequest(url string, parsedArgs *ReleaseParameters) error {
-	req, err := prepareHttpRequest(url, parsedArgs)
-	if err != nil {
-		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
-	}
-
+func issueHttpRequest(req *http.Request) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -71,7 +118,12 @@ func issueHttpRequest(url string, parsedArgs *ReleaseParameters) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("response was not OK or Accepted, response code: %v", resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body could not be be read, error: %w", resp.StatusCode, err)
+		}
+		strBody := string(body)
+		return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body:\n   %v", resp.StatusCode, strBody)
 	}
 
 	return nil
