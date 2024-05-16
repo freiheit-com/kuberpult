@@ -17,35 +17,19 @@ Copyright freiheit.com*/
 package cmd
 
 import (
-	"fmt"
 	"log"
-	"os"
+
+	rl "github.com/freiheit-com/kuberpult/cli/pkg/release"
 )
 
-func RunCLI() {
-	params, other, err := parseArgs(os.Args[1:])
+func handleRelease(url string, iapToken *string, args []string) {
+	parsedArgs, err := rl.ParseArgs(args)
+
 	if err != nil {
-		log.Fatalf("error while parsing command line arguments, error: %v", err)
+		log.Fatalf("error while parsing command line args, error: %v", err)
 	}
 
-	if len(other) == 0 {
-		log.Fatalf("a subcommand must be specified")
-	}
-
-	var iapToken *string
-	if envVar, envVarExists := os.LookupEnv("KUBERPULT_IAP_TOKEN"); envVarExists {
-		iapToken = &envVar
-	}
-	
-	subcommand := other[0]
-	subflags := other[1:]
-
-	switch subcommand {
-	case "help":
-		fmt.Println(helpMessage)
-	case "release":
-		handleRelease(params.url, iapToken, subflags)
-	default:
-		log.Fatalf("unknown subcommand %s", subcommand)
+	if err = rl.Release(url, iapToken, parsedArgs); err != nil {
+		log.Fatalf("error on release, error: %v", err)
 	}
 }

@@ -24,7 +24,7 @@ import (
 	"net/http"
 )
 
-func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Request, error) {
+func prepareHttpRequest(url string, iapToken *string, parsedArgs *ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
 
@@ -105,7 +105,9 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-
+	if iapToken != nil {
+		req.Header.Add("Authorization", "Bearer "+*iapToken)
+	}
 	return req, nil
 }
 
