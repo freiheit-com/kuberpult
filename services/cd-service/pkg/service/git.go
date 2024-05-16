@@ -241,7 +241,7 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 		}
 	}
 
-	if s.Config.DBHandler != nil {
+	if s.Config.DBHandler.ShouldUseOtherTables() {
 		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, commitID)
 		if err != nil {
 			return nil, fmt.Errorf("could not read events from DB: %v", err)

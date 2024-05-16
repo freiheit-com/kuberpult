@@ -102,6 +102,9 @@ cd:
     dbUser: "username"
     dbPassword: "password"
     migrations: /migrations
+    # If set to true, kuberpult will write only the ESL table.
+    # This is useful to already collect historical data in the database, while waiting for the full database implementation.
+    writeEslTableOnly: false
     requests:
       cpu: "100m"
       memory: "200Mi"
@@ -281,6 +284,9 @@ auth:
     # If kuberpult cannot find a role in the dex response, it will use the role "default".
     # This is only recommended for when you want the simplest possible setup, or for testing purposes.
     defaultRoleEnabled: false
+    # If using e.g. GCP IAP cluster internal communication to Dex is necessary as otherwise its endpoints cannot be accessed by the frontend service
+    # If enabled, kuberpult communicates with dex over http, not https
+    useClusterInternalCommunicationToDex: false
     # Defines the rbac policy when using Dex.
     # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
     #

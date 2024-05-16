@@ -240,6 +240,8 @@ spec:
           value: "{{ .Values.cd.backendConfig.queueSize }}"
         - name: KUBERPULT_DB_OPTION # { NO_DB, cloudsql, sqlite }
           value: {{ .Values.cd.db.dbOption }}
+        - name: KUBERPULT_WRITE_ESL_TABLE_ONLY
+          value: "{{ .Values.cd.db.writeEslTableOnly }}"
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.cd.db.location }}

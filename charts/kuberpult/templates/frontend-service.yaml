@@ -156,6 +156,8 @@ spec:
           value: "{{ .Values.auth.dexAuth.scopes }}"
         - name: KUBERPULT_DEX_RBAC_POLICY_PATH
           value: /kuberpult-rbac/policy.csv
+        - name: KUBERPULT_DEX_USE_CLUSTER_INTERNAL_COMMUNICATION
+          values: "{{ .Values.auth.dexAuth.useClusterInternalCommunicationToDex }}"
 {{- end }}
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING_PATH
