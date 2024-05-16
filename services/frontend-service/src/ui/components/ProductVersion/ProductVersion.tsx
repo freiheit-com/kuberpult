@@ -30,7 +30,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
 import { useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
-import { EnvSelectionDialog } from '../SelectionDialog/EnvSelectionDialog';
+import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 
 export type TableProps = {
     productSummary: ProductSummary[];
