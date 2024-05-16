@@ -15,11 +15,11 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { act, render, getByTestId } from '@testing-library/react';
 import { documentQuerySelectorSafe } from '../../../setupTests';
-import { GenericSelectionDialog, GenericSelectionDialogProps } from './GenericSelectionDialog';
+import { EnvSelectionDialog, EnvSelectionDialogProps } from '../ServiceLane/EnvSelectionDialog';
 
 type TestDataSelection = {
     name: string;
-    input: GenericSelectionDialogProps;
+    input: EnvSelectionDialogProps;
     expectedNumItems: number;
     clickOnButton: string;
     secondClick: string;
@@ -33,23 +33,16 @@ const myCancelSpy = jest.fn();
 
 const confirmButtonTestId = 'test-confirm-button-confirm';
 const cancelButtonTestId = 'test-confirm-button-cancel';
-const envSelectionDialogHeaderLabel = 'Select all environments to be removed:';
-const envSelectionDialogConfirmLabel = 'Remove app from environments';
-
-const envSelectionDialogonEmptyLabel = 'There are no environments to list';
 
 const dataSelection: TestDataSelection[] = [
     {
         name: 'renders 2 item list',
         input: {
-            selectables: ['dev', 'staging'],
+            environments: ['dev', 'staging'],
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            multiSelect: true,
-            headerLabel: envSelectionDialogHeaderLabel,
-            confirmLabel: envSelectionDialogConfirmLabel,
-            onEmptyLabel: envSelectionDialogonEmptyLabel,
+            envSelectionDialog: true,
         },
         expectedNumItems: 2,
         clickOnButton: 'dev',
@@ -61,14 +54,11 @@ const dataSelection: TestDataSelection[] = [
     {
         name: 'renders 3 item list',
         input: {
-            selectables: ['dev', 'staging', 'prod'],
+            environments: ['dev', 'staging', 'prod'],
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            multiSelect: true,
-            headerLabel: envSelectionDialogHeaderLabel,
-            confirmLabel: envSelectionDialogConfirmLabel,
-            onEmptyLabel: envSelectionDialogonEmptyLabel,
+            envSelectionDialog: true,
         },
         expectedNumItems: 3,
         clickOnButton: 'staging',
@@ -80,15 +70,11 @@ const dataSelection: TestDataSelection[] = [
     {
         name: 'only one item allowed for release trains',
         input: {
-            selectables: ['dev', 'staging', 'prod'],
+            environments: ['dev', 'staging', 'prod'],
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            multiSelect: false,
-            headerLabel: 'Select which environments to run release train to:',
-            confirmLabel: 'Release Train',
-            onEmptyLabel:
-                'There are no available environments to run a release train to based on the current environment/environmentGroup',
+            envSelectionDialog: false,
         },
         expectedNumItems: 3,
         clickOnButton: 'staging',
@@ -100,14 +86,11 @@ const dataSelection: TestDataSelection[] = [
     {
         name: 'renders empty item list',
         input: {
-            selectables: [],
+            environments: [],
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            multiSelect: true,
-            headerLabel: envSelectionDialogHeaderLabel,
-            confirmLabel: envSelectionDialogConfirmLabel,
-            onEmptyLabel: envSelectionDialogonEmptyLabel,
+            envSelectionDialog: true,
         },
         expectedNumItems: 0,
         clickOnButton: '',
@@ -120,35 +103,29 @@ const dataSelection: TestDataSelection[] = [
 
 type TestDataOpenClose = {
     name: string;
-    input: GenericSelectionDialogProps;
+    input: EnvSelectionDialogProps;
     expectedNumElements: number;
 };
 const dataOpenClose: TestDataOpenClose[] = [
     {
         name: 'renders open dialog',
         input: {
-            selectables: ['dev', 'staging', 'prod'],
+            environments: ['dev', 'staging', 'prod'],
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            multiSelect: true,
-            headerLabel: envSelectionDialogHeaderLabel,
-            confirmLabel: envSelectionDialogConfirmLabel,
-            onEmptyLabel: envSelectionDialogonEmptyLabel,
+            envSelectionDialog: true,
         },
         expectedNumElements: 1,
     },
     {
         name: 'renders closed dialog',
         input: {
-            selectables: ['dev', 'staging', 'prod'],
+            environments: ['dev', 'staging', 'prod'],
             open: false,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            multiSelect: true,
-            headerLabel: envSelectionDialogHeaderLabel,
-            confirmLabel: envSelectionDialogConfirmLabel,
-            onEmptyLabel: envSelectionDialogonEmptyLabel,
+            envSelectionDialog: true,
         },
         expectedNumElements: 0,
     },
@@ -156,7 +133,7 @@ const dataOpenClose: TestDataOpenClose[] = [
 
 type TestDataCallbacks = {
     name: string;
-    input: GenericSelectionDialogProps;
+    input: EnvSelectionDialogProps;
     clickThis: string;
     expectedCancelCallCount: number;
     expectedSubmitCallCount: number;
@@ -165,14 +142,11 @@ const dataCallbacks: TestDataCallbacks[] = [
     {
         name: 'renders open dialog',
         input: {
-            selectables: ['dev', 'staging', 'prod'],
+            environments: ['dev', 'staging', 'prod'],
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            multiSelect: true,
-            headerLabel: envSelectionDialogHeaderLabel,
-            confirmLabel: envSelectionDialogConfirmLabel,
-            onEmptyLabel: envSelectionDialogonEmptyLabel,
+            envSelectionDialog: true,
         },
         clickThis: cancelButtonTestId,
         expectedCancelCallCount: 1,
@@ -181,14 +155,11 @@ const dataCallbacks: TestDataCallbacks[] = [
     {
         name: 'renders closed dialog',
         input: {
-            selectables: ['dev', 'staging', 'prod'],
+            environments: ['dev', 'staging', 'prod'],
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            multiSelect: true,
-            headerLabel: envSelectionDialogHeaderLabel,
-            confirmLabel: envSelectionDialogConfirmLabel,
-            onEmptyLabel: envSelectionDialogonEmptyLabel,
+            envSelectionDialog: true,
         },
         clickThis: confirmButtonTestId,
         expectedCancelCallCount: 0,
@@ -196,8 +167,8 @@ const dataCallbacks: TestDataCallbacks[] = [
     },
 ];
 
-const getNode = (overrides: GenericSelectionDialogProps) => <GenericSelectionDialog {...overrides} />;
-const getWrapper = (overrides: GenericSelectionDialogProps) => render(getNode(overrides));
+const getNode = (overrides: EnvSelectionDialogProps) => <EnvSelectionDialog {...overrides} />;
+const getWrapper = (overrides: EnvSelectionDialogProps) => render(getNode(overrides));
 
 describe('EnvSelectionDialog', () => {
     describe.each(dataSelection)('Test checkbox enabled', (testcase) => {
@@ -219,7 +190,7 @@ describe('EnvSelectionDialog', () => {
                 });
             } else {
                 expect(document.querySelector('.env-selection-dialog')?.textContent).toContain(
-                    envSelectionDialogonEmptyLabel
+                    'There are no environments to list'
                 );
             }
             expect(document.querySelectorAll('.test-button-checkbox.enabled').length).toEqual(
@@ -267,7 +238,7 @@ describe('EnvSelectionDialog', () => {
 
     type TestDataAddTeam = {
         name: string;
-        input: GenericSelectionDialogProps;
+        input: EnvSelectionDialogProps;
         clickTheseTeams: string[];
         expectedCancelCallCount: number;
         expectedSubmitCallCount: number;
@@ -277,14 +248,11 @@ describe('EnvSelectionDialog', () => {
         {
             name: '1 env',
             input: {
-                selectables: ['dev', 'staging', 'prod'],
+                environments: ['dev', 'staging', 'prod'],
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
-                multiSelect: true,
-                headerLabel: envSelectionDialogHeaderLabel,
-                confirmLabel: envSelectionDialogConfirmLabel,
-                onEmptyLabel: envSelectionDialogonEmptyLabel,
+                envSelectionDialog: true,
             },
             clickTheseTeams: ['dev'],
             expectedCancelCallCount: 0,
@@ -294,14 +262,11 @@ describe('EnvSelectionDialog', () => {
         {
             name: '2 envs',
             input: {
-                selectables: ['dev', 'staging', 'prod'],
+                environments: ['dev', 'staging', 'prod'],
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
-                multiSelect: true,
-                headerLabel: envSelectionDialogHeaderLabel,
-                confirmLabel: envSelectionDialogConfirmLabel,
-                onEmptyLabel: envSelectionDialogonEmptyLabel,
+                envSelectionDialog: true,
             },
             clickTheseTeams: ['staging', 'prod'],
             expectedCancelCallCount: 0,
@@ -311,14 +276,11 @@ describe('EnvSelectionDialog', () => {
         {
             name: '1 env clicked twice',
             input: {
-                selectables: ['dev', 'staging', 'prod'],
+                environments: ['dev', 'staging', 'prod'],
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
-                multiSelect: true,
-                headerLabel: envSelectionDialogHeaderLabel,
-                confirmLabel: envSelectionDialogConfirmLabel,
-                onEmptyLabel: envSelectionDialogonEmptyLabel,
+                envSelectionDialog: true,
             },
             clickTheseTeams: ['dev', 'staging', 'staging'],
             expectedCancelCallCount: 0,

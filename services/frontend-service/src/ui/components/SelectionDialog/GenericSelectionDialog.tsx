@@ -14,39 +14,25 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import * as React from 'react';
-import { useState } from 'react';
 import { Checkbox } from '../dropdown/checkbox';
 import { ConfirmationDialog } from '../dialog/ConfirmationDialog';
-import { showSnackbarError } from '../../utils/store';
 
 export type GenericSelectionDialogProps = {
     selectables: string[];
-    onSubmit: (selected: string[]) => void;
+    onSubmit: () => void;
     onCancel: () => void;
     open: boolean;
-    multiSelect: boolean; // false if release train dialog
+    multiSelect: boolean;
     headerLabel: string;
     confirmLabel: string;
     onEmptyLabel: string;
+    selectedSelectables: string[];
+    setSelectedSelectables: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
 export const GenericSelectionDialog: React.FC<GenericSelectionDialogProps> = (props) => {
-    const [selectedSelectables, setSelectedSelectables] = useState<string[]>([]);
-
-    const onConfirm = React.useCallback(() => {
-        if (selectedSelectables.length < 1) {
-            showSnackbarError('There needs to be at least one team selected to perform this action');
-            return;
-        }
-        props.onSubmit(selectedSelectables);
-        setSelectedSelectables([]);
-    }, [props, selectedSelectables]);
-
-    const onCancel = React.useCallback(() => {
-        props.onCancel();
-        setSelectedSelectables([]);
-    }, [props]);
-
+    const selectedSelectables = props.selectedSelectables;
+    const setSelectedSelectables = props.setSelectedSelectables;
     const addSelectable = React.useCallback(
         (selectable: string) => {
             const newSelectable = selectable;
@@ -61,14 +47,14 @@ export const GenericSelectionDialog: React.FC<GenericSelectionDialogProps> = (pr
                 setSelectedSelectables(selectedSelectables.concat(newSelectable));
             }
         },
-        [props.multiSelect, selectedSelectables]
+        [props.multiSelect, selectedSelectables, setSelectedSelectables]
     );
 
     return (
         <ConfirmationDialog
             classNames={'env-selection-dialog'}
-            onConfirm={onConfirm}
-            onCancel={onCancel}
+            onConfirm={props.onSubmit}
+            onCancel={props.onCancel}
             open={props.open}
             headerLabel={props.headerLabel}
             confirmLabel={props.confirmLabel}>

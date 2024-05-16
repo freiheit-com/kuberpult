@@ -33,7 +33,7 @@ import { AppLockSummary, TeamLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
 import { useCallback, useState } from 'react';
-import { GenericSelectionDialog } from '../SelectionDialog/GenericSelectionDialog';
+import { EnvSelectionDialog } from './EnvSelectionDialog';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -198,15 +198,12 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const appLocks = useFilteredApplicationLocks(application.name);
     const teamLocks = useTeamLocksFilterByTeam(application.team);
     const dialog = (
-        <GenericSelectionDialog
-            selectables={envs.map((e) => e.name)}
+        <EnvSelectionDialog
+            environments={envs.map((e) => e.name)}
             open={showEnvSelectionDialog}
             onSubmit={confirmEnvAppDelete}
             onCancel={handleClose}
-            multiSelect={true}
-            headerLabel={'Select all environments to be removed:'}
-            confirmLabel={'Remove app from environments'}
-            onEmptyLabel={''}
+            envSelectionDialog={true}
         />
     );
 

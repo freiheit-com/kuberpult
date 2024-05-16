@@ -61,6 +61,48 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
             confirmLabel={confirmLabel}
             headerLabel={headerLabel}
             onEmptyLabel={onEmptyLabel}
+            selectedSelectables={selectedEnvs}
+            setSelectedSelectables={setSelectedEnvs}
+        />
+    );
+};
+
+export type TeamSelectionDialogProps = {
+    teams: string[];
+    onSubmit: (selectedTeams: string[]) => void;
+    onCancel: () => void;
+    open: boolean;
+    multiselect: boolean;
+};
+
+export const TeamSelectionDialog: React.FC<TeamSelectionDialogProps> = (props) => {
+    const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+
+    const onConfirm = React.useCallback(() => {
+        if (selectedTeams.length < 1) {
+            showSnackbarError('There needs to be at least one team selected to perform this action');
+            return;
+        }
+        props.onSubmit(selectedTeams);
+        setSelectedTeams([]);
+    }, [props, selectedTeams]);
+
+    const onCancel = React.useCallback(() => {
+        props.onCancel();
+        setSelectedTeams([]);
+    }, [props]);
+    return (
+        <GenericSelectionDialog
+            selectables={props.teams}
+            open={props.open}
+            onSubmit={onConfirm}
+            onCancel={onCancel}
+            multiSelect={props.multiselect}
+            confirmLabel={'Select Teams'}
+            headerLabel={'Select teams for team lock:'}
+            onEmptyLabel={'No teams to show.'}
+            selectedSelectables={selectedTeams}
+            setSelectedSelectables={setSelectedTeams}
         />
     );
 };

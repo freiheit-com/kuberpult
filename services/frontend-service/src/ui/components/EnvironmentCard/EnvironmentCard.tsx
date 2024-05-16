@@ -23,7 +23,7 @@ import classNames from 'classnames';
 import { ProductVersionLink, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { useSearchParams } from 'react-router-dom';
 import { useCallback, useState } from 'react';
-import { GenericSelectionDialog } from '../SelectionDialog/GenericSelectionDialog';
+import { TeamSelectionDialog } from '../ServiceLane/EnvSelectionDialog';
 
 export const EnvironmentCard: React.FC<{ environment: Environment; group: EnvironmentGroup | undefined }> = (props) => {
     const { environment, group } = props;
@@ -31,14 +31,12 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
     const locks = useFilteredEnvironmentLockIDs(environment.name);
     const teams = useTeamNames();
 
-    const [showTeamSelectionDialog, setShowTeamSelectionDialog] = useState(false);
-
     const priorityClassName = group !== undefined ? getPriorityClassName(group) : getPriorityClassName(environment);
     const onShowConfigClick = useCallback((): void => {
         setOpenEnvironmentConfigDialog(params, environment.name);
         setParams(params);
     }, [environment.name, params, setParams]);
-
+    const [showTeamSelectionDialog, setShowTeamSelectionDialog] = useState(false);
     const addLock = React.useCallback(() => {
         addAction({
             action: {
@@ -75,17 +73,14 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
         [environment.name]
     );
     const dialog = (
-        <GenericSelectionDialog
-            selectables={teams}
-            open={showTeamSelectionDialog}
+        <TeamSelectionDialog
+            teams={teams}
             onSubmit={confirmTeamLockCreate}
             onCancel={handleCloseTeamSelectionDialog}
-            multiSelect={true}
-            confirmLabel={'Select Teams'}
-            headerLabel={'Select teams for team lock:'}
-            onEmptyLabel={'No teams to show.'}
-        />
+            open={showTeamSelectionDialog}
+            multiselect={true}></TeamSelectionDialog>
     );
+
     return (
         <div className="environment-lane">
             {dialog}
