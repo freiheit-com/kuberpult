@@ -47,17 +47,17 @@ The flags:
   -application value
         the name of the application to deploy (must be set exactly once)
   -display_version value
-        display version (must be a string between 1 and characters long)
+        display version (must be a string between 1 and 15 characters long)
   -environment value
-        an environment to deploy to (must have --manifest set immediately afterwards)
+        an environment to deploy to (must have -manifest set immediately afterwards)
   -manifest value
-        the name of the file containing manifests to be deployed (must be set immediately after --environment)
+        the name of the file containing manifests to be deployed (must be set immediately after -environment)
   -previous_commit_id value
         the SHA1 hash of the previous commit (must not be set more than once and can only be set when source_commit_id is set)
   -signature value
-        the name of the file containing the signature of the manifest to be deployed (must be set immediately after --manifest)
+        the name of the file containing the signature of the manifest to be deployed (must be set immediately after -manifest)
   -skip_signatures
-        if set to true, then the command line does not accept the --signature args
+        if set to true, then the command line does not accept the -signature args
   -source_author value
         the souce author (must not be set more than once)
   -source_commit_id value
