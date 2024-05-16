@@ -733,7 +733,7 @@ func TestGetCommitInfo(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			cfg := rp.DBConfig{
 				DriverName:     "sqlite3",
-				MigrationsPath: "/kp/cd_database/migrations",
+				MigrationsPath: "/kp/database/migrations",
 			}
 			repo, err := setupRepositoryTestWithDB(t, &cfg)
 

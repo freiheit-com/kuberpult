@@ -34,7 +34,7 @@ the sqlite file yet.
 
 Then you can look into the database, by using the sqlite command line client:
 ```shell
-sqlite3 cd_database/db.sqlite
+sqlite3 database/db.sqlite
 ```
 
 To make sqlite print nicely formatted columns,

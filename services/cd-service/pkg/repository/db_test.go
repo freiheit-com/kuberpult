@@ -176,7 +176,7 @@ func TestDeploymentStorage(t *testing.T) {
 			cfg := DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
-				MigrationsPath: "/kp/cd_database/migrations",
+				MigrationsPath: "/kp/database/migrations",
 			}
 			migErr := RunDBMigrations(cfg)
 			if migErr != nil {
