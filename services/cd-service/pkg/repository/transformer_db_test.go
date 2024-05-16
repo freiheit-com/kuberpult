@@ -33,7 +33,7 @@ import (
 
 // CreateMigrationsPath detects if it's running withing earthly/CI or locally and adapts the path to the migrations accordingly
 func CreateMigrationsPath() (string, error) {
-	const subDir = "/cd_database/migrations"
+	const subDir = "/database/migrations"
 	_, err := os.Stat("/kp")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

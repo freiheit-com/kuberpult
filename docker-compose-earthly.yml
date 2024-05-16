@@ -23,7 +23,7 @@ services:
       - "8443:8443"
     volumes:
       - ./services/cd-service:/kp/kuberpult
-      - ./cd_database:/kp/database
+      - ./database:/kp/database
     stop_grace_period: 0.5s
   frontend-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:local
@@ -63,4 +63,4 @@ services:
       - ./services/frontend-service/public:/kp/public
     stop_grace_period: 0.5s
 volumes:
-  cd_database:
+  database:
