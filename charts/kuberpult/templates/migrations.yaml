@@ -19,7 +19,7 @@ metadata:
   name: kuberpult-migrations-sqlite
 data:
   {{- range $k, $v := .Files.Glob  "migrations/sqlite/**.sql" }}
-    {{ $k | trimPrefix "migrations/sqlite" }}: {{ $.Files.Get $k | toYaml | indent 4 }}
+    {{ $k | trimPrefix "migrations/sqlite/" }}: {{ $.Files.Get $k | toYaml | indent 4 }}
   {{- end }}
 ---
 apiVersion: v1
@@ -27,7 +27,7 @@ kind: ConfigMap
 metadata:
   name: kuberpult-migrations-cloudsql
 data:
-  {{- range $k, $v := .Files.Glob  "migrations/cloudsql/**.sql" }}
-    {{ $k | trimPrefix "migrations/cloudsql" }}: {{ $.Files.Get $k | toYaml | indent 4 }}
+  {{- range $k, $v := .Files.Glob  "migrations/postgres/**.sql" }}
+    {{ $k | trimPrefix "migrations/postgres/" }}: {{ $.Files.Get $k | toYaml | indent 4 }}
   {{- end }}
 ---
