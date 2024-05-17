@@ -24,6 +24,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	urllib "net/url"
 )
 
 func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
@@ -102,7 +103,14 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, form)
+	urlStruct, err := urllib.Parse(url)
+	if err != nil {
+		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
+	}
+
+	urlStruct = urlStruct.JoinPath("release")
+
+	req, err := http.NewRequest(http.MethodPost, urlStruct.String(), form)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}
