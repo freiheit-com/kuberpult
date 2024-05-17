@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -61,17 +62,17 @@ func TestRequestCreation(t *testing.T) {
 
 	type testCase struct {
 		name                       string
-		params                     *ReleaseParameters
+		params                     ReleaseParameters
 		expectedMultipartFormValue map[string][]string
 		expectedMultipartFormFile  map[string][]simpleMultipartFormFileHeader
-		expectedErrorMsg           string
+		expectedErrorMsg           error
 		responseCode               int
 	}
 
 	tcs := []testCase{
 		{
 			name: "no manifests",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -82,7 +83,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "one environment manifest",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -104,7 +105,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "one environment manifest with signature",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -126,7 +127,7 @@ func TestRequestCreation(t *testing.T) {
 				"signatures[development]": {
 					{
 						filename: "development-signature",
-						content: "some development signature",
+						content:  "some development signature",
 					},
 				},
 			},
@@ -134,11 +135,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "multiple environment manifests",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -162,15 +163,15 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "multiple environment manifests with signatures",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Signatures: map[string][]byte{
 					"development": []byte("some development signature"),
-					"production": []byte("some production signature"),
+					"production":  []byte("some production signature"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -192,26 +193,25 @@ func TestRequestCreation(t *testing.T) {
 				"signatures[development]": {
 					{
 						filename: "development-signature",
-						content: "some development signature",
+						content:  "some development signature",
 					},
 				},
 				"signatures[production]": {
 					{
 						filename: "production-signature",
-						content: "some production signature",
+						content:  "some production signature",
 					},
 				},
-				
 			},
 			responseCode: http.StatusOK,
 		},
 		{
 			name: "multiple environment manifests with response code BadRequest",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -231,16 +231,18 @@ func TestRequestCreation(t *testing.T) {
 					},
 				},
 			},
-			expectedErrorMsg: "error while issuing HTTP request, error: response was not OK or Accepted\nresponse code: 400\nresponse body:\n   ",
-			responseCode:     http.StatusBadRequest,
+			expectedErrorMsg: errMatcher{
+				msg: "error while issuing HTTP request, error: response was not OK or Accepted\nresponse code: 400\nresponse body:\n   ",
+			},
+			responseCode: http.StatusBadRequest,
 		},
 		{
 			name: "multiple environment manifests with teams set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team: strPtr("potato-team"),
 			},
@@ -266,11 +268,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "source commit ID is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:           strPtr("potato-team"),
 				SourceCommitId: strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -298,11 +300,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "previous commit ID is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -332,11 +334,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "source_author is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -368,11 +370,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "source_message is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -406,11 +408,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "source_message is set with newlines",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -444,11 +446,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "version is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -484,11 +486,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "display_version is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -536,16 +538,16 @@ func TestRequestCreation(t *testing.T) {
 			}
 			server := httptest.NewServer(mockServer)
 
+			authParams := kuberpult_utils.AuthenticationParameters{}
+			err := Release(server.URL, authParams, tc.params)
 			// check errors
-			err := Release(server.URL, tc.params)
-			// check errors
-			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+			if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			// check multipart form values
-			if !cmp.Equal(mockServer.multipartForm.Value, tc.expectedMultipartFormValue) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormValue, mockServer.multipartForm)
+			if diff := cmp.Diff(mockServer.multipartForm.Value, tc.expectedMultipartFormValue); diff != "" {
+				t.Fatalf("request multipart forms are different\nexpected:\n  %v\nreceived:\n  %v\ndiff:\n  %s", tc.expectedMultipartFormValue, mockServer.multipartForm, diff)
 			}
 
 			// check multipart form files
@@ -576,8 +578,8 @@ func TestRequestCreation(t *testing.T) {
 				}
 				fileHeaders[key] = simpleHeaders
 			}
-			if !cmp.Equal(fileHeaders, tc.expectedMultipartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormFile, fileHeaders)
+			if diff := cmp.Diff(fileHeaders, tc.expectedMultipartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})); diff != "" {
+				t.Fatalf("request multipart forms are different\nexpected:\n  %v\nreceived:\n  %v\ndiff:\n  %s\n", tc.expectedMultipartFormFile, fileHeaders, diff)
 			}
 		})
 	}

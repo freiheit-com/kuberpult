@@ -18,13 +18,15 @@ package release
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"io"
 	"mime/multipart"
 	"net/http"
 )
 
-func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Request, error) {
+func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
 
@@ -106,12 +108,26 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
+	if authParams.IapToken != nil {
+		req.Header.Add("Authorization", "Bearer "+*authParams.IapToken)
+	}
+
+	if authParams.AuthorName != nil {
+		req.Header.Add("author-name", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorName)))
+	}
+
+	if authParams.AuthorEmail != nil {
+		req.Header.Add("author-email", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorEmail)))
+	}
+
+	fmt.Println(req.Header)
+
 	return req, nil
 }
 
-func issueHttpRequest(req *http.Request) error {
+func issueHttpRequest(req http.Request) error {
 	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := client.Do(&req)
 	if err != nil {
 		return fmt.Errorf("error issuing the HTTP request, error: %w", err)
 	}
