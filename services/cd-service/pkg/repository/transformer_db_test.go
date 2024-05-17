@@ -26,29 +26,10 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"google.golang.org/protobuf/testing/protocmp"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
-
-// CreateMigrationsPath detects if it's running withing earthly/CI or locally and adapts the path to the migrations accordingly
-func CreateMigrationsPath() (string, error) {
-	const subDir = "/database/migrations"
-	_, err := os.Stat("/kp")
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			wd, err := os.Getwd()
-			if err != nil {
-				return "", err
-			}
-			// this ".." sequence is necessary, because Getwd() returns the path of this go file (when running in an idea like goland):
-			return wd + "/../../../.." + subDir, nil
-		}
-		return "", err
-	}
-	return "/kp" + subDir, nil
-}
 
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	setupTransformers := []Transformer{
@@ -296,7 +277,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 	}
 
-	dir, err := CreateMigrationsPath()
+	dir, err := testutil.CreateMigrationsPath()
 	if err != nil {
 		t.Fatalf("setup error could not detect dir \n%v", err)
 		return
