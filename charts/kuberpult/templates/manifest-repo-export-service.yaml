@@ -1,0 +1,213 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com
+
+{{- if not (or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") (eq .Values.cd.db.dbOption "NO_DB")) }}
+{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, sqlite, cloudsql)."}}
+{{ end -}}
+
+# the export service is only enabled, if the DB is enabled
+{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+
+{{- if eq .Values.cd.db.writeEslTableOnly false }}
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-manifest-repo-export-service
+  labels:
+    app: kuberpult-manifest-repo-export-service
+{{- if .Values.datadogTracing.enabled }}
+    tags.datadoghq.com/service: kuberpult-manifest-repo-export-service
+    tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+    tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
+{{- end }}
+spec:
+  # This service works as an export. There should only be 1 instance of it at all times.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kuberpult-manifest-repo-export-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-manifest-repo-export-service
+{{- if .Values.datadogTracing.enabled }}
+        tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
+        tags.datadoghq.com/service: kuberpult-manifest-repo-export-service
+        tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+      annotations:
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-manifest-repo-export-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
+{{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+      serviceAccountName: {{ .Values.cd.db.k8sName }}
+{{- end }}
+      containers:
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+      - name: cloud-sql-proxy
+        # It is recommended to use the latest version of the Cloud SQL Auth Proxy
+        # Make sure to update on a regular schedule!
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args:
+          # If connecting from a VPC-native GKE cluster, you can use the
+          # following flag to have the proxy connect over private IP
+          - "--private-ip"
+
+          # Enable structured logging with LogEntry format:
+          - "--structured-logs"
+
+          # Replace DB_PORT with the port the proxy should listen on
+
+          - "--port={{ .Values.cd.db.authProxyPort }}"
+
+          - {{ .Values.cd.db.dbConnectionName | quote }}
+        securityContext:
+          # The default Cloud SQL Auth Proxy image runs as the
+          # "nonroot" user and group (uid: 65532) by default.
+          runAsNonRoot: true
+        # You should use resource requests/limits as a best practice to prevent
+        # pods from consuming too many resources and affecting the execution of
+        # other pods. You should adjust the following values based on what your
+        # application needs. For details, see
+        # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        resources:
+          requests:
+            # The proxy's memory use scales linearly with the number of active
+            # connections. Fewer open connections will use less memory. Adjust
+            # this value based on your application's requirements.
+            memory: {{ .Values.cd.db.requests.memory }}
+            # The proxy's CPU use scales linearly with the amount of IO between
+            # the database and the application. Adjust this value based on your
+            # application's requirements.
+            cpu:  {{ .Values.cd.db.requests.cpu }}
+{{- end }}
+      - name: service
+        image: "{{ .Values.hub }}/{{ .Values.manifestRepoExport.image }}:{{ $.Chart.AppVersion }}"
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+          - name: grpc
+            containerPort: 8443
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: {{ .Values.cd.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.cd.probes.readiness.periodSeconds }}
+          successThreshold: {{ .Values.cd.probes.readiness.successThreshold }}
+          timeoutSeconds: {{ .Values.cd.probes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.cd.probes.readiness.failureThreshold }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: {{ .Values.cd.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.cd.probes.liveness.periodSeconds }}
+          successThreshold: {{ .Values.cd.probes.liveness.successThreshold }}
+          timeoutSeconds: {{ .Values.cd.probes.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.cd.probes.liveness.failureThreshold }}
+        resources:
+          limits:
+            cpu: "{{ .Values.cd.resources.limits.cpu }}"
+            memory: "{{ .Values.cd.resources.limits.memory }}"
+          requests:
+            cpu: "{{ .Values.cd.resources.requests.cpu }}"
+            memory: "{{ .Values.cd.resources.requests.memory }}"
+        env:
+        - name: LOG_FORMAT
+          value: {{ .Values.log.format | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.log.level | quote }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_AGENT_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/env']
+        - name: DD_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/service']
+        - name: DD_VERSION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/version']
+        - name: KUBERPULT_ENABLE_TRACING
+          value: "{{ .Values.datadogTracing.enabled }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_API_KEY_LOCATION
+          value: "/etc/datadog/api-key"
+{{- end }}
+
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_DEBUG
+          value: "{{ .Values.datadogTracing.debugging }}"
+{{- end }}
+{{- if .Values.dogstatsdMetrics.enabled }}
+        - name: KUBERPULT_ENABLE_METRICS
+          value: "{{ .Values.dogstatsdMetrics.enabled }}"
+        - name: KUBERPULT_ENABLE_EVENTS
+          value: "{{ .Values.dogstatsdMetrics.eventsEnabled }}"
+        - name: KUBERPULT_DOGSTATSD_ADDR
+          value: "{{ .Values.dogstatsdMetrics.address }}"
+{{- end }}
+        - name: KUBERPULT_ENABLE_PROFILING
+          value: "{{ .Values.datadogProfiling.enabled }}"
+        volumeMounts:
+{{- if .Values.datadogProfiling.enabled }}
+        - name: datadog
+          mountPath: /etc/datadog/
+{{- end }}
+{{- if .Values.dogstatsdMetrics.enabled }}
+        - name: dsdsocket
+          mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
+          readOnly: true
+{{- end }}
+      volumes:
+      - name: repository
+        # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
+        # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
+        # Because of an issue in gitlib2, this actually happens.
+        emptyDir:
+          sizeLimit: 10Gi
+      - name: ssh
+        secret:
+          secretName: kuberpult-ssh
+{{- if .Values.datadogProfiling.enabled }}
+      - name: datadog
+        secret:
+          secretName: kuberpult-datadog
+{{- end }}
+{{- if .Values.dogstatsdMetrics.enabled }}
+      - name: dsdsocket
+        hostPath:
+          path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
+{{- end }}
+
+{{- end }}
+{{- end }}

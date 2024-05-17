@@ -54,6 +54,9 @@ migration-deps:
 cd-service:
     BUILD ./services/cd-service+$target --UID=$UID --service=cd-service
 
+manifest-repo-export-service:
+    BUILD ./services/manifest-repo-export-service+$target --UID=$UID --service=manifest-repo-export-service
+
 rollout-service:
     BUILD ./services/rollout-service+$target --UID=$UID --service=rollout-service
 
@@ -66,11 +69,13 @@ ui:
 all-services:
     BUILD ./pkg+deps
     BUILD ./services/cd-service+docker --service=cd-service --UID=$UID
+    BUILD ./services/manifest-repo-export-service+docker --service=manifest-repo-export-service --UID=$UID
     BUILD ./services/frontend-service+docker --service=frontend-service
     BUILD ./services/frontend-service+docker-ui
 
 cache:
     BUILD ./services/cd-service+release --service=cd-service --UID=$UID
+    BUILD ./services/manifest-repo-export-service+release --service=manifest-repo-export-service --UID=$UID
     BUILD ./services/rollout-service+release --service=rollout-service --UID=$UID
     BUILD ./services/frontend-service+release --service=frontend-service
     BUILD ./services/frontend-service+release-ui
@@ -86,6 +91,7 @@ commitlint:
 
 test-all:
     BUILD ./services/cd-service+unit-test --service=cd-service
+    BUILD ./services/manifest-repo-export-service+unit-test --service=manifest-repo-export-service
     BUILD ./services/rollout-service+unit-test --service=rollout-service
     BUILD ./services/frontend-service+unit-test --service=frontend-service
     BUILD ./services/frontend-service+unit-test-ui
