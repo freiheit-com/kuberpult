@@ -31,22 +31,22 @@ export type GenericSelectionDialogProps = {
 };
 
 export const GenericSelectionDialog: React.FC<GenericSelectionDialogProps> = (props) => {
-    const { selectedSelectables, setSelectedSelectables } = props;
+    const { selectedItems, setSelectedItems } = props;
     const addSelectable = React.useCallback(
         (selectable: string) => {
             const newSelectable = selectable;
-            const indexOf = selectedSelectables.indexOf(newSelectable);
+            const indexOf = selectedItems.indexOf(newSelectable);
             if (indexOf >= 0) {
-                const copy = selectedSelectables.concat();
+                const copy = selectedItems.concat();
                 copy.splice(indexOf, 1);
-                setSelectedSelectables(copy);
+                setSelectedItems(copy);
             } else if (!props.multiSelect) {
-                setSelectedSelectables([newSelectable]);
+                setSelectedItems([newSelectable]);
             } else {
-                setSelectedSelectables(selectedSelectables.concat(newSelectable));
+                setSelectedItems(selectedItems.concat(newSelectable));
             }
         },
-        [props.multiSelect, selectedSelectables, setSelectedSelectables]
+        [props.multiSelect, selectedItems, setSelectedItems]
     );
 
     return (
@@ -60,7 +60,7 @@ export const GenericSelectionDialog: React.FC<GenericSelectionDialogProps> = (pr
             {props.selectables.length > 0 ? (
                 <div className="envs-dropdown-select">
                     {props.selectables.map((selectable: string) => {
-                        const enabled = selectedSelectables.includes(selectable);
+                        const enabled = selectedItems.includes(selectable);
                         return (
                             <div key={selectable}>
                                 <Checkbox
