@@ -172,10 +172,10 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				Application:          appToUpdate,
 				Project:              ptr.FromString(appToUpdate.Spec.Project),
 			}
-			//We have to exclude the unexported type isServerInferred. It is managed by Argo.
 
 			//exhaustruct:ignore
 			emptyAppSpec := v1alpha1.ApplicationSpec{}
+			//We have to exclude the unexported type destination and the syncPolicy
 			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination), cmp.AllowUnexported(v1alpha1.SyncPolicy{}))
 			if diff != "" {
 				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
