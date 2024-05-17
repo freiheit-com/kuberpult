@@ -1,0 +1,83 @@
+VERSION 0.8
+IMPORT ../../infrastructure/earthly/go AS go-build
+
+LOCALLY
+ARG --global service=$(basename $PWD)
+ARG --global src_files=$(find pkg -type f ! -name "*_test.go")
+ARG --global cgo_enabled=0
+
+deps:
+    FROM ../../+deps
+    DO go-build+DEPS --service=$service --src_files=$src_files
+    WORKDIR services/$service
+
+artifacts:
+    FROM +deps
+    SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
+    SAVE ARTIFACT /usr/share/zoneinfo
+    SAVE ARTIFACT pkg
+
+compile:
+    FROM +deps
+    ARG USERARCH
+    
+    DO go-build+COMPILE --cgo_enabled=$cgo_enabled
+
+unit-test:
+    FROM +compile
+    ARG GO_TEST_ARGS
+    DO go-build+UNIT_TEST --GO_TEST_ARGS=$GO_TEST_ARGS
+
+lint:
+    FROM +deps
+    DO go-build+LINT --skip_lint_errors=false
+
+docker:
+    FROM alpine:3.18
+    ARG UID=1000
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+    ARG tag="local"
+    ARG use_datadog=false
+    COPY gitconfig /etc/gitconfig
+    DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --cgo_enabled=$cgo_enabled --entry_point=/main --service=$service --use_datadog=$use_datadog
+
+release:
+    FROM +docker
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+    ARG --required tag
+    DO go-build+RELEASE --image_tag=$registry/kuberpult-$service:$tag
+
+build-pr:
+    ARG --required tag
+    ARG registry="ghcr.io/freiheit-com/kuberpult"
+    ARG mirror="false"
+    ARG mirror_registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+
+    DO +BUILD_ALL --tag=$tag --registry=$registry --mirror=$mirror  --mirror_registry=$mirror_registry
+
+build-main:
+    ARG --required tag
+    ARG registry="ghcr.io/freiheit-com/kuberpult"
+    ARG mirror="false"
+    ARG mirror_registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+
+    DO +BUILD_ALL --tag=$tag --registry=$registry --mirror=$mirror  --mirror_registry=$mirror_registry --dd_release=true
+
+BUILD_ALL:
+    FUNCTION
+    ARG --required tag
+    ARG --required registry
+    ARG mirror_registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+    ARG mirror=""
+    ARG dd_release=false
+
+    FROM +deps
+    BUILD +lint 
+    BUILD +unit-test 
+    BUILD +release --registry=$registry --tag=$tag
+    IF [ "$mirror" = "true" ]
+        BUILD +release --registry=$mirror_registry --tag=$tag
+    END
+    IF [ "$dd_release" = "true" ]
+        BUILD +release --registry=$mirror_registry --tag="${tag}-datadog" --use_datadog=true
+    END
