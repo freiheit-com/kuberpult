@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,7 +43,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	git "github.com/libgit2/git2go/v34"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"

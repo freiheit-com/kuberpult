@@ -19,7 +19,7 @@ package repository
 import (
 	"context"
 	db2 "github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"os"
