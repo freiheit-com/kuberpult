@@ -315,11 +315,16 @@ spec:
         configMap:
           name: kuberpult-keyring
 {{- end }}
-{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
       - name: migrations
         configMap:
-          name: kuberpult-migrations
-{{- end }} 
+          name: kuberpult-migrations-cloudsql
+{{- end }}
+{{- if eq .Values.cd.db.dbOption "sqlite" }}
+      - name: migrations
+        configMap:
+          name: kuberpult-migrations-sqlite
+{{- end }}
 {{- if eq .Values.cd.db.dbOption "sqlite" }}
       - name: sqlite
         emptyDir:
