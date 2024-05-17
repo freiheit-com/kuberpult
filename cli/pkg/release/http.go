@@ -120,8 +120,6 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 		req.Header.Add("author-email", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorEmail)))
 	}
 
-	fmt.Println(req.Header)
-
 	return req, nil
 }
 
