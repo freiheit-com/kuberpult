@@ -213,7 +213,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID, a.UseClusterInternalCommunication)
 	if err != nil {
-		http.Error(w, "failed to verify the token", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to verify the token: %v", err), http.StatusInternalServerError)
 		return
 	}
 
