@@ -176,7 +176,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 
 			//exhaustruct:ignore
 			emptyAppSpec := v1alpha1.ApplicationSpec{}
-			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination))
+			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination), cmp.AllowUnexported(v1alpha1.SyncPolicy{}))
 			if diff != "" {
 				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
 				updateSpan.SetTag("application", app.Name)
