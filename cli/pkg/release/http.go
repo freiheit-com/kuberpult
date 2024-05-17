@@ -23,6 +23,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"encoding/base64"
 )
 
 func prepareHttpRequest(authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
@@ -107,17 +108,20 @@ func prepareHttpRequest(authParams kutil.AuthenticationParameters, parsedArgs Re
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	
-	if authParams.AuthorName != nil {
-		req.Header.Add("author-name", *authParams.AuthorName)
-	}
 	
 	if authParams.IapToken != nil {
 		req.Header.Add("Authorization", "Bearer "+*authParams.IapToken)
 	}
+	
+	if authParams.AuthorName != nil {
+		req.Header.Add("author-name", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorName)))
+	}
 
 	if authParams.AuthorEmail != nil {
-		req.Header.Add("author-email", *authParams.AuthorEmail)
+		req.Header.Add("author-email", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorEmail)))
 	}
+
+	fmt.Println(req.Header)
 	
 	return req, nil
 }
