@@ -31,7 +31,7 @@ export type GenericSelectionDialogProps = {
 };
 
 export const GenericSelectionDialog: React.FC<GenericSelectionDialogProps> = (props) => {
-    const { selectedSelectables, setSelectedSelectables }  = props;
+    const { selectedSelectables, setSelectedSelectables } = props;
     const addSelectable = React.useCallback(
         (selectable: string) => {
             const newSelectable = selectable;
