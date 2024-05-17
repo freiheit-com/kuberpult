@@ -35,23 +35,10 @@ func RunServer() {
 }
 
 func runServer(ctx context.Context) error {
-	// var service run.Service
-	// yaml, err := ReadYaml("/Users/ahmednour/workspace/fdc-standard-setup/services/serverless-app-example/cloudrun/staging_manifest.yaml")
-	// if err != nil {
-	// 	logger.FromContext(ctx).Fatal("Failed to read yaml file", zap.String("Error", err.Error()))
-	// }
-	// err = parser.ParseManifest(yaml, &service)
-	// if err != nil {
-	// 	logger.FromContext(ctx).Fatal("Failed to parse service manifest", zap.String("Error", err.Error()))
-	// }
 	if err := cloudrun.Init(ctx); err != nil {
 		logger.FromContext(ctx).Fatal("Failed to initialize cloud run service")
 	}
-	// if err := cloudrun.Deploy(ctx, &service); err != nil {
-	// 	logger.FromContext(ctx).Error("Service deploy failed", zap.String("Error", err.Error()))
-	// } else {
-	// 	logger.FromContext(ctx).Info("Service deployed successfully", zap.String("Service", service.Metadata.Name))
-	// }
+
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{},
 		GRPC: &setup.GRPCConfig{
@@ -68,11 +55,3 @@ func runServer(ctx context.Context) error {
 
 	return nil
 }
-
-// func ReadYaml(path string) ([]byte, error) {
-// 	yamlFile, err := os.ReadFile(path)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return yamlFile, nil
-// }
