@@ -567,8 +567,8 @@ func TestReadArgs(t *testing.T) {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
-			if !cmp.Equal(cmdArgs, tc.expectedCmdArgs, cmp.AllowUnexported(commandLineArguments{})) {
-				t.Fatalf("expected args %v, got %v", tc.expectedCmdArgs, cmdArgs)
+			if diff := cmp.Diff(cmdArgs, tc.expectedCmdArgs, cmp.AllowUnexported(commandLineArguments{})); diff != "" {
+				t.Fatalf("expected args:\n  %v\n, got:\n  %v, diff:\n  %s\n", tc.expectedCmdArgs, cmdArgs, diff)
 			}
 		})
 	}
@@ -736,8 +736,8 @@ func TestParseArgs(t *testing.T) {
 			}
 
 			// check result
-			if !cmp.Equal(params, tc.expectedParams, cmp.AllowUnexported(commandLineArguments{})) {
-				t.Fatalf("expected args %v, got %v", tc.expectedParams, params)
+			if diff := cmp.Diff(params, tc.expectedParams, cmp.AllowUnexported(commandLineArguments{})); diff != "" {
+				t.Fatalf("expected args:\n  %v\n, got:\n  %v\n, diff:\n  %s\n", tc.expectedParams, params, diff)
 			}
 		})
 	}

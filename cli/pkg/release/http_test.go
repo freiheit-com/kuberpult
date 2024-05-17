@@ -545,8 +545,8 @@ func TestRequestCreation(t *testing.T) {
 			}
 
 			// check multipart form values
-			if !cmp.Equal(mockServer.multipartForm.Value, tc.expectedMultipartFormValue) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormValue, mockServer.multipartForm)
+			if diff := cmp.Diff(mockServer.multipartForm.Value, tc.expectedMultipartFormValue); diff != "" {
+				t.Fatalf("request multipart forms are different\nexpected:\n  %v\nreceived:\n  %v\ndiff:\n  %s", tc.expectedMultipartFormValue, mockServer.multipartForm, diff)
 			}
 
 			// check multipart form files
@@ -577,8 +577,8 @@ func TestRequestCreation(t *testing.T) {
 				}
 				fileHeaders[key] = simpleHeaders
 			}
-			if !cmp.Equal(fileHeaders, tc.expectedMultipartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormFile, fileHeaders)
+			if diff := cmp.Diff(fileHeaders, tc.expectedMultipartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})); diff != "" {
+				t.Fatalf("request multipart forms are different\nexpected:\n  %v\nreceived:\n  %v\ndiff:\n  %s\n", tc.expectedMultipartFormFile, fileHeaders, diff)
 			}
 		})
 	}

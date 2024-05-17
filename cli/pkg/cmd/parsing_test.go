@@ -128,12 +128,12 @@ func TestParseArgs(t *testing.T) {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
-			if !cmp.Equal(params, tc.expectedParams, cmp.AllowUnexported(kuberpultClientParameters{})) {
-				t.Fatalf("expected args %v, got %v", tc.expectedParams, params)
+			if diff := cmp.Diff(params, tc.expectedParams, cmp.AllowUnexported(kuberpultClientParameters{})); diff != "" {
+				t.Fatalf("expected args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n", tc.expectedParams, params, diff)
 			}
 
-			if !cmp.Equal(other, tc.expectedOther, cmpopts.EquateEmpty()) {
-				t.Fatalf("expected other args %v, got %v", tc.expectedOther, other)
+			if diff := cmp.Diff(other, tc.expectedOther, cmpopts.EquateEmpty()); diff != "" {
+				t.Fatalf("expected other args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n", tc.expectedOther, other, diff)
 			}
 		})
 	}
