@@ -37,10 +37,10 @@ type serviceManifestError struct {
 
 func (p serviceManifestError) Error() string {
 	if p.metadataMissing {
-		return "No metadata found in service manifest"
+		return "Error: No metadata found in service manifest"
 	}
 	if p.nameEmpty {
-		return "Service name cannot be empty"
+		return "Error: Service name cannot be empty"
 	}
 	return "Configuration error"
 }
