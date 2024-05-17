@@ -26,13 +26,13 @@ export type GenericSelectionDialogProps = {
     headerLabel: string;
     confirmLabel: string;
     onEmptyLabel: string;
-    selectedSelectables: string[];
-    setSelectedSelectables: React.Dispatch<React.SetStateAction<string[]>>;
+    selectedItems: string[];
+    setSelectedItems: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
 export const GenericSelectionDialog: React.FC<GenericSelectionDialogProps> = (props) => {
-    const selectedSelectables = props.selectedSelectables;
-    const setSelectedSelectables = props.setSelectedSelectables;
+    const selectedSelectables = props.selectedItems;
+    const setSelectedSelectables = props.setSelectedItems;
     const addSelectable = React.useCallback(
         (selectable: string) => {
             const newSelectable = selectable;

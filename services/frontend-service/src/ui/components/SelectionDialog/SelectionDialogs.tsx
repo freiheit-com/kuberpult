@@ -61,8 +61,8 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
             confirmLabel={confirmLabel}
             headerLabel={headerLabel}
             onEmptyLabel={onEmptyLabel}
-            selectedSelectables={selectedEnvs}
-            setSelectedSelectables={setSelectedEnvs}
+            selectedItems={selectedEnvs}
+            setSelectedItems={setSelectedEnvs}
         />
     );
 };
@@ -101,8 +101,8 @@ export const TeamSelectionDialog: React.FC<TeamSelectionDialogProps> = (props) =
             confirmLabel={'Select Teams'}
             headerLabel={'Select teams for team lock:'}
             onEmptyLabel={'No teams to show.'}
-            selectedSelectables={selectedTeams}
-            setSelectedSelectables={setSelectedTeams}
+            selectedItems={selectedTeams}
+            setSelectedItems={setSelectedTeams}
         />
     );
 };
