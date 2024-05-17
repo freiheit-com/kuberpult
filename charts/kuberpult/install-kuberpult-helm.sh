@@ -11,7 +11,7 @@ LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
 GIT_NAMESPACE=${GIT_NAMESPACE:-git}
 ARGO_NAMESPACE=${ARGO_NAMESPACE:-default}
 token=${TOKEN:-invalid-i-dont-care}
-
+VERSION=$(git describe --always --long --tags || echo 0.0.1)
 
 set -eu
 set -o pipefail
@@ -78,9 +78,10 @@ $(sed -e "s/^/    /" <./kuberpult-keyring.gpg)
 VALUES
 
 # Get helm dependency charts and unzip them
-(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
+(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do echo "$filename"; tar -xf "$filename" && rm -f "$filename"; done;)
 
-helm template ./ --values vals.yaml > tmp.tmpl
+earthly +chart-tarball
+
 
 helm uninstall kuberpult-local || print kuberpult was not installed
-helm install --values vals.yaml kuberpult-local ./
+helm install --values vals.yaml kuberpult-local kuberpult-$VERSION.tgz
