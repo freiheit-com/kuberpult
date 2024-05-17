@@ -21,9 +21,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type InvalidServiceManifestError struct {
-}
-
 // ParseManifest umarshals a given YAML manifest and populates the provided service struct.
 // Parameters:
 //   - manifest: A byte slice containing the YAML data to be parsed.
