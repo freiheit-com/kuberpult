@@ -223,6 +223,22 @@ export const addAction = (action: BatchAction): void => {
             )
                 return;
             break;
+        case 'createEnvironmentTeamLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'createEnvironmentTeamLock' &&
+                        action.action?.$case === 'createEnvironmentTeamLock' &&
+                        act.action.createEnvironmentTeamLock.environment ===
+                            action.action.createEnvironmentTeamLock.environment &&
+                        act.action.createEnvironmentTeamLock.lockId ===
+                            action.action.createEnvironmentTeamLock.lockId &&
+                        act.action.createEnvironmentTeamLock.team === action.action.createEnvironmentTeamLock.team
+                    // lockId and message are ignored
+                )
+            )
+                return;
+            break;
         case 'deleteEnvironmentTeamLock':
             if (
                 actions.some(

@@ -69,9 +69,9 @@ describe('Test Environment Cards', () => {
                 ],
             },
             expectedNumGroupsLockButtons: 1,
-            expectedNumEnvLockButtons: 1,
+            expectedNumEnvLockButtons: 2,
             expectedPriorityClassName: 'environment-priority-pre_prod',
-            expectedNumButtonsEnv: 3,
+            expectedNumButtonsEnv: 4,
         },
         {
             name: '1 group 2 env',
@@ -99,9 +99,9 @@ describe('Test Environment Cards', () => {
                 ],
             },
             expectedNumGroupsLockButtons: 1,
-            expectedNumEnvLockButtons: 2,
+            expectedNumEnvLockButtons: 4,
             expectedPriorityClassName: 'environment-priority-upstream',
-            expectedNumButtonsEnv: 5,
+            expectedNumButtonsEnv: 7,
         },
     ];
 
