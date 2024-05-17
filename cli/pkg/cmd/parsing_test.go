@@ -37,6 +37,10 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
+func ptrStr(s string) *string {
+	return &s
+}
+
 func TestParseArgs(t *testing.T) {
 	type TestCase struct {
 		name             string
@@ -70,6 +74,11 @@ func TestParseArgs(t *testing.T) {
 			expectedErrorMsg: "error while parsing command line arguments, error: error while reading command line arguments, error: flag provided but not defined: -potato",
 		},
 		{
+			name: "--url is provided twice",
+			cmdArgs: "--url something.somewhere --url somethingelse.somewhere",
+			expectedErrorMsg: "error while creating kuberpult client parameters, error: the --url arg must be set exactly once",
+		},
+		{
 			name: "--url is provided with some tail",
 			cmdArgs: "--url something.somewhere potato --tomato",
 			expectedParams: &kuberpultClientParameters{
@@ -77,6 +86,35 @@ func TestParseArgs(t *testing.T) {
 			},
 			expectedOther: []string{"potato", "--tomato"},
 		},
+		{
+			name: "--url and --author_name are provided with some tail",
+			cmdArgs: "--url something.somewhere --author_name john subcommand --arg1 val1 etc etc",
+			expectedParams: &kuberpultClientParameters{
+				url: "something.somewhere",
+				authorName: ptrStr("john"),
+			},
+			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
+		},
+		{
+			name: "--author_name is provided twice",
+			cmdArgs: "--url something.somewhere --author_name john --author_name joseph subcommand --arg1 val1 etc etc",
+			expectedErrorMsg: "error while creating kuberpult client parameters, error: the --author_name arg must be set at most once",
+		},
+		{
+			name: "--url and --author_email are provided with some tail",
+			cmdArgs: "--url something.somewhere --author_email john subcommand --arg1 val1 etc etc",
+			expectedParams: &kuberpultClientParameters{
+				url: "something.somewhere",
+				authorEmail: ptrStr("john"),
+			},
+			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
+		},
+		{
+			name: "--author_email is provided twice",
+			cmdArgs: "--url something.somewhere --author_email john --author_email joseph subcommand --arg1 val1 etc etc",
+			expectedErrorMsg: "error while creating kuberpult client parameters, error: the --author_email arg must be set at most once",
+		},
+		
 	}
 
 	for _, tc := range tcs {

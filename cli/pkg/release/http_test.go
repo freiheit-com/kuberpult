@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -61,7 +62,7 @@ func TestRequestCreation(t *testing.T) {
 
 	type testCase struct {
 		name                       string
-		params                     *ReleaseParameters
+		params                     ReleaseParameters
 		expectedMultipartFormValue map[string][]string
 		expectedMultipartFormFile  map[string][]simpleMultipartFormFileHeader
 		expectedErrorMsg           string
@@ -71,7 +72,7 @@ func TestRequestCreation(t *testing.T) {
 	tcs := []testCase{
 		{
 			name: "no manifests",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -82,7 +83,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "one environment manifest",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -104,7 +105,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "one environment manifest with signature",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -134,7 +135,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "multiple environment manifests",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -162,7 +163,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "multiple environment manifests with signatures",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -207,7 +208,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "multiple environment manifests with response code BadRequest",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -236,7 +237,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "multiple environment manifests with teams set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -266,7 +267,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "source commit ID is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -298,7 +299,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "previous commit ID is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -332,7 +333,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "source_author is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -368,7 +369,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "source_message is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -406,7 +407,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "source_message is set with newlines",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -444,7 +445,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "version is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -484,7 +485,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "display_version is set",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
@@ -535,9 +536,11 @@ func TestRequestCreation(t *testing.T) {
 				response: tc.responseCode,
 			}
 			server := httptest.NewServer(mockServer)
-
-			// check errors
-			err := Release(server.URL, nil, tc.params)
+			
+			authParams := kuberpult_utils.AuthenticationParameters {
+				Url: server.URL,
+			}
+			err := Release(authParams, tc.params)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)

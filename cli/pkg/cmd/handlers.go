@@ -19,17 +19,25 @@ package cmd
 import (
 	"log"
 
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	rl "github.com/freiheit-com/kuberpult/cli/pkg/release"
 )
 
-func handleRelease(url string, iapToken *string, args []string) {
+func handleRelease(kpClientParams kuberpultClientParameters, args []string) {
 	parsedArgs, err := rl.ParseArgs(args)
 
 	if err != nil {
 		log.Fatalf("error while parsing command line args, error: %v", err)
 	}
 
-	if err = rl.Release(url, iapToken, parsedArgs); err != nil {
+	authParams := kutil.AuthenticationParameters{
+		Url:         kpClientParams.url,
+		IapToken:    kpClientParams.iapToken,
+		AuthorName:  kpClientParams.authorName,
+		AuthorEmail: kpClientParams.authorEmail,
+	}
+
+	if err = rl.Release(authParams, *parsedArgs); err != nil {
 		log.Fatalf("error on release, error: %v", err)
 	}
 }

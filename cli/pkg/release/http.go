@@ -19,12 +19,13 @@ package release
 import (
 	"bytes"
 	"fmt"
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"io"
 	"mime/multipart"
 	"net/http"
 )
 
-func prepareHttpRequest(url string, iapToken *string, parsedArgs *ReleaseParameters) (*http.Request, error) {
+func prepareHttpRequest(authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
 
@@ -100,20 +101,30 @@ func prepareHttpRequest(url string, iapToken *string, parsedArgs *ReleaseParamet
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, form)
+	req, err := http.NewRequest(http.MethodPost, authParams.Url, form)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	if iapToken != nil {
-		req.Header.Add("Authorization", "Bearer "+*iapToken)
+	
+	if authParams.AuthorName != nil {
+		req.Header.Add("author-name", *authParams.AuthorName)
 	}
+	
+	if authParams.IapToken != nil {
+		req.Header.Add("Authorization", "Bearer "+*authParams.IapToken)
+	}
+
+	if authParams.AuthorEmail != nil {
+		req.Header.Add("author-email", *authParams.AuthorEmail)
+	}
+	
 	return req, nil
 }
 
-func issueHttpRequest(req *http.Request) error {
+func issueHttpRequest(req http.Request) error {
 	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := client.Do(&req)
 	if err != nil {
 		return fmt.Errorf("error issuing the HTTP request, error: %w", err)
 	}
