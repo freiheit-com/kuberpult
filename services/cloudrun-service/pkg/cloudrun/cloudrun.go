@@ -39,10 +39,10 @@ var (
 )
 
 type serviceConfig struct {
-	name   string
-	parent string
-	path   string
-	config run.Service
+	Name   string
+	Parent string
+	Path   string
+	Config run.Service
 }
 
 func Init(ctx context.Context) error {
@@ -55,34 +55,34 @@ type CloudRunService struct{}
 
 func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceManifest) (*api.DeployResponse, error) {
 	var svc serviceConfig
-	err := validate(in.Manifest, &svc)
+	err := validateService(in.Manifest, &svc)
 	if err != nil {
 		return nil, err
 	}
-	req := runService.Projects.Locations.Services.List(svc.parent)
+	req := runService.Projects.Locations.Services.List(svc.Parent)
 	resp, err := req.Do()
 	if err != nil {
 		return nil, err
 	}
 	var serviceCallResp *run.Service
 	// If the service is already deployed before, then we need to call ReplaceService. Otherwise, we call Create.
-	if isPresent(resp.Items, svc.name) {
-		serviceCall := runService.Projects.Locations.Services.ReplaceService(svc.path, &svc.config)
+	if isPresent(resp.Items, svc.Name) {
+		serviceCall := runService.Projects.Locations.Services.ReplaceService(svc.Path, &svc.Config)
 		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		serviceCall := runService.Projects.Locations.Services.Create(svc.parent, &svc.config)
+		serviceCall := runService.Projects.Locations.Services.Create(svc.Parent, &svc.Config)
 		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
 			return nil, err
 		}
 	}
-	if err := waitForOperation(svc.parent, serviceCallResp, 60); err != nil {
+	if err := waitForOperation(svc.Parent, serviceCallResp, 60); err != nil {
 		return nil, err
 	}
-	getServiceCall := runService.Projects.Locations.Services.Get(svc.path)
+	getServiceCall := runService.Projects.Locations.Services.Get(svc.Path)
 	serviceResp, err := getServiceCall.Do()
 	if err != nil {
 		return nil, err
@@ -97,31 +97,31 @@ func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceManifest) (
 	return &api.DeployResponse{}, nil
 }
 
-func validate(manifest []byte, svc *serviceConfig) error {
-	err := parser.ParseManifest(manifest, &svc.config)
+func validateService(manifest []byte, svc *serviceConfig) error {
+	err := parser.ParseManifest(manifest, &svc.Config)
 	if err != nil {
 		return err
 	}
-	if svc.config.Metadata == nil {
+	if svc.Config.Metadata == nil {
 		return serviceManifestError{
 			metadataMissing: true,
 			nameEmpty:       false,
 		}
 	}
-	serviceName := svc.config.Metadata.Name
+	serviceName := svc.Config.Metadata.Name
 	if serviceName == "" {
 		return serviceManifestError{
 			nameEmpty:       true,
 			metadataMissing: false}
 	}
 	// Get the full path of the project. Example: projects/<project-id>/locations/<region>
-	parent, err := getParent(&svc.config)
+	parent, err := getParent(&svc.Config)
 	if err != nil {
 		return err
 	}
-	svc.name = serviceName
-	svc.parent = parent
-	svc.path = fmt.Sprintf("%s/services/%s", parent, serviceName)
+	svc.Name = serviceName
+	svc.Parent = parent
+	svc.Path = fmt.Sprintf("%s/services/%s", parent, serviceName)
 	return nil
 }
 func GetServiceReadyCondition(serviceCallResponse *run.Service) (ServiceReadyCondition, error) {
