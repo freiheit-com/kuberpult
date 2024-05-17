@@ -148,13 +148,16 @@ spec:
         - name: KUBERPULT_DEX_CLIENT_ID
           value: "{{ .Values.auth.dexAuth.clientId }}"
         - name: KUBERPULT_DEX_CLIENT_SECRET
-          value: "{{ .Values.auth.dexAuth.clientSecret }}"
+          value:
+            {{- toYaml .Values.auth.dexAuth.clientSecret | nindent 12 }}
         - name: KUBERPULT_DEX_BASE_URL
           value: "{{ .Values.auth.dexAuth.baseURL }}"
         - name: KUBERPULT_DEX_SCOPES
           value: "{{ .Values.auth.dexAuth.scopes }}"
         - name: KUBERPULT_DEX_RBAC_POLICY_PATH
           value: /kuberpult-rbac/policy.csv
+        - name: KUBERPULT_DEX_USE_CLUSTER_INTERNAL_COMMUNICATION
+          value: "{{ .Values.auth.dexAuth.useClusterInternalCommunicationToDex }}"
 {{- end }}
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING_PATH

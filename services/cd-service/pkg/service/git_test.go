@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"sort"
 	"testing"
 	"time"
@@ -731,9 +732,14 @@ func TestGetCommitInfo(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			cfg := rp.DBConfig{
+			dir, err := testutil.CreateMigrationsPath()
+			if err != nil {
+				t.Fatalf("setup error could not detect dir \n%v", err)
+				return
+			}
+			cfg := db.DBConfig{
 				DriverName:     "sqlite3",
-				MigrationsPath: "/kp/cd_database/migrations",
+				MigrationsPath: dir,
 			}
 			repo, err := setupRepositoryTestWithDB(t, &cfg)
 

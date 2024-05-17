@@ -132,6 +132,9 @@ then
   print 'building cd service...'
   make -C ../../services/cd-service/ docker
 
+  print 'building manifest-repo-export service...'
+  make -C ../../services/manifest-repo-export-service/ docker
+
   print 'building frontend service...'
   make -C ../../services/frontend-service/ docker
 
@@ -148,6 +151,7 @@ IMAGE_TAG_KUBERPULT=${IMAGE_TAG_KUBERPULT:-$VERSION}
 print "IMAGE_TAG_KUBERPULT is now ${IMAGE_TAG_KUBERPULT}"
 
 cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT}"
+manifest_repo_export_imagename="${IMAGE_REGISTRY}/kuberpult-manifest-repo-export-service:${IMAGE_TAG_KUBERPULT}"
 frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_KUBERPULT}"
 rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT}"
 
@@ -158,6 +162,8 @@ if ! "$LOCAL_EXECUTION"
 then
   print 'pulling cd service...'
   docker pull "$cd_imagename"
+  print 'pulling manifest_repo_export service...'
+  docker pull "$manifest_repo_export_imagename"
   print 'pulling frontend service...'
   docker pull "$frontend_imagename"
   print 'pulling rollout service...'
@@ -170,6 +176,7 @@ print 'loading docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
 kind load docker-image "$cd_imagename"
+kind load docker-image "$manifest_repo_export_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
 kind load docker-image quay.io/argoproj/argocd:v2.7.4
@@ -261,74 +268,14 @@ kubectl create ns development
 kubectl create ns development2
 kubectl create ns staging
 
-## kuberpult
-print 'installing kuberpult helm chart...'
 
-cat <<VALUES > vals.yaml
-cd:
-  resources:
-    limits:
-      memory: 200Mi
-      cpu: 0.05
-    requests:
-      memory: 200Mi
-      cpu: 0.05
-  db:
-    dbOption: sqlite
-    location: /sqlite
-frontend:
-  resources:
-    limits:
-      memory: 200Mi
-      cpu: 0.05
-    requests:
-      memory: 200Mi
-      cpu: 0.05
-rollout:
-  enabled: true
-  resources:
-    limits:
-      memory: 200Mi
-      cpu: 0.05
-    requests:
-      memory: 200Mi
-      cpu: 0.05
-ingress:
-  domainName: kuberpult.example.com
-log:
-  level: INFO
-git:
-  url: "ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests"
-  sourceRepoUrl: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
-  branch: "main"
-  networkTimeout: 1s
-ssh:
-  identity: |
-$(sed -e "s/^/    /" <../../services/cd-service/client)
-  known_hosts: |
-$(sed -e "s/^/    /" <../../services/cd-service/known_hosts)
-argocd:
-  token: "$token"
-  server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local:443"
-  insecure: true
-  refresh:
-    enabled: true
-manageArgoApplications:
-  enabled: false
-  filter: ""
-datadogProfiling:
-  enabled: false
-  apiKey: invalid-3
-pgp:
-  keyRing: |
-$(sed -e "s/^/    /" <./kuberpult-keyring.gpg)
-VALUES
+export GIT_NAMESPACE=${GIT_NAMESPACE}
+export ARGO_NAMESPACE=${ARGO_NAMESPACE}
+export LOCAL_EXECUTION=${LOCAL_EXECUTION}
+export TOKEN=${token}
 
-# Get helm dependency charts and unzip them
-(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
+./install-kuberpult-helm.sh
 
-helm template ./ --values vals.yaml > tmp.tmpl
-helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
 
 kubectl get deployment

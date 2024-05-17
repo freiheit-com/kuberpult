@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"io"
 	"math/rand"
@@ -46,11 +47,11 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
@@ -1882,12 +1883,12 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			var repo Repository
 			var err error = nil
 			var updatedState *State = nil
-			migrationsPath, err := CreateMigrationsPath()
+			migrationsPath, err := testutil.CreateMigrationsPath()
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
 			if tc.db {
-				cfg := DBConfig{
+				cfg := db.DBConfig{
 					MigrationsPath: migrationsPath,
 					DriverName:     "sqlite3",
 				}
@@ -6311,7 +6312,7 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 	return res
 }
 
-func setupRepositoryTestWithDB(t *testing.T, dbConfig *DBConfig) (Repository, error) {
+func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (Repository, error) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -6331,12 +6332,12 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *DBConfig) (Repository, er
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
 
-		migErr := RunDBMigrations(*dbConfig)
+		migErr := db.RunDBMigrations(*dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)
 		}
 
-		db, err := Connect(*dbConfig)
+		db, err := db.Connect(*dbConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -7653,7 +7654,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 }
 
 // DBParseToEvents gets all events from Raw DB data
-func DBParseToEvents(rows []EventRow) ([]event.Event, error) {
+func DBParseToEvents(rows []db.EventRow) ([]event.Event, error) {
 	var result []event.Event
 	for _, row := range rows {
 		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)

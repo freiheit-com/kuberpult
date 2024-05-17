@@ -18,6 +18,8 @@ package release
 
 import (
 	"fmt"
+
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
 
 // a representation of the parameters of the /release endpoint
@@ -36,12 +38,12 @@ type ReleaseParameters struct {
 
 // calls the Release endpoint with the specified parameters
 // this function might be used in the future for programmatic interaction with Kuberpult, hence its separation
-func Release(url string, params *ReleaseParameters) error {
-	req, err := prepareHttpRequest(url, params)
+func Release(url string, authParams kutil.AuthenticationParameters, params ReleaseParameters) error {
+	req, err := prepareHttpRequest(url, authParams, params)
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
-	if err := issueHttpRequest(req); err != nil {
+	if err := issueHttpRequest(*req); err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil

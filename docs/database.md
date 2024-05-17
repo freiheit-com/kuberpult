@@ -34,7 +34,7 @@ the sqlite file yet.
 
 Then you can look into the database, by using the sqlite command line client:
 ```shell
-sqlite3 cd_database/db.sqlite
+sqlite3 database/db.sqlite
 ```
 
 To make sqlite print nicely formatted columns,
@@ -44,3 +44,20 @@ write the following to the file `~/.sqliterc`:
 .mode column
 ```
 
+### Database Modes
+
+Kuberpult can run with 3 database modes:
+1) No Database at all, just use the manifest repo as before
+2) Use the Database only to write all incoming request in the "ESL" (event sourcing light) table.
+This just records the history.
+Note that the migrations are still running, so kuberpult will create some empty tables.
+3) Use the Database for all tables. Note that this is not fully implemented yet.
+With this mode, the cd-service writes to all database tables, and uses the manifest repo not at all.
+Another service will be introduced to export the database content to a manifest repo.
+
+
+#### Best Practice
+
+To implement the database modes correctly,
+we must use the functions `ShouldUseEslTable` before writing to the ESL table,
+and `ShouldUseOtherTables` before writing to any other table.

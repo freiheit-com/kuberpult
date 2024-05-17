@@ -217,6 +217,8 @@ spec:
 {{- if .Values.auth.dexAuth.enabled }}
         - name: KUBERPULT_DEX_RBAC_POLICY_PATH
           value: /kuberpult-rbac/policy.csv
+        - name: KUBERPULT_DEX_DEFAULT_ROLE_ENABLED
+          value: "{{ .Values.auth.dexAuth.defaultRoleEnabled }}"
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
@@ -238,6 +240,8 @@ spec:
           value: "{{ .Values.cd.backendConfig.queueSize }}"
         - name: KUBERPULT_DB_OPTION # { NO_DB, cloudsql, sqlite }
           value: {{ .Values.cd.db.dbOption }}
+        - name: KUBERPULT_WRITE_ESL_TABLE_ONLY
+          value: "{{ .Values.cd.db.writeEslTableOnly }}"
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.cd.db.location }}
@@ -280,7 +284,7 @@ spec:
 {{- if .Values.auth.dexAuth.enabled }}
         - name: kuberpult-rbac
           mountPath: /kuberpult-rbac
-{{- end }} 
+{{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: dsdsocket
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
@@ -311,11 +315,16 @@ spec:
         configMap:
           name: kuberpult-keyring
 {{- end }}
-{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
       - name: migrations
         configMap:
-          name: kuberpult-migrations
-{{- end }} 
+          name: kuberpult-migrations-cloudsql
+{{- end }}
+{{- if eq .Values.cd.db.dbOption "sqlite" }}
+      - name: migrations
+        configMap:
+          name: kuberpult-migrations-sqlite
+{{- end }}
 {{- if eq .Values.cd.db.dbOption "sqlite" }}
       - name: sqlite
         emptyDir:
