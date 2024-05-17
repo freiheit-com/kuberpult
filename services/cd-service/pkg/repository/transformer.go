@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,7 +43,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	git "github.com/libgit2/git2go/v34"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
@@ -259,7 +260,7 @@ func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 // A Transformer updates the files in the worktree
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
-	GetDBEventType() EventType
+	GetDBEventType() db.EventType
 }
 
 type TransformerContext interface {
@@ -360,8 +361,8 @@ type CreateApplicationVersion struct {
 	NextCommit      string            `json:"nextCommit"`
 }
 
-func (c *CreateApplicationVersion) GetDBEventType() EventType {
-	return EvtCreateApplicationVersion
+func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
+	return db.EvtCreateApplicationVersion
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -414,9 +415,9 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if allApps == nil {
-			allApps = &AllApplicationsGo{
+			allApps = &db.AllApplicationsGo{
 				Version: 1,
-				AllApplicationsJson: AllApplicationsJson{
+				AllApplicationsJson: db.AllApplicationsJson{
 					Apps: []string{},
 				},
 				Created: time.Now(),
@@ -849,8 +850,8 @@ type CreateUndeployApplicationVersion struct {
 	WriteCommitData bool   `json:"writeCommitData"`
 }
 
-func (c *CreateUndeployApplicationVersion) GetDBEventType() EventType {
-	return EvtCreateUndeployApplicationVersion
+func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
+	return db.EvtCreateUndeployApplicationVersion
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
@@ -1000,8 +1001,8 @@ type UndeployApplication struct {
 	Application    string `json:"app"`
 }
 
-func (u *UndeployApplication) GetDBEventType() EventType {
-	return EvtUndeployApplication
+func (u *UndeployApplication) GetDBEventType() db.EventType {
+	return db.EvtUndeployApplication
 }
 
 func (u *UndeployApplication) Transform(
@@ -1110,7 +1111,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select all apps '%v': '%w'", u.Application, err)
 		}
-		applications.Apps = Remove(applications.Apps, u.Application)
+		applications.Apps = db.Remove(applications.Apps, u.Application)
 		err = state.DBHandler.DBWriteAllApplications(ctx, transaction, applications.Version, applications.Apps)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not write all apps '%v': '%w'", u.Application, err)
@@ -1125,8 +1126,8 @@ type DeleteEnvFromApp struct {
 	Environment    string `json:"env"`
 }
 
-func (u *DeleteEnvFromApp) GetDBEventType() EventType {
-	return EvtDeleteEnvFromApp
+func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvFromApp
 }
 
 func (u *DeleteEnvFromApp) Transform(
@@ -1177,7 +1178,7 @@ type CleanupOldApplicationVersions struct {
 	Application string
 }
 
-func (c *CleanupOldApplicationVersions) GetDBEventType() EventType {
+func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 	panic("CleanupOldApplicationVersions GetDBEventType")
 }
 
@@ -1283,8 +1284,8 @@ type CreateEnvironmentLock struct {
 	Message        string `json:"message"`
 }
 
-func (c *CreateEnvironmentLock) GetDBEventType() EventType {
-	return EvtCreateEnvironmentLock
+func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentLock
 }
 
 func (s *State) checkUserPermissions(ctx context.Context, env, application, action, team string, RBACConfig auth.RBACConfig) error {
@@ -1402,8 +1403,8 @@ type DeleteEnvironmentLock struct {
 	LockId         string `json:"lockId"`
 }
 
-func (c *DeleteEnvironmentLock) GetDBEventType() EventType {
-	return EvtDeleteEnvironmentLock
+func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentLock
 }
 
 func (c *DeleteEnvironmentLock) Transform(
@@ -1466,8 +1467,8 @@ type CreateEnvironmentGroupLock struct {
 	Message          string `json:"message"`
 }
 
-func (c *CreateEnvironmentGroupLock) GetDBEventType() EventType {
-	return EvtCreateEnvironmentGroupLock
+func (c *CreateEnvironmentGroupLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentGroupLock
 }
 
 func (c *CreateEnvironmentGroupLock) Transform(
@@ -1506,8 +1507,8 @@ type DeleteEnvironmentGroupLock struct {
 	LockId           string `json:"lockId"`
 }
 
-func (c *DeleteEnvironmentGroupLock) GetDBEventType() EventType {
-	return EvtDeleteEnvironmentGroupLock
+func (c *DeleteEnvironmentGroupLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentGroupLock
 }
 
 func (c *DeleteEnvironmentGroupLock) Transform(
@@ -1546,8 +1547,8 @@ type CreateEnvironmentApplicationLock struct {
 	Message        string `json:"message"`
 }
 
-func (c *CreateEnvironmentApplicationLock) GetDBEventType() EventType {
-	return EvtCreateEnvironmentApplicationLock
+func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentApplicationLock
 }
 
 func (c *CreateEnvironmentApplicationLock) Transform(
@@ -1590,8 +1591,8 @@ type DeleteEnvironmentApplicationLock struct {
 	LockId         string `json:"lockId"`
 }
 
-func (c *DeleteEnvironmentApplicationLock) GetDBEventType() EventType {
-	return EvtDeleteEnvironmentApplicationLock
+func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentApplicationLock
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(
@@ -1642,8 +1643,8 @@ type CreateEnvironmentTeamLock struct {
 	Message        string `json:"message"`
 }
 
-func (c *CreateEnvironmentTeamLock) GetDBEventType() EventType {
-	return EvtCreateEnvironmentTeamLock
+func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentTeamLock
 }
 
 func (c *CreateEnvironmentTeamLock) Transform(
@@ -1716,8 +1717,8 @@ type DeleteEnvironmentTeamLock struct {
 	LockId         string `json:"lockId"`
 }
 
-func (c *DeleteEnvironmentTeamLock) GetDBEventType() EventType {
-	return EvtDeleteEnvironmentTeamLock
+func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentTeamLock
 }
 
 func (c *DeleteEnvironmentTeamLock) Transform(
@@ -1773,8 +1774,8 @@ type CreateEnvironment struct {
 	Config         config.EnvironmentConfig `json:"config"`
 }
 
-func (c *CreateEnvironment) GetDBEventType() EventType {
-	return EvtCreateEnvironment
+func (c *CreateEnvironment) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironment
 }
 
 func (c *CreateEnvironment) Transform(
@@ -1855,8 +1856,8 @@ type DeployApplicationVersion struct {
 	Author          string                          `json:"author"`
 }
 
-func (c *DeployApplicationVersion) GetDBEventType() EventType {
-	return EvtDeployApplicationVersion
+func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
+	return db.EvtDeployApplicationVersion
 }
 
 type DeployApplicationVersionSource struct {
@@ -2168,8 +2169,8 @@ type ReleaseTrain struct {
 	Repo            Repository `json:"-"`
 }
 
-func (c *ReleaseTrain) GetDBEventType() EventType {
-	return EvtReleaseTrain
+func (c *ReleaseTrain) GetDBEventType() db.EventType {
+	return db.EvtReleaseTrain
 }
 
 type Overview struct {
@@ -2438,7 +2439,7 @@ type envReleaseTrain struct {
 	TrainGroup      *string
 }
 
-func (c *envReleaseTrain) GetDBEventType() EventType {
+func (c *envReleaseTrain) GetDBEventType() db.EventType {
 	panic("envReleaseTrain GetDBEventType")
 }
 
@@ -2873,7 +2874,7 @@ type skippedServices struct {
 	Messages []string
 }
 
-func (c *skippedServices) GetDBEventType() EventType {
+func (c *skippedServices) GetDBEventType() db.EventType {
 	panic("GetDBEventType for skippedServices")
 }
 
@@ -2898,7 +2899,7 @@ type skippedService struct {
 	Message string
 }
 
-func (c *skippedService) GetDBEventType() EventType {
+func (c *skippedService) GetDBEventType() db.EventType {
 	panic("GetDBEventType for skippedService")
 }
 
