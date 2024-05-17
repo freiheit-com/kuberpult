@@ -8,6 +8,7 @@ services:
       - KUBERPULT_DB_LOCATION=/kp/database
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations
       - KUBERPULT_DB_OPTION=sqlite
+      - KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DEX_MOCK=false
@@ -21,6 +22,14 @@ services:
     ports:
       - "8080:8080"
       - "8443:8443"
+    volumes:
+      - ./services/cd-service:/kp/kuberpult
+      - ./database:/kp/database
+    stop_grace_period: 0.5s
+  manifest-repo-export-service:
+    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:local
+    environment:
+      - LOG_LEVEL=INFO
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database

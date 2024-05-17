@@ -524,7 +524,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 				return r.applyTransformerBatches(transformerBatches, false, transaction)
 			} else {
 				e.finish(applyErr)
-				if r.DB != nil {
+				if r.DB.ShouldUseEslTable() {
 					// if we use the DB at all, then we only do one transformer per git push
 					// AND we need to handle the error in the caller to rollback in case of an error:
 					return nil, applyErr, nil
@@ -678,7 +678,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 
 	// Apply the items
 	var tx *sql.Tx = nil
-	if r.DB != nil {
+	if r.DB.ShouldUseEslTable() {
 		var txErr error
 		tx, txErr = r.DB.DB.BeginTx(ctx, nil)
 		if txErr != nil {
@@ -691,13 +691,13 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}
 	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true, tx)
 	if err != nil {
-		if r.DB != nil {
+		if r.DB.ShouldUseEslTable() {
 			logger.Sugar().Warnf("rolling back transaction because of %v", err)
 			_ = tx.Rollback()
 		}
 		return
 	}
-	if r.DB != nil {
+	if r.DB.ShouldUseEslTable() {
 		err = tx.Commit()
 		if err != nil {
 			return
@@ -1852,18 +1852,6 @@ func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error)
 func (s *State) GetEnvironmentApplications(environment string) ([]string, error) {
 	appDir := s.Filesystem.Join("environments", environment, "applications")
 	return names(s.Filesystem, appDir)
-}
-
-// GetApplications returns apps from either the db (if enabled), or otherwise the filesystem
-func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
-	if s.DBHandler != nil {
-		result, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
-		if err != nil {
-			return nil, err
-		}
-		return result.Apps, nil
-	}
-	return s.GetApplicationsFromFile()
 }
 
 // GetApplicationsFromFile returns apps from the filesystem

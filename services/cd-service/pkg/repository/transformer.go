@@ -408,7 +408,7 @@ func (c *CreateApplicationVersion) Transform(
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
-	if state.DBHandler != nil {
+	if state.DBHandler.ShouldUseOtherTables() {
 		allApps, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
@@ -1095,7 +1095,7 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
 		}
 	}
-	if state.DBHandler != nil {
+	if state.DBHandler.ShouldUseOtherTables() {
 		applications, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select all apps '%v': '%w'", u.Application, err)
@@ -2041,7 +2041,7 @@ func (c *DeployApplicationVersion) Transform(
 
 	if c.WriteCommitData { // write the corresponding event
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
-		if s.DBHandler != nil {
+		if s.DBHandler.ShouldUseOtherTables() {
 			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
