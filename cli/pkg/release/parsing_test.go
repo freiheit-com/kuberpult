@@ -42,37 +42,47 @@ func (e errMatcher) Is(err error) bool {
 
 func TestReadArgs(t *testing.T) {
 	type testCase struct {
-		name             string
-		args             []string
-		expectedCmdArgs  *commandLineArguments
-		expectedErrorMsg string
+		name            string
+		args            []string
+		expectedCmdArgs *commandLineArguments
+		expectedError   error
 	}
 
 	tcs := []testCase{
 		{
-			name:             "some unrecognized positional arguments",
-			args:             []string{"--skip_signatures", "potato", "tomato"},
-			expectedErrorMsg: "these arguments are not recognized: \"potato tomato\"",
+			name: "some unrecognized positional arguments",
+			args: []string{"--skip_signatures", "potato", "tomato"},
+			expectedError: errMatcher{
+				msg: "these arguments are not recognized: \"potato tomato\"",
+			},
 		},
 		{
-			name:             "some flags that don't exist",
-			args:             []string{"--skip_signatures", "--potato", "tomato"},
-			expectedErrorMsg: "error while parsing command line arguments, error: flag provided but not defined: -potato",
+			name: "some flags that don't exist",
+			args: []string{"--skip_signatures", "--potato", "tomato"},
+			expectedError: errMatcher{
+				msg: "error while parsing command line arguments, error: flag provided but not defined: -potato",
+			},
 		},
 		{
-			name:             "nothing provided",
-			args:             []string{"--skip_signatures"},
-			expectedErrorMsg: "the --application arg must be set exactly once",
+			name: "nothing provided",
+			args: []string{"--skip_signatures"},
+			expectedError: errMatcher{
+				msg: "the --application arg must be set exactly once",
+			},
 		},
 		{
-			name:             "only --application is properly provided but without --environment and --manifest",
-			args:             []string{"--skip_signatures", "--application", "potato"},
-			expectedErrorMsg: "the args --enviornment and --manifest must be set at least once",
+			name: "only --application is properly provided but without --environment and --manifest",
+			args: []string{"--skip_signatures", "--application", "potato"},
+			expectedError: errMatcher{
+				msg: "the args --enviornment and --manifest must be set at least once",
+			},
 		},
 		{
-			name:             "--environment is specified without --manifest",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production"},
-			expectedErrorMsg: "all --environment args must have a --manifest arg set immediately afterwards",
+			name: "--environment is specified without --manifest",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production"},
+			expectedError: errMatcher{
+				msg: "all --environment args must have a --manifest arg set immediately afterwards",
+			},
 		},
 		{
 			name: "--environment and --manifest are specified",
@@ -121,9 +131,11 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "--environment and --manifest are specified but with an extra --manifest",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--manifest", "something-else.yaml"},
-			expectedErrorMsg: "all --manifest args must be set immediately after an --environment arg",
+			name: "--environment and --manifest are specified but with an extra --manifest",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--manifest", "something-else.yaml"},
+			expectedError: errMatcher{
+				msg: "all --manifest args must be set immediately after an --environment arg",
+			},
 		},
 		{
 			name: "signatures not skipped, --environment and --manifest and --signature are specified",
@@ -152,9 +164,11 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "signatures skipped, --environment and --manifest and --signature are specified",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature-file.gpg"},
-			expectedErrorMsg: "--signature args are not allowed when --skip_signatures is set",
+			name: "signatures skipped, --environment and --manifest and --signature are specified",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature-file.gpg"},
+			expectedError: errMatcher{
+				msg: "--signature args are not allowed when --skip_signatures is set",
+			},
 		},
 		{
 			name: "signatures not skipped, --environment and --manifest and --signature are specified twice",
@@ -186,14 +200,18 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "signatures not skipped, --environment and --manifest are specified without signature",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml"},
-			expectedErrorMsg: "all --manifest args must have a --signature arg set immediately afterwards, unless --skip_signatures is set",
+			name: "signatures not skipped, --environment and --manifest are specified without signature",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml"},
+			expectedError: errMatcher{
+				msg: "all --manifest args must have a --signature arg set immediately afterwards, unless --skip_signatures is set",
+			},
 		},
 		{
-			name:             "signatures not skipped, --environment and --manifest is specified with multiple signatures",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature1-file.gpg", "--signature", "signature2-file.gpg"},
-			expectedErrorMsg: "all --signature args must be set immediately after a --manifest arg",
+			name: "signatures not skipped, --environment and --manifest is specified with multiple signatures",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature1-file.gpg", "--signature", "signature2-file.gpg"},
+			expectedError: errMatcher{
+				msg: "all --signature args must be set immediately after a --manifest arg",
+			},
 		},
 		{
 			name: "--team is specified",
@@ -223,9 +241,11 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "--team is specified twice",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--team", "tomato-team"},
-			expectedErrorMsg: "the --team arg must be set at most once",
+			name: "--team is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--team", "tomato-team"},
+			expectedError: errMatcher{
+				msg: "the --team arg must be set at most once",
+			},
 		},
 		{
 			name: "--source_commit_id is specified",
@@ -260,14 +280,18 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "--source_commit_id is specified but has an invalid value",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "potato-commit"},
-			expectedErrorMsg: "the --source_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
+			name: "--source_commit_id is specified but has an invalid value",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "potato-commit"},
+			expectedError: errMatcher{
+				msg: "the --source_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
+			},
 		},
 		{
-			name:             "--source_commit_id is specified twice",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
-			expectedErrorMsg: "the --source_commit_id arg must be set at most once",
+			name: "--source_commit_id is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
+			expectedError: errMatcher{
+				msg: "the --source_commit_id arg must be set at most once",
+			},
 		},
 		{
 			name: "--previous_commit_id is specified",
@@ -307,19 +331,25 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "--previous_commit_id is specified without --source_commit_id",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-			expectedErrorMsg: "the --previous_commit_id arg can be set only if --source_commit_id is set",
+			name: "--previous_commit_id is specified without --source_commit_id",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			expectedError: errMatcher{
+				msg: "the --previous_commit_id arg can be set only if --source_commit_id is set",
+			},
 		},
 		{
-			name:             "--previous_commit_id is specified twice",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--previous_commit_id", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
-			expectedErrorMsg: "the --previous_commit_id arg must be set at most once",
+			name: "--previous_commit_id is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--previous_commit_id", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+			expectedError: errMatcher{
+				msg: "the --previous_commit_id arg must be set at most once",
+			},
 		},
 		{
-			name:             "--previous_commit_id is specified but with an invalid value",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "potato"},
-			expectedErrorMsg: "the --previous_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
+			name: "--previous_commit_id is specified but with an invalid value",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "potato"},
+			expectedError: errMatcher{
+				msg: "the --previous_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
+			},
 		},
 		{
 			name: "--source_author is specified",
@@ -364,9 +394,11 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "--source_author is specified twice",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_author", "foo@bar.com"},
-			expectedErrorMsg: "the --source_author arg must be set at most once",
+			name: "--source_author is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_author", "foo@bar.com"},
+			expectedError: errMatcher{
+				msg: "the --source_author arg must be set at most once",
+			},
 		},
 		{
 			name: "--source_message is specified",
@@ -416,9 +448,11 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "--source_message is specified twice",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--source_message", "another test source message"},
-			expectedErrorMsg: "the --source_message arg must be set at most once",
+			name: "--source_message is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--source_message", "another test source message"},
+			expectedError: errMatcher{
+				msg: "the --source_message arg must be set at most once",
+			},
 		},
 		{
 			name: "--version is specified",
@@ -473,19 +507,25 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "--version is specified twice",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--version", "456"},
-			expectedErrorMsg: "the --version arg must be set at most once",
+			name: "--version is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--version", "456"},
+			expectedError: errMatcher{
+				msg: "the --version arg must be set at most once",
+			},
 		},
 		{
-			name:             "--version is set to non-integer value",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "abc"},
-			expectedErrorMsg: "error while parsing command line arguments, error: invalid value \"abc\" for flag -version: the provided value \"abc\" is not an integer",
+			name: "--version is set to non-integer value",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "abc"},
+			expectedError: errMatcher{
+				msg: "error while parsing command line arguments, error: invalid value \"abc\" for flag -version: the provided value \"abc\" is not an integer",
+			},
 		},
 		{
-			name:             "--version is set to negative integer value",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "-123"},
-			expectedErrorMsg: "the --version arg value must be positive",
+			name: "--version is set to negative integer value",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "-123"},
+			expectedError: errMatcher{
+				msg: "the --version arg value must be positive",
+			},
 		},
 		{
 			name: "--display_version is specified",
@@ -545,14 +585,18 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "--display_version is specified twice",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "1.23", "--display_version", "a.bc"},
-			expectedErrorMsg: "the --display_version arg must be set at most once",
+			name: "--display_version is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "1.23", "--display_version", "a.bc"},
+			expectedError: errMatcher{
+				msg: "the --display_version arg must be set at most once",
+			},
 		},
 		{
-			name:             "--display_version is specified but is too long",
-			args:             []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "loooooooooooooooooooooooooooooooooooooooooong"},
-			expectedErrorMsg: "the --display_version arg must be at most 15 characters long",
+			name: "--display_version is specified but is too long",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--display_version", "loooooooooooooooooooooooooooooooooooooooooong"},
+			expectedError: errMatcher{
+				msg: "the --display_version arg must be at most 15 characters long",
+			},
 		},
 	}
 
@@ -563,7 +607,7 @@ func TestReadArgs(t *testing.T) {
 
 			cmdArgs, err := readArgs(tc.args)
 			// check errors
-			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
@@ -580,19 +624,21 @@ func TestParseArgs(t *testing.T) {
 		content  string
 	}
 	type testCase struct {
-		setup            []fileCreation
-		name             string
-		cmdArgs          []string
-		expectedParams   *ReleaseParameters
-		expectedErrorMsg string
+		setup          []fileCreation
+		name           string
+		cmdArgs        []string
+		expectedParams *ReleaseParameters
+		expectedError  error
 	}
 
 	tcs := []testCase{
 		{
-			setup:            []fileCreation{},
-			name:             "no enviornments and manifests",
-			cmdArgs:          []string{"--skip_signatures", "--application", "potato"},
-			expectedErrorMsg: "error while reading command line arguments, error: the args --enviornment and --manifest must be set at least once",
+			setup:   []fileCreation{},
+			name:    "no enviornments and manifests",
+			cmdArgs: []string{"--skip_signatures", "--application", "potato"},
+			expectedError: errMatcher{
+				msg: "error while reading command line arguments, error: the args --enviornment and --manifest must be set at least once",
+			},
 		},
 		{
 			setup: []fileCreation{
@@ -688,10 +734,12 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
-			name:             "some error occurs in argument parsing",
-			cmdArgs:          []string{"--skip_signatures", "--application"},
-			expectedParams:   nil,
-			expectedErrorMsg: "error while reading command line arguments, error: error while parsing command line arguments, error: flag needs an argument: -application",
+			name:           "some error occurs in argument parsing",
+			cmdArgs:        []string{"--skip_signatures", "--application"},
+			expectedParams: nil,
+			expectedError: errMatcher{
+				msg: "error while reading command line arguments, error: error while parsing command line arguments, error: flag needs an argument: -application",
+			},
 		},
 	}
 
@@ -731,7 +779,7 @@ func TestParseArgs(t *testing.T) {
 
 			params, err := ParseArgs(tc.cmdArgs)
 			// check errors
-			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 

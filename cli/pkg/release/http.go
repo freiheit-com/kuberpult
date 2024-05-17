@@ -18,12 +18,12 @@ package release
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"encoding/base64"
 )
 
 func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
@@ -107,12 +107,11 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	
-	
+
 	if authParams.IapToken != nil {
 		req.Header.Add("Authorization", "Bearer "+*authParams.IapToken)
 	}
-	
+
 	if authParams.AuthorName != nil {
 		req.Header.Add("author-name", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorName)))
 	}
@@ -122,7 +121,7 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 	}
 
 	fmt.Println(req.Header)
-	
+
 	return req, nil
 }
 

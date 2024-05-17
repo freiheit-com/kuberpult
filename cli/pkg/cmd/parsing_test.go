@@ -43,23 +43,27 @@ func ptrStr(s string) *string {
 
 func TestParseArgs(t *testing.T) {
 	type TestCase struct {
-		name             string
-		cmdArgs          string
-		expectedParams   *kuberpultClientParameters
-		expectedOther    []string
-		expectedErrorMsg string
+		name           string
+		cmdArgs        string
+		expectedParams *kuberpultClientParameters
+		expectedOther  []string
+		expectedError  error
 	}
 
 	tcs := []TestCase{
 		{
-			name:             "nothing provided",
-			cmdArgs:          "",
-			expectedErrorMsg: "error while creating kuberpult client parameters, error: the --url arg must be set exactly once",
+			name:    "nothing provided",
+			cmdArgs: "",
+			expectedError: errMatcher{
+				msg: "error while creating kuberpult client parameters, error: the --url arg must be set exactly once",
+			},
 		},
 		{
-			name:             "something other than --url is provided",
-			cmdArgs:          "--potato tomato",
-			expectedErrorMsg: "error while parsing command line arguments, error: error while reading command line arguments, error: flag provided but not defined: -potato",
+			name:    "something other than --url is provided",
+			cmdArgs: "--potato tomato",
+			expectedError: errMatcher{
+				msg: "error while parsing command line arguments, error: error while reading command line arguments, error: flag provided but not defined: -potato",
+			},
 		},
 		{
 			name:    "only --url is provided",
@@ -69,17 +73,21 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "--url is provided along with some other stuff",
+			name:    "--url is provided along with some other stuff",
 			cmdArgs: "--url something.somewhere --potato tomato",
-			expectedErrorMsg: "error while parsing command line arguments, error: error while reading command line arguments, error: flag provided but not defined: -potato",
+			expectedError: errMatcher{
+				msg: "error while parsing command line arguments, error: error while reading command line arguments, error: flag provided but not defined: -potato",
+			},
 		},
 		{
-			name: "--url is provided twice",
+			name:    "--url is provided twice",
 			cmdArgs: "--url something.somewhere --url somethingelse.somewhere",
-			expectedErrorMsg: "error while creating kuberpult client parameters, error: the --url arg must be set exactly once",
+			expectedError: errMatcher{
+				msg: "error while creating kuberpult client parameters, error: the --url arg must be set exactly once",
+			},
 		},
 		{
-			name: "--url is provided with some tail",
+			name:    "--url is provided with some tail",
 			cmdArgs: "--url something.somewhere potato --tomato",
 			expectedParams: &kuberpultClientParameters{
 				url: "something.somewhere",
@@ -87,34 +95,37 @@ func TestParseArgs(t *testing.T) {
 			expectedOther: []string{"potato", "--tomato"},
 		},
 		{
-			name: "--url and --author_name are provided with some tail",
+			name:    "--url and --author_name are provided with some tail",
 			cmdArgs: "--url something.somewhere --author_name john subcommand --arg1 val1 etc etc",
 			expectedParams: &kuberpultClientParameters{
-				url: "something.somewhere",
+				url:        "something.somewhere",
 				authorName: ptrStr("john"),
 			},
 			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
 		},
 		{
-			name: "--author_name is provided twice",
+			name:    "--author_name is provided twice",
 			cmdArgs: "--url something.somewhere --author_name john --author_name joseph subcommand --arg1 val1 etc etc",
-			expectedErrorMsg: "error while creating kuberpult client parameters, error: the --author_name arg must be set at most once",
+			expectedError: errMatcher{
+				msg: "error while creating kuberpult client parameters, error: the --author_name arg must be set at most once",
+			},
 		},
 		{
-			name: "--url and --author_email are provided with some tail",
+			name:    "--url and --author_email are provided with some tail",
 			cmdArgs: "--url something.somewhere --author_email john subcommand --arg1 val1 etc etc",
 			expectedParams: &kuberpultClientParameters{
-				url: "something.somewhere",
+				url:         "something.somewhere",
 				authorEmail: ptrStr("john"),
 			},
 			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
 		},
 		{
-			name: "--author_email is provided twice",
+			name:    "--author_email is provided twice",
 			cmdArgs: "--url something.somewhere --author_email john --author_email joseph subcommand --arg1 val1 etc etc",
-			expectedErrorMsg: "error while creating kuberpult client parameters, error: the --author_email arg must be set at most once",
+			expectedError: errMatcher{
+				msg: "error while creating kuberpult client parameters, error: the --author_email arg must be set at most once",
+			},
 		},
-		
 	}
 
 	for _, tc := range tcs {
@@ -124,7 +135,7 @@ func TestParseArgs(t *testing.T) {
 
 			params, other, err := parseArgs(strings.Split(tc.cmdArgs, " "))
 			// check errors
-			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 

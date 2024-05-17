@@ -65,7 +65,7 @@ func TestRequestCreation(t *testing.T) {
 		params                     ReleaseParameters
 		expectedMultipartFormValue map[string][]string
 		expectedMultipartFormFile  map[string][]simpleMultipartFormFileHeader
-		expectedErrorMsg           string
+		expectedErrorMsg           error
 		responseCode               int
 	}
 
@@ -127,7 +127,7 @@ func TestRequestCreation(t *testing.T) {
 				"signatures[development]": {
 					{
 						filename: "development-signature",
-						content: "some development signature",
+						content:  "some development signature",
 					},
 				},
 			},
@@ -139,7 +139,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -167,11 +167,11 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Signatures: map[string][]byte{
 					"development": []byte("some development signature"),
-					"production": []byte("some production signature"),
+					"production":  []byte("some production signature"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -193,16 +193,15 @@ func TestRequestCreation(t *testing.T) {
 				"signatures[development]": {
 					{
 						filename: "development-signature",
-						content: "some development signature",
+						content:  "some development signature",
 					},
 				},
 				"signatures[production]": {
 					{
 						filename: "production-signature",
-						content: "some production signature",
+						content:  "some production signature",
 					},
 				},
-				
 			},
 			responseCode: http.StatusOK,
 		},
@@ -212,7 +211,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -232,8 +231,10 @@ func TestRequestCreation(t *testing.T) {
 					},
 				},
 			},
-			expectedErrorMsg: "error while issuing HTTP request, error: response was not OK or Accepted\nresponse code: 400\nresponse body:\n   ",
-			responseCode:     http.StatusBadRequest,
+			expectedErrorMsg: errMatcher{
+				msg: "error while issuing HTTP request, error: response was not OK or Accepted\nresponse code: 400\nresponse body:\n   ",
+			},
+			responseCode: http.StatusBadRequest,
 		},
 		{
 			name: "multiple environment manifests with teams set",
@@ -241,7 +242,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team: strPtr("potato-team"),
 			},
@@ -271,7 +272,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:           strPtr("potato-team"),
 				SourceCommitId: strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -303,7 +304,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -337,7 +338,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -373,7 +374,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -411,7 +412,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -449,7 +450,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -489,7 +490,7 @@ func TestRequestCreation(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string][]byte{
 					"development": []byte("some development manifest"),
-					"production": []byte("some production manifest"),
+					"production":  []byte("some production manifest"),
 				},
 				Team:             strPtr("potato-team"),
 				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
@@ -536,11 +537,11 @@ func TestRequestCreation(t *testing.T) {
 				response: tc.responseCode,
 			}
 			server := httptest.NewServer(mockServer)
-			
-			authParams := kuberpult_utils.AuthenticationParameters {}
+
+			authParams := kuberpult_utils.AuthenticationParameters{}
 			err := Release(server.URL, authParams, tc.params)
 			// check errors
-			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+			if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
