@@ -484,7 +484,17 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 	if c.Team != "" {
-		if err := util.WriteFile(fs, fs.Join(appDir, fieldTeam), []byte(c.Team), 0666); err != nil {
+		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
+		//team are deployed, team names simply get concatenated. Just remove the file beforehand.
+		//This bug can't be fixed because it is part of the util library
+		teamFileLoc := fs.Join(appDir, fieldTeam)
+		if _, err := fs.Stat(teamFileLoc); err == nil { //If path to file exists
+			err := fs.Remove(teamFileLoc)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if err := util.WriteFile(fs, teamFileLoc, []byte(c.Team), 0666); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
@@ -1665,6 +1675,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		for _, currentApp := range apps {
 			currentTeamFile := fs.Join("applications", currentApp, "team")
 			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
+				fmt.Printf("c.Team: '%s' : '%s'\n'", c.Team, string(currentTeamName))
 				if c.Team == string(currentTeamName) {
 					foundTeam = true
 					break
@@ -2678,6 +2689,41 @@ func (c *envReleaseTrain) prognosis(
 			continue
 		}
 
+		teamName, err := state.GetTeamName(appName)
+
+		if err == nil { //IF we find information for team
+			teamLocks, err := state.GetEnvironmentTeamLocks(c.Env, teamName)
+
+			if err != nil {
+				return ReleaseTrainEnvironmentPrognosis{
+					SkipCause:        nil,
+					Error:            err,
+					FirstLockMessage: "",
+					AppsPrognoses:    nil,
+				}
+			}
+
+			if len(teamLocks) > 0 {
+				// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
+				var firstLock Lock
+				sortedKeys := sorting.SortKeys(teamLocks)
+				for keyIndex := range sortedKeys {
+					key := sortedKeys[keyIndex]
+					firstLock = teamLocks[key]
+					break
+				}
+
+				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+						SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
+					},
+					FirstLockMessage: firstLock.Message,
+					Version:          0,
+				}
+				continue
+			}
+		}
+
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 			SkipCause:        nil,
 			FirstLockMessage: "",
@@ -2722,6 +2768,7 @@ func (c *envReleaseTrain) Transform(
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(c.Env, appName)
+		teamName, _ := state.GetTeamName(appName)
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
 			return fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
@@ -2731,6 +2778,8 @@ func (c *envReleaseTrain) Transform(
 			return fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env)
 		case api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV:
 			return fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env)
+		case api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED:
+			return fmt.Sprintf("skipping application %q in environment %q due to team lock on team %q", appName, c.Env, teamName)
 		default:
 			return fmt.Sprintf("skipping application %q in environment %q for an unrecognized reason", appName, c.Env)
 		}
