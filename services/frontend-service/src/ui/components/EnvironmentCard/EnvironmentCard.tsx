@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs } from '../../utils/store';
+import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs, useTeamNames } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
@@ -22,19 +22,21 @@ import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
 import { ProductVersionLink, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { useSearchParams } from 'react-router-dom';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { TeamSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 
 export const EnvironmentCard: React.FC<{ environment: Environment; group: EnvironmentGroup | undefined }> = (props) => {
     const { environment, group } = props;
     const [params, setParams] = useSearchParams();
     const locks = useFilteredEnvironmentLockIDs(environment.name);
+    const teams = useTeamNames();
 
     const priorityClassName = group !== undefined ? getPriorityClassName(group) : getPriorityClassName(environment);
     const onShowConfigClick = useCallback((): void => {
         setOpenEnvironmentConfigDialog(params, environment.name);
         setParams(params);
     }, [environment.name, params, setParams]);
-
+    const [showTeamSelectionDialog, setShowTeamSelectionDialog] = useState(false);
     const addLock = React.useCallback(() => {
         addAction({
             action: {
@@ -43,8 +45,45 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
             },
         });
     }, [environment.name]);
+
+    const popupSelectTeams = React.useCallback(() => {
+        setShowTeamSelectionDialog(true);
+    }, [setShowTeamSelectionDialog]);
+
+    const handleCloseTeamSelectionDialog = useCallback(() => {
+        setShowTeamSelectionDialog(false);
+    }, []);
+    const confirmTeamLockCreate = useCallback(
+        (selectedTeams: string[]) => {
+            selectedTeams.forEach((team) => {
+                addAction({
+                    action: {
+                        $case: 'createEnvironmentTeamLock',
+                        createEnvironmentTeamLock: {
+                            team: team,
+                            environment: environment.name,
+                            lockId: '',
+                            message: '',
+                        },
+                    },
+                });
+            });
+            setShowTeamSelectionDialog(false);
+        },
+        [environment.name]
+    );
+    const dialog = (
+        <TeamSelectionDialog
+            teams={teams}
+            onSubmit={confirmTeamLockCreate}
+            onCancel={handleCloseTeamSelectionDialog}
+            open={showTeamSelectionDialog}
+            multiselect={true}></TeamSelectionDialog>
+    );
+
     return (
         <div className="environment-lane">
+            {dialog}
             <div className={classNames('environment-lane__header', priorityClassName)}>
                 <div className="environment__name" title={'Name of the environment'}>
                     {environment.name}
@@ -69,6 +108,13 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         label={'Add Environment Lock in ' + environment.name}
                         icon={<Locks />}
                         onClick={addLock}
+                        highlightEffect={false}
+                    />
+                    <Button
+                        className="environment-action service-action--prepare-undeploy test-lock-env"
+                        label={'Add Team Lock in ' + environment.name}
+                        icon={<Locks />}
+                        onClick={popupSelectTeams}
                         highlightEffect={false}
                     />
                     <Button

@@ -570,6 +570,31 @@ describe('Test addAction duplicate detection', () => {
             },
         },
         {
+            name: 'create team lock',
+            firstAction: {
+                action: {
+                    $case: 'createEnvironmentTeamLock',
+                    createEnvironmentTeamLock: {
+                        environment: 'dev',
+                        team: 'team1',
+                        lockId: 'foo',
+                        message: 'do it',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'createEnvironmentTeamLock',
+                    createEnvironmentTeamLock: {
+                        environment: 'dev',
+                        team: 'team2',
+                        lockId: 'foo',
+                        message: 'do it',
+                    },
+                },
+            },
+        },
+        {
             name: 'delete team lock',
             firstAction: {
                 action: {

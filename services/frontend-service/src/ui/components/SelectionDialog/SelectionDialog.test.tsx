@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { act, render, getByTestId } from '@testing-library/react';
 import { documentQuerySelectorSafe } from '../../../setupTests';
-import { EnvSelectionDialog, EnvSelectionDialogProps } from './EnvSelectionDialog';
+import { EnvSelectionDialog, EnvSelectionDialogProps } from './SelectionDialogs';
 
 type TestDataSelection = {
     name: string;
@@ -190,7 +190,7 @@ describe('EnvSelectionDialog', () => {
                 });
             } else {
                 expect(document.querySelector('.env-selection-dialog')?.textContent).toContain(
-                    'There are no environments'
+                    'There are no environments to list'
                 );
             }
             expect(document.querySelectorAll('.test-button-checkbox.enabled').length).toEqual(
