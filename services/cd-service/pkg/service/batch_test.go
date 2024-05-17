@@ -34,8 +34,8 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 

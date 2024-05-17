@@ -48,11 +48,11 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"

@@ -22,6 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	config "github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
@@ -31,13 +38,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
@@ -55,7 +55,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
@@ -178,19 +177,13 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 	if ddMetrics == nil {
 		return nil
 	}
-	configs, err := state.GetEnvironmentConfigs()
+	_, envNames, err := state.GetEnvironmentConfigsSorted()
 	if err != nil {
 		return err
 	}
-	// sorting the environments to get a deterministic order of events:
-	var configKeys []string = nil
-	for k := range configs {
-		configKeys = append(configKeys, k)
-	}
 	repo.(*repository).GaugeQueueSize(ctx)
-	sort.Strings(configKeys)
-	for i := range configKeys {
-		env := configKeys[i]
+	for i := range envNames {
+		env := envNames[i]
 		GaugeEnvLockMetric(filesystem, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
@@ -1974,6 +1967,11 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
 	firstDeployment := false
 	versionFile := fs.Join(applicationDir, "version")
@@ -1988,52 +1986,78 @@ func (c *DeployApplicationVersion) Transform(
 		//File does not exist
 		firstDeployment = true
 	}
-	// Create a symlink to the release
-	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
-		return "", err
-	}
-	if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
-		return "", err
-	}
-	// Copy the manifest for argocd
-	manifestsDir := fs.Join(applicationDir, "manifests")
-	if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
-		return "", err
-	}
-	manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
-	// note that the manifest is empty here!
-	// but actually it's not quite empty!
-	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
-	// We work around this unusual behavior by writing a space into the file
-	if len(manifestContent) == 0 {
-		manifestContent = []byte(" ")
-	}
-	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
-		return "", err
-	}
-	teamOwner, err := state.GetApplicationTeamOwner(c.Application)
-	if err != nil {
-		return "", err
-	}
-	t.AddAppEnv(c.Application, c.Environment, teamOwner)
 
-	user, err := auth.ReadUserFromContext(ctx)
-	if err != nil {
-		return "", err
-	}
+	if state.DBHandler.ShouldUseOtherTables() {
+		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+		if err != nil {
+			return "", fmt.Errorf("could not find deployment for app %s and env %s", c.Application, c.Environment)
+		}
+		var v = int64(c.Version)
+		newDeployment := db.Deployment{
+			EslVersion: 0,
+			Created:    time.Time{},
+			App:        c.Application,
+			Env:        c.Environment,
+			Version:    &v,
+			Metadata: db.DeploymentMetadata{
+				DeployedByEmail: user.Email,
+				DeployedByName:  user.Name,
+			},
+		}
+		var previousVersion db.EslId
+		if existingDeployment == nil {
+			previousVersion = 0
+		} else {
+			previousVersion = existingDeployment.EslVersion
+		}
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
+		if err != nil {
+			return "", fmt.Errorf("could not write deployment for %v", newDeployment)
+		}
+	} else {
+		// Create a symlink to the release
+		if err := fs.MkdirAll(applicationDir, 0777); err != nil {
+			return "", err
+		}
+		if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+		if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
+			return "", err
+		}
 
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(user.Name), 0666); err != nil {
-		return "", err
-	}
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(user.Email), 0666); err != nil {
-		return "", err
-	}
+		// Copy the manifest for argocd
+		manifestsDir := fs.Join(applicationDir, "manifests")
+		if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
+			return "", err
+		}
+		manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
+		// note that the manifest is empty here!
+		// but actually it's not quite empty!
+		// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
+		// We work around this unusual behavior by writing a space into the file
+		if len(manifestContent) == 0 {
+			manifestContent = []byte(" ")
+		}
+		if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
+			return "", err
+		}
+		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		if err != nil {
+			return "", err
+		}
+		t.AddAppEnv(c.Application, c.Environment, teamOwner)
 
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(getTimeNow(ctx).UTC().String()), 0666); err != nil {
-		return "", err
+		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(user.Name), 0666); err != nil {
+			return "", err
+		}
+		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(user.Email), 0666); err != nil {
+			return "", err
+		}
+
+		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(getTimeNow(ctx).UTC().String()), 0666); err != nil {
+			return "", err
+		}
 	}
 
 	s := State{
@@ -2060,7 +2084,7 @@ func (c *DeployApplicationVersion) Transform(
 		if s.DBHandler.ShouldUseOtherTables() {
 			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
 			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 			}
 			gen := getGenerator(ctx)
 			eventUuid := gen.Generate()

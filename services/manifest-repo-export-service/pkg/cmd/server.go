@@ -19,16 +19,28 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"time"
+
+	"encoding/json"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
+	"go.uber.org/zap"
 	"os"
 )
 
+func storageBackend(enableSqlite bool) repository.StorageBackend {
+	if enableSqlite {
+		return repository.SqliteBackend
+	} else {
+		return repository.GitBackend
+	}
+}
+
 func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
-		logger.FromContext(ctx).Sugar().Warnf("hello world from the manifest-repo-export-service!")
-
 		dbLocation, err := readEnvVar("KUBERPULT_DB_LOCATION")
 		if err != nil {
 			return err
@@ -53,6 +65,34 @@ func RunServer() {
 		if err != nil {
 			return err
 		}
+		gitUrl, err := readEnvVar("KUBERPULT_GIT_URL")
+		if err != nil {
+			return err
+		}
+		gitBranch, err := readEnvVar("KUBERPULT_GIT_BRANCH")
+		if err != nil {
+			return err
+		}
+		gitSshKey, err := readEnvVar("KUBERPULT_GIT_SSH_KEY")
+		if err != nil {
+			return err
+		}
+		gitSshKnownHosts, err := readEnvVar("KUBERPULT_GIT_SSH_KNOWN_HOSTS")
+		if err != nil {
+			return err
+		}
+		// not that this is for the git storage backand, not our database:
+		enableSqliteStorageBackendString, err := readEnvVar("KUBERPULT_ENABLE_SQLITE")
+		if err != nil {
+			return err
+		}
+		enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
+
+		argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
+		if err != nil {
+			return err
+		}
+		argoCdGenerateFiles := argoCdGenerateFilesString == "true"
 
 		var dbCfg db.DBConfig
 		if dbOption == "cloudsql" {
@@ -78,7 +118,7 @@ func RunServer() {
 				WriteEslOnly:   false,
 			}
 		} else {
-			logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
+			logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
 		}
 		dbHandler, err := db.Connect(dbCfg)
 		if err != nil {
@@ -86,21 +126,151 @@ func RunServer() {
 		}
 
 		err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-			esl, err := dbHandler.DBReadEslEventInternal(ctx, transaction)
-			if err != nil {
-				return err
-			}
-			logger.FromContext(ctx).Sugar().Warnf("esl event: %v", esl)
+			cfg := repository.RepositoryConfig{
+				URL:            gitUrl,
+				Path:           "./repository",
+				CommitterEmail: "noemail@example.com",
+				CommitterName:  "nonmae",
+				Credentials: repository.Credentials{
+					SshKey: gitSshKey,
+				},
+				Certificates: repository.Certificates{
+					KnownHostsFile: gitSshKnownHosts,
+				},
+				Branch:                 gitBranch,
+				NetworkTimeout:         120 * time.Second,
+				GcFrequency:            20,
+				BootstrapMode:          false,
+				EnvironmentConfigsPath: "./environment_configs.json",
+				StorageBackend:         storageBackend(enableSqliteStorageBackend),
 
-			return nil
+				ArgoCdGenerateFiles: argoCdGenerateFiles,
+				DBHandler:           dbHandler,
+			}
+
+			repo, err := repository.New(ctx, cfg)
+			if err != nil {
+				return fmt.Errorf("repository.new failed %v", err)
+			}
+
+			log := logger.FromContext(ctx).Sugar()
+			for {
+				err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+					eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
+					if err != nil {
+						return fmt.Errorf("error in DBReadCutoff %v", err)
+					}
+					if eslId == nil {
+						log.Infof("did not find cutoff")
+					} else {
+						log.Infof("found cutoff: %d", *eslId)
+					}
+					esl, err := readEslEvent(ctx, transaction, eslId, log, dbHandler)
+					if err != nil {
+						return fmt.Errorf("error in readEslEvent %v", err)
+					}
+					if esl == nil {
+						log.Warn("event processing skipped: no esl event found")
+						return nil
+					}
+					transformer, err := processEslEvent(ctx, repo, esl, transaction)
+					if err != nil {
+						return fmt.Errorf("error in processEslEvent %v", err)
+					}
+					if transformer == nil {
+						log.Warn("event processing skipped")
+						return nil
+					}
+					log.Infof("event processed successfully, now writing to cutoff...")
+					err = cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslId)
+					if err != nil {
+						return fmt.Errorf("error in DBWriteCutoff %v", err)
+					}
+
+					return nil
+				})
+				if err != nil {
+					return fmt.Errorf("error in transaction %v", err)
+				}
+				d := 10 * time.Second
+				log.Infof("sleeping for %v before processing the next event", d)
+				time.Sleep(d)
+			}
 		})
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	})
 	if err != nil {
 		fmt.Printf("error in startup: %v %#v", err, err)
+	}
+}
+
+func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log *zap.SugaredLogger, dbHandler *db.DBHandler) (*db.EslEventRow, error) {
+	if eslId == nil {
+		log.Warnf("no cutoff found, starting at the beginning of time.")
+		// no read cutoff yet, we have to start from the beginning
+		esl, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
+		if err != nil {
+			return nil, err
+		}
+		if esl == nil {
+			log.Warnf("no esl events found")
+			return nil, nil
+		}
+		return esl, nil
+		//log.Warnf("found esl event %v of type %s", esl, esl.EventType)
+	} else {
+		log.Warnf("cutoff found, starting at t>cutoff: %d", *eslId)
+		esl, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, *eslId)
+		if err != nil {
+			return nil, err
+		}
+		return esl, nil
+	}
+}
+
+const ignoreUnknownEvents = true
+
+func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.EslEventRow, tx *sql.Tx) (repository.Transformer, error) {
+	if esl == nil {
+		return nil, fmt.Errorf("esl event nil")
+	}
+	var t repository.Transformer
+	t, err := getTransformer(ctx, esl.EventType)
+	if err != nil {
+		return nil, fmt.Errorf("get transformer error %v", err)
+	}
+	if t == nil {
+		// no error, but also no transformer to process:
+		return nil, nil
+	}
+	logger.FromContext(ctx).Sugar().Warnf("processEslEvent: unmarshal \n%s\n", esl.EventJson)
+	err = json.Unmarshal(([]byte)(esl.EventJson), &t)
+	if err != nil {
+		return nil, err
+	}
+	logger.FromContext(ctx).Sugar().Warnf("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
+
+	err = repo.Apply(ctx, tx, t)
+	if err != nil {
+		return nil, fmt.Errorf("error while running repo apply: %v", err)
+	}
+	logger.FromContext(ctx).Sugar().Warnf("Applied transformer succesfully event=%s", t.GetDBEventType())
+	return t, nil
+}
+
+// getTransformer returns an empty transformer of the type according to esl.EventType
+func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.Transformer, error) {
+	switch eslEventType {
+	case db.EvtDeployApplicationVersion:
+		//exhaustruct:ignore
+		return &repository.DeployApplicationVersion{}, nil
+	default:
+		if ignoreUnknownEvents {
+			logger.FromContext(ctx).Sugar().Infof("ignoring unknown event %s", eslEventType)
+			return nil, nil
+		} else {
+			return nil, fmt.Errorf("could not process event, unknown type %s", eslEventType)
+		}
 	}
 }
 

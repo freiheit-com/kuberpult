@@ -19,6 +19,7 @@ package argocd
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
 	"path/filepath"
 	"strings"
 
@@ -26,8 +27,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 )
 
 type ApiVersion string

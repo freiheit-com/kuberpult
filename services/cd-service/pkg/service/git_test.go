@@ -34,8 +34,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 

@@ -68,6 +68,8 @@ type DBHandler struct {
 	WriteEslOnly bool
 }
 
+type EslId int64
+
 func (h *DBHandler) ShouldUseEslTable() bool {
 	return h != nil
 }
@@ -272,14 +274,19 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 }
 
 type EslEventRow struct {
+	EslId     EslId
 	Created   time.Time
 	EventType EventType
 	EventJson string
 }
 
-// DBReadEslEventInternal is only public for testing
-func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx) (*EslEventRow, error) {
-	selectQuery := h.AdaptQuery("SELECT created, event_type , json FROM event_sourcing_light ORDER BY created DESC LIMIT 1;")
+// DBReadEslEventInternal returns either the first or the last row of the esl table
+func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (*EslEventRow, error) {
+	sort := "DESC"
+	if firstRow {
+		sort = "ASC"
+	}
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslId, created, event_type , json FROM event_sourcing_light ORDER BY created %s LIMIT 1;", sort))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -289,21 +296,55 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx) (*Es
 	}
 	if rows.Next() {
 		var row = EslEventRow{
+			EslId:     0,
 			Created:   time.Unix(0, 0),
 			EventType: "",
 			EventJson: "",
 		}
-		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslId, &row.Created, &row.EventType, &row.EventJson)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
 			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
 		}
-		logger.FromContext(ctx).Sugar().Warnf("read row: %s", row)
+		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		return &row, nil
 	}
-	return nil, fmt.Errorf("could not find any rows in DB. Error: %w\n", err)
+	return nil, nil // no rows, but also no error
+}
+
+// DBReadEslEventInternal returns either the first or the last row of the esl table
+func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslId EslId) (*EslEventRow, error) {
+	sort := "DESC"
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslId, created, event_type, json FROM event_sourcing_light WHERE eslId > (?) ORDER BY created %s LIMIT 1;", sort))
+	// 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		eslId,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	if rows.Next() {
+		var row = EslEventRow{
+			EslId:     0,
+			Created:   time.Unix(0, 0),
+			EventType: "",
+			EventJson: "",
+		}
+		err := rows.Scan(&row.EslId, &row.Created, &row.EventType, &row.EventJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+		}
+		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
+		return &row, nil
+	}
+	return nil, nil // no rows, but also no error
 }
 
 func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql.Tx, previousVersion int64, applications []string) error {
@@ -440,10 +481,196 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	return &resultGo, nil
 }
 
-func (h *DBHandler) RunCustomMigrations(ctx context.Context, getAllAppsFun func() ([]string, error)) error {
+type DBDeployment struct {
+	EslVersion     EslId
+	Created        time.Time
+	ReleaseVersion int64
+	App            string
+	Env            string
+	Metadata       string // json
+}
+
+type Deployment struct {
+	EslVersion EslId
+	Created    time.Time
+	App        string
+	Env        string
+	Version    *int64
+	Metadata   DeploymentMetadata
+}
+
+type DeploymentMetadata struct {
+	DeployedByName  string
+	DeployedByEmail string
+}
+
+type AllDeployments []Deployment
+
+type GetAllDeploymentsFun = func() (AllDeployments, error)
+
+func (h *DBHandler) RunCustomMigrations(
+	ctx context.Context,
+	getAllAppsFun func() ([]string, error),
+	getAllDeploymentsFun GetAllDeploymentsFun,
+) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
-	return h.RunCustomMigrationAllTables(ctx, getAllAppsFun)
+	err := h.RunCustomMigrationAllTables(ctx, getAllAppsFun)
+	if err != nil {
+		return err
+	}
+	return h.RunCustomMigrationDeployments(ctx, getAllDeploymentsFun)
+}
+
+func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata" +
+			" FROM deployments " +
+			" WHERE appName=? AND envName=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appSelector,
+		envSelector,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	if rows.Next() {
+		var row = DBDeployment{
+			EslVersion:     0,
+			Created:        time.Time{},
+			ReleaseVersion: 0,
+			App:            "",
+			Env:            "",
+			Metadata:       "",
+		}
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.ReleaseVersion, &row.App, &row.Env, &row.Metadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+		}
+		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
+
+		//exhaustruct:ignore
+		var resultJson = DeploymentMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		return &Deployment{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			App:        row.App,
+			Env:        row.Env,
+			Version:    &row.ReleaseVersion,
+			Metadata:   resultJson,
+		}, nil
+	}
+	return nil, nil // no rows, but also no error
+
+}
+
+func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBDeployment, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, releaseVersion, appName, envName" +
+			" FROM deployments " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	if rows.Next() {
+		var releaseVersion sql.NullInt64
+		//exhaustruct:ignore
+		var row = DBDeployment{}
+		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+		}
+		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
+		if releaseVersion.Valid {
+			row.ReleaseVersion = releaseVersion.Int64
+		}
+		return &row, nil
+	}
+	return nil, nil // no rows, but also no error
+
+}
+
+// DBWriteDeployment writes one deployment, meaning "what should be deployed"
+func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslId) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+
+	jsonToInsert, err := json.Marshal(deployment.Metadata)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata) VALUES (?, ?, ?, ?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		previousEslVersion+1,
+		time.Now(),
+		deployment.Version,
+		deployment.App,
+		deployment.Env,
+		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun GetAllDeploymentsFun) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		l := logger.FromContext(ctx).Sugar()
+		allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
+		if err != nil {
+			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+			allAppsDb = nil
+		}
+		if allAppsDb != nil {
+			l.Warnf("There are already deployments in the DB - skipping migrations")
+			return nil
+		}
+
+		allDeploymentsInRepo, err := getAllDeploymentsFun()
+		if err != nil {
+			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
+		}
+
+		for i := range allDeploymentsInRepo {
+			deploymentInRepo := allDeploymentsInRepo[i]
+			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
+			if err != nil {
+				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
+					deploymentInRepo.App, deploymentInRepo.Env, err)
+			}
+		}
+		return nil
+	})
 }
 
 func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsFun func() ([]string, error)) error {

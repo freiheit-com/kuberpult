@@ -37,6 +37,12 @@ services:
       - KUBERPULT_DB_USER_NAME=myname
       - KUBERPULT_DB_USER_PASSWORD=mypassword
       - KUBERPULT_DB_AUTH_PROXY_PORT=5432
+      - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
+      - KUBERPULT_GIT_BRANCH=master
+      - KUBERPULT_GIT_SSH_KEY=/etc/ssh/identity
+      - KUBERPULT_GIT_SSH_KNOWN_HOSTS=/etc/ssh/ssh_known_hosts
+      - KUBERPULT_ENABLE_SQLITE=true
+      - KUBERPULT_ARGO_CD_GENERATE_FILES=true
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database
@@ -59,7 +65,7 @@ services:
       - KUBERPULT_ARGOCD_NAMESPACE=tools
       - KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
       - KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
-      - KUBERPULT_GIT_BRANCH=main
+      - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_API_ENABLE_DESPITE_NO_AUTH=true
       - KUBERPULT_BATCH_CLIENT_TIMEOUT=2m
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
