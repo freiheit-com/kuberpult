@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
@@ -306,7 +307,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
-			cfg := DBConfig{
+			cfg := db.DBConfig{
 				MigrationsPath: dir,
 				DriverName:     "sqlite3",
 			}
@@ -315,7 +316,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				t.Errorf("setup error\n%v", err)
 			}
 			r := repo.(*repository)
-			row := &EslEventRow{}
+			row := &db.EslEventRow{}
 			err = repo.Apply(ctx, setupTransformers...)
 			if err != nil {
 				t.Errorf("setup error could not set up transformers \n%v", err)

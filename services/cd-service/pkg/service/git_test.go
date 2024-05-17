@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"sort"
 	"testing"
 	"time"
@@ -731,7 +732,7 @@ func TestGetCommitInfo(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			cfg := rp.DBConfig{
+			cfg := db.DBConfig{
 				DriverName:     "sqlite3",
 				MigrationsPath: "/kp/database/migrations",
 			}

@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"net/http"
 	"os"
 	"strings"
@@ -202,11 +203,11 @@ func RunServer() {
 			)
 		}
 
-		var dbHandler *repository.DBHandler = nil
+		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
-			var dbCfg repository.DBConfig
+			var dbCfg db.DBConfig
 			if c.DbOption == "cloudsql" {
-				dbCfg = repository.DBConfig{
+				dbCfg = db.DBConfig{
 					DbHost:         c.DbLocation,
 					DbPort:         c.DbAuthProxyPort,
 					DriverName:     "postgres",
@@ -217,7 +218,7 @@ func RunServer() {
 					WriteEslOnly:   c.DbWriteEslTableOnly,
 				}
 			} else if c.DbOption == "sqlite" {
-				dbCfg = repository.DBConfig{
+				dbCfg = db.DBConfig{
 					DbHost:         c.DbLocation,
 					DbPort:         c.DbAuthProxyPort,
 					DriverName:     "sqlite3",
@@ -230,7 +231,7 @@ func RunServer() {
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
 			}
-			dbHandler, err = repository.Connect(dbCfg)
+			dbHandler, err = db.Connect(dbCfg)
 			if err != nil {
 				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -239,7 +240,7 @@ func RunServer() {
 				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 			}
 
-			migErr := repository.RunDBMigrations(dbCfg)
+			migErr := db.RunDBMigrations(dbCfg)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 			}
@@ -285,7 +286,7 @@ func RunServer() {
 		}
 		if dbHandler.ShouldUseOtherTables() {
 			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=true")
-			migErr := dbHandler.RunCustomMigrations(ctx, repo)
+			migErr := dbHandler.RunCustomMigrations(ctx, repo.State().GetApplicationsFromFile)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
 			}

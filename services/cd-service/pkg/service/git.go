@@ -26,9 +26,9 @@ import (
 	"strings"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
-	eventmod "github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"io"
 	"io/fs"
@@ -1053,7 +1054,7 @@ type SlowTransformer struct {
 	started  chan struct{}
 }
 
-func (s *SlowTransformer) GetDBEventType() EventType {
+func (s *SlowTransformer) GetDBEventType() db.EventType {
 	return "invalid"
 }
 
@@ -1065,7 +1066,7 @@ func (s *SlowTransformer) Transform(ctx context.Context, state *State, transform
 
 type EmptyTransformer struct{}
 
-func (p *EmptyTransformer) GetDBEventType() EventType {
+func (p *EmptyTransformer) GetDBEventType() db.EventType {
 	return "invalid"
 }
 
@@ -1075,7 +1076,7 @@ func (p *EmptyTransformer) Transform(ctx context.Context, state *State, transfor
 
 type PanicTransformer struct{}
 
-func (p *PanicTransformer) GetDBEventType() EventType {
+func (p *PanicTransformer) GetDBEventType() db.EventType {
 	return "invalid"
 }
 
@@ -1087,7 +1088,7 @@ var TransformerError = errors.New("error transformer")
 
 type ErrorTransformer struct{}
 
-func (p *ErrorTransformer) GetDBEventType() EventType {
+func (p *ErrorTransformer) GetDBEventType() db.EventType {
 	return "invalid"
 }
 
@@ -1097,7 +1098,7 @@ func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transfor
 
 type InvalidJsonTransformer struct{}
 
-func (p *InvalidJsonTransformer) GetDBEventType() EventType {
+func (p *InvalidJsonTransformer) GetDBEventType() db.EventType {
 	return "invalid"
 }
 
