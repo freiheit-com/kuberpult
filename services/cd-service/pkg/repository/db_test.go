@@ -18,7 +18,7 @@ package repository
 
 import (
 	"context"
-	db2 "github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
@@ -47,11 +47,11 @@ func TestConnection(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
-			cfg := db2.DBConfig{
+			cfg := db.DBConfig{
 				DriverName: "sqlite3",
 				DbHost:     dir,
 			}
-			db, err := db2.Connect(cfg)
+			db, err := db.Connect(cfg)
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
@@ -68,7 +68,7 @@ func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		migrationFile string
-		expectedData  *db2.AllApplicationsGo
+		expectedData  *db.AllApplicationsGo
 	}{
 		{
 			Name: "Simple migration",
@@ -83,10 +83,10 @@ CREATE TABLE IF NOT EXISTS all_apps
 
 INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
 INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
-			expectedData: &db2.AllApplicationsGo{
+			expectedData: &db.AllApplicationsGo{
 				Version: 1,
 				Created: time.Unix(1713218400, 0).UTC(),
-				AllApplicationsJson: db2.AllApplicationsJson{
+				AllApplicationsJson: db.AllApplicationsJson{
 					Apps: []string{"my-test-app"},
 				},
 			},
@@ -98,7 +98,7 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			t.Parallel()
 			ctx := context.Background()
 			dbDir := t.TempDir()
-			cfg := db2.DBConfig{
+			cfg := db.DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
 				MigrationsPath: dbDir + "/migrations",
@@ -115,12 +115,12 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
 
-			migErr := db2.RunDBMigrations(cfg)
+			migErr := db.RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := db2.Connect(cfg)
+			db, err := db.Connect(cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -174,17 +174,17 @@ func TestDeploymentStorage(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 			dbDir := t.TempDir()
-			cfg := db2.DBConfig{
+			cfg := db.DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
 				MigrationsPath: "/kp/database/migrations",
 			}
-			migErr := db2.RunDBMigrations(cfg)
+			migErr := db.RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := db2.Connect(cfg)
+			db, err := db.Connect(cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -259,7 +259,7 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			actualQuery := db2.SqliteToPostgresQuery(tc.inputQuery)
+			actualQuery := db.SqliteToPostgresQuery(tc.inputQuery)
 			if diff := cmp.Diff(tc.expectedQuery, actualQuery); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
@@ -270,7 +270,7 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 func TestHelperFunctions(t *testing.T) {
 	tcs := []struct {
 		Name                string
-		inputHandler        *db2.DBHandler
+		inputHandler        *db.DBHandler
 		expectedEslTable    bool
 		expectedOtherTables bool
 	}{
@@ -282,7 +282,7 @@ func TestHelperFunctions(t *testing.T) {
 		},
 		{
 			Name: "esl only",
-			inputHandler: &db2.DBHandler{
+			inputHandler: &db.DBHandler{
 				WriteEslOnly: true,
 			},
 			expectedEslTable:    true,
@@ -290,7 +290,7 @@ func TestHelperFunctions(t *testing.T) {
 		},
 		{
 			Name: "other tables",
-			inputHandler: &db2.DBHandler{
+			inputHandler: &db.DBHandler{
 				WriteEslOnly: false,
 			},
 			expectedEslTable:    true,
