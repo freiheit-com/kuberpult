@@ -1,0 +1,1 @@
+../sqlite/1713956693027648_all_apps.up.sql

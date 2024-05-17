@@ -256,12 +256,11 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslId, created, event_type , json)  VALUES (?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
-		uuid2.RealUUIDGenerator{}.Generate(),
 		time.Now(),
 		eventType,
 		jsonToInsert)

@@ -1883,7 +1883,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			var repo Repository
 			var err error = nil
 			var updatedState *State = nil
-			migrationsPath, err := CreateMigrationsPath()
+			migrationsPath, err := testutil.CreateMigrationsPath()
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}

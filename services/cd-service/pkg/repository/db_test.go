@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"os"
@@ -174,10 +175,17 @@ func TestDeploymentStorage(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 			dbDir := t.TempDir()
+
+			dir, err := testutil.CreateMigrationsPath()
+			if err != nil {
+				t.Fatalf("setup error could not detect dir \n%v", err)
+				return
+			}
+
 			cfg := db.DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
-				MigrationsPath: "/kp/database/migrations",
+				MigrationsPath: dir,
 			}
 			migErr := db.RunDBMigrations(cfg)
 			if migErr != nil {
