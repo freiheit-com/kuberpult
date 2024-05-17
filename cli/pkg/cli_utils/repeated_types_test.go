@@ -40,11 +40,11 @@ func (e errMatcher) Is(err error) bool {
 
 func TestParseCommandLineArgsString(t *testing.T) {
 	type testCase struct {
-		name             string
-		argNames   []string
-		cmdArgs          []string
-		expectedValues   map[string]string
-		expectedErrorMsg string
+		name           string
+		argNames       []string
+		cmdArgs        []string
+		expectedValues map[string]string
+		expectedError  error
 	}
 
 	tcs := []testCase{
@@ -73,9 +73,11 @@ func TestParseCommandLineArgsString(t *testing.T) {
 			argNames: []string{
 				"arg",
 			},
-			cmdArgs:          []string{"--arg"},
-			expectedValues:   map[string]string{},
-			expectedErrorMsg: "flag needs an argument: -arg",
+			cmdArgs:        []string{"--arg"},
+			expectedValues: map[string]string{},
+			expectedError: errMatcher{
+				msg: "flag needs an argument: -arg",
+			},
 		},
 	}
 
@@ -93,7 +95,7 @@ func TestParseCommandLineArgsString(t *testing.T) {
 
 			err := fs.Parse(tc.cmdArgs)
 			// check errors
-			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
@@ -109,11 +111,11 @@ func TestParseCommandLineArgsString(t *testing.T) {
 
 func TestParseCommandLineArgsInt(t *testing.T) {
 	type testCase struct {
-		name             string
-		argNames   []string
-		cmdArgs          []string
-		expectedValues   map[string]string
-		expectedErrorMsg string
+		name           string
+		argNames       []string
+		cmdArgs        []string
+		expectedValues map[string]string
+		expectedError  error
 	}
 
 	tcs := []testCase{
@@ -142,16 +144,20 @@ func TestParseCommandLineArgsInt(t *testing.T) {
 			argNames: []string{
 				"arg",
 			},
-			cmdArgs:          []string{"--arg"},
-			expectedErrorMsg: "flag needs an argument: -arg",
+			cmdArgs: []string{"--arg"},
+			expectedError: errMatcher{
+				msg: "flag needs an argument: -arg",
+			},
 		},
 		{
 			name: "arg specified but with invalid value",
 			argNames: []string{
 				"arg",
 			},
-			cmdArgs:          []string{"--arg", "potato"},
-			expectedErrorMsg: "invalid value \"potato\" for flag -arg: the provided value \"potato\" is not an integer",
+			cmdArgs: []string{"--arg", "potato"},
+			expectedError: errMatcher{
+				msg: "invalid value \"potato\" for flag -arg: the provided value \"potato\" is not an integer",
+			},
 		},
 	}
 
@@ -169,7 +175,7 @@ func TestParseCommandLineArgsInt(t *testing.T) {
 
 			err := fs.Parse(tc.cmdArgs)
 			// check errors
-			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 

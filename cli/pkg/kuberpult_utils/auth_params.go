@@ -14,10 +14,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package main
+package kuberpult_utils
 
-import "github.com/freiheit-com/kuberpult/cli/pkg/cmd"
-
-func main() {
-	cmd.RunCLI()
+type AuthenticationParameters struct {
+	IapToken    *string
+	AuthorName  *string
+	AuthorEmail *string
 }
