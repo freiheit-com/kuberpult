@@ -564,6 +564,35 @@ auth:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test KUBERPULT_DEX_USE_CLUSTER_INTERNAL_COMMUNICATION",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+auth:
+  dexAuth: 
+    enabled: true
+    useClusterInternalCommunicationToDex: true
+    policy_csv: "testing"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_DEX_RBAC_POLICY_PATH",
+					Value: "/kuberpult-rbac/policy.csv",
+				},
+				{
+					Name:  "KUBERPULT_DEX_USE_CLUSTER_INTERNAL_COMMUNICATION",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
