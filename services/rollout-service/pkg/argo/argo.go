@@ -179,7 +179,11 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				Automated: &v1alpha1.SyncPolicyAutomated{},
 			}
 			//We have to exclude the unexported type destination and the syncPolicy
-			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination), cmp.AllowUnexported(emptyAppSyncPolicy))
+			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
+				cmp.AllowUnexported(emptyAppSpec.Destination),
+				cmp.AllowUnexported(emptyAppSyncPolicy.Automated.Prune),
+				cmp.AllowUnexported(emptyAppSyncPolicy.Automated.SelfHeal),
+				cmp.AllowUnexported(emptyAppSyncPolicy.Automated.AllowEmpty))
 			if diff != "" {
 				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
 				updateSpan.SetTag("application", app.Name)
