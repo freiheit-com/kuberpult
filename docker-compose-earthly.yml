@@ -30,10 +30,20 @@ services:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:local
     environment:
       - LOG_LEVEL=INFO
+      - KUBERPULT_DB_LOCATION=/kp/database
+      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/sqlite/
+      - KUBERPULT_DB_OPTION=sqlite
+      - KUBERPULT_DB_NAME=mydb
+      - KUBERPULT_DB_USER_NAME=myname
+      - KUBERPULT_DB_USER_PASSWORD=mypassword
+      - KUBERPULT_DB_AUTH_PROXY_PORT=5432
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database
     stop_grace_period: 0.5s
+    depends_on:
+      cd-service:
+        condition: service_started
   frontend-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:local
     # Note: this `container_name` needs to be the same as in `package.json`
