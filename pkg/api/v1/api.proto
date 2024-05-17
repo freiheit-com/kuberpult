@@ -666,3 +666,13 @@ message GetManifestsResponse {
   Release release = 1;
   map<string, Manifest> manifests = 2;
 }
+
+service CloudRunService {
+  rpc Deploy (ServiceManifest) returns (DeployResponse) {}
+}
+
+message ServiceManifest {
+    bytes manifest = 1;
+}
+
+message DeployResponse {}

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/parser"
 	"google.golang.org/api/run/v1"
 )
 
@@ -36,58 +38,92 @@ var (
 	runService *run.APIService
 )
 
+type serviceConfig struct {
+	name   string
+	parent string
+	path   string
+	config run.Service
+}
+
 func Init(ctx context.Context) error {
 	var err error
 	runService, err = run.NewService(ctx)
 	return err
 }
 
-func Deploy(ctx context.Context, svc *run.Service) error {
-	serviceName := svc.Metadata.Name
-	// Get the full path of the project. Example: projects/<project-id>/locations/<region>
-	parent, err := getParent(svc)
-	servicePath := fmt.Sprintf("%s/services/%s", parent, serviceName)
+type CloudRunService struct{}
+
+func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceManifest) (*api.DeployResponse, error) {
+	var svc serviceConfig
+	err := validate(in.Manifest, &svc)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	req := runService.Projects.Locations.Services.List(parent)
+	req := runService.Projects.Locations.Services.List(svc.parent)
 	resp, err := req.Do()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var serviceCallResp *run.Service
 	// If the service is already deployed before, then we need to call ReplaceService. Otherwise, we call Create.
-	if isPresent(resp.Items, serviceName) {
-		serviceCall := runService.Projects.Locations.Services.ReplaceService(servicePath, svc)
+	if isPresent(resp.Items, svc.name) {
+		serviceCall := runService.Projects.Locations.Services.ReplaceService(svc.path, &svc.config)
 		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else {
-		serviceCall := runService.Projects.Locations.Services.Create(parent, svc)
+		serviceCall := runService.Projects.Locations.Services.Create(svc.parent, &svc.config)
 		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	if err := waitForOperation(parent, serviceCallResp, 60); err != nil {
-		return err
+	if err := waitForOperation(svc.parent, serviceCallResp, 60); err != nil {
+		return nil, err
 	}
-	getServiceCall := runService.Projects.Locations.Services.Get(servicePath)
+	getServiceCall := runService.Projects.Locations.Services.Get(svc.path)
 	serviceResp, err := getServiceCall.Do()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	condition, err := GetServiceReadyCondition(serviceResp)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if condition.Status != "True" {
-		return fmt.Errorf("service not ready: %s", condition)
+		return nil, fmt.Errorf("service not ready: %s", condition)
 	}
-	return nil
+	return &api.DeployResponse{}, nil
 }
 
+func validate(manifest []byte, svc *serviceConfig) error {
+	err := parser.ParseManifest(manifest, &svc.config)
+	if err != nil {
+		return err
+	}
+	if svc.config.Metadata == nil {
+		return serviceManifestError{
+			metadataMissing: true,
+			nameEmpty:       false,
+		}
+	}
+	serviceName := svc.config.Metadata.Name
+	if serviceName == "" {
+		return serviceManifestError{
+			nameEmpty:       true,
+			metadataMissing: false}
+	}
+	// Get the full path of the project. Example: projects/<project-id>/locations/<region>
+	parent, err := getParent(&svc.config)
+	if err != nil {
+		return err
+	}
+	svc.name = serviceName
+	svc.parent = parent
+	svc.path = fmt.Sprintf("%s/services/%s", parent, serviceName)
+	return nil
+}
 func GetServiceReadyCondition(serviceCallResponse *run.Service) (ServiceReadyCondition, error) {
 	//exhaustruct:ignore
 	serviceReadyCondition := ServiceReadyCondition{

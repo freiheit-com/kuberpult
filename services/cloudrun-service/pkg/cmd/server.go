@@ -19,12 +19,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/cloudrun"
-	"go.uber.org/zap"
-	"google.golang.org/api/run/v1"
+	"google.golang.org/grpc"
 )
 
 func RunServer() {
@@ -35,80 +35,44 @@ func RunServer() {
 }
 
 func runServer(ctx context.Context) error {
-	projectId, exists := os.LookupEnv("GCP_PROJECT_ID")
-	if !exists {
-		logger.FromContext(ctx).Fatal("environment variable GCP_PROJECT_ID is missing")
-	}
-	imageTag, exists := os.LookupEnv("IMAGE_TAG")
-	if !exists {
-		logger.FromContext(ctx).Fatal("environment variable IMAGE_TAG is missing")
-	}
-	servicePort := int64(3000)
-	//exhaustruct:ignore
-	metaData := &run.ObjectMeta{
-		Name:      "test-service1",
-		Namespace: projectId,
-		Labels:    map[string]string{"cloud.googleapis.com/location": "europe-west1"},
-	}
-	//exhaustruct:ignore
-	ports := &run.ContainerPort{
-		ContainerPort: servicePort,
-		Name:          "h2c",
-	}
-	//exhaustruct:ignore
-	envVars := []*run.EnvVar{
-		{
-			Name:  "SERVERLESS_ECHO_GRPC_PORT",
-			Value: fmt.Sprint(servicePort),
-		},
-		{
-			Name:  "SERVERLESS_ECHO_HEALTH_PORT",
-			Value: "8080",
-		},
-	}
-	//exhaustruct:ignore
-	tcpSocket := &run.TCPSocketAction{Port: servicePort}
-	//exhaustruct:ignore
-	startupProbe := &run.Probe{
-		TcpSocket:      tcpSocket,
-		TimeoutSeconds: 10,
-	}
-	//exhaustruct:ignore
-	container := &run.Container{
-		Name:         "test-service",
-		Image:        imageTag,
-		Ports:        []*run.ContainerPort{ports},
-		Env:          envVars,
-		StartupProbe: startupProbe,
-	}
-	containers := []*run.Container{container}
-	//exhaustruct:ignore
-	spec := &run.RevisionSpec{
-		Containers: containers,
-	}
-	//exhaustruct:ignore
-	revTemplate := &run.RevisionTemplate{
-		Spec: spec,
-	}
-	//exhaustruct:ignore
-	serviceSpec := &run.ServiceSpec{
-		Template: revTemplate,
-	}
-	//exhaustruct:ignore
-	service := &run.Service{
-		ApiVersion: "serving.knative.dev/v1",
-		Kind:       "Service",
-		Metadata:   metaData,
-		Spec:       serviceSpec,
-	}
-
+	// var service run.Service
+	// yaml, err := ReadYaml("/Users/ahmednour/workspace/fdc-standard-setup/services/serverless-app-example/cloudrun/staging_manifest.yaml")
+	// if err != nil {
+	// 	logger.FromContext(ctx).Fatal("Failed to read yaml file", zap.String("Error", err.Error()))
+	// }
+	// err = parser.ParseManifest(yaml, &service)
+	// if err != nil {
+	// 	logger.FromContext(ctx).Fatal("Failed to parse service manifest", zap.String("Error", err.Error()))
+	// }
 	if err := cloudrun.Init(ctx); err != nil {
 		logger.FromContext(ctx).Fatal("Failed to initialize cloud run service")
 	}
-	if err := cloudrun.Deploy(ctx, service); err != nil {
-		logger.FromContext(ctx).Error("Service deploy failed", zap.String("Error", err.Error()))
-	} else {
-		logger.FromContext(ctx).Info("Service deployed successfully", zap.String("Service", service.Metadata.Name))
-	}
+	// if err := cloudrun.Deploy(ctx, &service); err != nil {
+	// 	logger.FromContext(ctx).Error("Service deploy failed", zap.String("Error", err.Error()))
+	// } else {
+	// 	logger.FromContext(ctx).Info("Service deployed successfully", zap.String("Service", service.Metadata.Name))
+	// }
+	setup.Run(ctx, setup.ServerConfig{
+		HTTP: []setup.HTTPConfig{},
+		GRPC: &setup.GRPCConfig{
+			Shutdown: nil,
+			Port:     "8443",
+			Opts:     nil,
+			Register: func(srv *grpc.Server) {
+				api.RegisterCloudRunServiceServer(srv, &cloudrun.CloudRunService{})
+			},
+		},
+		Background: []setup.BackgroundTaskConfig{},
+		Shutdown:   nil,
+	})
+
 	return nil
 }
+
+// func ReadYaml(path string) ([]byte, error) {
+// 	yamlFile, err := os.ReadFile(path)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return yamlFile, nil
+// }

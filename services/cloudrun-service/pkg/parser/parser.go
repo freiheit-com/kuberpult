@@ -17,10 +17,18 @@ Copyright 2023 freiheit.com*/
 package parser
 
 import (
+	"google.golang.org/api/run/v1"
 	"sigs.k8s.io/yaml"
 )
 
-func ParseManifest(manifest []byte, service interface{}) error {
+type InvalidServiceManifestError struct {
+}
+
+// ParseManifest umarshals a given YAML manifest and populates the provided service struct.
+// Parameters:
+//   - manifest: A byte slice containing the YAML data to be parsed.
+//   - service: A pointer to the struct that will be populated with the data from the manifest.
+func ParseManifest(manifest []byte, service *run.Service) error {
 	err := yaml.Unmarshal(manifest, service)
 	return err
 }

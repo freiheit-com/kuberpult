@@ -30,6 +30,21 @@ func (c ServiceReadyCondition) String() string {
 	return fmt.Sprintf("Service:%s, ObservedGeneration:%d, Ready:%s, Reason:%s, Message:%s", c.Name, c.Revision, c.Status, c.Reason, c.Message)
 }
 
+type serviceManifestError struct {
+	metadataMissing bool
+	nameEmpty       bool
+}
+
+func (p serviceManifestError) Error() string {
+	if p.metadataMissing {
+		return "No metadata found in service manifest"
+	}
+	if p.nameEmpty {
+		return "Service name cannot be empty"
+	}
+	return "Configuration error"
+}
+
 type serviceConfigError struct {
 	name             string
 	namespaceMissing bool
