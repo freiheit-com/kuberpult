@@ -537,10 +537,8 @@ func TestRequestCreation(t *testing.T) {
 			}
 			server := httptest.NewServer(mockServer)
 			
-			authParams := kuberpult_utils.AuthenticationParameters {
-				Url: server.URL,
-			}
-			err := Release(authParams, tc.params)
+			authParams := kuberpult_utils.AuthenticationParameters {}
+			err := Release(server.URL, authParams, tc.params)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)

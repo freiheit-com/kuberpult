@@ -17,7 +17,6 @@ Copyright freiheit.com*/
 package kuberpult_utils
 
 type AuthenticationParameters struct {
-	Url         string
 	IapToken    *string
 	AuthorName  *string
 	AuthorEmail *string

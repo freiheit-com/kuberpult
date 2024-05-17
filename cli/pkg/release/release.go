@@ -38,8 +38,8 @@ type ReleaseParameters struct {
 
 // calls the Release endpoint with the specified parameters
 // this function might be used in the future for programmatic interaction with Kuberpult, hence its separation
-func Release(authParams kutil.AuthenticationParameters, params ReleaseParameters) error {
-	req, err := prepareHttpRequest(authParams, params)
+func Release(url string, authParams kutil.AuthenticationParameters, params ReleaseParameters) error {
+	req, err := prepareHttpRequest(url, authParams, params)
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}

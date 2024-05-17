@@ -26,7 +26,7 @@ import (
 	"encoding/base64"
 )
 
-func prepareHttpRequest(authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
+func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
 
@@ -102,7 +102,7 @@ func prepareHttpRequest(authParams kutil.AuthenticationParameters, parsedArgs Re
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, authParams.Url, form)
+	req, err := http.NewRequest(http.MethodPost, url, form)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}

@@ -31,13 +31,12 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) {
 	}
 
 	authParams := kutil.AuthenticationParameters{
-		Url:         kpClientParams.url,
 		IapToken:    kpClientParams.iapToken,
 		AuthorName:  kpClientParams.authorName,
 		AuthorEmail: kpClientParams.authorEmail,
 	}
 
-	if err = rl.Release(authParams, *parsedArgs); err != nil {
+	if err = rl.Release(kpClientParams.url, authParams, *parsedArgs); err != nil {
 		log.Fatalf("error on release, error: %v", err)
 	}
 }
