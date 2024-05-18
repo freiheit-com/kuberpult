@@ -108,9 +108,7 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
 	}
 
-	urlStruct = urlStruct.JoinPath("release")
-
-	req, err := http.NewRequest(http.MethodPost, urlStruct.String(), form)
+	req, err := http.NewRequest(http.MethodPost, urlStruct.JoinPath("release").String(), form)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}
