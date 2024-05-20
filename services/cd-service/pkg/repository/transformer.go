@@ -1676,7 +1676,6 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		for _, currentApp := range apps {
 			currentTeamFile := fs.Join("applications", currentApp, "team")
 			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
-				fmt.Printf("c.Team: '%s' : '%s'\n'", c.Team, string(currentTeamName))
 				if c.Team == string(currentTeamName) {
 					foundTeam = true
 					break
