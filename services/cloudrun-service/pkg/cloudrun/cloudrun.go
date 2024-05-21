@@ -53,7 +53,7 @@ func Init(ctx context.Context) error {
 
 type CloudRunService struct{}
 
-func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceManifest) (*api.DeployResponse, error) {
+func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceDeployRequest) (*api.ServiceDeployResponse, error) {
 	var svc serviceConfig
 	err := validateService(in.Manifest, &svc)
 	if err != nil {
@@ -94,7 +94,7 @@ func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceManifest) (
 	if condition.Status != "True" {
 		return nil, fmt.Errorf("service not ready: %s", condition)
 	}
-	return &api.DeployResponse{}, nil
+	return &api.ServiceDeployResponse{}, nil
 }
 
 func validateService(manifest []byte, svc *serviceConfig) error {

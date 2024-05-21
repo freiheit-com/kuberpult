@@ -669,11 +669,11 @@ message GetManifestsResponse {
 }
 
 service CloudRunService {
-  rpc Deploy (ServiceManifest) returns (DeployResponse) {}
+  rpc Deploy (ServiceDeployRequest) returns (ServiceDeployResponse) {}
 }
 
-message ServiceManifest {
+message ServiceDeployRequest {
     bytes manifest = 1;
 }
 
-message DeployResponse {}
+message ServiceDeployResponse {}
