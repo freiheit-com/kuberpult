@@ -54,8 +54,7 @@ func Init(ctx context.Context) error {
 type CloudRunService struct{}
 
 func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceDeployRequest) (*api.ServiceDeployResponse, error) {
-	var svc serviceConfig
-	err := validateService(in.Manifest, &svc)
+	svc, err := validateService(in.Manifest)
 	if err != nil {
 		return nil, err
 	}
@@ -97,32 +96,33 @@ func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceDeployReque
 	return &api.ServiceDeployResponse{}, nil
 }
 
-func validateService(manifest []byte, svc *serviceConfig) error {
+func validateService(manifest []byte) (*serviceConfig, error) {
+	var svc serviceConfig
 	err := parser.ParseManifest(manifest, &svc.Config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if svc.Config.Metadata == nil {
-		return serviceManifestError{
+		return nil, serviceManifestError{
 			metadataMissing: true,
 			nameEmpty:       false,
 		}
 	}
 	serviceName := svc.Config.Metadata.Name
 	if serviceName == "" {
-		return serviceManifestError{
+		return nil, serviceManifestError{
 			nameEmpty:       true,
 			metadataMissing: false}
 	}
 	// Get the full path of the project. Example: projects/<project-id>/locations/<region>
 	parent, err := getParent(&svc.Config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	svc.Name = serviceName
 	svc.Parent = parent
 	svc.Path = fmt.Sprintf("%s/services/%s", parent, serviceName)
-	return nil
+	return &svc, nil
 }
 func GetServiceReadyCondition(serviceCallResponse *run.Service) (ServiceReadyCondition, error) {
 	//exhaustruct:ignore
