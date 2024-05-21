@@ -299,3 +299,106 @@ func TestGetOperationId(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateService(t *testing.T) {
+	for _, test := range []struct {
+		testName              string
+		manifest              []byte
+		expectedError         error
+		expectedServiceConfig *serviceConfig
+	}{
+		{
+			testName:              "Empty manifest",
+			manifest:              []byte(""),
+			expectedError:         serviceManifestError{metadataMissing: true, nameEmpty: false},
+			expectedServiceConfig: nil,
+		},
+		{
+			testName: "Missing metadata",
+			manifest: []byte(`
+apiVersion: serving.knative.dev/v1
+kind: Service
+spec:
+  template:
+    metadata:
+      labels:
+        service_label: value
+      annotations:
+        service_annotation: value
+    spec:
+      containerConcurrency: 2
+      timeoutSeconds: 20
+      serviceAccountName: test@test
+      containers:
+      - image: image.uri:image.tag
+        ports:
+        - name: http1
+          containerPort: 8080
+        env:
+        - name: ENV_VAR_1
+          value: '8080'
+        resources:
+          limits:
+            cpu: '1'
+            memory: 512Gi
+`),
+			expectedError:         serviceManifestError{metadataMissing: true, nameEmpty: false},
+			expectedServiceConfig: nil,
+		},
+		{
+			testName: "Empty service name",
+			manifest: []byte(`
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name:
+  namespace: gcp-proj
+  labels:
+  cloud.googleapis.com/location: value1
+`),
+			expectedError:         serviceManifestError{metadataMissing: false, nameEmpty: true},
+			expectedServiceConfig: nil,
+		},
+		{
+			testName: "Metadata exists and service name not empty",
+			manifest: []byte(`
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: test-service
+  namespace: gcp-proj
+  labels:
+    cloud.googleapis.com/location: value1
+`),
+			expectedError: nil,
+			expectedServiceConfig: &serviceConfig{
+				Name:   "test-service",
+				Parent: "projects/gcp-proj/locations/value1",
+				Path:   "projects/gcp-proj/locations/value1/services/test-service",
+				Config: run.Service{
+					ApiVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
+					Metadata: &run.ObjectMeta{
+						Name:      "test-service",
+						Namespace: "gcp-proj",
+						Labels: map[string]string{
+							"cloud.googleapis.com/location": "value1",
+						},
+					},
+				},
+			},
+		},
+	} {
+		testCase := test
+		t.Run(testCase.testName, func(t *testing.T) {
+			t.Parallel()
+			svc, err := validateService(testCase.manifest)
+			if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(testCase.expectedServiceConfig, svc); diff != "" {
+				t.Errorf("service config mismatch (-want, +got):\n%s:", diff)
+			}
+		})
+	}
+}
