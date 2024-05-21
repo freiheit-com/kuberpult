@@ -5,7 +5,7 @@ set -x
 
 
 team=${1}
-env=development
+env=${2:-development}
 lockId=test${RANDOM}
 
 url="http://localhost:8081/api/environments/${env}/lock/team/${team}/${lockId}"

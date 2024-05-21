@@ -224,7 +224,83 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			},
 			ExpectedError: codes.OK,
 		},
-
+		{
+			Name: "some application is skipped because of team lock",
+			Setup: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[string]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+					Team: "sre-team",
+				},
+				&rp.CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[string]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+					Team: "sre-team",
+				},
+				&rp.DeployApplicationVersion{
+					Environment: "development-1",
+					Application: "potato-app",
+					Version:     2,
+				},
+				&rp.DeployApplicationVersion{
+					Environment: "staging-1",
+					Application: "potato-app",
+					Version:     1,
+				},
+				&rp.CreateEnvironmentTeamLock{
+					Environment: "staging-1",
+					Team:        "sre-team",
+					LockId:      "staging-1-sre-team-lock",
+				},
+			},
+			Request: &api.ReleaseTrainRequest{
+				Target: "staging",
+			},
+			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"staging-1": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"potato-app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
+										},
+									},
+								},
+							},
+						},
+					},
+					"staging-2": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"potato-app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+										},
+									},
+								},
+							},
+						},
+					},
+					"staging-3": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{},
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: codes.OK,
+		},
 		{
 			Name: "proper release train",
 			Setup: []rp.Transformer{
