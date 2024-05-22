@@ -459,6 +459,40 @@ cd:
 				},
 			},
 		},
+		{
+			Name: "Test default releaseVersionsLimit",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_RELEASE_VERSIONS_LIMIT",
+					Value: "20",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test overwriting releaseVersionsLimit",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  releaseVersionsLimit: 15
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_RELEASE_VERSIONS_LIMIT",
+					Value: "15",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {

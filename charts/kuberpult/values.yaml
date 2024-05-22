@@ -89,6 +89,9 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
+# The maximum number of application release versions to keep a history of. The value must be within the limit: 5 <= n <= 30.
+# Values outside of the range will fail the service during startup.
+  releaseVersionsLimit: 20
 # The Database is not ready for use on production and the helm options might change in the near future.
   db:
     location: "127.0.0.1"
