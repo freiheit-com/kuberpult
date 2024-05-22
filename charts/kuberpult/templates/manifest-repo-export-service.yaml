@@ -163,7 +163,18 @@ spec:
         - name: DD_API_KEY_LOCATION
           value: "/etc/datadog/api-key"
 {{- end }}
-
+        - name: KUBERPULT_DB_LOCATION
+          value: "{{ .Values.cd.db.location }}"
+        - name: KUBERPULT_DB_NAME
+          value: "{{ .Values.cd.db.dbName }}"
+        - name: KUBERPULT_DB_USER_NAME
+          value: "{{ .Values.cd.db.dbUser }}"
+        - name: KUBERPULT_DB_USER_PASSWORD
+          value: "{{ .Values.cd.db.dbPassword }}"
+        - name: KUBERPULT_DB_OPTION # { NO_DB, cloudsql, sqlite }
+          value: {{ .Values.cd.db.dbOption }}
+        - name: KUBERPULT_DB_AUTH_PROXY_PORT
+          value: "{{ .Values.cd.db.authProxyPort }}"
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"
