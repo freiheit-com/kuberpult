@@ -260,6 +260,8 @@ spec:
           value: "{{ .Values.cd.allowLongAppNames }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.cd.releaseVersionsLimit }}"
+        - name: KUBERPULT_GARBAGE_COLLECTION_FREQUENCY
+          value: "{{ .Values.cd.garbageCollectionFrequency }}"
         volumeMounts:
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
         - name: migrations

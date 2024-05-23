@@ -501,6 +501,40 @@ cd:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test default garbageCollectionFrequency",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
+					Value: "20",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test overwriting garbageCollectionFrequency",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  garbageCollectionFrequency: 15
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
+					Value: "15",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
