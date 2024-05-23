@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"io"
 	"net/http"
 	"os"
@@ -37,6 +36,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -1420,7 +1421,7 @@ func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
 }
 
 func (r *repository) maybeGc(ctx context.Context) {
-	if r.config.StorageBackend == SqliteBackend || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
+	if r.config.StorageBackend == SqliteBackend || r.writesDone < r.config.GcFrequency {
 		return
 	}
 	log := logger.FromContext(ctx)

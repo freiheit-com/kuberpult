@@ -19,11 +19,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -48,7 +49,11 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-const datadogNameCd = "kuberpult-cd-service"
+const (
+	datadogNameCd           = "kuberpult-cd-service"
+	minReleaseVersionsLimit = 5
+	maxReleaseVersionsLimit = 30
+)
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
@@ -91,6 +96,7 @@ type Config struct {
 	DbMigrationsLocation     string        `default:"" split_words:"true"`
 	DexDefaultRoleEnabled    bool          `default:"false" split_words:"true"`
 	DbWriteEslTableOnly      bool          `default:"false" split_words:"true"`
+	ReleaseVersionsLimit     uint          `default:"20" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -202,7 +208,11 @@ func RunServer() {
 				zap.String("details", "the size of the queue must be between 2 and 100"),
 			)
 		}
-
+		if !c.EnableSqlite && (c.ReleaseVersionsLimit < minReleaseVersionsLimit || c.ReleaseVersionsLimit > maxReleaseVersionsLimit) {
+			logger.FromContext(ctx).Fatal("cd.config",
+				zap.String("details", fmt.Sprintf("releaseVersionsLimit: %d, must be within %d and %d", c.ReleaseVersionsLimit, minReleaseVersionsLimit, maxReleaseVersionsLimit)),
+			)
+		}
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg db.DBConfig
@@ -260,7 +270,7 @@ func RunServer() {
 				KnownHostsFile: c.GitSshKnownHosts,
 			},
 			Branch:                 c.GitBranch,
-			GcFrequency:            20,
+			GcFrequency:            c.ReleaseVersionsLimit,
 			BootstrapMode:          c.BootstrapMode,
 			EnvironmentConfigsPath: "./environment_configs.json",
 			StorageBackend:         c.storageBackend(),

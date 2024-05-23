@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"io"
 	"io/fs"
 	"net/http"
@@ -35,6 +33,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"go.uber.org/zap"
@@ -887,27 +888,34 @@ func TestGc(t *testing.T) {
 		ExpectedGarbageMax uint64
 	}{
 		{
-			// 0 disables GC entirely
-			// we are reasonably expecting some additional files around
-			Name:               "gc disabled",
-			GcFrequency:        0,
+			// we are going to perform 101 requests, which should trigger gc every N*GcFrequency writes.
+			// The number of objects is not constant per write, so we set a range of expected count of objects based on the number of writes after GC.
+			// ExpectedGarbageMin = (101 % GcFrequency)
+			// ExpectedGarbageMax = 10 * ExpectedGarbageMin
+			Name:               "minimum value for gc",
+			GcFrequency:        5,
 			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 906,
-			ExpectedGarbageMax: 1500,
+			ExpectedGarbageMin: 1,
+			ExpectedGarbageMax: 10,
 		},
 		{
-			// we are going to perform 101 requests, that should trigger a gc
-			// the number of additional files should be lower than in the case above
-			Name:               "gc enabled",
-			GcFrequency:        100,
+			Name:               "value for gc within the limit",
+			GcFrequency:        19,
 			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 9,
-			ExpectedGarbageMax: 10,
+			ExpectedGarbageMin: 6,
+			ExpectedGarbageMax: 60,
+		},
+		{
+			Name:               "maximum value for gc",
+			GcFrequency:        30,
+			StorageBackend:     GitBackend,
+			ExpectedGarbageMin: 11,
+			ExpectedGarbageMax: 110,
 		},
 		{
 			// enabling sqlite should bring the number of loose files down to 0
 			Name:               "sqlite",
-			GcFrequency:        0, // the actual number here doesn't matter. GC is not run when sqlite is in use
+			GcFrequency:        0, // Even though GcFrequency of 0 is not allowed, it is not considered here because we are enabling sqlite
 			StorageBackend:     SqliteBackend,
 			ExpectedGarbageMin: 0,
 			ExpectedGarbageMax: 0,
