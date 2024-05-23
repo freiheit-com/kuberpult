@@ -892,30 +892,23 @@ func TestGc(t *testing.T) {
 			// The number of objects is not constant per write, so we set a range of expected count of objects based on the number of writes after GC.
 			// ExpectedGarbageMin = (101 % GcFrequency)
 			// ExpectedGarbageMax = 10 * ExpectedGarbageMin
-			Name:               "minimum value for gc",
-			GcFrequency:        5,
+			Name:               "gc disabled",
+			GcFrequency:        0,
+			StorageBackend:     GitBackend,
+			ExpectedGarbageMin: 101,
+			ExpectedGarbageMax: 1010,
+		},
+		{
+			Name:               "gc enabled",
+			GcFrequency:        25,
 			StorageBackend:     GitBackend,
 			ExpectedGarbageMin: 1,
 			ExpectedGarbageMax: 10,
 		},
 		{
-			Name:               "value for gc within the limit",
-			GcFrequency:        19,
-			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 6,
-			ExpectedGarbageMax: 60,
-		},
-		{
-			Name:               "maximum value for gc",
-			GcFrequency:        30,
-			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 11,
-			ExpectedGarbageMax: 110,
-		},
-		{
 			// enabling sqlite should bring the number of loose files down to 0
 			Name:               "sqlite",
-			GcFrequency:        0, // Even though GcFrequency of 0 is not allowed, it is not considered here because we are enabling sqlite
+			GcFrequency:        0, // the actual number here doesn't matter. GC is not run when sqlite is in use
 			StorageBackend:     SqliteBackend,
 			ExpectedGarbageMin: 0,
 			ExpectedGarbageMax: 0,
