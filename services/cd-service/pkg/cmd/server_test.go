@@ -32,7 +32,6 @@ func TestCheckReleaseVersionLimit(t *testing.T) {
 		{
 			name: "versions limit equals the minimum allowed",
 			config: Config{
-				EnableSqlite:         false,
 				ReleaseVersionsLimit: minReleaseVersionsLimit,
 			},
 			expectedError: nil,
@@ -40,7 +39,6 @@ func TestCheckReleaseVersionLimit(t *testing.T) {
 		{
 			name: "versions limit equals the maximum allowed",
 			config: Config{
-				EnableSqlite:         false,
 				ReleaseVersionsLimit: maxReleaseVersionsLimit,
 			},
 			expectedError: nil,
@@ -48,7 +46,6 @@ func TestCheckReleaseVersionLimit(t *testing.T) {
 		{
 			name: "default versions limit",
 			config: Config{
-				EnableSqlite:         false,
 				ReleaseVersionsLimit: 20,
 			},
 			expectedError: nil,
@@ -56,7 +53,6 @@ func TestCheckReleaseVersionLimit(t *testing.T) {
 		{
 			name: "versions limit below minimum",
 			config: Config{
-				EnableSqlite:         false,
 				ReleaseVersionsLimit: 3,
 			},
 			expectedError: releaseVersionsLimitError{limit: 3},
@@ -64,32 +60,15 @@ func TestCheckReleaseVersionLimit(t *testing.T) {
 		{
 			name: "versions limit above maximum",
 			config: Config{
-				EnableSqlite:         false,
 				ReleaseVersionsLimit: 45,
 			},
 			expectedError: releaseVersionsLimitError{limit: 45},
-		},
-		{
-			name: "sqlite enabled with versions limit within range",
-			config: Config{
-				EnableSqlite:         true,
-				ReleaseVersionsLimit: 20,
-			},
-			expectedError: nil,
-		},
-		{
-			name: "sqlite enabled with versions limit out of range",
-			config: Config{
-				EnableSqlite:         true,
-				ReleaseVersionsLimit: 45,
-			},
-			expectedError: nil,
 		},
 	} {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := checkReleaseVersionLimit(tc.config)
+			err := checkReleaseVersionLimit(tc.config.ReleaseVersionsLimit)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}

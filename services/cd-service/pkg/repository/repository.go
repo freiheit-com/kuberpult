@@ -191,8 +191,10 @@ type RepositoryConfig struct {
 	// network timeout
 	NetworkTimeout time.Duration
 	//
-	GcFrequency    uint
-	StorageBackend StorageBackend
+	GcFrequency uint
+	// number of app versions to keep a history of
+	ReleaseVersionsLimit uint
+	StorageBackend       StorageBackend
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
@@ -375,6 +377,10 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	}
 	if cfg.MaximumQueueSize == 0 {
 		cfg.MaximumQueueSize = 5
+	}
+	// The value here is set to keptVersionsOnCleanup to maintain compatibility with tests that do not pass ReleaseVersionsLimit in the repository config
+	if cfg.ReleaseVersionsLimit == 0 {
+		cfg.ReleaseVersionsLimit = keptVersionsOnCleanup
 	}
 
 	var credentials *credentialsStore
@@ -1331,6 +1337,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+						ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 						DBHandler:              r.DB,
 					}, nil
 				}
@@ -1354,6 +1361,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+		ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 		DBHandler:              r.DB,
 	}, nil
 }
@@ -1421,7 +1429,7 @@ func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
 }
 
 func (r *repository) maybeGc(ctx context.Context) {
-	if r.config.StorageBackend == SqliteBackend || r.writesDone < r.config.GcFrequency {
+	if r.config.StorageBackend == SqliteBackend || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
 		return
 	}
 	log := logger.FromContext(ctx)
@@ -1444,6 +1452,7 @@ type State struct {
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	ReleaseVersionsLimit   uint
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }
