@@ -208,9 +208,9 @@ func RunServer() {
 				zap.String("details", "the size of the queue must be between 2 and 100"),
 			)
 		}
-		if !c.EnableSqlite && (c.ReleaseVersionsLimit < minReleaseVersionsLimit || c.ReleaseVersionsLimit > maxReleaseVersionsLimit) {
+		if err := checkReleaseVersionLimit(c); err != nil {
 			logger.FromContext(ctx).Fatal("cd.config",
-				zap.String("details", fmt.Sprintf("releaseVersionsLimit: %d, must be within %d and %d", c.ReleaseVersionsLimit, minReleaseVersionsLimit, maxReleaseVersionsLimit)),
+				zap.String("details", err.Error()),
 			)
 		}
 		var dbHandler *db.DBHandler = nil
@@ -392,4 +392,23 @@ func RunServer() {
 	if err != nil {
 		fmt.Printf("error in logger.wrap: %v %#v", err, err)
 	}
+}
+
+type releaseVersionsLimitError struct {
+	limit uint
+}
+
+func (s releaseVersionsLimitError) Error() string {
+	return fmt.Sprintf("releaseVersionsLimit: %d, must be between %d and %d", s.limit, minReleaseVersionsLimit, maxReleaseVersionsLimit)
+}
+
+func checkReleaseVersionLimit(config Config) error {
+	if config.EnableSqlite {
+		return nil
+	}
+	versionLimit := config.ReleaseVersionsLimit
+	if versionLimit < minReleaseVersionsLimit || versionLimit > maxReleaseVersionsLimit {
+		return releaseVersionsLimitError{limit: versionLimit}
+	}
+	return nil
 }
