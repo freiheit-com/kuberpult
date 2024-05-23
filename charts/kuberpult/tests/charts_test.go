@@ -34,6 +34,7 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) string {
 	testId := strconv.Itoa(rand.Intn(9999))
 	tempValuesFile := "vals" + "_" + testId + ".yaml"
 	tempValuesFile = dirName + "/" + tempValuesFile
+	t.Logf("input file: \n%s\n", valuesData)
 
 	err := os.WriteFile(tempValuesFile, valuesData, 0644)
 	if err != nil {
@@ -47,6 +48,13 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) string {
 	if err != nil {
 		t.Fatalf("Error executing helm: Helm output: '%s'\nError: %v\n", string(execOutput), err)
 	}
+
+	fileContent, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Error reading file '%s' content: \n%s\n", outputFile, string(fileContent))
+		return ""
+	}
+	t.Logf("output file: \n%s\n", fileContent)
 
 	return outputFile
 }
@@ -381,7 +389,7 @@ cd:
 			},
 		},
 		{
-			Name: "Database cloudsql enabled",
+			Name: "Database cloudsql enabled 1",
 			Values: `
 git:
   url: "testURL"
@@ -420,7 +428,7 @@ cd:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Database cloudsql enabled",
+			Name: "Database cloudsql enabled 2",
 			Values: `
 git:
   url: "testURL"
