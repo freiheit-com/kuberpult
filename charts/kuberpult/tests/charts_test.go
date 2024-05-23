@@ -488,10 +488,9 @@ ingress:
 			Values: `
 git:
   url: "testURL"
+  releaseVersionsLimit: 15
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  releaseVersionsLimit: 15
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -522,10 +521,9 @@ ingress:
 			Values: `
 git:
   url: "testURL"
+  garbageCollectionFrequency: 15
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  garbageCollectionFrequency: 15
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
