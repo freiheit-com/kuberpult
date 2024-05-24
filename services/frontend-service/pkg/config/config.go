@@ -53,6 +53,7 @@ type ServerConfig struct {
 	MaxWaitDuration                    time.Duration `default:"10m" split_words:"true"`
 	ApiEnableDespiteNoAuth             bool          `default:"false" split_words:"true"`
 	IapEnabled                         bool          `default:"false" split_words:"true"`
+	GrpcMaxRecvMsgSize                 int           `default:"4" split_words:"true"`
 }
 
 type FrontendConfig struct {

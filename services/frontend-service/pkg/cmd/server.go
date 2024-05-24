@@ -60,6 +60,8 @@ import (
 var c config.ServerConfig
 var backendServiceId string = ""
 
+const megaBytes int = 1024 * 1024
+
 func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 	if c.GKEBackendServiceID == "" && c.GKEBackendServiceName == "" {
 		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! missing backend_service_id or backend_service_name")
@@ -155,6 +157,7 @@ func runServer(ctx context.Context) error {
 	logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 	logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 	logger.FromContext(ctx).Info("config.gke_backend_service_name: " + c.GKEBackendServiceName + "\n")
+	logger.FromContext(ctx).Info(fmt.Sprintf("config.grpc_max_recv_msg_size: %d", c.GrpcMaxRecvMsgSize*megaBytes))
 
 	if c.GKEProjectNumber != "" {
 		backendServiceId = getBackendServiceId(c, ctx)
@@ -260,6 +263,7 @@ func runServer(ctx context.Context) error {
 	gsrv := grpc.NewServer(
 		grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 		grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
+		grpc.MaxRecvMsgSize(c.GrpcMaxRecvMsgSize*megaBytes),
 	)
 	cdCon, err := grpc.Dial(c.CdServer, grpcClientOpts...)
 	if err != nil {
