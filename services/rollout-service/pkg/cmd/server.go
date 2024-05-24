@@ -136,7 +136,7 @@ func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClie
 
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(cred),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(config.GrpcMaxRecvMsgSize*megaBytes)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(config.GrpcMaxRecvMsgSize * megaBytes)),
 	}
 	if config.EnableTracing {
 		grpcClientOpts = append(grpcClientOpts,
