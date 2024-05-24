@@ -1837,7 +1837,6 @@ func (c *QueueApplicationVersion) Transform(
 		return "", err
 	}
 
-	// TODO SU: maybe check here if that version is already deployed? or somewhere else ... or not at all...
 	return fmt.Sprintf("Queued version %d of app %q in env %q", c.Version, c.Application, c.Environment), nil
 }
 

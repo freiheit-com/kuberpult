@@ -196,12 +196,7 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 	return repo2, err
 }
 
-// Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
-	return New2(ctx, cfg)
-}
-
-func New2(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	logger := logger.FromContext(ctx)
 
 	if cfg.Branch == "" {
@@ -455,7 +450,6 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 	} else {
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
-		ctxWithTime := WithTimeNow(ctx, time.Now())
 		for i, t := range transformers {
 			if r.DB != nil && transaction == nil {
 				applyErr := TransformerBatchApplyError{
@@ -464,7 +458,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				return nil, nil, nil, &applyErr
 			}
-			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
+			if msg, subChanges, err := RunTransformer(ctx, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
 					TransformerError: err,
 					Index:            i,
@@ -560,19 +554,12 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 		When:  time.Now(),
 	}
 
-	// TODO SU
+	// TODO this will be handled in Ref SRX-PA568W
 	user := auth.User{
 		Email:          "invalid@example.com",
 		Name:           "invalid",
 		DexAuthContext: nil,
 	}
-	//user, readUserErr := auth.ReadUserFromContext(ctx)
-	//if readUserErr != nil {
-	//	return nil, &TransformerBatchApplyError{
-	//		TransformerError: readUserErr,
-	//		Index:            -1,
-	//	}
-	//}
 
 	author := &git.Signature{
 		Name:  user.Name,

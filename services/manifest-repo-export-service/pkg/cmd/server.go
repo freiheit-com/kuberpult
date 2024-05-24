@@ -129,8 +129,8 @@ func RunServer() {
 			cfg := repository.RepositoryConfig{
 				URL:            gitUrl,
 				Path:           "./repository",
-				CommitterEmail: "noemail@example.com",
-				CommitterName:  "nonmae",
+				CommitterEmail: "noemail@example.com", // TODO will be handled in Ref SRX-PA568W
+				CommitterName:  "noname",
 				Credentials: repository.Credentials{
 					SshKey: gitSshKey,
 				},
@@ -228,8 +228,6 @@ func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log
 	}
 }
 
-const ignoreUnknownEvents = true
-
 func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.EslEventRow, tx *sql.Tx) (repository.Transformer, error) {
 	if esl == nil {
 		return nil, fmt.Errorf("esl event nil")
@@ -243,18 +241,18 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 		// no error, but also no transformer to process:
 		return nil, nil
 	}
-	logger.FromContext(ctx).Sugar().Warnf("processEslEvent: unmarshal \n%s\n", esl.EventJson)
+	logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s\n", esl.EventJson)
 	err = json.Unmarshal(([]byte)(esl.EventJson), &t)
 	if err != nil {
 		return nil, err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
+	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
 
 	err = repo.Apply(ctx, tx, t)
 	if err != nil {
 		return nil, fmt.Errorf("error while running repo apply: %v", err)
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Applied transformer succesfully event=%s", t.GetDBEventType())
+	logger.FromContext(ctx).Sugar().Infof("Applied transformer succesfully event=%s", t.GetDBEventType())
 	return t, nil
 }
 
@@ -265,12 +263,8 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 		//exhaustruct:ignore
 		return &repository.DeployApplicationVersion{}, nil
 	default:
-		if ignoreUnknownEvents {
-			logger.FromContext(ctx).Sugar().Infof("ignoring unknown event %s", eslEventType)
-			return nil, nil
-		} else {
-			return nil, fmt.Errorf("could not process event, unknown type %s", eslEventType)
-		}
+		logger.FromContext(ctx).Sugar().Infof("ignoring unknown event %s", eslEventType)
+		return nil, nil
 	}
 }
 

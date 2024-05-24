@@ -685,7 +685,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 
 	// Apply the items
 	var tx *sql.Tx = nil
-	logger.Sugar().Warnf("ProcessQueueOnce: ShouldUseEslTable: %t", r.DB.ShouldUseEslTable())
 	if r.DB.ShouldUseEslTable() {
 		var txErr error
 		tx, txErr = r.DB.DB.BeginTx(ctx, nil)
@@ -1004,7 +1003,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				return nil, nil, nil, &applyErr
 			}
-			logger.FromContext(ctx).Sugar().Warnf("writing esl event...")
+			logger.FromContext(ctx).Info("writing esl event...")
 			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t)
 			if err != nil {
 				return nil, nil, nil, &TransformerBatchApplyError{
@@ -1090,7 +1089,6 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 }
 
 func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
-	logger.FromContext(ctx).Sugar().Warnf("ApplyTransformers: transaction != nil: %t", transaction != nil)
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
@@ -1924,6 +1922,8 @@ func (s *State) GetApplicationsFromFile() ([]string, error) {
 
 // GetCurrentlyDeployed returns all apps that have current deployments on any env from the filesystem
 func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (db.AllDeployments, error) {
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentlyDeployed")
+	defer ddSpan.Finish()
 	var result = db.AllDeployments{}
 	_, envNames, err := s.GetEnvironmentConfigsSorted()
 	if err != nil {

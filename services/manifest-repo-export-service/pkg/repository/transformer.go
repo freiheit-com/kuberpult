@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"io"
 	"os"
@@ -192,43 +191,7 @@ func (c *QueueApplicationVersion) Transform(
 		return "", err
 	}
 
-	// TODO SU: maybe check here if that version is already deployed? or somewhere else ... or not at all...
 	return fmt.Sprintf("Queued version %d of app %q in env %q", c.Version, c.Application, c.Environment), nil
-}
-
-// either the groupName is set in the config, or we use the envName as a default
-func DeriveGroupName(env config.EnvironmentConfig, envName string) string {
-	var groupName = env.EnvironmentGroup
-	if groupName == nil {
-		groupName = &envName
-	}
-	return *groupName
-}
-
-func (s *State) checkUserPermissions(ctx context.Context, env, application, action, team string, RBACConfig auth.RBACConfig) error {
-	if !RBACConfig.DexEnabled {
-		return nil
-	}
-	user, err := auth.ReadUserFromContext(ctx)
-	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
-	}
-
-	envs, err := s.GetEnvironmentConfigs()
-	if err != nil {
-		return err
-	}
-	var group string
-	for envName, config := range envs {
-		if envName == env {
-			group = DeriveGroupName(config, env)
-			break
-		}
-	}
-	if group == "" {
-		return fmt.Errorf("group not found for environment: %s", env)
-	}
-	return auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
 }
 
 type DeployApplicationVersion struct {
@@ -257,10 +220,6 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig)
-	if err != nil {
-		return "", err
-	}
 	fs := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
@@ -360,7 +319,7 @@ func (c *DeployApplicationVersion) Transform(
 
 	existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
 	if err != nil {
-		return "", fmt.Errorf("could not find deployment: %v", err)
+		return "", fmt.Errorf("error while retrieving deployment: %v", err)
 	}
 
 	logger.FromContext(ctx).Sugar().Warnf("writing deployed name...")
