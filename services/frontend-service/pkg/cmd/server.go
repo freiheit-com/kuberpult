@@ -187,6 +187,7 @@ func runServer(ctx context.Context) error {
 
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(cred),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(c.GrpcMaxRecvMsgSize * megaBytes)),
 	}
 
 	if c.EnableTracing {

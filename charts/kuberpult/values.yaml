@@ -167,6 +167,8 @@ rollout:
     requests:
       cpu: 500m
       memory: 250Mi
+  # The maximum message size in mega bytes the client can receive.
+  grpcMaxRecvMsgSize: 4
   # annotations given here will take precedence over the defaults defined in _helpers.tpl
   podAnnotations: {}
 

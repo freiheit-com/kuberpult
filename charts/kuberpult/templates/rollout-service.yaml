@@ -153,6 +153,8 @@ spec:
               key: KUBERPULT_REVOLUTION_DORA_TOKEN
         - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
           value: "2h"
+        - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
+          value: "{{ .Values.rollout.grpcMaxRecvMsgSize }}"
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp
