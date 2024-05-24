@@ -467,6 +467,72 @@ cd:
 				},
 			},
 		},
+		{
+			Name: "Test default releaseVersionsLimit",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_RELEASE_VERSIONS_LIMIT",
+					Value: "20",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test overwriting releaseVersionsLimit",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_RELEASE_VERSIONS_LIMIT",
+					Value: "15",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test default garbageCollectionFrequency",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
+					Value: "20",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test overwriting garbageCollectionFrequency",
+			Values: `
+git:
+  url: "testURL"
+  garbageCollectionFrequency: 15
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
+					Value: "15",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {

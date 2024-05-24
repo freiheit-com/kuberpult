@@ -19,11 +19,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -48,49 +49,55 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-const datadogNameCd = "kuberpult-cd-service"
+const (
+	datadogNameCd           = "kuberpult-cd-service"
+	minReleaseVersionsLimit = 5
+	maxReleaseVersionsLimit = 30
+)
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl                   string        `required:"true" split_words:"true"`
-	GitBranch                string        `default:"master" split_words:"true"`
-	BootstrapMode            bool          `default:"false" split_words:"true"`
-	GitCommitterEmail        string        `default:"kuberpult@freiheit.com" split_words:"true"`
-	GitCommitterName         string        `default:"kuberpult" split_words:"true"`
-	GitSshKey                string        `default:"/etc/ssh/identity" split_words:"true"`
-	GitSshKnownHosts         string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
-	GitNetworkTimeout        time.Duration `default:"1m" split_words:"true"`
-	GitWriteCommitData       bool          `default:"false" split_words:"true"`
-	PgpKeyRingPath           string        `split_words:"true"`
-	AzureEnableAuth          bool          `default:"false" split_words:"true"`
-	DexEnabled               bool          `default:"false" split_words:"true"`
-	DexRbacPolicyPath        string        `split_words:"true"`
-	EnableTracing            bool          `default:"false" split_words:"true"`
-	EnableMetrics            bool          `default:"false" split_words:"true"`
-	EnableEvents             bool          `default:"false" split_words:"true"`
-	DogstatsdAddr            string        `default:"127.0.0.1:8125" split_words:"true"`
-	EnableProfiling          bool          `default:"false" split_words:"true"`
-	DatadogApiKeyLocation    string        `default:"" split_words:"true"`
-	EnableSqlite             bool          `default:"true" split_words:"true"`
-	DexMock                  bool          `default:"false" split_words:"true"`
-	DexMockRole              string        `default:"Developer" split_words:"true"`
-	ArgoCdServer             string        `default:"" split_words:"true"`
-	ArgoCdInsecure           bool          `default:"false" split_words:"true"`
-	GitWebUrl                string        `default:"" split_words:"true"`
-	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
-	MaximumQueueSize         uint          `default:"5" split_words:"true"`
-	AllowLongAppNames        bool          `default:"false" split_words:"true"`
-	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
-	DbOption                 string        `default:"NO_DB" split_words:"true"`
-	DbLocation               string        `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance       string        `default:"" split_words:"true"`
-	DbName                   string        `default:"" split_words:"true"`
-	DbUserName               string        `default:"" split_words:"true"`
-	DbUserPassword           string        `default:"" split_words:"true"`
-	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
-	DbMigrationsLocation     string        `default:"" split_words:"true"`
-	DexDefaultRoleEnabled    bool          `default:"false" split_words:"true"`
-	DbWriteEslTableOnly      bool          `default:"false" split_words:"true"`
+	GitUrl                     string        `required:"true" split_words:"true"`
+	GitBranch                  string        `default:"master" split_words:"true"`
+	BootstrapMode              bool          `default:"false" split_words:"true"`
+	GitCommitterEmail          string        `default:"kuberpult@freiheit.com" split_words:"true"`
+	GitCommitterName           string        `default:"kuberpult" split_words:"true"`
+	GitSshKey                  string        `default:"/etc/ssh/identity" split_words:"true"`
+	GitSshKnownHosts           string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
+	GitNetworkTimeout          time.Duration `default:"1m" split_words:"true"`
+	GitWriteCommitData         bool          `default:"false" split_words:"true"`
+	PgpKeyRingPath             string        `split_words:"true"`
+	AzureEnableAuth            bool          `default:"false" split_words:"true"`
+	DexEnabled                 bool          `default:"false" split_words:"true"`
+	DexRbacPolicyPath          string        `split_words:"true"`
+	EnableTracing              bool          `default:"false" split_words:"true"`
+	EnableMetrics              bool          `default:"false" split_words:"true"`
+	EnableEvents               bool          `default:"false" split_words:"true"`
+	DogstatsdAddr              string        `default:"127.0.0.1:8125" split_words:"true"`
+	EnableProfiling            bool          `default:"false" split_words:"true"`
+	DatadogApiKeyLocation      string        `default:"" split_words:"true"`
+	EnableSqlite               bool          `default:"true" split_words:"true"`
+	DexMock                    bool          `default:"false" split_words:"true"`
+	DexMockRole                string        `default:"Developer" split_words:"true"`
+	ArgoCdServer               string        `default:"" split_words:"true"`
+	ArgoCdInsecure             bool          `default:"false" split_words:"true"`
+	GitWebUrl                  string        `default:"" split_words:"true"`
+	GitMaximumCommitsPerPush   uint          `default:"1" split_words:"true"`
+	MaximumQueueSize           uint          `default:"5" split_words:"true"`
+	AllowLongAppNames          bool          `default:"false" split_words:"true"`
+	ArgoCdGenerateFiles        bool          `default:"true" split_words:"true"`
+	DbOption                   string        `default:"NO_DB" split_words:"true"`
+	DbLocation                 string        `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance         string        `default:"" split_words:"true"`
+	DbName                     string        `default:"" split_words:"true"`
+	DbUserName                 string        `default:"" split_words:"true"`
+	DbUserPassword             string        `default:"" split_words:"true"`
+	DbAuthProxyPort            string        `default:"5432" split_words:"true"`
+	DbMigrationsLocation       string        `default:"" split_words:"true"`
+	DexDefaultRoleEnabled      bool          `default:"false" split_words:"true"`
+	DbWriteEslTableOnly        bool          `default:"false" split_words:"true"`
+	ReleaseVersionsLimit       uint          `default:"20" split_words:"true"`
+	GarbageCollectionFrequency uint          `default:"20" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -202,7 +209,11 @@ func RunServer() {
 				zap.String("details", "the size of the queue must be between 2 and 100"),
 			)
 		}
-
+		if err := checkReleaseVersionLimit(c.ReleaseVersionsLimit); err != nil {
+			logger.FromContext(ctx).Fatal("cd.config",
+				zap.String("details", err.Error()),
+			)
+		}
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg db.DBConfig
@@ -260,7 +271,8 @@ func RunServer() {
 				KnownHostsFile: c.GitSshKnownHosts,
 			},
 			Branch:                 c.GitBranch,
-			GcFrequency:            20,
+			GcFrequency:            c.GarbageCollectionFrequency,
+			ReleaseVersionsLimit:   c.ReleaseVersionsLimit,
 			BootstrapMode:          c.BootstrapMode,
 			EnvironmentConfigsPath: "./environment_configs.json",
 			StorageBackend:         c.storageBackend(),
@@ -382,4 +394,19 @@ func RunServer() {
 	if err != nil {
 		fmt.Printf("error in logger.wrap: %v %#v", err, err)
 	}
+}
+
+type releaseVersionsLimitError struct {
+	limit uint
+}
+
+func (s releaseVersionsLimitError) Error() string {
+	return fmt.Sprintf("releaseVersionsLimit: %d, must be between %d and %d", s.limit, minReleaseVersionsLimit, maxReleaseVersionsLimit)
+}
+
+func checkReleaseVersionLimit(limit uint) error {
+	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
+		return releaseVersionsLimitError{limit: limit}
+	}
+	return nil
 }

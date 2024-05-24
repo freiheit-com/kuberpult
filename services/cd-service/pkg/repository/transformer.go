@@ -22,12 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
@@ -37,6 +31,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
@@ -1216,10 +1217,10 @@ func findOldApplicationVersions(state *State, name string) ([]uint64, error) {
 		return versions[i] >= oldestDeployedVersion
 	})
 
-	if positionOfOldestVersion < (keptVersionsOnCleanup - 1) {
+	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
-	return versions[0 : positionOfOldestVersion-(keptVersionsOnCleanup-1)], err
+	return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], err
 }
 
 func (c *CleanupOldApplicationVersions) Transform(
@@ -1424,6 +1425,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
+		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err = fs.Stat(lockDir)
@@ -1623,6 +1625,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
+		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
 	}
 	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
@@ -1759,6 +1762,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
+		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
 	}
 	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
 		return "", err
@@ -2038,6 +2042,7 @@ func (c *DeployApplicationVersion) Transform(
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
+		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
 	}
 	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {

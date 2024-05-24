@@ -63,6 +63,12 @@ git:
   # We recommend values between 1 and 20.
   maximumCommitsPerPush: 5
 
+  # The maximum number of application release versions to keep a history of. The value must be within the limit: 5 <= n <= 30.
+  # Values outside of the range will fail the service during startup.
+  releaseVersionsLimit: 20
+  # garbageCollectionFrequency determines how often cd-service cleans up git objects. Set to 0 to turn it off.
+  garbageCollectionFrequency: 20
+
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
 log:

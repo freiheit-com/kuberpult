@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"io"
@@ -4560,15 +4561,17 @@ func TestTransformer(t *testing.T) {
 	c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
 
 	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		Test          func(t *testing.T, s *State)
-		ErrorTest     func(t *testing.T, err error)
-		BootstrapMode bool
+		Name                 string
+		ReleaseVersionsLimit uint
+		Transformers         []Transformer
+		Test                 func(t *testing.T, s *State)
+		ErrorTest            func(t *testing.T, err error)
+		BootstrapMode        bool
 	}{
 		{
-			Name:         "Create Versions and do not clean up because not enough versions",
-			Transformers: makeTransformersForDelete(3),
+			Name:                 "Create Versions and do not clean up because not enough versions",
+			ReleaseVersionsLimit: 20,
+			Transformers:         makeTransformersForDelete(3),
 			Test: func(t *testing.T, s *State) {
 				{
 					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
@@ -4592,15 +4595,16 @@ func TestTransformer(t *testing.T) {
 			},
 		},
 		{
-			Name:         "Create Versions and clean up because too many version",
-			Transformers: makeTransformersForDelete(keptVersionsOnCleanup),
+			Name:                 "Create Versions and clean up because too many version",
+			ReleaseVersionsLimit: 5,
+			Transformers:         makeTransformersForDelete(5),
 			Test: func(t *testing.T, s *State) {
 				{
 					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
 					if err != nil {
 						t.Fatal(err)
 					}
-					if prodVersion == nil || *prodVersion != keptVersionsOnCleanup {
+					if prodVersion == nil || *prodVersion != 5 {
 						t.Errorf("unexpected version: actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
@@ -4610,22 +4614,23 @@ func TestTransformer(t *testing.T) {
 						}
 					}
 					var v uint64
-					for v = 1; v <= keptVersionsOnCleanup; v++ {
+					for v = 1; v <= 5; v++ {
 						checkReleaseExists(v)
 					}
 				}
 			},
 		},
 		{
-			Name:         "Create Versions and clean up because too many version",
-			Transformers: makeTransformersForDelete(keptVersionsOnCleanup + additionalVersions),
+			Name:                 "Create Versions and clean up because too many version",
+			ReleaseVersionsLimit: 15,
+			Transformers:         makeTransformersForDelete(18),
 			Test: func(t *testing.T, s *State) {
 				{
 					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
 					if err != nil {
 						t.Fatal(err)
 					}
-					if prodVersion == nil || *prodVersion != keptVersionsOnCleanup+additionalVersions {
+					if prodVersion == nil || *prodVersion != 18 {
 						t.Errorf("unexpected version: actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
@@ -4646,10 +4651,10 @@ func TestTransformer(t *testing.T) {
 						}
 					}
 					var v uint64
-					for v = 1; v <= additionalVersions; v++ {
+					for v = 1; v <= 3; v++ {
 						checkReleaseDoesNotExists(v)
 					}
-					for v = additionalVersions + 1; v <= keptVersionsOnCleanup+additionalVersions; v++ {
+					for v = 3 + 1; v <= 18; v++ {
 						checkReleaseExists(v)
 					}
 				}
@@ -6128,12 +6133,13 @@ spec:
 			repo, err := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:                 remoteDir,
-					Path:                localDir,
-					CommitterEmail:      "kuberpult@freiheit.com",
-					CommitterName:       "kuberpult",
-					BootstrapMode:       tc.BootstrapMode,
-					ArgoCdGenerateFiles: true,
+					URL:                  remoteDir,
+					Path:                 localDir,
+					CommitterEmail:       "kuberpult@freiheit.com",
+					CommitterName:        "kuberpult",
+					BootstrapMode:        tc.BootstrapMode,
+					ArgoCdGenerateFiles:  true,
+					ReleaseVersionsLimit: tc.ReleaseVersionsLimit,
 				},
 			)
 			if err != nil {

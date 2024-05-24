@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"io"
 	"io/fs"
 	"net/http"
@@ -35,6 +33,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"go.uber.org/zap"
@@ -887,21 +888,21 @@ func TestGc(t *testing.T) {
 		ExpectedGarbageMax uint64
 	}{
 		{
-			// 0 disables GC entirely
-			// we are reasonably expecting some additional files around
+			// we are going to perform 101 requests, which should trigger gc every N*GcFrequency writes.
+			// The number of objects is not constant per write, so we set a range of expected count of objects based on the number of writes after GC.
+			// ExpectedGarbageMin = (101 % GcFrequency)
+			// ExpectedGarbageMax = 10 * ExpectedGarbageMin
 			Name:               "gc disabled",
 			GcFrequency:        0,
 			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 906,
-			ExpectedGarbageMax: 1500,
+			ExpectedGarbageMin: 101,
+			ExpectedGarbageMax: 1010,
 		},
 		{
-			// we are going to perform 101 requests, that should trigger a gc
-			// the number of additional files should be lower than in the case above
 			Name:               "gc enabled",
-			GcFrequency:        100,
+			GcFrequency:        25,
 			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 9,
+			ExpectedGarbageMin: 1,
 			ExpectedGarbageMax: 10,
 		},
 		{
