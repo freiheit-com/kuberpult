@@ -54,6 +54,8 @@ type Config struct {
 	CdServerSecure bool   `default:"false" split_words:"true"`
 	EnableTracing  bool   `default:"false" split_words:"true"`
 
+	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
+
 	ArgocdServer             string `split_words:"true"`
 	ArgocdInsecure           bool   `default:"false" split_words:"true"`
 	ArgocdToken              string `split_words:"true"`
@@ -118,6 +120,7 @@ func RunServer() {
 }
 
 func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClient, api.VersionServiceClient, error) {
+	const megaBytes int = 1024 * 1024
 	var cred credentials.TransportCredentials = insecure.NewCredentials()
 	if config.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
@@ -133,6 +136,7 @@ func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClie
 
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(cred),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(config.GrpcMaxRecvMsgSize*megaBytes)),
 	}
 	if config.EnableTracing {
 		grpcClientOpts = append(grpcClientOpts,
