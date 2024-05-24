@@ -506,7 +506,7 @@ type DeploymentMetadata struct {
 
 type AllDeployments []Deployment
 
-type GetAllDeploymentsFun = func() (AllDeployments, error)
+type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
 
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
@@ -656,7 +656,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 			return nil
 		}
 
-		allDeploymentsInRepo, err := getAllDeploymentsFun()
+		allDeploymentsInRepo, err := getAllDeploymentsFun(ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
 		}

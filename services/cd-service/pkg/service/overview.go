@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -170,8 +171,18 @@ func (o *OverviewServiceServer) getOverview(
 						}
 					} // Err != nil means no team name was found so no need to parse team locks
 
+					tx, err := s.DBHandler.DB.BeginTx(ctx, nil)
+					if err != nil {
+						return nil, err
+					}
+					defer func(tx *sql.Tx) {
+						_ = tx.Rollback()
+						// we ignore the error returned from Rollback() here,
+						// because it is always set when Commit() was successful
+					}(tx)
 					var version *uint64
-					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+					version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, tx)
+					if err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
 						if version == nil {
@@ -180,6 +191,11 @@ func (o *OverviewServiceServer) getOverview(
 							app.Version = *version
 						}
 					}
+					err = tx.Commit()
+					if err != nil {
+						return nil, err
+					}
+
 					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {

@@ -1095,7 +1095,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 	if applyErr != nil {
 		return nil, applyErr
 	}
-	if err := r.afterTransform(ctx, *state); err != nil {
+	if err := r.afterTransform(ctx, *state, transaction); err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
@@ -1262,7 +1262,7 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	)
 }
 
-func (r *repository) afterTransform(ctx context.Context, state State) error {
+func (r *repository) afterTransform(ctx context.Context, state State, transaction *sql.Tx) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
@@ -1272,7 +1272,7 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 	}
 	for env, config := range configs {
 		if config.ArgoCd != nil {
-			err := r.updateArgoCdApps(ctx, &state, env, config)
+			err := r.updateArgoCdApps(ctx, &state, env, config, transaction)
 			if err != nil {
 				return err
 			}
@@ -1281,7 +1281,7 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 	return nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig, transaction *sql.Tx) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	fs := state.Filesystem
@@ -1300,7 +1300,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 			if err != nil {
 				return err
 			}
-			version, err := state.GetEnvironmentApplicationVersion(env, appName)
+			version, err := state.GetEnvironmentApplicationVersion(ctx, env, appName, transaction)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -1746,8 +1746,20 @@ func (s *State) DeleteQueuedVersionIfExists(environment string, application stri
 	return s.DeleteQueuedVersion(environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationVersion(environment, application string) (*uint64, error) {
-	return s.readSymlink(environment, application, "version")
+func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, environment, application string, transaction *sql.Tx) (*uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
+		depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+		if err != nil {
+			return nil, err
+		}
+		if depl == nil || depl.Version == nil {
+			return nil, nil
+		}
+		var v = uint64(*depl.Version)
+		return &v, nil
+	} else {
+		return s.readSymlink(environment, application, "version")
+	}
 }
 
 // returns nil if there is no file
@@ -1911,7 +1923,7 @@ func (s *State) GetApplicationsFromFile() ([]string, error) {
 }
 
 // GetCurrentlyDeployed returns all apps that have current deployments on any env from the filesystem
-func (s *State) GetCurrentlyDeployed() (db.AllDeployments, error) {
+func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (db.AllDeployments, error) {
 	var result = db.AllDeployments{}
 	_, envNames, err := s.GetEnvironmentConfigsSorted()
 	if err != nil {
@@ -1925,9 +1937,8 @@ func (s *State) GetCurrentlyDeployed() (db.AllDeployments, error) {
 			return nil, err
 		} else {
 			for _, appName := range apps {
-				//teamName, err := s.GetTeamName(appName)
 				var version *uint64
-				version, err = s.GetEnvironmentApplicationVersion(envName, appName)
+				version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
 				if err != nil {
 					return nil, fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 				}
@@ -2185,7 +2196,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 // ProcessQueue checks if there is something in the queue
 // deploys if necessary
 // deletes the queue
-func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environment string, application string) (string, error) {
+func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment string, application string) (string, error) {
 	queuedVersion, err := s.GetQueuedVersion(environment, application)
 	queueDeploymentMessage := ""
 	if err != nil {
@@ -2197,7 +2208,7 @@ func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environme
 			return "", nil
 		}
 
-		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(environment, application)
+		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, environment, application, transaction)
 		if err != nil {
 			return "", err
 		}
