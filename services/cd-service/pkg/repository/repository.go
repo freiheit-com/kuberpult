@@ -1283,7 +1283,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(env); err != nil {
+	if apps, err := state.GetEnvironmentApplications(ctx, transaction, env); err != nil {
 		return err
 	} else {
 		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
@@ -1910,9 +1910,17 @@ func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error)
 	return groupEnvNames, nil
 }
 
-func (s *State) GetEnvironmentApplications(environment string) ([]string, error) {
-	appDir := s.Filesystem.Join("environments", environment, "applications")
-	return names(s.Filesystem, appDir)
+func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
+	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
+		applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		return applications.Apps, nil
+	} else {
+		appDir := s.Filesystem.Join("environments", environment, "applications")
+		return names(s.Filesystem, appDir)
+	}
 }
 
 // GetApplicationsFromFile returns apps from the filesystem
@@ -1933,7 +1941,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 		envName := envNames[envNameIndex]
 		//env := envMap[envName]
 
-		if apps, err := s.GetEnvironmentApplications(envName); err != nil {
+		if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
 			return nil, err
 		} else {
 			for _, appName := range apps {

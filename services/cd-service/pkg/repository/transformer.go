@@ -1436,7 +1436,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		return "", err
 	}
 
-	apps, err := s.GetEnvironmentApplications(c.Environment)
+	apps, err := s.GetEnvironmentApplications(ctx, transaction, c.Environment)
 	if err != nil {
 		return "", fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
 	}
@@ -2244,7 +2244,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 		if upstreamEnvName != envInGroup.Name || upstreamEnvName != groupName {
 			continue
 		}
-		apps, err := s.GetEnvironmentApplications(envName)
+		apps, err := s.GetEnvironmentApplications(ctx, transaction, envName)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get EnvironmentApplication for env %s: %w", envName, err)
 		}
@@ -2301,7 +2301,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 		}
 		return apps, nil, nil
 	}
-	apps, err = state.GetEnvironmentApplications(upstreamEnvName)
+	apps, err = state.GetEnvironmentApplications(ctx, transaction, upstreamEnvName)
 	if err != nil {
 		return nil, nil, grpc.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
 	}

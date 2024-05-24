@@ -132,7 +132,7 @@ func (o *OverviewServiceServer) getOverview(
 				envInGroup.Locks = env.Locks
 			}
 
-			if apps, err := s.GetEnvironmentApplications(envName); err != nil {
+			if apps, err := s.GetEnvironmentApplications(ctx, nil, envName); err != nil {
 				return nil, err
 			} else {
 
