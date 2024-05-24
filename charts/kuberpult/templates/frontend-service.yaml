@@ -184,7 +184,7 @@ spec:
         - name: KUBERPULT_MAX_WAIT_DURATION
           value: {{ .Values.frontend.maxWaitDuration | quote }}
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
-          value: {{ .Values.frontend.grpcMaxRecvMsgSize }}
+          value: "{{ .Values.frontend.grpcMaxRecvMsgSize }}"
         volumeMounts:
 {{- if .Values.pgp.keyRing }}
         - name: keyring
