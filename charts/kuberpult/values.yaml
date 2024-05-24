@@ -155,6 +155,8 @@ frontend:
   batchClient:
     # This value needs to be higher than the network timeout for git
     timeout: 2m
+  # The maximum message size in mega bytes the client can receive.
+  grpcMaxRecvMsgSize: 4
 rollout:
   enabled: false
   image: kuberpult-rollout-service
