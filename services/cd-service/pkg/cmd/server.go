@@ -19,12 +19,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -97,6 +98,8 @@ type Config struct {
 	DbWriteEslTableOnly        bool          `default:"false" split_words:"true"`
 	ReleaseVersionsLimit       uint          `default:"20" split_words:"true"`
 	GarbageCollectionFrequency uint          `default:"20" split_words:"true"`
+	DeploymentType             string        `default:"k8s" split_words:"true"`
+	CloudRunServer             string        `default:"" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
