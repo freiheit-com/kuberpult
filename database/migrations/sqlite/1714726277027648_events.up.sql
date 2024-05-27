@@ -8,4 +8,4 @@ CREATE TABLE IF NOT EXISTS events
     PRIMARY KEY(uuid)
 );
 
-CREATE INDEX commitHashIdx on events (commitHash);
+CREATE INDEX IF NOT EXISTS commitHashIdx on events (commitHash);
