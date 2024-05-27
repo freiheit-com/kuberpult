@@ -67,3 +67,16 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, fmt.Sprintf("unknown endpoint 'api/%s'", group), http.StatusNotFound)
 	}
 }
+
+func (s Server) HandleDex(w http.ResponseWriter, req *http.Request) {
+	group, tail := xpath.Shift(req.URL.Path)
+	if group != "dex" {
+		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
+	}
+
+	if tail != "" {
+		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
+	}
+
+	http.Error(w, fmt.Sprintf("Dex endpoint under construction'"), http.StatusNotImplemented)
+}

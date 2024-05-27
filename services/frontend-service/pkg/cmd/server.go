@@ -360,6 +360,11 @@ func runServer(ctx context.Context) error {
 			return
 		}
 
+		if c.DexEnabled {
+			interceptors.DexAPIInterceptor(w, req, httpHandler.HandleAPI, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
+			return
+		}
+
 		if !c.IapEnabled {
 			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
 			return
@@ -371,6 +376,21 @@ func runServer(ctx context.Context) error {
 		"/api/",
 	} {
 		mux.Handle(endpoint, restApiHandler)
+	}
+
+	dexHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		defer readAllAndClose(req.Body, 1024)
+		if !c.DexEnabled {
+			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
+			return
+		}
+		httpHandler.HandleDex(w, req)
+	})
+	for _, endpoint := range []string{
+		"/dex",
+		"/dex/",
+	} {
+		mux.Handle(endpoint, dexHandler)
 	}
 
 	mux.Handle("/", http.FileServer(http.Dir("build")))
