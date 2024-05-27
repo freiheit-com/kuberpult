@@ -175,6 +175,8 @@ spec:
           value: {{ .Values.cd.db.dbOption }}
         - name: KUBERPULT_DB_AUTH_PROXY_PORT
           value: "{{ .Values.cd.db.authProxyPort }}"
+        - name: KUBERPULT_ARGO_CD_GENERATE_FILES
+          value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"

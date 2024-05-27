@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -27,8 +28,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
@@ -132,7 +131,7 @@ func (o *OverviewServiceServer) getOverview(
 				envInGroup.Locks = env.Locks
 			}
 
-			if apps, err := s.GetEnvironmentApplications(envName); err != nil {
+			if apps, err := s.GetEnvironmentApplications(ctx, nil, envName); err != nil {
 				return nil, err
 			} else {
 
@@ -171,7 +170,8 @@ func (o *OverviewServiceServer) getOverview(
 					} // Err != nil means no team name was found so no need to parse team locks
 
 					var version *uint64
-					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+					version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, nil)
+					if err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
 						if version == nil {
@@ -180,6 +180,7 @@ func (o *OverviewServiceServer) getOverview(
 							app.Version = *version
 						}
 					}
+
 					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {

@@ -22,7 +22,7 @@ import (
 	"sort"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 )
 
 type EnvSortOrder = map[string]int

@@ -22,6 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	config "github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
@@ -31,13 +39,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
@@ -55,8 +56,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/hexops/gotextdiff"
@@ -178,19 +177,13 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 	if ddMetrics == nil {
 		return nil
 	}
-	configs, err := state.GetEnvironmentConfigs()
+	_, envNames, err := state.GetEnvironmentConfigsSorted()
 	if err != nil {
 		return err
 	}
-	// sorting the environments to get a deterministic order of events:
-	var configKeys []string = nil
-	for k := range configs {
-		configKeys = append(configKeys, k)
-	}
 	repo.(*repository).GaugeQueueSize(ctx)
-	sort.Strings(configKeys)
-	for i := range configKeys {
-		env := configKeys[i]
+	for i := range envNames {
+		env := envNames[i]
 		GaugeEnvLockMetric(filesystem, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
@@ -511,7 +504,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	if !isLatest {
 		// check that we can actually backfill this version
-		oldVersions, err := findOldApplicationVersions(state, c.Application)
+		oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1184,7 +1177,7 @@ func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 }
 
 // Finds old releases for an application
-func findOldApplicationVersions(state *State, name string) ([]uint64, error) {
+func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
 	envConfigs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -1203,7 +1196,7 @@ func findOldApplicationVersions(state *State, name string) ([]uint64, error) {
 	// Use the latest version as oldest deployed version
 	oldestDeployedVersion := versions[len(versions)-1]
 	for env := range envConfigs {
-		version, err := state.GetEnvironmentApplicationVersion(env, name)
+		version, err := state.GetEnvironmentApplicationVersion(ctx, env, name, transaction)
 		if err != nil {
 			return nil, err
 		}
@@ -1230,7 +1223,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	oldVersions, err := findOldApplicationVersions(state, c.Application)
+	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
@@ -1443,14 +1436,14 @@ func (c *DeleteEnvironmentLock) Transform(
 		return "", err
 	}
 
-	apps, err := s.GetEnvironmentApplications(c.Environment)
+	apps, err := s.GetEnvironmentApplications(ctx, transaction, c.Environment)
 	if err != nil {
 		return "", fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
 	}
 
 	additionalMessageFromDeployment := ""
 	for _, appName := range apps {
-		queueMessage, err := s.ProcessQueue(ctx, fs, c.Environment, appName)
+		queueMessage, err := s.ProcessQueue(ctx, transaction, fs, c.Environment, appName)
 		if err != nil {
 			return "", err
 		}
@@ -1630,7 +1623,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
 	}
-	queueMessage, err := s.ProcessQueue(ctx, fs, c.Environment, c.Application)
+	queueMessage, err := s.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}
@@ -1844,7 +1837,6 @@ func (c *QueueApplicationVersion) Transform(
 		return "", err
 	}
 
-	// TODO SU: maybe check here if that version is already deployed? or somewhere else ... or not at all...
 	return fmt.Sprintf("Queued version %d of app %q in env %q", c.Version, c.Application, c.Environment), nil
 }
 
@@ -1974,6 +1966,11 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
 	firstDeployment := false
 	versionFile := fs.Join(applicationDir, "version")
@@ -1988,52 +1985,78 @@ func (c *DeployApplicationVersion) Transform(
 		//File does not exist
 		firstDeployment = true
 	}
-	// Create a symlink to the release
-	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
-		return "", err
-	}
-	if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
-		return "", err
-	}
-	// Copy the manifest for argocd
-	manifestsDir := fs.Join(applicationDir, "manifests")
-	if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
-		return "", err
-	}
-	manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
-	// note that the manifest is empty here!
-	// but actually it's not quite empty!
-	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
-	// We work around this unusual behavior by writing a space into the file
-	if len(manifestContent) == 0 {
-		manifestContent = []byte(" ")
-	}
-	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
-		return "", err
-	}
-	teamOwner, err := state.GetApplicationTeamOwner(c.Application)
-	if err != nil {
-		return "", err
-	}
-	t.AddAppEnv(c.Application, c.Environment, teamOwner)
 
-	user, err := auth.ReadUserFromContext(ctx)
-	if err != nil {
-		return "", err
-	}
+	if state.DBHandler.ShouldUseOtherTables() {
+		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+		if err != nil {
+			return "", fmt.Errorf("could not find deployment for app %s and env %s", c.Application, c.Environment)
+		}
+		var v = int64(c.Version)
+		newDeployment := db.Deployment{
+			EslVersion: 0,
+			Created:    time.Time{},
+			App:        c.Application,
+			Env:        c.Environment,
+			Version:    &v,
+			Metadata: db.DeploymentMetadata{
+				DeployedByEmail: user.Email,
+				DeployedByName:  user.Name,
+			},
+		}
+		var previousVersion db.EslId
+		if existingDeployment == nil {
+			previousVersion = 0
+		} else {
+			previousVersion = existingDeployment.EslVersion
+		}
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
+		if err != nil {
+			return "", fmt.Errorf("could not write deployment for %v", newDeployment)
+		}
+	} else {
+		// Create a symlink to the release
+		if err := fs.MkdirAll(applicationDir, 0777); err != nil {
+			return "", err
+		}
+		if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+		if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
+			return "", err
+		}
 
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(user.Name), 0666); err != nil {
-		return "", err
-	}
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(user.Email), 0666); err != nil {
-		return "", err
-	}
+		// Copy the manifest for argocd
+		manifestsDir := fs.Join(applicationDir, "manifests")
+		if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
+			return "", err
+		}
+		manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
+		// note that the manifest is empty here!
+		// but actually it's not quite empty!
+		// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
+		// We work around this unusual behavior by writing a space into the file
+		if len(manifestContent) == 0 {
+			manifestContent = []byte(" ")
+		}
+		if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
+			return "", err
+		}
+		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		if err != nil {
+			return "", err
+		}
+		t.AddAppEnv(c.Application, c.Environment, teamOwner)
 
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(getTimeNow(ctx).UTC().String()), 0666); err != nil {
-		return "", err
+		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(user.Name), 0666); err != nil {
+			return "", err
+		}
+		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(user.Email), 0666); err != nil {
+			return "", err
+		}
+
+		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(getTimeNow(ctx).UTC().String()), 0666); err != nil {
+			return "", err
+		}
 	}
 
 	s := State{
@@ -2060,7 +2083,7 @@ func (c *DeployApplicationVersion) Transform(
 		if s.DBHandler.ShouldUseOtherTables() {
 			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
 			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 			}
 			gen := getGenerator(ctx)
 			eventUuid := gen.Generate()
@@ -2195,7 +2218,7 @@ func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn str
 	return nil
 }
 
-func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
+func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
 	oid, err := git.NewOid(commitHash)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating new oid for commitHash %s: %w", commitHash, err)
@@ -2221,7 +2244,7 @@ func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (r
 		if upstreamEnvName != envInGroup.Name || upstreamEnvName != groupName {
 			continue
 		}
-		apps, err := s.GetEnvironmentApplications(envName)
+		apps, err := s.GetEnvironmentApplications(ctx, transaction, envName)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get EnvironmentApplication for env %s: %w", envName, err)
 		}
@@ -2237,7 +2260,7 @@ func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (r
 				TeamLocks:          nil,
 				Team:               "",
 			}
-			version, err := s.GetEnvironmentApplicationVersion(envName, appName)
+			version, err := s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, fmt.Errorf("unable to get EnvironmentApplicationVersion for %s: %w", appName, err)
 			}
@@ -2251,16 +2274,16 @@ func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (r
 	return resp, nil
 }
 
-func (c *ReleaseTrain) getUpstreamLatestApp(upstreamLatest bool, state *State, ctx context.Context, upstreamEnvName, source, commitHash string) (apps []string, appVersions []Overview, err error) {
+func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sql.Tx, upstreamLatest bool, state *State, upstreamEnvName, source, commitHash string) (apps []string, appVersions []Overview, err error) {
 	if commitHash != "" {
-		appVersions, err := getOverrideVersions(c.CommitHash, upstreamEnvName, c.Repo)
+		appVersions, err := getOverrideVersions(ctx, transaction, c.CommitHash, upstreamEnvName, c.Repo)
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get app version for commitHash %s for %s: %w", c.CommitHash, c.Target, err))
 		}
 		// check that commit hash is not older than 20 commits in the past
 		for _, app := range appVersions {
 			apps = append(apps, app.App)
-			versions, err := findOldApplicationVersions(state, app.App)
+			versions, err := findOldApplicationVersions(ctx, transaction, state, app.App)
 			if err != nil {
 				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("unable to find findOldApplicationVersions for app %s: %w", app.App, err))
 			}
@@ -2278,7 +2301,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(upstreamLatest bool, state *State, c
 		}
 		return apps, nil, nil
 	}
-	apps, err = state.GetEnvironmentApplications(upstreamEnvName)
+	apps, err = state.GetEnvironmentApplications(ctx, transaction, upstreamEnvName)
 	if err != nil {
 		return nil, nil, grpc.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
 	}
@@ -2328,6 +2351,7 @@ type ReleaseTrainPrognosis struct {
 func (c *ReleaseTrain) Prognosis(
 	ctx context.Context,
 	state *State,
+	transaction *sql.Tx,
 ) ReleaseTrainPrognosis {
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -2370,7 +2394,7 @@ func (c *ReleaseTrain) Prognosis(
 			TrainGroup:      trainGroup,
 		}
 
-		envPrognosis := envReleaseTrain.prognosis(ctx, state)
+		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction)
 
 		if envPrognosis.Error != nil {
 			return ReleaseTrainPrognosis{
@@ -2394,7 +2418,7 @@ func (c *ReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	prognosis := c.Prognosis(ctx, state)
+	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
@@ -2450,6 +2474,7 @@ func (c *envReleaseTrain) GetDBEventType() db.EventType {
 func (c *envReleaseTrain) prognosis(
 	ctx context.Context,
 	state *State,
+	transaction *sql.Tx,
 ) ReleaseTrainEnvironmentPrognosis {
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
@@ -2534,7 +2559,7 @@ func (c *envReleaseTrain) prognosis(
 		source = "latest"
 	}
 
-	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(upstreamLatest, state, ctx, upstreamEnvName, source, c.Parent.CommitHash)
+	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:        nil,
@@ -2587,7 +2612,7 @@ func (c *envReleaseTrain) prognosis(
 			}
 		}
 
-		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(c.Env, appName)
+		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, c.Env, appName, transaction)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
 				SkipCause:        nil,
@@ -2615,7 +2640,7 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 		} else {
-			upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
+			upstreamVersion, err := state.GetEnvironmentApplicationVersion(ctx, upstreamEnvName, appName, transaction)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:        nil,
@@ -2772,7 +2797,7 @@ func (c *envReleaseTrain) Transform(
 	renderApplicationSkipCause := func(SkipCause *api.ReleaseTrainAppPrognosis_SkipCause, appName string) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
-		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(c.Env, appName)
+		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(ctx, c.Env, appName, transaction)
 		teamName, _ := state.GetTeamName(appName)
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
@@ -2790,7 +2815,7 @@ func (c *envReleaseTrain) Transform(
 		}
 	}
 
-	prognosis := c.prognosis(ctx, state)
+	prognosis := c.prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error

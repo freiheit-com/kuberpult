@@ -18,6 +18,7 @@ package reposerver
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os"
 	"os/exec"
 	"path"
@@ -27,8 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
-
 	v1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/argoproj/argo-cd/v2/reposerver/cache"
@@ -37,7 +36,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/util/argo"
 	cacheutil "github.com/argoproj/argo-cd/v2/util/cache"
 	"github.com/argoproj/argo-cd/v2/util/git"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"

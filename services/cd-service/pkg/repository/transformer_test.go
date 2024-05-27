@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 
@@ -42,17 +43,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
-
 	"github.com/DataDog/datadog-go/v5/statsd"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
@@ -3011,7 +3010,7 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 				t.Fatalf("error encountered during setup, but none was expected here, error: %v", err)
 			}
 
-			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State())
+			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State(), nil)
 
 			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses); diff != "" {
 				t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
@@ -3312,7 +3311,7 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 				Repo:       repo,
 			}
 
-			prognosis := releaseTrain.Prognosis(ctx, repo.State())
+			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil)
 
 			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
 				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
@@ -4574,7 +4573,7 @@ func TestTransformer(t *testing.T) {
 			Transformers:         makeTransformersForDelete(3),
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4600,7 +4599,7 @@ func TestTransformer(t *testing.T) {
 			Transformers:         makeTransformersForDelete(5),
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4626,7 +4625,7 @@ func TestTransformer(t *testing.T) {
 			Transformers:         makeTransformersForDelete(18),
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4717,11 +4716,11 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
-					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(envAcceptance, "test")
+					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envAcceptance, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4765,7 +4764,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				{
-					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(envAcceptance, "test")
+					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envAcceptance, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4834,11 +4833,11 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
-					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(envAcceptance, "test")
+					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envAcceptance, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5054,7 +5053,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				{
-					i, err := s.GetEnvironmentApplicationVersion("production", "test")
+					i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5235,7 +5234,7 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5288,7 +5287,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				{
-					i, err := s.GetEnvironmentApplicationVersion("one", "test")
+					i, err := s.GetEnvironmentApplicationVersion(context.Background(), "one", "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5335,14 +5334,14 @@ func TestTransformer(t *testing.T) {
 				// check that the state reads the correct versions
 				{
 					// version should only exist for "two"
-					i, err := s.GetEnvironmentApplicationVersion("two", "test")
+					i, err := s.GetEnvironmentApplicationVersion(context.Background(), "two", "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
 					if *i != 1 {
 						t.Errorf("unexpected version: expected 1, actual %d", i)
 					}
-					i, err = s.GetEnvironmentApplicationVersion("one", "test")
+					i, err = s.GetEnvironmentApplicationVersion(context.Background(), "one", "test", nil)
 					if i != nil || err != nil {
 						t.Fatalf("expect file to not exist, because the env is locked.")
 					}
@@ -5387,7 +5386,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				{
-					i, err := s.GetEnvironmentApplicationVersion("one", "test")
+					i, err := s.GetEnvironmentApplicationVersion(context.Background(), "one", "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5429,7 +5428,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5443,7 +5442,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5457,7 +5456,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5471,7 +5470,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil && err.Error() != "file does not exist" {
 					t.Fatalf("unexpected error: %v", err.Error())
 				}
@@ -5516,7 +5515,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_RECORD, api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5541,7 +5540,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_RECORD, api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5566,7 +5565,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_IGNORE, api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5595,7 +5594,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDoubleLock(api.LockBehavior_RECORD, false),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5620,7 +5619,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDoubleLock(api.LockBehavior_RECORD, true),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
