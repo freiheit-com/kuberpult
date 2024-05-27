@@ -78,5 +78,5 @@ func (s Server) HandleDex(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
 	}
 
-	http.Error(w, fmt.Sprintf("Dex endpoint under construction'"), http.StatusNotImplemented)
+	http.Error(w, "Dex endpoint under construction", http.StatusNotImplemented)
 }
