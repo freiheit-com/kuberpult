@@ -19,13 +19,11 @@ package service
 import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"sort"
-	"testing"
-	"time"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"sort"
+	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
@@ -34,8 +32,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -274,9 +272,6 @@ func TestGetProductOverview(t *testing.T) {
 	}
 }
 
-func fixedTime() time.Time {
-	return time.Unix(666, 0)
-}
 func TestGetCommitInfo(t *testing.T) {
 	environmentSetup := []rp.Transformer{
 		&rp.CreateEnvironment{
@@ -632,8 +627,8 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 
 					{
-						Uuid:      "00000000-0000-0000-0000-000000000005",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
+						Uuid:      "00000000-0000-0000-0000-000000000004",
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:       "app",
@@ -710,8 +705,8 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 
 					{
-						Uuid:      "00000000-0000-0000-0000-000000000005",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
+						Uuid:      "00000000-0000-0000-0000-000000000004",
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:       "app",

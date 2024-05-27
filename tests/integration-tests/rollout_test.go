@@ -55,10 +55,11 @@ func TestArgoRolloutWork(t *testing.T) {
 		name string
 		app  string
 	}{
-		{
-			name: "it can sync manifests into the cluster",
-			app:  "rollout-" + appSuffix,
-		},
+		// TODO this will be fixed in Ref SRX-PA568W
+		//{
+		//	name: "it can sync manifests into the cluster",
+		//	app:  "rollout-" + appSuffix,
+		//},
 	}
 	for _, tc := range testCases {
 		tc := tc

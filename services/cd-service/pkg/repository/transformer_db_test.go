@@ -21,10 +21,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
 
@@ -105,7 +105,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	}
 	tcs := []struct {
 		Name              string
-		Transformers      Transformer
+		Transformer       Transformer
 		expectedEventJson string
 		dataType          interface{}
 	}{
@@ -113,7 +113,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		// each transformer should appear here once:
 		{
 			Name: "CreateApplicationVersion",
-			Transformers: &CreateApplicationVersion{
+			Transformer: &CreateApplicationVersion{
 				Authentication:  Authentication{},
 				Version:         0,
 				Application:     "dummy",
@@ -132,7 +132,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "DeployApplicationVersion",
-			Transformers: &DeployApplicationVersion{
+			Transformer: &DeployApplicationVersion{
 				Authentication:  Authentication{},
 				Environment:     "dev",
 				Application:     "myapp",
@@ -146,7 +146,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "CreateUndeployApplicationVersion",
-			Transformers: &CreateUndeployApplicationVersion{
+			Transformer: &CreateUndeployApplicationVersion{
 				Authentication:  Authentication{},
 				Application:     "myapp",
 				WriteCommitData: false,
@@ -155,7 +155,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "UndeployApplication",
-			Transformers: &UndeployApplication{
+			Transformer: &UndeployApplication{
 				Authentication: Authentication{},
 				Application:    "myapp",
 			},
@@ -163,7 +163,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "DeleteEnvFromApp",
-			Transformers: &DeleteEnvFromApp{
+			Transformer: &DeleteEnvFromApp{
 				Authentication: Authentication{},
 				Application:    "myapp",
 				Environment:    "dev",
@@ -172,7 +172,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "CreateEnvironmentLock",
-			Transformers: &CreateEnvironmentLock{
+			Transformer: &CreateEnvironmentLock{
 				Authentication: Authentication{},
 				Environment:    "dev",
 				LockId:         "lock123",
@@ -182,7 +182,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "DeleteEnvironmentLock",
-			Transformers: &DeleteEnvironmentLock{
+			Transformer: &DeleteEnvironmentLock{
 				Authentication: Authentication{},
 				Environment:    "dev",
 				LockId:         "setup-lock-1",
@@ -191,7 +191,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "CreateEnvironmentTeamLock",
-			Transformers: &CreateEnvironmentTeamLock{
+			Transformer: &CreateEnvironmentTeamLock{
 				Authentication: Authentication{},
 				Environment:    "dev",
 				LockId:         "dontcare",
@@ -202,7 +202,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "DeleteEnvironmentTeamLock",
-			Transformers: &DeleteEnvironmentTeamLock{
+			Transformer: &DeleteEnvironmentTeamLock{
 				Authentication: Authentication{},
 				Environment:    "dev",
 				LockId:         "setup-lock-2",
@@ -212,7 +212,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "CreateEnvironmentGroupLock",
-			Transformers: &CreateEnvironmentGroupLock{
+			Transformer: &CreateEnvironmentGroupLock{
 				Authentication:   Authentication{},
 				EnvironmentGroup: "mygroup",
 				LockId:           "lock123",
@@ -222,7 +222,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "DeleteEnvironmentGroupLock",
-			Transformers: &DeleteEnvironmentGroupLock{
+			Transformer: &DeleteEnvironmentGroupLock{
 				Authentication:   Authentication{},
 				LockId:           "setup-lock-3",
 				EnvironmentGroup: "mygroup",
@@ -231,7 +231,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "CreateEnvironment",
-			Transformers: &CreateEnvironment{
+			Transformer: &CreateEnvironment{
 				Authentication: Authentication{},
 				Environment:    "temp-env",
 				Config: config.EnvironmentConfig{
@@ -244,7 +244,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "CreateEnvironmentApplicationLock",
-			Transformers: &CreateEnvironmentApplicationLock{
+			Transformer: &CreateEnvironmentApplicationLock{
 				Authentication: Authentication{},
 				Environment:    "dev",
 				LockId:         "lock123",
@@ -255,7 +255,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "DeleteEnvironmentApplicationLock",
-			Transformers: &DeleteEnvironmentApplicationLock{
+			Transformer: &DeleteEnvironmentApplicationLock{
 				Authentication: Authentication{},
 				Environment:    "dev",
 				LockId:         "setup-lock-4",
@@ -265,7 +265,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 		{
 			Name: "ReleaseTrain",
-			Transformers: &ReleaseTrain{
+			Transformer: &ReleaseTrain{
 				Authentication:  Authentication{},
 				Target:          "staging",
 				Team:            "",
@@ -304,11 +304,11 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			}
 
 			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers)
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformer)
 				if err2 != nil {
 					return err2
 				}
-				tmp, batchErr := r.DB.DBReadEslEventInternal(ctx, transaction)
+				tmp, batchErr := r.DB.DBReadEslEventInternal(ctx, transaction, false)
 				if batchErr != nil {
 					return batchErr
 				}
@@ -327,7 +327,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				t.Fatalf("marshal error: %v\njson: \n%s\n", err, row.EventJson)
 			}
 
-			if diff := cmp.Diff(tc.Transformers, jsonInterface, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.Transformer, jsonInterface, protocmp.Transform()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})

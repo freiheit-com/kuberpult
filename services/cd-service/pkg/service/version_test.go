@@ -20,10 +20,10 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
@@ -31,7 +31,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 

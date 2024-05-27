@@ -17,22 +17,17 @@ Copyright freiheit.com*/
 package repository
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"io"
-	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -44,15 +39,11 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/sqlitestore"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/fs"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/sqlitestore"
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -62,18 +53,14 @@ import (
 	git "github.com/libgit2/git2go/v34"
 )
 
-type contextKey string
-
-const DdMetricsKey contextKey = "ddMetrics"
-
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
-	Apply(ctx context.Context, transformers ...Transformer) error
+	Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
 	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
-	Notify() *notify.Notify
+	//Notify() *notify.Notify
 }
 
 type TransformerBatchApplyError struct {
@@ -115,10 +102,6 @@ func defaultBackOffProvider() backoff.BackOff {
 	return backoff.WithMaxRetries(eb, 6)
 }
 
-var (
-	ddMetrics statsd.ClientInterface
-)
-
 type StorageBackend int
 
 const (
@@ -127,15 +110,11 @@ const (
 	SqliteBackend  StorageBackend = iota
 )
 
-const (
-	maxArgoRequests = 3 // note that this happens inside a request, we cannot retry too much!
-)
-
 type repository struct {
 	// Mutex gurading the writer
-	writeLock    sync.Mutex
-	writesDone   uint
-	queue        queue
+	writeLock  sync.Mutex
+	writesDone uint
+	//queue        queue
 	config       *RepositoryConfig
 	credentials  *credentialsStore
 	certificates *certificateStore
@@ -145,33 +124,9 @@ type repository struct {
 	// Mutex guarding head
 	headLock sync.Mutex
 
-	notify notify.Notify
-
 	backOffProvider func() backoff.BackOff
 
 	DB *db.DBHandler
-}
-
-type WebhookResolver interface {
-	Resolve(insecure bool, req *http.Request) (*http.Response, error)
-}
-
-type DefaultWebhookResolver struct{}
-
-func (r DefaultWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
-	//exhaustruct:ignore
-	TLSClientConfig := &tls.Config{
-		InsecureSkipVerify: insecure,
-	}
-	//exhaustruct:ignore
-	tr := &http.Transport{
-		TLSClientConfig: TLSClientConfig,
-	}
-	//exhaustruct:ignore
-	client := &http.Client{
-		Transport: tr,
-	}
-	return client.Do(req)
 }
 
 type RepositoryConfig struct {
@@ -189,27 +144,13 @@ type RepositoryConfig struct {
 	// network timeout
 	NetworkTimeout time.Duration
 	//
-	GcFrequency uint
-	// number of app versions to keep a history of
-	ReleaseVersionsLimit uint
-	StorageBackend       StorageBackend
+	GcFrequency    uint
+	StorageBackend StorageBackend
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
-	ArgoInsecure           bool
-	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
-	ArgoWebhookUrl string
-	// the url to the git repo, like the browser requires it (https protocol)
-	WebURL                string
-	DogstatsdEvents       bool
-	WriteCommitData       bool
-	WebhookResolver       WebhookResolver
-	MaximumCommitsPerPush uint
-	MaximumQueueSize      uint
-	// Extend maximum AppName length
-	AllowLongAppNames bool
 
 	ArgoCdGenerateFiles bool
 
@@ -256,103 +197,8 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 	return repo2, err
 }
 
-func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
-	repo, err := openOrCreate(repoName, cfg.StorageBackend)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open/create repo: %v", err)
-	}
-
-	var credentials *credentialsStore
-	var certificates *certificateStore
-	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
-	} else {
-		credentials, err = cfg.Credentials.load()
-		if err != nil {
-			return nil, fmt.Errorf("failure to load credentials: %v", err)
-		}
-		certificates, err = cfg.Certificates.load()
-		if err != nil {
-			return nil, fmt.Errorf("failure to load certificates: %v", err)
-		}
-	}
-
-	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-	//exhaustruct:ignore
-	RemoteCallbacks := git.RemoteCallbacks{
-		CredentialsCallback:      credentials.CredentialsCallback(ctx),
-		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
-	}
-	fetchOptions := git.FetchOptions{
-		Prune:           git.FetchPruneUnspecified,
-		UpdateFetchhead: false,
-		Headers:         nil,
-		ProxyOptions: git.ProxyOptions{
-			Type: git.ProxyTypeNone,
-			Url:  "",
-		},
-		RemoteCallbacks: RemoteCallbacks,
-		DownloadTags:    git.DownloadTagsAll,
-	}
-	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
-	if err != nil {
-		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
-	}
-	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
-	if err != nil {
-		return nil, fmt.Errorf("failure to fetch: %v", err)
-	}
-
-	tagsList, err := repo.Tags.List()
-	if err != nil {
-		return nil, fmt.Errorf("unable to list tags: %v", err)
-	}
-
-	sort.Strings(tagsList)
-	iters, err := repo.NewReferenceIteratorGlob("refs/tags/*")
-	if err != nil {
-		return nil, fmt.Errorf("unable to get list of tags: %v", err)
-	}
-	for {
-		tagObject, err := iters.Next()
-		if err != nil {
-			break
-		}
-		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
-		if lookupErr != nil {
-			tagCommit, err := repo.LookupCommit(tagObject.Target())
-			// If LookupTag fails, fallback to LookupCommit
-			// to cover all tags, annotated and lightweight
-			if err != nil {
-				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
-			}
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
-		} else {
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagRef.Id().String()})
-		}
-	}
-
-	return tags, nil
-}
-
-// Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
-	repo, bg, err := New2(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	go bg(ctx, nil) //nolint: errcheck
-	return repo, err
-}
-
-func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
-
-	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
-	if ddMetricsFromCtx != nil {
-		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
-	} else {
-		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
-	}
 
 	if cfg.Branch == "" {
 		cfg.Branch = "master"
@@ -369,17 +215,6 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
 	}
-	if cfg.MaximumCommitsPerPush == 0 {
-		cfg.MaximumCommitsPerPush = 1
-
-	}
-	if cfg.MaximumQueueSize == 0 {
-		cfg.MaximumQueueSize = 5
-	}
-	// The value here is set to keptVersionsOnCleanup to maintain compatibility with tests that do not pass ReleaseVersionsLimit in the repository config
-	if cfg.ReleaseVersionsLimit == 0 {
-		cfg.ReleaseVersionsLimit = keptVersionsOnCleanup
-	}
 
 	var credentials *credentialsStore
 	var certificates *certificateStore
@@ -389,31 +224,30 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	} else {
 		credentials, err = cfg.Credentials.load()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		certificates, err = cfg.Certificates.load()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
 	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
-		return nil, nil, err
+		return nil, err
 	} else {
 		// configure remotes
 		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
-			return nil, nil, err
+			return nil, err
 		} else {
 			result := &repository{
-				writesDone:      0,
-				headLock:        sync.Mutex{},
-				notify:          notify.Notify{},
+				writesDone: 0,
+				headLock:   sync.Mutex{},
+				//notify:          notify.Notify{},
 				writeLock:       sync.Mutex{},
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
 				repository:      repo2,
-				queue:           makeQueueN(cfg.MaximumQueueSize),
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
 			}
@@ -446,7 +280,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			}
 			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			var rev *git.Oid
 			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
@@ -455,98 +289,51 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 					// not found
 					// nothing to do
 				} else {
-					return nil, nil, err
+					return nil, err
 				}
 			} else {
 				rev = remoteRef.Target()
 				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 			}
 
 			// check that we can build the current state
 			state, err := result.StateAt(nil)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
 			// Check configuration for errors and abort early if any:
 			_, err = state.GetEnvironmentConfigsAndValidate(ctx)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
-			return result, result.ProcessQueue, nil
+			return result, nil
 		}
 	}
 }
 
-func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
-	defer func() {
-		close(r.queue.transformerBatches)
-		for e := range r.queue.transformerBatches {
-			e.finish(ctx.Err())
-		}
-	}()
-	tick := time.Tick(r.config.NetworkTimeout) //nolint: staticcheck
-	ttl := r.config.NetworkTimeout * 3
-	for {
-		/*
-			One tricky issue is that `git push` can take a while depending on the git hoster and the connection
-			(plus we do have relatively big and many commits).
-			This can lead to the situation that "everything hangs", because there is one push running already -
-			but only one push is possible at a time.
-			There is also no good way to cancel a `git push`.
-
-			To circumvent this, we report health with a "time to live" - meaning if we don't report anything within the time frame,
-			the health will turn to "failed" and then the pod will automatically restart (in kubernetes).
-		*/
-		health.ReportHealthTtl(setup.HealthReady, "processing queue", &ttl)
-		select {
-		case <-tick:
-			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
-		case <-ctx.Done():
-			return nil
-		case e := <-r.queue.transformerBatches:
-			r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
-		}
-	}
-}
-
-func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool, transaction *sql.Tx) ([]transformerBatch, error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(ctx context.Context, transformer Transformer, allowFetchAndReset bool, transaction *sql.Tx) (error, *TransformerResult) {
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
-	for i := 0; i < len(transformerBatches); {
-		e := transformerBatches[i]
-		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
-		changes.Combine(subChanges)
-		if applyErr != nil {
-			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
-				// Invalid state. fetch and reset and redo
-				err := r.FetchAndReset(e.ctx)
-				if err != nil {
-					return transformerBatches, err, nil
-				}
-				return r.applyTransformerBatches(transformerBatches, false, transaction)
-			} else {
-				e.finish(applyErr)
-				if r.DB.ShouldUseEslTable() {
-					// if we use the DB at all, then we only do one transformer per git push
-					// AND we need to handle the error in the caller to rollback in case of an error:
-					return nil, applyErr, nil
-				}
-				// here, we keep all transformerBatches "behind i".
-				// these are the transformerBatches that have not been applied yet
-				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+	subChanges, applyErr := r.ApplyTransformers(ctx, transaction, transformer)
+	changes.Combine(subChanges)
+	if applyErr != nil {
+		if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
+			// Invalid state. fetch and reset and redo
+			err := r.FetchAndReset(ctx)
+			if err != nil {
+				return err, nil
 			}
+			return r.applyTransformerBatches(ctx, transformer, false, transaction)
 		} else {
-			i++
+			return applyErr, nil
 		}
 	}
-	return transformerBatches, nil, changes
+	return nil, changes
 }
-
-var panicError = errors.New("Panic")
 
 func (r *repository) useRemote(callback func(*git.Remote) error) error {
 	remote, err := r.repository.Remotes.CreateAnonymous(r.config.URL)
@@ -569,38 +356,6 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 	case err := <-errCh:
 		return err
 	}
-}
-
-func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
-	if r.config.MaximumCommitsPerPush < 2 {
-		return nil
-	}
-	if r.DB != nil {
-		logger.FromContext(ctx).Sugar().Warnf("configured commit queue size is ignored, because database is enabled")
-		return nil
-	}
-	limit := r.config.MaximumCommitsPerPush - 1
-	transformerBatches := []transformerBatch{}
-	defer r.queue.GaugeQueueSize(ctx)
-	for uint(len(transformerBatches)) < limit {
-		select {
-		case f := <-r.queue.transformerBatches:
-			// Check that the item is not already cancelled
-			select {
-			case <-f.ctx.Done():
-				f.finish(f.ctx.Err())
-			default:
-				transformerBatches = append(transformerBatches, f)
-			}
-		default:
-			return transformerBatches
-		}
-	}
-	return transformerBatches
-}
-
-func (r *repository) GaugeQueueSize(ctx context.Context) {
-	r.queue.GaugeQueueSize(ctx)
 }
 
 // It returns always nil
@@ -628,48 +383,15 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
-func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
-	logger := logger.FromContext(ctx)
-
-	/**
-	Note that this function has a bit different error handling.
-	The error is not returned, but send to the transformer in `el.finish(err)`
-	in order to inform the transformers request handler that this request failed.
-	Therefore, in the function instead of
-	if err != nil {
-	  return err
-	}
-	we do:
-	if err != nil {
-	  return
-	}
-	*/
-	var err error = panicError
-
-	// Check that the first transformerBatch is not already canceled
-	select {
-	case <-e.ctx.Done():
-		e.finish(e.ctx.Err())
-		return
-	default:
-	}
-
-	transformerBatches := []transformerBatch{e}
-	defer func() {
-		for _, el := range transformerBatches {
-			el.finish(err)
-		}
-	}()
-
-	// Try to fetch more items from the queue in order to push more things together
-	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
+func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callback PushUpdateFunc, pushAction PushActionCallbackFunc, tx *sql.Tx) error {
+	log := logger.FromContext(ctx).Sugar()
 
 	var pushSuccess = true
 
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
-		CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
-		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
+		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
 		PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
 	}
 	pushOptions := git.PushOptions{
@@ -683,308 +405,50 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}
 
 	// Apply the items
-	var tx *sql.Tx = nil
-	if r.DB.ShouldUseEslTable() {
-		var txErr error
-		tx, txErr = r.DB.DB.BeginTx(ctx, nil)
-		if txErr != nil {
-			err = txErr
-			return
-		}
-		defer func(tx *sql.Tx) {
-			_ = tx.Rollback()
-		}(tx)
-	}
-	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true, tx)
-	if err != nil {
-		if r.DB.ShouldUseEslTable() {
-			logger.Sugar().Warnf("rolling back transaction because of %v", err)
-			_ = tx.Rollback()
-		}
-		return
-	}
-	if r.DB.ShouldUseEslTable() {
-		err = tx.Commit()
+	apply := func() (error, *TransformerResult) {
+		err, changes := r.applyTransformerBatches(ctx, t, true, tx)
 		if err != nil {
-			return
+			log.Warnf("rolling back transaction because of %v", err)
+			return err, nil
 		}
+		return nil, changes
 	}
 
-	if len(transformerBatches) == 0 {
-		return
+	err, _ := apply()
+	if err != nil {
+		return fmt.Errorf("first apply failed, aborting: %v", err)
 	}
 
 	// Try pushing once
-	err = r.Push(e.ctx, pushAction(pushOptions, r))
+	err = r.Push(ctx, pushAction(pushOptions, r))
 	if err != nil {
 		gerr, ok := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
 		if ok && gerr.Code == git.ErrorCodeNonFastForward {
-			err = r.FetchAndReset(e.ctx)
+			err = r.FetchAndReset(ctx)
 			if err != nil {
-				return
+				return err
 			}
 			// Apply the items
-			if r.DB.ShouldUseEslTable() {
-				var txErr error
-				tx, txErr = r.DB.DB.BeginTx(ctx, nil)
-				if txErr != nil {
-					err = txErr
-					return
-				}
-				defer func(tx *sql.Tx) {
-					_ = tx.Rollback()
-				}(tx)
-			}
-			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false, tx)
+			err, _ = apply()
 			if err != nil {
-				if r.DB.ShouldUseEslTable() {
-					logger.Sugar().Warnf("rolling back transaction because of %v", err)
-					_ = tx.Rollback()
-				}
-				return
+				return fmt.Errorf("apply after fetch failed, aborting: %v", err)
 			}
-			if r.DB.ShouldUseEslTable() {
-				err = tx.Commit()
-				if err != nil {
-					return
-				}
-			}
-			if err != nil || len(transformerBatches) == 0 {
-				return
-			}
-			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
-				err = pushErr
+			if pushErr := r.Push(ctx, pushAction(pushOptions, r)); pushErr != nil {
+				return pushErr
 			}
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			err = grpc.CanceledError(ctx, err)
+			return grpc.CanceledError(ctx, err)
 		} else {
-			logger.Error(fmt.Sprintf("error while pushing: %s", err))
-			err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
+			log.Error(fmt.Sprintf("error while pushing: %s", err))
+			return grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
 		}
 	} else {
 		if !pushSuccess {
-			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
+			return fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
-	span, ctx := tracer.StartSpanFromContext(e.ctx, "PostPush")
-	defer span.Finish()
-
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
-	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, r.State(), r, changes, time.Now())
-		if ddError != nil {
-			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
-		}
-	}
-	ddSpan.Finish()
-
-	if r.config.ArgoWebhookUrl != "" {
-		r.sendWebhookToArgoCd(ctx, logger, changes)
-	}
-
-	r.notify.Notify()
-}
-
-func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger, changes *TransformerResult) {
-	var modified = []string{}
-	for i := range changes.ChangedApps {
-		change := changes.ChangedApps[i]
-		// we may need to add the root app in some circumstances - so far it doesn't seem necessary, so we just add the manifest.yaml:
-		manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.Env, change.App)
-		modified = append(modified, manifestFilename)
-		logger.Info(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
-	}
-	var deleted = []string{}
-	for i := range changes.DeletedRootApps {
-		change := changes.DeletedRootApps[i]
-		// we may need to add the root app in some circumstances - so far it doesn't seem necessary, so we just add the manifest.yaml:
-		rootAppFilename := fmt.Sprintf("argocd/%s/%s.yaml", "v1alpha1", change.Env)
-		deleted = append(deleted, rootAppFilename)
-		logger.Info(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", rootAppFilename))
-	}
-
-	argoResult := ArgoWebhookData{
-		htmlUrl:  r.config.WebURL, // if this does not match, argo will completely ignore the request and return 200
-		revision: "refs/heads/" + r.config.Branch,
-		change: changeInfo{
-			payloadBefore: "",
-			payloadAfter:  changes.Commits.Current.String(),
-		},
-		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
-		Commits: []commit{
-			{
-				Added:    []string{},
-				Modified: modified,
-				Removed:  deleted,
-			},
-		},
-	}
-	if changes.Commits.Previous != nil {
-		argoResult.change.payloadBefore = changes.Commits.Previous.String()
-	}
-
-	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook-Retries")
-	defer span.Finish()
-	success := false
-	var err error = nil
-	for i := 1; i <= maxArgoRequests; i++ {
-		err, shouldRetry := doWebhookPostRequest(ctx, argoResult, r.config, i)
-		if err != nil && shouldRetry {
-			logger.Warn(fmt.Sprintf("ProcessQueueOnce: error sending webhook on try %d: %v", i, err))
-			if shouldRetry {
-				// we're still in a request here, we can't wait too long:
-				time.Sleep(time.Duration(100*i) * time.Millisecond)
-			} else {
-				break
-			}
-		} else {
-			logger.Info(fmt.Sprintf("ProcessQueueOnce: argo webhook was send successfully on try %d!", i))
-			success = true
-			break
-		}
-	}
-	span.SetTag("success", success)
-	if !success {
-		logger.Error(fmt.Sprintf("ProcessQueueOnce: error sending webhook after all %d tries: %v", maxArgoRequests, err))
-	}
-}
-
-func contains(s []int, e int) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *RepositoryConfig, retryCounter int) (error, bool) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook")
-	span.SetTag("changeAfter", data.change.payloadAfter)
-	span.SetTag("changeBefore", data.change.payloadBefore)
-	span.SetTag("try", retryCounter)
-	defer span.Finish()
-	url := repoConfig.ArgoWebhookUrl + "/api/webhook"
-	l := logger.FromContext(ctx)
-	l.Info(fmt.Sprintf("doWebhookPostRequest: URL: %s", url))
-
-	//exhaustruct:ignore
-	Repository := v1alpha1.Repository{
-		HTMLURL:       data.htmlUrl,
-		DefaultBranch: data.defaultBranch,
-	}
-	//exhaustruct:ignore
-	var argoFormat = v1alpha1.PushPayload{
-		Ref:        data.revision,
-		Before:     data.change.payloadBefore,
-		After:      data.change.payloadAfter,
-		Repository: Repository,
-		Commits:    toArgoCommits(data.Commits),
-	}
-
-	jsonBytes, err := json.MarshalIndent(argoFormat, " ", " ")
-	if err != nil {
-		return err, false
-	}
-	l.Info(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
-	if err != nil {
-		return fmt.Errorf("Could not create new request: %s", err.Error()), false
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	// now pretend that we are GitHub by adding this header, otherwise argo will ignore our request:
-	req.Header.Set("X-GitHub-Event", "push")
-
-	var webhookResolver WebhookResolver = DefaultWebhookResolver{}
-	if repoConfig.WebhookResolver != nil {
-		webhookResolver = repoConfig.WebhookResolver
-	}
-	resp, err := webhookResolver.Resolve(repoConfig.ArgoInsecure, req)
-	if err != nil {
-		return fmt.Errorf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error()), false
-	}
-	defer resp.Body.Close()
-
-	//l.Warn(fmt.Sprintf("response Status: %d", resp.StatusCode))
-	l.Info(fmt.Sprintf("response headers: %s", resp.Header))
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		// weird but we kinda do not care about the body:
-		l.Warn(fmt.Sprintf("doWebhookPostRequest: could not read body: %s - continuing anyway", err.Error()))
-	}
-	validResponseCodes := []int{200}
-	if resp.StatusCode >= 500 {
-		return fmt.Errorf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode), true
-	}
-
-	if contains(validResponseCodes, resp.StatusCode) {
-		l.Info(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
-		return nil, false
-	}
-	// in any other case we should not do a retry (e.g. status 4xx):
-	l.Warn(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
-	return fmt.Errorf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode), false
-}
-
-func toArgoCommits(commits []commit) []v1alpha1.Commit {
-	var result = []v1alpha1.Commit{}
-	for i := range commits {
-		c := commits[i]
-		result = append(result, v1alpha1.Commit{
-			// ArgoCd ignores most fields, so we can ignore them too.
-			// Source: function "affectedRevisionInfo" in https://github.com/argoproj/argo-cd/blob/master/util/webhook/webhook.go#L141
-			Sha:       "",
-			ID:        "",
-			NodeID:    "",
-			TreeID:    "",
-			Distinct:  false,
-			Message:   "",
-			Timestamp: "",
-			URL:       "",
-			Author: struct {
-				Name     string `json:"name"`
-				Email    string `json:"email"`
-				Username string `json:"username"`
-			}{
-				Name:     "",
-				Email:    "",
-				Username: "",
-			},
-			Committer: struct {
-				Name     string `json:"name"`
-				Email    string `json:"email"`
-				Username string `json:"username"`
-			}{
-				Name:     "",
-				Email:    "",
-				Username: "",
-			},
-			Added:    c.Added,
-			Removed:  c.Removed,
-			Modified: c.Modified,
-		})
-	}
-	return result
-}
-
-type changeInfo struct {
-	payloadBefore string
-	payloadAfter  string
-}
-type commit struct {
-	Added    []string
-	Modified []string
-	Removed  []string
-}
-
-type ArgoWebhookData struct {
-	htmlUrl       string
-	revision      string // aka "ref"
-	change        changeInfo
-	defaultBranch string
-	Commits       []commit
+	return nil
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
@@ -993,7 +457,6 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 	} else {
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
-		ctxWithTime := WithTimeNow(ctx, time.Now())
 		for i, t := range transformers {
 			if r.DB != nil && transaction == nil {
 				applyErr := TransformerBatchApplyError{
@@ -1002,15 +465,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				return nil, nil, nil, &applyErr
 			}
-			logger.FromContext(ctx).Info("writing esl event...")
-			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t)
-			if err != nil {
-				return nil, nil, nil, &TransformerBatchApplyError{
-					TransformerError: err,
-					Index:            i,
-				}
-			}
-			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
+			if msg, subChanges, err := RunTransformer(ctx, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
 					TransformerError: err,
 					Index:            i,
@@ -1092,7 +547,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 	if applyErr != nil {
 		return nil, applyErr
 	}
-	if err := r.afterTransform(ctx, *state, transaction); err != nil {
+	if err := r.afterTransform(ctx, *state); err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
@@ -1106,13 +561,11 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 		When:  time.Now(),
 	}
 
-	user, readUserErr := auth.ReadUserFromContext(ctx)
-
-	if readUserErr != nil {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: readUserErr,
-			Index:            -1,
-		}
+	// TODO this will be handled in Ref SRX-PA568W
+	user := auth.User{
+		Email:          "invalid@example.com",
+		Name:           "invalid",
+		DexAuthContext: nil,
 	}
 
 	author := &git.Signature{
@@ -1217,22 +670,15 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	return nil
 }
 
-func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
-	defer func() {
-		r.writesDone = r.writesDone + uint(len(transformers))
-		r.maybeGc(ctx)
-	}()
-	eCh := r.applyDeferred(ctx, transformers...)
-	select {
-	case err := <-eCh:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
+func (r *repository) Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error {
+	for i := range transformers {
+		t := transformers[i]
+		err := r.ProcessQueueOnce(ctx, t, defaultPushUpdate, DefaultPushActionCallback, tx)
+		if err != nil {
+			return err
+		}
 	}
-}
-
-func (r *repository) applyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
-	return r.queue.add(ctx, transformers)
+	return nil
 }
 
 // Push returns an 'error' for typing reasons, really it is always a git.GitError
@@ -1259,7 +705,7 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	)
 }
 
-func (r *repository) afterTransform(ctx context.Context, state State, transaction *sql.Tx) error {
+func (r *repository) afterTransform(ctx context.Context, state State) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
@@ -1269,7 +715,7 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 	}
 	for env, config := range configs {
 		if config.ArgoCd != nil {
-			err := r.updateArgoCdApps(ctx, &state, env, config, transaction)
+			err := r.updateArgoCdApps(ctx, &state, env, config)
 			if err != nil {
 				return err
 			}
@@ -1278,11 +724,11 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 	return nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig, transaction *sql.Tx) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(ctx, transaction, env); err != nil {
+	if apps, err := state.GetEnvironmentApplications(env); err != nil {
 		return err
 	} else {
 		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
@@ -1297,7 +743,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 			if err != nil {
 				return err
 			}
-			version, err := state.GetEnvironmentApplicationVersion(ctx, env, appName, transaction)
+			version, err := state.GetEnvironmentApplicationVersion(env, appName)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -1360,7 +806,6 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-						ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 						DBHandler:              r.DB,
 					}, nil
 				}
@@ -1384,13 +829,8 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-		ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 		DBHandler:              r.DB,
 	}, nil
-}
-
-func (r *repository) Notify() *notify.Notify {
-	return &r.notify
 }
 
 type ObjectCount struct {
@@ -1403,79 +843,11 @@ type ObjectCount struct {
 	SizeGarbage uint64
 }
 
-func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
-	var stats ObjectCount
-	/*
-		The output of `git count-objects` looks like this:
-			count: 0
-			size: 0
-			in-pack: 635
-			packs: 1
-			size-pack: 2845
-			prune-packable: 0
-			garbage: 0
-			size-garbage: 0
-	*/
-	cmd := exec.CommandContext(ctx, "git", "count-objects", "--verbose")
-	cmd.Dir = r.config.Path
-	out, err := cmd.Output()
-	if err != nil {
-		return stats, err
-	}
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		var (
-			token string
-			value uint64
-		)
-		if _, err := fmt.Sscan(scanner.Text(), &token, &value); err != nil {
-			return stats, err
-		}
-		switch token {
-		case "count:":
-			stats.Count = value
-		case "size:":
-			stats.Size = value
-		case "in-packs:":
-			stats.InPack = value
-		case "packs:":
-			stats.Packs = value
-		case "size-pack:":
-			stats.SizePack = value
-		case "garbage:":
-			stats.Garbage = value
-		case "size-garbage":
-			stats.SizeGarbage = value
-		}
-	}
-	return stats, nil
-}
-
-func (r *repository) maybeGc(ctx context.Context) {
-	if r.config.StorageBackend == SqliteBackend || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
-		return
-	}
-	log := logger.FromContext(ctx)
-	r.writesDone = 0
-	timeBefore := time.Now()
-	statsBefore, _ := r.countObjects(ctx)
-	cmd := exec.CommandContext(ctx, "git", "repack", "-a", "-d")
-	cmd.Dir = r.config.Path
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal("git.repack", zap.Error(err))
-		return
-	}
-	statsAfter, _ := r.countObjects(ctx)
-	log.Info("git.repack", zap.Duration("duration", time.Since(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
-}
-
 type State struct {
 	Filesystem             billy.Filesystem
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
-	ReleaseVersionsLimit   uint
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }
@@ -1743,20 +1115,8 @@ func (s *State) DeleteQueuedVersionIfExists(environment string, application stri
 	return s.DeleteQueuedVersion(environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, environment, application string, transaction *sql.Tx) (*uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
-		depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
-		if err != nil {
-			return nil, err
-		}
-		if depl == nil || depl.Version == nil {
-			return nil, nil
-		}
-		var v = uint64(*depl.Version)
-		return &v, nil
-	} else {
-		return s.readSymlink(environment, application, "version")
-	}
+func (s *State) GetEnvironmentApplicationVersion(environment, application string) (*uint64, error) {
+	return s.readSymlink(environment, application, "version")
 }
 
 // returns nil if there is no file
@@ -1831,20 +1191,6 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 	return envConfigs, err
 }
 
-func (s *State) GetEnvironmentConfigsSorted() (map[string]config.EnvironmentConfig, []string, error) {
-	configs, err := s.GetEnvironmentConfigs()
-	if err != nil {
-		return nil, nil, err
-	}
-	// sorting the environments to get a deterministic order of events:
-	var envNames []string = nil
-	for envName := range configs {
-		envNames = append(envNames, envName)
-	}
-	sort.Strings(envNames)
-	return configs, envNames, nil
-}
-
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
 		result := map[string]config.EnvironmentConfig{}
@@ -1909,68 +1255,14 @@ func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error)
 	return groupEnvNames, nil
 }
 
-func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
-	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
-		applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
-		if err != nil {
-			return nil, err
-		}
-		return applications.Apps, nil
-	} else {
-		appDir := s.Filesystem.Join("environments", environment, "applications")
-		return names(s.Filesystem, appDir)
-	}
+func (s *State) GetEnvironmentApplications(environment string) ([]string, error) {
+	appDir := s.Filesystem.Join("environments", environment, "applications")
+	return names(s.Filesystem, appDir)
 }
 
 // GetApplicationsFromFile returns apps from the filesystem
 func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
-}
-
-// GetCurrentlyDeployed returns all apps that have current deployments on any env from the filesystem
-func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (db.AllDeployments, error) {
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentlyDeployed")
-	defer ddSpan.Finish()
-	var result = db.AllDeployments{}
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
-	if err != nil {
-		return nil, err
-	}
-	for envNameIndex := range envNames {
-		envName := envNames[envNameIndex]
-		//env := envMap[envName]
-
-		if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
-			return nil, err
-		} else {
-			for _, appName := range apps {
-				var version *uint64
-				version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
-				if err != nil {
-					return nil, fmt.Errorf("could not get version of app %s in env %s", appName, envName)
-				}
-				var versionIntPtr *int64
-				if version == nil {
-					var versionInt = int64(*version)
-					versionIntPtr = &versionInt
-				} else {
-					versionIntPtr = nil
-				}
-				result = append(result, db.Deployment{
-					EslVersion: 0,
-					Created:    time.Time{},
-					App:        appName,
-					Env:        envName,
-					Version:    versionIntPtr,
-					Metadata: db.DeploymentMetadata{
-						DeployedByName:  "",
-						DeployedByEmail: "",
-					},
-				})
-			}
-		}
-	}
-	return result, nil
 }
 
 func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
@@ -2203,7 +1495,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 // ProcessQueue checks if there is something in the queue
 // deploys if necessary
 // deletes the queue
-func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment string, application string) (string, error) {
+func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environment string, application string) (string, error) {
 	queuedVersion, err := s.GetQueuedVersion(environment, application)
 	queueDeploymentMessage := ""
 	if err != nil {
@@ -2215,7 +1507,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 			return "", nil
 		}
 
-		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, environment, application, transaction)
+		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(environment, application)
 		if err != nil {
 			return "", err
 		}
