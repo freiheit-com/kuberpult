@@ -132,7 +132,7 @@ func NewIncrementalUUIDGenerator() uuid.GenerateUUIDs {
 }
 
 // CreateMigrationsPath detects if it's running withing earthly/CI or locally and adapts the path to the migrations accordingly
-func CreateMigrationsPath() (string, error) {
+func CreateMigrationsPath(numDirs int) (string, error) {
 	const subDir = "/database/migrations/sqlite"
 	_, err := os.Stat("/kp")
 	if err != nil {
@@ -142,7 +142,7 @@ func CreateMigrationsPath() (string, error) {
 				return "", err
 			}
 			// this ".." sequence is necessary, because Getwd() returns the path of this go file (when running in an idea like goland):
-			return wd + "/../.." + subDir, nil
+			return wd + strings.Repeat("/..", numDirs) + subDir, nil
 		}
 		return "", err
 	}

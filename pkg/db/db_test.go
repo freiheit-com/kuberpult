@@ -179,7 +179,7 @@ func TestDeploymentStorage(t *testing.T) {
 			ctx := context.Background()
 			dbDir := t.TempDir()
 
-			dir, err := testutil.CreateMigrationsPath()
+			dir, err := testutil.CreateMigrationsPath(2)
 			if err != nil {
 				t.Fatalf("setup error could not detect dir \n%v", err)
 				return
@@ -364,21 +364,15 @@ func TestReadWriteDeployment(t *testing.T) {
 		},
 	}
 
-	dir, err := testutil.CreateMigrationsPath()
-	if err != nil {
-		t.Fatalf("setup error could not detect dir \n%v", err)
-		return
-	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
 
-			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				deployment, err2 := dbHandler.DBSelectAnyDeployment(ctx, transaction)
 				if err2 != nil {
 					return err2
@@ -588,7 +582,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
-	dir, err := testutil.CreateMigrationsPath()
+	dir, err := testutil.CreateMigrationsPath(2)
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)

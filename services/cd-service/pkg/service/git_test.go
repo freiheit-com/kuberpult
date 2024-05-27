@@ -727,7 +727,7 @@ func TestGetCommitInfo(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			dir, err := testutil.CreateMigrationsPath()
+			dir, err := testutil.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatalf("setup error could not detect dir \n%v", err)
 				return

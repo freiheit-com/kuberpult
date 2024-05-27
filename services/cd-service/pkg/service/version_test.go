@@ -21,6 +21,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"testing"
 	"time"
 
@@ -139,7 +140,7 @@ func TestVersion(t *testing.T) {
 
 			for i, transformer := range tc.Setup {
 				now := time.Unix(int64(i), 0)
-				ctx := repository.WithTimeNow(testutil.MakeTestContext(), now)
+				ctx := time2.WithTimeNow(testutil.MakeTestContext(), now)
 				err := repo.Apply(ctx, transformer)
 				if err != nil {
 					t.Fatal(err)
@@ -327,7 +328,7 @@ func TestGetManifests(t *testing.T) {
 
 			for i, transformer := range tc.setup {
 				now := time.Unix(int64(i), 0)
-				ctx := repository.WithTimeNow(testutil.MakeTestContext(), now)
+				ctx := time2.WithTimeNow(testutil.MakeTestContext(), now)
 				err := repo.Apply(ctx, transformer)
 				if err != nil {
 					t.Fatal(err)

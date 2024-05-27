@@ -287,7 +287,7 @@ func (o *OverviewServiceServer) getOverview(
 					}
 				}
 			}
-			if team, err := s.GetApplicationTeamOwner(appName); err != nil {
+			if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 				return nil, err
 			} else {
 				app.Team = team

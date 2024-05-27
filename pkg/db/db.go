@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -69,6 +70,17 @@ type DBHandler struct {
 }
 
 type EslId int64
+
+type AppStateChange string
+
+const (
+	InitialEslId EslId = 1
+
+	AppStateChangeMigrate AppStateChange = "AppStateChangeMigrate"
+	AppStateChangeCreate  AppStateChange = "AppStateChangeCreate"
+	AppStateChangeUpdate  AppStateChange = "AppStateChangeUpdate"
+	AppStateChangeDelete  AppStateChange = "AppStateChangeDelete"
+)
 
 func (h *DBHandler) ShouldUseEslTable() bool {
 	return h != nil
@@ -372,7 +384,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	return row, nil
 }
 
-// DBReadEslEventInternal returns either the first or the last row of the esl table
+// DBReadEslEventLaterThan returns the first row of the esl table that has an eslId > the given eslId
 func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslId EslId) (*EslEventRow, error) {
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslId, created, event_type, json FROM event_sourcing_light WHERE eslId > (?) ORDER BY created %s LIMIT 1;", sort))
@@ -487,12 +499,12 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 
 	rows, err := h.DB.QueryContext(ctx, query, commitHash)
 	if err != nil {
-		return nil, fmt.Errorf("Error querying DB. Error: %w\n", err)
+		return nil, fmt.Errorf("Error querying events. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logger.FromContext(ctx).Sugar().Warnf("events row could not be closed: %v", err)
 		}
 	}(rows)
 
@@ -619,15 +631,22 @@ type AllEnvLocks map[string][]EnvironmentLock
 type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
 type GetAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllEnvLocks, error)
 
+// GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
+type GetAllAppsFun = func() (map[string]string, error)
+
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
-	getAllAppsFun func() ([]string, error),
+	getAllAppsFun GetAllAppsFun,
 	getAllDeploymentsFun GetAllDeploymentsFun,
 	getAllEnvLocksFun GetAllEnvLocksFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
-	err := h.RunCustomMigrationAllTables(ctx, getAllAppsFun)
+	err := h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationApps(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
@@ -635,10 +654,17 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	return h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
+	err = h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeployment")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata" +
 			" FROM deployments " +
@@ -721,7 +747,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logger.FromContext(ctx).Sugar().Warnf("deployments row could not be closed: %v", err)
 		}
 	}(rows)
 	if rows.Next() {
@@ -751,6 +777,163 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 	return nil, nil // no rows, but also no error
 }
 
+type DBApp struct {
+	EslId EslId
+	App   string
+}
+
+type DBAppMetaData struct {
+	Team string
+}
+
+type DBAppWithMetaData struct {
+	EslId    EslId
+	App      string
+	Metadata DBAppMetaData
+}
+
+func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslId, stateChange AppStateChange, metaData DBAppMetaData) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertApplication")
+	defer span.Finish()
+	jsonToInsert, err := json.Marshal(metaData)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO apps (eslVersion, created, appName, stateChange, metadata)  VALUES (?, ?, ?, ?, ?);",
+	)
+	span.SetTag("query", insertQuery)
+	_, err = transaction.Exec(
+		insertQuery,
+		previousEslVersion+1,
+		time.Now(),
+		appName,
+		stateChange,
+		jsonToInsert,
+	)
+	if err != nil {
+		return fmt.Errorf("could not insert an app into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func NewNullInt(s *int64) sql.NullInt64 {
+	if s == nil {
+		return sql.NullInt64{
+			Int64: 0,
+			Valid: false,
+		}
+	}
+	return sql.NullInt64{
+		Int64: *s,
+		Valid: true,
+	}
+}
+
+func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, appName, metadata " +
+			" FROM apps " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var row = &DBAppWithMetaData{}
+	if rows.Next() {
+		var metadataStr string
+		err := rows.Scan(&row.EslId, &row.App, &metadataStr)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
+		}
+		var metaData = DBAppMetaData{
+			Team: "",
+		}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Metadata = metaData
+	} else {
+		row = nil
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("apps row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("apps row has error: %v\n", err)
+	}
+	return row, nil
+}
+
+func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, appName, metadata " +
+			" FROM apps " +
+			" WHERE appName=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
+		}
+	}(rows)
+
+	//exhaustruct:ignore
+	var row = &DBAppWithMetaData{}
+	if rows.Next() {
+		var metadataStr string
+		err := rows.Scan(&row.EslId, &row.App, &metadataStr)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
+		}
+		var metaData = DBAppMetaData{Team: ""}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Metadata = metaData
+	} else {
+		row = nil
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("apps row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("apps row has error: %v\n", err)
+	}
+	return row, nil
+}
+
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
 func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslId) error {
 	if h == nil {
@@ -771,11 +954,12 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata) VALUES (?, ?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
+	nullVersion := NewNullInt(deployment.Version)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
 		time.Now(),
-		deployment.Version,
+		nullVersion,
 		deployment.App,
 		deployment.Env,
 		jsonToInsert)
@@ -879,7 +1063,7 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 	})
 }
 
-func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsFun func() ([]string, error)) error {
+func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
@@ -899,16 +1083,44 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsF
 		} else {
 			version = 1
 		}
-		slices.Sort(allAppsRepo)
+		sortedApps := sorting.SortKeys(allAppsRepo)
 
-		if allAppsDb != nil && reflect.DeepEqual(allAppsDb.Apps, allAppsRepo) {
+		if allAppsDb != nil && reflect.DeepEqual(allAppsDb.Apps, sortedApps) {
 			// nothing to do
 			logger.FromContext(ctx).Sugar().Infof("Nothing to do, all apps are equal")
 			return nil
 		}
 		// if there is any difference, we assume the manifest wins over the database state,
 		// so we use `allAppsRepo`:
-		return h.DBWriteAllApplications(ctx, transaction, version, allAppsRepo)
+		return h.DBWriteAllApplications(ctx, transaction, version, sortedApps)
+	})
+}
+
+func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		dbApp, err := h.DBSelectAnyApp(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not get dbApp from database - assuming the manifest repo is correct: %v", err)
+		}
+		if dbApp != nil {
+			// the migration was already done
+			logger.FromContext(ctx).Info("migration to apps was done already")
+			return nil
+		}
+
+		appsMap, err := getAllAppsFun()
+		if err != nil {
+			return fmt.Errorf("could not get dbApp to run custom migrations: %v", err)
+		}
+
+		for app := range appsMap {
+			team := appsMap[app]
+			err = h.DBInsertApplication(ctx, transaction, app, InitialEslId, AppStateChangeMigrate, DBAppMetaData{Team: team})
+			if err != nil {
+				return fmt.Errorf("could not write dbApp %s: %v", app, err)
+			}
+		}
+		return nil
 	})
 }
 
