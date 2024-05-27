@@ -188,9 +188,7 @@ ingress:
     secretName: kuberpult-tls-secret
 ssh:
   # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
-  identity: |
-    -----BEGIN OPENSSH PRIVATE KEY-----
-    -----END OPENSSH PRIVATE KEY-----
+  identity: # This value must be the complete OpenSSH private key file content (i.e. starts with "-----BEGIN OPENSSH PRIVATE KEY-----")
   known_hosts: |
     github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
 pgp:
