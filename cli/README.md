@@ -3,31 +3,3 @@
 **Note: The kuberpult client is not ready for production use yet.**
 
 The Kuberpult client is a Go command line client and library for interacting with a Kuberpult deployment. It essentially just wraps the Kuberpult API in a high-level, human-friendly interface.
-
------BEGIN RSA PRIVATE KEY-----
-MIIEpQIBAAKCAQEAw09S2usLT4DtmlBe+OiLVRmhifDh+NLBsrW/zkOqxWPqtnsk
-ocgiCquLXHkXkEirc9fDp0PlMdYb2Eu+PezT092d7XOZPUDtOTJ/zbhYcqwzTwe5
-OoCVXxr3GBkV/WPH3G0xFOyxDzZQKnnmj9rOOr2wxOah73GedvZ2KZzDgiM2zf4z
-Pv4PUoiatNNT+nw8UT4HmZeo5Kqpsm1ooQyDSx9IuguG2cDBQCYYXYfXs7ebH1E+
-N6+ao/4lsvR2JjTgRVdah7fLI4wNsseUz98+O2Qnqr8ltXMrB5SjsyyI7AhjwHQw
-05GrghOEwVd2wXrkSCbvX0Vwq8EAxqctRrmu+QIDAQABAoIBAQCSImwQOQXBeupN
-KA2nl/eIuSDRIVcy4h7kJHFbV+4Su2wHFaSXGDPAYBJqIoCrCHSgvLQ8FuUKoPU8
-pY+2rdjhEVT1MiVaW5Yj0dEmj+Q+CPJrE5BYYZViD78KXNrDOUF1gI3U5jSk+TKK
-VaNZx5G/CeeVrCtGCXFT+Zz4Db+LQpdFSEeg99xBJDVAdBCDKdnN9eSJVeEKzpqn
-VuJV+44CouROI5Pk3Ku0BmaIe/Ei/0K9yq2arSmGMxMQ563Vcz7rvAQdUMdy1FF2
-GwQP8nDy4KgqAlgok5JI5jZ4do/kiCMuLPhhrNuRm/HSMpi81Ptw450Smo3meY9+
-55FvXXtxAoGBAN+i42z+qE7k5zScylh0u92n7K+8cxZZvnhUlfoR5ZRhzt7LBPfV
-vlPUkWuHdiIQuEGTCyuPQpVbKiP3Eb7QJlbFg/l8jeXpU3anvLfuNTdm85S3DfV5
-JrL+ekaUT+ubpSxVRH1UmNn27lAQpVCMhUFTqZJH8Yarx+s5w1RLvpU3AoGBAN+T
-BNJws6eH61TnbzKoF0yOoZ+0PflizxiBkEwDyuH5Pir89Ha0vHJi/K2YA5Wbum2W
-+qXk6IpPYdW7/x+DfeGbwFW9OZ203apjf6s6YZ85a3EhCT01k28YaEezr9HGn/HT
-Y8o5LP9o5n+QaMCdrUbfsg+llQX/hDGikjHcxPVPAoGAaMbXSOyzDGugi3zeLL1c
-e4g+k0N2pEUdwSDYN5aE+pUsqCN0S21gQ8R28WtBBMrSmR58gEcZigJxZvJN5Rl+
-rO7TW2No1AwSZ6hE+ePoGPHqM4XkS1scr4Yc4c6A90EwDOpSMWoeRxizJN33phqA
-IFBDRV7hoRgAjYu9oVPvkdcCgYEAkdy0J6t5ulI12cXISW9bDAp+LdiFGmA5ps5Y
-2w8aXUWkJp2zzIJr8+Da41Kq+/+GqJr42iS3Bg12UeB+OQwro3ZfDFEQ9vAaMmEJ
-2SeUqzHmA/++rF142+E7n5P+oEkK7tWwZC3bSqMgxpbrkMcOVo/49rZbvHcQwuVC
-ph9XrIcCgYEAz0Ny6PnI0TH2gp5yIijoTt/o6rwzk7qHyniRRS56gN+QrsjS4zZM
-tab9bQQ1yFBOcgHkS+A3wED4eTtdP2ifa6iZD8K1wiG1IPtM/7vPzRcABMSp+B9B
-8LJGQ/lydrpU7eWLBKAoi+qNpHIRQllcWkMvbTn6gjIyT+jpBjFHOWc=
------END RSA PRIVATE KEY-----
