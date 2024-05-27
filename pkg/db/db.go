@@ -306,7 +306,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		return &row, nil
@@ -339,7 +339,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		return &row, nil
@@ -439,7 +439,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning events row from DB. Error: %w\n", err)
 		}
 
 		result = append(result, row)
@@ -464,7 +464,7 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("Error scanning all_apps row from DB. Error: %w\n", err)
 	}
 
 	//exhaustruct:ignore
@@ -484,7 +484,7 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 type DBDeployment struct {
 	EslVersion     EslId
 	Created        time.Time
-	ReleaseVersion int64
+	ReleaseVersion *int64
 	App            string
 	Env            string
 	Metadata       string // json
@@ -542,19 +542,23 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 		var row = DBDeployment{
 			EslVersion:     0,
 			Created:        time.Time{},
-			ReleaseVersion: 0,
+			ReleaseVersion: nil,
 			App:            "",
 			Env:            "",
 			Metadata:       "",
 		}
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.ReleaseVersion, &row.App, &row.Env, &row.Metadata)
+		var releaseVersion sql.NullInt64
+		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
+		if releaseVersion.Valid {
+			row.ReleaseVersion = &releaseVersion.Int64
+		}
 
 		//exhaustruct:ignore
 		var resultJson = DeploymentMetadata{}
@@ -567,7 +571,7 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 			Created:    row.Created,
 			App:        row.App,
 			Env:        row.Env,
-			Version:    &row.ReleaseVersion,
+			Version:    row.ReleaseVersion,
 			Metadata:   resultJson,
 		}, nil
 	}
@@ -596,11 +600,11 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		if releaseVersion.Valid {
-			row.ReleaseVersion = releaseVersion.Int64
+			row.ReleaseVersion = &releaseVersion.Int64
 		}
 		return &row, nil
 	}

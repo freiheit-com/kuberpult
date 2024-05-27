@@ -1755,8 +1755,12 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, environmen
 		var v = uint64(*depl.Version)
 		return &v, nil
 	} else {
-		return s.readSymlink(environment, application, "version")
+		return s.GetEnvironmentApplicationVersionFromManifest(environment, application)
 	}
+}
+
+func (s *State) GetEnvironmentApplicationVersionFromManifest(environment string, application string) (*uint64, error) {
+	return s.readSymlink(environment, application, "version")
 }
 
 // returns nil if there is no file
@@ -1938,19 +1942,18 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
-		//env := envMap[envName]
 
 		if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
 			return nil, err
 		} else {
 			for _, appName := range apps {
 				var version *uint64
-				version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
+				version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
 				if err != nil {
 					return nil, fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 				}
 				var versionIntPtr *int64
-				if version == nil {
+				if version != nil {
 					var versionInt = int64(*version)
 					versionIntPtr = &versionInt
 				} else {
