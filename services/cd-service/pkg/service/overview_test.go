@@ -18,7 +18,7 @@ package service
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"sync"
 	"testing"
 

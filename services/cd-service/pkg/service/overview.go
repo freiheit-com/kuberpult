@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -27,8 +28,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
