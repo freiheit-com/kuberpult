@@ -158,7 +158,7 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 		if err != nil {
 			return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-role in grpc context %s", userRole))
 		}
-		
+
 		if userRole == "" {
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
