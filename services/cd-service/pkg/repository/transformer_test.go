@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 
@@ -41,8 +42,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 

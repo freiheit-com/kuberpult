@@ -25,6 +25,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"io"
 	"os"
 	"path/filepath"
@@ -298,7 +299,13 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			}
 
 			// check that we can build the current state
-			_, err = result.StateAt(nil)
+			state, err := result.StateAt(nil)
+			if err != nil {
+				return nil, err
+			}
+
+			// Check configuration for errors and abort early if any:
+			_, err = state.GetEnvironmentConfigsAndValidate(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -1146,6 +1153,43 @@ func (s *State) GetTeamName(application string) (string, error) {
 }
 
 var InvalidJson = errors.New("JSON file is not valid")
+
+func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFor string) bool {
+	if _, found := envConfigs[envNameToSearchFor]; found {
+		return true
+	}
+	return false
+}
+
+func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+	logger := logger.FromContext(ctx)
+	envConfigs, err := s.GetEnvironmentConfigs()
+	if err != nil {
+		return nil, err
+	}
+	if len(envConfigs) == 0 {
+		logger.Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
+	}
+	for envName, env := range envConfigs {
+		if env.Upstream == nil || env.Upstream.Environment == "" {
+			continue
+		}
+		upstreamEnv := env.Upstream.Environment
+		if !envExists(envConfigs, upstreamEnv) {
+			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
+		}
+	}
+	envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
+	for _, group := range envGroups {
+		grpDist := group.Environments[0].DistanceToUpstream
+		for _, env := range group.Environments {
+			if env.DistanceToUpstream != grpDist {
+				logger.Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
+			}
+		}
+	}
+	return envConfigs, err
+}
 
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {

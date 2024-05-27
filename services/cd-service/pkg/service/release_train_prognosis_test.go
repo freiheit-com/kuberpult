@@ -18,11 +18,11 @@ package service
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"

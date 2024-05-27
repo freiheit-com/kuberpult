@@ -20,7 +20,7 @@ import (
 	"context"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"os"
