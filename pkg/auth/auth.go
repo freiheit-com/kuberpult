@@ -145,6 +145,10 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
 
+		logger.FromContext(ctx).Warn(fmt.Sprintf("Number of roles in header: %d\n", len(rolesInHeader)))
+		for idx, r := range rolesInHeader {
+			logger.FromContext(ctx).Warn(fmt.Sprintf("Role (%d): '%s'\n", idx, r))
+		}
 		if len(rolesInHeader) == 0 {
 			if x.DexDefaultRoleEnabled {
 				u.DexAuthContext = &DexAuthContext{
