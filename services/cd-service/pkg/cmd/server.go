@@ -19,16 +19,15 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
-
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -293,12 +292,13 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
 
-		repositoryService := &service.Service{
-			Repository: repo,
-		}
+		repositoryService :=
+			&service.Service{
+				Repository: repo,
+			}
 		if dbHandler.ShouldUseOtherTables() {
 			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=true")
-			migErr := dbHandler.RunCustomMigrations(ctx, repo.State().GetApplicationsFromFile)
+			migErr := dbHandler.RunCustomMigrations(ctx, repo.State().GetApplicationsFromFile, repo.State().GetCurrentlyDeployed)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
 			}

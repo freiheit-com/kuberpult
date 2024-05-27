@@ -59,7 +59,7 @@ func (o *VersionServiceServer) GetVersion(
 	}
 	//exhaustruct:ignore
 	res := api.GetVersionResponse{}
-	version, err := state.GetEnvironmentApplicationVersion(in.Environment, in.Application)
+	version, err := state.GetEnvironmentApplicationVersion(ctx, in.Environment, in.Application, nil)
 	if err != nil {
 		return nil, err
 	}

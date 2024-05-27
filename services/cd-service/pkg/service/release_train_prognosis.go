@@ -42,7 +42,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 		Repo:            s.Repository,
 	}
 
-	prognosis := t.Prognosis(ctx, s.Repository.State())
+	prognosis := t.Prognosis(ctx, s.Repository.State(), nil)
 
 	if prognosis.Error != nil {
 		return nil, prognosis.Error

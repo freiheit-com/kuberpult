@@ -17,11 +17,11 @@ Copyright freiheit.com*/
 package argocd
 
 import (
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	godebug "github.com/kylelemons/godebug/diff"
 )
