@@ -27,19 +27,14 @@ source-code:
 lint:
     FROM +source-code
     DO go-build+LINT --skip_lint_errors=false
-
+    
 test:
     FROM +source-code
     RUN go test ./...
 
-executable:
+compile:
     FROM +source-code
-
-    RUN mkdir -p bin
-
-    RUN go build -o bin ./...
-
-    SAVE ARTIFACT bin/kuberpult-client
+    DO go-build+COMPILE --main_path=cmd/kuberpult-client
 
 build:
     BUILD +test
@@ -48,7 +43,7 @@ build:
 
     FROM scratch
 
-    COPY +executable/kuberpult-client .
+    COPY +compile/main/potato ./kuberpult-client
 
     ENTRYPOINT ["./kuberpult-client"]
 
