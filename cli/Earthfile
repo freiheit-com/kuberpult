@@ -37,13 +37,14 @@ compile:
     DO go-build+COMPILE --main_path=cmd/kuberpult-client
 
 build:
+    BUILD +lint
     BUILD +test
 
     ARG  --required VERSION
 
     FROM scratch
 
-    COPY +compile/main/potato ./kuberpult-client
+    COPY +compile/main ./kuberpult-client
 
     ENTRYPOINT ["./kuberpult-client"]
 
