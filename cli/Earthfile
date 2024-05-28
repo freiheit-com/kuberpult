@@ -1,7 +1,21 @@
 VERSION 0.8
 
-source-code:
+IMPORT ../infrastructure/earthly/go AS go-build
+
+deps:
     FROM golang:1.21.4-alpine3.17
+
+    RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
+
+    RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.2.0.tar.gz -O exhaustruct.tar.gz
+    RUN echo "511d0ba05092386a59dca74b6cbeb99f510b814261cc04b68213a9ae31cf8bf6  exhaustruct.tar.gz" | sha256sum -c
+    RUN tar xzf exhaustruct.tar.gz
+    WORKDIR go-exhaustruct-3.2.0
+    RUN go build ./cmd/exhaustruct
+    RUN mv exhaustruct /usr/local/bin/exhaustruct
+
+source-code:
+    FROM +deps
 
     WORKDIR /kp
 
@@ -10,27 +24,27 @@ source-code:
     COPY pkg pkg
     COPY cmd cmd
 
+lint:
+    FROM +source-code
+    DO go-build+LINT --skip_lint_errors=false
+    
 test:
     FROM +source-code
-    RUN go test ./...
+    DO go-build+UNIT_TEST
 
-executable:
+compile:
     FROM +source-code
-
-    RUN mkdir -p bin
-
-    RUN go build -o bin ./...
-
-    SAVE ARTIFACT bin/kuberpult-client
+    DO go-build+COMPILE --main_path=cmd/kuberpult-client
 
 build:
-    BUILD +test
-
     ARG  --required VERSION
+
+    BUILD +lint
+    BUILD +test
 
     FROM scratch
 
-    COPY +executable/kuberpult-client .
+    COPY +compile/main ./kuberpult-client
 
     ENTRYPOINT ["./kuberpult-client"]
 

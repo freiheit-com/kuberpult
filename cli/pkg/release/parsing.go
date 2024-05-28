@@ -176,7 +176,7 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string)
 
 // takes the raw command line flags and converts them to an intermediate represnetations for easy validation
 func readArgs(args []string) (*commandLineArguments, error) {
-	cmdArgs := commandLineArguments{}
+	cmdArgs := commandLineArguments{} //exhaustruct:ignore
 
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
@@ -225,7 +225,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
-	rp := ReleaseParameters{}
+	rp := ReleaseParameters{} //exhaustruct:ignore
 	rp.Manifests = make(map[string][]byte)
 	if !cmdArgs.skipSignatures {
 		rp.Signatures = make(map[string][]byte)
