@@ -339,7 +339,7 @@ func TestReadWriteDeployment(t *testing.T) {
 		ExpectedDeployment *Deployment
 	}{
 		{
-			Name:            "1",
+			Name:            "with eslVersion != nil",
 			App:             "app-a",
 			Env:             "dev",
 			VersionToDeploy: version(7),
@@ -351,7 +351,7 @@ func TestReadWriteDeployment(t *testing.T) {
 			},
 		},
 		{
-			Name:            "2",
+			Name:            "with eslVersion == nil",
 			App:             "app-b",
 			Env:             "prod",
 			VersionToDeploy: nil,
