@@ -30,7 +30,7 @@ lint:
     
 test:
     FROM +source-code
-    RUN go test ./...
+    DO go-build+UNIT_TEST
 
 compile:
     FROM +source-code
