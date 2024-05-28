@@ -29,34 +29,31 @@ import (
 
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	tcs := []struct {
-		Name  string
-		eslId db.EslId
+		Name          string
+		eslId         []db.EslId
+		ExpectedEslId db.EslId
 	}{
 		{
-			Name:  "1",
-			eslId: 7,
+			Name:          "test with one write operation",
+			eslId:         []db.EslId{7},
+			ExpectedEslId: 7,
 		},
 		{
-			Name:  "2",
-			eslId: 666,
+			Name:          "test with multiple write operations",
+			eslId:         []db.EslId{1, 2, 7, 666, 777},
+			ExpectedEslId: 777,
 		},
 	}
 
-	dir, err := testutil.CreateMigrationsPath()
-	if err != nil {
-		t.Fatalf("setup error could not detect dir \n%v", err)
-		return
-	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
 
-			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				eslId, err2 := DBReadCutoff(dbHandler, ctx, transaction)
 				if err2 != nil {
 					return err2
@@ -65,9 +62,11 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *eslId))
 				}
 
-				err := DBWriteCutoff(dbHandler, ctx, transaction, tc.eslId)
-				if err != nil {
-					return err
+				for _, eslId := range tc.eslId {
+					err := DBWriteCutoff(dbHandler, ctx, transaction, eslId)
+					if err != nil {
+						return err
+					}
 				}
 
 				actual, err := DBReadCutoff(dbHandler, ctx, transaction)
@@ -75,7 +74,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 					return err
 				}
 
-				if diff := cmp.Diff(tc.eslId, *actual); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedEslId, *actual); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
