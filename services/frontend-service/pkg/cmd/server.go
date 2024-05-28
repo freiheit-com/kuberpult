@@ -381,7 +381,7 @@ func runServer(ctx context.Context) error {
 	dexHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if !c.DexEnabled {
-			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
+			http.Error(w, "Dex not enabled, /token unavailable.", http.StatusUnauthorized)
 			return
 		}
 		httpHandler.HandleDex(w, req)
