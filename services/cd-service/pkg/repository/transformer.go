@@ -352,7 +352,6 @@ type CreateApplicationVersion struct {
 	DisplayVersion  string            `json:"displayVersion"`
 	WriteCommitData bool              `json:"writeCommitData"`
 	PreviousCommit  string            `json:"previousCommit"`
-	NextCommit      string            `json:"nextCommit"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -443,7 +442,6 @@ func (c *CreateApplicationVersion) Transform(
 
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
-	checkForInvalidCommitId(c.NextCommit, "Next")
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -525,7 +523,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, c.NextCommit, fs)
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, fs)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -595,7 +593,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, nextCommitId string, fs billy.Filesystem) error {
+func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, fs billy.Filesystem) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
@@ -609,11 +607,6 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 
 	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
 		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {
-			return GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if nextCommitId != "" && valid.SHA1CommitID(nextCommitId) {
-		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(nextCommitId), fieldNextCommidId, app, fs); err != nil {
 			return GetCreateReleaseGeneralFailure(err)
 		}
 	}
