@@ -142,7 +142,7 @@ func CreateMigrationsPath() (string, error) {
 				return "", err
 			}
 			// this ".." sequence is necessary, because Getwd() returns the path of this go file (when running in an idea like goland):
-			return wd + "/../../../.." + subDir, nil
+			return wd + "/../.." + subDir, nil
 		}
 		return "", err
 	}
