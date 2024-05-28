@@ -224,13 +224,13 @@ func RunServer() {
 				zap.String("details", err.Error()),
 			)
 		}
-		var cloudrunGrpc api.CloudRunServiceClient
 		if c.DeploymentType == "cloudrun" {
-			cloudrunGrpc, err = getCloudRunGrpcClient(ctx, c)
+			var cloudrunGrpcClient api.CloudRunServiceClient
+			cloudrunGrpcClient, err = getCloudRunGrpcClient(ctx, c)
 			if err != nil {
 				logger.FromContext(ctx).Fatal("Unable to connect to CloudRunService", zap.Error(err))
 			}
-			ctx = context.WithValue(ctx, repository.CloudRunClientKey, cloudrunGrpc)
+			repository.SetCloudrunGrpcClient(cloudrunGrpcClient)
 		}
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {

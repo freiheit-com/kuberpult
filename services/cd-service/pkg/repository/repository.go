@@ -66,7 +66,6 @@ import (
 type contextKey string
 
 const DdMetricsKey contextKey = "ddMetrics"
-const CloudRunClientKey contextKey = "cloudrunClient"
 
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {

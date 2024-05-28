@@ -80,6 +80,12 @@ const (
 	keptVersionsOnCleanup = 20
 )
 
+var cloudrunGrpcClient api.CloudRunServiceClient = nil
+
+func SetCloudrunGrpcClient(client api.CloudRunServiceClient) {
+	cloudrunGrpcClient = client
+}
+
 func versionToString(Version uint64) string {
 	return strconv.FormatUint(Version, 10)
 }
@@ -2008,11 +2014,8 @@ func (c *DeployApplicationVersion) Transform(
 			return "", fmt.Errorf("could not write deployment for %v", newDeployment)
 		}
 	} else {
-		cloudRunClient := ctx.Value(CloudRunClientKey)
-		fmt.Println("cloudrunclient: ", cloudRunClient)
-		if cloudRunClient != nil {
-			fmt.Println("Deploying to cloudrun: ")
-			_, err := cloudRunClient.(api.CloudRunServiceClient).Deploy(ctx, &api.ServiceDeployRequest{Manifest: manifestContent})
+		if cloudrunGrpcClient != nil {
+			_, err := cloudrunGrpcClient.Deploy(ctx, &api.ServiceDeployRequest{Manifest: manifestContent})
 			if err != nil {
 				return "", err
 			}
