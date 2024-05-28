@@ -29,7 +29,7 @@ type commandLineArguments struct {
 }
 
 func readArgs(args []string) (*commandLineArguments, []string, error) {
-	cmdArgs := commandLineArguments{}
+	cmdArgs := commandLineArguments{} //exhaustruct:ignore
 
 	fs := flag.NewFlagSet("top level", flag.ContinueOnError)
 
@@ -65,7 +65,7 @@ func convertToParams(cmdArgs *commandLineArguments) (*kuberpultClientParameters,
 		return nil, fmt.Errorf(msg)
 	}
 
-	params := kuberpultClientParameters{}
+	params := kuberpultClientParameters{} //exhaustruct:ignore
 
 	params.url = cmdArgs.url.Values[0]
 
