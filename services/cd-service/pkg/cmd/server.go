@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"os"
@@ -43,6 +45,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -220,6 +223,14 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", err.Error()),
 			)
+		}
+		var cloudrunGrpc api.CloudRunServiceClient
+		if c.DeploymentType == "cloudrun" {
+			cloudrunGrpc, err = getCloudRunGrpcClient(ctx, c)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Unable to connect to CloudRunService", zap.Error(err))
+			}
+			ctx = context.WithValue(ctx, repository.CloudRunClientKey, cloudrunGrpc)
 		}
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
@@ -421,4 +432,26 @@ func checkDeploymentType(c Config) error {
 		}
 	}
 	return nil
+}
+
+func getCloudRunGrpcClient(ctx context.Context, config Config) (api.CloudRunServiceClient, error) {
+	systemRoots, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CA certificates")
+	}
+	//exhaustruct:ignore
+	cred := credentials.NewTLS(&tls.Config{
+		RootCAs: systemRoots,
+	})
+
+	grpcClientOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(cred),
+	}
+
+	con, err := grpc.Dial(config.CloudRunServer, grpcClientOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("error dialing %s: %w", config.CloudRunServer, err)
+	}
+
+	return api.NewCloudRunServiceClient(con), nil
 }

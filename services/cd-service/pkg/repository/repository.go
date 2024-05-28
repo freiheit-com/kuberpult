@@ -25,10 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"io"
 	"net/http"
 	"os"
@@ -40,6 +36,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -65,6 +66,7 @@ import (
 type contextKey string
 
 const DdMetricsKey contextKey = "ddMetrics"
+const CloudRunClientKey contextKey = "cloudrunClient"
 
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {

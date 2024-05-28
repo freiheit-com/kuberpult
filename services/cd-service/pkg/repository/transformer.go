@@ -22,14 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	config "github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
@@ -39,6 +31,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	config "github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
@@ -2007,6 +2008,15 @@ func (c *DeployApplicationVersion) Transform(
 			return "", fmt.Errorf("could not write deployment for %v", newDeployment)
 		}
 	} else {
+		cloudRunClient := ctx.Value(CloudRunClientKey)
+		fmt.Println("cloudrunclient: ", cloudRunClient)
+		if cloudRunClient != nil {
+			fmt.Println("Deploying to cloudrun: ")
+			_, err := cloudRunClient.(api.CloudRunServiceClient).Deploy(ctx, &api.ServiceDeployRequest{Manifest: manifestContent})
+			if err != nil {
+				return "", err
+			}
+		}
 		// Create a symlink to the release
 		if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 			return "", err
