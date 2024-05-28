@@ -91,7 +91,6 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		SourceMessage:    "",
 		SourceRepoUrl:    "",
 		PreviousCommitId: "",
-		NextCommitId:     "",
 		DisplayVersion:   "",
 		Manifests:        map[string]string{},
 	}
