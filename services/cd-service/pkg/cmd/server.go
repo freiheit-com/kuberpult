@@ -98,7 +98,7 @@ type Config struct {
 	DbWriteEslTableOnly        bool          `default:"false" split_words:"true"`
 	ReleaseVersionsLimit       uint          `default:"20" split_words:"true"`
 	GarbageCollectionFrequency uint          `default:"20" split_words:"true"`
-	DeploymentType             string        `default:"k8s" split_words:"true"`
+	DeploymentType             string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
 	CloudRunServer             string        `default:"" split_words:"true"`
 }
 
@@ -212,6 +212,11 @@ func RunServer() {
 			)
 		}
 		if err := checkReleaseVersionLimit(c.ReleaseVersionsLimit); err != nil {
+			logger.FromContext(ctx).Fatal("cd.config",
+				zap.String("details", err.Error()),
+			)
+		}
+		if err := checkDeploymentType(c); err != nil {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", err.Error()),
 			)
@@ -399,17 +404,21 @@ func RunServer() {
 	}
 }
 
-type releaseVersionsLimitError struct {
-	limit uint
-}
-
-func (s releaseVersionsLimitError) Error() string {
-	return fmt.Sprintf("releaseVersionsLimit: %d, must be between %d and %d", s.limit, minReleaseVersionsLimit, maxReleaseVersionsLimit)
-}
-
 func checkReleaseVersionLimit(limit uint) error {
 	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
 		return releaseVersionsLimitError{limit: limit}
+	}
+	return nil
+}
+
+func checkDeploymentType(c Config) error {
+	if c.DeploymentType != "k8s" && c.DeploymentType != "cloudrun" {
+		return deploymentTypeConfigError{deploymentTypeInvalid: true, cloudrunServerMissing: false}
+	}
+	if c.DeploymentType == "cloudrun" {
+		if c.CloudRunServer == "" {
+			return deploymentTypeConfigError{deploymentTypeInvalid: false, cloudrunServerMissing: true}
+		}
 	}
 	return nil
 }
