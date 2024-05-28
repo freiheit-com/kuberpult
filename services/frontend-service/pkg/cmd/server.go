@@ -387,8 +387,8 @@ func runServer(ctx context.Context) error {
 		httpHandler.HandleDex(w, req)
 	})
 	for _, endpoint := range []string{
-		"/dex",
-		"/dex/",
+		"/token",
+		"/token/",
 	} {
 		mux.Handle(endpoint, dexHandler)
 	}
