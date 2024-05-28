@@ -37,10 +37,10 @@ compile:
     DO go-build+COMPILE --main_path=cmd/kuberpult-client
 
 build:
+    ARG  --required VERSION
+
     BUILD +lint
     BUILD +test
-
-    ARG  --required VERSION
 
     FROM scratch
 
