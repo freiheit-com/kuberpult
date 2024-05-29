@@ -123,16 +123,13 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         onClick={onShowConfigClick}
                         highlightEffect={false}
                     />
-                    <div>
-                        <ReleaseTrainLink env={environment.name} />
-
-                        {''}
-
-                        {/* </div>
-                    <div> */}
-                        <ProductVersionLink
-                            env={environment.name}
-                            groupName={group?.environmentGroupName ?? ''}></ProductVersionLink>
+                    <div style={{ gap: '20px' }}>
+                        <div className="environment-link">
+                            <ReleaseTrainLink env={environment.name} />
+                        </div>
+                        <div className="environment-link">
+                            <ProductVersionLink env={environment.name} groupName={group?.environmentGroupName ?? ''} />
+                        </div>
                     </div>
                 </div>
             </div>

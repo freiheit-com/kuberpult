@@ -105,5 +105,9 @@ Copyright freiheit.com*/
                 @extend .text-bold;
             }
         }
+        .environment-link {
+            display: inline-block;
+            margin-left: 8px;
+        }
     }
 }
