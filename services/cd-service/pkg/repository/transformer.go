@@ -1329,19 +1329,29 @@ func (c *CreateEnvironmentLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	fs := state.Filesystem
-	envDir := fs.Join("environments", c.Environment)
-	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+	if state.DBHandler.ShouldUseOtherTables() {
+		user, err := auth.ReadUserFromContext(ctx)
+		if err != nil {
+			return "", err
+		}
+		if err := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, c.Message, user.Name, user.Email); err != nil {
+			return "", err
+		}
+	} else {
+		fs := state.Filesystem
+		envDir := fs.Join("environments", c.Environment)
+		if _, err := fs.Stat(envDir); err != nil {
+			return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+		}
+		chroot, err := fs.Chroot(envDir)
+		if err != nil {
+			return "", err
+		}
+		if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
+			return "", err
+		}
+		GaugeEnvLockMetric(fs, c.Environment)
 	}
-	chroot, err := fs.Chroot(envDir)
-	if err != nil {
-		return "", err
-	}
-	if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
-		return "", err
-	}
-	GaugeEnvLockMetric(fs, c.Environment)
 	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 }
 
@@ -1885,7 +1895,7 @@ func (c *DeployApplicationVersion) Transform(
 			envLocks, appLocks, teamLocks map[string]Lock
 			err                           error
 		)
-		envLocks, err = state.GetEnvironmentLocks(c.Environment)
+		envLocks, err = state.GetEnvironmentLocks(ctx, c.Environment)
 		if err != nil {
 			return "", err
 		}
@@ -2537,7 +2547,7 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 
-	envLocks, err := state.GetEnvironmentLocks(c.Env)
+	envLocks, err := state.GetEnvironmentLocks(ctx, c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:        nil,

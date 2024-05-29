@@ -504,6 +504,29 @@ type DeploymentMetadata struct {
 	DeployedByEmail string
 }
 
+type EnvironmentLock struct {
+	EslVersion EslId
+	Created    time.Time
+	LockID     string
+	Env        string
+	Metadata   EnvironmentLockMetadata
+}
+
+// DBEnvironmentLock Just used to fetch info from DB
+type DBEnvironmentLock struct {
+	EslVersion EslId
+	Created    time.Time
+	LockID     string
+	Env        string
+	Metadata   string
+}
+
+type EnvironmentLockMetadata struct {
+	CreatedByName  string
+	CreatedByEmail string
+	Message        string
+}
+
 type AllDeployments []Deployment
 
 type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
@@ -708,6 +731,186 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsF
 		// so we use `allAppsRepo`:
 		return h.DBWriteAllApplications(ctx, transaction, version, allAppsRepo)
 	})
+}
+
+func (h *DBHandler) DBSelectLatestEnvironmentLock(ctx context.Context, tx *sql.Tx, environment string) (*EnvironmentLock, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, lockID, envName, metadata" +
+			" FROM environment_locks " +
+			" WHERE envName=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environment,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	if rows.Next() {
+		var row = DBEnvironmentLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+		}
+		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
+
+		//exhaustruct:ignore
+		var resultJson = EnvironmentLockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		return &EnvironmentLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			Metadata:   resultJson,
+		}, nil
+	}
+	return nil, nil // no rows, but also no error
+
+}
+
+func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID, environment, message, authorName, authorEmail string) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+
+	existingEnvironmentLock, err := h.DBSelectLatestEnvironmentLock(ctx, tx, environment)
+	if err != nil {
+		return fmt.Errorf("could not find Environment lock for env %s", environment)
+	}
+
+	var previousVersion EslId
+	if existingEnvironmentLock == nil {
+		previousVersion = 0
+	} else {
+		previousVersion = existingEnvironmentLock.EslVersion
+	}
+	envLock := EnvironmentLock{
+		EslVersion: 0,
+		LockID:     lockID,
+		Created:    time.Time{},
+		Env:        environment,
+		Metadata: EnvironmentLockMetadata{
+			Message:        message,
+			CreatedByName:  authorName,
+			CreatedByEmail: authorEmail,
+		},
+	}
+	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
+}
+
+func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteEnvironmentLockInternal: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+
+	jsonToInsert, err := json.Marshal(envLock.Metadata)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, metadata) VALUES (?, ?, ?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		previousEslVersion+1,
+		time.Now(),
+		envLock.LockID,
+		envLock.Env,
+		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write environment lock into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBSelectAllLocksFromEnvironment(ctx context.Context, environmentName string) ([]EnvironmentLock, error) {
+	if h == nil {
+		return nil, nil
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		fmt.Sprintf(
+			"SELECT eslVersion, created, lockID, envName, metadata" +
+				" FROM environment_locks " +
+				" WHERE envName=? " +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT 25;"))
+
+	span.SetTag("query", selectQuery)
+	rows, err := h.DB.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w\n", err)
+	}
+	var envLocks []EnvironmentLock
+	for rows.Next() {
+		var row = DBEnvironmentLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+		}
+		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
+
+		//exhaustruct:ignore
+		var resultJson = EnvironmentLockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		envLocks = append(envLocks, EnvironmentLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			Metadata:   resultJson,
+		})
+
+	}
+	return envLocks, nil // no rows, but also no error
 }
 
 type AllApplicationsJson struct {

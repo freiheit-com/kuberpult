@@ -30,6 +30,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"os/exec"
@@ -1587,7 +1588,48 @@ func (s *State) GetAppLocksDir(environment string, application string) string {
 func (s *State) GetTeamLocksDir(environment string, team string) string {
 	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
 }
-func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
+
+func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment string) (map[string]Lock, error) {
+	locks, err := s.DBHandler.DBSelectAllLocksFromEnvironment(ctx, environment)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]Lock, len(locks))
+
+	for _, lock := range locks {
+		if createdAt, err := time.Parse(time.RFC3339, lock.Created.String()); err == nil {
+			genericLock := Lock{
+				Message: lock.Metadata.Message,
+				CreatedBy: Actor{
+					Name:  lock.Metadata.CreatedByName,
+					Email: lock.Metadata.CreatedByEmail,
+				},
+				CreatedAt: createdAt,
+			}
+			result[lock.LockID] = genericLock
+		} else {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+func (s *State) GetEnvironmentLocks(ctx context.Context, environment string) (map[string]Lock, error) {
+	manifestLocks, err := s.GetEnvironmentLocksFromManifest(environment)
+	if err != nil {
+		return nil, err
+	}
+	databaseLocks, err := s.GetEnvironmentLocksFromDB(ctx, environment)
+	if err != nil {
+		return nil, err
+	}
+
+	maps.Copy(databaseLocks, manifestLocks)
+
+	return databaseLocks, nil
+}
+
+func (s *State) GetEnvironmentLocksFromManifest(environment string) (map[string]Lock, error) {
 	base := s.GetEnvLocksDir(environment)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err

@@ -22,12 +22,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"io"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 
 	yaml3 "gopkg.in/yaml.v3"
 
@@ -38,7 +37,8 @@ import (
 )
 
 const (
-	queueFileName = "queued_version"
+	queueFileName  = "queued_version"
+	fieldCreatedAt = "created_at"
 )
 
 func versionToString(Version uint64) string {
@@ -350,4 +350,79 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+type CreateEnvironmentLock struct {
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	LockId         string `json:"lockId"`
+	Message        string `json:"message"`
+}
+
+func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentLock
+}
+
+func (c *CreateEnvironmentLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	//read event from DB
+	fs := state.Filesystem
+	envDir := fs.Join("environments", c.Environment)
+	if _, err := fs.Stat(envDir); err != nil {
+		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+	}
+	chroot, err := fs.Chroot(envDir)
+	if err != nil {
+		return "", err
+	}
+
+	lock, err := state.DBHandler.DBSelectLatestEnvironmentLock(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+
+	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.UTC().String()); err != nil {
+		return "", err
+	}
+	//GaugeEnvLockMetric(fs, c.Environment)
+
+	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
+}
+
+func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, authorName, authorEmail, created string) error {
+	locksDir := "locks"
+	if err := fs.MkdirAll(locksDir, 0777); err != nil {
+		return err
+	}
+
+	// create lock dir
+	newLockDir := fs.Join(locksDir, lockId)
+	if err := fs.MkdirAll(newLockDir, 0777); err != nil {
+		return err
+	}
+
+	// write message
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "message"), []byte(message), 0666); err != nil {
+		return err
+	}
+
+	// write email
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_email"), []byte(authorEmail), 0666); err != nil {
+		return err
+	}
+
+	// write name
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_name"), []byte(authorName), 0666); err != nil {
+		return err
+	}
+
+	// write date in iso format
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedAt), []byte(created), 0666); err != nil {
+		return err
+	}
+	return nil
 }
