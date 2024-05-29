@@ -22,14 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	config "github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
@@ -39,6 +31,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	config "github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
@@ -1412,6 +1413,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err = fs.Stat(lockDir)
@@ -1612,6 +1614,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
@@ -1749,6 +1752,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
 		return "", err
@@ -1978,7 +1982,12 @@ func (c *DeployApplicationVersion) Transform(
 		//File does not exist
 		firstDeployment = true
 	}
-
+	if state.CloudRunClient != nil {
+		err := state.CloudRunClient.DeployApplicationVersion(ctx, manifestContent)
+		if err != nil {
+			return "", err
+		}
+	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
 		if err != nil {
@@ -2059,6 +2068,7 @@ func (c *DeployApplicationVersion) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
