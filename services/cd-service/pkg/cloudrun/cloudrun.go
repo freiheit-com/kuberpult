@@ -27,15 +27,14 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-var cloudRunServiceClient api.CloudRunServiceClient = nil
+type CloudRunClient struct {
+	Client api.CloudRunServiceClient
+}
 
-func InitCloudRunClient(server string) error {
-	if cloudRunServiceClient != nil {
-		return fmt.Errorf("failed to initialize cloudrunClient: already initialized")
-	}
+func InitCloudRunClient(server string) (*CloudRunClient, error) {
 	systemRoots, err := x509.SystemCertPool()
 	if err != nil {
-		return fmt.Errorf("failed to read CA certificates: %s", err)
+		return nil, fmt.Errorf("failed to read CA certificates: %s", err)
 	}
 	//exhaustruct:ignore
 	cred := credentials.NewTLS(&tls.Config{
@@ -48,17 +47,17 @@ func InitCloudRunClient(server string) error {
 
 	con, err := grpc.Dial(server, grpcClientOpts...)
 	if err != nil {
-		return fmt.Errorf("error dialing %s: %w", server, err)
+		return nil, fmt.Errorf("error dialing %s: %w", server, err)
 	}
-	cloudRunServiceClient = api.NewCloudRunServiceClient(con)
-	return nil
+	cloudRunServiceClient := api.NewCloudRunServiceClient(con)
+	return &CloudRunClient{Client: cloudRunServiceClient}, nil
 }
 
-func IsInitialized() bool {
-	return cloudRunServiceClient != nil
-}
-
-func Deploy(ctx context.Context, manifest []byte) error {
-	_, err := cloudRunServiceClient.Deploy(ctx, &api.ServiceDeployRequest{Manifest: manifest})
+func (c CloudRunClient) DeployApplicationVersion(ctx context.Context, manifest []byte) error {
+	if c.Client == nil {
+		return fmt.Errorf("cloudrun client not initialized")
+	}
+	// Ignore the ServiceDeployResponse as it is always empty.
+	_, err := c.Client.Deploy(ctx, &api.ServiceDeployRequest{Manifest: manifest})
 	return err
 }

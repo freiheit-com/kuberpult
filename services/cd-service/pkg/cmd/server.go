@@ -222,8 +222,9 @@ func RunServer() {
 				zap.String("details", err.Error()),
 			)
 		}
+		var cloudRunClient *cloudrun.CloudRunClient = nil
 		if c.DeploymentType == "cloudrun" {
-			err := cloudrun.InitCloudRunClient(c.CloudRunServer)
+			cloudRunClient, err = cloudrun.InitCloudRunClient(c.CloudRunServer)
 			if err != nil {
 				logger.FromContext(ctx).Fatal("Unable to initialize CloudRunService", zap.Error(err))
 			}
@@ -301,6 +302,7 @@ func RunServer() {
 			AllowLongAppNames:      c.AllowLongAppNames,
 			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
 			DBHandler:              dbHandler,
+			CloudRunClient:         cloudRunClient,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {

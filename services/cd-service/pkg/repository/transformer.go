@@ -37,7 +37,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -1414,6 +1413,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err = fs.Stat(lockDir)
@@ -1614,6 +1614,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
@@ -1751,6 +1752,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
 		return "", err
@@ -1980,8 +1982,9 @@ func (c *DeployApplicationVersion) Transform(
 		//File does not exist
 		firstDeployment = true
 	}
-	if cloudrun.IsInitialized() {
-		if err := cloudrun.Deploy(ctx, manifestContent); err != nil {
+	if state.CloudRunClient != nil {
+		err := state.CloudRunClient.DeployApplicationVersion(ctx, manifestContent)
+		if err != nil {
 			return "", err
 		}
 	}
@@ -2065,6 +2068,7 @@ func (c *DeployApplicationVersion) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {

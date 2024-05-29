@@ -25,10 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"io"
 	"net/http"
 	"os"
@@ -41,6 +37,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -50,6 +51,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/sqlitestore"
@@ -213,7 +215,8 @@ type RepositoryConfig struct {
 
 	ArgoCdGenerateFiles bool
 
-	DBHandler *db.DBHandler
+	DBHandler      *db.DBHandler
+	CloudRunClient *cloudrun.CloudRunClient
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -1362,6 +1365,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 						ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 						DBHandler:              r.DB,
+						CloudRunClient:         r.config.CloudRunClient,
 					}, nil
 				}
 			}
@@ -1386,6 +1390,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 		DBHandler:              r.DB,
+		CloudRunClient:         r.config.CloudRunClient,
 	}, nil
 }
 
@@ -1477,7 +1482,8 @@ type State struct {
 	EnvironmentConfigsPath string
 	ReleaseVersionsLimit   uint
 	// DbHandler will be nil if the DB is disabled
-	DBHandler *db.DBHandler
+	DBHandler      *db.DBHandler
+	CloudRunClient *cloudrun.CloudRunClient
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {
