@@ -468,6 +468,96 @@ cd:
 			},
 		},
 		{
+			Name: "Database writeEslTableOnly=false ",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    location: /kp/database
+    dbName: does
+    dbUser: not
+    dbPassword: matter
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "sqlite",
+				},
+				{
+					Name:  "KUBERPULT_DB_LOCATION",
+					Value: "/kp/database",
+				},
+				{
+					Name:  "KUBERPULT_DB_WRITE_ESL_TABLE_ONLY",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_PASSWORD",
+					Value: "",
+				},
+			},
+		},
+		{
+			Name: "Database writeEslTableOnly=true",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    location: /kp/database
+    dbName: does
+    dbUser: not
+    dbPassword: matter
+    writeEslTableOnly: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "sqlite",
+				},
+				{
+					Name:  "KUBERPULT_DB_LOCATION",
+					Value: "/kp/database",
+				},
+				{
+					Name:  "KUBERPULT_DB_WRITE_ESL_TABLE_ONLY",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_PASSWORD",
+					Value: "",
+				},
+			},
+		},
+		{
 			Name: "Test default releaseVersionsLimit",
 			Values: `
 git:
