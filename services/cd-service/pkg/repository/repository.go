@@ -1645,7 +1645,20 @@ func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lo
 		return result, nil
 	}
 }
-func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
+func (s *State) GetDeploymentMetaData(ctx context.Context, environment, application string) (string, time.Time, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		result, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.Deployment, error) {
+			return s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+		})
+		if err != nil {
+			return "", time.Time{}, err
+		}
+		return result.Metadata.DeployedByEmail, result.Created, nil
+	}
+	return s.GetDeploymentMetaDataFromRepo(environment, application)
+}
+
+func (s *State) GetDeploymentMetaDataFromRepo(environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
 	if err != nil {

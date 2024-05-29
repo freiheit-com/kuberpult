@@ -199,11 +199,29 @@ func Remove(s []string, r string) []string {
 	return s
 }
 
-// WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback
+// WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback.
+// Use this if the only thing to return from `f` is an error.
 func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
-	tx, err := h.DB.BeginTx(ctx, nil)
+	_, err := WithTransactionT(h, ctx, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
+		err2 := f(ctx, transaction)
+		if err2 != nil {
+			return nil, err2
+		}
+		return nil, nil
+	})
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+type DBFunctionT[T any] func(ctx context.Context, transaction *sql.Tx) (*T, error)
+
+// WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
+func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]) (*T, error) {
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
 	}
 	defer func(tx *sql.Tx) {
 		_ = tx.Rollback()
@@ -211,15 +229,15 @@ func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 		// because it is always set when Commit() was successful
 	}(tx)
 
-	err = f(ctx, tx)
+	result, err := f(ctx, tx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = tx.Commit()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return result, nil
 }
 
 type EventType string

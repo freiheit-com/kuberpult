@@ -192,7 +192,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(filesystem, env, app.Name())
 
-				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(env, app.Name())
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, env, app.Name())
 				if err != nil {
 					return err
 				}
