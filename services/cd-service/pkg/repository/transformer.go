@@ -1980,7 +1980,11 @@ func (c *DeployApplicationVersion) Transform(
 		//File does not exist
 		firstDeployment = true
 	}
-
+	if cloudrun.IsInitialized() {
+		if err := cloudrun.Deploy(ctx, manifestContent); err != nil {
+			return "", err
+		}
+	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
 		if err != nil {
@@ -2009,11 +2013,6 @@ func (c *DeployApplicationVersion) Transform(
 			return "", fmt.Errorf("could not write deployment for %v", newDeployment)
 		}
 	} else {
-		if cloudrun.IsInitialized() {
-			if err := cloudrun.Deploy(ctx, manifestContent); err != nil {
-				return "", err
-			}
-		}
 		// Create a symlink to the release
 		if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 			return "", err
