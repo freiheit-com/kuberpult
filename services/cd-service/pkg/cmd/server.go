@@ -18,8 +18,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net/http"
 	"os"
@@ -28,6 +26,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -45,7 +44,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -225,12 +223,10 @@ func RunServer() {
 			)
 		}
 		if c.DeploymentType == "cloudrun" {
-			var cloudrunGrpcClient api.CloudRunServiceClient
-			cloudrunGrpcClient, err = getCloudRunGrpcClient(ctx, c)
+			err := cloudrun.InitCloudRunClient(c.CloudRunServer)
 			if err != nil {
-				logger.FromContext(ctx).Fatal("Unable to connect to CloudRunService", zap.Error(err))
+				logger.FromContext(ctx).Fatal("Unable to initialize CloudRunService", zap.Error(err))
 			}
-			repository.SetCloudrunGrpcClient(cloudrunGrpcClient)
 		}
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
@@ -432,26 +428,4 @@ func checkDeploymentType(c Config) error {
 		}
 	}
 	return nil
-}
-
-func getCloudRunGrpcClient(ctx context.Context, config Config) (api.CloudRunServiceClient, error) {
-	systemRoots, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CA certificates")
-	}
-	//exhaustruct:ignore
-	cred := credentials.NewTLS(&tls.Config{
-		RootCAs: systemRoots,
-	})
-
-	grpcClientOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(cred),
-	}
-
-	con, err := grpc.Dial(config.CloudRunServer, grpcClientOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("error dialing %s: %w", config.CloudRunServer, err)
-	}
-
-	return api.NewCloudRunServiceClient(con), nil
 }

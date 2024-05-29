@@ -37,6 +37,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -79,12 +80,6 @@ const (
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
 	keptVersionsOnCleanup = 20
 )
-
-var cloudrunGrpcClient api.CloudRunServiceClient = nil
-
-func SetCloudrunGrpcClient(client api.CloudRunServiceClient) {
-	cloudrunGrpcClient = client
-}
 
 func versionToString(Version uint64) string {
 	return strconv.FormatUint(Version, 10)
@@ -2014,9 +2009,8 @@ func (c *DeployApplicationVersion) Transform(
 			return "", fmt.Errorf("could not write deployment for %v", newDeployment)
 		}
 	} else {
-		if cloudrunGrpcClient != nil {
-			_, err := cloudrunGrpcClient.Deploy(ctx, &api.ServiceDeployRequest{Manifest: manifestContent})
-			if err != nil {
+		if cloudrun.IsInitialized() {
+			if err := cloudrun.Deploy(ctx, manifestContent); err != nil {
 				return "", err
 			}
 		}
