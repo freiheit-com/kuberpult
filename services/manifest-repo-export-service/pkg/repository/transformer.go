@@ -21,19 +21,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"strconv"
 	"strings"
-
-	yaml3 "gopkg.in/yaml.v3"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
 )
 
 const (
@@ -384,6 +382,8 @@ func (c *CreateEnvironmentLock) Transform(
 	if err != nil {
 		return "", err
 	}
+	fmt.Printf("CREATED AT: %s\n", lock.Created)
+	fmt.Printf("CREATED AT UTC: %s\n", lock.Created.UTC())
 
 	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.UTC().String()); err != nil {
 		return "", err

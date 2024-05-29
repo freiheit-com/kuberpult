@@ -1601,21 +1601,16 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment strin
 		return nil, err
 	}
 	result := make(map[string]Lock, len(locks))
-
 	for _, lock := range locks {
-		if createdAt, err := time.Parse(time.RFC3339, lock.Created.String()); err == nil {
-			genericLock := Lock{
-				Message: lock.Metadata.Message,
-				CreatedBy: Actor{
-					Name:  lock.Metadata.CreatedByName,
-					Email: lock.Metadata.CreatedByEmail,
-				},
-				CreatedAt: createdAt,
-			}
-			result[lock.LockID] = genericLock
-		} else {
-			return nil, err
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt: lock.Created,
 		}
+		result[lock.LockID] = genericLock
 	}
 	return result, nil
 }
