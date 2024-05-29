@@ -2010,7 +2010,7 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
 		if err != nil {
-			return "", fmt.Errorf("could not write deployment for %v", newDeployment)
+			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
 	} else {
 		// Create a symlink to the release
