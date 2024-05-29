@@ -20,7 +20,7 @@ import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
-import { ProductVersionLink, setOpenEnvironmentConfigDialog } from '../../utils/Links';
+import { ProductVersionLink, ReleaseTrainLink, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { useSearchParams } from 'react-router-dom';
 import { useCallback, useState } from 'react';
 import { TeamSelectionDialog } from '../SelectionDialog/SelectionDialogs';
@@ -124,6 +124,12 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         highlightEffect={false}
                     />
                     <div>
+                        <ReleaseTrainLink env={environment.name} />
+
+                        {''}
+
+                        {/* </div>
+                    <div> */}
                         <ProductVersionLink
                             env={environment.name}
                             groupName={group?.environmentGroupName ?? ''}></ProductVersionLink>
