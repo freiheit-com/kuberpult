@@ -19,15 +19,7 @@ jobs:
     - name: Install earthly
       uses: earthly/actions-setup@v1
       with:
-          version: v0.8.10
-    - name: Setup remote runner
-      uses: ./.github/actions/setup-earthly-runner
-      with:
-        remote_buildkit_host: ${{ vars.EARTHLY_BUILDKIT_HOST }}
-        tlsca: ${{ secrets.EARTHLY_CA_CERT }}
-        tlscert: ${{ secrets.EARTHLY_CLIENT_CERT }}
-        tlskey: ${{ secrets.EARTHLY_CLIENT_KEY }}
-        tls_enabled: "true"
+          version: v0.8.13
     - name: Check if tag exists
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
