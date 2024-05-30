@@ -30,6 +30,7 @@ import {
     RolloutStatus,
     GetCommitInfoResponse,
     GetEnvironmentConfigResponse,
+    GetReleaseTrainPrognosisResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -85,6 +86,17 @@ export type CommitInfoResponse = {
     commitInfoReady: CommitInfoState;
 };
 
+export enum ReleaseTrainPrognosisState {
+    LOADING,
+    READY,
+    ERROR,
+    NOTFOUND,
+}
+export type ReleaseTrainPrognosisResponse = {
+    response: GetReleaseTrainPrognosisResponse | undefined;
+    releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
+};
+
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
@@ -121,6 +133,41 @@ export const getCommitInfo = (commitHash: string, authHeader: AuthHeader): void 
 export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>({
     response: undefined,
     commitInfoReady: CommitInfoState.LOADING,
+});
+
+export const getReleaseTrainPrognosis = (envName: string, authHeader: AuthHeader): void => {
+    useApi
+        .releaseTrainPrognosisService()
+        .GetReleaseTrainPrognosis({ target: envName }, authHeader)
+        .then((result: GetReleaseTrainPrognosisResponse) => {
+            updateReleaseTrainPrognosis.set({
+                response: result,
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.READY,
+            });
+        })
+        .catch((e) => {
+            const GrpcErrorNotFound = 3;
+            /* eslint-disable no-console */
+            console.log(e.code);
+            /* eslint-enable no-console */
+            if (e.code === GrpcErrorNotFound) {
+                updateReleaseTrainPrognosis.set({
+                    response: undefined,
+                    releaseTrainPrognosisReady: ReleaseTrainPrognosisState.NOTFOUND,
+                });
+            } else {
+                showSnackbarError(e.message);
+                updateReleaseTrainPrognosis.set({
+                    response: undefined,
+                    releaseTrainPrognosisReady: ReleaseTrainPrognosisState.ERROR,
+                });
+            }
+        });
+};
+
+export const [useReleaseTrainPrognosis, updateReleaseTrainPrognosis] = createStore<ReleaseTrainPrognosisResponse>({
+    response: undefined,
+    releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
 });
 
 export const [_, PanicOverview] = createStore({ error: '' });

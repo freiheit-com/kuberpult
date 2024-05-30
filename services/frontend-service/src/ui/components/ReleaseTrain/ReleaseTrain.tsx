@@ -13,3 +13,30 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
+
+import { GetReleaseTrainPrognosisResponse } from '../../../api/api';
+import { TopAppBar } from '../TopAppBar/TopAppBar';
+
+type ReleaseTrainProps = {
+    releaseTrainPrognosis: GetReleaseTrainPrognosisResponse | undefined;
+};
+
+export const ReleaseTrain: React.FC<ReleaseTrainProps> = (props) => {
+    const releaseTrainPrognosis = props.releaseTrainPrognosis;
+
+    if (releaseTrainPrognosis === undefined) {
+        return (
+            <div>
+                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                <main className="main-content commit-page">Backend returned empty response</main>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+            <main className="main-content commit-page">{JSON.stringify(releaseTrainPrognosis)}</main>
+        </div>
+    );
+};
