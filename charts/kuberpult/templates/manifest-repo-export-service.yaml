@@ -135,6 +135,18 @@ spec:
             cpu: "{{ .Values.cd.resources.requests.cpu }}"
             memory: "{{ .Values.cd.resources.requests.memory }}"
         env:
+        - name: KUBERPULT_GIT_URL
+          value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
+        - name: KUBERPULT_GIT_BRANCH
+          value: {{ .Values.git.branch | quote }}
+        - name: KUBERPULT_GIT_SSH_KEY
+          value: "/etc/ssh/identity"
+        - name: KUBERPULT_GIT_SSH_KNOWN_HOSTS
+          value: "/etc/ssh/ssh_known_hosts"
+        - name: KUBERPULT_ENABLE_SQLITE
+          value: "true"
+        - name: KUBERPULT_ARGO_CD_GENERATE_FILES
+          value: {{ .Values.argocd.generateFiles | quote }}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
@@ -192,6 +204,8 @@ spec:
         - name: KUBERPULT_ENABLE_PROFILING
           value: "{{ .Values.datadogProfiling.enabled }}"
         volumeMounts:
+        - name: ssh
+          mountPath: /etc/ssh
 {{- if .Values.datadogProfiling.enabled }}
         - name: datadog
           mountPath: /etc/datadog/
