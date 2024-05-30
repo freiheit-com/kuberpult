@@ -1659,7 +1659,9 @@ func (s *State) GetDeploymentMetaData(ctx context.Context, environment, applicat
 		if err != nil {
 			return "", time.Time{}, err
 		}
-		return result.Metadata.DeployedByEmail, result.Created, nil
+		if result != nil {
+			return result.Metadata.DeployedByEmail, result.Created, nil
+		}
 	}
 	return s.GetDeploymentMetaDataFromRepo(environment, application)
 }
