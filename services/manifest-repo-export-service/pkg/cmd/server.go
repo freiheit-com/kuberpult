@@ -41,6 +41,8 @@ func storageBackend(enableSqlite bool) repository.StorageBackend {
 
 func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
+		logger.FromContext(ctx).Warn("DEBUG: RunServer startup")
+
 		dbLocation, err := readEnvVar("KUBERPULT_DB_LOCATION")
 		if err != nil {
 			return err
@@ -49,6 +51,7 @@ func RunServer() {
 		if err != nil {
 			return err
 		}
+		logger.FromContext(ctx).Warn("DEBUG: RunServer startup env A")
 		dbOption, err := readEnvVar("KUBERPULT_DB_OPTION")
 		if err != nil {
 			return err
@@ -65,6 +68,7 @@ func RunServer() {
 		if err != nil {
 			return err
 		}
+		logger.FromContext(ctx).Warn("DEBUG: RunServer startup env B")
 		gitUrl, err := readEnvVar("KUBERPULT_GIT_URL")
 		if err != nil {
 			return err
@@ -77,6 +81,7 @@ func RunServer() {
 		if err != nil {
 			return err
 		}
+		logger.FromContext(ctx).Warn("DEBUG: RunServer startup env C")
 		gitSshKnownHosts, err := readEnvVar("KUBERPULT_GIT_SSH_KNOWN_HOSTS")
 		if err != nil {
 			return err
@@ -87,6 +92,7 @@ func RunServer() {
 			return err
 		}
 		enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
+		logger.FromContext(ctx).Warn("DEBUG: RunServer startup env D")
 
 		argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
 		if err != nil {
@@ -94,6 +100,7 @@ func RunServer() {
 		}
 		argoCdGenerateFiles := argoCdGenerateFilesString == "true"
 
+		logger.FromContext(ctx).Warn("DEBUG: RunServer startup 3")
 		var dbCfg db.DBConfig
 		if dbOption == "cloudsql" {
 			dbCfg = db.DBConfig{
@@ -124,8 +131,10 @@ func RunServer() {
 		if err != nil {
 			return err
 		}
+		logger.FromContext(ctx).Warn("DEBUG: RunServer startup 4")
 
 		err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			logger.FromContext(ctx).Warn("DEBUG: RunServer startup 5")
 			cfg := repository.RepositoryConfig{
 				URL:            gitUrl,
 				Path:           "./repository",
@@ -155,6 +164,7 @@ func RunServer() {
 
 			log := logger.FromContext(ctx).Sugar()
 			for {
+				logger.FromContext(ctx).Warn("DEBUG: RunServer startup - for A")
 				err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 					eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 					if err != nil {
