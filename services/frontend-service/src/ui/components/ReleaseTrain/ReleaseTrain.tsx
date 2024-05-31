@@ -89,6 +89,7 @@ const EnvironmentPrognosisOutcomeSkipped: React.FC<{ skipCause: ReleaseTrainEnvS
     switch (skipCause) {
         case ReleaseTrainEnvSkipCause.ENV_IS_LOCKED:
             return <p>Release train on this environment is skipped because it is locked.</p>;
+
         case ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
             return (
                 <p>
@@ -103,7 +104,7 @@ const EnvironmentPrognosisOutcomeSkipped: React.FC<{ skipCause: ReleaseTrainEnvS
         case ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV:
             return (
                 <p>
-                    Release train on this environment is skipped because neither it has an upstream environment
+                    Release train on this environment is skipped because it neither has an upstream environment
                     configured nor is marked as latest.
                 </p>
             );
@@ -190,9 +191,8 @@ const ApplicationPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainApp
         case ReleaseTrainAppSkipCause.TEAM_IS_LOCKED:
             return <p>Application release is skipped due to a team lock</p>;
         case ReleaseTrainAppSkipCause.UNRECOGNIZED:
-            return <p>Application release it skipped due to an unrecognized reason</p>;
         default:
-            return <p>Universe on fire</p>;
+            return <p>Application release it skipped due to an unrecognized reason</p>;
     }
 };
 
