@@ -133,9 +133,9 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				"file does not exist"},
 		},
 		{
-			// as of now we only have the DeployApplicationVersion transformer,
+			// as of now we only have the DeployApplicationVersion and CreateEnvironmentLock transformer,
 			// so we can test only this error case.
-			// As soon as we have the other transformers (especially CreateEnvironment and CreateApplicationVersion)
+			// As soon as we have the other transformers (especially CreateEnvironment)
 			// we need to add more tests here.
 			Name: "create environment lock",
 			Transformers: []Transformer{

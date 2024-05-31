@@ -1,1 +1,1 @@
-sqlite/1716973415531908_env_locks.up.sql
+../sqlite/1716973415531908_env_locks.up.sql
