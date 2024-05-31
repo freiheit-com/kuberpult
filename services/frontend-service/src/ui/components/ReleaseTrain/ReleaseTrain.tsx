@@ -50,36 +50,39 @@ export const ReleaseTrain: React.FC<ReleaseTrainProps> = (props) => {
         <div>
             <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content commit-page">
-                {Object.entries(envPrognoses).map(([envName, envPrognosis]) => {
-                    const header = <h1>Prognosis for release train on environment {envName}</h1>;
-                    const outcome = envPrognosis.outcome;
+                {Object.entries(envPrognoses)
+                    .sort(([envName1, _1], [envName2, _2]) => envName1.localeCompare(envName2))
+                    .map(([envName, envPrognosis]) => {
+                        const header = <h1>Prognosis for release train on environment {envName}</h1>;
+                        const outcome = envPrognosis.outcome;
 
-                    let content: JSX.Element = <div></div>;
-                    if (outcome === undefined) {
-                        content = (
-                            <p>
-                                Error retrieving the prognosis for this environment: backend returned undefined value.
-                            </p>
-                        );
-                    } else {
-                        if (outcome.$case === 'skipCause') {
-                            content = <EnvironmentPrognosisOutcomeSkipped skipCause={outcome.skipCause} />;
-                        } else {
+                        let content: JSX.Element = <div></div>;
+                        if (outcome === undefined) {
                             content = (
-                                <EnvironmentPrognosisOutcomeApplicationPrognoses
-                                    appsPrognoses={outcome.appsPrognoses}
-                                />
+                                <p>
+                                    Error retrieving the prognosis for this environment: backend returned undefined
+                                    value.
+                                </p>
                             );
+                        } else {
+                            if (outcome.$case === 'skipCause') {
+                                content = <EnvironmentPrognosisOutcomeSkipped skipCause={outcome.skipCause} />;
+                            } else {
+                                content = (
+                                    <EnvironmentPrognosisOutcomeApplicationPrognoses
+                                        appsPrognoses={outcome.appsPrognoses}
+                                    />
+                                );
+                            }
                         }
-                    }
 
-                    return (
-                        <div>
-                            {header}
-                            {content}
-                        </div>
-                    );
-                })}
+                        return (
+                            <div>
+                                {header}
+                                {content}
+                            </div>
+                        );
+                    })}
             </main>
         </div>
     );
@@ -136,9 +139,11 @@ const EnvironmentPrognosisOutcomeApplicationPrognoses: React.FC<{
             </tr>
         </thead>
         <tbody>
-            {Object.entries(appsPrognoses.prognoses).map(([appName, appPrognosis]) => (
-                <ApplicationPrognosisRow appName={appName} appPrognosis={appPrognosis} />
-            ))}
+            {Object.entries(appsPrognoses.prognoses)
+                .sort(([appName1, _1], [appName2, _2]) => appName1.localeCompare(appName2))
+                .map(([appName, appPrognosis]) => (
+                    <ApplicationPrognosisRow appName={appName} appPrognosis={appPrognosis} />
+                ))}
         </tbody>
     </table>
 );
