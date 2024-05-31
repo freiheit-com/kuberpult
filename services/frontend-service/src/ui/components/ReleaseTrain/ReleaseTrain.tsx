@@ -110,9 +110,9 @@ export const ReleaseTrain: React.FC<ReleaseTrainProps> = (props) => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {Object.entries(outcome.appsPrognoses.prognoses).map(([appName, appPrognosis]) =>
-                                        ApplicationPrognosisRow({ appName: appName, appPrognosis: appPrognosis })
-                                    )}
+                                    {Object.entries(outcome.appsPrognoses.prognoses).map(([appName, appPrognosis]) => (
+                                        <ApplicationPrognosisRow appName={appName} appPrognosis={appPrognosis} />
+                                    ))}
                                 </tbody>
                             </table>
                         );
