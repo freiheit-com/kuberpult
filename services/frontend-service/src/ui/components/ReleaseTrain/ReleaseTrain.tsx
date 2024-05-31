@@ -132,7 +132,7 @@ export const ReleaseTrain: React.FC<ReleaseTrainProps> = (props) => {
     );
 };
 
-const ApplicationReleaseCell: React.FC<{ appName: string; version: number }> = (props) => {
+const ApplicationPrognosisOutcomeReleaseCell: React.FC<{ appName: string; version: number }> = (props) => {
     const release = useRelease(props.appName, props.version);
     if (release === undefined) {
         return (
@@ -144,6 +144,34 @@ const ApplicationReleaseCell: React.FC<{ appName: string; version: number }> = (
     return <p>Commit {release.sourceCommitId} will be released.</p>;
 };
 
+const ApplicationPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainAppSkipCause }> = ({ skipCause }) => {
+    switch (skipCause) {
+        case ReleaseTrainAppSkipCause.APP_ALREADY_IN_UPSTREAM_VERSION:
+            return <p>Application release is skipped because it is already in the upstream version.</p>;
+        case ReleaseTrainAppSkipCause.APP_DOES_NOT_EXIST_IN_ENV:
+            return <p>Application release is skipped because it does not exist in the environment.</p>;
+        case ReleaseTrainAppSkipCause.APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
+            return (
+                <p>Application release is skipped because it does not have a version in the upstream environment.</p>
+            );
+        case ReleaseTrainAppSkipCause.APP_IS_LOCKED:
+            return <p>Application release is skipped because it is locked.</p>;
+        case ReleaseTrainAppSkipCause.APP_IS_LOCKED_BY_ENV:
+            return (
+                <p>
+                    Application release is skipped because there's an environment lock where this application is getting
+                    deployed.
+                </p>
+            );
+        case ReleaseTrainAppSkipCause.TEAM_IS_LOCKED:
+            return <p>Application release is skipped due to a team lock</p>;
+        case ReleaseTrainAppSkipCause.UNRECOGNIZED:
+            return <p>Application release it skipped due to an unrecognized reason</p>;
+        default:
+            return <p>Universe on fire</p>;
+    }
+};
+
 const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: ReleaseTrainAppPrognosis }> = ({
     appName,
     appPrognosis,
@@ -153,42 +181,9 @@ const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: Release
     if (outcome === undefined) {
         content = <p>Universe on fire</p>;
     } else if (outcome.$case === 'skipCause') {
-        switch (outcome.skipCause) {
-            case ReleaseTrainAppSkipCause.APP_ALREADY_IN_UPSTREAM_VERSION:
-                content = <p>Application release is skipped because it is already in the upstream version.</p>;
-                break;
-            case ReleaseTrainAppSkipCause.APP_DOES_NOT_EXIST_IN_ENV:
-                content = <p>Application release is skipped because it does not exist in the environment.</p>;
-                break;
-            case ReleaseTrainAppSkipCause.APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
-                content = (
-                    <p>
-                        Application release is skipped because it does not have a version in the upstream environment.
-                    </p>
-                );
-                break;
-            case ReleaseTrainAppSkipCause.APP_IS_LOCKED:
-                content = <p>Application release is skipped because it is locked.</p>;
-                break;
-            case ReleaseTrainAppSkipCause.APP_IS_LOCKED_BY_ENV:
-                content = (
-                    <p>
-                        Application release is skipped because there's an environment lock where this application is
-                        getting deployed.
-                    </p>
-                );
-                break;
-            case ReleaseTrainAppSkipCause.TEAM_IS_LOCKED:
-                content = <p>Application release is skipped due to a team lock</p>;
-                break;
-            case ReleaseTrainAppSkipCause.UNRECOGNIZED:
-                content = <p>Application release it skipped due to an unrecognized reason</p>;
-                break;
-            default:
-                content = <p>Universe on fire</p>;
-        }
+        content = <ApplicationPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
     } else if (outcome.$case === 'deployedVersion') {
-        content = <ApplicationReleaseCell appName={appName} version={outcome.deployedVersion} />;
+        content = <ApplicationPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />;
     } else {
         content = <p>Universe on fire</p>;
     }
