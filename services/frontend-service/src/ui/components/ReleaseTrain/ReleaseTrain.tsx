@@ -18,6 +18,7 @@ import {
     GetReleaseTrainPrognosisResponse,
     ReleaseTrainAppPrognosis,
     ReleaseTrainAppSkipCause,
+    ReleaseTrainEnvPrognosis_AppsPrognosesWrapper,
     ReleaseTrainEnvSkipCause,
 } from '../../../api/api';
 import { useRelease } from '../../utils/store';
@@ -26,6 +27,63 @@ import { TopAppBar } from '../TopAppBar/TopAppBar';
 type ReleaseTrainProps = {
     releaseTrainPrognosis: GetReleaseTrainPrognosisResponse | undefined;
 };
+
+const EnvironmentPrognosisOutcomeSkipped: React.FC<{ skipCause: ReleaseTrainEnvSkipCause }> = ({ skipCause }) => {
+    switch (skipCause) {
+        case ReleaseTrainEnvSkipCause.ENV_IS_LOCKED:
+            return <p>Release train on this environment is skipped because it is locked.</p>;
+        case ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
+            return (
+                <p>
+                    Release train on this environment is skipped because it both has an upstream environment and is set
+                    as latest.
+                </p>
+            );
+
+        case ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM:
+            return <p>Release train on this environment is skipped because it has no upstream configured.</p>;
+
+        case ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV:
+            return (
+                <p>
+                    Release train on this environment is skipped because neither it has an upstream environment
+                    configured nor is marked as latest.
+                </p>
+            );
+
+        case ReleaseTrainEnvSkipCause.UPSTREAM_ENV_CONFIG_NOT_FOUND:
+            return (
+                <p>
+                    Release train on this environment is skipped because no configuration was found for it in the
+                    manifest repository.
+                </p>
+            );
+
+        case ReleaseTrainEnvSkipCause.UNRECOGNIZED:
+            return <p>Release train on this environment is skipped due to an unknown reason.</p>;
+
+        default:
+            return <p>Release train on this environment is skipped due to an unknown reason.</p>;
+    }
+};
+
+const EnvironmentPrognosisOutcomeApplicationPrognoses: React.FC<{
+    appsPrognoses: ReleaseTrainEnvPrognosis_AppsPrognosesWrapper;
+}> = ({ appsPrognoses }) => (
+    <table>
+        <thead>
+            <tr>
+                <td>Application</td>
+                <td>Outcome</td>
+            </tr>
+        </thead>
+        <tbody>
+            {Object.entries(outcome.appsPrognoses.prognoses).map(([appName, appPrognosis]) => (
+                <ApplicationPrognosisRow appName={appName} appPrognosis={appPrognosis} />
+            ))}
+        </tbody>
+    </table>
+);
 
 export const ReleaseTrain: React.FC<ReleaseTrainProps> = (props) => {
     const releaseTrainPrognosis = props.releaseTrainPrognosis;
@@ -54,67 +112,17 @@ export const ReleaseTrain: React.FC<ReleaseTrainProps> = (props) => {
                     let content: JSX.Element = <div></div>;
 
                     const outcome = envPrognosis.outcome;
-
                     if (outcome === undefined) {
-                        content = <p>Universe on fire</p>;
+                        content = (
+                            <p>
+                                Error retrieving the prognosis for this environment: backend returned undefined value.
+                            </p>
+                        );
                     } else if (outcome.$case === 'skipCause') {
-                        switch (outcome.skipCause) {
-                            case ReleaseTrainEnvSkipCause.ENV_IS_LOCKED:
-                                content = <p>Release train on this environment is skipped because it is locked.</p>;
-                                break;
-                            case ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
-                                content = (
-                                    <p>
-                                        Release train on this environment is skipped because it both has an upstream
-                                        environment and is set as latest.
-                                    </p>
-                                );
-                                break;
-                            case ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM:
-                                content = (
-                                    <p>
-                                        Release train on this environment is skipped because it has no upstream
-                                        configured.
-                                    </p>
-                                );
-                                break;
-                            case ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV:
-                                content = (
-                                    <p>
-                                        Release train on this environment is skipped because neither it has an upstream
-                                        environment configured nor is marked as latest.
-                                    </p>
-                                );
-                                break;
-                            case ReleaseTrainEnvSkipCause.UPSTREAM_ENV_CONFIG_NOT_FOUND:
-                                content = (
-                                    <p>
-                                        Release train on this environment is skipped because no configuration was found
-                                        for it in the manifest repository.
-                                    </p>
-                                );
-                                break;
-                            case ReleaseTrainEnvSkipCause.UNRECOGNIZED:
-                                content = <p>Release train on this environment is skipped due to an unknown reason.</p>;
-                                break;
-                            default:
-                                content = <p>Release train on this environment is skipped due to an unknown reason.</p>;
-                        }
+                        content = <EnvironmentPrognosisOutcomeSkipped skipCause={outcome.skipCause} />;
                     } else if (outcome.$case === 'appsPrognoses') {
                         content = (
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <td>Application</td>
-                                        <td>Outcome</td>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Object.entries(outcome.appsPrognoses.prognoses).map(([appName, appPrognosis]) => (
-                                        <ApplicationPrognosisRow appName={appName} appPrognosis={appPrognosis} />
-                                    ))}
-                                </tbody>
-                            </table>
+                            <EnvironmentPrognosisOutcomeApplicationPrognoses appsPrognoses={outcome.appsPrognoses} />
                         );
                     } else {
                         content = <div>Universe on fire</div>;
@@ -176,22 +184,24 @@ const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: Release
     appName,
     appPrognosis,
 }) => {
-    let content: React.ReactNode;
+    let outcomeCell: React.ReactNode;
     const outcome = appPrognosis.outcome;
     if (outcome === undefined) {
-        content = <p>Error retrieving the outcome of application: backend returned undefined value.</p>;
+        outcomeCell = <p>Error retrieving the outcome of application: backend returned undefined value.</p>;
     } else {
         if (outcome.$case === 'skipCause') {
-            content = <ApplicationPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
+            outcomeCell = <ApplicationPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
         } else {
-            content = <ApplicationPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />;
+            outcomeCell = (
+                <ApplicationPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />
+            );
         }
     }
 
     return (
         <tr>
             <td>{appName}</td>
-            <td>{content}</td>
+            <td>{outcomeCell}</td>
         </tr>
     );
 };
