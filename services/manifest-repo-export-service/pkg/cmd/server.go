@@ -272,6 +272,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtCreateEnvironmentLock:
 		//exhaustruct:ignore
 		return &repository.CreateEnvironmentLock{}, nil
+	case db.EvtDeleteEnvironmentLock:
+		//exhaustruct:ignore
+		return &repository.DeleteEnvironmentLock{}, nil
 	default:
 		logger.FromContext(ctx).Sugar().Infof("ignoring unknown event %s", eslEventType)
 		return nil, nil

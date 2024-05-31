@@ -24,6 +24,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
@@ -365,7 +366,7 @@ func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
 func (c *CreateEnvironmentLock) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
+	_ TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
 	//read event from DB
@@ -423,4 +424,48 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, autho
 		return err
 	}
 	return nil
+}
+
+type DeleteEnvironmentLock struct {
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	LockId         string `json:"lockId"`
+}
+
+func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentLock
+}
+
+func (c *DeleteEnvironmentLock) Transform(
+	ctx context.Context,
+	state *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	//read event from DB
+	fs := state.Filesystem
+	s := State{
+		Commit:                 nil,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "",
+		Filesystem:             fs,
+		DBHandler:              state.DBHandler,
+	}
+	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
+	_, err := fs.Stat(lockDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
+		}
+		return "", err
+	}
+
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+	}
+	if err := s.DeleteEnvLockIfEmpty(ctx, c.Environment); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 }

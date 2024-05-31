@@ -996,17 +996,17 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
 	defer span.Finish()
-
-	deleteStatement := h.AdaptQuery("DELETE FROM environment_locks WHERE lockID = ? AND envName = ?;")
+	fmt.Printf("DELETING LOCK FROM DB: env: %s, lockid: %s\n", environment, lockID)
+	deleteStatement := h.AdaptQuery("DELETE FROM environment_locks WHERE lockID=(?) AND envName=(?);")
 
 	span.SetTag("query", deleteStatement)
 	_, err := tx.Exec(
 		deleteStatement,
-		time.Now(),
 		lockID,
 		environment)
 
 	if err != nil {
+		fmt.Printf("could not delete lock from DB. Error: %w\n", err)
 		return fmt.Errorf("could not delete lock from DB. Error: %w\n", err)
 	}
 	return nil
