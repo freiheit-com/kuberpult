@@ -53,10 +53,10 @@ export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (prop
                 {Object.entries(envPrognoses)
                     .sort(([envName1, _1], [envName2, _2]) => envName1.localeCompare(envName2))
                     .map(([envName, envPrognosis]) => {
-                        const header = <h1>Prognosis for release train on environment {envName}</h1>;
                         const outcome = envPrognosis.outcome;
 
-                        let content: JSX.Element = <div></div>;
+                        let content: JSX.Element;
+
                         if (outcome === undefined) {
                             content = (
                                 <p>
@@ -66,19 +66,15 @@ export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (prop
                             );
                         } else {
                             if (outcome.$case === 'skipCause') {
-                                content = <EnvironmentPrognosisOutcomeSkipped skipCause={outcome.skipCause} />;
+                                content = <EnvPrognosisOutcomeSkipped skipCause={outcome.skipCause} />;
                             } else {
-                                content = (
-                                    <EnvironmentPrognosisOutcomeApplicationPrognoses
-                                        appsPrognoses={outcome.appsPrognoses}
-                                    />
-                                );
+                                content = <EnvPrognosisOutcomeAppPrognoses appsPrognoses={outcome.appsPrognoses} />;
                             }
                         }
 
                         return (
                             <div>
-                                {header}
+                                <h1>Prognosis for release train on environment {envName}</h1>
                                 {content}
                             </div>
                         );
@@ -88,7 +84,7 @@ export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (prop
     );
 };
 
-const EnvironmentPrognosisOutcomeSkipped: React.FC<{ skipCause: ReleaseTrainEnvSkipCause }> = ({ skipCause }) => {
+const EnvPrognosisOutcomeSkipped: React.FC<{ skipCause: ReleaseTrainEnvSkipCause }> = ({ skipCause }) => {
     switch (skipCause) {
         case ReleaseTrainEnvSkipCause.ENV_IS_LOCKED:
             return <p>Release train on this environment is skipped because it is locked.</p>;
@@ -128,7 +124,7 @@ const EnvironmentPrognosisOutcomeSkipped: React.FC<{ skipCause: ReleaseTrainEnvS
     }
 };
 
-const EnvironmentPrognosisOutcomeApplicationPrognoses: React.FC<{
+const EnvPrognosisOutcomeAppPrognoses: React.FC<{
     appsPrognoses: ReleaseTrainEnvPrognosis_AppsPrognosesWrapper;
 }> = ({ appsPrognoses }) => (
     <table>
@@ -142,13 +138,13 @@ const EnvironmentPrognosisOutcomeApplicationPrognoses: React.FC<{
             {Object.entries(appsPrognoses.prognoses)
                 .sort(([appName1, _1], [appName2, _2]) => appName1.localeCompare(appName2))
                 .map(([appName, appPrognosis]) => (
-                    <ApplicationPrognosisRow appName={appName} appPrognosis={appPrognosis} />
+                    <AppPrognosisRow appName={appName} appPrognosis={appPrognosis} />
                 ))}
         </tbody>
     </table>
 );
 
-const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: ReleaseTrainAppPrognosis }> = ({
+const AppPrognosisRow: React.FC<{ appName: string; appPrognosis: ReleaseTrainAppPrognosis }> = ({
     appName,
     appPrognosis,
 }) => {
@@ -158,11 +154,9 @@ const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: Release
         outcomeCell = <p>Error retrieving the outcome of application: backend returned undefined value.</p>;
     } else {
         if (outcome.$case === 'skipCause') {
-            outcomeCell = <ApplicationPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
+            outcomeCell = <AppPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
         } else {
-            outcomeCell = (
-                <ApplicationPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />
-            );
+            outcomeCell = <AppPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />;
         }
     }
 
@@ -174,7 +168,7 @@ const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: Release
     );
 };
 
-const ApplicationPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainAppSkipCause }> = ({ skipCause }) => {
+const AppPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainAppSkipCause }> = ({ skipCause }) => {
     switch (skipCause) {
         case ReleaseTrainAppSkipCause.APP_ALREADY_IN_UPSTREAM_VERSION:
             return <p>Application release is skipped because it is already in the upstream version.</p>;
@@ -201,7 +195,7 @@ const ApplicationPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainApp
     }
 };
 
-const ApplicationPrognosisOutcomeReleaseCell: React.FC<{ appName: string; version: number }> = (props) => {
+const AppPrognosisOutcomeReleaseCell: React.FC<{ appName: string; version: number }> = (props) => {
     const release = useRelease(props.appName, props.version);
     if (release === undefined) {
         return (
