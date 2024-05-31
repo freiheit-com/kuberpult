@@ -32,6 +32,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -382,13 +383,10 @@ func (c *CreateEnvironmentLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("CREATED AT: %s\n", lock.Created)
-	fmt.Printf("CREATED AT UTC: %s\n", lock.Created.UTC())
-
-	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.UTC().String()); err != nil {
+	fmt.Println("Creating lock")
+	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
 		return "", err
 	}
-	//GaugeEnvLockMetric(fs, c.Environment)
 
 	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 }

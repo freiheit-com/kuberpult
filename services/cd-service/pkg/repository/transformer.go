@@ -120,14 +120,9 @@ func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
 	return fs.Join(commitDirectory(fs, commit), "events", eventId)
 }
 
-func GetEnvironmentLocksCount(fs billy.Filesystem, env string) float64 {
-	envLocksCount := 0
-	envDir := environmentDirectory(fs, env)
-	locksDir := fs.Join(envDir, "locks")
-	if entries, _ := fs.ReadDir(locksDir); entries != nil {
-		envLocksCount += len(entries)
-	}
-	return float64(envLocksCount)
+func (s *State) GetEnvironmentLocksCount(ctx context.Context, env string) float64 {
+	locks, _ := s.GetEnvironmentLocks(ctx, env)
+	return float64(len(locks))
 }
 
 func GetEnvironmentApplicationLocksCount(fs billy.Filesystem, environment, application string) float64 {
@@ -140,9 +135,9 @@ func GetEnvironmentApplicationLocksCount(fs billy.Filesystem, environment, appli
 	return float64(envAppLocksCount)
 }
 
-func GaugeEnvLockMetric(fs billy.Filesystem, env string) {
+func (s *State) GaugeEnvLockMetric(ctx context.Context, env string) {
 	if ddMetrics != nil {
-		ddMetrics.Gauge("env_lock_count", GetEnvironmentLocksCount(fs, env), []string{"env:" + env}, 1) //nolint: errcheck
+		ddMetrics.Gauge("env_lock_count", s.GetEnvironmentLocksCount(ctx, env), []string{"env:" + env}, 1) //nolint: errcheck
 	}
 }
 
@@ -185,7 +180,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 	repo.(*repository).GaugeQueueSize(ctx)
 	for i := range envNames {
 		env := envNames[i]
-		GaugeEnvLockMetric(filesystem, env)
+		state.GaugeEnvLockMetric(ctx, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
 			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
@@ -1335,7 +1330,8 @@ func (c *CreateEnvironmentLock) Transform(
 		if err != nil {
 			return "", err
 		}
-		if err := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, c.Message, user.Name, user.Email); err != nil {
+		errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, c.Message, user.Name, user.Email)
+		if errW != nil {
 			return "", err
 		}
 	} else {
@@ -1351,8 +1347,8 @@ func (c *CreateEnvironmentLock) Transform(
 		if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
 			return "", err
 		}
-		GaugeEnvLockMetric(fs, c.Environment)
 	}
+	state.GaugeEnvLockMetric(ctx, c.Environment)
 	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 }
 
@@ -1456,7 +1452,7 @@ func (c *DeleteEnvironmentLock) Transform(
 			additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
 		}
 	}
-	GaugeEnvLockMetric(fs, c.Environment)
+	s.GaugeEnvLockMetric(ctx, c.Environment)
 	return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), nil
 }
 

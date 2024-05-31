@@ -1620,13 +1620,14 @@ func (s *State) GetEnvironmentLocks(ctx context.Context, environment string) (ma
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Locks from manifest: %s\n", manifestLocks)
 	databaseLocks, err := s.GetEnvironmentLocksFromDB(ctx, environment)
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("Locks from database: %s\n", databaseLocks)
 	maps.Copy(databaseLocks, manifestLocks)
-
+	fmt.Printf("Returning: %s\n", databaseLocks)
 	return databaseLocks, nil
 }
 

@@ -811,7 +811,6 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
-
 	existingEnvironmentLock, err := h.DBSelectLatestEnvironmentLock(ctx, tx, environment)
 	if err != nil {
 		return fmt.Errorf("could not find Environment lock for env %s", environment)
@@ -851,6 +850,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
+	fmt.Println("Writing to environment_locks")
 
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, metadata) VALUES (?, ?, ?, ?, ?);")
