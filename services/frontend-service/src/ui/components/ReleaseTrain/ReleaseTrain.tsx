@@ -24,11 +24,11 @@ import {
 import { useRelease } from '../../utils/store';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 
-type ReleaseTrainProps = {
+export type ReleaseTrainPrognosisProps = {
     releaseTrainPrognosis: GetReleaseTrainPrognosisResponse | undefined;
 };
 
-export const ReleaseTrain: React.FC<ReleaseTrainProps> = (props) => {
+export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (props) => {
     const releaseTrainPrognosis = props.releaseTrainPrognosis;
 
     if (releaseTrainPrognosis === undefined) {

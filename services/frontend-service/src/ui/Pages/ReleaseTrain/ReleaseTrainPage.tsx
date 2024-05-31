@@ -26,7 +26,7 @@ import {
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import React from 'react';
 import { Spinner } from '../../components/Spinner/Spinner';
-import { ReleaseTrain } from '../../components/ReleaseTrain/ReleaseTrain';
+import { ReleaseTrainPrognosis } from '../../components/ReleaseTrain/ReleaseTrain';
 
 export const ReleaseTrainPage: React.FC = () => {
     const [everythingLoaded, loadingState] = useGlobalLoadingState();
@@ -74,6 +74,6 @@ export const ReleaseTrainPage: React.FC = () => {
                 </div>
             );
         case ReleaseTrainPrognosisState.READY:
-            return <ReleaseTrain releaseTrainPrognosis={releaseTrainPrognosis.response} />;
+            return <ReleaseTrainPrognosis releaseTrainPrognosis={releaseTrainPrognosis.response} />;
     }
 };
