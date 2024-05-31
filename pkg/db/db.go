@@ -1006,7 +1006,6 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		environment)
 
 	if err != nil {
-		fmt.Printf("could not delete lock from DB. Error: %w\n", err)
 		return fmt.Errorf("could not delete lock from DB. Error: %w\n", err)
 	}
 	return nil
