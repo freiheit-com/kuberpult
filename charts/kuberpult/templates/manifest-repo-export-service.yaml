@@ -109,24 +109,6 @@ spec:
           - name: grpc
             containerPort: 8443
             protocol: TCP
-        readinessProbe:
-          httpGet:
-            path: /healthz
-            port: http
-          initialDelaySeconds: {{ .Values.cd.probes.readiness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.cd.probes.readiness.periodSeconds }}
-          successThreshold: {{ .Values.cd.probes.readiness.successThreshold }}
-          timeoutSeconds: {{ .Values.cd.probes.readiness.timeoutSeconds }}
-          failureThreshold: {{ .Values.cd.probes.readiness.failureThreshold }}
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: http
-          initialDelaySeconds: {{ .Values.cd.probes.liveness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.cd.probes.liveness.periodSeconds }}
-          successThreshold: {{ .Values.cd.probes.liveness.successThreshold }}
-          timeoutSeconds: {{ .Values.cd.probes.liveness.timeoutSeconds }}
-          failureThreshold: {{ .Values.cd.probes.liveness.failureThreshold }}
         resources:
           limits:
             cpu: "{{ .Values.cd.resources.limits.cpu }}"
