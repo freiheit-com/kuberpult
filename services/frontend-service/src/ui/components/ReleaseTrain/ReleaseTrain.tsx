@@ -142,16 +142,30 @@ const EnvironmentPrognosisOutcomeApplicationPrognoses: React.FC<{
     </table>
 );
 
-const ApplicationPrognosisOutcomeReleaseCell: React.FC<{ appName: string; version: number }> = (props) => {
-    const release = useRelease(props.appName, props.version);
-    if (release === undefined) {
-        return (
-            <p>
-                Commit <i>loading</i> will be released.
-            </p>
-        );
+const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: ReleaseTrainAppPrognosis }> = ({
+    appName,
+    appPrognosis,
+}) => {
+    let outcomeCell: React.ReactNode;
+    const outcome = appPrognosis.outcome;
+    if (outcome === undefined) {
+        outcomeCell = <p>Error retrieving the outcome of application: backend returned undefined value.</p>;
+    } else {
+        if (outcome.$case === 'skipCause') {
+            outcomeCell = <ApplicationPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
+        } else {
+            outcomeCell = (
+                <ApplicationPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />
+            );
+        }
     }
-    return <p>Commit {release.sourceCommitId} will be released.</p>;
+
+    return (
+        <tr>
+            <td>{appName}</td>
+            <td>{outcomeCell}</td>
+        </tr>
+    );
 };
 
 const ApplicationPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainAppSkipCause }> = ({ skipCause }) => {
@@ -182,28 +196,14 @@ const ApplicationPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainApp
     }
 };
 
-const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: ReleaseTrainAppPrognosis }> = ({
-    appName,
-    appPrognosis,
-}) => {
-    let outcomeCell: React.ReactNode;
-    const outcome = appPrognosis.outcome;
-    if (outcome === undefined) {
-        outcomeCell = <p>Error retrieving the outcome of application: backend returned undefined value.</p>;
-    } else {
-        if (outcome.$case === 'skipCause') {
-            outcomeCell = <ApplicationPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
-        } else {
-            outcomeCell = (
-                <ApplicationPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />
-            );
-        }
+const ApplicationPrognosisOutcomeReleaseCell: React.FC<{ appName: string; version: number }> = (props) => {
+    const release = useRelease(props.appName, props.version);
+    if (release === undefined) {
+        return (
+            <p>
+                Commit <i>loading</i> will be released.
+            </p>
+        );
     }
-
-    return (
-        <tr>
-            <td>{appName}</td>
-            <td>{outcomeCell}</td>
-        </tr>
-    );
+    return <p>Commit {release.sourceCommitId} will be released.</p>;
 };
