@@ -52,23 +52,25 @@ export const ReleaseTrain: React.FC<ReleaseTrainProps> = (props) => {
             <main className="main-content commit-page">
                 {Object.entries(envPrognoses).map(([envName, envPrognosis]) => {
                     const header = <h1>Prognosis for release train on environment {envName}</h1>;
-                    let content: JSX.Element = <div></div>;
-
                     const outcome = envPrognosis.outcome;
+
+                    let content: JSX.Element = <div></div>;
                     if (outcome === undefined) {
                         content = (
                             <p>
                                 Error retrieving the prognosis for this environment: backend returned undefined value.
                             </p>
                         );
-                    } else if (outcome.$case === 'skipCause') {
-                        content = <EnvironmentPrognosisOutcomeSkipped skipCause={outcome.skipCause} />;
-                    } else if (outcome.$case === 'appsPrognoses') {
-                        content = (
-                            <EnvironmentPrognosisOutcomeApplicationPrognoses appsPrognoses={outcome.appsPrognoses} />
-                        );
                     } else {
-                        content = <div>Universe on fire</div>;
+                        if (outcome.$case === 'skipCause') {
+                            content = <EnvironmentPrognosisOutcomeSkipped skipCause={outcome.skipCause} />;
+                        } else {
+                            content = (
+                                <EnvironmentPrognosisOutcomeApplicationPrognoses
+                                    appsPrognoses={outcome.appsPrognoses}
+                                />
+                            );
+                        }
                     }
 
                     return (
