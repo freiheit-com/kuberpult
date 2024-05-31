@@ -240,6 +240,31 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]
 	return result, nil
 }
 
+type DBFunctionTMultiple[T any] func(ctx context.Context, transaction *sql.Tx) ([]T, error)
+
+// WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
+func WithTransactionTMultiple[T any](h *DBHandler, ctx context.Context, f DBFunctionTMultiple[T]) ([]T, error) {
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func(tx *sql.Tx) {
+		_ = tx.Rollback()
+		// we ignore the error returned from Rollback() here,
+		// because it is always set when Commit() was successful
+	}(tx)
+
+	result, err := f(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 type EventType string
 
 const (
@@ -879,7 +904,6 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-	fmt.Println("Writing to environment_locks")
 
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, metadata) VALUES (?, ?, ?, ?, ?);")
@@ -899,9 +923,12 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	return nil
 }
 
-func (h *DBHandler) DBSelectAllLocksFromEnvironment(ctx context.Context, environmentName string) ([]EnvironmentLock, error) {
+func (h *DBHandler) DBSelectAllLocksFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) ([]EnvironmentLock, error) {
 	if h == nil {
 		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBWriteEnvironmentLockInternal: no transaction provided")
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
@@ -912,7 +939,7 @@ func (h *DBHandler) DBSelectAllLocksFromEnvironment(ctx context.Context, environ
 				" FROM environment_locks " +
 				" WHERE envName=? " +
 				" ORDER BY eslVersion DESC " +
-				" LIMIT 25;"))
+				" LIMIT 25;")) //25 locks per env?
 
 	span.SetTag("query", selectQuery)
 	rows, err := h.DB.QueryContext(
@@ -958,6 +985,31 @@ func (h *DBHandler) DBSelectAllLocksFromEnvironment(ctx context.Context, environ
 
 	}
 	return envLocks, nil // no rows, but also no error
+}
+
+func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBDeleteEnvironmentLock: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
+	defer span.Finish()
+
+	deleteStatement := h.AdaptQuery("DELETE FROM environment_locks WHERE lockID = ? AND envName = ?;")
+
+	span.SetTag("query", deleteStatement)
+	_, err := tx.Exec(
+		deleteStatement,
+		time.Now(),
+		lockID,
+		environment)
+
+	if err != nil {
+		return fmt.Errorf("could not delete lock from DB. Error: %w\n", err)
+	}
+	return nil
 }
 
 type AllApplicationsJson struct {

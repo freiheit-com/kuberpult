@@ -1421,22 +1421,28 @@ func (c *DeleteEnvironmentLock) Transform(
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
 		CloudRunClient:         state.CloudRunClient,
 	}
-	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
-	_, err = fs.Stat(lockDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
+	if s.DBHandler.ShouldUseOtherTables() {
+		err := s.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
+		if err != nil {
+			return "", err
 		}
-		return "", err
-	}
+	} else {
+		lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
+		_, err = fs.Stat(lockDir)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
+			}
+			return "", err
+		}
 
-	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+		if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+		}
+		if err := s.DeleteEnvLockIfEmpty(ctx, c.Environment); err != nil {
+			return "", err
+		}
 	}
-	if err := s.DeleteEnvLockIfEmpty(ctx, c.Environment); err != nil {
-		return "", err
-	}
-
 	apps, err := s.GetEnvironmentApplications(ctx, transaction, c.Environment)
 	if err != nil {
 		return "", fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())

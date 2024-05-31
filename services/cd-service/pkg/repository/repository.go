@@ -1596,7 +1596,10 @@ func (s *State) GetTeamLocksDir(environment string, team string) string {
 }
 
 func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment string) (map[string]Lock, error) {
-	locks, err := s.DBHandler.DBSelectAllLocksFromEnvironment(ctx, environment)
+	locks, err := db.WithTransactionTMultiple(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.EnvironmentLock, error) {
+		return s.DBHandler.DBSelectAllLocksFromEnvironment(ctx, transaction, environment)
+	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -1620,15 +1623,15 @@ func (s *State) GetEnvironmentLocks(ctx context.Context, environment string) (ma
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Locks from manifest: %s\n", manifestLocks)
-	databaseLocks, err := s.GetEnvironmentLocksFromDB(ctx, environment)
-	if err != nil {
-		return nil, err
+	var databaseLocks map[string]Lock
+	if s.DBHandler.ShouldUseOtherTables() {
+		databaseLocks, err = s.GetEnvironmentLocksFromDB(ctx, environment)
+		if err != nil {
+			return nil, err
+		}
 	}
-	fmt.Printf("Locks from database: %s\n", databaseLocks)
-	maps.Copy(databaseLocks, manifestLocks)
-	fmt.Printf("Returning: %s\n", databaseLocks)
-	return databaseLocks, nil
+	maps.Copy(manifestLocks, databaseLocks) // Copy(dest, src)
+	return manifestLocks, nil
 }
 
 func (s *State) GetEnvironmentLocksFromManifest(environment string) (map[string]Lock, error) {
