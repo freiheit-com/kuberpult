@@ -32,7 +32,7 @@ export const ReleaseTrainPage: React.FC = () => {
     const [everythingLoaded, loadingState] = useGlobalLoadingState();
     const { targetEnv: envName } = useParams();
     const { authHeader } = useAzureAuthSub((auth) => auth);
-    
+
     React.useEffect(() => {
         if (envName !== undefined) {
             getReleaseTrainPrognosis(envName, authHeader);
