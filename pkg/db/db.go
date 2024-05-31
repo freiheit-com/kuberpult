@@ -312,6 +312,12 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	if rows.Next() {
 		var row = EslEventRow{
 			EslId:     0,
@@ -345,6 +351,12 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	if rows.Next() {
 		var row = EslEventRow{
 			EslId:     0,
@@ -437,10 +449,15 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	span.SetTag("query", query)
 
 	rows, err := h.DB.QueryContext(ctx, query, commitHash)
-
 	if err != nil {
 		return nil, fmt.Errorf("Error querying DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 
 	var result []EventRow
 
@@ -579,6 +596,12 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	if rows.Next() {
 		var row = DBDeployment{
 			EslVersion:     0,
@@ -632,6 +655,12 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	if rows.Next() {
 		var releaseVersion sql.NullInt64
 		//exhaustruct:ignore
