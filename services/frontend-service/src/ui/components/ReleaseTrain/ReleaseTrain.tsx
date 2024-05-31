@@ -179,13 +179,13 @@ const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: Release
     let content: React.ReactNode;
     const outcome = appPrognosis.outcome;
     if (outcome === undefined) {
-        content = <p>Universe on fire</p>;
-    } else if (outcome.$case === 'skipCause') {
-        content = <ApplicationPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
-    } else if (outcome.$case === 'deployedVersion') {
-        content = <ApplicationPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />;
+        content = <p>Error retrieving the outcome of application: backend returned undefined value.</p>;
     } else {
-        content = <p>Universe on fire</p>;
+        if (outcome.$case === 'skipCause') {
+            content = <ApplicationPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
+        } else {
+            content = <ApplicationPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />;
+        }
     }
 
     return (
