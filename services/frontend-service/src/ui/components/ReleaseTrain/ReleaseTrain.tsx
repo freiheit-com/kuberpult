@@ -188,10 +188,7 @@ const ApplicationPrognosisRow: React.FC<{ appName: string; appPrognosis: Release
                 content = <p>Universe on fire</p>;
         }
     } else if (outcome.$case === 'deployedVersion') {
-        content = ApplicationReleaseCell({
-            appName: appName,
-            version: outcome.deployedVersion,
-        });
+        content = <ApplicationReleaseCell appName={appName} version={outcome.deployedVersion} />;
     } else {
         content = <p>Universe on fire</p>;
     }
