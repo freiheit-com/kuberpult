@@ -26,7 +26,7 @@ import {
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import React from 'react';
 import { Spinner } from '../../components/Spinner/Spinner';
-import { ReleaseTrainPrognosis } from '../../components/ReleaseTrain/ReleaseTrain';
+import { ReleaseTrainPrognosis } from '../../components/ReleaseTrainPrognosis/ReleaseTrainPrognosis';
 
 export const ReleaseTrainPage: React.FC = () => {
     const [everythingLoaded, loadingState] = useGlobalLoadingState();
