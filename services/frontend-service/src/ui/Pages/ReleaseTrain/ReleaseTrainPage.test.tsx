@@ -13,3 +13,16 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
+
+import { MemoryRouter } from 'react-router-dom';
+import { ReleaseTrainPrognosis } from '../../components/ReleaseTrain/ReleaseTrain';
+import { render } from '@testing-library/react';
+
+test('ReleaseTrain component does not render anything if the response is undefined', () => {
+    const { container } = render(
+        <MemoryRouter>
+            <ReleaseTrainPrognosis releaseTrainPrognosis={undefined} />
+        </MemoryRouter>
+    );
+    expect(container.textContent).toContain('Backend returned empty response');
+});
