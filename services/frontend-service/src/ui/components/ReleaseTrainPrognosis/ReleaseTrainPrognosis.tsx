@@ -54,7 +54,7 @@ export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (prop
                 {Object.entries(envPrognoses)
                     .sort(([envName1, _1], [envName2, _2]) => envName1.localeCompare(envName2))
                     .map(([envName, envPrognosis]) => (
-                        <EnvPrognosis envName={envName} envPrognosis={envPrognosis} />
+                        <EnvPrognosis key={envName} envName={envName} envPrognosis={envPrognosis} />
                     ))}
             </main>
         </div>
@@ -141,7 +141,7 @@ const EnvPrognosisOutcomeAppPrognoses: React.FC<{
             {Object.entries(appsPrognoses.prognoses)
                 .sort(([appName1, _1], [appName2, _2]) => appName1.localeCompare(appName2))
                 .map(([appName, appPrognosis]) => (
-                    <AppPrognosisRow appName={appName} appPrognosis={appPrognosis} />
+                    <AppPrognosisRow key={appName} appName={appName} appPrognosis={appPrognosis} />
                 ))}
         </tbody>
     </table>
