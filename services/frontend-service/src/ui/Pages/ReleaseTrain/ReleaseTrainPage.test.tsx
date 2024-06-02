@@ -81,6 +81,7 @@ test('ReleaseTrain component renders release train prognosis when the response i
             </MemoryRouter>
         );
 
-        // 
+        const mainContent = container.getElementsByClassName('main-content');
+        console.log(mainContent);
     }
 });
