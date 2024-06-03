@@ -861,13 +861,13 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
+		return fmt.Errorf("DBWriteEnvironmentLock: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
 	defer span.Finish()
 	existingEnvironmentLock, err := h.DBSelectLatestEnvironmentLock(ctx, tx, environment)
 	if err != nil {
-		return fmt.Errorf("could not find Environment lock for env %s", environment)
+		return fmt.Errorf("could not find environment lock for env %s", environment)
 	}
 
 	var previousVersion EslId
@@ -887,17 +887,17 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 			CreatedByEmail: authorEmail,
 		},
 	}
-	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
+	return h.dbWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
 }
 
-func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId) error {
+func (h *DBHandler) dbWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId) error {
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("DBWriteEnvironmentLockInternal: no transaction provided")
+		return fmt.Errorf("dbWriteEnvironmentLockInternal: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	span, _ := tracer.StartSpanFromContext(ctx, "dbWriteEnvironmentLockInternal")
 	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(envLock.Metadata)
@@ -923,14 +923,14 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	return nil
 }
 
-func (h *DBHandler) DBSelectAllLocksFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) ([]EnvironmentLock, error) {
+func (h *DBHandler) DBSelectAllEnvLocks(ctx context.Context, tx *sql.Tx, environmentName string) ([]EnvironmentLock, error) {
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBWriteEnvironmentLockInternal: no transaction provided")
+		return nil, fmt.Errorf("DBSelectAllEnvLocks: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvLocks")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
