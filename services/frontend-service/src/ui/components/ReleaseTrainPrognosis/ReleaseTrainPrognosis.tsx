@@ -133,8 +133,8 @@ const EnvPrognosisOutcomeAppPrognoses: React.FC<{
     <table>
         <thead>
             <tr>
-                <td>Application</td>
-                <td>Outcome</td>
+                <th>Application</th>
+                <th>Outcome</th>
             </tr>
         </thead>
         <tbody>
