@@ -380,11 +380,11 @@ func (c *CreateEnvironmentLock) Transform(
 		return "", err
 	}
 
-	lock, err := state.DBHandler.DBSelectLatestEnvironmentLock(ctx, transaction, c.Environment)
+	lock, err := state.DBHandler.DBSelectOldestEnvironmentLock(ctx, transaction, c.Environment)
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("Creating lock")
+
 	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
 		return "", err
 	}

@@ -805,13 +805,14 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsF
 	})
 }
 
-func (h *DBHandler) DBSelectLatestEnvironmentLock(ctx context.Context, tx *sql.Tx, environment string) (*EnvironmentLock, error) {
+func (h *DBHandler) DBSelectOldestEnvironmentLock(ctx context.Context, tx *sql.Tx, environment string) (*EnvironmentLock, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, metadata" +
 			" FROM environment_locks " +
 			" WHERE envName=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
+	
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -836,7 +837,6 @@ func (h *DBHandler) DBSelectLatestEnvironmentLock(ctx context.Context, tx *sql.T
 			}
 			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
 		}
-		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 
 		//exhaustruct:ignore
 		var resultJson = EnvironmentLockMetadata{}
@@ -865,7 +865,7 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
 	defer span.Finish()
-	existingEnvironmentLock, err := h.DBSelectLatestEnvironmentLock(ctx, tx, environment)
+	existingEnvironmentLock, err := h.DBSelectOldestEnvironmentLock(ctx, tx, environment)
 	if err != nil {
 		return fmt.Errorf("could not find environment lock for env %s", environment)
 	}
