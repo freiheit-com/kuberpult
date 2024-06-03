@@ -102,7 +102,8 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 
 	httpClient := &http.Client{}
 	fmt.Printf("Dex URL: %s\n", dexUrl)
-	req, err := http.NewRequest("POST", "/dex/token", strings.NewReader(data.Encode()))
+
+	req, err := http.NewRequest("POST", "http://kuberpult-dex:5556/dex/token", strings.NewReader(data.Encode()))
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Not able to construct http request to dex error: %s\n", err), http.StatusInternalServerError)
@@ -116,5 +117,5 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s\n", err), http.StatusInternalServerError)
 	}
 
-	http.Error(w, fmt.Sprintf("Dex worked: %w. %s\n", res.Status, res.Body), http.StatusOK)
+	http.Error(w, fmt.Sprintf("Dex worked: %+v. %s\n", res.Status, res.Body), http.StatusOK)
 }
