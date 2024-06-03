@@ -17,7 +17,14 @@ Copyright freiheit.com*/
 import { MemoryRouter } from 'react-router-dom';
 import { ReleaseTrainPrognosis } from '../../components/ReleaseTrainPrognosis/ReleaseTrainPrognosis';
 import { render } from '@testing-library/react';
-import { GetReleaseTrainPrognosisResponse, ReleaseTrainAppSkipCause, ReleaseTrainEnvSkipCause } from '../../../api/api';
+import {
+    Application,
+    GetReleaseTrainPrognosisResponse,
+    ReleaseTrainAppSkipCause,
+    ReleaseTrainEnvSkipCause,
+    UndeploySummary,
+} from '../../../api/api';
+import { UpdateOverview } from '../../utils/store';
 
 test('ReleaseTrain component does not render anything if the response is undefined', () => {
     const { container } = render(
@@ -44,11 +51,14 @@ describe('ReleaseTrain component renders release train prognosis when the respon
         name: string;
         releaseTrainPrognosis: GetReleaseTrainPrognosisResponse;
         expectedPageContent: EnvReleaseTrainPrognosisModel[];
+        applicationsOverview: {
+            [key: string]: Application;
+        };
     };
 
     const testCases: TestCase[] = [
         {
-            name: 'prognosis with skipped and unskipped environment, skipped and unskipped apps',
+            name: 'prognosis with skipped environments and skipped apps',
             releaseTrainPrognosis: {
                 envsPrognoses: {
                     'env-1': {
@@ -217,6 +227,113 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                     },
                 },
             ],
+            applicationsOverview: {},
+        },
+        {
+            name: 'prognosis with some deployed apps',
+            applicationsOverview: {
+                'app-1': {
+                    name: 'app-1',
+                    sourceRepoUrl: 'some url',
+                    team: 'some team',
+                    undeploySummary: UndeploySummary.UNRECOGNIZED,
+                    warnings: [],
+                    releases: [
+                        {
+                            version: 1,
+                            displayVersion: 'some display version',
+                            prNumber: 'some pr number',
+                            sourceAuthor: 'some source author',
+                            sourceCommitId: 'aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd',
+                            sourceMessage: 'some source message',
+                            undeployVersion: false,
+                        },
+                    ],
+                },
+                'app-3': {
+                    name: 'app-3',
+                    sourceRepoUrl: 'some url',
+                    team: 'some team',
+                    undeploySummary: UndeploySummary.UNRECOGNIZED,
+                    warnings: [],
+                    releases: [
+                        {
+                            version: 1,
+                            displayVersion: 'some display version',
+                            prNumber: 'some pr number',
+                            sourceAuthor: 'some source author',
+                            sourceCommitId: '0000000000111111111122222222223333333333',
+                            sourceMessage: 'some source message',
+                            undeployVersion: false,
+                        },
+                    ],
+                },
+            },
+            releaseTrainPrognosis: {
+                envsPrognoses: {
+                    'env-1': {
+                        outcome: {
+                            $case: 'appsPrognoses',
+                            appsPrognoses: {
+                                prognoses: {
+                                    'app-1': {
+                                        outcome: {
+                                            $case: 'deployedVersion',
+                                            deployedVersion: 1,
+                                        },
+                                    },
+                                    'app-2': {
+                                        outcome: {
+                                            $case: 'deployedVersion',
+                                            deployedVersion: 2,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    'env-2': {
+                        outcome: {
+                            $case: 'appsPrognoses',
+                            appsPrognoses: {
+                                prognoses: {
+                                    'app-3': {
+                                        outcome: {
+                                            $case: 'deployedVersion',
+                                            deployedVersion: 1,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            expectedPageContent: [
+                {
+                    headerText: 'Prognosis for release train on environment env-1',
+                    body: {
+                        type: 'table',
+                        content: {
+                            head: ['Application', 'Outcome'],
+                            body: [
+                                ['app-1', 'Commit aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd will be released'],
+                                ['app-2', 'Commit loading will be released.'], // application version is not in the overview store, so "loading" will be displayed
+                            ],
+                        },
+                    },
+                },
+                {
+                    headerText: 'Prognosis for release train on environment env-2',
+                    body: {
+                        type: 'table',
+                        content: {
+                            head: ['Application', 'Outcome'],
+                            body: [['app-3', 'Commit 0000000000111111111122222222223333333333 will be released.']],
+                        },
+                    },
+                },
+            ],
         },
     ];
 
@@ -254,6 +371,9 @@ describe('ReleaseTrain component renders release train prognosis when the respon
 
     for (const testCase of testCases) {
         test(testCase.name, () => {
+            UpdateOverview.set({
+                applications: testCase.applicationsOverview,
+            });
             const { container } = render(
                 <MemoryRouter>
                     <ReleaseTrainPrognosis releaseTrainPrognosis={testCase.releaseTrainPrognosis} />
