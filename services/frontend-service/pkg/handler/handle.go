@@ -18,7 +18,10 @@ package handler
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 
@@ -68,8 +71,8 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s Server) HandleDex(w http.ResponseWriter, req *http.Request) {
-	group, tail := xpath.Shift(req.URL.Path)
+func (s Server) HandleDex(w http.ResponseWriter, r *http.Request) {
+	group, tail := xpath.Shift(r.URL.Path)
 	if group != "dex" {
 		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
 	}
@@ -77,6 +80,26 @@ func (s Server) HandleDex(w http.ResponseWriter, req *http.Request) {
 	if tail != "" {
 		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
 	}
+	err := r.ParseForm()
 
-	http.Error(w, "Dex endpoint under construction", http.StatusNotImplemented)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Dex error: %s\n", err), http.StatusNotImplemented)
+	}
+
+	log.Println("r.PostForm", r.PostForm)
+	log.Println("r.Form", r.Form)
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Println("r.Body", string(body))
+
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Error(w, fmt.Sprintf("Dex endpoint under construction: %s\n", values), http.StatusNotImplemented)
 }
