@@ -1962,17 +1962,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
-					PreviousCommit:  "",
-				},
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-					Manifests: map[string]string{
-						"staging": "doesn't matter",
-					},
-					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "",
 				},
 				&CreateApplicationVersion{
@@ -1982,15 +1971,10 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
 			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
-					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1998,7 +1982,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 			},
 		},
 		{
-			Name: "Create a circle of next and prev",
+			Name: "Create a daisy chain of next and prev",
 			// no need to bother with environments here
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
@@ -2008,7 +1992,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "",
 				},
 				&CreateApplicationVersion{
@@ -2018,7 +2001,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 				&CreateApplicationVersion{
@@ -2028,7 +2010,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 				},
 			},
@@ -2038,19 +2019,11 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/previousCommit",
-					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
-				},
-				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/nextCommit",
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
 				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/previousCommit",
-					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 				{
@@ -2070,7 +2043,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "",
 				},
 				&CreateApplicationVersion{
@@ -2080,7 +2052,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 				&CreateApplicationVersion{
@@ -2090,15 +2061,10 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
 			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
-					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2120,7 +2086,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "1",
 					PreviousCommit:  "1234",
 				},
 			},

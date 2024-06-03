@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
@@ -68,14 +69,35 @@ func (o *OverviewServiceServer) GetOverview(
 			}
 			return nil, err
 		}
-		return o.getOverview(ctx, state)
+		return o.getOverviewDB(ctx, state)
 	}
-	return o.getOverview(ctx, o.Repository.State())
+	return o.getOverviewDB(ctx, o.Repository.State())
+}
+
+func (o *OverviewServiceServer) getOverviewDB(
+	ctx context.Context,
+	s *repository.State) (*api.GetOverviewResponse, error) {
+
+	var response *api.GetOverviewResponse
+	if s.DBHandler.ShouldUseOtherTables() {
+		err := s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			var err2 error
+			response, err2 = o.getOverview(ctx, s, transaction)
+			return err2
+		})
+		if err != nil {
+			return nil, err
+		}
+		return response, nil
+	}
+	return o.getOverview(ctx, s, nil)
 }
 
 func (o *OverviewServiceServer) getOverview(
 	ctx context.Context,
-	s *repository.State) (*api.GetOverviewResponse, error) {
+	s *repository.State,
+	transaction *sql.Tx,
+) (*api.GetOverviewResponse, error) {
 	var rev string
 	if s.Commit != nil {
 		rev = s.Commit.Id().String()
@@ -131,7 +153,7 @@ func (o *OverviewServiceServer) getOverview(
 				envInGroup.Locks = env.Locks
 			}
 
-			if apps, err := s.GetEnvironmentApplications(ctx, nil, envName); err != nil {
+			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
 				return nil, err
 			} else {
 
@@ -170,7 +192,7 @@ func (o *OverviewServiceServer) getOverview(
 					} // Err != nil means no team name was found so no need to parse team locks
 
 					var version *uint64
-					version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, nil)
+					version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
 					if err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
@@ -223,7 +245,7 @@ func (o *OverviewServiceServer) getOverview(
 							}
 						}
 					}
-					deployAuthor, deployTime, err := s.GetDeploymentMetaData(envName, appName)
+					deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, envName, appName)
 					if err != nil {
 						return nil, err
 					}
@@ -449,7 +471,7 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {
-	r, err := o.getOverview(context.Background(), s)
+	r, err := o.getOverviewDB(context.Background(), s)
 	if err != nil {
 		panic(err)
 	}

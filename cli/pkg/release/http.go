@@ -130,7 +130,7 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 }
 
 func issueHttpRequest(req http.Request) error {
-	client := &http.Client{}
+	client := &http.Client{} //exhaustruct:ignore
 	resp, err := client.Do(&req)
 	if err != nil {
 		return fmt.Errorf("error issuing the HTTP request, error: %w", err)

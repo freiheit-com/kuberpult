@@ -22,14 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	config "github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
@@ -39,6 +31,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	config "github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
@@ -192,7 +193,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(filesystem, env, app.Name())
 
-				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(env, app.Name())
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, env, app.Name())
 				if err != nil {
 					return err
 				}
@@ -352,7 +353,6 @@ type CreateApplicationVersion struct {
 	DisplayVersion  string            `json:"displayVersion"`
 	WriteCommitData bool              `json:"writeCommitData"`
 	PreviousCommit  string            `json:"previousCommit"`
-	NextCommit      string            `json:"nextCommit"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -443,7 +443,6 @@ func (c *CreateApplicationVersion) Transform(
 
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
-	checkForInvalidCommitId(c.NextCommit, "Next")
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -525,7 +524,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, c.NextCommit, fs)
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, fs)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -595,7 +594,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, nextCommitId string, fs billy.Filesystem) error {
+func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, fs billy.Filesystem) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
@@ -609,11 +608,6 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 
 	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
 		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {
-			return GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if nextCommitId != "" && valid.SHA1CommitID(nextCommitId) {
-		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(nextCommitId), fieldNextCommidId, app, fs); err != nil {
 			return GetCreateReleaseGeneralFailure(err)
 		}
 	}
@@ -1419,6 +1413,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err = fs.Stat(lockDir)
@@ -1619,6 +1614,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
@@ -1756,6 +1752,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
 		return "", err
@@ -1985,7 +1982,12 @@ func (c *DeployApplicationVersion) Transform(
 		//File does not exist
 		firstDeployment = true
 	}
-
+	if state.CloudRunClient != nil {
+		err := state.CloudRunClient.DeployApplicationVersion(ctx, manifestContent)
+		if err != nil {
+			return "", err
+		}
+	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
 		if err != nil {
@@ -2011,7 +2013,7 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
 		if err != nil {
-			return "", fmt.Errorf("could not write deployment for %v", newDeployment)
+			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
 	} else {
 		// Create a symlink to the release
@@ -2066,6 +2068,7 @@ func (c *DeployApplicationVersion) Transform(
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+		CloudRunClient:         state.CloudRunClient,
 	}
 	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {

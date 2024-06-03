@@ -25,10 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"io"
 	"net/http"
 	"os"
@@ -41,6 +37,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -50,6 +51,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/sqlitestore"
@@ -213,7 +215,8 @@ type RepositoryConfig struct {
 
 	ArgoCdGenerateFiles bool
 
-	DBHandler *db.DBHandler
+	DBHandler      *db.DBHandler
+	CloudRunClient *cloudrun.CloudRunClient
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -1362,6 +1365,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 						ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 						DBHandler:              r.DB,
+						CloudRunClient:         r.config.CloudRunClient,
 					}, nil
 				}
 			}
@@ -1386,6 +1390,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 		DBHandler:              r.DB,
+		CloudRunClient:         r.config.CloudRunClient,
 	}, nil
 }
 
@@ -1477,7 +1482,8 @@ type State struct {
 	EnvironmentConfigsPath string
 	ReleaseVersionsLimit   uint
 	// DbHandler will be nil if the DB is disabled
-	DBHandler *db.DBHandler
+	DBHandler      *db.DBHandler
+	CloudRunClient *cloudrun.CloudRunClient
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {
@@ -1645,7 +1651,23 @@ func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lo
 		return result, nil
 	}
 }
-func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
+func (s *State) GetDeploymentMetaData(ctx context.Context, environment, application string) (string, time.Time, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		result, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.Deployment, error) {
+			return s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+		})
+		if err != nil {
+			return "", time.Time{}, err
+		}
+		if result != nil {
+			return result.Metadata.DeployedByEmail, result.Created, nil
+		}
+		return "", time.Time{}, err
+	}
+	return s.GetDeploymentMetaDataFromRepo(environment, application)
+}
+
+func (s *State) GetDeploymentMetaDataFromRepo(environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
 	if err != nil {
@@ -1755,8 +1777,12 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, environmen
 		var v = uint64(*depl.Version)
 		return &v, nil
 	} else {
-		return s.readSymlink(environment, application, "version")
+		return s.GetEnvironmentApplicationVersionFromManifest(environment, application)
 	}
+}
+
+func (s *State) GetEnvironmentApplicationVersionFromManifest(environment string, application string) (*uint64, error) {
+	return s.readSymlink(environment, application, "version")
 }
 
 // returns nil if there is no file
@@ -1938,19 +1964,18 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
-		//env := envMap[envName]
 
 		if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
 			return nil, err
 		} else {
 			for _, appName := range apps {
 				var version *uint64
-				version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
+				version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
 				if err != nil {
 					return nil, fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 				}
 				var versionIntPtr *int64
-				if version == nil {
+				if version != nil {
 					var versionInt = int64(*version)
 					versionIntPtr = &versionInt
 				} else {

@@ -69,7 +69,6 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			DisplayVersion:  "",
 			WriteCommitData: false,
 			PreviousCommit:  "",
-			NextCommit:      "",
 		},
 		&CreateUndeployApplicationVersion{
 			Authentication:  Authentication{},
@@ -126,7 +125,6 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				DisplayVersion:  "",
 				WriteCommitData: false,
 				PreviousCommit:  "",
-				NextCommit:      "",
 			},
 			dataType: &CreateApplicationVersion{},
 		},

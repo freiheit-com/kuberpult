@@ -14,14 +14,17 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package repository
+package db
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/pkg/db"
+	"database/sql"
+	"errors"
+	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
 	"os"
 	"path"
@@ -48,11 +51,11 @@ func TestConnection(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
-			cfg := db.DBConfig{
+			cfg := DBConfig{
 				DriverName: "sqlite3",
 				DbHost:     dir,
 			}
-			db, err := db.Connect(cfg)
+			db, err := Connect(cfg)
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
@@ -69,7 +72,7 @@ func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		migrationFile string
-		expectedData  *db.AllApplicationsGo
+		expectedData  *AllApplicationsGo
 	}{
 		{
 			Name: "Simple migration",
@@ -84,10 +87,10 @@ CREATE TABLE IF NOT EXISTS all_apps
 
 INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
 INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
-			expectedData: &db.AllApplicationsGo{
+			expectedData: &AllApplicationsGo{
 				Version: 1,
 				Created: time.Unix(1713218400, 0).UTC(),
-				AllApplicationsJson: db.AllApplicationsJson{
+				AllApplicationsJson: AllApplicationsJson{
 					Apps: []string{"my-test-app"},
 				},
 			},
@@ -99,7 +102,7 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			t.Parallel()
 			ctx := context.Background()
 			dbDir := t.TempDir()
-			cfg := db.DBConfig{
+			cfg := DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
 				MigrationsPath: dbDir + "/migrations",
@@ -116,12 +119,12 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
 
-			migErr := db.RunDBMigrations(cfg)
+			migErr := RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := db.Connect(cfg)
+			db, err := Connect(cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -158,7 +161,7 @@ func TestDeploymentStorage(t *testing.T) {
 			commitHash: "abcdefabcdef",
 			email:      "test@email.com",
 			event: event.Deployment{
-				Environment:                 envProduction,
+				Environment:                 "production",
 				Application:                 "test-app",
 				SourceTrainUpstream:         nil,
 				SourceTrainEnvironmentGroup: nil,
@@ -182,17 +185,17 @@ func TestDeploymentStorage(t *testing.T) {
 				return
 			}
 
-			cfg := db.DBConfig{
+			cfg := DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
 				MigrationsPath: dir,
 			}
-			migErr := db.RunDBMigrations(cfg)
+			migErr := RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := db.Connect(cfg)
+			db, err := Connect(cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -267,7 +270,7 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			actualQuery := db.SqliteToPostgresQuery(tc.inputQuery)
+			actualQuery := SqliteToPostgresQuery(tc.inputQuery)
 			if diff := cmp.Diff(tc.expectedQuery, actualQuery); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
@@ -278,7 +281,7 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 func TestHelperFunctions(t *testing.T) {
 	tcs := []struct {
 		Name                string
-		inputHandler        *db.DBHandler
+		inputHandler        *DBHandler
 		expectedEslTable    bool
 		expectedOtherTables bool
 	}{
@@ -290,7 +293,7 @@ func TestHelperFunctions(t *testing.T) {
 		},
 		{
 			Name: "esl only",
-			inputHandler: &db.DBHandler{
+			inputHandler: &DBHandler{
 				WriteEslOnly: true,
 			},
 			expectedEslTable:    true,
@@ -298,7 +301,7 @@ func TestHelperFunctions(t *testing.T) {
 		},
 		{
 			Name: "other tables",
-			inputHandler: &db.DBHandler{
+			inputHandler: &DBHandler{
 				WriteEslOnly: false,
 			},
 			expectedEslTable:    true,
@@ -320,4 +323,116 @@ func TestHelperFunctions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func version(v int) *int64 {
+	var result = int64(v)
+	return &result
+}
+
+func TestReadWriteDeployment(t *testing.T) {
+	tcs := []struct {
+		Name               string
+		App                string
+		Env                string
+		VersionToDeploy    *int64
+		ExpectedDeployment *Deployment
+	}{
+		{
+			Name:            "with eslVersion != nil",
+			App:             "app-a",
+			Env:             "dev",
+			VersionToDeploy: version(7),
+			ExpectedDeployment: &Deployment{
+				App:        "app-a",
+				Env:        "dev",
+				EslVersion: 2,
+				Version:    version(7),
+			},
+		},
+		{
+			Name:            "with eslVersion == nil",
+			App:             "app-b",
+			Env:             "prod",
+			VersionToDeploy: nil,
+			ExpectedDeployment: &Deployment{
+				App:        "app-b",
+				Env:        "prod",
+				EslVersion: 2,
+				Version:    nil,
+			},
+		},
+	}
+
+	dir, err := testutil.CreateMigrationsPath()
+	if err != nil {
+		t.Fatalf("setup error could not detect dir \n%v", err)
+		return
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Logf("detected dir: %s - err=%v", dir, err)
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+
+			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				deployment, err2 := dbHandler.DBSelectAnyDeployment(ctx, transaction)
+				if err2 != nil {
+					return err2
+				}
+				if deployment != nil {
+					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *deployment))
+				}
+				err := dbHandler.DBWriteDeployment(ctx, transaction, Deployment{
+					App:     tc.App,
+					Env:     tc.Env,
+					Version: tc.VersionToDeploy,
+				}, 1)
+				if err != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectDeployment(ctx, transaction, tc.App, tc.Env)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedDeployment, actual, cmpopts.IgnoreFields(Deployment{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+// setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
+func setupDB(t *testing.T) *DBHandler {
+	dir, err := testutil.CreateMigrationsPath()
+	tmpDir := t.TempDir()
+	t.Logf("directory for DB migrations: %s", dir)
+	t.Logf("tmp dir for DB data: %s", tmpDir)
+	cfg := DBConfig{
+		MigrationsPath: dir,
+		DriverName:     "sqlite3",
+		DbHost:         tmpDir,
+	}
+
+	migErr := RunDBMigrations(cfg)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := Connect(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return dbHandler
 }

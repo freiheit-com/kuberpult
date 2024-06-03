@@ -199,11 +199,29 @@ func Remove(s []string, r string) []string {
 	return s
 }
 
-// WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback
+// WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback.
+// Use this if the only thing to return from `f` is an error.
 func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
-	tx, err := h.DB.BeginTx(ctx, nil)
+	_, err := WithTransactionT(h, ctx, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
+		err2 := f(ctx, transaction)
+		if err2 != nil {
+			return nil, err2
+		}
+		return nil, nil
+	})
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+type DBFunctionT[T any] func(ctx context.Context, transaction *sql.Tx) (*T, error)
+
+// WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
+func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]) (*T, error) {
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
 	}
 	defer func(tx *sql.Tx) {
 		_ = tx.Rollback()
@@ -211,15 +229,15 @@ func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 		// because it is always set when Commit() was successful
 	}(tx)
 
-	err = f(ctx, tx)
+	result, err := f(ctx, tx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = tx.Commit()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return result, nil
 }
 
 type EventType string
@@ -294,6 +312,12 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	if rows.Next() {
 		var row = EslEventRow{
 			EslId:     0,
@@ -306,7 +330,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		return &row, nil
@@ -327,6 +351,12 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	if rows.Next() {
 		var row = EslEventRow{
 			EslId:     0,
@@ -339,7 +369,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		return &row, nil
@@ -419,10 +449,15 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	span.SetTag("query", query)
 
 	rows, err := h.DB.QueryContext(ctx, query, commitHash)
-
 	if err != nil {
 		return nil, fmt.Errorf("Error querying DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 
 	var result []EventRow
 
@@ -439,7 +474,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning events row from DB. Error: %w\n", err)
 		}
 
 		result = append(result, row)
@@ -464,7 +499,7 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("Error scanning all_apps row from DB. Error: %w\n", err)
 	}
 
 	//exhaustruct:ignore
@@ -484,7 +519,7 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 type DBDeployment struct {
 	EslVersion     EslId
 	Created        time.Time
-	ReleaseVersion int64
+	ReleaseVersion *int64
 	App            string
 	Env            string
 	Metadata       string // json
@@ -538,23 +573,33 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	if rows.Next() {
 		var row = DBDeployment{
 			EslVersion:     0,
 			Created:        time.Time{},
-			ReleaseVersion: 0,
+			ReleaseVersion: nil,
 			App:            "",
 			Env:            "",
 			Metadata:       "",
 		}
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.ReleaseVersion, &row.App, &row.Env, &row.Metadata)
+		var releaseVersion sql.NullInt64
+		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
+		if releaseVersion.Valid {
+			row.ReleaseVersion = &releaseVersion.Int64
+		}
 
 		//exhaustruct:ignore
 		var resultJson = DeploymentMetadata{}
@@ -567,7 +612,7 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 			Created:    row.Created,
 			App:        row.App,
 			Env:        row.Env,
-			Version:    &row.ReleaseVersion,
+			Version:    row.ReleaseVersion,
 			Metadata:   resultJson,
 		}, nil
 	}
@@ -587,6 +632,12 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	if rows.Next() {
 		var releaseVersion sql.NullInt64
 		//exhaustruct:ignore
@@ -596,11 +647,11 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		if releaseVersion.Valid {
-			row.ReleaseVersion = releaseVersion.Int64
+			row.ReleaseVersion = &releaseVersion.Int64
 		}
 		return &row, nil
 	}
