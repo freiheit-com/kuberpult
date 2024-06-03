@@ -100,6 +100,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 	data.Set("subject_token", r.Form["subject_token"][0])
 	data.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
 
+	//exhaustruct:ignore
 	httpClient := &http.Client{}
 	fmt.Printf("Dex URL: %s\n", dexUrl)
 
