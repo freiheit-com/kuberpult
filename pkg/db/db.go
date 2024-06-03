@@ -910,7 +910,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, metadata) VALUES (?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
-	_, err := tx.Exec(
+	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
 		time.Now(),
