@@ -17,13 +17,14 @@ Copyright freiheit.com*/
 package handler
 
 import (
+	"encoding/base64"
 	"fmt"
-	"io"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"log"
 	"net/http"
 	"net/url"
-
-	"github.com/ProtonMail/go-crypto/openpgp"
+	"strings"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
@@ -71,15 +72,17 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s Server) HandleDex(w http.ResponseWriter, r *http.Request) {
-	group, tail := xpath.Shift(r.URL.Path)
-	if group != "dex" {
+func basicAuth(username, password string) string {
+	creds := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(creds))
+}
+
+func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client auth.DexAppClient) {
+	group, _ := xpath.Shift(r.URL.Path)
+	if group != "token" {
 		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
 	}
 
-	if tail != "" {
-		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
-	}
 	err := r.ParseForm()
 
 	if err != nil {
@@ -89,17 +92,29 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request) {
 	log.Println("r.PostForm", r.PostForm)
 	log.Println("r.Form", r.Form)
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	log.Println("r.Body", string(body))
+	data := url.Values{}
+	data.Set("connector_id", "google")
+	data.Set("grant_type", "urn:ietf:params:oauth:token-type:token-exchange")
+	data.Set("connector_id", "google")
+	data.Set("scope", "offline_access")
+	data.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
+	data.Set("subject_token", r.Form["subject_token"][0])
+	data.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
 
-	values, err := url.ParseQuery(string(body))
+	httpClient := &http.Client{}
+	req, err := http.NewRequest("POST", "/dex/token", strings.NewReader(data.Encode()))
+
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		http.Error(w, fmt.Sprintf("Not able to construct http request to dex \n"), http.StatusInternalServerError)
 	}
-	http.Error(w, fmt.Sprintf("Dex endpoint under construction: %s\n", values), http.StatusNotImplemented)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("Authorization", "Basic "+basicAuth("username1", "password123"))
+
+	res, err := httpClient.Do(req)
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error when contacting dex\n"), http.StatusInternalServerError)
+	}
+
+	http.Error(w, fmt.Sprintf("Dex worked: %d. %s\n", res.Status), http.StatusOK)
 }
