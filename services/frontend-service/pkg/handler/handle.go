@@ -99,7 +99,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 	data.Set("connector_id", "google")
 	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
 	data.Set("connector_id", "google")
-	data.Set("scope", "offline_access")
+	data.Set("scope", "openid email profile offline_access")
 	data.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
 	data.Set("subject_token", r.Form["subject_token"][0])
 	data.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
