@@ -102,7 +102,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 
 	httpClient := &http.Client{}
 	fmt.Printf("Dex URL: %s\n", dexUrl)
-	req, err := http.NewRequest("POST", dexUrl+"/dex/token", strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", "/dex/token", strings.NewReader(data.Encode()))
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Not able to construct http request to dex error: %s\n", err), http.StatusInternalServerError)
