@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS deployments
+CREATE TABLE IF NOT EXISTS application_locks
 (
     eslVersion INTEGER, -- internal ID for ESL
     created TIMESTAMP,
