@@ -105,7 +105,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client auth.De
 	req, err := http.NewRequest("POST", "/dex/token", strings.NewReader(data.Encode()))
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Not able to construct http request to dex \n"), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Not able to construct http request to dex error: %s\n", err), http.StatusInternalServerError)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Authorization", "Basic "+basicAuth("username1", "password123"))
@@ -113,8 +113,8 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client auth.De
 	res, err := httpClient.Do(req)
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error when contacting dex\n"), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s\n", err), http.StatusInternalServerError)
 	}
 
-	http.Error(w, fmt.Sprintf("Dex worked: %d. %s\n", res.Status), http.StatusOK)
+	http.Error(w, fmt.Sprintf("Dex worked: %w. %s\n", res.Status, res.Body), http.StatusOK)
 }
