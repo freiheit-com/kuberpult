@@ -108,7 +108,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client auth.De
 		http.Error(w, fmt.Sprintf("Not able to construct http request to dex error: %s\n", err), http.StatusInternalServerError)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Authorization", "Basic "+basicAuth("username1", "password123"))
+	req.Header.Add("Authorization", "Basic "+basicAuth(client.ClientID, client.ClientSecret))
 
 	res, err := httpClient.Do(req)
 
