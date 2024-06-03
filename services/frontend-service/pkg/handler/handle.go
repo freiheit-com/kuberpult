@@ -93,7 +93,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 	err := r.ParseForm()
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not parse form. Error: %s\n", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Could not parse form. Error: %s\n", err), http.StatusBadRequest)
 	}
 
 	subjectToken := r.Form["subject_token"]
