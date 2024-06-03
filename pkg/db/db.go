@@ -240,10 +240,10 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]
 	return result, nil
 }
 
-type DBFunctionTMultiple[T any] func(ctx context.Context, transaction *sql.Tx) ([]T, error)
+type DBFunctionMultipleEntriesT[T any] func(ctx context.Context, transaction *sql.Tx) ([]T, error)
 
-// WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
-func WithTransactionTMultiple[T any](h *DBHandler, ctx context.Context, f DBFunctionTMultiple[T]) ([]T, error) {
+// WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
+func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
