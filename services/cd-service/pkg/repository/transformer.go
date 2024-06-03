@@ -1552,25 +1552,31 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	fs := state.Filesystem
-	envDir := fs.Join("environments", c.Environment)
-	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+
+	if state.DBHandler.ShouldUseOtherTables() {
+
+	} else {
+		fs := state.Filesystem
+		envDir := fs.Join("environments", c.Environment)
+		if _, err := fs.Stat(envDir); err != nil {
+			return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+		}
+
+		appDir := fs.Join(envDir, "applications", c.Application)
+		if err := fs.MkdirAll(appDir, 0777); err != nil {
+			return "", err
+		}
+		chroot, err := fs.Chroot(appDir)
+		if err != nil {
+			return "", err
+		}
+		if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
+			return "", err
+		}
+		GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
+		// locks are invisible to argoCd, so no changes here
 	}
 
-	appDir := fs.Join(envDir, "applications", c.Application)
-	if err := fs.MkdirAll(appDir, 0777); err != nil {
-		return "", err
-	}
-	chroot, err := fs.Chroot(appDir)
-	if err != nil {
-		return "", err
-	}
-	if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
-		return "", err
-	}
-	GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
-	// locks are invisible to argoCd, so no changes here
 	return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
 }
 

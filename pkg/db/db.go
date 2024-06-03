@@ -757,6 +757,246 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsF
 	})
 }
 
+type EnvironmentApplicationLock struct {
+	EslVersion EslId
+	Created    time.Time
+	LockID     string
+	Env        string
+	App        string
+	Metadata   LockMetadata
+}
+
+// DBEnvironmentLock Just used to fetch info from DB
+type DBEnvironmentApplicationLock struct {
+	EslVersion EslId
+	Created    time.Time
+	LockID     string
+	Env        string
+	App        string
+	Metadata   string
+}
+
+type LockMetadata struct {
+	CreatedByName  string
+	CreatedByEmail string
+	Message        string
+}
+
+func (h *DBHandler) DBSelectOldestEnvironmentApplicationLock(ctx context.Context, tx *sql.Tx, environment, appName string) (*EnvironmentApplicationLock, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, lockID, envName, metadata" +
+			" FROM application_locks " +
+			" WHERE envName=? AND appName=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environment,
+		appName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	if rows.Next() {
+		var row = DBEnvironmentApplicationLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			App:        "",
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.App, &row.Metadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning application locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = LockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		return &EnvironmentApplicationLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			App:        row.App,
+			Metadata:   resultJson,
+		}, nil
+	}
+	return nil, nil // no rows, but also no error
+
+}
+
+func (h *DBHandler) DBWriteEnvironmentApplicationLock(ctx context.Context, tx *sql.Tx, lockID, environment, appName, message, authorName, authorEmail string) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteEnvironmentApplicationLock: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentApplicationLock")
+	defer span.Finish()
+	existingEnvironmentLock, err := h.DBSelectOldestEnvironmentApplicationLock(ctx, tx, environment, appName)
+	if err != nil {
+		return fmt.Errorf("could not find environment lock for env %s", environment)
+	}
+
+	var previousVersion EslId
+	if existingEnvironmentLock == nil {
+		previousVersion = 0
+	} else {
+		previousVersion = existingEnvironmentLock.EslVersion
+	}
+	envLock := EnvironmentApplicationLock{
+		EslVersion: 0,
+		LockID:     lockID,
+		Created:    time.Time{},
+		Env:        environment,
+		App:        appName,
+		Metadata: LockMetadata{
+			Message:        message,
+			CreatedByName:  authorName,
+			CreatedByEmail: authorEmail,
+		},
+	}
+	fmt.Println(previousVersion)
+	return h.DBWriteEnvironmentApplicationLockInternal(ctx, tx, envLock, previousVersion)
+}
+
+func (h *DBHandler) DBWriteEnvironmentApplicationLockInternal(ctx context.Context, tx *sql.Tx, appLock EnvironmentApplicationLock, previousEslVersion EslId) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteEnvironmentApplicationLockInternal: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentApplicationLockInternal")
+	defer span.Finish()
+
+	jsonToInsert, err := json.Marshal(appLock.Metadata)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO application_locks (eslVersion, created, lockID, envName, appName, metadata) VALUES (?, ?, ?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		previousEslVersion+1,
+		time.Now(),
+		appLock.LockID,
+		appLock.Env,
+		appLock.App,
+		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write environment lock into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environmentName, appName string) ([]EnvironmentApplicationLock, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllAppLocks: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocks")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		fmt.Sprintf(
+			"SELECT eslVersion, created, lockID, envName, metadata" +
+				" FROM application_locks " +
+				" WHERE envName=? AND appName=? " +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT 25;")) //25 locks per env?
+
+	fmt.Println(environmentName)
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+		appName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w\n", err)
+	}
+	var envLocks []EnvironmentApplicationLock
+	for rows.Next() {
+		var row = DBEnvironmentApplicationLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			App:        "",
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.App, &row.Metadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = LockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		envLocks = append(envLocks, EnvironmentApplicationLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			App:        row.App,
+			Metadata:   resultJson,
+		})
+	}
+	return envLocks, nil // no rows, but also no error
+}
+
+func (h *DBHandler) DBDeleteEnvironmentApplicationLock(ctx context.Context, tx *sql.Tx, environment, lockID, appName string) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBDeleteEnvironmentLock: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
+	defer span.Finish()
+
+	deleteStatement := h.AdaptQuery("DELETE FROM application_locks WHERE lockID=(?) AND envName=(?) AND appName=(?);")
+
+	span.SetTag("query", deleteStatement)
+	_, err := tx.Exec(
+		deleteStatement,
+		lockID,
+		environment,
+		appName)
+
+	if err != nil {
+		return fmt.Errorf("could not delete app lock from DB. Error: %w\n", err)
+	}
+	return nil
+}
+
 type AllApplicationsJson struct {
 	Apps []string `json:"apps"`
 }
