@@ -967,7 +967,6 @@ func (h *DBHandler) DBSelectAllLocksFromEnvironment(ctx context.Context, tx *sql
 			}
 			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
 		}
-		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 
 		//exhaustruct:ignore
 		var resultJson = EnvironmentLockMetadata{}
@@ -996,7 +995,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
 	defer span.Finish()
-	fmt.Printf("DELETING LOCK FROM DB: env: %s, lockid: %s\n", environment, lockID)
+
 	deleteStatement := h.AdaptQuery("DELETE FROM environment_locks WHERE lockID=(?) AND envName=(?);")
 
 	span.SetTag("query", deleteStatement)
