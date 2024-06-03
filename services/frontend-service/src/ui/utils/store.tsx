@@ -147,9 +147,6 @@ export const getReleaseTrainPrognosis = (envName: string, authHeader: AuthHeader
         })
         .catch((e) => {
             const GrpcErrorNotFound = 3;
-            /* eslint-disable no-console */
-            console.log(e.code);
-            /* eslint-enable no-console */
             if (e.code === GrpcErrorNotFound) {
                 updateReleaseTrainPrognosis.set({
                     response: undefined,
