@@ -812,7 +812,7 @@ func (h *DBHandler) DBSelectOldestEnvironmentLock(ctx context.Context, tx *sql.T
 			" WHERE envName=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
-	
+
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -887,10 +887,11 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 			CreatedByEmail: authorEmail,
 		},
 	}
-	return h.dbWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
+	fmt.Println(previousVersion)
+	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
 }
 
-func (h *DBHandler) dbWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId) error {
+func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId) error {
 	if h == nil {
 		return nil
 	}
@@ -904,12 +905,12 @@ func (h *DBHandler) dbWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-
+	fmt.Printf("Write: %+v\n", envLock)
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, metadata) VALUES (?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
+	_, err := tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
 		time.Now(),
@@ -941,8 +942,9 @@ func (h *DBHandler) DBSelectAllEnvLocks(ctx context.Context, tx *sql.Tx, environ
 				" ORDER BY eslVersion DESC " +
 				" LIMIT 25;")) //25 locks per env?
 
+	fmt.Println(environmentName)
 	span.SetTag("query", selectQuery)
-	rows, err := h.DB.QueryContext(
+	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		environmentName,
@@ -981,7 +983,6 @@ func (h *DBHandler) DBSelectAllEnvLocks(ctx context.Context, tx *sql.Tx, environ
 			Env:        row.Env,
 			Metadata:   resultJson,
 		})
-
 	}
 	return envLocks, nil // no rows, but also no error
 }
