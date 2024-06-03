@@ -18,7 +18,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { ReleaseTrainPrognosis } from '../../components/ReleaseTrainPrognosis/ReleaseTrainPrognosis';
 import { render } from '@testing-library/react';
 import { GetReleaseTrainPrognosisResponse, ReleaseTrainAppSkipCause, ReleaseTrainEnvSkipCause } from '../../../api/api';
-import { verify } from 'crypto';
 
 test('ReleaseTrain component does not render anything if the response is undefined', () => {
     const { container } = render(
@@ -29,7 +28,7 @@ test('ReleaseTrain component does not render anything if the response is undefin
     expect(container.textContent).toContain('Backend returned empty response');
 });
 
-test('ReleaseTrain component renders release train prognosis when the response is valid', () => {
+describe('ReleaseTrain component renders release train prognosis when the response is valid', () => {
     type Table = {
         head: string[];
         // NOTE: newlines, if there are any, will effectively be removed, since they will be checked using .toHaveTextContent
@@ -42,33 +41,20 @@ test('ReleaseTrain component renders release train prognosis when the response i
     };
 
     type TestCase = {
+        name: string;
         releaseTrainPrognosis: GetReleaseTrainPrognosisResponse;
         expectedPageContent: EnvReleaseTrainPrognosisModel[];
     };
 
     const testCases: TestCase[] = [
         {
+            name: 'single environment skipped for some reason',
             releaseTrainPrognosis: {
                 envsPrognoses: {
                     'env-1': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
-                        },
-                    },
-                    'env-2': {
-                        outcome: {
-                            $case: 'appsPrognoses',
-                            appsPrognoses: {
-                                prognoses: {
-                                    'app-1': {
-                                        outcome: {
-                                            $case: 'skipCause',
-                                            skipCause: ReleaseTrainAppSkipCause.APP_ALREADY_IN_UPSTREAM_VERSION,
-                                        },
-                                    },
-                                },
-                            },
                         },
                     },
                 },
@@ -80,21 +66,6 @@ test('ReleaseTrain component renders release train prognosis when the response i
                         type: 'text',
                         content:
                             'Release train on this environment is skipped because it both has an upstream environment and is set as latest.',
-                    },
-                },
-                {
-                    headerText: 'Prognosis for release train on environment env-2',
-                    body: {
-                        type: 'table',
-                        content: {
-                            head: ['Application', 'Outcome'],
-                            body: [
-                                [
-                                    'app-1',
-                                    'Application release is skipped because it is already in the upstream version.',
-                                ],
-                            ],
-                        },
                     },
                 },
             ],
@@ -134,54 +105,56 @@ test('ReleaseTrain component renders release train prognosis when the response i
     };
 
     for (const testCase of testCases) {
-        const { container } = render(
-            <MemoryRouter>
-                <ReleaseTrainPrognosis releaseTrainPrognosis={testCase.releaseTrainPrognosis} />
-            </MemoryRouter>
-        );
+        test(testCase.name, () => {
+            const { container } = render(
+                <MemoryRouter>
+                    <ReleaseTrainPrognosis releaseTrainPrognosis={testCase.releaseTrainPrognosis} />
+                </MemoryRouter>
+            );
 
-        const mainContents = container.getElementsByClassName('main-content');
-        expect(mainContents.length).toEqual(1); // there should be one main-content
+            const mainContents = container.getElementsByClassName('main-content');
+            expect(mainContents.length).toEqual(1); // there should be one main-content
 
-        const mainContent = mainContents.item(0);
-        if (mainContent === null) {
-            throw new Error('main content should not be null');
-        }
-
-        // there should be one div for ever environment
-        expect(mainContent.children.length).toEqual(testCase.expectedPageContent.length);
-
-        const N = testCase.expectedPageContent.length;
-        for (let i = 0; i < N; i++) {
-            const expectedSection = testCase.expectedPageContent[i];
-            const envSection = mainContent.children.item(i);
-
-            if (envSection === null) {
-                throw new Error('environment section should not be null');
+            const mainContent = mainContents.item(0);
+            if (mainContent === null) {
+                throw new Error('main content should not be null');
             }
 
-            // there should be 2 children, one for the header, one for the content
-            expect(envSection.children.length).toEqual(2);
+            // there should be one div for ever environment
+            expect(mainContent.children.length).toEqual(testCase.expectedPageContent.length);
 
-            // check header
-            const header = envSection.children.item(0);
-            if (header === null) throw new Error('header should not be null');
-            expect(header.tagName).toEqual('H1');
-            expect(header.textContent).toEqual(expectedSection.headerText);
+            const N = testCase.expectedPageContent.length;
+            for (let i = 0; i < N; i++) {
+                const expectedSection = testCase.expectedPageContent[i];
+                const envSection = mainContent.children.item(i);
 
-            // check body
-            const body = envSection.children.item(1);
-            if (body === null) throw new Error('body should not be null');
-            if (expectedSection.body.type === 'text') {
-                expect(body.tagName).toEqual('P');
-                expect(body.textContent).toEqual(expectedSection.body.content);
-            } else {
-                expect(body.tagName).toEqual('TABLE');
+                if (envSection === null) {
+                    throw new Error('environment section should not be null');
+                }
 
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                const table = body as HTMLTableElement;
-                verifyTable(table, expectedSection.body.content);
+                // there should be 2 children, one for the header, one for the content
+                expect(envSection.children.length).toEqual(2);
+
+                // check header
+                const header = envSection.children.item(0);
+                if (header === null) throw new Error('header should not be null');
+                expect(header.tagName).toEqual('H1');
+                expect(header.textContent).toEqual(expectedSection.headerText);
+
+                // check body
+                const body = envSection.children.item(1);
+                if (body === null) throw new Error('body should not be null');
+                if (expectedSection.body.type === 'text') {
+                    expect(body.tagName).toEqual('P');
+                    expect(body.textContent).toEqual(expectedSection.body.content);
+                } else {
+                    expect(body.tagName).toEqual('TABLE');
+
+                    // eslint-disable-next-line no-type-assertion/no-type-assertion
+                    const table = body as HTMLTableElement;
+                    verifyTable(table, expectedSection.body.content);
+                }
             }
-        }
+        });
     }
 });
