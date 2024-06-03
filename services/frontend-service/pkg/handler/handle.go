@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"net/http"
 	"net/url"
 	"strings"
@@ -83,7 +84,7 @@ type DexResponse struct {
 	ExpiresIn       int    `json:"expires_in"`
 }
 
-func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clientSecret, dexUrl string) {
+func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client auth.DexAppClient) {
 	group, _ := xpath.Shift(r.URL.Path)
 	if group != "token" {
 		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
@@ -92,13 +93,18 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 	err := r.ParseForm()
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Dex error: %s\n", err), http.StatusNotImplemented)
+		http.Error(w, fmt.Sprintf("Could not parse form. Error: %s\n", err), http.StatusInternalServerError)
+	}
+
+	subjectToken := r.Form["subject_token"]
+
+	if len(subjectToken) == 0 {
+		http.Error(w, "/token endpoint needs a subject_token.", http.StatusBadRequest)
 	}
 
 	data := url.Values{}
 	data.Set("connector_id", "google")
 	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
-	data.Set("connector_id", "google")
 	data.Set("scope", "openid email profile offline_access")
 	data.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
 	data.Set("subject_token", r.Form["subject_token"][0])
@@ -106,20 +112,25 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 
 	//exhaustruct:ignore
 	httpClient := &http.Client{}
-	fmt.Printf("Dex URL: %s\n", dexUrl)
+	dexContactUrl := ""
+	if client.UseClusterInternalCommunication {
+		dexContactUrl = "http://kuberpult-dex:5556"
+	} else {
+		dexContactUrl = client.BaseURL
+	}
 
-	req, err := http.NewRequest("POST", "http://kuberpult-dex:5556/dex/token", strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", dexContactUrl+"/dex/token", strings.NewReader(data.Encode()))
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Not able to construct http request to dex error: %s\n", err), http.StatusInternalServerError)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Authorization", "Basic "+basicAuth(clientID, clientSecret))
+	req.Header.Add("Authorization", "Basic "+basicAuth(client.ClientID, client.ClientSecret))
 
 	dexResponse, err := httpClient.Do(req)
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s\n", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s\n", err), http.StatusBadGateway)
 	}
 
 	if dexResponse.StatusCode == http.StatusOK {
@@ -127,7 +138,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 		var resp = DexResponse{}
 		err = json.NewDecoder(dexResponse.Body).Decode(&resp)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -138,6 +149,6 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 		if err != nil {
 			return
 		}
-		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", dexResponse.Status, string(v)), http.StatusOK)
+		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", dexResponse.Status, string(v)), http.StatusBadGateway)
 	}
 }
