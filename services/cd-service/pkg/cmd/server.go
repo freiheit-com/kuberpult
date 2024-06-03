@@ -19,12 +19,14 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -97,6 +99,8 @@ type Config struct {
 	DbWriteEslTableOnly        bool          `default:"false" split_words:"true"`
 	ReleaseVersionsLimit       uint          `default:"20" split_words:"true"`
 	GarbageCollectionFrequency uint          `default:"20" split_words:"true"`
+	DeploymentType             string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
+	CloudRunServer             string        `default:"" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -213,6 +217,18 @@ func RunServer() {
 				zap.String("details", err.Error()),
 			)
 		}
+		if err := checkDeploymentType(c); err != nil {
+			logger.FromContext(ctx).Fatal("cd.config",
+				zap.String("details", err.Error()),
+			)
+		}
+		var cloudRunClient *cloudrun.CloudRunClient = nil
+		if c.DeploymentType == "cloudrun" {
+			cloudRunClient, err = cloudrun.InitCloudRunClient(c.CloudRunServer)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Unable to initialize CloudRunService", zap.Error(err))
+			}
+		}
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg db.DBConfig
@@ -286,6 +302,7 @@ func RunServer() {
 			AllowLongAppNames:      c.AllowLongAppNames,
 			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
 			DBHandler:              dbHandler,
+			CloudRunClient:         cloudRunClient,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
@@ -396,17 +413,21 @@ func RunServer() {
 	}
 }
 
-type releaseVersionsLimitError struct {
-	limit uint
-}
-
-func (s releaseVersionsLimitError) Error() string {
-	return fmt.Sprintf("releaseVersionsLimit: %d, must be between %d and %d", s.limit, minReleaseVersionsLimit, maxReleaseVersionsLimit)
-}
-
 func checkReleaseVersionLimit(limit uint) error {
 	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
 		return releaseVersionsLimitError{limit: limit}
+	}
+	return nil
+}
+
+func checkDeploymentType(c Config) error {
+	if c.DeploymentType != "k8s" && c.DeploymentType != "cloudrun" {
+		return deploymentTypeConfigError{deploymentTypeInvalid: true, cloudrunServerMissing: false}
+	}
+	if c.DeploymentType == "cloudrun" {
+		if c.CloudRunServer == "" {
+			return deploymentTypeConfigError{deploymentTypeInvalid: false, cloudrunServerMissing: true}
+		}
 	}
 	return nil
 }

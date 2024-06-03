@@ -75,3 +75,58 @@ func TestCheckReleaseVersionLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckDeploymentType(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		config        Config
+		expectedError error
+	}{
+		{
+			name: "Deployment type k8s and server not specified",
+			config: Config{
+				DeploymentType: "k8s",
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Deployment type k8s and server specified",
+			config: Config{
+				DeploymentType: "k8s",
+				CloudRunServer: "dummy-server",
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Deployment type cloudrun and server specified",
+			config: Config{
+				DeploymentType: "cloudrun",
+				CloudRunServer: "dummy-server",
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Deployment type cloudrun and server not specified",
+			config: Config{
+				DeploymentType: "cloudrun",
+			},
+			expectedError: deploymentTypeConfigError{deploymentTypeInvalid: false, cloudrunServerMissing: true},
+		},
+		{
+			name: "invalid deployment type",
+			config: Config{
+				DeploymentType: "invalid",
+			},
+			expectedError: deploymentTypeConfigError{deploymentTypeInvalid: true, cloudrunServerMissing: false},
+		},
+	} {
+		tc := test
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := checkDeploymentType(tc.config)
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}

@@ -362,12 +362,7 @@ cd:
   db:
     dbOption: NO_DB
 `,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "NO_DB",
-				},
-			},
+			ExpectedEnvs: []core.EnvVar{},
 			ExpectedMissing: []core.EnvVar{
 
 				{
@@ -468,6 +463,96 @@ cd:
 			},
 		},
 		{
+			Name: "Database writeEslTableOnly=false ",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    location: /kp/database
+    dbName: does
+    dbUser: not
+    dbPassword: matter
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "sqlite",
+				},
+				{
+					Name:  "KUBERPULT_DB_LOCATION",
+					Value: "/kp/database",
+				},
+				{
+					Name:  "KUBERPULT_DB_WRITE_ESL_TABLE_ONLY",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_PASSWORD",
+					Value: "",
+				},
+			},
+		},
+		{
+			Name: "Database writeEslTableOnly=true",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    location: /kp/database
+    dbName: does
+    dbUser: not
+    dbPassword: matter
+    writeEslTableOnly: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "sqlite",
+				},
+				{
+					Name:  "KUBERPULT_DB_LOCATION",
+					Value: "/kp/database",
+				},
+				{
+					Name:  "KUBERPULT_DB_WRITE_ESL_TABLE_ONLY",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_PASSWORD",
+					Value: "",
+				},
+			},
+		},
+		{
 			Name: "Test default releaseVersionsLimit",
 			Values: `
 git:
@@ -547,6 +632,319 @@ ingress:
 				for _, env := range tc.ExpectedEnvs {
 					if !CheckForEnvVariable(t, env, &targetDocument) {
 						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
+					}
+				}
+				for _, env := range tc.ExpectedMissing {
+					if CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
+					}
+				}
+
+			}
+		})
+	}
+}
+
+func TestHelmChartsKuberpultManifestExportEnvVariables(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Values          string
+		ExpectedEnvs    []core.EnvVar
+		ExpectedMissing []core.EnvVar
+	}{
+		{
+			Name: "Change Git URL",
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: "sqlite"
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "checkThisValue",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Argo CD disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  generateFiles: false
+cd:
+  db:
+    dbOption: "sqlite"
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_CD_GENERATE_FILES",
+					Value: "false",
+				},
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Argo CD enabled simple test",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  generateFiles: true
+cd:
+  db:
+    dbOption: "sqlite"
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_CD_GENERATE_FILES",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "DD Metrics disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+dataDogTracing:
+  enabled: false
+cd:
+  db:
+    dbOption: "sqlite"
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "DD_AGENT_HOST",
+					Value: "",
+				},
+				{
+					Name:  "DD_ENV",
+					Value: "",
+				},
+				{
+					Name:  "DD_SERVICE",
+					Value: "",
+				},
+				{
+					Name:  "DD_VERSION",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_ENABLE_TRACING",
+					Value: "",
+				},
+				{
+					Name:  "DD_TRACE_DEBUG",
+					Value: "",
+				},
+			},
+		},
+		{
+			Name: "DD Tracing enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+datadogTracing:
+  enabled: true
+cd:
+  db:
+    dbOption: "sqlite"
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "DD_AGENT_HOST",
+					Value: "",
+				},
+				{
+					Name:  "DD_ENV",
+					Value: "",
+				},
+				{
+					Name:  "DD_SERVICE",
+					Value: "",
+				},
+				{
+					Name:  "DD_VERSION",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_ENABLE_TRACING",
+					Value: "true",
+				},
+				{
+					Name:  "DD_TRACE_DEBUG",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Database disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: NO_DB
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{},
+			ExpectedMissing: []core.EnvVar{
+
+				{
+					Name:  "KUBERPULT_DB_LOCATION",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_PASSWORD",
+					Value: "",
+				},
+			},
+		},
+		{
+			Name: "Database cloudsql enabled 1",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: cloudsql
+    location: "127.0.0.1"
+    dbName: dbName
+    dbUser: dbUser
+    dbPassword: dbPassword
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "cloudsql",
+				},
+				{
+					Name:  "KUBERPULT_DB_LOCATION",
+					Value: "127.0.0.1",
+				},
+				{
+					Name:  "KUBERPULT_DB_NAME",
+					Value: "dbName",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_NAME",
+					Value: "dbUser",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_PASSWORD",
+					Value: "dbPassword",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Database cloudsql enabled 2",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    location: /kp/database
+    dbName: does
+    dbUser: not
+    dbPassword: matter
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "sqlite",
+				},
+				{
+					Name:  "KUBERPULT_DB_LOCATION",
+					Value: "/kp/database",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_PASSWORD",
+					Value: "",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile := runHelm(t, []byte(tc.Values), testDirName)
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			} else {
+				for index := range out {
+					t.Logf("deployment found: %s", index)
+				}
+				targetDocument := out["kuberpult-manifest-repo-export-service"]
+				t.Logf("found document: %v", targetDocument)
+				for _, env := range tc.ExpectedEnvs {
+					if !CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("%s Environment variable '%s' with value '%s' was expected, but not found.", tc.Name, env.Name, env.Value)
 					}
 				}
 				for _, env := range tc.ExpectedMissing {
