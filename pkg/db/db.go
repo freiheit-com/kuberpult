@@ -805,11 +805,11 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsF
 	})
 }
 
-func (h *DBHandler) DBSelectOldestEnvironmentLock(ctx context.Context, tx *sql.Tx, environment string) (*EnvironmentLock, error) {
+func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) (*EnvironmentLock, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, metadata" +
 			" FROM environment_locks " +
-			" WHERE envName=? " +
+			" WHERE envName=? AND lockID=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
 
@@ -817,6 +817,7 @@ func (h *DBHandler) DBSelectOldestEnvironmentLock(ctx context.Context, tx *sql.T
 		ctx,
 		selectQuery,
 		environment,
+		lockID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
@@ -856,6 +857,50 @@ func (h *DBHandler) DBSelectOldestEnvironmentLock(ctx context.Context, tx *sql.T
 
 }
 
+func (h *DBHandler) GetLatestEslId(ctx context.Context, tx *sql.Tx, environmentName string) (EslId, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, lockID, envName, metadata" +
+			" FROM environment_locks " +
+			" WHERE envName=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+	)
+	if err != nil {
+		return -1, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+	}
+	if rows.Next() {
+		var row = DBEnvironmentLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return 0, nil
+			}
+			return -1, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = EnvironmentLockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return -1, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		return row.EslVersion, nil
+	}
+	return 0, nil // no rows, but also no error
+}
+
 func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID, environment, message, authorName, authorEmail string) error {
 	if h == nil {
 		return nil
@@ -865,16 +910,13 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
 	defer span.Finish()
-	existingEnvironmentLock, err := h.DBSelectOldestEnvironmentLock(ctx, tx, environment)
-	if err != nil {
-		return fmt.Errorf("could not find environment lock for env %s", environment)
-	}
 
 	var previousVersion EslId
-	if existingEnvironmentLock == nil {
-		previousVersion = 0
-	} else {
-		previousVersion = existingEnvironmentLock.EslVersion
+	previousVersion, err := h.GetLatestEslId(ctx, tx, environment)
+
+	if err != nil {
+		return fmt.Errorf("Error obtaining esl id: %w\n", err)
+
 	}
 	envLock := EnvironmentLock{
 		EslVersion: 0,

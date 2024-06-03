@@ -412,6 +412,75 @@ func TestReadWriteDeployment(t *testing.T) {
 	}
 }
 
+func TestDeleteEnvironmentLock(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Env           string
+		LockID        string
+		Message       string
+		AuthorName    string
+		AuthorEmail   string
+		ExpectedLocks []EnvironmentLock
+	}{
+		{
+			Name:          "Write and delete",
+			Env:           "dev",
+			LockID:        "dev-lock",
+			Message:       "My lock on dev",
+			AuthorName:    "myself",
+			AuthorEmail:   "myself@example.com",
+			ExpectedLocks: []EnvironmentLock{},
+		},
+	}
+
+	dir, err := testutil.CreateMigrationsPath()
+	if err != nil {
+		t.Fatalf("setup error could not detect dir \n%v", err)
+		return
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Logf("detected dir: %s - err=%v", dir, err)
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				if err2 != nil {
+					return err2
+				}
+				if envLock != nil {
+					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+				}
+				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				if err != nil {
+					return err
+				}
+
+				errDelete := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				if errDelete != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectAllEnvLocks(ctx, transaction, tc.Env)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(0, len(actual)); diff != "" {
+					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestReadWriteEnvironmentLock(t *testing.T) {
 	tcs := []struct {
 		Name         string
@@ -456,7 +525,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-				envLock, err2 := dbHandler.DBSelectOldestEnvironmentLock(ctx, transaction, tc.Env)
+				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
 				}

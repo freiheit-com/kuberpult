@@ -380,7 +380,7 @@ func (c *CreateEnvironmentLock) Transform(
 		return "", err
 	}
 
-	lock, err := state.DBHandler.DBSelectOldestEnvironmentLock(ctx, transaction, c.Environment)
+	lock, err := state.DBHandler.DBSelectEnvironmentLock(ctx, transaction, c.LockId, c.Environment)
 	if err != nil {
 		return "", err
 	}
