@@ -123,6 +123,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 	}
 
 	if dexResponse.StatusCode == http.StatusOK {
+		//exhaustruct:ignore
 		var resp = DexResponse{}
 		err = json.NewDecoder(dexResponse.Body).Decode(&resp)
 		if err != nil {
@@ -139,5 +140,4 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 		}
 		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", dexResponse.Status, string(v)), http.StatusOK)
 	}
-
 }
