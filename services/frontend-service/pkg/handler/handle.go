@@ -84,7 +84,7 @@ type DexResponse struct {
 	ExpiresIn       int    `json:"expires_in"`
 }
 
-func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client auth.DexAppClient) {
+func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.DexAppClient) {
 	group, _ := xpath.Shift(r.URL.Path)
 	if group != "token" {
 		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
