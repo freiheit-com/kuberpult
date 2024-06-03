@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/ProtonMail/go-crypto/openpgp"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"log"
 	"net/http"
 	"net/url"
@@ -77,7 +76,7 @@ func basicAuth(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(creds))
 }
 
-func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client auth.DexAppClient) {
+func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clientSecret, dexUrl string) {
 	group, _ := xpath.Shift(r.URL.Path)
 	if group != "token" {
 		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
@@ -102,13 +101,14 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client auth.De
 	data.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
 
 	httpClient := &http.Client{}
-	req, err := http.NewRequest("POST", "/dex/token", strings.NewReader(data.Encode()))
+	fmt.Printf("Dex URL: %s\n", dexUrl)
+	req, err := http.NewRequest("POST", dexUrl+"/dex/token", strings.NewReader(data.Encode()))
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Not able to construct http request to dex error: %s\n", err), http.StatusInternalServerError)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Authorization", "Basic "+basicAuth(client.ClientID, client.ClientSecret))
+	req.Header.Add("Authorization", "Basic "+basicAuth(clientID, clientSecret))
 
 	res, err := httpClient.Do(req)
 

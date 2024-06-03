@@ -384,7 +384,7 @@ func runServer(ctx context.Context) error {
 			http.Error(w, "Dex not enabled, /token unavailable.", http.StatusUnauthorized)
 			return
 		}
-		httpHandler.HandleDex(w, req)
+		httpHandler.HandleDex(w, req, c.DexClientId, c.DexClientSecret, c.DexBaseURL)
 	})
 	for _, endpoint := range []string{
 		"/token",
