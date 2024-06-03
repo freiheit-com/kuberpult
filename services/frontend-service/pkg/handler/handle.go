@@ -18,9 +18,9 @@ package handler
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/ProtonMail/go-crypto/openpgp"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -76,6 +76,13 @@ func basicAuth(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(creds))
 }
 
+type DexResponse struct {
+	AccessToken     string `json:"access_token"`
+	IssuedTokenType string `json:"issued_token_type"`
+	TokenType       string `json:"token_type"`
+	ExpiresIn       int    `json:"expires_in"`
+}
+
 func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clientSecret, dexUrl string) {
 	group, _ := xpath.Shift(r.URL.Path)
 	if group != "token" {
@@ -87,9 +94,6 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Dex error: %s\n", err), http.StatusNotImplemented)
 	}
-
-	log.Println("r.PostForm", r.PostForm)
-	log.Println("r.Form", r.Form)
 
 	data := url.Values{}
 	data.Set("connector_id", "google")
@@ -112,22 +116,28 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Authorization", "Basic "+basicAuth(clientID, clientSecret))
 
-	res, err := httpClient.Do(req)
+	dexResponse, err := httpClient.Do(req)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s\n", err), http.StatusInternalServerError)
 	}
 
-	if res.StatusCode == http.StatusOK {
-		fmt.Println("Nice")
+	if dexResponse.StatusCode == http.StatusOK {
+		var resp = DexResponse{}
+		err = json.NewDecoder(dexResponse.Body).Decode(&resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(resp.AccessToken))
 	} else {
 		var v []byte
-		_, err := res.Body.Read(v)
+		_, err := dexResponse.Body.Read(v)
 		if err != nil {
 			return
 		}
-		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", res.Status, string(v)), http.StatusOK)
+		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", dexResponse.Status, string(v)), http.StatusOK)
 	}
 
 }
