@@ -48,13 +48,94 @@ describe('ReleaseTrain component renders release train prognosis when the respon
 
     const testCases: TestCase[] = [
         {
-            name: 'single environment skipped for some reason',
+            name: 'prognosis with skipped and unskipped environment, skipped and unskipped apps',
             releaseTrainPrognosis: {
                 envsPrognoses: {
                     'env-1': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+                        },
+                    },
+                    'env-2': {
+                        outcome: {
+                            $case: 'skipCause',
+                            skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM,
+                        },
+                    },
+                    'env-3': {
+                        outcome: {
+                            $case: 'skipCause',
+                            skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
+                        },
+                    },
+                    'env-4': {
+                        outcome: {
+                            $case: 'skipCause',
+                            skipCause: ReleaseTrainEnvSkipCause.ENV_IS_LOCKED,
+                        },
+                    },
+                    'env-5': {
+                        outcome: {
+                            $case: 'skipCause',
+                            skipCause: ReleaseTrainEnvSkipCause.UNRECOGNIZED,
+                        },
+                    },
+                    'env-6': {
+                        outcome: {
+                            $case: 'skipCause',
+                            skipCause: ReleaseTrainEnvSkipCause.UPSTREAM_ENV_CONFIG_NOT_FOUND,
+                        },
+                    },
+                    'env-7': {
+                        outcome: {
+                            $case: 'appsPrognoses',
+                            appsPrognoses: {
+                                prognoses: {
+                                    'app-1': {
+                                        outcome: {
+                                            $case: 'skipCause',
+                                            skipCause: ReleaseTrainAppSkipCause.APP_ALREADY_IN_UPSTREAM_VERSION,
+                                        },
+                                    },
+                                    'app-2': {
+                                        outcome: {
+                                            $case: 'skipCause',
+                                            skipCause: ReleaseTrainAppSkipCause.APP_DOES_NOT_EXIST_IN_ENV,
+                                        },
+                                    },
+                                    'app-3': {
+                                        outcome: {
+                                            $case: 'skipCause',
+                                            skipCause: ReleaseTrainAppSkipCause.APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
+                                        },
+                                    },
+                                    'app-4': {
+                                        outcome: {
+                                            $case: 'skipCause',
+                                            skipCause: ReleaseTrainAppSkipCause.APP_IS_LOCKED,
+                                        },
+                                    },
+                                    'app-5': {
+                                        outcome: {
+                                            $case: 'skipCause',
+                                            skipCause: ReleaseTrainAppSkipCause.APP_IS_LOCKED_BY_ENV,
+                                        },
+                                    },
+                                    'app-6': {
+                                        outcome: {
+                                            $case: 'skipCause',
+                                            skipCause: ReleaseTrainAppSkipCause.TEAM_IS_LOCKED,
+                                        },
+                                    },
+                                    'app-7': {
+                                        outcome: {
+                                            $case: 'skipCause',
+                                            skipCause: ReleaseTrainAppSkipCause.UNRECOGNIZED,
+                                        },
+                                    },
+                                },
+                            },
                         },
                     },
                 },
@@ -66,6 +147,73 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                         type: 'text',
                         content:
                             'Release train on this environment is skipped because it both has an upstream environment and is set as latest.',
+                    },
+                },
+                {
+                    headerText: 'Prognosis for release train on environment env-2',
+                    body: {
+                        type: 'text',
+                        content: 'Release train on this environment is skipped because it has no upstream configured.',
+                    },
+                },
+                {
+                    headerText: 'Prognosis for release train on environment env-3',
+                    body: {
+                        type: 'text',
+                        content:
+                            'Release train on this environment is skipped because it neither has an upstream environment configured nor is marked as latest.',
+                    },
+                },
+                {
+                    headerText: 'Prognosis for release train on environment env-4',
+                    body: {
+                        type: 'text',
+                        content: 'Release train on this environment is skipped because it is locked.',
+                    },
+                },
+                {
+                    headerText: 'Prognosis for release train on environment env-5',
+                    body: {
+                        type: 'text',
+                        content: 'Release train on this environment is skipped due to an unknown reason.',
+                    },
+                },
+                {
+                    headerText: 'Prognosis for release train on environment env-6',
+                    body: {
+                        type: 'text',
+                        content:
+                            'Release train on this environment is skipped because no configuration was found for it in the manifest repository.',
+                    },
+                },
+                {
+                    headerText: 'Prognosis for release train on environment env-7',
+                    body: {
+                        type: 'table',
+                        content: {
+                            head: ['Application', 'Outcome'],
+                            body: [
+                                [
+                                    'app-1',
+                                    'Application release is skipped because it is already in the upstream version.',
+                                ],
+                                [
+                                    'app-2',
+                                    'Application release is skipped because it does not exist in the environment.',
+                                ],
+                                [
+                                    'app-3',
+                                    'Application release is skipped because it does not have a version in the upstream environment.',
+                                ],
+                                ['app-4', 'Application release is skipped because it is locked.'],
+                                [
+                                    'app-5',
+                                    "Application release is skipped because there's an environment lock where this application is getting deployed.",
+                                ],
+                                ['app-6', 'Application release is skipped due to a team lock'],
+                                ['app-7', 'Application release it skipped due to an unrecognized reason'],
+                            ],
+                        },
                     },
                 },
             ],
