@@ -93,7 +93,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 
 	data := url.Values{}
 	data.Set("connector_id", "google")
-	data.Set("grant_type", "urn:ietf:params:oauth:token-type:token-exchange")
+	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
 	data.Set("connector_id", "google")
 	data.Set("scope", "offline_access")
 	data.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
@@ -118,5 +118,16 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, clientID, clie
 		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s\n", err), http.StatusInternalServerError)
 	}
 
-	http.Error(w, fmt.Sprintf("Dex worked: %+v. %s\n", res.Status, res.Body), http.StatusOK)
+	if res.StatusCode == http.StatusOK {
+		fmt.Println("Nice")
+		w.WriteHeader(http.StatusOK)
+	} else {
+		var v []byte
+		_, err := res.Body.Read(v)
+		if err != nil {
+			return
+		}
+		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", res.Status, string(v)), http.StatusOK)
+	}
+
 }
