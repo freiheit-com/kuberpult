@@ -132,6 +132,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s\n", err), http.StatusBadGateway)
+		return
 	}
 
 	if dexResponse.StatusCode == http.StatusOK {
