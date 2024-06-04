@@ -93,7 +93,7 @@ describe('Commit info page tests', () => {
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
             expectedText:
-                'The provided commit ID was not found in the manifest repository. This is because either the commit \"potato\" is incorrect, is not tracked by Kuberpult yet, or it refers to an old commit whose release has been cleaned up by now.',
+                'The provided commit ID was not found in the manifest repository. This is because either the commit "potato" is incorrect, is not tracked by Kuberpult yet, or it refers to an old commit whose release has been cleaned up by now.',
             commitInfoStoreData: {
                 response: undefined,
                 commitInfoReady: CommitInfoState.NOTFOUND,
