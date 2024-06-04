@@ -126,7 +126,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 		return
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Authorization", "Basic "+basicAuth(client.ClientID, client.ClientSecret))
+	req.Header.Add("Authorization", "Basic "+toBasicAuth(client.ClientID, client.ClientSecret))
 
 	dexResponse, err := httpClient.Do(req)
 
