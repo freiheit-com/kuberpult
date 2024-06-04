@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"time"
 )
@@ -33,20 +34,36 @@ func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslId, 
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("cutoff: row closing error: %v", err)
+		}
+	}(rows)
+
+	var eslId db.EslId
+	var eslIdPtr *db.EslId = nil
 	if rows.Next() {
-		var eslId db.EslId
 		err := rows.Scan(&eslId)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("cutoff: Error scanning row from DB. Error: %w\n", err)
 		}
-		return &eslId, nil
+		eslIdPtr = &eslId
 	}
-	return nil, nil // nothing found, but that's not an error either
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("row has error: %v\n", err)
+	}
+	return eslIdPtr, nil
 }
 
 func DBWriteCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, eslId db.EslId) error {

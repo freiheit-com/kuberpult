@@ -136,79 +136,76 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
-	err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-		cfg := repository.RepositoryConfig{
-			URL:            gitUrl,
-			Path:           "./repository",
-			CommitterEmail: "noemail@example.com", // TODO will be handled in Ref SRX-PA568W
-			CommitterName:  "noname",
-			Credentials: repository.Credentials{
-				SshKey: gitSshKey,
-			},
-			Certificates: repository.Certificates{
-				KnownHostsFile: gitSshKnownHosts,
-			},
-			Branch:                 gitBranch,
-			NetworkTimeout:         120 * time.Second,
-			GcFrequency:            20,
-			BootstrapMode:          false,
-			EnvironmentConfigsPath: "./environment_configs.json",
-			StorageBackend:         storageBackend(enableSqliteStorageBackend),
+	cfg := repository.RepositoryConfig{
+		URL:            gitUrl,
+		Path:           "./repository",
+		CommitterEmail: "noemail@example.com", // TODO will be handled in Ref SRX-PA568W
+		CommitterName:  "noname",
+		Credentials: repository.Credentials{
+			SshKey: gitSshKey,
+		},
+		Certificates: repository.Certificates{
+			KnownHostsFile: gitSshKnownHosts,
+		},
+		Branch:                 gitBranch,
+		NetworkTimeout:         120 * time.Second,
+		GcFrequency:            20,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "./environment_configs.json",
+		StorageBackend:         storageBackend(enableSqliteStorageBackend),
 
-			ArgoCdGenerateFiles: argoCdGenerateFiles,
-			DBHandler:           dbHandler,
-		}
+		ArgoCdGenerateFiles: argoCdGenerateFiles,
+		DBHandler:           dbHandler,
+	}
 
-		repo, err := repository.New(ctx, cfg)
-		if err != nil {
-			return fmt.Errorf("repository.new failed %v", err)
-		}
+	repo, err := repository.New(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("repository.new failed %v", err)
+	}
 
-		log := logger.FromContext(ctx).Sugar()
-		for {
-			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-				eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
-				if err != nil {
-					return fmt.Errorf("error in DBReadCutoff %v", err)
-				}
-				if eslId == nil {
-					log.Infof("did not find cutoff")
-				} else {
-					log.Infof("found cutoff: %d", *eslId)
-				}
-				esl, err := readEslEvent(ctx, transaction, eslId, log, dbHandler)
-				if err != nil {
-					return fmt.Errorf("error in readEslEvent %v", err)
-				}
-				if esl == nil {
-					log.Warn("event processing skipped: no esl event found")
-					return nil
-				}
-				transformer, err := processEslEvent(ctx, repo, esl, transaction)
-				if err != nil {
-					return fmt.Errorf("error in processEslEvent %v", err)
-				}
-				if transformer == nil {
-					log.Warn("event processing skipped")
-					return nil
-				}
-				log.Infof("event processed successfully, now writing to cutoff...")
-				err = cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslId)
-				if err != nil {
-					return fmt.Errorf("error in DBWriteCutoff %v", err)
-				}
-
-				return nil
-			})
+	log := logger.FromContext(ctx).Sugar()
+	for {
+		err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
-				return fmt.Errorf("error in transaction %v", err)
+				return fmt.Errorf("error in DBReadCutoff %v", err)
 			}
-			d := 10 * time.Second
-			log.Infof("sleeping for %v before processing the next event", d)
-			time.Sleep(d)
+			if eslId == nil {
+				log.Infof("did not find cutoff")
+			} else {
+				log.Infof("found cutoff: %d", *eslId)
+			}
+			esl, err := readEslEvent(ctx, transaction, eslId, log, dbHandler)
+			if err != nil {
+				return fmt.Errorf("error in readEslEvent %v", err)
+			}
+			if esl == nil {
+				log.Warn("event processing skipped: no esl event found")
+				return nil
+			}
+			transformer, err := processEslEvent(ctx, repo, esl, transaction)
+			if err != nil {
+				return fmt.Errorf("error in processEslEvent %v", err)
+			}
+			if transformer == nil {
+				log.Warn("event processing skipped")
+				return nil
+			}
+			log.Infof("event processed successfully, now writing to cutoff...")
+			err = cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslId)
+			if err != nil {
+				return fmt.Errorf("error in DBWriteCutoff %v", err)
+			}
+
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("error in transaction %v", err)
 		}
-	})
-	return err
+		d := 10 * time.Second
+		log.Infof("sleeping for %v before processing the next event", d)
+		time.Sleep(d)
+	}
 }
 
 func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log *zap.SugaredLogger, dbHandler *db.DBHandler) (*db.EslEventRow, error) {
