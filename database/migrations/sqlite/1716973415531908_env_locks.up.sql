@@ -5,5 +5,6 @@ CREATE TABLE IF NOT EXISTS environment_locks
     lockID VARCHAR,
     envName VARCHAR,
     metadata VARCHAR,
+    deleted boolean,
     PRIMARY KEY(eslVersion, lockID, envName)
 );

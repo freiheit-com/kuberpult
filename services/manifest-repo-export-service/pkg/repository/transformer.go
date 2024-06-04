@@ -473,5 +473,5 @@ func (c *DeleteEnvironmentLock) Transform(
 		return "", err
 	}
 
-	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
+	return fmt.Sprintf("Deleted lock %q on environment %q", c.LockId, c.Environment), nil
 }

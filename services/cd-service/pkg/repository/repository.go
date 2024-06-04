@@ -1597,7 +1597,15 @@ func (s *State) GetTeamLocksDir(environment string, team string) string {
 
 func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment string) (map[string]Lock, error) {
 	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.EnvironmentLock, error) {
-		return s.DBHandler.DBSelectEnvLocks(ctx, transaction, environment)
+		locks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
+		if err != nil {
+			return nil, err
+		}
+		var lockIds []string
+		if locks != nil {
+			lockIds = locks.EnvLocks
+		}
+		return s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
 	})
 
 	if err != nil {

@@ -215,7 +215,7 @@ func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log
 	if eslId == nil {
 		log.Warnf("no cutoff found, starting at the beginning of time.")
 		// no read cutoff yet, we have to start from the beginning
-		esl, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
+		esl, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
 		if err != nil {
 			return nil, err
 		}

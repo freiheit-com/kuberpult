@@ -365,7 +365,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 
 // DBReadEslEventInternal returns either the first or the last row of the esl table
 func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslId EslId) (*EslEventRow, error) {
-	sort := "DESC"
+	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslId, created, event_type, json FROM event_sourcing_light WHERE eslId > (?) ORDER BY created %s LIMIT 1;", sort))
 	// 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
 	rows, err := tx.QueryContext(
@@ -924,7 +924,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, metadata) VALUES (?, ?, ?, ?, ?);")
+		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
@@ -933,6 +933,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 		time.Now(),
 		envLock.LockID,
 		envLock.Env,
+		false,
 		jsonToInsert)
 
 	if err != nil {
@@ -1003,6 +1004,148 @@ func (h *DBHandler) DBSelectEnvLocks(ctx context.Context, tx *sql.Tx, environmen
 	return envLocks, nil // no rows, but also no error
 }
 
+func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx, environment string) (*AllEnvLocksGo, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllEnvironmentLocks: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentLocks")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT version, created, environment, json FROM all_env_locks WHERE environment = ? ORDER BY version DESC LIMIT 1;"))
+
+	rows, err := tx.QueryContext(ctx, selectQuery, environment)
+	if err != nil {
+		return nil, fmt.Errorf("could not query all env locks table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	if rows.Next() {
+		var row = AllEnvLocksRow{
+			Version:     0,
+			Created:     time.Time{},
+			Environment: "",
+			Data:        "",
+		}
+
+		err := rows.Scan(&row.Version, &row.Created, &row.Environment, &row.Data)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = AllEnvLocksJson{}
+		err = json.Unmarshal(([]byte)(row.Data), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Data)
+		}
+		var resultGo = AllEnvLocksGo{
+			Version:         row.Version,
+			Created:         row.Created,
+			AllEnvLocksJson: AllEnvLocksJson{EnvLocks: resultJson.EnvLocks},
+		}
+		return &resultGo, nil
+	}
+	return nil, nil
+}
+
+func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, environment string, lockIDs []string) ([]EnvironmentLock, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectEnvironmentLockSet: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentLockSet")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, lockID, envName, metadata" +
+			" FROM environment_locks " +
+			" WHERE envName=? AND lockID in (" + strings.Join(lockIDs, ",") + ")" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 100;"))
+
+	rows, err := tx.QueryContext(ctx, selectQuery, environment)
+	if err != nil {
+		return nil, fmt.Errorf("could not query all env locks table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	var envLocks []EnvironmentLock
+	for rows.Next() {
+		var row = DBEnvironmentLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = EnvironmentLockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		envLocks = append(envLocks, EnvironmentLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			Metadata:   resultJson,
+		})
+	}
+	return envLocks, nil // no rows, but also no error
+}
+
+func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment string, lockIds []string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
+	defer span.Finish()
+	slices.Sort(lockIds) // we don't really *need* the sorting, it's just for convenience
+	jsonToInsert, err := json.Marshal(AllEnvLocksJson{
+		EnvLocks: lockIds,
+	})
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+	insertQuery := h.AdaptQuery("INSERT INTO all_env_locks (version , created, environment, json)  VALUES (?, ?, ?, ?);")
+	span.SetTag("query", insertQuery)
+	_, err = transaction.Exec(
+		insertQuery,
+		previousVersion+1,
+		time.Now(),
+		environment,
+		jsonToInsert)
+	fmt.Println("DBWriteAllEnvironmentLocks")
+	if err != nil {
+		return fmt.Errorf("could not insert all apps into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
 func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) error {
 	if h == nil {
 		return nil
@@ -1012,19 +1155,57 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
 	defer span.Finish()
+	var previousVersion EslId
 
-	deleteStatement := h.AdaptQuery("DELETE FROM environment_locks WHERE lockID=(?) AND envName=(?);")
+	//See if there is an existing lock with the same lock id in this environment. If it exists, just add a +1 to the eslversion
+	existingEnvLock, err := h.DBSelectEnvironmentLock(ctx, tx, environment, lockID)
 
-	span.SetTag("query", deleteStatement)
-	_, err := tx.Exec(
-		deleteStatement,
-		lockID,
-		environment)
+	if err != nil {
+		return fmt.Errorf("Could not obtain existing environment lock: %w\n", err)
+	}
+
+	if existingEnvLock == nil {
+		previousVersion = 0
+	} else {
+		previousVersion = existingEnvLock.EslVersion
+	}
+
+	//WE simply want to increment the esl version and set the deleted field to 1
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, deleted, metadata) SELECT ?, ?, lockID, envName, ?, metadata FROM environment_locks WHERE eslVersion=? AND envName=? AND lockID=?;")
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		previousVersion+1,
+		time.Now(),
+		true,
+		previousVersion,
+		environment,
+		lockID)
 
 	if err != nil {
 		return fmt.Errorf("could not delete lock from DB. Error: %w\n", err)
 	}
 	return nil
+}
+
+type AllEnvLocksJson struct {
+	EnvLocks []string `json:"envLocks"`
+}
+
+type AllEnvLocksRow struct {
+	Version     int64
+	Created     time.Time
+	Environment string
+	Data        string
+}
+
+type AllEnvLocksGo struct {
+	Version     int64
+	Created     time.Time
+	Environment string
+	AllEnvLocksJson
 }
 
 type AllApplicationsJson struct {

@@ -1340,10 +1340,36 @@ func (c *CreateEnvironmentLock) Transform(
 		if err != nil {
 			return "", err
 		}
+		//Write to locks table
 		errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, c.Message, user.Name, user.Email)
 		if errW != nil {
 			return "", errW
 		}
+
+		//Add it to all locks
+		allEnvLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, c.Environment)
+		if err != nil {
+			return "", err
+		}
+
+		if allEnvLocks == nil {
+			allEnvLocks = &db.AllEnvLocksGo{
+				Version: 1,
+				AllEnvLocksJson: db.AllEnvLocksJson{
+					EnvLocks: []string{},
+				},
+				Created: time.Now(),
+			}
+		}
+
+		if !slices.Contains(allEnvLocks.EnvLocks, c.LockId) {
+			allEnvLocks.EnvLocks = append(allEnvLocks.EnvLocks, c.LockId)
+			err := state.DBHandler.DBWriteAllEnvironmentLocks(ctx, transaction, allEnvLocks.Version, c.Environment, allEnvLocks.EnvLocks)
+			if err != nil {
+				return "", err
+			}
+		}
+
 	} else {
 		fs := state.Filesystem
 		envDir := fs.Join("environments", c.Environment)
@@ -1435,6 +1461,19 @@ func (c *DeleteEnvironmentLock) Transform(
 		err := s.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
 		if err != nil {
 			return "", err
+		}
+		allEnvLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, c.Environment)
+		if err != nil {
+			return "", fmt.Errorf("DeleteEnvironmentLock: could not select all env locks '%v': '%w'", c.Environment, err)
+		}
+		var locks []string
+		if allEnvLocks != nil {
+			locks = db.Remove(allEnvLocks.EnvLocks, c.LockId)
+		}
+
+		err = state.DBHandler.DBWriteAllEnvironmentLocks(ctx, transaction, allEnvLocks.Version, c.Environment, locks)
+		if err != nil {
+			return "", fmt.Errorf("DeleteEnvironmentLock: could not write env locks '%v': '%w'", c.Environment, err)
 		}
 	} else {
 		lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
