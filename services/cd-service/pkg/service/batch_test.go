@@ -294,7 +294,8 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			// check that the applock was created/deleted
 			{
-				appLocks, err := tc.svc.Repository.State().GetEnvironmentApplicationLocks("production", "test")
+				ctx := testutil.MakeTestContext()
+				appLocks, err := tc.svc.Repository.State().GetEnvironmentApplicationLocks(ctx, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}

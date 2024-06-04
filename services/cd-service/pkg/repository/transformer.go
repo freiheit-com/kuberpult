@@ -1554,7 +1554,14 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	}
 
 	if state.DBHandler.ShouldUseOtherTables() {
-
+		user, err := auth.ReadUserFromContext(ctx)
+		if err != nil {
+			return "", err
+		}
+		errW := state.DBHandler.DBWriteEnvironmentApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, c.Message, user.Name, user.Email)
+		if errW != nil {
+			return "", errW
+		}
 	} else {
 		fs := state.Filesystem
 		envDir := fs.Join("environments", c.Environment)
@@ -1601,35 +1608,45 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	if err != nil {
 		return "", err
 	}
+
 	fs := state.Filesystem
-	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
-	_, err = fs.Stat(lockDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
+	var queueMessage string
+	if state.DBHandler.ShouldUseOtherTables() {
+		err := state.DBHandler.DBDeleteEnvironmentApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application)
+		if err != nil {
+			return "", fmt.Errorf("failed to delete app lock %q from database: %w", c.LockId, err)
 		}
-		return "", err
+	} else {
+		lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
+		_, err = fs.Stat(lockDir)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
+			}
+			return "", err
+		}
+		if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+		}
+		s := State{
+			Commit:                 nil,
+			BootstrapMode:          false,
+			EnvironmentConfigsPath: "",
+			Filesystem:             fs,
+			DBHandler:              state.DBHandler,
+			ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
+			CloudRunClient:         state.CloudRunClient,
+		}
+		if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
+			return "", err
+		}
+		queueMessage, err = s.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
+		if err != nil {
+			return "", err
+		}
+		GaugeEnvAppLockMetric(fs, c.Environment, c.Application) //FIX ME
 	}
-	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
-	}
-	s := State{
-		Commit:                 nil,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "",
-		Filesystem:             fs,
-		DBHandler:              state.DBHandler,
-		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
-		CloudRunClient:         state.CloudRunClient,
-	}
-	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
-		return "", err
-	}
-	queueMessage, err := s.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
-	if err != nil {
-		return "", err
-	}
-	GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
+
 	return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
 }
 
@@ -1899,7 +1916,7 @@ func (c *DeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-		appLocks, err = state.GetEnvironmentApplicationLocks(c.Environment, c.Application)
+		appLocks, err = state.GetEnvironmentApplicationLocks(ctx, c.Environment, c.Application)
 		if err != nil {
 			return "", err
 		}
@@ -2681,7 +2698,7 @@ func (c *envReleaseTrain) prognosis(
 			continue
 		}
 
-		appLocks, err := state.GetEnvironmentApplicationLocks(c.Env, appName)
+		appLocks, err := state.GetEnvironmentApplicationLocks(ctx, c.Env, appName)
 
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{

@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"os/exec"
@@ -1613,7 +1614,46 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 	}
 }
 
-func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, environment, application string) (map[string]Lock, error) {
+	targetLocks, err := s.GetEnvironmentApplicationLocksFromManifest(environment, application)
+	if err != nil {
+		return nil, err
+	}
+	if s.DBHandler.ShouldUseOtherTables() {
+		dbLocks, err := s.GetEnvironmentApplicationLocksFromDB(ctx, environment, application)
+		if err != nil {
+			return nil, err
+		}
+		maps.Copy(targetLocks, dbLocks)
+	}
+
+	return targetLocks, nil
+}
+
+func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, environment, application string) (map[string]Lock, error) {
+	//locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.EnvironmentLock, error) {
+	//	return s.DBHandler.DBSelectEnvLocks(ctx, transaction, environment)
+	//})
+	var locks []db.EnvironmentApplicationLock
+	//err := nil
+	//if err != nil {
+	//	return nil, err
+	//}
+	result := make(map[string]Lock, len(locks))
+	for _, lock := range locks {
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt: lock.Created,
+		}
+		result[lock.LockID] = genericLock
+	}
+	return result, nil
+}
+func (s *State) GetEnvironmentApplicationLocksFromManifest(environment, application string) (map[string]Lock, error) {
 	base := s.GetAppLocksDir(environment, application)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -1632,6 +1672,7 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 		return result, nil
 	}
 }
+
 func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lock, error) {
 	base := s.GetTeamLocksDir(environment, team)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
