@@ -380,11 +380,14 @@ func (c *CreateEnvironmentLock) Transform(
 		return "", err
 	}
 
-	lock, err := state.DBHandler.DBSelectEnvironmentLock(ctx, transaction, c.LockId, c.Environment)
+	lock, err := state.DBHandler.DBSelectEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
 	if err != nil {
 		return "", err
 	}
 
+	if lock == nil {
+		return "", fmt.Errorf("no lock found")
+	}
 	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
 		return "", err
 	}
