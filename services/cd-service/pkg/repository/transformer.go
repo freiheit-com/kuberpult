@@ -1335,7 +1335,7 @@ func (c *CreateEnvironmentLock) Transform(
 		}
 		errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, c.Message, user.Name, user.Email)
 		if errW != nil {
-			return "", err
+			return "", errW
 		}
 	} else {
 		fs := state.Filesystem
