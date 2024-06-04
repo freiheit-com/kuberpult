@@ -330,7 +330,7 @@ func version(v int) *int64 {
 	return &result
 }
 
-func TestWriteReadDeployment(t *testing.T) {
+func TestReadWriteDeployment(t *testing.T) {
 	tcs := []struct {
 		Name               string
 		App                string
