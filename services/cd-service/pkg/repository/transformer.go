@@ -144,7 +144,7 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, env string) {
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to get the number of envirobnment locks: %w\n", err)
+				Warnf("Error when trying to get the number of environment locks: %w\n", err)
 			return
 		}
 		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1) //nolint: errcheck
