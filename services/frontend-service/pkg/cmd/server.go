@@ -239,9 +239,10 @@ func runServer(ctx context.Context) error {
 	mux := http.NewServeMux()
 	http.DefaultServeMux = mux
 	var policy *auth.RBACPolicies
+	var dexClient *auth.DexAppClient
 	if c.DexEnabled {
 		// Registers Dex handlers.
-		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
+		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
 		}
@@ -361,6 +362,11 @@ func runServer(ctx context.Context) error {
 			return
 		}
 
+		if c.DexEnabled {
+			interceptors.DexAPIInterceptor(w, req, httpHandler.HandleAPI, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
+			return
+		}
+
 		if !c.IapEnabled {
 			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
 			return
@@ -372,6 +378,21 @@ func runServer(ctx context.Context) error {
 		"/api/",
 	} {
 		mux.Handle(endpoint, restApiHandler)
+	}
+
+	dexHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		defer readAllAndClose(req.Body, 1024)
+		if !c.DexEnabled {
+			http.Error(w, "Dex not enabled, /token unavailable.", http.StatusUnauthorized)
+			return
+		}
+		httpHandler.HandleDex(w, req, dexClient)
+	})
+	for _, endpoint := range []string{
+		"/token",
+		"/token/",
+	} {
+		mux.Handle(endpoint, dexHandler)
 	}
 
 	mux.Handle("/", http.FileServer(http.Dir("build")))

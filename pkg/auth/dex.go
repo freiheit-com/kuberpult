@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -295,11 +296,22 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
-	if err != nil {
-		return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
-	}
 
-	tokenString := cookie.Value
+	//If token not in cookie verify in header
+	var tokenString string
+	if err != nil {
+		reqToken := r.Header.Get("Authorization")
+		if reqToken == "" {
+			return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
+		}
+		splitToken := strings.Split(reqToken, "Bearer ")
+		if len(splitToken) != 2 {
+			return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
+		}
+		tokenString = splitToken[1]
+	} else {
+		tokenString = cookie.Value
+	}
 
 	// Validates token audience and expiring date.
 	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID, useClusterInternalCommunication)
