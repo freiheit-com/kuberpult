@@ -72,7 +72,7 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func basicAuth(username, password string) string {
+func toBasicAuth(username, password string) string {
 	creds := username + ":" + password
 	return base64.StdEncoding.EncodeToString([]byte(creds))
 }
