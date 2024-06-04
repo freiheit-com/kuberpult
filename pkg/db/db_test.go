@@ -464,7 +464,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					return err
 				}
 
-				actual, err := dbHandler.DBSelectAllEnvLocks(ctx, transaction, tc.Env)
+				actual, err := dbHandler.DBSelectEnvLocks(ctx, transaction, tc.Env)
 				if err != nil {
 					return err
 				}
@@ -537,7 +537,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 					return err
 				}
 
-				actual, err := dbHandler.DBSelectAllEnvLocks(ctx, transaction, tc.Env)
+				actual, err := dbHandler.DBSelectEnvLocks(ctx, transaction, tc.Env)
 				if err != nil {
 					return err
 				}

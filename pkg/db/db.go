@@ -857,11 +857,11 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 
 }
 
-func (h *DBHandler) GetLatestEslId(ctx context.Context, tx *sql.Tx, environmentName string) (EslId, error) {
+func (h *DBHandler) GetLatestEslId(ctx context.Context, tx *sql.Tx, environmentName, lockID string) (EslId, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, metadata" +
 			" FROM environment_locks " +
-			" WHERE envName=? " +
+			" WHERE envName=? AND lockID = ?" +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
 
@@ -912,12 +912,20 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	defer span.Finish()
 
 	var previousVersion EslId
-	previousVersion, err := h.GetLatestEslId(ctx, tx, environment)
+
+	//See if there is an existing lock with the same lock id in this environment. If it exists, just add a +1 to the eslversion
+	existingEnvLock, err := h.DBSelectEnvironmentLock(ctx, tx, environment, lockID)
 
 	if err != nil {
-		return fmt.Errorf("Error obtaining esl id: %w\n", err)
-
+		return fmt.Errorf("Could not obtain existing environment lock: %w\n", err)
 	}
+
+	if existingEnvLock == nil {
+		previousVersion = 0
+	} else {
+		previousVersion = existingEnvLock.EslVersion
+	}
+
 	envLock := EnvironmentLock{
 		EslVersion: 0,
 		LockID:     lockID,
@@ -929,7 +937,6 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 			CreatedByEmail: authorEmail,
 		},
 	}
-	fmt.Println(previousVersion)
 	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
 }
 
@@ -947,7 +954,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-	fmt.Printf("Write: %+v\n", envLock)
+
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, metadata) VALUES (?, ?, ?, ?, ?);")
 
@@ -966,14 +973,14 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	return nil
 }
 
-func (h *DBHandler) DBSelectAllEnvLocks(ctx context.Context, tx *sql.Tx, environmentName string) ([]EnvironmentLock, error) {
+func (h *DBHandler) DBSelectEnvLocks(ctx context.Context, tx *sql.Tx, environmentName string) ([]EnvironmentLock, error) {
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBSelectAllEnvLocks: no transaction provided")
+		return nil, fmt.Errorf("DBSelectEnvLocks: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvLocks")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvLocks")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
@@ -984,7 +991,6 @@ func (h *DBHandler) DBSelectAllEnvLocks(ctx context.Context, tx *sql.Tx, environ
 				" ORDER BY eslVersion DESC " +
 				" LIMIT 25;")) //25 locks per env?
 
-	fmt.Println(environmentName)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,

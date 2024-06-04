@@ -121,7 +121,10 @@ func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
 }
 
 func (s *State) GetEnvironmentLocksCount(ctx context.Context, env string) float64 {
-	locks, _ := s.GetEnvironmentLocks(ctx, env)
+	locks, err := s.GetEnvironmentLocks(ctx, env)
+	if err != nil {
+		return 0
+	}
 	return float64(len(locks))
 }
 
