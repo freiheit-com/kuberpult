@@ -253,3 +253,17 @@ export const setOpenEnvironmentConfigDialog = (params: URLSearchParams, envName:
         params.delete(envConfigDialogParamName);
     }
 };
+
+export const ReleaseTrainLink: React.FC<{ env: string }> = (props): JSX.Element | null => {
+    const { env } = props;
+
+    const currentLink = window.location.href;
+
+    return (
+        <a
+            title={'Opens a preview of release trains on this environment'}
+            href={currentLink + '/' + env + '/releaseTrain'}>
+            Release train details
+        </a>
+    );
+};

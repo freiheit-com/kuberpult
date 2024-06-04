@@ -300,6 +300,7 @@ func runServer(ctx context.Context) error {
 	api.RegisterRolloutServiceServer(gsrv, gproxy)
 	api.RegisterGitServiceServer(gsrv, gproxy)
 	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
+	api.RegisterReleaseTrainPrognosisServiceServer(gsrv, gproxy)
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{

@@ -16,20 +16,20 @@ Copyright freiheit.com*/
 
 import { render } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { CommitInfoPage } from './CommitInfoPage';
 import { fakeLoadEverything } from '../../../setupTests';
-import { updateCommitInfo, CommitInfoState } from '../../utils/store';
-import { GetCommitInfoResponse } from '../../../api/api';
+import { ReleaseTrainPrognosisState, updateReleaseTrainPrognosis } from '../../utils/store';
+import { GetReleaseTrainPrognosisResponse, ReleaseTrainEnvSkipCause } from '../../../api/api';
+import { ReleaseTrainPage } from './ReleaseTrainPage';
 
 describe('Commit info page tests', () => {
     type TestCase = {
         name: string;
-        commitHash: string;
+        envName: string;
         fakeLoadEverything: boolean;
-        commitInfoStoreData:
+        releaseTrainPrognosisStoreData:
             | {
-                  commitInfoReady: CommitInfoState;
-                  response: GetCommitInfoResponse | undefined;
+                  releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
+                  response: GetReleaseTrainPrognosisResponse | undefined;
               }
             | undefined;
         expectedSpinnerCount: number;
@@ -41,82 +41,81 @@ describe('Commit info page tests', () => {
         {
             name: 'A loading spinner renders when the page is still loading',
             fakeLoadEverything: false,
-            commitHash: 'potato',
+            envName: 'development',
             expectedSpinnerCount: 1,
             expectedMainContentCount: 0,
             expectedText: 'Loading Configuration',
-            commitInfoStoreData: {
-                commitInfoReady: CommitInfoState.LOADING,
+            releaseTrainPrognosisStoreData: {
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
                 response: undefined,
             },
         },
         {
-            name: 'An Error is shown when the commit ID is not provided in the URL',
+            name: 'An Error is shown when the environemnt name is not provided in the URL',
             fakeLoadEverything: true,
-            commitHash: '',
+            envName: '',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: 'commit ID not provided',
-            commitInfoStoreData: {
-                commitInfoReady: CommitInfoState.LOADING,
+            expectedText: 'Environment name not provided',
+            releaseTrainPrognosisStoreData: {
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
                 response: undefined,
             },
         },
         {
             name: 'A spinner is shown when waiting for the server to respond',
             fakeLoadEverything: true,
-            commitHash: 'potato',
+            envName: 'development',
             expectedSpinnerCount: 1,
             expectedMainContentCount: 0,
-            expectedText: 'Loading commit info',
-            commitInfoStoreData: {
-                commitInfoReady: CommitInfoState.LOADING,
+            expectedText: 'Loading release train prognosis...',
+            releaseTrainPrognosisStoreData: {
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
                 response: undefined,
             },
         },
         {
             name: 'An error message is shown when the backend returns an error',
             fakeLoadEverything: true,
-            commitHash: 'potato',
+            envName: 'development',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
             expectedText: 'Backend error',
-            commitInfoStoreData: {
+            releaseTrainPrognosisStoreData: {
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.ERROR,
                 response: undefined,
-                commitInfoReady: CommitInfoState.ERROR,
             },
         },
         {
             name: 'An error message is shown when the backend returns a not found status',
             fakeLoadEverything: true,
-            commitHash: 'potato',
+            envName: 'development',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText:
-                'The provided commit ID was not found in the manifest repository. This is because either the commit "potato" is incorrect, is not tracked by Kuberpult yet, or it refers to an old commit whose release has been cleaned up by now.',
-            commitInfoStoreData: {
+            expectedText: 'The provided environment name development was not found in the manifest repository.',
+            releaseTrainPrognosisStoreData: {
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.NOTFOUND,
                 response: undefined,
-                commitInfoReady: CommitInfoState.NOTFOUND,
             },
         },
         {
             name: 'Some main content exists when the page is done loading',
             fakeLoadEverything: true,
-            commitHash: 'potato',
+            envName: 'development',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: 'Add google to windows', // this "Commit + commit_message_first_line" string comes from the CommitInfo component logic (so we know that it actually rendered without having some mocking magic)
-            commitInfoStoreData: {
-                commitInfoReady: CommitInfoState.READY,
+            expectedText: 'Prognosis for release train on environment development',
+            releaseTrainPrognosisStoreData: {
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.READY,
                 response: {
-                    commitHash: 'potato',
-                    touchedApps: ['google', 'windows'],
-                    commitMessage: `Add google to windows
-Commit message body line 1
-Commit message body line 2`,
-                    events: [],
-                    previousCommitHash: '',
-                    nextCommitHash: '',
+                    envsPrognoses: {
+                        development: {
+                            outcome: {
+                                $case: 'skipCause',
+                                skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+                            },
+                        },
+                    },
                 },
             },
         },
@@ -124,19 +123,19 @@ Commit message body line 2`,
     describe.each(testCases)('', (tc) => {
         test(tc.name, () => {
             fakeLoadEverything(tc.fakeLoadEverything);
-            if (tc.commitInfoStoreData !== undefined) updateCommitInfo.set(tc.commitInfoStoreData);
+            if (tc.releaseTrainPrognosisStoreData !== undefined)
+                updateReleaseTrainPrognosis.set(tc.releaseTrainPrognosisStoreData);
 
             const { container } = render(
-                <MemoryRouter initialEntries={['/ui/commits/' + tc.commitHash]}>
+                <MemoryRouter initialEntries={['/ui/environments/' + tc.envName + '/releaseTrain']}>
                     <Routes>
                         <Route
-                            path={'/ui/commits/' + (tc.commitHash !== '' ? ':commit' : '')}
-                            element={<CommitInfoPage />}
+                            path={'/ui/environments/' + (tc.envName !== '' ? ':targetEnv' : '') + '/releaseTrain'}
+                            element={<ReleaseTrainPage />}
                         />
                     </Routes>
                 </MemoryRouter>
             );
-
             expect(container.getElementsByClassName('spinner')).toHaveLength(tc.expectedSpinnerCount);
             expect(container.getElementsByClassName('main-content')).toHaveLength(tc.expectedMainContentCount);
 

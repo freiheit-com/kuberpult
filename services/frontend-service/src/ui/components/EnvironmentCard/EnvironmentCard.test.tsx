@@ -35,6 +35,7 @@ describe('Test Environment Cards', () => {
         expectedNumGroupsLockButtons: number;
         expectedPriorityClassName: string;
         expectedNumButtonsEnv: number;
+        expectedNumEnvLinks: number;
     }
 
     const sampleEnvData: dataEnvT[] = [
@@ -50,6 +51,7 @@ describe('Test Environment Cards', () => {
             expectedNumEnvLockButtons: 0,
             expectedPriorityClassName: 'environment-priority-unrecognized', // group priority is UNRECOGNIZED / unknown
             expectedNumButtonsEnv: 1,
+            expectedNumEnvLinks: 0,
         },
         {
             name: '1 group 1 env',
@@ -72,6 +74,7 @@ describe('Test Environment Cards', () => {
             expectedNumEnvLockButtons: 2,
             expectedPriorityClassName: 'environment-priority-pre_prod',
             expectedNumButtonsEnv: 4,
+            expectedNumEnvLinks: 2,
         },
         {
             name: '1 group 2 env',
@@ -102,6 +105,7 @@ describe('Test Environment Cards', () => {
             expectedNumEnvLockButtons: 4,
             expectedPriorityClassName: 'environment-priority-upstream',
             expectedNumButtonsEnv: 7,
+            expectedNumEnvLinks: 4,
         },
     ];
 
@@ -120,6 +124,8 @@ describe('Test Environment Cards', () => {
             expect(lockEnvElems).toHaveLength(testcase.expectedNumEnvLockButtons);
             const buttons = container.getElementsByClassName('environment-action');
             expect(buttons).toHaveLength(testcase.expectedNumButtonsEnv);
+            const envLinks = container.getElementsByClassName('environment-link');
+            expect(envLinks).toHaveLength(testcase.expectedNumEnvLinks);
 
             // when
             const envGroupHeader = container.querySelector('.environment-group-lane__header');
