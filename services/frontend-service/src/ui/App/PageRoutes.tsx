@@ -20,11 +20,16 @@ import { LocksPage } from '../Pages/Locks/LocksPage';
 import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
 import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
 import { CommitInfoPage } from '../Pages/CommitInfo/CommitInfoPage';
+import { ReleaseTrainPage } from '../Pages/ReleaseTrain/ReleaseTrainPage';
 
 const routes = [
     {
         path: `/ui/environments/*`,
         element: <EnvironmentsPage />,
+    },
+    {
+        path: `/ui/environments/:targetEnv/releaseTrain`,
+        element: <ReleaseTrainPage />,
     },
     {
         path: `/ui/locks/*`,
