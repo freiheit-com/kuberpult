@@ -138,7 +138,7 @@ func GetEnvironmentApplicationLocksCount(fs billy.Filesystem, environment, appli
 	return float64(envAppLocksCount)
 }
 
-func (s *State) GaugeEnvLockMetric(ctx context.Context, env string) {
+func GaugeEnvLockMetric(ctx context.Context, s *State, env string) {
 	if ddMetrics != nil {
 		ddMetrics.Gauge("env_lock_count", s.GetEnvironmentLocksCount(ctx, env), []string{"env:" + env}, 1) //nolint: errcheck
 	}
@@ -183,7 +183,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 	repo.(*repository).GaugeQueueSize(ctx)
 	for i := range envNames {
 		env := envNames[i]
-		state.GaugeEnvLockMetric(ctx, env)
+		GaugeEnvLockMetric(ctx, state, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
 			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
@@ -1351,7 +1351,7 @@ func (c *CreateEnvironmentLock) Transform(
 			return "", err
 		}
 	}
-	state.GaugeEnvLockMetric(ctx, c.Environment)
+	GaugeEnvLockMetric(ctx, state, c.Environment)
 	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 }
 
@@ -1461,7 +1461,7 @@ func (c *DeleteEnvironmentLock) Transform(
 			additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
 		}
 	}
-	s.GaugeEnvLockMetric(ctx, c.Environment)
+	GaugeEnvLockMetric(ctx, state, c.Environment)
 	return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), nil
 }
 
