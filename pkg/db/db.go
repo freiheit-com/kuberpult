@@ -27,6 +27,7 @@ import (
 	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"log"
 	"path"
 	"reflect"
 	"slices"
@@ -822,6 +823,13 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	if err != nil {
 		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
 	if rows.Next() {
 		var row = DBEnvironmentLock{
 			EslVersion: 0,
@@ -852,6 +860,11 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 			Env:        row.Env,
 			Metadata:   resultJson,
 		}, nil
+	}
+	
+	// Rows.Err will report the last error encountered by Rows.Scan.
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
 	}
 	return nil, nil // no rows, but also no error
 

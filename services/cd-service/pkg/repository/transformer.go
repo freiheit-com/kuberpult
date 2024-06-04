@@ -120,12 +120,12 @@ func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
 	return fs.Join(commitDirectory(fs, commit), "events", eventId)
 }
 
-func (s *State) GetEnvironmentLocksCount(ctx context.Context, env string) float64 {
+func (s *State) GetEnvironmentLocksCount(ctx context.Context, env string) (float64, error) {
 	locks, err := s.GetEnvironmentLocks(ctx, env)
 	if err != nil {
-		return 0
+		return -1, err
 	}
-	return float64(len(locks))
+	return float64(len(locks)), nil
 }
 
 func GetEnvironmentApplicationLocksCount(fs billy.Filesystem, environment, application string) float64 {
@@ -140,7 +140,14 @@ func GetEnvironmentApplicationLocksCount(fs billy.Filesystem, environment, appli
 
 func GaugeEnvLockMetric(ctx context.Context, s *State, env string) {
 	if ddMetrics != nil {
-		ddMetrics.Gauge("env_lock_count", s.GetEnvironmentLocksCount(ctx, env), []string{"env:" + env}, 1) //nolint: errcheck
+		count, err := s.GetEnvironmentLocksCount(ctx, env)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error when trying to get the number of envirobnment locks: %w\n", err)
+			return
+		}
+		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1) //nolint: errcheck
 	}
 }
 
