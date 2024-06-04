@@ -861,7 +861,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 			Metadata:   resultJson,
 		}, nil
 	}
-	
+
 	// Rows.Err will report the last error encountered by Rows.Scan.
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
