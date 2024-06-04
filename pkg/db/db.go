@@ -27,7 +27,6 @@ import (
 	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"log"
 	"path"
 	"reflect"
 	"slices"
