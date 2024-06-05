@@ -335,7 +335,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -343,13 +343,13 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
 		}
 	}(rows)
+	var row = &EslEventRow{
+		EslId:     0,
+		Created:   time.Unix(0, 0),
+		EventType: "",
+		EventJson: "",
+	}
 	if rows.Next() {
-		var row = EslEventRow{
-			EslId:     0,
-			Created:   time.Unix(0, 0),
-			EventType: "",
-			EventJson: "",
-		}
 		err := rows.Scan(&row.EslId, &row.Created, &row.EventType, &row.EventJson)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -357,49 +357,62 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			}
 			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
-		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
-		return &row, nil
 	}
-	return nil, nil // no rows, but also no error
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("row has error: %v\n", err)
+	}
+	return row, nil
 }
 
 // DBReadEslEventInternal returns either the first or the last row of the esl table
 func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslId EslId) (*EslEventRow, error) {
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslId, created, event_type, json FROM event_sourcing_light WHERE eslId > (?) ORDER BY created %s LIMIT 1;", sort))
-	// 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		eslId,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logger.FromContext(ctx).Sugar().Warnf("row closing error for event_sourcing_light: %v", err)
 		}
 	}(rows)
-	if rows.Next() {
-		var row = EslEventRow{
-			EslId:     0,
-			Created:   time.Unix(0, 0),
-			EventType: "",
-			EventJson: "",
-		}
+	var row = &EslEventRow{
+		EslId:     0,
+		Created:   time.Unix(0, 0),
+		EventType: "",
+		EventJson: "",
+	}
+	if !rows.Next() {
+		row = nil
+	} else {
 		err := rows.Scan(&row.EslId, &row.Created, &row.EventType, &row.EventJson)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("event_sourcing_light: Error scanning row from DB. Error: %w\n", err)
 		}
-		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
-		return &row, nil
 	}
-	return nil, nil // no rows, but also no error
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("event_sourcing_light: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("event_sourcing_light: row has error: %v\n", err)
+	}
+	return row, nil
 }
 
 func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql.Tx, previousVersion int64, applications []string) error {
@@ -504,6 +517,14 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 
 		result = append(result, row)
 	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("events: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("events: row has error: %v\n", err)
+	}
 	return result, nil
 }
 
@@ -526,12 +547,16 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 		}
 		return nil, fmt.Errorf("Error scanning all_apps row from DB. Error: %w\n", err)
 	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("all_apps: row has error: %v\n", err)
+	}
 
 	//exhaustruct:ignore
 	var resultJson = AllApplicationsJson{}
 	err = json.Unmarshal(([]byte)(result.data), &resultJson)
 	if err != nil {
-		return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, result.data)
+		return nil, fmt.Errorf("Error during json unmarshal of all_apps. Error: %w. Data: %s\n", err, result.data)
 	}
 	var resultGo = AllApplicationsGo{
 		Version:             result.version,
@@ -628,24 +653,26 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 		envSelector,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
 		}
 	}(rows)
+	var row = &DBDeployment{
+		EslVersion:     0,
+		Created:        time.Time{},
+		ReleaseVersion: nil,
+		App:            "",
+		Env:            "",
+		Metadata:       "",
+	}
+	var releaseVersion sql.NullInt64
+	//exhaustruct:ignore
+	var resultJson = DeploymentMetadata{}
 	if rows.Next() {
-		var row = DBDeployment{
-			EslVersion:     0,
-			Created:        time.Time{},
-			ReleaseVersion: nil,
-			App:            "",
-			Env:            "",
-			Metadata:       "",
-		}
-		var releaseVersion sql.NullInt64
 		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -653,28 +680,31 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 			}
 			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
-		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		if releaseVersion.Valid {
 			row.ReleaseVersion = &releaseVersion.Int64
 		}
 
-		//exhaustruct:ignore
-		var resultJson = DeploymentMetadata{}
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
 		}
-		return &Deployment{
-			EslVersion: row.EslVersion,
-			Created:    row.Created,
-			App:        row.App,
-			Env:        row.Env,
-			Version:    row.ReleaseVersion,
-			Metadata:   resultJson,
-		}, nil
 	}
-	return nil, nil // no rows, but also no error
-
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
+	}
+	return &Deployment{
+		EslVersion: row.EslVersion,
+		Created:    row.Created,
+		App:        row.App,
+		Env:        row.Env,
+		Version:    row.ReleaseVersion,
+		Metadata:   resultJson,
+	}, nil
 }
 
 func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBDeployment, error) {
@@ -687,7 +717,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -706,14 +736,20 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 			}
 			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
-		logger.FromContext(ctx).Sugar().Warnf("read row: %v", row)
 		if releaseVersion.Valid {
 			row.ReleaseVersion = &releaseVersion.Int64
 		}
 		return &row, nil
 	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("row has error: %v\n", err)
+	}
 	return nil, nil // no rows, but also no error
-
 }
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
