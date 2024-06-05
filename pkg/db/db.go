@@ -30,6 +30,7 @@ import (
 	"path"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -219,25 +220,20 @@ type DBFunctionT[T any] func(ctx context.Context, transaction *sql.Tx) (*T, erro
 
 // WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
 func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]) (*T, error) {
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	res, err := WithTransactionMultipleEntriesT(h, ctx, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
+		fRes, err2 := f(ctx, transaction)
+		if err2 != nil {
+			return nil, err2
+		}
+		if fRes == nil {
+			return make([]T, 0), nil
+		}
+		return []T{*fRes}, nil
+	})
+	if err != nil || len(res) == 0 {
 		return nil, err
 	}
-	defer func(tx *sql.Tx) {
-		_ = tx.Rollback()
-		// we ignore the error returned from Rollback() here,
-		// because it is always set when Commit() was successful
-	}(tx)
-
-	result, err := f(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
+	return &res[0], err
 }
 
 type DBFunctionMultipleEntriesT[T any] func(ctx context.Context, transaction *sql.Tx) ([]T, error)
@@ -263,6 +259,18 @@ func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, f
 		return nil, err
 	}
 	return result, nil
+}
+
+func closeRows(rows *sql.Rows) error {
+	err := rows.Close()
+	if err != nil {
+		return fmt.Errorf("row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return fmt.Errorf("row has error: %v\n", err)
+	}
+	return nil
 }
 
 type EventType string
@@ -358,13 +366,9 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("row has error: %v\n", err)
+		return nil, err
 	}
 	return row, nil
 }
@@ -404,13 +408,9 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 			return nil, fmt.Errorf("event_sourcing_light: Error scanning row from DB. Error: %w\n", err)
 		}
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("event_sourcing_light: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("event_sourcing_light: row has error: %v\n", err)
+		return nil, err
 	}
 	return row, nil
 }
@@ -860,14 +860,22 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 		}
 
 		for envName, locks := range allEnvLocksInRepo {
+			var activeLockIds []string
 			for _, currentLock := range locks {
+				activeLockIds = append(activeLockIds, currentLock.LockID)
 				err = h.DBWriteEnvironmentLockInternal(ctx, transaction, currentLock, 0, true)
 				if err != nil {
 					return fmt.Errorf("error writing environment locks to DB for environment %s: %v",
 						envName, err)
 				}
 			}
+			err := h.DBWriteAllEnvironmentLocks(ctx, transaction, 0, envName, activeLockIds)
+			if err != nil {
+				return fmt.Errorf("error writing environment locks ids to DB for environment %s: %v",
+					envName, err)
+			}
 		}
+
 		return nil
 	})
 }
@@ -927,7 +935,6 @@ func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvi
 	//exhaustruct:ignore
 	var row = DBEnvironmentLock{}
 	if rows.Next() {
-
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata, &row.Deleted)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -935,15 +942,15 @@ func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvi
 			}
 			return nil, fmt.Errorf("Error scanning environment lock row from DB. Error: %w\n", err)
 		}
+		err = closeRows(rows)
+		if err != nil {
+			return nil, err
+		}
 		return &row, nil
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
+		return nil, err
 	}
 	return nil, nil // no rows, but also no error
 
@@ -997,6 +1004,10 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
 		}
+		err = closeRows(rows)
+		if err != nil {
+			return nil, err
+		}
 		return &EnvironmentLock{
 			EslVersion: row.EslVersion,
 			Created:    row.Created,
@@ -1007,13 +1018,9 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		}, nil
 	}
 
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
+		return nil, err
 	}
 	return nil, nil // no rows, but also no error
 
@@ -1160,15 +1167,10 @@ func (h *DBHandler) DBSelectEnvLocks(ctx context.Context, tx *sql.Tx, environmen
 			Metadata:   resultJson,
 		})
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
+		return nil, err
 	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
-	}
-
 	return envLocks, nil
 }
 
@@ -1217,21 +1219,22 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Data)
 		}
+
 		var resultGo = AllEnvLocksGo{
 			Version:         row.Version,
 			Created:         row.Created,
 			Environment:     row.Environment,
 			AllEnvLocksJson: AllEnvLocksJson{EnvLocks: resultJson.EnvLocks},
 		}
+		err = closeRows(rows)
+		if err != nil {
+			return nil, err
+		}
 		return &resultGo, nil
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
+		return nil, err
 	}
 	return nil, nil
 }
@@ -1254,7 +1257,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 			" FROM environment_locks " +
 			" WHERE envName=? AND lockID in (" + strings.Join(lockIDs, ",") + ")" +
 			" ORDER BY eslVersion DESC " +
-			" LIMIT 100;")
+			" LIMIT " + strconv.Itoa(len(lockIDs)) + ";")
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment)
 	if err != nil {
@@ -1301,13 +1304,9 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 			Metadata:   resultJson,
 		})
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
+		return nil, err
 	}
 	return envLocks, nil // no rows, but also no error
 }
@@ -1360,19 +1359,8 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		previousVersion = existingEnvLock.EslVersion
 	}
 
-	//WE simply want to increment the esl version and set the deleted field to 1
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, deleted, metadata) SELECT ?, ?, lockID, envName, ?, metadata FROM environment_locks WHERE eslVersion=? AND envName=? AND lockID=?;")
-
-	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
-		insertQuery,
-		previousVersion+1,
-		time.Now(),
-		true,
-		previousVersion,
-		environment,
-		lockID)
+	existingEnvLock.Deleted = true
+	err = h.DBWriteEnvironmentLockInternal(ctx, tx, *existingEnvLock, previousVersion, false)
 
 	if err != nil {
 		return fmt.Errorf("could not delete environment lock from DB. Error: %w\n", err)

@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
 	"os"
 	"os/exec"
@@ -1627,19 +1626,10 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment strin
 }
 
 func (s *State) GetEnvironmentLocks(ctx context.Context, environment string) (map[string]Lock, error) {
-	manifestLocks, err := s.GetEnvironmentLocksFromManifest(environment)
-	if err != nil {
-		return nil, err
-	}
-	var databaseLocks map[string]Lock
 	if s.DBHandler.ShouldUseOtherTables() {
-		databaseLocks, err = s.GetEnvironmentLocksFromDB(ctx, environment)
-		if err != nil {
-			return nil, err
-		}
+		return s.GetEnvironmentLocksFromDB(ctx, environment)
 	}
-	maps.Copy(manifestLocks, databaseLocks) // Copy(dest, src)
-	return manifestLocks, nil
+	return s.GetEnvironmentLocksFromManifest(environment)
 }
 
 func (s *State) GetEnvironmentLocksFromManifest(environment string) (map[string]Lock, error) {

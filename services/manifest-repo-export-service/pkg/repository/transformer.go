@@ -39,8 +39,8 @@ import (
 const (
 	queueFileName       = "queued_version"
 	fieldCreatedAt      = "created_at"
-	fieldcreatedByName  = "created_by_name"
-	fieldcreatedByEmail = "created_by_email"
+	fieldCreatedByName  = "created_by_name"
+	fieldCreatedByEmail = "created_by_email"
 	fieldMessage        = "message"
 )
 
@@ -416,12 +416,12 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, autho
 	}
 
 	// write email
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldcreatedByEmail), []byte(authorEmail), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedByEmail), []byte(authorEmail), 0666); err != nil {
 		return err
 	}
 
 	// write name
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldcreatedByName), []byte(authorName), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedByName), []byte(authorName), 0666); err != nil {
 		return err
 	}
 
