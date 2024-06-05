@@ -2052,7 +2052,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 
 // GetCurrentEnvironmentLocks gets all locks on any environment in manifest
 func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.AllEnvLocks, error) {
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentEnvironmentLocks")
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentEnvironmentLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllEnvLocks)
 	_, envNames, err := s.GetEnvironmentConfigsSorted()
