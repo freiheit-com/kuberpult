@@ -1358,7 +1358,8 @@ func (c *CreateEnvironmentLock) Transform(
 				AllEnvLocksJson: db.AllEnvLocksJson{
 					EnvLocks: []string{},
 				},
-				Created: time.Now(),
+				Created:     time.Now(),
+				Environment: c.Environment,
 			}
 		}
 

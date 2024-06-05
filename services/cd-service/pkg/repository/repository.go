@@ -2076,6 +2076,7 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.A
 				Metadata: db.EnvironmentLockMetadata{
 					CreatedByName:  lock.CreatedBy.Name,
 					CreatedByEmail: lock.CreatedBy.Email,
+					Message:        lock.Message,
 				},
 				Deleted: false,
 			})
