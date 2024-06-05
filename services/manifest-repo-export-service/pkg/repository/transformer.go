@@ -448,7 +448,6 @@ func (c *DeleteEnvironmentLock) Transform(
 	_ TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	//read event from DB
 	fs := state.Filesystem
 	s := State{
 		Commit:                 nil,
