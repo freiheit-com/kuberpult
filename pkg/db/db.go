@@ -934,17 +934,17 @@ func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvi
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning environment lock row from DB. Error: %w\n", err)
 		}
 		return &row, nil
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
+		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
+		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
 	}
 	return nil, nil // no rows, but also no error
 
@@ -965,7 +965,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		lockID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -1064,9 +1064,9 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("dbWriteEnvironmentLockInternal: no transaction provided")
+		return fmt.Errorf("DBWriteEnvironmentLockInternal: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "dbWriteEnvironmentLockInternal")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLockInternal")
 	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(envLock.Metadata)
@@ -1115,7 +1115,7 @@ func (h *DBHandler) DBSelectEnvLocks(ctx context.Context, tx *sql.Tx, environmen
 				" FROM environment_locks " +
 				" WHERE envName=? " +
 				" ORDER BY eslVersion DESC " +
-				" LIMIT 25;")) //25 locks per env?
+				" LIMIT 25;"))
 
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
@@ -1312,7 +1312,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment string, lockIds []string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironmentLocks")
 	defer span.Finish()
 	slices.Sort(lockIds) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, err := json.Marshal(AllEnvLocksJson{
@@ -1330,7 +1330,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		environment,
 		jsonToInsert)
 	if err != nil {
-		return fmt.Errorf("could not insert all apps into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert all envs into DB. Error: %w\n", err)
 	}
 	return nil
 }
@@ -1374,7 +1374,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		lockID)
 
 	if err != nil {
-		return fmt.Errorf("could not delete lock from DB. Error: %w\n", err)
+		return fmt.Errorf("could not delete environment lock from DB. Error: %w\n", err)
 	}
 	return nil
 }
