@@ -924,10 +924,9 @@ func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvi
 		}
 	}(rows)
 
+	//exhaustruct:ignore
 	var row = DBEnvironmentLock{}
-
 	if rows.Next() {
-		//exhaustruct:ignore
 
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata, &row.Deleted)
 		if err != nil {
@@ -1055,6 +1054,7 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 			CreatedByName:  authorName,
 			CreatedByEmail: authorEmail,
 		},
+		Deleted: false,
 	}
 	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion, false)
 }
@@ -1220,6 +1220,7 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 		var resultGo = AllEnvLocksGo{
 			Version:         row.Version,
 			Created:         row.Created,
+			Environment:     row.Environment,
 			AllEnvLocksJson: AllEnvLocksJson{EnvLocks: resultJson.EnvLocks},
 		}
 		return &resultGo, nil
