@@ -331,3 +331,146 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+func TestEnvLockTransformersWithDB(t *testing.T) {
+	const env = envProduction
+	const lockID = "l123"
+	const message = "my lock"
+	tcs := []struct {
+		Name                     string
+		Transformers             []Transformer
+		expectedError            *TransformerBatchApplyError
+		expectedCommitMsg        string
+		shouldSucceed            bool
+		numberExpectedLocks      int
+		ExpectedLockIds          []string
+		ExpectedEnvironmentLocks []db.EnvironmentLock
+	}{
+		{
+			Name: "Simple Create env lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentLock{
+					Environment: env,
+					LockId:      lockID,
+					Message:     message,
+				},
+			},
+			expectedCommitMsg:   "Created lock " + lockID + " on environment " + env,
+			shouldSucceed:       true,
+			numberExpectedLocks: 1,
+			ExpectedLockIds: []string{
+				lockID,
+			},
+		},
+		{
+			Name: "Simple Create and Deleted env lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentLock{
+					Environment: env,
+					LockId:      lockID,
+					Message:     message,
+				},
+				&DeleteEnvironmentLock{
+					Environment: env,
+					LockId:      lockID,
+				},
+			},
+			expectedCommitMsg:   "Created lock " + lockID + " on environment " + env,
+			shouldSucceed:       true,
+			numberExpectedLocks: 0,
+			ExpectedLockIds:     []string{},
+		},
+		{
+			Name: "Create three env locks and delete one ",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentLock{
+					Environment: env,
+					LockId:      "l1",
+					Message:     message,
+				},
+				&CreateEnvironmentLock{
+					Environment: env,
+					LockId:      "l2",
+					Message:     message,
+				},
+				&DeleteEnvironmentLock{
+					Environment: env,
+					LockId:      "l1",
+				},
+				&CreateEnvironmentLock{
+					Environment: env,
+					LockId:      "l3",
+					Message:     message,
+				},
+			},
+			expectedCommitMsg:   "Created lock " + lockID + " on environment " + env,
+			shouldSucceed:       true,
+			numberExpectedLocks: 2,
+			ExpectedLockIds: []string{
+				"l2", "l3",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			var err error = nil
+			migrationsPath, err := testutil.CreateMigrationsPath()
+			if err != nil {
+				t.Fatalf("CreateMigrationsPath error: %v", err)
+			}
+
+			cfg := db.DBConfig{
+				MigrationsPath: migrationsPath,
+				DriverName:     "sqlite3",
+			}
+			repo, _ = setupRepositoryTestWithDB(t, &cfg)
+			r := repo.(*repository)
+			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				var batchError *TransformerBatchApplyError = nil
+				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if batchError != nil {
+					// Note that we cannot just `return err2` here,
+					// because it's a "TransformerBatchApplyError", not an "error"
+					return batchError
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
+			}
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
+				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
+			})
+
+			if locks == nil {
+				t.Error("Expected locks but got none")
+			}
+
+			if diff := cmp.Diff(tc.numberExpectedLocks, len(locks.EnvLocks)); diff != "" {
+				t.Errorf("error mismatch on number of expected locks (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.ExpectedLockIds, locks.EnvLocks); diff != "" {
+				t.Errorf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}

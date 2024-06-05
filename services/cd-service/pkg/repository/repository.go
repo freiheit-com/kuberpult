@@ -1990,6 +1990,9 @@ func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql
 		if err != nil {
 			return nil, err
 		}
+		if applications == nil {
+			return make([]string, 0), nil
+		}
 		return applications.Apps, nil
 	} else {
 		appDir := s.Filesystem.Join("environments", environment, "applications")

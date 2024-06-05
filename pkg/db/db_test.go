@@ -423,13 +423,36 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 		ExpectedLocks []EnvironmentLock
 	}{
 		{
-			Name:          "Write and delete",
-			Env:           "dev",
-			LockID:        "dev-lock",
-			Message:       "My lock on dev",
-			AuthorName:    "myself",
-			AuthorEmail:   "myself@example.com",
-			ExpectedLocks: []EnvironmentLock{},
+			Name:        "Write and delete",
+			Env:         "dev",
+			LockID:      "dev-lock",
+			Message:     "My lock on dev",
+			AuthorName:  "myself",
+			AuthorEmail: "myself@example.com",
+			ExpectedLocks: []EnvironmentLock{
+				{ //Sort DESC
+					Env:        "dev",
+					LockID:     "dev-lock",
+					EslVersion: 2,
+					Deleted:    true,
+					Metadata: EnvironmentLockMetadata{
+						Message:        "My lock on dev",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+					},
+				},
+				{
+					Env:        "dev",
+					LockID:     "dev-lock",
+					EslVersion: 1,
+					Deleted:    false,
+					Metadata: EnvironmentLockMetadata{
+						Message:        "My lock on dev",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+					},
+				},
+			},
 		},
 	}
 
@@ -469,7 +492,10 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					return err
 				}
 
-				if diff := cmp.Diff(0, len(actual)); diff != "" {
+				if diff := cmp.Diff(len(tc.ExpectedLocks), len(actual)); diff != "" {
+					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(EnvironmentLock{}, "Created")); diff != "" {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -502,6 +528,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 				Env:        "dev",
 				LockID:     "dev-lock",
 				EslVersion: 1,
+				Deleted:    false,
 				Metadata: EnvironmentLockMetadata{
 					Message:        "My lock on dev",
 					CreatedByName:  "myself",
