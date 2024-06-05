@@ -1078,12 +1078,12 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 	for i, l := range lockIDs {
 		lockIDs[i] = "'" + l + "'" //Assuming no
 	}
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
+	selectQuery := h.AdaptQuery(
 		"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
 			" FROM environment_locks " +
 			" WHERE envName=? AND lockID in (" + strings.Join(lockIDs, ",") + ")" +
 			" ORDER BY eslVersion DESC " +
-			" LIMIT 100;"))
+			" LIMIT 100;")
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment)
 	if err != nil {
