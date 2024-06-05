@@ -1309,7 +1309,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 	if err != nil {
 		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
 	}
-	return envLocks, nil // no rows, but also no error
+	return envLocks, nil
 }
 
 func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment string, lockIds []string) error {
