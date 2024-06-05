@@ -867,7 +867,6 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 						envName, err)
 				}
 			}
-
 		}
 		return nil
 	})
@@ -907,7 +906,6 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsF
 }
 
 func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvironmentLock, error) {
-
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
 			" FROM environment_locks " +
@@ -925,9 +923,12 @@ func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvi
 			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
 		}
 	}(rows)
+
+	var row = DBEnvironmentLock{}
+
 	if rows.Next() {
 		//exhaustruct:ignore
-		var row = DBEnvironmentLock{}
+
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata, &row.Deleted)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -936,6 +937,14 @@ func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvi
 			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
 		return &row, nil
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
 	}
 	return nil, nil // no rows, but also no error
 
@@ -999,9 +1008,13 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		}, nil
 	}
 
-	// Rows.Err will report the last error encountered by Rows.Scan.
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
 	}
 	return nil, nil // no rows, but also no error
 
@@ -1113,7 +1126,7 @@ func (h *DBHandler) DBSelectEnvLocks(ctx context.Context, tx *sql.Tx, environmen
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w\n", err)
 	}
-	var envLocks []EnvironmentLock
+	envLocks := make([]EnvironmentLock, 0)
 	for rows.Next() {
 		var row = DBEnvironmentLock{
 			EslVersion: 0,
@@ -1147,7 +1160,16 @@ func (h *DBHandler) DBSelectEnvLocks(ctx context.Context, tx *sql.Tx, environmen
 			Metadata:   resultJson,
 		})
 	}
-	return envLocks, nil // no rows, but also no error
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
+	}
+
+	return envLocks, nil
 }
 
 func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx, environment string) (*AllEnvLocksGo, error) {
@@ -1201,6 +1223,14 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 			AllEnvLocksJson: AllEnvLocksJson{EnvLocks: resultJson.EnvLocks},
 		}
 		return &resultGo, nil
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
 	}
 	return nil, nil
 }
@@ -1269,6 +1299,14 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 			Deleted:    row.Deleted,
 			Metadata:   resultJson,
 		})
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("environment locks: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("environment locks: row has error: %v\n", err)
 	}
 	return envLocks, nil // no rows, but also no error
 }
