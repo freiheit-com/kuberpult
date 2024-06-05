@@ -1181,8 +1181,8 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentLocks")
 	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT version, created, environment, json FROM all_env_locks WHERE environment = ? ORDER BY version DESC LIMIT 1;"))
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, json FROM all_env_locks WHERE environment = ? ORDER BY version DESC LIMIT 1;")
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment)
 	if err != nil {
