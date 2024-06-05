@@ -2050,6 +2050,41 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 	return result, nil
 }
 
+// GetCurrentEnvironmentLocks gets all locks on any environment in manifest
+func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.AllEnvLocks, error) {
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentEnvironmentLocks")
+	defer ddSpan.Finish()
+	result := make(db.AllEnvLocks)
+	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	if err != nil {
+		return nil, err
+	}
+	for envNameIndex := range envNames {
+		envName := envNames[envNameIndex]
+		var currentEnv []db.EnvironmentLock
+
+		ls, err := s.GetEnvironmentLocksFromManifest(envName)
+		if err != nil {
+			return nil, err
+		}
+		for lockId, lock := range ls {
+			currentEnv = append(currentEnv, db.EnvironmentLock{
+				EslVersion: 0,
+				Env:        envName,
+				LockID:     lockId,
+				Created:    lock.CreatedAt,
+				Metadata: db.EnvironmentLockMetadata{
+					CreatedByName:  lock.CreatedBy.Name,
+					CreatedByEmail: lock.CreatedBy.Email,
+				},
+				Deleted: false,
+			})
+		}
+		result[envName] = currentEnv
+	}
+	return result, nil
+}
+
 func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err

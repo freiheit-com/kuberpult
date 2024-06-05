@@ -590,13 +590,16 @@ type EnvironmentLockMetadata struct {
 }
 
 type AllDeployments []Deployment
+type AllEnvLocks map[string][]EnvironmentLock
 
 type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
+type GetAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllEnvLocks, error)
 
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun func() ([]string, error),
 	getAllDeploymentsFun GetAllDeploymentsFun,
+	getAllEnvLocksFun GetAllEnvLocksFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
@@ -604,7 +607,11 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	return h.RunCustomMigrationDeployments(ctx, getAllDeploymentsFun)
+	err = h.RunCustomMigrationDeployments(ctx, getAllDeploymentsFun)
+	if err != nil {
+		return err
+	}
+	return h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
 }
 
 func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
@@ -774,6 +781,62 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 	})
 }
 
+type AllApplicationsJson struct {
+	Apps []string `json:"apps"`
+}
+
+type AllApplicationsRow struct {
+	version int64
+	created time.Time
+	data    string
+}
+
+type AllApplicationsGo struct {
+	Version int64
+	Created time.Time
+	AllApplicationsJson
+}
+
+type EventRow struct {
+	Uuid       string
+	Timestamp  time.Time
+	CommitHash string
+	EventType  event.EventType
+	EventJson  string
+}
+
+func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLocksFun GetAllEnvLocksFun) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		l := logger.FromContext(ctx).Sugar()
+		allEnvLocksDb, err := h.DBSelectAnyEnvLock(ctx, transaction)
+		if err != nil {
+			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+			allEnvLocksDb = nil
+		}
+		if allEnvLocksDb != nil {
+			l.Warnf("There are already deployments in the DB - skipping migrations")
+			return nil
+		}
+
+		allEnvLocksInRepo, err := getAllEnvLocksFun(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
+		}
+
+		for envName, locks := range allEnvLocksInRepo {
+			for _, currentLock := range locks {
+				err = h.DBWriteEnvironmentLockInternal(ctx, transaction, currentLock, 0, true)
+				if err != nil {
+					return fmt.Errorf("error writing Environment Locks to DB for environment %s: %v",
+						envName, err)
+				}
+			}
+
+		}
+		return nil
+	})
+}
+
 func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsFun func() ([]string, error)) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
@@ -805,6 +868,41 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, getAllAppsF
 		// so we use `allAppsRepo`:
 		return h.DBWriteAllApplications(ctx, transaction, version, allAppsRepo)
 	})
+}
+
+func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvironmentLock, error) {
+
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
+			" FROM environment_locks " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query environment_locks table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	if rows.Next() {
+		//exhaustruct:ignore
+		var row = DBEnvironmentLock{}
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata, &row.Deleted)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+		}
+		return &row, nil
+	}
+	return nil, nil // no rows, but also no error
+
 }
 
 func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) (*EnvironmentLock, error) {
@@ -909,10 +1007,10 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 			CreatedByEmail: authorEmail,
 		},
 	}
-	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
+	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion, false)
 }
 
-func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId) error {
+func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId, useTimeInLock bool) error {
 	if h == nil {
 		return nil
 	}
@@ -930,11 +1028,17 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?);")
 
+	var timetoInsert time.Time
+	if useTimeInLock {
+		timetoInsert = envLock.Created
+	} else {
+		timetoInsert = time.Now()
+	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now(),
+		timetoInsert,
 		envLock.LockID,
 		envLock.Env,
 		false,
@@ -1217,28 +1321,4 @@ type AllEnvLocksGo struct {
 	Created     time.Time
 	Environment string
 	AllEnvLocksJson
-}
-
-type AllApplicationsJson struct {
-	Apps []string `json:"apps"`
-}
-
-type AllApplicationsRow struct {
-	version int64
-	created time.Time
-	data    string
-}
-
-type AllApplicationsGo struct {
-	Version int64
-	Created time.Time
-	AllApplicationsJson
-}
-
-type EventRow struct {
-	Uuid       string
-	Timestamp  time.Time
-	CommitHash string
-	EventType  event.EventType
-	EventJson  string
 }
