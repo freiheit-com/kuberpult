@@ -810,24 +810,24 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 		l := logger.FromContext(ctx).Sugar()
 		allEnvLocksDb, err := h.DBSelectAnyEnvLock(ctx, transaction)
 		if err != nil {
-			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+			l.Warnf("could not get environment locks from database - assuming the manifest repo is correct: %v", err)
 			allEnvLocksDb = nil
 		}
 		if allEnvLocksDb != nil {
-			l.Warnf("There are already deployments in the DB - skipping migrations")
+			l.Warnf("There are already environment locks in the DB - skipping migrations")
 			return nil
 		}
 
 		allEnvLocksInRepo, err := getAllEnvLocksFun(ctx, transaction)
 		if err != nil {
-			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
+			return fmt.Errorf("could not get current environment locks to run custom migrations: %v", err)
 		}
 
 		for envName, locks := range allEnvLocksInRepo {
 			for _, currentLock := range locks {
 				err = h.DBWriteEnvironmentLockInternal(ctx, transaction, currentLock, 0, true)
 				if err != nil {
-					return fmt.Errorf("error writing Environment Locks to DB for environment %s: %v",
+					return fmt.Errorf("error writing environment locks to DB for environment %s: %v",
 						envName, err)
 				}
 			}
