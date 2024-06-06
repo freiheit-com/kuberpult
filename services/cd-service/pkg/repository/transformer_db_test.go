@@ -121,7 +121,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				SourceCommitId:  "",
 				SourceAuthor:    "",
 				SourceMessage:   "",
-				Team:            "dummyteam",
+				Team:            "myteam",
 				DisplayVersion:  "",
 				WriteCommitData: false,
 				PreviousCommit:  "",

@@ -1579,6 +1579,14 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 
 	if existingEnvLock == nil {
 		previousVersion = 0
+		existingEnvLock = &EnvironmentLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     lockID,
+			Env:        environment,
+			Deleted:    true,
+			Metadata:   EnvironmentLockMetadata{},
+		}
 	} else {
 		previousVersion = existingEnvLock.EslVersion
 	}
