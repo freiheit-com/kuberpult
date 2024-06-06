@@ -276,7 +276,8 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			// check that the envlock was created/deleted
 			{
-				envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks("production")
+				ctx := testutil.MakeTestContext()
+				envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks(ctx, "production")
 				if err != nil {
 					t.Fatal(err)
 				}

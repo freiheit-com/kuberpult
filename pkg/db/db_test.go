@@ -412,6 +412,180 @@ func TestReadWriteDeployment(t *testing.T) {
 	}
 }
 
+func TestDeleteEnvironmentLock(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Env           string
+		LockID        string
+		Message       string
+		AuthorName    string
+		AuthorEmail   string
+		ExpectedLocks []EnvironmentLock
+	}{
+		{
+			Name:        "Write and delete",
+			Env:         "dev",
+			LockID:      "dev-lock",
+			Message:     "My lock on dev",
+			AuthorName:  "myself",
+			AuthorEmail: "myself@example.com",
+			ExpectedLocks: []EnvironmentLock{
+				{ //Sort DESC
+					Env:        "dev",
+					LockID:     "dev-lock",
+					EslVersion: 2,
+					Deleted:    true,
+					Metadata: EnvironmentLockMetadata{
+						Message:        "My lock on dev",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+					},
+				},
+				{
+					Env:        "dev",
+					LockID:     "dev-lock",
+					EslVersion: 1,
+					Deleted:    false,
+					Metadata: EnvironmentLockMetadata{
+						Message:        "My lock on dev",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+					},
+				},
+			},
+		},
+	}
+
+	dir, err := testutil.CreateMigrationsPath()
+	if err != nil {
+		t.Fatalf("setup error could not detect dir \n%v", err)
+		return
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Logf("detected dir: %s - err=%v", dir, err)
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				if err2 != nil {
+					return err2
+				}
+				if envLock != nil {
+					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+				}
+				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				if err != nil {
+					return err
+				}
+
+				errDelete := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				if errDelete != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectEnvLockHistory(ctx, transaction, tc.Env, tc.LockID, 2)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(len(tc.ExpectedLocks), len(actual)); diff != "" {
+					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+				}
+
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(EnvironmentLock{}, "Created")); diff != "" {
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestReadWriteEnvironmentLock(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Env          string
+		LockID       string
+		Message      string
+		AuthorName   string
+		AuthorEmail  string
+		ExpectedLock *EnvironmentLock
+	}{
+		{
+			Name:        "Simple environment lock",
+			Env:         "dev",
+			LockID:      "dev-lock",
+			Message:     "My lock on dev",
+			AuthorName:  "myself",
+			AuthorEmail: "myself@example.com",
+			ExpectedLock: &EnvironmentLock{
+				Env:        "dev",
+				LockID:     "dev-lock",
+				EslVersion: 1,
+				Deleted:    false,
+				Metadata: EnvironmentLockMetadata{
+					Message:        "My lock on dev",
+					CreatedByName:  "myself",
+					CreatedByEmail: "myself@example.com",
+				},
+			},
+		},
+	}
+
+	dir, err := testutil.CreateMigrationsPath()
+	if err != nil {
+		t.Fatalf("setup error could not detect dir \n%v", err)
+		return
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Logf("detected dir: %s - err=%v", dir, err)
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				if err2 != nil {
+					return err2
+				}
+				if envLock != nil {
+					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+				}
+				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				if err != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectEnvLockHistory(ctx, transaction, tc.Env, tc.LockID, 1)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(1, len(actual)); diff != "" {
+					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+				}
+				target := actual[0]
+				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(EnvironmentLock{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
 	dir, err := testutil.CreateMigrationsPath()

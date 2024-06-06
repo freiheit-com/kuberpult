@@ -21,24 +21,27 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-
-	yaml3 "gopkg.in/yaml.v3"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
+	"time"
 )
 
 const (
-	queueFileName = "queued_version"
+	queueFileName       = "queued_version"
+	fieldCreatedAt      = "created_at"
+	fieldCreatedByName  = "created_by_name"
+	fieldCreatedByEmail = "created_by_email"
+	fieldMessage        = "message"
 )
 
 func versionToString(Version uint64) string {
@@ -350,4 +353,123 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+type CreateEnvironmentLock struct {
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	LockId         string `json:"lockId"`
+	Message        string `json:"message"`
+}
+
+func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentLock
+}
+
+func (c *CreateEnvironmentLock) Transform(
+	ctx context.Context,
+	state *State,
+	_ TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+	envDir := fs.Join("environments", c.Environment)
+	if _, err := fs.Stat(envDir); err != nil {
+		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+	}
+	chroot, err := fs.Chroot(envDir)
+	if err != nil {
+		return "", err
+	}
+
+	lock, err := state.DBHandler.DBSelectEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
+	if err != nil {
+		return "", err
+	}
+
+	if lock == nil {
+		return "", fmt.Errorf("no lock found")
+	}
+	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
+}
+
+func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, authorName, authorEmail, created string) error {
+	locksDir := "locks"
+	if err := fs.MkdirAll(locksDir, 0777); err != nil {
+		return err
+	}
+
+	// create lock dir
+	newLockDir := fs.Join(locksDir, lockId)
+	if err := fs.MkdirAll(newLockDir, 0777); err != nil {
+		return err
+	}
+
+	// write message
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldMessage), []byte(message), 0666); err != nil {
+		return err
+	}
+
+	// write email
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedByEmail), []byte(authorEmail), 0666); err != nil {
+		return err
+	}
+
+	// write name
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedByName), []byte(authorName), 0666); err != nil {
+		return err
+	}
+
+	// write date in iso format
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedAt), []byte(created), 0666); err != nil {
+		return err
+	}
+	return nil
+}
+
+type DeleteEnvironmentLock struct {
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	LockId         string `json:"lockId"`
+}
+
+func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentLock
+}
+
+func (c *DeleteEnvironmentLock) Transform(
+	ctx context.Context,
+	state *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+	s := State{
+		Commit:                 nil,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "",
+		Filesystem:             fs,
+		DBHandler:              state.DBHandler,
+	}
+	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
+	_, err := fs.Stat(lockDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
+		}
+		return "", err
+	}
+
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+	}
+	if err := s.DeleteEnvLockIfEmpty(ctx, c.Environment); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Deleted lock %q on environment %q", c.LockId, c.Environment), nil
 }
