@@ -1097,7 +1097,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 		timetoInsert,
 		envLock.LockID,
 		envLock.Env,
-		false,
+		envLock.Deleted,
 		jsonToInsert)
 
 	if err != nil {
