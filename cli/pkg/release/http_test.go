@@ -30,6 +30,7 @@ import (
 
 type mockHttpServer struct {
 	response      int
+	header        http.Header
 	multipartForm *multipart.Form
 }
 
@@ -39,6 +40,7 @@ func (s *mockHttpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		panic(fmt.Errorf("error while parsing the multipart form in the mock HTTP server, error: %w", err))
 	}
 	s.multipartForm = req.MultipartForm
+	s.header = req.Header
 
 	w.WriteHeader(s.response)
 }
@@ -63,6 +65,8 @@ func TestRequestCreation(t *testing.T) {
 	type testCase struct {
 		name                       string
 		params                     ReleaseParameters
+		authParams                 kuberpult_utils.AuthenticationParameters
+		expectedHeaders            http.Header
 		expectedMultipartFormValue map[string][]string
 		expectedMultipartFormFile  map[string][]simpleMultipartFormFileHeader
 		expectedErrorMsg           error
@@ -526,6 +530,60 @@ func TestRequestCreation(t *testing.T) {
 			},
 			responseCode: http.StatusOK,
 		},
+		{
+			name: "authentication params are set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test\nsource\nmessage"),
+				Version:          intPtr(123123),
+				DisplayVersion:   strPtr("1.23.4"),
+			},
+			authParams: kuberpult_utils.AuthenticationParameters{
+				IapToken:    strPtr("some IAP token"),
+				DexToken:    strPtr("some DEX token"),
+				AuthorName:  strPtr("some author name"),
+				AuthorEmail: strPtr("some author email"),
+			},
+			expectedHeaders: http.Header{
+				"Proxy-Authorization": {"Bearer some IAP token"},
+				"Authorization":       {"Bearer some DEX token"},
+				"Author-Name":         {"c29tZSBhdXRob3IgbmFtZQ=="}, // base64 encoding of "some author name"
+				"Author-Email":        {"c29tZSBhdXRob3IgZW1haWw="}, // base64 encoding of "some author email"
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test\nsource\nmessage"},
+				"version":            {"123123"},
+				"display_version":    {"1.23.4"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
 	}
 
 	for _, tc := range tcs {
@@ -538,11 +596,22 @@ func TestRequestCreation(t *testing.T) {
 			}
 			server := httptest.NewServer(mockServer)
 
-			authParams := kuberpult_utils.AuthenticationParameters{}
+			authParams := tc.authParams
 			err := Release(server.URL, authParams, tc.params)
 			// check errors
 			if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			// check headers, note that we cannot compare with cmp.Diff because there are some default headers that we shouldn't bother checking (like Accept-Encoding etc)
+			for key, expectedVal := range tc.expectedHeaders {
+				actualVal, ok := mockServer.header[key]
+				if !ok {
+					t.Fatalf("there is a key in the expected headers that does not exist in the received headers\nexpected:\n  %v\nreceived:\n  %v\nmissing key:\n  %s", tc.expectedHeaders, mockServer.header, key)
+				}
+				if diff := cmp.Diff(expectedVal, actualVal); diff != "" {
+					t.Fatalf("there is a mismatch between the expected headers and the received headers\nexpected:\n  %v\nreceived:\n  %v\ndiffering key:\n  %s\ndiff:\n  %s", tc.expectedHeaders, mockServer.header, key, diff)
+				}
 			}
 
 			// check multipart form values
