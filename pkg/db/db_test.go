@@ -487,7 +487,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					return err
 				}
 
-				actual, err := dbHandler.DBSelectEnvLocks(ctx, transaction, tc.Env)
+				actual, err := dbHandler.DBSelectEnvLockHistory(ctx, transaction, tc.Env, tc.LockID, 1)
 				if err != nil {
 					return err
 				}
@@ -495,8 +495,9 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 				if diff := cmp.Diff(len(tc.ExpectedLocks), len(actual)); diff != "" {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
+
 				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(EnvironmentLock{}, "Created")); diff != "" {
-					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -564,7 +565,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 					return err
 				}
 
-				actual, err := dbHandler.DBSelectEnvLocks(ctx, transaction, tc.Env)
+				actual, err := dbHandler.DBSelectEnvLockHistory(ctx, transaction, tc.Env, tc.LockID, 1)
 				if err != nil {
 					return err
 				}

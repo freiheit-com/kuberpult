@@ -30,7 +30,6 @@ import (
 	"path"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1106,7 +1105,8 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	return nil
 }
 
-func (h *DBHandler) DBSelectEnvLocks(ctx context.Context, tx *sql.Tx, environmentName string) ([]EnvironmentLock, error) {
+// DBSelectEnvLockHistory returns the last N events associated with some lock on some environment. Currently only used in testing.
+func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, environmentName, lockID string, limit int) ([]EnvironmentLock, error) {
 	if h == nil {
 		return nil, nil
 	}
@@ -1120,15 +1120,17 @@ func (h *DBHandler) DBSelectEnvLocks(ctx context.Context, tx *sql.Tx, environmen
 		fmt.Sprintf(
 			"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
 				" FROM environment_locks " +
-				" WHERE envName=? " +
+				" WHERE envName=? AND lockID=?" +
 				" ORDER BY eslVersion DESC " +
-				" LIMIT 25;"))
+				" LIMIT ?;"))
 
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		environmentName,
+		lockID,
+		limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w\n", err)
@@ -1240,6 +1242,9 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 }
 
 func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, environment string, lockIDs []string) ([]EnvironmentLock, error) {
+	if len(lockIDs) == 0 {
+		return nil, nil
+	}
 	if h == nil {
 		return nil, nil
 	}
@@ -1248,30 +1253,34 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 	}
 	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentLockSet")
 	defer span.Finish()
-	//This is needed as lock ids with '-' might confuse sql and you can pass a string array in query
-	for i, l := range lockIDs {
-		lockIDs[i] = "'" + l + "'" //Assuming no
-	}
-	selectQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
-			" FROM environment_locks " +
-			" WHERE envName=? AND lockID in (" + strings.Join(lockIDs, ",") + ")" +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT " + strconv.Itoa(len(lockIDs)) + ";")
 
-	rows, err := tx.QueryContext(ctx, selectQuery, environment)
-	if err != nil {
-		return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w\n", err)
-	}
+	var envLocks []EnvironmentLock
+	var rows *sql.Rows
 	defer func(rows *sql.Rows) {
+		if rows == nil {
+			return
+		}
 		err := rows.Close()
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
 		}
 	}(rows)
+	//Get the latest change to each lock
+	for id := range lockIDs {
+		//Get the latest change to
+		var err error
+		selectQuery := h.AdaptQuery(
+			"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
+				" FROM environment_locks " +
+				" WHERE envName=? AND lockID=? " +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT 1;")
 
-	var envLocks []EnvironmentLock
-	for rows.Next() {
+		rows, err = tx.QueryContext(ctx, selectQuery, environment, id)
+		if err != nil {
+			return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w\n", err)
+		}
+
 		var row = DBEnvironmentLock{
 			EslVersion: 0,
 			Created:    time.Time{},
@@ -1280,31 +1289,33 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 			Deleted:    false,
 			Metadata:   "",
 		}
-
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata, &row.Deleted)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
+		if rows.Next() {
+			err = rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata, &row.Deleted)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return nil, nil
+				}
+				return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+
+			//exhaustruct:ignore
+			var resultJson = EnvironmentLockMetadata{}
+			err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+			if err != nil {
+				return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			}
+			envLocks = append(envLocks, EnvironmentLock{
+				EslVersion: row.EslVersion,
+				Created:    row.Created,
+				LockID:     row.LockID,
+				Env:        row.Env,
+				Deleted:    row.Deleted,
+				Metadata:   resultJson,
+			})
 		}
 
-		//exhaustruct:ignore
-		var resultJson = EnvironmentLockMetadata{}
-		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
-		}
-		envLocks = append(envLocks, EnvironmentLock{
-			EslVersion: row.EslVersion,
-			Created:    row.Created,
-			LockID:     row.LockID,
-			Env:        row.Env,
-			Deleted:    row.Deleted,
-			Metadata:   resultJson,
-		})
 	}
-	err = closeRows(rows)
+	err := closeRows(rows)
 	if err != nil {
 		return nil, err
 	}
