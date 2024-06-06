@@ -372,7 +372,6 @@ func (c *CreateEnvironmentLock) Transform(
 	_ TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	//read event from DB
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
