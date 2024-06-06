@@ -840,7 +840,7 @@ func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithM
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -894,7 +894,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 		appName,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()

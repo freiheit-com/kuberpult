@@ -109,7 +109,6 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		expectedEventJson string
 		dataType          interface{}
 	}{
-
 		// each transformer should appear here once:
 		{
 			Name: "CreateApplicationVersion",
