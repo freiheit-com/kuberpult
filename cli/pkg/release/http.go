@@ -115,7 +115,11 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	if authParams.IapToken != nil {
-		req.Header.Add("Authorization", "Bearer "+*authParams.IapToken)
+		req.Header.Add("Proxy-Authorization", "Bearer "+*authParams.IapToken)
+	}
+
+	if authParams.DexToken != nil {
+		req.Header.Add("Authorization", "Bearer "+*authParams.DexToken)
 	}
 
 	if authParams.AuthorName != nil {

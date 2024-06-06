@@ -27,6 +27,7 @@ type kuberpultClientParameters struct {
 	authorName  *string
 	authorEmail *string
 	iapToken    *string
+	dexToken    *string
 }
 
 func RunCLI() {
@@ -44,6 +45,10 @@ func RunCLI() {
 
 	if envVar, envVarExists := os.LookupEnv("KUBERPULT_IAP_TOKEN"); envVarExists {
 		kpClientParams.iapToken = &envVar
+	}
+
+	if envVar, envVarExists := os.LookupEnv("KUBERPULT_DEX_ACCESS_TOKEN"); envVarExists {
+		kpClientParams.dexToken = &envVar
 	}
 
 	switch subcommand {
