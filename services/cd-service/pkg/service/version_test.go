@@ -21,9 +21,9 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/freiheit-com/kuberpult/pkg/time"
 	"testing"
-	"time"
+	gotime "time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -41,7 +41,7 @@ func TestVersion(t *testing.T) {
 		Environment            string
 		Application            string
 		ExpectedVersion        uint64
-		ExpectedDeployedAt     time.Time
+		ExpectedDeployedAt     gotime.Time
 		ExpectedSourceCommitId string
 	}
 	tcs := []struct {
@@ -81,7 +81,7 @@ func TestVersion(t *testing.T) {
 					Environment:        "development",
 					Application:        "test",
 					ExpectedVersion:    1,
-					ExpectedDeployedAt: time.Unix(2, 0),
+					ExpectedDeployedAt: gotime.Unix(2, 0),
 				},
 				{
 					Environment:     "staging",
@@ -123,7 +123,7 @@ func TestVersion(t *testing.T) {
 					Environment:            "development",
 					Application:            "test",
 					ExpectedVersion:        1,
-					ExpectedDeployedAt:     time.Unix(2, 0),
+					ExpectedDeployedAt:     gotime.Unix(2, 0),
 					ExpectedSourceCommitId: "deadbeef",
 				},
 			},
@@ -139,8 +139,8 @@ func TestVersion(t *testing.T) {
 			sv := &VersionServiceServer{Repository: repo}
 
 			for i, transformer := range tc.Setup {
-				now := time.Unix(int64(i), 0)
-				ctx := time2.WithTimeNow(testutil.MakeTestContext(), now)
+				now := gotime.Unix(int64(i), 0)
+				ctx := time.WithTimeNow(testutil.MakeTestContext(), now)
 				err := repo.Apply(ctx, transformer)
 				if err != nil {
 					t.Fatal(err)
@@ -327,8 +327,8 @@ func TestGetManifests(t *testing.T) {
 			sv := &VersionServiceServer{Repository: repo}
 
 			for i, transformer := range tc.setup {
-				now := time.Unix(int64(i), 0)
-				ctx := time2.WithTimeNow(testutil.MakeTestContext(), now)
+				now := gotime.Unix(int64(i), 0)
+				ctx := time.WithTimeNow(testutil.MakeTestContext(), now)
 				err := repo.Apply(ctx, transformer)
 				if err != nil {
 					t.Fatal(err)
