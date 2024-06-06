@@ -162,7 +162,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					SourceCommitId:  "",
 					SourceAuthor:    "",
 					SourceMessage:   "",
-					SourceRepoUrl:   "",
 					Team:            "team-123",
 					DisplayVersion:  "",
 					WriteCommitData: false,
