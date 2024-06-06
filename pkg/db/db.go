@@ -1037,7 +1037,6 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 
 	var previousVersion EslId
 
-	//See if there is an existing lock with the same lock id in this environment. If it exists, just add a +1 to the eslversion
 	existingEnvLock, err := h.DBSelectEnvironmentLock(ctx, tx, environment, lockID)
 
 	if err != nil {
@@ -1312,7 +1311,10 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 				Metadata:   resultJson,
 			})
 		}
-
+		err = closeRows(rows)
+		if err != nil {
+			return nil, err
+		}
 	}
 	err := closeRows(rows)
 	if err != nil {
