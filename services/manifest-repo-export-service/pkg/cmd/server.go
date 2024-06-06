@@ -165,6 +165,9 @@ func Run(ctx context.Context) error {
 
 	log := logger.FromContext(ctx).Sugar()
 	for {
+		eslTableEmpty := false
+		eslEventSkipped := false
+
 		err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 			eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
@@ -181,6 +184,7 @@ func Run(ctx context.Context) error {
 			}
 			if esl == nil {
 				log.Warn("event processing skipped: no esl event found")
+				eslTableEmpty = true
 				return nil
 			}
 			transformer, err := processEslEvent(ctx, repo, esl, transaction)
@@ -189,6 +193,7 @@ func Run(ctx context.Context) error {
 			}
 			if transformer == nil {
 				log.Warn("event processing skipped")
+				eslEventSkipped = true
 				return nil
 			}
 			log.Infof("event processed successfully, now writing to cutoff...")
@@ -202,9 +207,11 @@ func Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("error in transaction %v", err)
 		}
-		d := 10 * time.Second
-		log.Infof("sleeping for %v before processing the next event", d)
-		time.Sleep(d)
+		if eslEventSkipped || eslTableEmpty {
+			d := 10 * time.Second
+			log.Infof("sleeping for %v before processing the next event", d)
+			time.Sleep(d)
+		}
 	}
 }
 
