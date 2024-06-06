@@ -18,6 +18,7 @@ package kuberpult_utils
 
 type AuthenticationParameters struct {
 	IapToken    *string
+	DexToken    *string
 	AuthorName  *string
 	AuthorEmail *string
 }

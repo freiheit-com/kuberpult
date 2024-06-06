@@ -32,6 +32,7 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) {
 
 	authParams := kutil.AuthenticationParameters{
 		IapToken:    kpClientParams.iapToken,
+		DexToken:    kpClientParams.dexToken,
 		AuthorName:  kpClientParams.authorName,
 		AuthorEmail: kpClientParams.authorEmail,
 	}
