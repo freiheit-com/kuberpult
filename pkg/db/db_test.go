@@ -450,20 +450,14 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 		},
 	}
 
-	dir, err := testutil.CreateMigrationsPath()
-	if err != nil {
-		t.Fatalf("setup error could not detect dir \n%v", err)
-		return
-	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -533,20 +527,14 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 		},
 	}
 
-	dir, err := testutil.CreateMigrationsPath()
-	if err != nil {
-		t.Fatalf("setup error could not detect dir \n%v", err)
-		return
-	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
