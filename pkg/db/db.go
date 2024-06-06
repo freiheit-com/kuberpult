@@ -845,7 +845,7 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 		l := logger.FromContext(ctx).Sugar()
 		allEnvLocksDb, err := h.DBSelectAnyEnvLock(ctx, transaction)
 		if err != nil {
-			l.Warnf("could not get environment locks from database - assuming the manifest repo is correct: %v", err)
+			l.Infof("could not get environment locks from database - assuming the manifest repo is correct: %v", err)
 			allEnvLocksDb = nil
 		}
 		if allEnvLocksDb != nil {
