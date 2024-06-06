@@ -1585,7 +1585,11 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 			LockID:     lockID,
 			Env:        environment,
 			Deleted:    true,
-			Metadata:   EnvironmentLockMetadata{},
+			Metadata: EnvironmentLockMetadata{
+				CreatedByName:  "",
+				CreatedByEmail: "",
+				Message:        "",
+			},
 		}
 	} else {
 		previousVersion = existingEnvLock.EslVersion
