@@ -1767,17 +1767,27 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	fs := state.Filesystem
 
 	foundTeam := false
-	if apps, err := state.GetApplicationsFromFile(); err == nil {
+
+	if apps, err := state.GetApplications(ctx, transaction); err == nil {
 		for _, currentApp := range apps {
-			currentTeamFile := fs.Join("applications", currentApp, "team")
-			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
-				if c.Team == string(currentTeamName) {
+			currentTeamName, err := state.GetTeamName(ctx, transaction, currentApp)
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
+			} else {
+				if c.Team == currentTeamName {
 					foundTeam = true
 					break
 				}
-			} else {
-				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
 			}
+			//currentTeamFile := fs.Join("applications", currentApp, "team")
+			//if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
+			//	if c.Team == string(currentTeamName) {
+			//		foundTeam = true
+			//		break
+			//	}
+			//} else {
+			//	logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
+			//}
 		}
 	}
 	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
@@ -2402,7 +2412,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 		return apps, appVersions, nil
 	}
 	if upstreamLatest {
-		apps, err = state.GetApplicationsFromFile()
+		apps, err = state.GetApplications(ctx, transaction)
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
 		}
@@ -2826,7 +2836,7 @@ func (c *envReleaseTrain) prognosis(
 			continue
 		}
 
-		teamName, err := state.GetTeamName(appName)
+		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
 			teamLocks, err := state.GetEnvironmentTeamLocks(c.Env, teamName)
@@ -2905,7 +2915,7 @@ func (c *envReleaseTrain) Transform(
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(ctx, c.Env, appName, transaction)
-		teamName, _ := state.GetTeamName(appName)
+		teamName, _ := state.GetTeamName(ctx, transaction, appName)
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
 			return fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)

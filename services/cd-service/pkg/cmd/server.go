@@ -324,7 +324,7 @@ func RunServer() {
 				for i := range result {
 					app := result[i]
 
-					team, err := repo.State().GetTeamName(app)
+					team, err := repo.State().GetTeamNameFromManifest(app)
 					if err != nil {
 						// some apps do not have teams, that's not an error
 						teamByAppName[app] = ""

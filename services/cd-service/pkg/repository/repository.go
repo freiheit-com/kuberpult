@@ -1846,7 +1846,11 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 	}
 }
 
-func (s *State) GetTeamName(application string) (string, error) {
+func (s *State) GetTeamName(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
+	return s.GetApplicationTeamOwner(ctx, transaction, application)
+}
+
+func (s *State) GetTeamNameFromManifest(application string) (string, error) {
 	fs := s.Filesystem
 
 	teamFilePath := fs.Join("applications", application, "team")
@@ -1994,6 +1998,22 @@ func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql
 // GetApplicationsFromFile returns all apps that exist in any env
 func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
+}
+
+// GetApplicationsFromFile returns all apps that exist in any env
+func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		if applications == nil {
+			return make([]string, 0), nil
+		}
+		return applications.Apps, nil
+	} else {
+		return s.GetApplicationsFromFile()
+	}
 }
 
 // GetCurrentlyDeployed returns all apps that have current deployments on any env from the filesystem

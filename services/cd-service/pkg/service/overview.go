@@ -158,7 +158,7 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 
 				for _, appName := range apps {
-					teamName, err := s.GetTeamName(appName)
+					teamName, err := s.GetTeamName(ctx, transaction, appName)
 					app := api.Environment_Application{
 						Version:         0,
 						QueuedVersion:   0,
@@ -261,7 +261,7 @@ func (o *OverviewServiceServer) getOverview(
 			envInGroup.Applications = env.Applications
 		}
 	}
-	if apps, err := s.GetApplicationsFromFile(); err != nil {
+	if apps, err := s.GetApplications(ctx, transaction); err != nil {
 		return nil, err
 	} else {
 		for _, appName := range apps {
