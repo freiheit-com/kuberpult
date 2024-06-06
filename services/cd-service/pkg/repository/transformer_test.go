@@ -430,7 +430,6 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 					SourceCommitId:  "cafe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2",
 					SourceAuthor:    "best Author",
 					SourceMessage:   "smart message",
-					SourceRepoUrl:   "",
 					Team:            "",
 					DisplayVersion:  "",
 					WriteCommitData: true,
