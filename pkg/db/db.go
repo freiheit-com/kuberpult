@@ -849,7 +849,7 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 			allEnvLocksDb = nil
 		}
 		if allEnvLocksDb != nil {
-			l.Warnf("There are already environment locks in the DB - skipping migrations")
+			l.Infof("There are already environment locks in the DB - skipping migrations")
 			return nil
 		}
 
