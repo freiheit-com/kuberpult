@@ -1266,7 +1266,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 		}
 	}(rows)
 	//Get the latest change to each lock
-	for id := range lockIDs {
+	for _, id := range lockIDs {
 		//Get the latest change to
 		var err error
 		selectQuery := h.AdaptQuery(
@@ -1275,7 +1275,6 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 				" WHERE envName=? AND lockID=? " +
 				" ORDER BY eslVersion DESC " +
 				" LIMIT 1;")
-
 		rows, err = tx.QueryContext(ctx, selectQuery, environment, id)
 		if err != nil {
 			return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w\n", err)
