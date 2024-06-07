@@ -70,7 +70,7 @@ func (o *VersionServiceServer) GetVersion(
 			return nil, err
 		}
 		res.DeployedAt = timestamppb.New(deployedAt)
-		release, err := state.GetApplicationRelease(in.Application, *version)
+		release, err := state.GetApplicationReleaseFromManifest(in.Application, *version)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +112,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 			return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
 		}
 	}
-	repoRelease, err := state.GetApplicationRelease(req.Application, release)
+	repoRelease, err := state.GetApplicationReleaseFromManifest(req.Application, release)
 	if err != nil {
 		return nil, wrapError("release", err)
 	}

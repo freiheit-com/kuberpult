@@ -4538,7 +4538,7 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 3, actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
@@ -4564,7 +4564,7 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
@@ -4590,13 +4590,13 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
 					}
 					checkReleaseDoesNotExists := func(v uint64) {
-						release, err := s.GetApplicationRelease("test", v)
+						release, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err == nil {
 							t.Fatalf("expected release to not exist. release: %d, actual: %d", v, release.Version)
 						} else {
@@ -5036,7 +5036,7 @@ func TestTransformer(t *testing.T) {
 				}
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationRelease("test", 1)
+					rel, err := s.GetApplicationReleaseFromManifest("test", 1)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5073,7 +5073,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationRelease("test", 1)
+					rel, err := s.GetApplicationReleaseFromManifest("test", 1)
 					if err != nil {
 						t.Fatal(err)
 					}

@@ -494,21 +494,6 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		for env := range c.Manifests {
-			manifest := c.Manifests[env]
-			release := db.DBReleaseWithMetaData{
-				EslId:         0,
-				ReleaseNumber: version,
-				App:           c.Application,
-				Env:           env,
-				Manifest:      manifest,
-				Metadata:      db.DBReleaseMetaData{},
-			}
-			err := state.DBHandler.DBInsertRelease(ctx, transaction, release, db.InitialEslId-1)
-			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
 	} else {
 		if c.SourceCommitId != "" {
 			c.SourceCommitId = strings.ToLower(c.SourceCommitId)
@@ -603,11 +588,31 @@ func (c *CreateApplicationVersion) Transform(
 			hasUpstream = config.Upstream != nil
 		}
 
-		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+		if state.DBHandler.ShouldUseOtherTables() {
+			release := db.DBReleaseWithMetaData{
+				EslId:         0,
+				ReleaseNumber: version,
+				App:           c.Application,
+				Env:           env,
+				Manifest:      man,
+				Metadata: db.DBReleaseMetaData{
+					SourceAuthor:   c.SourceAuthor,
+					SourceCommitId: c.SourceCommitId,
+					SourceMessage:  c.SourceMessage,
+					DisplayVersion: c.DisplayVersion,
+				},
+			}
+			err := state.DBHandler.DBInsertRelease(ctx, transaction, release, db.InitialEslId-1)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		} else {
+			if err = fs.MkdirAll(envDir, 0777); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
 		}
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
@@ -749,6 +754,9 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
 	bfs := state.Filesystem
 	if c.Version == 0 {
+		if state.DBHandler.ShouldUseOtherTables() {
+			return 0, fmt.Errorf("version is required when using the database")
+		}
 		lastRelease, err := GetLastRelease(bfs, c.Application)
 		if err != nil {
 			return 0, err
@@ -1991,19 +1999,28 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 	fs := state.Filesystem
-	// Check that the release exist and fetch manifest
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
-	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
+
 	var manifestContent []byte
-	if file, err := fs.Open(manifest); err != nil {
-		return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
-	} else {
-		if content, err := io.ReadAll(file); err != nil {
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
+	if state.DBHandler.ShouldUseOtherTables() {
+		version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Environment, c.Version)
+		if err != nil {
 			return "", err
-		} else {
-			manifestContent = content
 		}
-		file.Close()
+		manifestContent = []byte(version.Manifest)
+	} else {
+		// Check that the release exist and fetch manifest
+		manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
+		if file, err := fs.Open(manifest); err != nil {
+			return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
+		} else {
+			if content, err := io.ReadAll(file); err != nil {
+				return "", err
+			} else {
+				manifestContent = content
+			}
+			file.Close()
+		}
 	}
 	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {

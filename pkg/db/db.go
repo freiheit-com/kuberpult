@@ -429,6 +429,9 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 }
 
 // RELEASES
+// Releases work a bit different, because they are already immutable.
+// We still store the eslId for consistency with other tables,
+// but technically it's not required here.
 
 type DBRelease struct {
 	EslId EslId
@@ -446,6 +449,7 @@ type DBReleaseMetaData struct {
 type DBReleaseWithMetaData struct {
 	EslId         EslId
 	ReleaseNumber uint64
+	Created       time.Time
 	App           string
 	Env           string
 	Manifest      string
@@ -454,7 +458,7 @@ type DBReleaseWithMetaData struct {
 
 func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, envName, metadata, manifest, releaseVersion " +
+		"SELECT eslVersion, created, appName, envName, metadata, manifest, releaseVersion " +
 			" FROM releases " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
@@ -466,7 +470,7 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, env string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, envName, metadata, manifest, releaseVersion " +
+		"SELECT eslVersion, created, appName, envName, metadata, manifest, releaseVersion " +
 			" FROM releases " +
 			" WHERE appName=? AND envName=? AND releaseVersion=?" +
 			" ORDER BY eslVersion ASC " +
@@ -476,6 +480,24 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 		selectQuery,
 		app,
 		env,
+		releaseVersion,
+	)
+	return h.processReleaseRow(ctx, err, rows)
+}
+
+// DBSelectReleaseByVersionAnyEnv returns the first matching release
+// Releases of the same env share metadata, so it does not matter which one it returns
+func (h *DBHandler) DBSelectReleaseByVersionAnyEnv(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, envName, metadata, manifest, releaseVersion " +
+			" FROM releases " +
+			" WHERE appName=? AND releaseVersion=?" +
+			" ORDER BY eslVersion ASC " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
 		releaseVersion,
 	)
 	return h.processReleaseRow(ctx, err, rows)
@@ -495,7 +517,7 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 	var row = &DBReleaseWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
-		err := rows.Scan(&row.EslId, &row.App, &row.Env, &metadataStr, &row.Manifest, &row.ReleaseNumber)
+		err := rows.Scan(&row.EslId, &row.Created, &row.App, &row.Env, &metadataStr, &row.Manifest, &row.ReleaseNumber)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -545,8 +567,18 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		jsonToInsert,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert release for app %s and env %s into DB. Error: %w\n", release.App, release.Env, err)
+		return fmt.Errorf(
+			"could not insert release for app '%s' and env '%s' and version '%v' into DB. Error: %w\n",
+			release.App,
+			release.Env,
+			release.ReleaseNumber,
+			err)
 	}
+	logger.FromContext(ctx).Sugar().Warnf(
+		"TODO SU: inserted release:  app '%s' and env '%s' and version '%v'",
+		release.App,
+		release.Env,
+		release.ReleaseNumber)
 	return nil
 }
 
@@ -804,10 +836,10 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
-	if err != nil {
-		return err
-	}
+	//err = h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -1139,6 +1171,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 				repoRelease := releases[r]
 				dbRelease := DBReleaseWithMetaData{
 					EslId:         InitialEslId,
+					Created:       time.Now(),
 					ReleaseNumber: repoRelease.Version,
 					App:           app,
 					Env:           repoRelease.Environment,
@@ -1748,7 +1781,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		environment,
 		jsonToInsert)
 	if err != nil {
-		return fmt.Errorf("could not insert all envs into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert all env locks into DB. Error: %w\n", err)
 	}
 	return nil
 }

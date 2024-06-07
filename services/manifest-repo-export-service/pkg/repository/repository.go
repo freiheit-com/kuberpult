@@ -26,6 +26,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"io"
 	"os"
 	"path/filepath"
@@ -457,6 +458,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 	} else {
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
+		ctxWithTime := time2.WithTimeNow(ctx, time.Now())
 		for i, t := range transformers {
 			if r.DB != nil && transaction == nil {
 				applyErr := TransformerBatchApplyError{
@@ -465,7 +467,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				return nil, nil, nil, &applyErr
 			}
-			if msg, subChanges, err := RunTransformer(ctx, t, state, transaction); err != nil {
+			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
 					TransformerError: err,
 					Index:            i,
@@ -960,6 +962,36 @@ func (s *State) GetAppLocksDir(environment string, application string) string {
 func (s *State) GetTeamLocksDir(environment string, team string) string {
 	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
 }
+
+func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
+	dbLocks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
+	if err != nil {
+		return nil, err
+	}
+	var lockIds []string
+	if dbLocks != nil {
+		lockIds = dbLocks.EnvLocks
+	}
+	locks, err := s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
+
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]Lock, len(locks))
+	for _, lock := range locks {
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt: lock.Created,
+		}
+		result[lock.LockID] = genericLock
+	}
+	return result, nil
+}
+
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
 	base := s.GetEnvLocksDir(environment)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {

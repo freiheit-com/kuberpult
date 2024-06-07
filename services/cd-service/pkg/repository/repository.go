@@ -2170,7 +2170,30 @@ func (s *State) IsUndeployVersion(application string, version uint64) (bool, err
 	return true, nil
 }
 
-func (s *State) GetApplicationRelease(application string, version uint64) (*Release, error) {
+func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		env, err := s.DBHandler.DBSelectReleaseByVersionAnyEnv(ctx, transaction, application, version)
+		if err != nil {
+			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
+		}
+		if env == nil {
+			return nil, nil
+		}
+		return &Release{
+			Version:         env.ReleaseNumber,
+			UndeployVersion: false,
+			SourceAuthor:    env.Metadata.SourceAuthor,
+			SourceCommitId:  env.Metadata.SourceCommitId,
+			SourceMessage:   env.Metadata.SourceMessage,
+			CreatedAt:       env.Created,
+			DisplayVersion:  env.Metadata.DisplayVersion,
+		}, nil
+	} else {
+		return s.GetApplicationReleaseFromManifest(application, version)
+	}
+}
+
+func (s *State) GetApplicationReleaseFromManifest(application string, version uint64) (*Release, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
 	if err != nil {

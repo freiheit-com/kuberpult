@@ -37,7 +37,6 @@ import (
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
 
-	"io"
 	"io/fs"
 	"os"
 	"sort"
@@ -244,21 +243,27 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	fs := state.Filesystem
+	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
-	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	var manifestContent []byte
-	if file, err := fs.Open(manifest); err != nil {
-		return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
-	} else {
-		if content, err := io.ReadAll(file); err != nil {
-			return "", err
-		} else {
-			manifestContent = content
-		}
-		file.Close()
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Environment, c.Version)
+	if err != nil {
+		return "", err
 	}
+	manifestContent = []byte(version.Manifest)
+	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
+
+	//manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
+	//if file, err := fs.Open(manifest); err != nil {
+	//	return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
+	//} else {
+	//	if content, err := io.ReadAll(file); err != nil {
+	//		return "", err
+	//	} else {
+	//		manifestContent = content
+	//	}
+	//	file.Close()
+	//}
 
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
@@ -266,7 +271,7 @@ func (c *DeployApplicationVersion) Transform(
 			envLocks, appLocks, teamLocks map[string]Lock
 			err                           error
 		)
-		envLocks, err = state.GetEnvironmentLocks(c.Environment)
+		envLocks, err = state.GetEnvironmentLocksFromDB(ctx, transaction, c.Environment)
 		if err != nil {
 			return "", err
 		}
@@ -275,18 +280,19 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 
-		appDir := applicationDirectory(fs, c.Application)
+		//appDir := applicationDirectory(fsys, c.Application)
 
-		team, err := util.ReadFile(fs, fs.Join(appDir, "team"))
-
-		if errors.Is(err, os.ErrNotExist) {
-			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
-		} else {
-			teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, string(team))
-			if err != nil {
-				return "", err
-			}
+		teamName, err := state.GetTeamName(c.Application)
+		if err != nil {
+			return "", err
 		}
+		//team, err := util.ReadFile(fsys, fsys.Join(appDir, "team"))
+
+		teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, teamName)
+		if err != nil {
+			return "", err
+		}
+
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
@@ -306,25 +312,25 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 
-	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
-	versionFile := fs.Join(applicationDir, "version")
+	applicationDir := fsys.Join("environments", c.Environment, "applications", c.Application)
+	versionFile := fsys.Join(applicationDir, "version")
 
 	// Create a symlink to the release
-	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
+	if err := fsys.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
 	}
-	if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := fsys.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
-	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
+	if err := fsys.Symlink(fsys.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
 		return "", err
 	}
 	// Copy the manifest for argocd
-	manifestsDir := fs.Join(applicationDir, "manifests")
-	if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
+	manifestsDir := fsys.Join(applicationDir, "manifests")
+	if err := fsys.MkdirAll(manifestsDir, 0777); err != nil {
 		return "", err
 	}
-	manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
+	manifestFilename := fsys.Join(manifestsDir, "manifests.yaml")
 	// note that the manifest is empty here!
 	// but actually it's not quite empty!
 	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
@@ -332,7 +338,7 @@ func (c *DeployApplicationVersion) Transform(
 	if len(manifestContent) == 0 {
 		manifestContent = []byte(" ")
 	}
-	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
+	if err := util.WriteFile(fsys, manifestFilename, manifestContent, 0666); err != nil {
 		return "", err
 	}
 	teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
@@ -347,28 +353,21 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	logger.FromContext(ctx).Sugar().Warnf("writing deployed name...")
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(existingDeployment.Metadata.DeployedByName), 0666); err != nil {
+	if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by"), []byte(existingDeployment.Metadata.DeployedByName), 0666); err != nil {
 		return "", err
 	}
 
 	logger.FromContext(ctx).Sugar().Warnf("writing deployed email...")
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(existingDeployment.Metadata.DeployedByEmail), 0666); err != nil {
+	if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by_email"), []byte(existingDeployment.Metadata.DeployedByEmail), 0666); err != nil {
 		return "", err
 	}
 
 	logger.FromContext(ctx).Sugar().Warnf("writing deployed at...")
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(existingDeployment.Created.UTC().String()), 0666); err != nil {
+	if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_at_utc"), []byte(existingDeployment.Created.UTC().String()), 0666); err != nil {
 		return "", err
 	}
 
-	s := State{
-		Commit:                 nil,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "",
-		Filesystem:             fs,
-		DBHandler:              state.DBHandler,
-	}
-	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
+	err = state.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}
@@ -516,13 +515,10 @@ func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
 func (c *CreateApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
+	_ TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	version, err := c.calculateVersion(state)
-	if err != nil {
-		return "", err
-	}
+	version := c.Version
 	fs := state.Filesystem
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
@@ -530,7 +526,7 @@ func (c *CreateApplicationVersion) Transform(
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
-	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+	if err := fs.MkdirAll(releaseDir, 0777); err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 

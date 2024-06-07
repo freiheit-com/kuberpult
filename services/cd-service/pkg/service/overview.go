@@ -214,7 +214,7 @@ func (o *OverviewServiceServer) getOverview(
 					}
 					app.UndeployVersion = false
 					if version != nil {
-						if release, err := s.GetApplicationRelease(appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
+						if release, err := s.GetApplicationRelease(ctx, transaction, appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
 							return nil, err
 						} else if release != nil {
 							app.UndeployVersion = release.UndeployVersion
@@ -277,7 +277,7 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err
 			} else {
 				for _, id := range rels {
-					if rel, err := s.GetApplicationRelease(appName, id); err != nil {
+					if rel, err := s.GetApplicationReleaseFromManifest(appName, id); err != nil {
 						return nil, err
 					} else {
 						release := rel.ToProto()

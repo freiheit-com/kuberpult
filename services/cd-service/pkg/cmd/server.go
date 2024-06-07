@@ -343,7 +343,7 @@ func RunServer() {
 				var result = db.AllReleases{}
 				for i := range releases {
 					releaseVersion := releases[i]
-					repoRelease, err := s.GetApplicationRelease(app, releaseVersion)
+					repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
 					if err != nil {
 						return nil, fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 					}
