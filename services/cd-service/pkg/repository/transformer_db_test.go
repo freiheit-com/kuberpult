@@ -25,6 +25,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
 
@@ -422,6 +423,43 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				"l2", "l3",
 			},
 		},
+		{
+			Name: "Delete twice",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentLock{
+					Environment: env,
+					LockId:      "l1",
+					Message:     message,
+				},
+				&CreateEnvironmentLock{
+					Environment: env,
+					LockId:      "l2",
+					Message:     message,
+				},
+				&DeleteEnvironmentLock{
+					Environment: env,
+					LockId:      "l1",
+				},
+				&DeleteEnvironmentLock{
+					Environment: env,
+					LockId:      "l1",
+				},
+			},
+			expectedCommitMsg:   "",
+			shouldSucceed:       false,
+			numberExpectedLocks: 1,
+			expectedError: &TransformerBatchApplyError{
+				Index:            4,
+				TransformerError: errMatcher{"could not delete lock. The environment lock 'l1' on environment 'production' does not exist or has already been deleted"},
+			},
+			ExpectedLockIds: []string{
+				"l2",
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -447,15 +485,14 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-				if batchError != nil {
-					// Note that we cannot just `return err2` here,
-					// because it's a "TransformerBatchApplyError", not an "error"
-					return batchError
+				if diff := cmp.Diff(tc.expectedError, batchError, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
-			if err != nil {
-				t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
+
+			if err != nil && !tc.shouldSucceed {
+				return
 			}
 			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
