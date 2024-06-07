@@ -1567,8 +1567,14 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		return fmt.Errorf("Could not obtain existing environment lock: %w\n", err)
 	}
 
-	if existingEnvLock == nil || existingEnvLock.Deleted {
-		return fmt.Errorf("could not delete lock. The environment lock '%s' on environment '%s' does not exist or has already been deleted", lockID, environment)
+	if existingEnvLock == nil {
+		logger.FromContext(ctx).Sugar().Warnf("could not delete lock. The environment lock '%s' on environment '%s' does not exist", lockID, environment)
+		return nil
+	}
+
+	if existingEnvLock.Deleted == true {
+		logger.FromContext(ctx).Sugar().Warnf("could not delete lock. The environment lock '%s' on environment '%s' has already been deleted", lockID, environment)
+		return nil
 	} else {
 		previousVersion = existingEnvLock.EslVersion
 	}
