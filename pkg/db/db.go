@@ -1777,6 +1777,7 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 			Version:         row.Version,
 			Created:         row.Created,
 			Environment:     row.Environment,
+			AppName:         row.AppName,
 			AllAppLocksJson: AllAppLocksJson{AppLocks: resultJson.AppLocks},
 		}
 		err = closeRows(rows)
@@ -2099,6 +2100,7 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 		if err != nil {
 			return nil, err
 		}
+		//exhaustruct:ignore
 		var dataJson = AllAppLocksJson{}
 		err = json.Unmarshal(([]byte)(row.Data), &dataJson)
 		if err != nil {
@@ -2108,6 +2110,7 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 			Version:         row.Version,
 			Created:         row.Created,
 			Environment:     row.Environment,
+			AppName:         row.AppName,
 			AllAppLocksJson: AllAppLocksJson{AppLocks: dataJson.AppLocks}}, nil
 	}
 	err = closeRows(rows)
