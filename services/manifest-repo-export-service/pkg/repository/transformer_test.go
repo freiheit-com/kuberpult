@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"os/exec"
@@ -29,6 +30,7 @@ import (
 )
 
 const (
+	envDev        = "dev"
 	envAcceptance = "acceptance"
 )
 
@@ -46,7 +48,7 @@ func (e errMatcher) Is(err error) bool {
 }
 
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
-	migrationsPath, err := testutil.CreateMigrationsPath()
+	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
@@ -103,11 +105,19 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	return repo, remoteDir
 }
 
+type FilenameAndData struct {
+	path     string
+	fileData []byte
+}
+
 func TestTransformerWorksWithDb(t *testing.T) {
+	const appName = "myapp"
 	tcs := []struct {
 		Name          string
 		Transformers  []Transformer
 		ExpectedError error
+		ExpectedApp   *db.DBAppWithMetaData
+		ExpectedFile  *FilenameAndData
 	}{
 		{
 			// as of now we only have the DeployApplicationVersion transformer,
@@ -119,7 +129,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				&DeployApplicationVersion{
 					Authentication:  Authentication{},
 					Environment:     envAcceptance,
-					Application:     "myapp",
+					Application:     appName,
 					Version:         7,
 					LockBehaviour:   0,
 					WriteCommitData: false,
@@ -131,6 +141,45 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				"deployment failed: could not open manifest for app myapp with release 7 on env acceptance " +
 				"'applications/myapp/releases/7/environments/acceptance/manifests.yaml': " +
 				"file does not exist"},
+			ExpectedApp:  nil,
+			ExpectedFile: nil,
+		},
+		{
+			// as of now we only have the DeployApplicationVersion transformer,
+			// so we can test only this error case.
+			// As soon as we have the other transformers (especially CreateEnvironment and CreateApplicationVersion)
+			// we need to add more tests here.
+			Name: "creates a new release",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        7,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+				},
+			},
+			ExpectedError: nil,
+			ExpectedFile: &FilenameAndData{
+				path:     "/applications/" + appName + "/team",
+				fileData: []byte("team-123"),
+			},
+			ExpectedApp: &db.DBAppWithMetaData{
+				EslId: 0,
+				App:   appName,
+				Metadata: db.DBAppMetaData{
+					Team: "team-123",
+				},
+			},
 		},
 		{
 			// as of now we only have the DeployApplicationVersion and CreateEnvironmentLock transformer,
@@ -211,28 +260,36 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			ctx := context.Background()
 			dbHandler := repo.State().DBHandler
 			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-				err := repo.Apply(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
 				if err != nil {
 					return err
 				}
-				row, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, -1)
+				// actual transformer to be tested:
+				err = repo.Apply(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err
-				}
-				if row != nil {
-					t.Errorf("expected eslEvent table to be empty, but got:\n%v", row)
-				}
-				deployment, err := dbHandler.DBSelectAnyDeployment(ctx, transaction)
-				if err != nil {
-					return err
-				}
-				if deployment != nil {
-					t.Errorf("expected deployment table to be empty, but got:\n%v", deployment)
 				}
 				return nil
 			})
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			if tc.ExpectedFile != nil {
+				updatedState := repo.State()
+				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.ExpectedFile.path)
+				actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+				if err != nil {
+					t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+				}
+
+				if !cmp.Equal(actualFileData, tc.ExpectedFile.fileData) {
+					t.Fatalf("Expected '%v', got '%v'", string(tc.ExpectedFile.fileData), string(actualFileData))
+				}
 			}
 		})
 	}

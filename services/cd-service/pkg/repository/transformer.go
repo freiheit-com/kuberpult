@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/google/go-cmp/cmp"
 	"io"
 	"io/fs"
 	"os"
@@ -71,7 +73,6 @@ const (
 	fieldSourceMessage    = "source_message"
 	fieldSourceCommitId   = "source_commit_id"
 	fieldDisplayVersion   = "display_version"
-	fieldSourceRepoUrl    = "sourceRepoUrl" // urgh, inconsistent
 	fieldCreatedAt        = "created_at"
 	fieldTeam             = "team"
 	fieldNextCommidId     = "nextCommit"
@@ -357,7 +358,6 @@ type CreateApplicationVersion struct {
 	SourceCommitId  string            `json:"sourceCommitId"`
 	SourceAuthor    string            `json:"sourceCommitAuthor"`
 	SourceMessage   string            `json:"sourceCommitMessage"`
-	SourceRepoUrl   string            `json:"sourceRepoUrl"`
 	Team            string            `json:"team"`
 	DisplayVersion  string            `json:"displayVersion"`
 	WriteCommitData bool              `json:"writeCommitData"`
@@ -428,10 +428,46 @@ func (c *CreateApplicationVersion) Transform(
 		}
 
 		if !slices.Contains(allApps.Apps, c.Application) {
+			// this app is new
 			allApps.Apps = append(allApps.Apps, c.Application)
 			err := state.DBHandler.DBWriteAllApplications(ctx, transaction, allApps.Version, allApps.Apps)
 			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write all apps"))
+			}
+			err = state.DBHandler.DBInsertApplication(
+				ctx,
+				transaction,
+				c.Application,
+				db.InitialEslId,
+				db.AppStateChangeCreate,
+				db.DBAppMetaData{Team: c.Team},
+			)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app: %v", err))
+			}
+		} else {
+			// app is not new, but metadata may have changed
+			existingApp, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
+			if err != nil {
+				return "", err
+			}
+			if existingApp == nil {
+				return "", fmt.Errorf("could not find app '%s'", c.Application)
+			}
+			newMeta := db.DBAppMetaData{Team: c.Team}
+			// only update the app, if something really changed:
+			if !cmp.Equal(newMeta, existingApp.Metadata) {
+				err = state.DBHandler.DBInsertApplication(
+					ctx,
+					transaction,
+					c.Application,
+					existingApp.EslId,
+					db.AppStateChangeUpdate,
+					newMeta,
+				)
+				if err != nil {
+					return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update app: %v", err))
+				}
 			}
 		}
 	}
@@ -483,10 +519,10 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
-	if c.Team != "" {
+	if c.Team != "" && !state.DBHandler.ShouldUseOtherTables() {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
 		//team are deployed, team names simply get concatenated. Just remove the file beforehand.
 		//This bug can't be fixed because it is part of the util library
@@ -500,11 +536,8 @@ func (c *CreateApplicationVersion) Transform(
 		if err := util.WriteFile(fs, teamFileLoc, []byte(c.Team), 0666); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
-	}
-	if c.SourceRepoUrl != "" {
-		if err := util.WriteFile(fs, fs.Join(appDir, fieldSourceRepoUrl), []byte(c.SourceRepoUrl), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
+	} else {
+		logger.FromContext(ctx).Sugar().Warnf("skipping team file for team %s and should=%v", c.Team, state.DBHandler.ShouldUseOtherTables())
 	}
 	isLatest, err := isLatestsVersion(state, c.Application, version)
 	if err != nil {
@@ -561,7 +594,7 @@ func (c *CreateApplicationVersion) Transform(
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
-		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
 		}
@@ -777,16 +810,6 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
-	if c.SourceRepoUrl != "" {
-		existingSourceRepoUrl, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceCommitId))
-		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_REPO_URL, "")
-		}
-		existingSourceRepoUrlStr := string(existingSourceRepoUrl)
-		if existingSourceRepoUrlStr != c.SourceRepoUrl {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_REPO_URL, createUnifiedDiff(existingSourceRepoUrlStr, c.SourceRepoUrl, ""))
-		}
-	}
 	for env, man := range c.Manifests {
 		envDir := fs.Join(releaseDir, "environments", env)
 		existingMan, err := util.ReadFile(fs, fs.Join(envDir, "manifests.yaml"))
@@ -880,7 +903,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
 		return "", err
 	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", err
 	}
 	for env := range configs {
@@ -906,7 +929,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
 			return "", err
 		}
-		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
 		}
@@ -1050,17 +1073,27 @@ func (u *UndeployApplication) Transform(
 		}
 
 		versionDir := fs.Join(envAppDir, "version")
-		undeployFile := fs.Join(versionDir, "undeploy")
-
-		_, err = fs.Stat(versionDir)
-		if err != nil && errors.Is(err, os.ErrNotExist) {
-			// if the app was never deployed here, that's not a reason to stop
-			continue
+		if state.DBHandler.ShouldUseOtherTables() {
+			deployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, u.Application, env)
+			if err != nil {
+				return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' cannot be found", u.Application, env)
+			}
+			if deployment == nil || deployment.Version == nil {
+				// if the app was never deployed here, that's not a reason to stop
+				continue
+			}
+			return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
+		} else {
+			_, err = fs.Stat(versionDir)
+			if err != nil && errors.Is(err, os.ErrNotExist) {
+				// if the app was never deployed here, that's not a reason to stop
+				continue
+			}
 		}
-
+		undeployFile := fs.Join(versionDir, "undeploy")
 		_, err = fs.Stat(undeployFile)
 		if err != nil && errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
+			return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
 		}
 
 	}
@@ -1093,7 +1126,7 @@ func (u *UndeployApplication) Transform(
 	}
 	for env := range configs {
 		appDir := environmentApplicationDirectory(fs, env, u.Application)
-		teamOwner, err := state.GetApplicationTeamOwner(u.Application)
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, u.Application)
 		if err != nil {
 			return "", err
 		}
@@ -1112,6 +1145,14 @@ func (u *UndeployApplication) Transform(
 		err = state.DBHandler.DBWriteAllApplications(ctx, transaction, applications.Version, applications.Apps)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not write all apps '%v': '%w'", u.Application, err)
+		}
+		dbApp, err := state.DBHandler.DBSelectApp(ctx, transaction, u.Application)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
+		}
+		err = state.DBHandler.DBInsertApplication(ctx, transaction, dbApp.App, dbApp.EslId, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 		}
 	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
@@ -1426,7 +1467,7 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 	}
 
 	// write date in iso format
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedAt), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return err
 	}
 	return nil
@@ -1794,16 +1835,17 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	fs := state.Filesystem
 
 	foundTeam := false
-	if apps, err := state.GetApplicationsFromFile(); err == nil {
+
+	if apps, err := state.GetApplications(ctx, transaction); err == nil {
 		for _, currentApp := range apps {
-			currentTeamFile := fs.Join("applications", currentApp, "team")
-			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
-				if c.Team == string(currentTeamName) {
+			currentTeamName, err := state.GetTeamName(ctx, transaction, currentApp)
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
+			} else {
+				if c.Team == currentTeamName {
 					foundTeam = true
 					break
 				}
-			} else {
-				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
 			}
 		}
 	}
@@ -2173,7 +2215,7 @@ func (c *DeployApplicationVersion) Transform(
 		if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 			return "", err
 		}
-		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
 		}
@@ -2186,7 +2228,7 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 
-		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(getTimeNow(ctx).UTC().String()), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(time2.GetTimeNow(ctx).UTC().String()), 0666); err != nil {
 			return "", err
 		}
 	}
@@ -2216,16 +2258,16 @@ func (c *DeployApplicationVersion) Transform(
 		if s.DBHandler.ShouldUseOtherTables() {
 			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
 			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("getCommitIDFromReleaseDir %v", err))
-			}
-			gen := getGenerator(ctx)
-			eventUuid := gen.Generate()
+				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+			} else {
+				gen := getGenerator(ctx)
+				eventUuid := gen.Generate()
 
-			err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, eventUuid, newReleaseCommitId, c.Author, deploymentEvent)
-			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
+				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, eventUuid, newReleaseCommitId, c.Author, deploymentEvent)
+				if err != nil {
+					return "", GetCreateReleaseGeneralFailure(err)
+				}
 			}
-
 		} else {
 			if err := addEventForRelease(ctx, fs, releaseDir, deploymentEvent); err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
@@ -2260,7 +2302,8 @@ func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, release
 	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
 	if err != nil {
 		logger.FromContext(ctx).Sugar().Infof(
-			"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
+			"Error while reading source commit ID file at %s, error %w"+
+				". Deployment event not stored.",
 			commitIdPath, err)
 		return "", err
 	}
@@ -2428,7 +2471,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 		return apps, appVersions, nil
 	}
 	if upstreamLatest {
-		apps, err = state.GetApplicationsFromFile()
+		apps, err = state.GetApplications(ctx, transaction)
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
 		}
@@ -2733,7 +2776,7 @@ func (c *envReleaseTrain) prognosis(
 
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
-			if team, err := state.GetApplicationTeamOwner(appName); err != nil {
+			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:        nil,
 					Error:            err,
@@ -2852,7 +2895,7 @@ func (c *envReleaseTrain) prognosis(
 			continue
 		}
 
-		teamName, err := state.GetTeamName(appName)
+		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
 			teamLocks, err := state.GetEnvironmentTeamLocks(c.Env, teamName)
@@ -2931,7 +2974,7 @@ func (c *envReleaseTrain) Transform(
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(ctx, c.Env, appName, transaction)
-		teamName, _ := state.GetTeamName(appName)
+		teamName, _ := state.GetTeamName(ctx, transaction, appName)
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
 			return fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)

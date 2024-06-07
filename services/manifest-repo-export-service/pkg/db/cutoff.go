@@ -78,7 +78,7 @@ func DBWriteCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, eslId db.Es
 		time.Now(),
 	)
 	if err != nil {
-		return fmt.Errorf("could not query esl table from DB. Error: %w\n", err)
+		return fmt.Errorf("could not query cutoff table from DB. Error: %w\n", err)
 	}
 	return nil
 }

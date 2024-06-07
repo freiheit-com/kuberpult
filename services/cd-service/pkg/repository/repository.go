@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"io"
 	"net/http"
 	"os"
@@ -996,7 +997,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 	} else {
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
-		ctxWithTime := WithTimeNow(ctx, time.Now())
+		ctxWithTime := time2.WithTimeNow(ctx, time.Now())
 		for i, t := range transformers {
 			if r.DB != nil && transaction == nil {
 				applyErr := TransformerBatchApplyError{
@@ -1296,7 +1297,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 			if err != nil {
 				return err
 			}
-			team, err := state.GetApplicationTeamOwner(appName)
+			team, err := state.GetApplicationTeamOwner(ctx, transaction, appName)
 			if err != nil {
 				return err
 			}
@@ -1883,7 +1884,11 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 	}
 }
 
-func (s *State) GetTeamName(application string) (string, error) {
+func (s *State) GetTeamName(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
+	return s.GetApplicationTeamOwner(ctx, transaction, application)
+}
+
+func (s *State) GetTeamNameFromManifest(application string) (string, error) {
 	fs := s.Filesystem
 
 	teamFilePath := fs.Join("applications", application, "team")
@@ -2035,9 +2040,25 @@ func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transactio
 	return applications.Apps, nil
 }
 
-// GetApplicationsFromFile returns apps from the filesystem
+// GetApplicationsFromFile returns all apps that exist in any env
 func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
+}
+
+// GetApplicationsFromFile returns all apps that exist in any env
+func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		if applications == nil {
+			return make([]string, 0), nil
+		}
+		return applications.Apps, nil
+	} else {
+		return s.GetApplicationsFromFile()
+	}
 }
 
 // GetCurrentlyDeployed returns all apps that have current deployments on any env from the filesystem
@@ -2333,18 +2354,29 @@ func (s *State) GetApplicationReleaseManifests(application string, version uint6
 	return manifests, nil
 }
 
-func (s *State) GetApplicationTeamOwner(application string) (string, error) {
-	appDir := applicationDirectory(s.Filesystem, application)
-	appTeam := s.Filesystem.Join(appDir, "team")
-
-	if team, err := readFile(s.Filesystem, appTeam); err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		} else {
-			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
+func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
+		if err != nil {
+			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
 		}
+		if app == nil {
+			return "", fmt.Errorf("could not get team of app %s - could not find app", application)
+		}
+		return app.Metadata.Team, nil
 	} else {
-		return string(team), nil
+		appDir := applicationDirectory(s.Filesystem, application)
+		appTeam := s.Filesystem.Join(appDir, "team")
+
+		if team, err := readFile(s.Filesystem, appTeam); err != nil {
+			if os.IsNotExist(err) {
+				return "", nil
+			} else {
+				return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
+			}
+		} else {
+			return string(team), nil
+		}
 	}
 }
 
