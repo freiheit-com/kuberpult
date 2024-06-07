@@ -547,7 +547,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 	if applyErr != nil {
 		return nil, applyErr
 	}
-	if err := r.afterTransform(ctx, *state); err != nil {
+	if err := r.afterTransform(ctx, transaction, *state); err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
@@ -705,7 +705,7 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	)
 }
 
-func (r *repository) afterTransform(ctx context.Context, state State) error {
+func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
@@ -715,7 +715,7 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 	}
 	for env, config := range configs {
 		if config.ArgoCd != nil {
-			err := r.updateArgoCdApps(ctx, &state, env, config)
+			err := r.updateArgoCdApps(ctx, transaction, &state, env, config)
 			if err != nil {
 				return err
 			}
@@ -724,7 +724,7 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 	return nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env string, config config.EnvironmentConfig) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	fs := state.Filesystem
@@ -739,9 +739,10 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 			if err != nil {
 				return err
 			}
-			team, err := state.GetApplicationTeamOwner(appName)
+			//team, err := state.DBHandler.DBSelectApp().GetApplicationTeamOwner(ctx, transaction, appName)
+			oneAppData, err := state.DBHandler.DBSelectApp(ctx, transaction, appName)
 			if err != nil {
-				return err
+				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
 			}
 			version, err := state.GetEnvironmentApplicationVersion(env, appName)
 			if err != nil {
@@ -758,7 +759,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 			}
 			appData = append(appData, argocd.AppData{
 				AppName:  appName,
-				TeamName: team,
+				TeamName: oneAppData.Metadata.Team,
 			})
 		}
 		spanCollectData.Finish()
@@ -1431,19 +1432,15 @@ func (s *State) GetApplicationReleaseManifests(application string, version uint6
 	return manifests, nil
 }
 
-func (s *State) GetApplicationTeamOwner(application string) (string, error) {
-	appDir := applicationDirectory(s.Filesystem, application)
-	appTeam := s.Filesystem.Join(appDir, "team")
-
-	if team, err := readFile(s.Filesystem, appTeam); err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		} else {
-			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
-		}
-	} else {
-		return string(team), nil
+func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
+	app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
+	if err != nil {
+		return "", fmt.Errorf("could not get team of app '%s': %v", application, err)
 	}
+	if app == nil {
+		return "", fmt.Errorf("could not get team of app '%s' - could not find app", application)
+	}
+	return app.Metadata.Team, nil
 }
 
 func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) {

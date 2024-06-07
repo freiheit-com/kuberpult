@@ -88,7 +88,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *db.DBHandler {
-	dir, err := testutil.CreateMigrationsPath()
+	dir, err := testutil.CreateMigrationsPath(4)
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)

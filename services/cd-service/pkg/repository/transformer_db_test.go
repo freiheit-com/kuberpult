@@ -21,10 +21,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
@@ -65,7 +67,6 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			SourceCommitId:  "",
 			SourceAuthor:    "",
 			SourceMessage:   "",
-			SourceRepoUrl:   "",
 			Team:            "myteam",
 			DisplayVersion:  "",
 			WriteCommitData: false,
@@ -109,7 +110,6 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		expectedEventJson string
 		dataType          interface{}
 	}{
-
 		// each transformer should appear here once:
 		{
 			Name: "CreateApplicationVersion",
@@ -121,8 +121,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				SourceCommitId:  "",
 				SourceAuthor:    "",
 				SourceMessage:   "",
-				SourceRepoUrl:   "",
-				Team:            "dummyteam",
+				Team:            "myteam",
 				DisplayVersion:  "",
 				WriteCommitData: false,
 				PreviousCommit:  "",
@@ -276,7 +275,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 	}
 
-	dir, err := testutil.CreateMigrationsPath()
+	dir, err := testutil.CreateMigrationsPath(2)
 	if err != nil {
 		t.Fatalf("setup error could not detect dir \n%v", err)
 		return
@@ -287,14 +286,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
-			cfg := db.DBConfig{
-				MigrationsPath: dir,
-				DriverName:     "sqlite3",
-			}
-			repo, err := setupRepositoryTestWithDB(t, &cfg)
-			if err != nil {
-				t.Errorf("setup error\n%v", err)
-			}
+			repo := SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			row := &db.EslEventRow{}
 			err = repo.Apply(ctx, setupTransformers...)
@@ -456,16 +448,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
 			var err error = nil
-			migrationsPath, err := testutil.CreateMigrationsPath()
-			if err != nil {
-				t.Fatalf("CreateMigrationsPath error: %v", err)
-			}
-
-			cfg := db.DBConfig{
-				MigrationsPath: migrationsPath,
-				DriverName:     "sqlite3",
-			}
-			repo, _ = setupRepositoryTestWithDB(t, &cfg)
+			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError = nil
@@ -497,6 +480,131 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			}
 			if diff := cmp.Diff(tc.ExpectedLockIds, locks.EnvLocks); diff != "" {
 				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCreateApplicationVersionDB(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedDbContent *db.DBAppWithMetaData
+	}{
+		{
+			Name: "create one version",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				EslId:       2,
+				App:         "app1",
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "",
+				},
+			},
+		},
+		{
+			Name: "create two versions, same team",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "noteam",
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "noteam",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				EslId:       2, // even when CreateApplicationVersion is called twice, we still write the app only once
+				App:         "app1",
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "noteam",
+				},
+			},
+		},
+		{
+			Name: "create two versions, different teams",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "old",
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "new",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				EslId:       3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
+				App:         "app1",
+				StateChange: db.AppStateChangeUpdate,
+				Metadata: db.DBAppMetaData{
+					Team: "new",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, tc.expectedDbContent.App)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedDbContent, res); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
 			}
 		})
 	}

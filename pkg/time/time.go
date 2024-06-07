@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package repository
+package time
 
 import (
 	"context"
@@ -27,7 +27,7 @@ var (
 	ctxMarkerKey = &ctxMarker{}
 )
 
-func getTimeNow(ctx context.Context) time.Time {
+func GetTimeNow(ctx context.Context) time.Time {
 	t, ok := ctx.Value(ctxMarkerKey).(time.Time)
 	if !ok {
 		panic("no time in context")

@@ -4,7 +4,6 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
-      - KUBERPULT_DB_ENABLED=true
       - KUBERPULT_DB_LOCATION=/kp/database
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/sqlite/
       - KUBERPULT_DB_OPTION=sqlite
