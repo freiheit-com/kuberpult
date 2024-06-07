@@ -486,12 +486,14 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if diff := cmp.Diff(tc.expectedError, batchError, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
-
-			if err != nil && !tc.shouldSucceed {
+			if err != nil {
+				if tc.shouldSucceed {
+					t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
+				}
 				return
 			}
 			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
