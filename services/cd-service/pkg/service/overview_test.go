@@ -247,7 +247,6 @@ func TestOverviewService(t *testing.T) {
 					SourceAuthor:   "example <example@example.com>",
 					SourceCommitId: "deadbeef",
 					SourceMessage:  "changed something (#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-team",
@@ -264,7 +263,6 @@ func TestOverviewService(t *testing.T) {
 					SourceAuthor:   "example <example@example.com>",
 					SourceCommitId: "deadbeef",
 					SourceMessage:  "changed something (#678",
-					SourceRepoUrl:  "testing@testing.com/abc",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-only-pr-number",
@@ -274,7 +272,6 @@ func TestOverviewService(t *testing.T) {
 					SourceAuthor:   "example <example@example.com>",
 					SourceCommitId: "deadbeef",
 					SourceMessage:  "(#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
 				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
@@ -660,7 +657,6 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "deadbeef",
 						SourceMessage:  "changed something (#678)",
-						SourceRepoUrl:  "testing@testing.com/abc",
 					},
 				},
 				{
@@ -681,7 +677,6 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "deadbeef",
 						SourceMessage:  "changed something (#678",
-						SourceRepoUrl:  "testing@testing.com/abc",
 					},
 				},
 				{
@@ -693,7 +688,6 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "deadbeef",
 						SourceMessage:  "(#678)",
-						SourceRepoUrl:  "testing@testing.com/abc",
 					},
 				},
 				{
