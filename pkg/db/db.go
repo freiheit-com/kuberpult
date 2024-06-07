@@ -545,7 +545,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		jsonToInsert,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert release into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert release for app %s and env %s into DB. Error: %w\n", release.App, release.Env, err)
 	}
 	return nil
 }

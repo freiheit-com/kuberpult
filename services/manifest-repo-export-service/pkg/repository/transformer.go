@@ -24,6 +24,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -543,6 +544,36 @@ func (c *CreateApplicationVersion) Transform(
 
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
+
+	///
+
+	if c.SourceCommitId != "" {
+		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
+	if c.SourceAuthor != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+	if c.SourceMessage != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+	if c.DisplayVersion != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+		return "", GetCreateReleaseGeneralFailure(err)
+	}
+
+	///
 
 	if c.Team != "" {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same

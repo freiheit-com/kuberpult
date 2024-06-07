@@ -493,30 +493,49 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	if c.SourceCommitId != "" {
-		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+	if state.DBHandler.ShouldUseOtherTables() {
+		for env := range c.Manifests {
+			manifest := c.Manifests[env]
+			release := db.DBReleaseWithMetaData{
+				EslId:         0,
+				ReleaseNumber: version,
+				App:           c.Application,
+				Env:           env,
+				Manifest:      manifest,
+				Metadata:      db.DBReleaseMetaData{},
+			}
+			err := state.DBHandler.DBInsertRelease(ctx, transaction, release, db.InitialEslId-1)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
 		}
-	}
+	} else {
+		if c.SourceCommitId != "" {
+			c.SourceCommitId = strings.ToLower(c.SourceCommitId)
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
 
-	if c.SourceAuthor != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
+		if c.SourceAuthor != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if c.SourceMessage != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if c.DisplayVersion != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
-	}
-	if c.SourceMessage != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if c.DisplayVersion != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
+
 	}
 	if c.Team != "" && !state.DBHandler.ShouldUseOtherTables() {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
