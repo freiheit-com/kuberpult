@@ -364,7 +364,9 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			}
 			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
-	}
+	} else {
+		row = nil
+	} 
 	err = closeRows(rows)
 	if err != nil {
 		return nil, err
