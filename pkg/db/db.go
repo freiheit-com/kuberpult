@@ -1063,7 +1063,7 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLocksFun GetAllAppLocksFun) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
-		allAppLocksDb, err := h.DBSelectAnyAppLock(ctx, transaction)
+		allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
 		if err != nil {
 			l.Infof("could not get application locks from database - assuming the manifest repo is correct: %v", err)
 			allAppLocksDb = nil
@@ -2059,17 +2059,15 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 	return nil
 }
 
-func (h *DBHandler) DBSelectAnyAppLock(ctx context.Context, tx *sql.Tx) (*DBApplicationLock, error) {
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, lockID, envName, appName, metadata, deleted" +
-			" FROM application_locks " +
-			" LIMIT 1;"))
+func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*AllAppLocksGo, error) {
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, appName, json FROM all_app_locks ORDER BY version DESC LIMIT 1;")
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query applications_locks table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query application_locks table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -2079,9 +2077,9 @@ func (h *DBHandler) DBSelectAnyAppLock(ctx context.Context, tx *sql.Tx) (*DBAppl
 	}(rows)
 
 	//exhaustruct:ignore
-	var row = DBApplicationLock{}
+	var row = AllAppLocksRow{}
 	if rows.Next() {
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.App, &row.Metadata, &row.Deleted)
+		err := rows.Scan(&row.Version, &row.Created, &row.Environment, &row.AppName, &row.Data)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -2092,7 +2090,16 @@ func (h *DBHandler) DBSelectAnyAppLock(ctx context.Context, tx *sql.Tx) (*DBAppl
 		if err != nil {
 			return nil, err
 		}
-		return &row, nil
+		var dataJson = AllAppLocksJson{}
+		err = json.Unmarshal(([]byte)(row.Data), &dataJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error unmarshalling error. Error: %w\n", err)
+		}
+		return &AllAppLocksGo{
+			Version:         row.Version,
+			Created:         row.Created,
+			Environment:     row.Environment,
+			AllAppLocksJson: AllAppLocksJson{AppLocks: dataJson.AppLocks}}, nil
 	}
 	err = closeRows(rows)
 	if err != nil {
