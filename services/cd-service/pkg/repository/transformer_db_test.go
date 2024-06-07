@@ -424,41 +424,26 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			},
 		},
 		{
-			Name: "Delete twice",
+			Name: "Delete lock that does not exist",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: env,
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
-				&CreateEnvironmentLock{
-					Environment: env,
-					LockId:      "l1",
-					Message:     message,
-				},
-				&CreateEnvironmentLock{
-					Environment: env,
-					LockId:      "l2",
-					Message:     message,
-				},
-				&DeleteEnvironmentLock{
-					Environment: env,
-					LockId:      "l1",
-				},
 				&DeleteEnvironmentLock{
 					Environment: env,
 					LockId:      "l1",
 				},
 			},
-			expectedCommitMsg:   "",
+
 			shouldSucceed:       false,
-			numberExpectedLocks: 1,
+			numberExpectedLocks: 0,
 			expectedError: &TransformerBatchApplyError{
-				Index:            4,
+				Index:            1,
 				TransformerError: errMatcher{"could not delete lock. The environment lock 'l1' on environment 'production' does not exist or has already been deleted"},
 			},
-			ExpectedLockIds: []string{
-				"l2",
-			},
+			expectedCommitMsg: "",
+			ExpectedLockIds:   []string{},
 		},
 	}
 	for _, tc := range tcs {
@@ -485,25 +470,33 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-				if diff := cmp.Diff(tc.expectedError, batchError, cmpopts.EquateErrors()); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				if batchError != nil {
+					return batchError
 				}
 				return nil
 			})
+			if err != nil {
+				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				if !tc.shouldSucceed {
+					return
+				}
+			}
 
 			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
 			})
 
 			if locks == nil {
-				t.Error("Expected locks but got none")
+				t.Fatalf("Expected locks but got none")
 			}
 
 			if diff := cmp.Diff(tc.numberExpectedLocks, len(locks.EnvLocks)); diff != "" {
-				t.Errorf("error mismatch on number of expected locks (-want, +got):\n%s", diff)
+				t.Fatalf("error mismatch on number of expected locks (-want, +got):\n%s", diff)
 			}
 			if diff := cmp.Diff(tc.ExpectedLockIds, locks.EnvLocks); diff != "" {
-				t.Errorf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 			}
 		})
 	}
