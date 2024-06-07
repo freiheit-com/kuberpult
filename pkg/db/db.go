@@ -665,6 +665,10 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
+	err = h.RunCustomMigrationTeamLocks(ctx, getAllAppLocksFun)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1062,6 +1066,46 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 }
 
 func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLocksFun GetAllAppLocksFun) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		l := logger.FromContext(ctx).Sugar()
+		allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
+		if err != nil {
+			l.Infof("could not get application locks from database - assuming the manifest repo is correct: %v", err)
+			allAppLocksDb = nil
+		}
+		if allAppLocksDb != nil {
+			l.Infof("There are already application locks in the DB - skipping migrations")
+			return nil
+		}
+
+		allAppLocksInRepo, err := getAllAppLocksFun(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not get current environment locks to run custom migrations: %v", err)
+		}
+
+		for envName, apps := range allAppLocksInRepo {
+			for appName, currentAppLocks := range apps {
+				var activeLockIds []string
+				for _, currentLock := range currentAppLocks {
+					activeLockIds = append(activeLockIds, currentLock.LockID)
+					err = h.DBWriteApplicationLockInternal(ctx, transaction, currentLock, 0, true)
+					if err != nil {
+						return fmt.Errorf("error writing application locks to DB for application '%s' on '%s': %v",
+							appName, envName, err)
+					}
+				}
+				err := h.DBWriteAllAppLocks(ctx, transaction, 0, envName, appName, activeLockIds)
+				if err != nil {
+					return fmt.Errorf("error writing existing locks to DB for application '%s' on environment '%s': %v",
+						appName, envName, err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamLocksFun GetAllAppLocksFun) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
@@ -2189,4 +2233,45 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 		return nil, err
 	}
 	return envLocks, nil
+}
+
+type AllTeamLocksJson struct {
+	TeamLocks []string `json:"teamLocks"`
+}
+
+type AllTeamLocksRow struct {
+	Version     int64
+	Created     time.Time
+	Environment string
+	Team        string
+	Data        string
+}
+
+type AllTeamLocksGo struct {
+	Version     int64
+	Created     time.Time
+	Environment string
+	Team        string
+	AllTeamLocksJson
+}
+
+type TeamLock struct {
+	EslVersion EslId
+	Created    time.Time
+	LockID     string
+	Env        string
+	Team       string
+	Deleted    bool
+	Metadata   LockMetadata
+}
+
+// DBTeamLock Just used to fetch info from DB
+type DBTeamLock struct {
+	EslVersion EslId
+	Created    time.Time
+	LockID     string
+	Env        string
+	TeamName   string
+	Deleted    bool
+	Metadata   string
 }
