@@ -569,8 +569,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		return "", err
 	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		//Failing to remove is not considered an error
-		return fmt.Sprintf("failed to delete directory %q: %w. Proceeding.", lockDir, err), nil
+		return "", fmt.Errorf("failed to delete directory %q: %w.", lockDir, err)
 	}
 	s := State{
 		Commit:                 nil,
