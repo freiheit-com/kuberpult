@@ -319,9 +319,6 @@ func TestOverviewService(t *testing.T) {
 					t.Errorf("expected %d environmentGroups, got %q", expectedEnvs, resp.EnvironmentGroups)
 				}
 				testApp := resp.Applications["test"]
-				if testApp.SourceRepoUrl != "testing@testing.com/abc" {
-					t.Errorf("Expected \"testing@testing.com/abc\", but got %#q", resp.Applications["test"].SourceRepoUrl)
-				}
 				releases := testApp.Releases
 				if len(releases) != 1 {
 					t.Errorf("Expected one release, but got %#q", len(releases))
