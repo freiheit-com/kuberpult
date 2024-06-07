@@ -750,10 +750,10 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 			logger.FromContext(ctx).Sugar().Warnf("deployments row could not be closed: %v", err)
 		}
 	}(rows)
+	//exhaustruct:ignore
+	var row = &DBDeployment{}
 	if rows.Next() {
 		var releaseVersion sql.NullInt64
-		//exhaustruct:ignore
-		var row = DBDeployment{}
 		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -764,17 +764,14 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 		if releaseVersion.Valid {
 			row.ReleaseVersion = &releaseVersion.Int64
 		}
-		return &row, nil
+	} else {
+		row = nil
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("row closing error: %v\n", err)
+		return nil, err
 	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("row has error: %v\n", err)
-	}
-	return nil, nil // no rows, but also no error
+	return row, nil
 }
 
 type DBApp struct {
@@ -787,9 +784,10 @@ type DBAppMetaData struct {
 }
 
 type DBAppWithMetaData struct {
-	EslId    EslId
-	App      string
-	Metadata DBAppMetaData
+	EslId       EslId
+	App         string
+	Metadata    DBAppMetaData
+	StateChange AppStateChange
 }
 
 func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslId, stateChange AppStateChange, metaData DBAppMetaData) error {
@@ -870,20 +868,16 @@ func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithM
 	} else {
 		row = nil
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("apps row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("apps row has error: %v\n", err)
+		return nil, err
 	}
 	return row, nil
 }
 
 func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, metadata " +
+		"SELECT eslVersion, appName, stateChange, metadata" +
 			" FROM apps " +
 			" WHERE appName=? " +
 			" ORDER BY eslVersion DESC " +
@@ -907,7 +901,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
-		err := rows.Scan(&row.EslId, &row.App, &metadataStr)
+		err := rows.Scan(&row.EslId, &row.App, &row.StateChange, &metadataStr)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -923,13 +917,9 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	} else {
 		row = nil
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("apps row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("apps row has error: %v\n", err)
+		return nil, err
 	}
 	return row, nil
 }
