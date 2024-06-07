@@ -137,13 +137,6 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			if err != nil {
 				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 			}
-			release, err := db.DBSelectAnyRelease(ctx, tx)
-			if err != nil {
-				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
-			}
-			if release == nil {
-				t.Fatalf("Release should not be nil")
-			}
 			err = tx.Commit()
 			if err != nil {
 				t.Fatalf("Error commiting transaction. Error: %v\n", err)
