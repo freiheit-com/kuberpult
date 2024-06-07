@@ -525,6 +525,14 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 
 	lock, err := state.DBHandler.DBSelectAppLock(ctx, transaction, c.Environment, c.Application, c.LockId)
 
+	if err != nil {
+		return "", err
+	}
+
+	if lock == nil {
+		return "", fmt.Errorf("no application lock found to create with lock id '%s', for application '%s' on environment '%s'.\n", c.LockId, c.Application, c.Environment)
+	}
+
 	chroot, err := fs.Chroot(appDir)
 	if err != nil {
 		return "", err
