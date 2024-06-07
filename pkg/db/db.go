@@ -1161,48 +1161,6 @@ func (h *DBHandler) DBSelectAnyActiveLocks(ctx context.Context, tx *sql.Tx) (*Al
 	return nil, nil // no rows, but also no error
 }
 
-func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvironmentLock, error) {
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
-			" FROM environment_locks " +
-			" LIMIT 1;"))
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not query environment_locks table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
-	//exhaustruct:ignore
-	var row = DBEnvironmentLock{}
-	if rows.Next() {
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.Metadata, &row.Deleted)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning environment lock row from DB. Error: %w\n", err)
-		}
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		return &row, nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil // no rows, but also no error
-}
-
 func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) (*EnvironmentLock, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
