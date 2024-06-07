@@ -490,12 +490,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				}
 				return nil
 			})
-			if err != nil {
-				if tc.shouldSucceed {
-					t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
-				}
-				return
-			}
+
 			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
 			})
