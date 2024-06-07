@@ -482,7 +482,7 @@ func (c *DeleteEnvironmentLock) Transform(
 	}
 
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Sprintf("failed to delete directory %q: %w. Proceeding.", lockDir, err), nil
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	}
 	if err := s.DeleteEnvLockIfEmpty(ctx, c.Environment); err != nil {
 		return "", err
