@@ -1017,7 +1017,7 @@ type EventRow struct {
 func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLocksFun GetAllEnvLocksFun) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
-		allEnvLocksDb, err := h.DBSelectAnyEnvLock(ctx, transaction)
+		allEnvLocksDb, err := h.DBSelectAnyActiveLocks(ctx, transaction)
 		if err != nil {
 			l.Infof("could not get environment locks from database - assuming the manifest repo is correct: %v", err)
 			allEnvLocksDb = nil
@@ -1036,15 +1036,16 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 			var activeLockIds []string
 			for _, currentLock := range locks {
 				activeLockIds = append(activeLockIds, currentLock.LockID)
+
 				err = h.DBWriteEnvironmentLockInternal(ctx, transaction, currentLock, 0, true)
 				if err != nil {
 					return fmt.Errorf("error writing environment locks to DB for environment %s: %v",
 						envName, err)
 				}
 			}
-			err := h.DBWriteAllEnvironmentLocks(ctx, transaction, 0, envName, activeLockIds)
+			err = h.DBWriteAllEnvironmentLocks(ctx, transaction, 0, envName, activeLockIds)
 			if err != nil {
-				return fmt.Errorf("error writing environment locks ids to DB for environment %s: %v",
+				return fmt.Errorf("error writing environment locks ids from DB for environment %s: %v",
 					envName, err)
 			}
 		}
@@ -1114,6 +1115,52 @@ func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun Ge
 	})
 }
 
+func (h *DBHandler) DBSelectAnyActiveLocks(ctx context.Context, tx *sql.Tx) (*AllEnvLocksGo, error) {
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, json FROM all_env_locks ORDER BY version DESC LIMIT 1;")
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query environment_locks table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	//exhaustruct:ignore
+	var row = AllEnvLocksRow{}
+	if rows.Next() {
+		err := rows.Scan(&row.Version, &row.Created, &row.Environment, &row.Data)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning environment lock row from DB. Error: %w\n", err)
+		}
+		err = closeRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		var dataJson = AllEnvLocksJson{}
+		err = json.Unmarshal(([]byte)(row.Data), &dataJson)
+		return &AllEnvLocksGo{
+			Version:         row.Version,
+			Created:         row.Created,
+			Environment:     row.Environment,
+			AllEnvLocksJson: AllEnvLocksJson{EnvLocks: dataJson.EnvLocks}}, nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil // no rows, but also no error
+}
+
 func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvironmentLock, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
@@ -1154,7 +1201,6 @@ func (h *DBHandler) DBSelectAnyEnvLock(ctx context.Context, tx *sql.Tx) (*DBEnvi
 		return nil, err
 	}
 	return nil, nil // no rows, but also no error
-
 }
 
 func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) (*EnvironmentLock, error) {
