@@ -1146,6 +1146,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 		if err != nil {
 			return nil, err
 		}
+		//exhaustruct:ignore
 		var dataJson = AllEnvLocksJson{}
 		err = json.Unmarshal(([]byte)(row.Data), &dataJson)
 		if err != nil {
