@@ -128,14 +128,12 @@ func (s *State) GetEnvironmentLocksCount(ctx context.Context, env string) (float
 	return float64(len(locks)), nil
 }
 
-func GetEnvironmentApplicationLocksCount(fs billy.Filesystem, environment, application string) float64 {
-	envAppLocksCount := 0
-	appDir := environmentApplicationDirectory(fs, environment, application)
-	locksDir := fs.Join(appDir, "locks")
-	if entries, _ := fs.ReadDir(locksDir); entries != nil {
-		envAppLocksCount += len(entries)
+func (s *State) GetEnvironmentApplicationLocksCount(ctx context.Context, environment, application string) (float64, error) {
+	locks, err := s.GetEnvironmentApplicationLocks(ctx, environment, application)
+	if err != nil {
+		return -1, err
 	}
-	return float64(envAppLocksCount)
+	return float64(len(locks)), nil
 }
 
 func GaugeEnvLockMetric(ctx context.Context, s *State, env string) {
@@ -150,10 +148,16 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, env string) {
 		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1) //nolint: errcheck
 	}
 }
-
-func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
+func GaugeEnvAppLockMetric(ctx context.Context, s *State, env, app string) {
 	if ddMetrics != nil {
-		ddMetrics.Gauge("app_lock_count", GetEnvironmentApplicationLocksCount(fs, env, app), []string{"app:" + app, "env:" + env}, 1) //nolint: errcheck
+		count, err := s.GetEnvironmentApplicationLocksCount(ctx, env, app)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error when trying to get the number of application locks: %w\n", err)
+			return
+		}
+		ddMetrics.Gauge("app_lock_count", count, []string{"app:" + app, "env:" + env}, 1) //nolint: errcheck
 	}
 }
 
@@ -196,7 +200,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
 			sort.Slice(entries, sortFiles(entries))
 			for _, app := range entries {
-				GaugeEnvAppLockMetric(filesystem, env, app.Name())
+				GaugeEnvAppLockMetric(ctx, state, env, app.Name())
 
 				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, env, app.Name())
 				if err != nil {
@@ -1668,8 +1672,9 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
 			return "", err
 		}
-		GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
+
 	}
+	GaugeEnvAppLockMetric(ctx, state, c.Environment, c.Application)
 	// locks are invisible to argoCd, so no changes here
 	return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
 }
@@ -1746,7 +1751,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 			return "", err
 		}
 
-		GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
+		GaugeEnvAppLockMetric(ctx, state, c.Environment, c.Application)
 	}
 
 	return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil

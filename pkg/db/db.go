@@ -1832,8 +1832,8 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 		return fmt.Errorf("Could not obtain existing application lock: %w\n", err)
 	}
 
-	if existingAppLock == nil {
-		previousVersion = 0
+	if existingAppLock == nil || existingAppLock.Deleted {
+		return fmt.Errorf("could not delete application lock. The application lock '%s' on application '%s' on environment '%s' does not exist or has already been deleted", lockID, appName, environment)
 	} else {
 		previousVersion = existingAppLock.EslVersion
 	}
@@ -1887,5 +1887,78 @@ func (h *DBHandler) DBSelectAnyAppLock(ctx context.Context, tx *sql.Tx) (*DBAppl
 		return nil, err
 	}
 	return nil, nil // no rows, but also no error
+}
 
+// DBSelectAppLockHistory returns the last N events associated with some lock on some environment for some app. Currently only used in testing.
+func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, environmentName, appName, lockID string, limit int) ([]ApplicationLock, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAppLockHistory: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAppLockHistory")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		fmt.Sprintf(
+			"SELECT eslVersion, created, lockID, envName, appName, metadata, deleted" +
+				" FROM application_locks " +
+				" WHERE envName=? AND lockID=? AND appName=?" +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT ?;"))
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+		lockID,
+		appName,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not read application lock from DB. Error: %w\n", err)
+	}
+	envLocks := make([]ApplicationLock, 0)
+	for rows.Next() {
+		var row = DBApplicationLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			App:        "",
+			Env:        "",
+			Deleted:    true,
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.App, &row.Metadata, &row.Deleted)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = LockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		envLocks = append(envLocks, ApplicationLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			Deleted:    row.Deleted,
+			App:        row.App,
+			Metadata:   resultJson,
+		})
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return envLocks, nil
 }
