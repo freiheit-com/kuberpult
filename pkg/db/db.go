@@ -2034,8 +2034,12 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 		return fmt.Errorf("Could not obtain existing application lock: %w\n", err)
 	}
 
-	if existingAppLock == nil || existingAppLock.Deleted {
-		return fmt.Errorf("could not delete application lock. The application lock '%s' on application '%s' on environment '%s' does not exist or has already been deleted", lockID, appName, environment)
+	if existingAppLock == nil {
+		logger.FromContext(ctx).Sugar().Warnf("could not delete application lock. The application lock '%s' on application '%s' on environment '%s' does not exist", lockID, appName, environment)
+	}
+	if existingAppLock.Deleted == true {
+		logger.FromContext(ctx).Sugar().Warnf("could not delete application lock. The application lock '%s' on application '%s' on environment '%s' has already been deleted", lockID, appName, environment)
+		return nil
 	} else {
 		previousVersion = existingAppLock.EslVersion
 	}

@@ -568,10 +568,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	queueMessage := ""
 	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
 	_, err := fs.Stat(lockDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
-		}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
