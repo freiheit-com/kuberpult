@@ -473,3 +473,97 @@ func (c *DeleteEnvironmentLock) Transform(
 
 	return fmt.Sprintf("Deleted lock %q on environment %q", c.LockId, c.Environment), nil
 }
+
+type DeleteEnvironmentApplicationLock struct {
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	Application    string `json:"app"`
+	LockId         string `json:"lockId"`
+}
+
+func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentApplicationLock
+}
+
+func (c *DeleteEnvironmentApplicationLock) Transform(
+	ctx context.Context,
+	state *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+
+	fs := state.Filesystem
+	queueMessage := ""
+	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
+	_, err := fs.Stat(lockDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
+		}
+		return "", err
+	}
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+	}
+	s := State{
+		Commit:                 nil,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "",
+		Filesystem:             fs,
+		DBHandler:              state.DBHandler,
+	}
+
+	queueMessage, err = s.ProcessQueue(ctx, fs, c.Environment, c.Application)
+	if err != nil {
+		return "", err
+	}
+	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
+}
+
+type CreateEnvironmentApplicationLock struct {
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	Application    string `json:"app"`
+	LockId         string `json:"lockId"`
+	Message        string `json:"message"`
+}
+
+func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentApplicationLock
+}
+
+func (c *CreateEnvironmentApplicationLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+	envDir := fs.Join("environments", c.Environment)
+	if _, err := fs.Stat(envDir); err != nil {
+		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+	}
+
+	appDir := fs.Join(envDir, "applications", c.Application)
+	if err := fs.MkdirAll(appDir, 0777); err != nil {
+		return "", err
+	}
+
+	lock, err := state.DBHandler.DBSelectAppLock(ctx, transaction, c.Environment, c.Application, c.LockId)
+
+	chroot, err := fs.Chroot(appDir)
+	if err != nil {
+		return "", err
+	}
+
+	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
+		return "", err
+	}
+
+	// locks are invisible to argoCd, so no changes here
+	return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
+}

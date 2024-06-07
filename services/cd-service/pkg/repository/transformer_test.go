@@ -4865,7 +4865,8 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentApplicationLocks("production", "test")
+				ctx := testutil.MakeTestContext()
+				locks, err := s.GetEnvironmentApplicationLocks(ctx, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}

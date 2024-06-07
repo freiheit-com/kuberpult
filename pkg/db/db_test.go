@@ -435,7 +435,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					LockID:     "dev-lock",
 					EslVersion: 2,
 					Deleted:    true,
-					Metadata: EnvironmentLockMetadata{
+					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
@@ -446,7 +446,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					LockID:     "dev-lock",
 					EslVersion: 1,
 					Deleted:    false,
-					Metadata: EnvironmentLockMetadata{
+					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
@@ -530,7 +530,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 				LockID:     "dev-lock",
 				EslVersion: 1,
 				Deleted:    false,
-				Metadata: EnvironmentLockMetadata{
+				Metadata: LockMetadata{
 					Message:        "My lock on dev",
 					CreatedByName:  "myself",
 					CreatedByEmail: "myself@example.com",
