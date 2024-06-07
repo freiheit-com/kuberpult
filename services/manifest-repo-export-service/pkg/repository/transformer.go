@@ -25,7 +25,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
@@ -477,10 +476,8 @@ func (c *DeleteEnvironmentLock) Transform(
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err := fs.Stat(lockDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
-		}
+
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
 

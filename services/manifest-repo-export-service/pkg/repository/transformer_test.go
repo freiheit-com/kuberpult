@@ -200,23 +200,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			},
 		},
 		{
-			// as of now we only have the DeployApplicationVersion and Create/DeleteEnvironmentLock transformer,
-			// so we can test only this error case.
-			// As soon as we have the other transformers (especially CreateEnvironment)
-			// we need to add more tests here.
-			Name: "delete environment lock",
-			Transformers: []Transformer{
-				&DeleteEnvironmentLock{
-					Authentication: Authentication{},
-					Environment:    envAcceptance,
-					LockId:         "my-lock",
-				},
-			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"rpc error: code = FailedPrecondition desc = error: directory environments/acceptance/locks/my-lock for env lock does not exist",
-			},
-		},
-		{
 			// as of now we only have the DeployApplicationVersion and CreateEnvironmentLock transformer,
 			// so we can test only this error case.
 			// As soon as we have the other transformers (especially CreateEnvironment)
@@ -233,22 +216,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
 				"error accessing dir \"environments/acceptance\": file does not exist",
-			},
-		},
-		{
-			// as of now we only have the DeployApplicationVersion and Create/DeleteApplicationLock transformer,
-			// so we can test only this error case.
-			Name: "delete application lock",
-			Transformers: []Transformer{
-				&DeleteEnvironmentApplicationLock{
-					Authentication: Authentication{},
-					Environment:    envAcceptance,
-					LockId:         "my-lock",
-					Application:    "my-app",
-				},
-			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"rpc error: code = FailedPrecondition desc = error: directory environments/acceptance/applications/my-app/locks/my-lock for app lock does not exist",
 			},
 		},
 	}
