@@ -1779,15 +1779,6 @@ func (c *CreateEnvironmentTeamLock) Transform(
 					break
 				}
 			}
-			//currentTeamFile := fs.Join("applications", currentApp, "team")
-			//if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
-			//	if c.Team == string(currentTeamName) {
-			//		foundTeam = true
-			//		break
-			//	}
-			//} else {
-			//	logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
-			//}
 		}
 	}
 	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
