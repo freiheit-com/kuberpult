@@ -219,7 +219,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
+				TransformerError: errMatcher{"UndeployApplication(repo): error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
 			},
 			expectedCommitMsg: "",
 		},
