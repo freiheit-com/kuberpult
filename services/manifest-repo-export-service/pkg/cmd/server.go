@@ -104,7 +104,7 @@ func Run(ctx context.Context) error {
 
 	var eslProcessingBackoff uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
-		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not, using default backoff of 10 seconds")
+		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
 		eslProcessingBackoff = 10
 	} else {
 		eslProcessingBackoff, err = strconv.ParseUint(val, 10, 64)
