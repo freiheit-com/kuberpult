@@ -31,7 +31,6 @@ import (
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"go.uber.org/zap"
-	"google.golang.org/appengine/log"
 )
 
 func storageBackend(enableSqlite bool) repository.StorageBackend {
@@ -53,6 +52,8 @@ func RunServer() {
 }
 
 func Run(ctx context.Context) error {
+	log := logger.FromContext(ctx).Sugar()
+	
 	logger.FromContext(ctx).Info("Startup")
 
 	dbLocation, err := readEnvVar("KUBERPULT_DB_LOCATION")
@@ -178,7 +179,6 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
 
-	log := logger.FromContext(ctx).Sugar()
 	for {
 		eslTableEmpty := false
 		eslEventSkipped := false
