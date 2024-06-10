@@ -83,7 +83,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					Team:            "sre-team",
 					WriteCommitData: true,
@@ -118,7 +117,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					WriteCommitData: true,
 				},
@@ -152,7 +150,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					WriteCommitData: true,
 				},
@@ -186,7 +183,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					Team:            "sre-team",
 					WriteCommitData: true,
@@ -221,7 +217,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					WriteCommitData: true,
 				},
@@ -727,7 +722,7 @@ func TestGetCommitInfo(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			dir, err := testutil.CreateMigrationsPath()
+			dir, err := testutil.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatalf("setup error could not detect dir \n%v", err)
 				return

@@ -315,9 +315,30 @@ func RunServer() {
 			}
 		if dbHandler.ShouldUseOtherTables() {
 			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=true")
-			migErr := dbHandler.RunCustomMigrations(ctx, repo.State().GetApplicationsFromFile, repo.State().GetCurrentlyDeployed, repo.State().GetCurrentEnvironmentLocks)
+			getAppsAndTeams := func() (map[string]string, error) {
+				result, err := repo.State().GetApplicationsFromFile()
+				if err != nil {
+					return nil, fmt.Errorf("could not get apps from file: %v", err)
+				}
+				var teamByAppName = map[string]string{} // key: app, value: team
+				for i := range result {
+					app := result[i]
+
+					team, err := repo.State().GetTeamNameFromManifest(app)
+					if err != nil {
+						// some apps do not have teams, that's not an error
+						teamByAppName[app] = ""
+					} else {
+						teamByAppName[app] = team
+					}
+				}
+				return teamByAppName, nil
+			}
+			migErr := dbHandler.RunCustomMigrations(ctx, getAppsAndTeams, repo.State().GetCurrentlyDeployed, repo.State().GetCurrentEnvironmentLocks)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
+			} else {
+				logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
 			}
 		} else {
 			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")

@@ -257,7 +257,6 @@ func (d *BatchServer) processAction(
 				SourceCommitId:  in.SourceCommitId,
 				SourceAuthor:    in.SourceAuthor,
 				SourceMessage:   in.SourceMessage,
-				SourceRepoUrl:   in.SourceRepoUrl,
 				PreviousCommit:  in.PreviousCommitId,
 				Team:            in.Team,
 				DisplayVersion:  in.DisplayVersion,

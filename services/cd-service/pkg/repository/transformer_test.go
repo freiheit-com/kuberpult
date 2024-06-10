@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 
@@ -218,7 +219,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
+				TransformerError: errMatcher{"UndeployApplication(repo): error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
 			},
 			expectedCommitMsg: "",
 		},
@@ -429,7 +430,6 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 					SourceCommitId:  "cafe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2",
 					SourceAuthor:    "best Author",
 					SourceMessage:   "smart message",
-					SourceRepoUrl:   "",
 					Team:            "",
 					DisplayVersion:  "",
 					WriteCommitData: true,
@@ -816,7 +816,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 
 			// optimization: no need to set up the repository if this fails
@@ -1883,16 +1883,8 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			var repo Repository
 			var err error = nil
 			var updatedState *State = nil
-			migrationsPath, err := testutil.CreateMigrationsPath()
-			if err != nil {
-				t.Fatalf("CreateMigrationsPath error: %v", err)
-			}
 			if tc.db {
-				cfg := db.DBConfig{
-					MigrationsPath: migrationsPath,
-					DriverName:     "sqlite3",
-				}
-				repo, _ = setupRepositoryTestWithDB(t, &cfg)
+				repo = SetupRepositoryTestWithDB(t)
 				r := repo.(*repository)
 				err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 					var batchError *TransformerBatchApplyError = nil
@@ -2466,7 +2458,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctxWithTime, nil, tc.Transformers...)
@@ -5118,7 +5110,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that team is written
 				{
-					team, err := s.GetApplicationTeamOwner("test")
+					team, err := s.GetApplicationTeamOwner(context.Background(), nil, "test")
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -6114,7 +6106,7 @@ spec:
 			}
 
 			for i, tf := range tc.Transformers {
-				ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+				ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 				err = repo.Apply(ctxWithTime, tf)
 				if err != nil {
 					if tc.ErrorTest != nil && i == len(tc.Transformers)-1 {
@@ -6285,7 +6277,16 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 	return res
 }
 
-func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (Repository, error) {
+func SetupRepositoryTestWithDB(t *testing.T) Repository {
+	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &db.DBConfig{
+		MigrationsPath: migrationsPath,
+		DriverName:     "sqlite3",
+	}
+
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -6302,21 +6303,18 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (Repository,
 		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
 		ArgoCdGenerateFiles:    true,
 	}
-	if dbConfig != nil {
-		dbConfig.DbHost = dir
+	dbConfig.DbHost = dir
 
-		migErr := db.RunDBMigrations(*dbConfig)
-		if migErr != nil {
-			t.Fatal(migErr)
-		}
-
-		db, err := db.Connect(*dbConfig)
-		if err != nil {
-			t.Fatal(err)
-		}
-		repoCfg.DBHandler = db
-		fmt.Println(dbConfig.DbHost)
+	migErr := db.RunDBMigrations(*dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
 	}
+
+	db, err := db.Connect(*dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoCfg.DBHandler = db
 
 	repo, err := New(
 		testutil.MakeTestContext(),
@@ -6325,7 +6323,7 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (Repository,
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repo, nil
+	return repo
 }
 
 func setupRepositoryTest(t *testing.T) Repository {
@@ -6942,7 +6940,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -7019,7 +7017,7 @@ func TestDatadogQueueMetric(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -7182,7 +7180,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
