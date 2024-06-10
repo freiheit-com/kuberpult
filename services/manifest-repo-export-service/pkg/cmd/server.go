@@ -19,16 +19,19 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"time"
 
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"go.uber.org/zap"
-	"os"
+	"google.golang.org/appengine/log"
 )
 
 func storageBackend(enableSqlite bool) repository.StorageBackend {
@@ -97,6 +100,18 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	var eslProcessingBackoff uint64
+	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
+		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not, using default backoff of 10 seconds")
+		eslProcessingBackoff = 10
+	} else {
+		eslProcessingBackoff, err = strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error converting KUBERPULT_ESL_PROCESSING_BACKOFF, error: %w", err)
+		}
+	}
+
 	enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
 
 	argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
@@ -208,7 +223,7 @@ func Run(ctx context.Context) error {
 			return fmt.Errorf("error in transaction %v", err)
 		}
 		if eslEventSkipped || eslTableEmpty {
-			d := 10 * time.Second
+			d := time.Second * time.Duration(eslProcessingBackoff)
 			log.Infof("sleeping for %v before processing the next event", d)
 			time.Sleep(d)
 		}
