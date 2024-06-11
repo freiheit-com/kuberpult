@@ -2566,7 +2566,7 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, env
 	existingEnvLock, err := h.DBSelectTeamLock(ctx, tx, environment, teamName, lockID)
 
 	if err != nil {
-		return fmt.Errorf("Could not obtain existing environment lock: %w\n", err)
+		return fmt.Errorf("Could not obtain existing team lock: %w\n", err)
 	}
 
 	if existingEnvLock == nil {
@@ -2964,7 +2964,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning tean locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
 		}
 
 		//exhaustruct:ignore
