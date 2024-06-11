@@ -2915,3 +2915,77 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 	}
 	return teamLocks, nil
 }
+
+// DBSelectTeamLockHistory returns the last N events associated with some lock on some environment for some team. Currently only used in testing.
+func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, environmentName, teamName, lockID string, limit int) ([]TeamLock, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectTeamLockHistory: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockHistory")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		fmt.Sprintf(
+			"SELECT eslVersion, created, lockID, envName, teamName, metadata, deleted" +
+				" FROM team_locks " +
+				" WHERE envName=? AND lockID=? AND teamName=?" +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT ?;"))
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+		lockID,
+		teamName,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not read team lock from DB. Error: %w\n", err)
+	}
+	teamLocks := make([]TeamLock, 0)
+	for rows.Next() {
+		var row = DBTeamLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			TeamName:   "",
+			Env:        "",
+			Deleted:    true,
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.TeamName, &row.Metadata, &row.Deleted)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning tean locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = LockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		teamLocks = append(teamLocks, TeamLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			Deleted:    row.Deleted,
+			Team:       row.TeamName,
+			Metadata:   resultJson,
+		})
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return teamLocks, nil
+}
