@@ -1260,6 +1260,10 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 						envName, err)
 				}
 			}
+
+			if len(activeLockIds) == 0 {
+				activeLockIds = []string{}
+			}
 			err = h.DBWriteAllEnvironmentLocks(ctx, transaction, 0, envName, activeLockIds)
 			if err != nil {
 				return fmt.Errorf("error writing environment locks ids to DB for environment %s: %v",
