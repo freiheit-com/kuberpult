@@ -22,7 +22,7 @@ Copyright freiheit.com*/
     color: black;
 
     &.highlight {
-        background-color: white;
+        background-color: var(--mdc-theme-background);
         color: var(--mdc-theme-primary);
 
         &:focus {

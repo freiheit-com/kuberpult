@@ -74,7 +74,7 @@ $environment-group-lane-header-background-color: #eee;
 $environment-lane-header-padding: 13px 20px;
 $environment-lane-header-border-radius: 10px;
 $environment-lane-header-height: 62px;
-$environment-lane-background-color: var(--mdc-theme-surface, #fff);
+$environment-lane-background-color: var(--mdc-theme-surface);
 $environment-actions-right-displacement: 20px;
 $environment-actions-top-displacement: 10px;
 $environment-add-lock-button-border: 1px solid var(--mdc-theme-primary);
@@ -158,4 +158,21 @@ $warning-color: #e0d541;
     --mdc-theme-warn: rgba(243, 190, 0, 0.92);
     --mdc-theme-success: rgba(80, 194, 65, 0.93);
     --mdc-filled-button-disabled-container-color: rgb(89, 89, 89);
+}
+
+@media(prefers-color-scheme: dark) {
+    :root {
+    --mdc-theme-primary: #073642;
+    --mdc-theme-on-primary: #839496;
+    --mdc-theme-background: #002b36;
+    --mdc-theme-surface: #073642;
+    --mdc-theme-on-surface: #839496;
+    --mdc-theme-on-surface-light: #93a1a1;
+    --mdc-theme-secondary: #002b36;
+    --mdc-theme-on-secondary: #4a4949;
+    --mdc-theme-error: #d33682;
+    --mdc-theme-warn: #b58900;
+    --mdc-theme-success: #859900;
+    --mdc-filled-button-disabled-container-color: #595959
+    }
 }
