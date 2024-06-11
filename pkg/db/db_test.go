@@ -901,7 +901,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(1, len(actual)); diff != "" {
-					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+					t.Fatalf("number of team locks mismatch (-want, +got):\n%s", diff)
 				}
 				target := actual[0]
 				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(TeamLock{}, "Created")); diff != "" {
@@ -933,7 +933,7 @@ func TestDeleteTeamLock(t *testing.T) {
 			Env:         "dev",
 			LockID:      "dev-lock",
 			TeamName:    "my-team",
-			Message:     "My lock on dev",
+			Message:     "My lock on dev for my-team",
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
 			ExpectedLocks: []TeamLock{
@@ -944,7 +944,7 @@ func TestDeleteTeamLock(t *testing.T) {
 					EslVersion: 2,
 					Deleted:    true,
 					Metadata: LockMetadata{
-						Message:        "My lock on dev",
+						Message:        "My lock on dev for my-team",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
 					},
@@ -956,7 +956,7 @@ func TestDeleteTeamLock(t *testing.T) {
 					EslVersion: 1,
 					Deleted:    false,
 					Metadata: LockMetadata{
-						Message:        "My lock on dev",
+						Message:        "My lock on dev for my-team",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
 					},
@@ -996,11 +996,11 @@ func TestDeleteTeamLock(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(len(tc.ExpectedLocks), len(actual)); diff != "" {
-					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+					t.Fatalf("number of team locks mismatch (-want, +got):\n%s", diff)
 				}
 
 				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(TeamLock{}, "Created")); diff != "" {
-					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+					t.Fatalf("team locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})

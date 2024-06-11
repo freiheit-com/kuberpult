@@ -2532,6 +2532,7 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 		if err != nil {
 			return nil, err
 		}
+		//exhaustruct:ignore
 		var dataJson = AllTeamLocksJson{}
 		err = json.Unmarshal(([]byte)(row.Data), &dataJson)
 		if err != nil {
@@ -2780,6 +2781,7 @@ func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, enviro
 			Version:          row.Version,
 			Created:          row.Created,
 			Environment:      row.Environment,
+			Team:             row.Team,
 			AllTeamLocksJson: AllTeamLocksJson{TeamLocks: resultJson.TeamLocks},
 		}
 		err = closeRows(rows)
