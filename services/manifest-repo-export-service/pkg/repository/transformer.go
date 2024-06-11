@@ -983,14 +983,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	}
 
-	s := State{
-		Commit:                 nil,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "",
-		Filesystem:             fs,
-		DBHandler:              state.DBHandler,
-	}
-	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
+	if err := state.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
 		return "", err
 	}
 

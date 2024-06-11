@@ -1349,6 +1349,9 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 							teamName, envName, err)
 					}
 				}
+				if len(activeLockIds) == 0 {
+					activeLockIds = []string{}
+				}
 				err := h.DBWriteAllTeamLocks(ctx, transaction, 0, envName, teamName, activeLockIds)
 				if err != nil {
 					return fmt.Errorf("error writing existing locks to DB for team '%s' on environment '%s': %v",
