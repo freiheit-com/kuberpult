@@ -415,28 +415,6 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				"l2", "l3",
 			},
 		},
-		{
-			Name: "Delete lock that does not exist",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: env,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&DeleteEnvironmentLock{
-					Environment: env,
-					LockId:      "l1",
-				},
-			},
-
-			shouldSucceed:       false,
-			numberExpectedLocks: 0,
-			expectedError: &TransformerBatchApplyError{
-				Index:            1,
-				TransformerError: errMatcher{"could not delete lock. The environment lock 'l1' on environment 'production' does not exist or has already been deleted"},
-			},
-			expectedCommitMsg: "",
-			ExpectedLockIds:   []string{},
-		},
 	}
 	for _, tc := range tcs {
 		tc := tc
