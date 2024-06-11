@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"testing"
@@ -143,6 +144,108 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 
 			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCustomMigrationReleases(t *testing.T) {
+	var getAllApps = /*GetAllAppsFun*/ func() (map[string]string, error) {
+		result := map[string]string{
+			"app1": "team1",
+		}
+		return result, nil
+	}
+	var getAllReleases = /*GetAllReleasesFun*/ func(ctx context.Context, app string) (AllReleases, error) {
+		result := AllReleases{
+			1: ReleaseWithManifest{
+				Version:         666,
+				UndeployVersion: false,
+				SourceAuthor:    "auth1",
+				SourceCommitId:  "commit1",
+				SourceMessage:   "msg1",
+				CreatedAt:       time.Time{},
+				DisplayVersion:  "display1",
+				Manifest:        "manifest1",
+				Environment:     "dev",
+			},
+			2: ReleaseWithManifest{
+				Version:         777,
+				UndeployVersion: false,
+				SourceAuthor:    "auth2",
+				SourceCommitId:  "commit2",
+				SourceMessage:   "msg2",
+				CreatedAt:       time.Time{},
+				DisplayVersion:  "display2",
+				Manifest:        "manifest2",
+				Environment:     "dev",
+			},
+		}
+		return result, nil
+	}
+	tcs := []struct {
+		Name             string
+		expectedReleases []*DBReleaseWithMetaData
+	}{
+		{
+			Name: "Simple migration",
+			expectedReleases: []*DBReleaseWithMetaData{
+				{
+					EslId:         1,
+					ReleaseNumber: 666,
+					App:           "app1",
+					Env:           "dev",
+					Manifest:      "manifest1",
+					Metadata: DBReleaseMetaData{
+						SourceAuthor:   "auth1",
+						SourceCommitId: "commit1",
+						SourceMessage:  "msg1",
+						DisplayVersion: "display1",
+					},
+				},
+				{
+					EslId:         1,
+					ReleaseNumber: 777,
+					App:           "app1",
+					Env:           "dev",
+					Manifest:      "manifest2",
+					Metadata: DBReleaseMetaData{
+						SourceAuthor:   "auth2",
+						SourceCommitId: "commit2",
+						SourceMessage:  "msg2",
+						DisplayVersion: "display2",
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, getAllReleases)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				for i := range tc.expectedReleases {
+					expectedRelease := tc.expectedReleases[i]
+
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.Env, expectedRelease.ReleaseNumber)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(expectedRelease, release); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
 			}
 		})
 	}
@@ -760,5 +863,45 @@ func setupDB(t *testing.T) *DBHandler {
 		t.Fatal(err)
 	}
 
+	return dbHandler
+}
+
+func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
+	migrationsPath, err := testutil.CreateMigrationsPath(2)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &DBConfig{
+		MigrationsPath: migrationsPath,
+		DriverName:     "sqlite3",
+	}
+
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil
+	}
+	t.Logf("test created dir: %s", localDir)
+
+	dbConfig.DbHost = dir
+
+	migErr := RunDBMigrations(*dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := Connect(*dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return dbHandler
 }

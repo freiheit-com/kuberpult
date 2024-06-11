@@ -6292,8 +6292,16 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil
+	}
 	t.Logf("test created dir: %s", localDir)
 
 	repoCfg := RepositoryConfig{
@@ -6311,11 +6319,11 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 		t.Fatal(migErr)
 	}
 
-	db, err := db.Connect(*dbConfig)
+	dbHandler, err := db.Connect(*dbConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
-	repoCfg.DBHandler = db
+	repoCfg.DBHandler = dbHandler
 
 	repo, err := New(
 		testutil.MakeTestContext(),
