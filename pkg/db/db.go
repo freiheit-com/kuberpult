@@ -1076,7 +1076,7 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLoc
 
 		allAppLocksInRepo, err := getAllAppLocksFun(ctx)
 		if err != nil {
-			return fmt.Errorf("could not get current environment locks to run custom migrations: %v", err)
+			return fmt.Errorf("could not get current application locks to run custom migrations: %v", err)
 		}
 
 		for envName, apps := range allAppLocksInRepo {
