@@ -804,6 +804,9 @@ type AllDeployments []Deployment
 type AllEnvLocks map[string][]EnvironmentLock
 type AllReleases map[uint64]ReleaseWithManifest
 
+// GetAllDeploymentsFun and other functions here are used during migration.
+// They are supposed to read data from files in the manifest repo,
+// and therefore should not need to access the Database at all.
 type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
 type GetAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllEnvLocks, error)
 type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
@@ -836,10 +839,10 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	//err = h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
-	//if err != nil {
-	//	return err
-	//}
+	err = h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
