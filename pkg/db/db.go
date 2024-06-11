@@ -775,7 +775,7 @@ type AllReleases map[uint64]ReleaseWithManifest
 // During the "CustomMigrations" we read from the manifest repo, and write to the database.
 // The functions here are there to retrieve data, so they should not need to access the DB.
 // Therefore, they should not need a "transaction" parameter.
-// There are currently some exceptions, like GetAllDeploymentsFun. This will be changed in
+// There are currently some exceptions, like GetAllDeploymentsFun. This will be changed in SRX-PA568W.
 
 type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
 type GetAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllEnvLocks, error)
