@@ -934,7 +934,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	}
 
 	if lock == nil {
-		return "", fmt.Errorf("no lock found")
+		return "", fmt.Errorf("could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'.\n", c.Team, c.Environment, c.LockId)
 	}
 
 	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
@@ -958,8 +958,8 @@ func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
 func (c *DeleteEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
-	transaction *sql.Tx,
+	_ TransformerContext,
+	_ *sql.Tx,
 ) (string, error) {
 	if !valid.EnvironmentName(c.Environment) {
 		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
