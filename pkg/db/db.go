@@ -772,6 +772,11 @@ type AllDeployments []Deployment
 type AllEnvLocks map[string][]EnvironmentLock
 type AllReleases map[uint64]ReleaseWithManifest
 
+// During the "CustomMigrations" we read from the manifest repo, and write to the database.
+// The functions here are there to retrieve data, so they should not need to access the DB.
+// Therefore, they should not need a "transaction" parameter.
+// There are currently some exceptions, like GetAllDeploymentsFun. This will be changed in
+
 type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
 type GetAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllEnvLocks, error)
 type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
