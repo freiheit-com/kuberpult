@@ -631,7 +631,7 @@ type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName ->
 
 type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
 type GetAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllEnvLocks, error)
-type GetAllAppLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllAppLocks, error)
+type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
@@ -1074,7 +1074,7 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLoc
 			return nil
 		}
 
-		allAppLocksInRepo, err := getAllAppLocksFun(ctx, transaction)
+		allAppLocksInRepo, err := getAllAppLocksFun(ctx)
 		if err != nil {
 			return fmt.Errorf("could not get current environment locks to run custom migrations: %v", err)
 		}

@@ -2142,7 +2142,7 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.A
 	return result, nil
 }
 
-func (s *State) GetCurrentApplicationLocks(ctx context.Context, tx *sql.Tx) (db.AllAppLocks, error) {
+func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks, error) {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentApplicationLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllAppLocks)

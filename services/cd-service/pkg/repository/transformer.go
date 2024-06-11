@@ -1774,21 +1774,12 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 		}
-		s := State{
-			Commit:                 nil,
-			BootstrapMode:          false,
-			EnvironmentConfigsPath: "",
-			Filesystem:             fs,
-			DBHandler:              state.DBHandler,
-			ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
-			CloudRunClient:         state.CloudRunClient,
-		}
 
-		queueMessage, err = s.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
+		queueMessage, err = state.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
 		if err != nil {
 			return "", err
 		}
-		if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
+		if err := state.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 			return "", err
 		}
 
