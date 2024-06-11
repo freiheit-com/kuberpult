@@ -493,8 +493,7 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	if state.DBHandler.ShouldUseOtherTables() {
-	} else {
+	if !state.DBHandler.ShouldUseOtherTables() {
 		if c.SourceCommitId != "" {
 			c.SourceCommitId = strings.ToLower(c.SourceCommitId)
 			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
