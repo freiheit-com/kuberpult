@@ -36,7 +36,6 @@ import (
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
 
-	"io/fs"
 	"os"
 	"sort"
 	"strconv"
@@ -603,92 +602,85 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
-	bfs := state.Filesystem
+func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, state *State) (uint64, error) {
 	if c.Version == 0 {
-		lastRelease, err := GetLastRelease(bfs, c.Application)
+		return 0, fmt.Errorf("version is required when using the manifest-repo-export-service and cannot be 0")
+	} else {
+		// check that the version doesn't already exist
+		metadata, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.DBReleaseWithMetaData, error) {
+			metaData, err := state.DBHandler.DBSelectReleaseByVersionAnyEnv(ctx, transaction, c.Application, c.Version)
+			if err != nil {
+				return nil, fmt.Errorf("could not calculate version, error: %v", err)
+			}
+			if metaData == nil {
+				return nil, fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
+			}
+			return metaData, nil
+		})
 		if err != nil {
 			return 0, err
 		}
-		return lastRelease + 1, nil
-	} else {
-		// check that the version doesn't already exist
-		dir := releasesDirectoryWithVersion(bfs, c.Application, c.Version)
-		_, err := bfs.Stat(dir)
-		if err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				return 0, err
-			}
-		} else {
-			// check if version differs
-			return 0, c.sameAsExisting(state, c.Version)
-		}
-		// TODO: check GC here
-		return c.Version, nil
+		// check if version differs
+		return 0, c.sameAsExisting(ctx, state, metadata)
 	}
 }
 
-func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) error {
-	fs := state.Filesystem
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
-	appDir := applicationDirectory(fs, c.Application)
+func (c *CreateApplicationVersion) sameAsExisting(ctx context.Context, state *State, metadata *db.DBReleaseWithMetaData) error {
 	if c.SourceCommitId != "" {
-		existingSourceCommitId, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceCommitId))
-		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_COMMIT_ID, "")
-		}
-		existingSourceCommitIdStr := string(existingSourceCommitId)
+		existingSourceCommitIdStr := metadata.Metadata.SourceCommitId
 		if existingSourceCommitIdStr != c.SourceCommitId {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_COMMIT_ID, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
 		}
 	}
 	if c.SourceAuthor != "" {
-		existingSourceAuthor, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceAuthor))
-		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_AUTHOR, "")
-		}
-		existingSourceAuthorStr := string(existingSourceAuthor)
+		existingSourceAuthorStr := metadata.Metadata.SourceAuthor
 		if existingSourceAuthorStr != c.SourceAuthor {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_AUTHOR, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
 		}
 	}
 	if c.SourceMessage != "" {
-		existingSourceMessage, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceMessage))
-		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_MESSAGE, "")
-		}
-		existingSourceMessageStr := string(existingSourceMessage)
+		existingSourceMessageStr := metadata.Metadata.SourceMessage
 		if existingSourceMessageStr != c.SourceMessage {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_MESSAGE, createUnifiedDiff(existingSourceMessageStr, c.SourceMessage, ""))
 		}
 	}
 	if c.DisplayVersion != "" {
-		existingDisplayVersion, err := util.ReadFile(fs, fs.Join(releaseDir, fieldDisplayVersion))
-		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DISPLAY_VERSION, "")
-		}
-		existingDisplayVersionStr := string(existingDisplayVersion)
+		existingDisplayVersionStr := metadata.Metadata.DisplayVersion
 		if existingDisplayVersionStr != c.DisplayVersion {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DISPLAY_VERSION, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
 		}
 	}
 	if c.Team != "" {
-		existingTeam, err := util.ReadFile(fs, fs.Join(appDir, fieldTeam))
+		appData, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.DBAppWithMetaData, error) {
+			appData, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
+			if err != nil {
+				return nil, fmt.Errorf("could not calculate version, error: %v", err)
+			}
+			return appData, nil
+		})
 		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, "")
 		}
-		existingTeamStr := string(existingTeam)
+		existingTeamStr := appData.Metadata.Team
 		if existingTeamStr != c.Team {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
 	for env, man := range c.Manifests {
-		envDir := fs.Join(releaseDir, "environments", env)
-		existingMan, err := util.ReadFile(fs, fs.Join(envDir, "manifests.yaml"))
+		metaData, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.DBReleaseWithMetaData, error) {
+			metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, env, c.Version)
+			if err != nil {
+				return nil, fmt.Errorf("could not calculate version, error: %v", err)
+			}
+			if metaData == nil {
+				return nil, fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
+			}
+			return metaData, nil
+		})
 		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for env %s", env))
 		}
-		existingManStr := string(existingMan)
+		existingManStr := metaData.Manifest
 		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
 		}
