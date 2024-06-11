@@ -7,5 +7,5 @@ CREATE TABLE IF NOT EXISTS team_locks
     teamName VARCHAR,
     metadata VARCHAR,
     deleted boolean,
-    PRIMARY KEY(eslVersion, appName, envName, lockID)
+    PRIMARY KEY(eslVersion, teamName, envName, lockID)
 );

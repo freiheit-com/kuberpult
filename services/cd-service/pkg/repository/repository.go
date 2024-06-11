@@ -1710,7 +1710,46 @@ func (s *State) GetEnvironmentApplicationLocksFromManifest(environment, applicat
 		return result, nil
 	}
 }
-func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lock, error) {
+
+func (s *State) GetEnvironmentTeamLocks(ctx context.Context, environment, team string) (map[string]Lock, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentTeamLocksFromDB(ctx, environment, team)
+	}
+	return s.GetEnvironmentTeamLocksFromManifest(environment, team)
+}
+
+func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, environment, team string) (map[string]Lock, error) {
+	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.TeamLock, error) {
+		locks, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
+		if err != nil {
+			return nil, err
+		}
+		var lockIds []string
+		if locks != nil {
+			lockIds = locks.TeamLocks
+		}
+		return s.DBHandler.DBSelectTeamLockSet(ctx, transaction, environment, team, lockIds)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]Lock, len(locks))
+	for _, lock := range locks {
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt: lock.Created,
+		}
+		result[lock.LockID] = genericLock
+	}
+	return result, nil
+}
+
+func (s *State) GetEnvironmentTeamLocksFromManifest(environment, team string) (map[string]Lock, error) {
 	base := s.GetTeamLocksDir(environment, team)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -2183,6 +2222,62 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context, tx *sql.Tx) (db.
 				})
 			}
 			result[envName][currentApp] = currentAppLocks
+		}
+	}
+	return result, nil
+}
+
+func (s *State) GetCurrentTeamLocks(ctx context.Context, tx *sql.Tx) (db.AllTeamLocks, error) {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentTeamLocks")
+	defer ddSpan.Finish()
+	result := make(db.AllTeamLocks)
+	_, envNames, err := s.GetEnvironmentConfigsSorted()
+
+	if err != nil {
+		return nil, err
+	}
+
+	for envNameIndex := range envNames {
+		processedTeams := map[string]bool{} //TeamName -> boolean (processed or not)
+		envName := envNames[envNameIndex]
+
+		appNames, err := s.GetEnvironmentApplicationsFromManifest(envName)
+		if err != nil {
+			return nil, err
+		}
+
+		result[envName] = make(map[string][]db.TeamLock)
+		for _, currentApp := range appNames {
+			var currentTeamLocks []db.TeamLock
+
+			teamName, err := s.GetTeamName(ctx, tx, currentApp)
+			_, exists := processedTeams[teamName]
+			if !exists {
+				processedTeams[teamName] = true
+			} else {
+				continue
+			}
+
+			ls, err := s.GetEnvironmentTeamLocks(ctx, envName, teamName)
+			if err != nil {
+				return nil, err
+			}
+			for lockId, lock := range ls {
+				currentTeamLocks = append(currentTeamLocks, db.TeamLock{
+					EslVersion: 0,
+					Env:        envName,
+					LockID:     lockId,
+					Created:    lock.CreatedAt,
+					Metadata: db.LockMetadata{
+						CreatedByName:  lock.CreatedBy.Name,
+						CreatedByEmail: lock.CreatedBy.Email,
+						Message:        lock.Message,
+					},
+					Team:    teamName,
+					Deleted: false,
+				})
+			}
+			result[envName][teamName] = currentTeamLocks
 		}
 	}
 	return result, nil

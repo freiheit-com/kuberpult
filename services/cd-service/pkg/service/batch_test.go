@@ -314,7 +314,8 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			//Check that Team lock was created
 			{
-				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks("production", "test-team")
+				ctx := testutil.MakeTestContext()
+				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks(ctx, "production", "test-team")
 				if err != nil {
 					t.Fatal(err)
 				}
