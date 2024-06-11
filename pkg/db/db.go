@@ -1090,6 +1090,9 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLoc
 							appName, envName, err)
 					}
 				}
+				if len(activeLockIds) == 0 {
+					activeLockIds = []string{}
+				}
 				err := h.DBWriteAllAppLocks(ctx, transaction, 0, envName, appName, activeLockIds)
 				if err != nil {
 					return fmt.Errorf("error writing existing locks to DB for application '%s' on environment '%s': %v",
