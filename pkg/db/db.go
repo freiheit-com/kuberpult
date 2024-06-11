@@ -1523,7 +1523,6 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 	}(rows)
 	//Get the latest change to each lock
 	for _, id := range lockIDs {
-		//Get the latest change to
 		var err error
 		selectQuery := h.AdaptQuery(
 			"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
@@ -1892,7 +1891,6 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 	}(rows)
 	//Get the latest change to each lock
 	for _, id := range lockIDs {
-		//Get the latest change to
 		var err error
 		selectQuery := h.AdaptQuery(
 			"SELECT eslVersion, created, lockID, envName, appName, metadata, deleted" +
@@ -1920,7 +1918,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 				if errors.Is(err, sql.ErrNoRows) {
 					return nil, nil
 				}
-				return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+				return nil, fmt.Errorf("Error scanning application locks row from DB. Error: %w\n", err)
 			}
 
 			//exhaustruct:ignore
@@ -1966,7 +1964,7 @@ func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lock
 	existingEnvLock, err := h.DBSelectAppLock(ctx, tx, environment, appName, lockID)
 
 	if err != nil {
-		return fmt.Errorf("Could not obtain existing environment lock: %w\n", err)
+		return fmt.Errorf("Could not obtain existing application lock: %w\n", err)
 	}
 
 	if existingEnvLock == nil {
@@ -2027,7 +2025,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 		jsonToInsert)
 
 	if err != nil {
-		return fmt.Errorf("could not write environment lock into DB. Error: %w\n", err)
+		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
 	return nil
 }
@@ -2077,7 +2075,7 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query application_locks table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query all_app_locks table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -2168,7 +2166,7 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning application locks row from DB. Error: %w\n", err)
 		}
 
 		//exhaustruct:ignore

@@ -580,16 +580,16 @@ func TestReadWriteApplicationLock(t *testing.T) {
 		ExpectedLock *ApplicationLock
 	}{
 		{
-			Name:        "Simple environment lock",
+			Name:        "Simple application lock",
 			Env:         "dev",
-			LockID:      "dev-lock",
+			LockID:      "dev-app-lock",
 			Message:     "My application lock on dev for my-app",
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
 			AppName:     "my-app",
 			ExpectedLock: &ApplicationLock{
 				Env:        "dev",
-				LockID:     "dev-lock",
+				LockID:     "dev-app-lock",
 				EslVersion: 1,
 				Deleted:    false,
 				App:        "my-app",
