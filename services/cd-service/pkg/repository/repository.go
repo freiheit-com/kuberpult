@@ -2181,7 +2181,7 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.A
 	return result, nil
 }
 
-func (s *State) GetCurrentApplicationLocks(ctx context.Context, tx *sql.Tx) (db.AllAppLocks, error) {
+func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks, error) {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentApplicationLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllAppLocks)
@@ -2282,7 +2282,6 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context, tx *sql.Tx) (db.AllTeam
 	}
 	return result, nil
 }
-
 func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
