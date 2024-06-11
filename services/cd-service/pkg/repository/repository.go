@@ -2251,6 +2251,9 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context, tx *sql.Tx) (db.AllTeam
 			var currentTeamLocks []db.TeamLock
 
 			teamName, err := s.GetTeamName(ctx, tx, currentApp)
+			if err != nil {
+				return nil, err
+			}
 			_, exists := processedTeams[teamName]
 			if !exists {
 				processedTeams[teamName] = true
