@@ -141,7 +141,7 @@ manifestRepoExport:
     requests:
       cpu: 2
       memory: 3Gi
-  eslProcessingBakoff: 5
+  eslProcessingBackoff: 5
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.
