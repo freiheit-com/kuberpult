@@ -1928,7 +1928,7 @@ type AllEnvLocksGo struct {
 }
 
 type AllAppLocksJson struct {
-	AppLocks []string `json:"envLocks"`
+	AppLocks []string `json:"appLocks"`
 }
 
 type AllAppLocksRow struct {
@@ -1972,8 +1972,8 @@ func (h *DBHandler) DBWriteAllAppLocks(ctx context.Context, transaction *sql.Tx,
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllAppLocks")
 	defer span.Finish()
 	slices.Sort(lockIds) // we don't really *need* the sorting, it's just for convenience
-	jsonToInsert, err := json.Marshal(AllEnvLocksJson{
-		EnvLocks: lockIds,
+	jsonToInsert, err := json.Marshal(AllAppLocksJson{
+		AppLocks: lockIds,
 	})
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
