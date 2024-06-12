@@ -468,12 +468,11 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 	const lockID = "l123"
 	const message = "my lock"
 	tcs := []struct {
-		Name                string
-		Transformers        []Transformer
-		expectedError       *TransformerBatchApplyError
-		shouldSucceed       bool
-		numberExpectedLocks int
-		ExpectedLockIds     []string
+		Name            string
+		Transformers    []Transformer
+		expectedError   *TransformerBatchApplyError
+		shouldSucceed   bool
+		ExpectedLockIds []string
 	}{
 		{
 			Name: "Simple Create team lock",
@@ -496,8 +495,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 					Team:        team,
 				},
 			},
-			shouldSucceed:       true,
-			numberExpectedLocks: 1,
+			shouldSucceed: true,
 			ExpectedLockIds: []string{
 				lockID,
 			},
@@ -528,9 +526,8 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 					Team:        team,
 				},
 			},
-			shouldSucceed:       true,
-			numberExpectedLocks: 0,
-			ExpectedLockIds:     []string{},
+			shouldSucceed:   true,
+			ExpectedLockIds: []string{},
 		},
 		{
 			Name: "Create three team locks and delete one ",
@@ -570,8 +567,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 					Team:        team,
 				},
 			},
-			shouldSucceed:       true,
-			numberExpectedLocks: 2,
+			shouldSucceed: true,
 			ExpectedLockIds: []string{
 				"l2", "l3",
 			},
@@ -614,9 +610,6 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				t.Fatalf("Expected locks but got none")
 			}
 
-			if diff := cmp.Diff(tc.numberExpectedLocks, len(locks.TeamLocks)); diff != "" {
-				t.Fatalf("error mismatch on number of expected locks (-want, +got):\n%s", diff)
-			}
 			if diff := cmp.Diff(tc.ExpectedLockIds, locks.TeamLocks); diff != "" {
 				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 			}
