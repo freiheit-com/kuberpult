@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"testing"
@@ -143,6 +144,108 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 
 			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCustomMigrationReleases(t *testing.T) {
+	var getAllApps = /*GetAllAppsFun*/ func() (map[string]string, error) {
+		result := map[string]string{
+			"app1": "team1",
+		}
+		return result, nil
+	}
+	var getAllReleases = /*GetAllReleasesFun*/ func(ctx context.Context, app string) (AllReleases, error) {
+		result := AllReleases{
+			1: ReleaseWithManifest{
+				Version:         666,
+				UndeployVersion: false,
+				SourceAuthor:    "auth1",
+				SourceCommitId:  "commit1",
+				SourceMessage:   "msg1",
+				CreatedAt:       time.Time{},
+				DisplayVersion:  "display1",
+				Manifest:        "manifest1",
+				Environment:     "dev",
+			},
+			2: ReleaseWithManifest{
+				Version:         777,
+				UndeployVersion: false,
+				SourceAuthor:    "auth2",
+				SourceCommitId:  "commit2",
+				SourceMessage:   "msg2",
+				CreatedAt:       time.Time{},
+				DisplayVersion:  "display2",
+				Manifest:        "manifest2",
+				Environment:     "dev",
+			},
+		}
+		return result, nil
+	}
+	tcs := []struct {
+		Name             string
+		expectedReleases []*DBReleaseWithMetaData
+	}{
+		{
+			Name: "Simple migration",
+			expectedReleases: []*DBReleaseWithMetaData{
+				{
+					EslId:         1,
+					ReleaseNumber: 666,
+					App:           "app1",
+					Env:           "dev",
+					Manifest:      "manifest1",
+					Metadata: DBReleaseMetaData{
+						SourceAuthor:   "auth1",
+						SourceCommitId: "commit1",
+						SourceMessage:  "msg1",
+						DisplayVersion: "display1",
+					},
+				},
+				{
+					EslId:         1,
+					ReleaseNumber: 777,
+					App:           "app1",
+					Env:           "dev",
+					Manifest:      "manifest2",
+					Metadata: DBReleaseMetaData{
+						SourceAuthor:   "auth2",
+						SourceCommitId: "commit2",
+						SourceMessage:  "msg2",
+						DisplayVersion: "display2",
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, getAllReleases)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				for i := range tc.expectedReleases {
+					expectedRelease := tc.expectedReleases[i]
+
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.Env, expectedRelease.ReleaseNumber)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(expectedRelease, release); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
 			}
 		})
 	}
@@ -429,7 +532,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					LockID:     "dev-lock",
 					EslVersion: 2,
 					Deleted:    true,
-					Metadata: EnvironmentLockMetadata{
+					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
@@ -440,7 +543,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					LockID:     "dev-lock",
 					EslVersion: 1,
 					Deleted:    false,
-					Metadata: EnvironmentLockMetadata{
+					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
@@ -518,7 +621,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 				LockID:     "dev-lock",
 				EslVersion: 1,
 				Deleted:    false,
-				Metadata: EnvironmentLockMetadata{
+				Metadata: LockMetadata{
 					Message:        "My lock on dev",
 					CreatedByName:  "myself",
 					CreatedByEmail: "myself@example.com",
@@ -568,6 +671,176 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 	}
 }
 
+func TestReadWriteApplicationLock(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Env          string
+		LockID       string
+		Message      string
+		AppName      string
+		AuthorName   string
+		AuthorEmail  string
+		ExpectedLock *ApplicationLock
+	}{
+		{
+			Name:        "Simple application lock",
+			Env:         "dev",
+			LockID:      "dev-app-lock",
+			Message:     "My application lock on dev for my-app",
+			AuthorName:  "myself",
+			AuthorEmail: "myself@example.com",
+			AppName:     "my-app",
+			ExpectedLock: &ApplicationLock{
+				Env:        "dev",
+				LockID:     "dev-app-lock",
+				EslVersion: 1,
+				Deleted:    false,
+				App:        "my-app",
+				Metadata: LockMetadata{
+					Message:        "My application lock on dev for my-app",
+					CreatedByName:  "myself",
+					CreatedByEmail: "myself@example.com",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				envLock, err2 := dbHandler.DBSelectAppLock(ctx, transaction, tc.Env, tc.AppName, tc.LockID)
+				if err2 != nil {
+					return err2
+				}
+				if envLock != nil {
+					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+				}
+				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				if err != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectAppLockHistory(ctx, transaction, tc.Env, tc.AppName, tc.LockID, 1)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(1, len(actual)); diff != "" {
+					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+				}
+				target := actual[0]
+				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestDeleteApplicationLock(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Env           string
+		LockID        string
+		Message       string
+		AppName       string
+		AuthorName    string
+		AuthorEmail   string
+		ExpectedLocks []ApplicationLock
+		ExpectedError error
+	}{
+		{
+			Name:        "Write and delete",
+			Env:         "dev",
+			LockID:      "dev-lock",
+			AppName:     "myApp",
+			Message:     "My lock on dev",
+			AuthorName:  "myself",
+			AuthorEmail: "myself@example.com",
+			ExpectedLocks: []ApplicationLock{
+				{ //Sort DESC
+					Env:        "dev",
+					App:        "myApp",
+					LockID:     "dev-lock",
+					EslVersion: 2,
+					Deleted:    true,
+					Metadata: LockMetadata{
+						Message:        "My lock on dev",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+					},
+				},
+				{
+					Env:        "dev",
+					LockID:     "dev-lock",
+					App:        "myApp",
+					EslVersion: 1,
+					Deleted:    false,
+					Metadata: LockMetadata{
+						Message:        "My lock on dev",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				if err2 != nil {
+					return err2
+				}
+				if envLock != nil {
+					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+				}
+				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				if err != nil {
+					return err
+				}
+
+				errDelete := dbHandler.DBDeleteApplicationLock(ctx, transaction, tc.Env, tc.AppName, tc.LockID)
+				if errDelete != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectAppLockHistory(ctx, transaction, tc.Env, tc.AppName, tc.LockID, 2)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(len(tc.ExpectedLocks), len(actual)); diff != "" {
+					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+				}
+
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
 	dir, err := testutil.CreateMigrationsPath(2)
@@ -590,5 +863,45 @@ func setupDB(t *testing.T) *DBHandler {
 		t.Fatal(err)
 	}
 
+	return dbHandler
+}
+
+func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
+	migrationsPath, err := testutil.CreateMigrationsPath(2)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &DBConfig{
+		MigrationsPath: migrationsPath,
+		DriverName:     "sqlite3",
+	}
+
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil
+	}
+	t.Logf("test created dir: %s", localDir)
+
+	dbConfig.DbHost = dir
+
+	migErr := RunDBMigrations(*dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := Connect(*dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return dbHandler
 }

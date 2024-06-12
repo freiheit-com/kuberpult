@@ -199,6 +199,25 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				"error accessing dir \"environments/acceptance\": file does not exist",
 			},
 		},
+		{
+			// as of now we only have the DeployApplicationVersion and CreateEnvironmentLock transformer,
+			// so we can test only this error case.
+			// As soon as we have the other transformers (especially CreateEnvironment)
+			// we need to add more tests here.
+			Name: "create applications lock",
+			Transformers: []Transformer{
+				&CreateEnvironmentApplicationLock{
+					Authentication: Authentication{},
+					Environment:    envAcceptance,
+					LockId:         "my-lock",
+					Application:    "my-app",
+					Message:        "My envAcceptance lock",
+				},
+			},
+			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
+				"error accessing dir \"environments/acceptance\": file does not exist",
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
