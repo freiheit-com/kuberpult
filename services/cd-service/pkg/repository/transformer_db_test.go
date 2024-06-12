@@ -587,3 +587,161 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteQueueApplicationVersion(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedDbContent []db.QueuedDeployment
+	}{
+		{
+			Name: "create one version",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentLock{
+					Authentication: Authentication{},
+					Environment:    envProduction,
+					Message:        "don't",
+					LockId:         "manual",
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&QueueApplicationVersion{
+					Application: "test",
+					Environment: "production",
+					Version:     1,
+				},
+			},
+			expectedDbContent: []db.QueuedDeployment{
+				{
+					EslVersion: 2,
+					Env:        "production",
+					App:        "test",
+					Version:    nil,
+				},
+				{
+					EslVersion: 1,
+					Env:        "production",
+					App:        "test",
+					Version:    version(1),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		fmt.Println("My test")
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				err2 := state.DeleteQueuedVersion(ctx, transaction, envProduction, "test")
+				if err2 != nil {
+					t.Fatalf("expected no error, got %v", err2)
+				}
+				result, err2 := state.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, envProduction, "test", 10)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				fmt.Println(result)
+				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+func TestQueueDeploymentTransformer(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedDbContent []db.QueuedDeployment
+	}{
+		{
+			Name: "create one version",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentLock{
+					Authentication: Authentication{},
+					Environment:    envProduction,
+					Message:        "don't",
+					LockId:         "manual",
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&QueueApplicationVersion{
+					Application: "test",
+					Environment: "production",
+					Version:     1,
+				},
+			},
+			expectedDbContent: []db.QueuedDeployment{
+				{
+					EslVersion: 1,
+					Env:        "production",
+					App:        "test",
+					Version:    version(1),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		fmt.Println("My test")
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				result, err2 := state.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, envProduction, "test", 10)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				fmt.Println(result)
+				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func version(v int) *int64 {
+	var result = int64(v)
+	return &result
+}

@@ -80,14 +80,14 @@ func TestMigrationScript(t *testing.T) {
 			migrationFile: `
 CREATE TABLE IF NOT EXISTS all_apps
 (
-    version BIGINT,
+    Version BIGINT,
     created TIMESTAMP,
     json VARCHAR(255),
-    PRIMARY KEY(version)
+    PRIMARY KEY(Version)
 );
 
-INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
-INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
+INSERT INTO all_apps (Version , created , json)  VALUES (0, 	'1713218400', 'First Message');
+INSERT INTO all_apps (Version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
 			expectedData: &AllApplicationsGo{
 				Version: 1,
 				Created: time.Unix(1713218400, 0).UTC(),
@@ -364,8 +364,8 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 		},
 		{
 			Name:          "insert with 3 parameter",
-			inputQuery:    "INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?)",
-			expectedQuery: "INSERT INTO all_apps (version , created , json)  VALUES ($1, $2, $3)",
+			inputQuery:    "INSERT INTO all_apps (Version , created , json)  VALUES (?, ?, ?)",
+			expectedQuery: "INSERT INTO all_apps (Version , created , json)  VALUES ($1, $2, $3)",
 		},
 	}
 	for _, tc := range tcs {
@@ -830,6 +830,166 @@ func TestDeleteApplicationLock(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestQueueApplicationVersion(t *testing.T) {
+	const envName = "dev"
+	const appName = "deployment"
+
+	tcs := []struct {
+		Name                string
+		Deployments         []QueuedDeployment
+		ExpectedDeployments []QueuedDeployment
+		Env                 string
+		AppName             string
+		Version             *int64
+	}{
+		{
+			Name: "Write and read",
+			Deployments: []QueuedDeployment{
+				{
+					Env:     envName,
+					App:     appName,
+					Version: version(0),
+				},
+			},
+			ExpectedDeployments: []QueuedDeployment{
+				{
+					EslVersion: 1,
+					Env:        envName,
+					App:        appName,
+					Version:    version(0),
+				},
+			},
+		},
+		{
+			Name: "Write and read multiple",
+			Deployments: []QueuedDeployment{
+				{
+					Env:     envName,
+					App:     appName,
+					Version: version(0),
+				},
+				{
+					Env:     envName,
+					App:     appName,
+					Version: version(1),
+				},
+			},
+			ExpectedDeployments: []QueuedDeployment{
+				{
+					EslVersion: 2,
+					Env:        envName,
+					App:        appName,
+					Version:    version(1),
+				},
+				{
+					EslVersion: 1,
+					Env:        envName,
+					App:        appName,
+					Version:    version(0),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, deployments := range tc.Deployments {
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
+					if err != nil {
+						return err
+					}
+				}
+
+				actual, err := dbHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, envName, appName, 10)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedDeployments, actual, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestQueueApplicationVersionDelete(t *testing.T) {
+	const envName = "dev"
+	const appName = "deployment"
+	tcs := []struct {
+		Name                string
+		Env                 string
+		AppName             string
+		Version             *int64
+		ExpectedDeployments []QueuedDeployment
+	}{
+		{
+			Name:    "Write and delete",
+			Env:     envName,
+			AppName: appName,
+			Version: version(1),
+			ExpectedDeployments: []QueuedDeployment{
+				{
+					EslVersion: 2,
+					Env:        envName,
+					App:        appName,
+					Version:    nil,
+				},
+				{
+					EslVersion: 1,
+					Env:        envName,
+					App:        appName,
+					Version:    version(1),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version)
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBDeleteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName)
+				if err != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, tc.Env, tc.AppName, len(tc.ExpectedDeployments))
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedDeployments, actual, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
 					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil

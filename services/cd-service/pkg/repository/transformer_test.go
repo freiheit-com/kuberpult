@@ -5438,8 +5438,8 @@ func TestTransformer(t *testing.T) {
 				if i != nil {
 					t.Errorf("unexpected version: expected nil, actual %d", i)
 				}
-
-				actualQueued, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				actualQueued, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5483,7 +5483,8 @@ func TestTransformer(t *testing.T) {
 				if i != nil {
 					t.Errorf("unexpected version: expected nil, actual %d", i)
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5512,7 +5513,8 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 2, actual %d", *i)
 					}
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5537,7 +5539,8 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual %d", *i)
 					}
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5562,7 +5565,8 @@ func TestTransformer(t *testing.T) {
 				if i != nil {
 					t.Errorf("unexpected version: expected nil, actual %d", *i)
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5587,7 +5591,8 @@ func TestTransformer(t *testing.T) {
 				if i != nil {
 					t.Errorf("unexpected version %d: expected: nil", *i)
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}

@@ -1976,27 +1976,38 @@ type QueueApplicationVersion struct {
 	Version     uint64
 }
 
+func (c *QueueApplicationVersion) GetDBEventType() db.EventType {
+	return db.EvtQueueApplicationVersion
+}
 func (c *QueueApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	fs := state.Filesystem
-	// Create a symlink to the release
-	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
-	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
-		return "", err
+	if state.DBHandler.ShouldUseOtherTables() {
+		fmt.Printf("QueueApplicationVersionTransformer: '%s' '%s' '%d'", c.Environment, c.Application, c.Version)
+		version := (int64(c.Version))
+		err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, c.Environment, c.Application, &version)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		fs := state.Filesystem
+		// Create a symlink to the release
+		applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
+		if err := fs.MkdirAll(applicationDir, 0777); err != nil {
+			return "", err
+		}
+		queuedVersionFile := fs.Join(applicationDir, queueFileName)
+		if err := fs.Remove(queuedVersionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+		releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
+		if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), queuedVersionFile); err != nil {
+			return "", err
+		}
 	}
-	queuedVersionFile := fs.Join(applicationDir, queueFileName)
-	if err := fs.Remove(queuedVersionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
-	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), queuedVersionFile); err != nil {
-		return "", err
-	}
-
 	return fmt.Sprintf("Queued version %d of app %q in env %q", c.Version, c.Application, c.Environment), nil
 }
 
@@ -2053,6 +2064,7 @@ func (c *DeployApplicationVersion) Transform(
 			err                           error
 		)
 		envLocks, err = state.GetEnvironmentLocks(ctx, c.Environment)
+		fmt.Printf("envLocks: %v\n", envLocks)
 		if err != nil {
 			return "", err
 		}
@@ -2115,7 +2127,7 @@ func (c *DeployApplicationVersion) Transform(
 					Application: c.Application,
 					Version:     c.Version,
 				}
-				return q.Transform(ctx, state, t, nil)
+				return q.Transform(ctx, state, t, transaction)
 			case api.LockBehavior_FAIL:
 				return "", &LockedError{
 					EnvironmentApplicationLocks: appLocks,
@@ -2233,7 +2245,7 @@ func (c *DeployApplicationVersion) Transform(
 		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
 		CloudRunClient:         state.CloudRunClient,
 	}
-	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
+	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}

@@ -1597,10 +1597,12 @@ func (s *State) GetTeamLocksDir(environment string, team string) string {
 
 func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment string) (map[string]Lock, error) {
 	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.EnvironmentLock, error) {
+
 		locks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Printf("LOCKS: %v\n", locks)
 		var lockIds []string
 		if locks != nil {
 			lockIds = locks.EnvLocks
@@ -1823,24 +1825,60 @@ func (s *State) DeleteDirIfEmpty(directoryName string) (SuccessReason, error) {
 	return DirNotEmpty, nil
 }
 
-func (s *State) GetQueuedVersion(environment string, application string) (*uint64, error) {
-	return s.readSymlink(environment, application, queueFileName)
+func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
+	var queuedDeployments []db.QueuedDeployment
+	var err error
+	if transaction == nil {
+		queuedDeployments, err = db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.QueuedDeployment, error) {
+			return s.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, environment, application, 1)
+		})
+	} else {
+		queuedDeployments, err = s.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, environment, application, 1)
+	}
+	if err != nil || queuedDeployments == nil || len(queuedDeployments) == 0 {
+		return nil, err
+	}
+
+	var v uint64
+	if &queuedDeployments[0] != nil {
+		v = uint64(*queuedDeployments[0].Version)
+	}
+
+	return &v, nil
 }
 
-func (s *State) DeleteQueuedVersion(environment string, application string) error {
+func (s *State) GetQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
+	}
+	return s.readSymlink(environment, application, queueFileName)
+}
+func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
+	if transaction == nil {
+		return s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application)
+		})
+	}
+	return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application)
+}
+
+func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.DeleteQueuedVersionFromDB(ctx, transaction, environment, application)
+	}
 	queuedVersion := s.Filesystem.Join("environments", environment, "applications", application, queueFileName)
 	return s.Filesystem.Remove(queuedVersion)
 }
 
-func (s *State) DeleteQueuedVersionIfExists(environment string, application string) error {
-	queuedVersion, err := s.GetQueuedVersion(environment, application)
+func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
+	queuedVersion, err := s.GetQueuedVersion(ctx, transaction, environment, application)
 	if err != nil {
 		return err
 	}
 	if queuedVersion == nil {
 		return nil // nothing to do
 	}
-	return s.DeleteQueuedVersion(environment, application)
+	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, environment, application string, transaction *sql.Tx) (*uint64, error) {
@@ -2430,7 +2468,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 // deploys if necessary
 // deletes the queue
 func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment string, application string) (string, error) {
-	queuedVersion, err := s.GetQueuedVersion(environment, application)
+	queuedVersion, err := s.GetQueuedVersion(ctx, transaction, environment, application)
 	queueDeploymentMessage := ""
 	if err != nil {
 		// could not read queued version.
@@ -2449,7 +2487,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
 			// delete queue, it's outdated! But if we can't, that's not really a problem, as it would be overwritten
 			// whenever the next deployment happens:
-			err = s.DeleteQueuedVersion(environment, application)
+			err = s.DeleteQueuedVersion(ctx, transaction, environment, application)
 			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
 		}
 	}
