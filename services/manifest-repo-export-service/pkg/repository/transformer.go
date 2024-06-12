@@ -244,11 +244,11 @@ func (c *DeployApplicationVersion) Transform(
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
 	var manifestContent []byte
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Environment, c.Version)
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
 	if err != nil {
 		return "", err
 	}
-	manifestContent = []byte(version.Manifest)
+	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
 
 	//manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
@@ -582,7 +582,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	isLatest, err := isLatestVersion(state, c.Application, version)
+	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
@@ -602,39 +602,35 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, state *State) (uint64, error) {
+func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (uint64, error) {
 	if c.Version == 0 {
 		return 0, fmt.Errorf("version is required when using the manifest-repo-export-service and cannot be 0")
 	} else {
 		// check that the version doesn't already exist
-		metadata, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.DBReleaseWithMetaData, error) {
-			metaData, err := state.DBHandler.DBSelectReleaseByVersionAnyEnv(ctx, transaction, c.Application, c.Version)
-			if err != nil {
-				return nil, fmt.Errorf("could not calculate version, error: %v", err)
-			}
-			if metaData == nil {
-				return nil, fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
-			}
-			return metaData, nil
-		})
+		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("could not calculate version, error: %v", err)
+		}
+		if metaData == nil {
+			return 0, fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
 		}
 		// check if version differs
-		return 0, c.sameAsExisting(ctx, state, metadata)
+		return 0, c.sameAsExisting(ctx, transaction, state, metaData)
 	}
 }
 
-func (c *CreateApplicationVersion) sameAsExisting(ctx context.Context, state *State, metadata *db.DBReleaseWithMetaData) error {
+func (c *CreateApplicationVersion) sameAsExisting(ctx context.Context, transaction *sql.Tx, state *State, metadata *db.DBReleaseWithMetaData) error {
 	if c.SourceCommitId != "" {
 		existingSourceCommitIdStr := metadata.Metadata.SourceCommitId
 		if existingSourceCommitIdStr != c.SourceCommitId {
+			logger.FromContext(ctx).Sugar().Warnf("SourceCommitId is different1 '%s'!='%s'", c.SourceCommitId, existingSourceCommitIdStr)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_COMMIT_ID, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
 		}
 	}
 	if c.SourceAuthor != "" {
 		existingSourceAuthorStr := metadata.Metadata.SourceAuthor
 		if existingSourceAuthorStr != c.SourceAuthor {
+			logger.FromContext(ctx).Sugar().Warnf("SourceAuthor is different1 '%s'!='%s'", c.SourceAuthor, existingSourceAuthorStr)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_AUTHOR, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
 		}
 	}
@@ -647,40 +643,34 @@ func (c *CreateApplicationVersion) sameAsExisting(ctx context.Context, state *St
 	if c.DisplayVersion != "" {
 		existingDisplayVersionStr := metadata.Metadata.DisplayVersion
 		if existingDisplayVersionStr != c.DisplayVersion {
+			logger.FromContext(ctx).Sugar().Warnf("displayVersion is different1 '%s'!='%s'", c.DisplayVersion, metadata.Metadata.DisplayVersion)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DISPLAY_VERSION, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
 		}
 	}
 	if c.Team != "" {
-		appData, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.DBAppWithMetaData, error) {
-			appData, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
-			if err != nil {
-				return nil, fmt.Errorf("could not calculate version, error: %v", err)
-			}
-			return appData, nil
-		})
+		appData, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
 		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("team is different1 '%s'!='%s'", c.Team, appData.Metadata.Team)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, "")
 		}
 		existingTeamStr := appData.Metadata.Team
 		if existingTeamStr != c.Team {
+			logger.FromContext(ctx).Sugar().Warnf("team is different2 '%s'!='%s'", c.Team, appData.Metadata.Team)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
+	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+	if err != nil {
+		return fmt.Errorf("could not calculate version, error: %v", err)
+	}
+	if metaData == nil {
+		return fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
+	}
+	if err != nil {
+		return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for app %s", c.Application))
+	}
 	for env, man := range c.Manifests {
-		metaData, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.DBReleaseWithMetaData, error) {
-			metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, env, c.Version)
-			if err != nil {
-				return nil, fmt.Errorf("could not calculate version, error: %v", err)
-			}
-			if metaData == nil {
-				return nil, fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
-			}
-			return metaData, nil
-		})
-		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for env %s", env))
-		}
-		existingManStr := metaData.Manifest
+		existingManStr := metaData.Manifests.Manifests[env]
 		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
 		}
@@ -708,8 +698,8 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
-func isLatestVersion(state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetApplicationReleases(application)
+func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
+	rels, err := state.GetApplicationReleases(ctx, transaction, application)
 	if err != nil {
 		return false, err
 	}
@@ -732,7 +722,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if err != nil {
 		return nil, err
 	}
-	versions, err := state.GetApplicationReleases(name)
+	versions, err := state.GetApplicationReleasesFromFile(name)
 	if err != nil {
 		return nil, err
 	}

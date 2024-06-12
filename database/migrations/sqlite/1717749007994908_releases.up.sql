@@ -4,8 +4,17 @@ CREATE TABLE IF NOT EXISTS releases
     releaseVersion INTEGER, -- release ID given by the client that calls CreateApplicationVersion
     created TIMESTAMP,
     appName VARCHAR,
-    envName VARCHAR,
-    manifest VARCHAR,
+    manifests VARCHAR,
     metadata VARCHAR,
-    PRIMARY KEY(eslVersion, releaseVersion, appName, envName)
+    PRIMARY KEY(eslVersion, releaseVersion, appName)
+);
+
+
+CREATE TABLE IF NOT EXISTS all_releases
+(
+    eslVersion INTEGER, -- internal ID for ESL
+    created TIMESTAMP,
+    appName VARCHAR,
+    metadata VARCHAR,
+    PRIMARY KEY(eslVersion, appName)
 );

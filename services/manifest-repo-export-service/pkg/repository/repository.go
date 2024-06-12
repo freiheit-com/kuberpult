@@ -1298,7 +1298,24 @@ func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
 }
 
-func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
+func (s *State) GetApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		app, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+		if err != nil {
+			return nil, fmt.Errorf("could not get all_releases of app %s", application)
+		}
+
+		var ints = []uint64{}
+		for i := range app.Metadata.Releases {
+			ints = append(ints, uint64(app.Metadata.Releases[i]))
+		}
+		return ints, nil
+	} else {
+		return s.GetApplicationReleasesFromFile(application)
+	}
+}
+
+func (s *State) GetApplicationReleasesFromFile(application string) ([]uint64, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
 	} else {

@@ -2172,7 +2172,7 @@ func (s *State) IsUndeployVersion(application string, version uint64) (bool, err
 
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		env, err := s.DBHandler.DBSelectReleaseByVersionAnyEnv(ctx, transaction, application, version)
+		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
 		if err != nil {
 			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
 		}

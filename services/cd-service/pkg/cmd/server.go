@@ -351,19 +351,22 @@ func RunServer() {
 					if err != nil {
 						return nil, fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
 					}
+					var manifestsMap = map[string]string{}
 					for index := range manifests {
 						manifest := manifests[index]
-						result[releaseVersion] = db.ReleaseWithManifest{
-							Version:         releaseVersion,
-							UndeployVersion: repoRelease.UndeployVersion,
-							SourceAuthor:    repoRelease.SourceAuthor,
-							SourceCommitId:  repoRelease.SourceCommitId,
-							SourceMessage:   repoRelease.SourceMessage,
-							CreatedAt:       repoRelease.CreatedAt,
-							DisplayVersion:  repoRelease.DisplayVersion,
-							Manifest:        manifest.Content,
-							Environment:     manifest.Environment,
-						}
+						manifestsMap[manifest.Environment] = manifest.Content
+					}
+					result[releaseVersion] = db.ReleaseWithManifest{
+						Version:         releaseVersion,
+						UndeployVersion: repoRelease.UndeployVersion,
+						SourceAuthor:    repoRelease.SourceAuthor,
+						SourceCommitId:  repoRelease.SourceCommitId,
+						SourceMessage:   repoRelease.SourceMessage,
+						CreatedAt:       repoRelease.CreatedAt,
+						DisplayVersion:  repoRelease.DisplayVersion,
+						Manifests:       manifestsMap,
+						//Manifest:        manifest.Content,
+						//Environment:     manifest.Environment,
 					}
 				}
 				return result, nil
