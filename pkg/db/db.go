@@ -380,7 +380,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		}
 	} else {
 		row = nil
-	} 
+	}
 	err = closeRows(rows)
 	if err != nil {
 		return nil, err
