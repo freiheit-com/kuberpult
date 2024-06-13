@@ -964,7 +964,7 @@ cd:
 			ExpectedMissing: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_ESL_PROCESSING_BACKOFF",
-					Value: "5",
+					Value: "",
 				},
 			},
 		},
