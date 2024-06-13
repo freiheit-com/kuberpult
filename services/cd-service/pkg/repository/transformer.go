@@ -429,7 +429,6 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	logger.FromContext(ctx).Sugar().Infof("starting %v...", c.GetDBEventType())
 	version, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err

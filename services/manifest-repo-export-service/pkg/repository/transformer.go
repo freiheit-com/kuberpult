@@ -32,10 +32,6 @@ import (
 	yaml3 "gopkg.in/yaml.v3"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
-	"github.com/hexops/gotextdiff"
-	"github.com/hexops/gotextdiff/myers"
-	diffspan "github.com/hexops/gotextdiff/span"
-
 	"os"
 	"sort"
 	"strconv"
@@ -697,102 +693,6 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-//func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (uint64, error) {
-//	if c.Version == 0 {
-//		return 0, fmt.Errorf("version is required when using the manifest-repo-export-service and cannot be 0")
-//	} else {
-//		// check that the version doesn't already exist
-//		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
-//		if err != nil {
-//			return 0, fmt.Errorf("could not calculate version, error: %v", err)
-//		}
-//		if metaData == nil {
-//			return 0, fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
-//		}
-//		// check if version differs
-//		return 0, c.sameAsExisting(ctx, transaction, state, metaData)
-//	}
-//}
-
-func (c *CreateApplicationVersion) sameAsExisting(ctx context.Context, transaction *sql.Tx, state *State, metadata *db.DBReleaseWithMetaData) error {
-	if c.SourceCommitId != "" {
-		existingSourceCommitIdStr := metadata.Metadata.SourceCommitId
-		if existingSourceCommitIdStr != c.SourceCommitId {
-			logger.FromContext(ctx).Sugar().Warnf("SourceCommitId is different1 '%s'!='%s'", c.SourceCommitId, existingSourceCommitIdStr)
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_COMMIT_ID, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
-		}
-	}
-	if c.SourceAuthor != "" {
-		existingSourceAuthorStr := metadata.Metadata.SourceAuthor
-		if existingSourceAuthorStr != c.SourceAuthor {
-			logger.FromContext(ctx).Sugar().Warnf("SourceAuthor is different1 '%s'!='%s'", c.SourceAuthor, existingSourceAuthorStr)
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_AUTHOR, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
-		}
-	}
-	if c.SourceMessage != "" {
-		existingSourceMessageStr := metadata.Metadata.SourceMessage
-		if existingSourceMessageStr != c.SourceMessage {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_MESSAGE, createUnifiedDiff(existingSourceMessageStr, c.SourceMessage, ""))
-		}
-	}
-	if c.DisplayVersion != "" {
-		existingDisplayVersionStr := metadata.Metadata.DisplayVersion
-		if existingDisplayVersionStr != c.DisplayVersion {
-			logger.FromContext(ctx).Sugar().Warnf("displayVersion is different1 '%s'!='%s'", c.DisplayVersion, metadata.Metadata.DisplayVersion)
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DISPLAY_VERSION, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
-		}
-	}
-	if c.Team != "" {
-		appData, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("team is different1 '%s'!='%s'", c.Team, appData.Metadata.Team)
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, "")
-		}
-		existingTeamStr := appData.Metadata.Team
-		if existingTeamStr != c.Team {
-			logger.FromContext(ctx).Sugar().Warnf("team is different2 '%s'!='%s'", c.Team, appData.Metadata.Team)
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
-		}
-	}
-	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
-	if err != nil {
-		return fmt.Errorf("could not calculate version, error: %v", err)
-	}
-	if metaData == nil {
-		return fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
-	}
-	if err != nil {
-		return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for app %s", c.Application))
-	}
-	for env, man := range c.Manifests {
-		existingManStr := metaData.Manifests.Manifests[env]
-		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
-		}
-	}
-	return GetCreateReleaseAlreadyExistsSame()
-}
-
-func canonicalizeYaml(unformatted string) string {
-	var target RawNode
-	if errDeserial := yaml3.Unmarshal([]byte(unformatted), &target); errDeserial != nil {
-		return yamlParsingError // we only use this for comparisons
-	}
-	if canonicalData, errSerial := yaml3.Marshal(target.Node); errSerial == nil {
-		return string(canonicalData)
-	} else {
-		return yamlParsingError // only for comparisons
-	}
-}
-
-func createUnifiedDiff(existingValue string, requestValue string, prefix string) string {
-	existingValueStr := string(existingValue)
-	existingFilename := fmt.Sprintf("%sexisting", prefix)
-	requestFilename := fmt.Sprintf("%srequest", prefix)
-	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, string(requestValue))
-	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
-}
-
 func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
 	rels, err := state.GetApplicationReleases(ctx, transaction, application)
 	if err != nil {
@@ -848,28 +748,4 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return nil, nil
 	}
 	return versions[0 : positionOfOldestVersion-(int(releaseVersionsLimit)-1)], err
-}
-
-func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
-	var err error
-	releasesDir := releasesDirectory(fs, application)
-	err = fs.MkdirAll(releasesDir, 0777)
-	if err != nil {
-		return 0, err
-	}
-	if entries, err := fs.ReadDir(releasesDir); err != nil {
-		return 0, err
-	} else {
-		var lastRelease uint64 = 0
-		for _, e := range entries {
-			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
-				//TODO(HVG): decide what to do with bad named releases
-			} else {
-				if i > lastRelease {
-					lastRelease = i
-				}
-			}
-		}
-		return lastRelease, nil
-	}
 }

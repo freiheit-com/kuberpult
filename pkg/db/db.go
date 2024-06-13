@@ -1972,7 +1972,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		environment,
 		jsonToInsert)
 	if err != nil {
-		return fmt.Errorf("could not insert all envs into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert all env locks into DB. Error: %w\n", err)
 	}
 	return nil
 }
