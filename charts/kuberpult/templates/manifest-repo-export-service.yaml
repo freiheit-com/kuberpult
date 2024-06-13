@@ -133,6 +133,10 @@ spec:
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
+{{- if .Values.manifestRepoExport.eslProcessingBackoff }}
+        - name: KUBERPULT_ESL_PROCESSING_BACKOFF
+          value: {{ .Values.manifestRepoExport.eslProcessingBackoff | quote }}
+{{- end }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

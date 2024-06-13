@@ -19,16 +19,18 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"time"
 
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"go.uber.org/zap"
-	"os"
 )
 
 func storageBackend(enableSqlite bool) repository.StorageBackend {
@@ -50,6 +52,8 @@ func RunServer() {
 }
 
 func Run(ctx context.Context) error {
+	log := logger.FromContext(ctx).Sugar()
+
 	logger.FromContext(ctx).Info("Startup")
 
 	dbLocation, err := readEnvVar("KUBERPULT_DB_LOCATION")
@@ -97,6 +101,18 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	var eslProcessingBackoff uint64
+	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
+		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
+		eslProcessingBackoff = 10
+	} else {
+		eslProcessingBackoff, err = strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error converting KUBERPULT_ESL_PROCESSING_BACKOFF, error: %w", err)
+		}
+	}
+
 	enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
 
 	argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
@@ -163,8 +179,10 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
 
-	log := logger.FromContext(ctx).Sugar()
 	for {
+		eslTableEmpty := false
+		eslEventSkipped := false
+
 		err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 			eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
@@ -181,6 +199,7 @@ func Run(ctx context.Context) error {
 			}
 			if esl == nil {
 				log.Warn("event processing skipped: no esl event found")
+				eslTableEmpty = true
 				return nil
 			}
 			transformer, err := processEslEvent(ctx, repo, esl, transaction)
@@ -189,6 +208,7 @@ func Run(ctx context.Context) error {
 			}
 			if transformer == nil {
 				log.Warn("event processing skipped")
+				eslEventSkipped = true
 				return nil
 			}
 			log.Infof("event processed successfully, now writing to cutoff...")
@@ -202,9 +222,11 @@ func Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("error in transaction %v", err)
 		}
-		d := 10 * time.Second
-		log.Infof("sleeping for %v before processing the next event", d)
-		time.Sleep(d)
+		if eslEventSkipped || eslTableEmpty {
+			d := time.Second * time.Duration(eslProcessingBackoff)
+			log.Infof("sleeping for %v before processing the next event", d)
+			time.Sleep(d)
+		}
 	}
 }
 
