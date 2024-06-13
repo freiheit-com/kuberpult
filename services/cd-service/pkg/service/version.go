@@ -62,10 +62,7 @@ func (o *VersionServiceServer) GetVersion(
 	//exhaustruct:ignore
 	res := api.GetVersionResponse{}
 	if state.DBHandler.ShouldUseOtherTables() {
-		//db.WithTransactionT(ctx, func(ctx context.Context, transaction *sql.Tx) (*uint64,error) {
-		//
-		//})
-		// TODO SU
+		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: not supported yet for Database mode"))
 	}
 	version, err := state.GetEnvironmentApplicationVersion(ctx, in.Environment, in.Application, nil)
 	if err != nil {
@@ -73,7 +70,7 @@ func (o *VersionServiceServer) GetVersion(
 	}
 	if version != nil {
 		res.Version = *version
-		_, deployedAt, err := state.GetDeploymentMetaData(ctx, nil, in.Environment, in.Application)
+		_, deployedAt, err := state.GetDeploymentMetaDataFromRepo(in.Environment, in.Application)
 		if err != nil {
 			return nil, err
 		}

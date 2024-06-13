@@ -248,18 +248,6 @@ func (c *DeployApplicationVersion) Transform(
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
 
-	//manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
-	//if file, err := fs.Open(manifest); err != nil {
-	//	return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
-	//} else {
-	//	if content, err := io.ReadAll(file); err != nil {
-	//		return "", err
-	//	} else {
-	//		manifestContent = content
-	//	}
-	//	file.Close()
-	//}
-
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
@@ -275,13 +263,10 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 
-		//appDir := applicationDirectory(fsys, c.Application)
-
 		teamName, err := state.GetTeamName(c.Application)
 		if err != nil {
 			return "", err
 		}
-		//team, err := util.ReadFile(fsys, fsys.Join(appDir, "team"))
 
 		teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, teamName)
 		if err != nil {

@@ -379,7 +379,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
 	} else {
-		rows = nil
+		row = nil
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -1282,7 +1282,6 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 					Created:       time.Now(),
 					ReleaseNumber: repoRelease.Version,
 					App:           app,
-					//Env:           repoRelease.Environment,
 					Manifests: DBReleaseManifests{
 						Manifests: repoRelease.Manifests,
 					},
@@ -1874,7 +1873,6 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 	}(rows)
 	//Get the latest change to each lock
 	for _, id := range lockIDs {
-		//Get the latest change to
 		var err error
 		selectQuery := h.AdaptQuery(
 			"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
