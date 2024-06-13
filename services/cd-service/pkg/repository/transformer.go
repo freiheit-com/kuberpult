@@ -602,6 +602,14 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
+		anyRelease, err := state.DBHandler.DBSelectAnyRelease(ctx, transaction)
+		if err != nil {
+			return "", err
+		}
+		var v = db.InitialEslId - 1
+		if anyRelease != nil {
+			v = anyRelease.EslId
+		}
 		release := db.DBReleaseWithMetaData{
 			EslId:         0,
 			ReleaseNumber: version,
@@ -615,14 +623,7 @@ func (c *CreateApplicationVersion) Transform(
 				SourceMessage:  c.SourceMessage,
 				DisplayVersion: c.DisplayVersion,
 			},
-		}
-		anyRelease, err := state.DBHandler.DBSelectAnyRelease(ctx, transaction)
-		if err != nil {
-			return "", err
-		}
-		var v = db.InitialEslId - 1
-		if anyRelease != nil {
-			v = anyRelease.EslId
+			Created: time.Now(),
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
 		if err != nil {
