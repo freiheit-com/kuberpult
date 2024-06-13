@@ -1654,7 +1654,45 @@ func (s *State) GetEnvironmentLocksFromManifest(environment string) (map[string]
 	}
 }
 
-func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, environment, application string) (map[string]Lock, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentApplicationLocksFromDB(ctx, environment, application)
+	}
+	return s.GetEnvironmentApplicationLocksFromManifest(environment, application)
+}
+
+func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, environment, application string) (map[string]Lock, error) {
+	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.ApplicationLock, error) {
+		locks, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
+		if err != nil {
+			return nil, err
+		}
+		var lockIds []string
+		if locks != nil {
+			lockIds = locks.AppLocks
+		}
+		return s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]Lock, len(locks))
+	for _, lock := range locks {
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt: lock.Created,
+		}
+		result[lock.LockID] = genericLock
+	}
+	return result, nil
+}
+
+func (s *State) GetEnvironmentApplicationLocksFromManifest(environment, application string) (map[string]Lock, error) {
 	base := s.GetAppLocksDir(environment, application)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -1980,18 +2018,25 @@ func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error)
 
 func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
 	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
-		applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
-		if err != nil {
-			return nil, err
-		}
-		if applications == nil {
-			return make([]string, 0), nil
-		}
-		return applications.Apps, nil
-	} else {
-		appDir := s.Filesystem.Join("environments", environment, "applications")
-		return names(s.Filesystem, appDir)
+		return s.GetEnvironmentApplicationsFromDB(ctx, transaction, environment)
 	}
+	return s.GetEnvironmentApplicationsFromManifest(environment)
+}
+
+func (s *State) GetEnvironmentApplicationsFromManifest(environment string) ([]string, error) {
+	appDir := s.Filesystem.Join("environments", environment, "applications")
+	return names(s.Filesystem, appDir)
+}
+
+func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
+	applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+	if err != nil {
+		return nil, err
+	}
+	if applications == nil {
+		return make([]string, 0), nil
+	}
+	return applications.Apps, nil
 }
 
 // GetApplicationsFromFile returns all apps that exist in any env
@@ -2083,7 +2128,7 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.A
 				Env:        envName,
 				LockID:     lockId,
 				Created:    lock.CreatedAt,
-				Metadata: db.EnvironmentLockMetadata{
+				Metadata: db.LockMetadata{
 					CreatedByName:  lock.CreatedBy.Name,
 					CreatedByEmail: lock.CreatedBy.Email,
 					Message:        lock.Message,
@@ -2092,6 +2137,52 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.A
 			})
 		}
 		result[envName] = currentEnv
+	}
+	return result, nil
+}
+
+func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks, error) {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentApplicationLocks")
+	defer ddSpan.Finish()
+	result := make(db.AllAppLocks)
+	_, envNames, err := s.GetEnvironmentConfigsSorted()
+
+	if err != nil {
+		return nil, err
+	}
+	for envNameIndex := range envNames {
+
+		envName := envNames[envNameIndex]
+
+		appNames, err := s.GetEnvironmentApplicationsFromManifest(envName)
+		if err != nil {
+			return nil, err
+		}
+
+		result[envName] = make(map[string][]db.ApplicationLock)
+		for _, currentApp := range appNames {
+			var currentAppLocks []db.ApplicationLock
+			ls, err := s.GetEnvironmentApplicationLocksFromManifest(envName, currentApp)
+			if err != nil {
+				return nil, err
+			}
+			for lockId, lock := range ls {
+				currentAppLocks = append(currentAppLocks, db.ApplicationLock{
+					EslVersion: 0,
+					Env:        envName,
+					LockID:     lockId,
+					Created:    lock.CreatedAt,
+					Metadata: db.LockMetadata{
+						CreatedByName:  lock.CreatedBy.Name,
+						CreatedByEmail: lock.CreatedBy.Email,
+						Message:        lock.Message,
+					},
+					App:     currentApp,
+					Deleted: false,
+				})
+			}
+			result[envName][currentApp] = currentAppLocks
+		}
 	}
 	return result, nil
 }

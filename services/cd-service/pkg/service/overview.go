@@ -221,7 +221,7 @@ func (o *OverviewServiceServer) getOverview(
 						}
 					}
 
-					if appLocks, err := s.GetEnvironmentApplicationLocks(envName, appName); err != nil {
+					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, envName, appName); err != nil {
 						return nil, err
 					} else {
 						for lockId, lock := range appLocks {

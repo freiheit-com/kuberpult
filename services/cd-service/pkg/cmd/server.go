@@ -365,13 +365,18 @@ func RunServer() {
 						CreatedAt:       repoRelease.CreatedAt,
 						DisplayVersion:  repoRelease.DisplayVersion,
 						Manifests:       manifestsMap,
-						//Manifest:        manifest.Content,
-						//Environment:     manifest.Environment,
 					}
 				}
 				return result, nil
 			}
-			migErr := dbHandler.RunCustomMigrations(ctx, getAppsAndTeams, repo.State().GetCurrentlyDeployed, getAllReleases, repo.State().GetCurrentEnvironmentLocks)
+			migErr := dbHandler.RunCustomMigrations(
+				ctx,
+				getAppsAndTeams,
+				repo.State().GetCurrentlyDeployed,
+				getAllReleases,
+				repo.State().GetCurrentEnvironmentLocks,
+				repo.State().GetCurrentApplicationLocks,
+			)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
 			} else {
