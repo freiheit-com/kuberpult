@@ -378,6 +378,8 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			}
 			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
+	} else {
+		rows = nil
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -512,24 +514,6 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 	return h.processAllReleasesRow(ctx, err, rows)
 }
 
-//// DBSelectReleaseByVersionAnyEnv returns the first matching release
-//// Releases of the same env share metadata, so it does not matter which one it returns
-//func (h *DBHandler) DBSelectReleaseByVersionAnyEnv(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
-//	selectQuery := h.AdaptQuery(fmt.Sprintf(
-//		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion " +
-//			" FROM releases " +
-//			" WHERE appName=? AND releaseVersion=?" +
-//			" ORDER BY eslVersion ASC " +
-//			" LIMIT 1;"))
-//	rows, err := tx.QueryContext(
-//		ctx,
-//		selectQuery,
-//		app,
-//		releaseVersion,
-//	)
-//	return h.processReleaseRow(ctx, err, rows)
-//}
-
 func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
@@ -616,7 +600,6 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 
 	} else {
 		row = nil
-		logger.FromContext(ctx).Sugar().Warnf("could not find row for release")
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -640,11 +623,6 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-	logger.FromContext(ctx).Sugar().Infof(
-		"trying to insert release... app '%s' and version '%v' and eslVersion %v",
-		release.App,
-		release.ReleaseNumber,
-		previousEslVersion+1)
 
 	_, err = transaction.Exec(
 		insertQuery,

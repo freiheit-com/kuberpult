@@ -49,8 +49,6 @@ const (
 )
 
 const (
-	yamlParsingError = "# yaml parsing error"
-
 	fieldSourceAuthor   = "source_author"
 	fieldSourceMessage  = "source_message"
 	fieldSourceCommitId = "source_commit_id"
