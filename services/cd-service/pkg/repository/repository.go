@@ -2102,7 +2102,11 @@ func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.
 		if err != nil {
 			return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
 		}
-		return ptr.ToUint64Slice(app.Metadata.Releases), nil
+		if app == nil {
+			return nil, fmt.Errorf("could not get all releases of app %s (nil)", application)
+		}
+		res := ptr.ToUint64Slice(app.Metadata.Releases)
+		return res, nil
 	} else {
 		return s.GetAllApplicationReleasesFromFile(application)
 	}

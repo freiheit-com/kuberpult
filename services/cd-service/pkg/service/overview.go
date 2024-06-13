@@ -281,7 +281,7 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					} else {
 						if rel == nil {
-							logger.FromContext(ctx).Sugar().Warnf("missing release for app %s: %v", appName, id)
+							// ignore
 						} else {
 							release := rel.ToProto()
 							release.Version = id
@@ -306,8 +306,6 @@ func (o *OverviewServiceServer) getOverview(
 			result.Applications[appName] = &app
 		}
 	}
-	logger.FromContext(ctx).Sugar().Warnf("overview result: %v", result.Applications)
-	fmt.Printf("overview result printf: %v", result.Applications)
 	return &result, nil
 }
 
