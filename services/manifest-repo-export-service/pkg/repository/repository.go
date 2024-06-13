@@ -1304,7 +1304,9 @@ func (s *State) GetApplicationReleases(ctx context.Context, transaction *sql.Tx,
 		if err != nil {
 			return nil, fmt.Errorf("could not get all_releases of app %s", application)
 		}
-
+		if app == nil {
+			return nil, fmt.Errorf("app not found in all_release: %s", application)
+		}
 		var ints = []uint64{}
 		for i := range app.Metadata.Releases {
 			ints = append(ints, uint64(app.Metadata.Releases[i]))

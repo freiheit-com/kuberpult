@@ -248,6 +248,9 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
+	if version == nil {
+		return "", fmt.Errorf("release of app %s with version %v not found", c.Application, c.Version)
+	}
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
 

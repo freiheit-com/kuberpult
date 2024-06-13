@@ -1112,7 +1112,7 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 		jsonToInsert,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert an app into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
 	}
 	return nil
 }
