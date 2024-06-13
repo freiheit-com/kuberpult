@@ -602,22 +602,22 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (uint64, error) {
-	if c.Version == 0 {
-		return 0, fmt.Errorf("version is required when using the manifest-repo-export-service and cannot be 0")
-	} else {
-		// check that the version doesn't already exist
-		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
-		if err != nil {
-			return 0, fmt.Errorf("could not calculate version, error: %v", err)
-		}
-		if metaData == nil {
-			return 0, fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
-		}
-		// check if version differs
-		return 0, c.sameAsExisting(ctx, transaction, state, metaData)
-	}
-}
+//func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (uint64, error) {
+//	if c.Version == 0 {
+//		return 0, fmt.Errorf("version is required when using the manifest-repo-export-service and cannot be 0")
+//	} else {
+//		// check that the version doesn't already exist
+//		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+//		if err != nil {
+//			return 0, fmt.Errorf("could not calculate version, error: %v", err)
+//		}
+//		if metaData == nil {
+//			return 0, fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
+//		}
+//		// check if version differs
+//		return 0, c.sameAsExisting(ctx, transaction, state, metaData)
+//	}
+//}
 
 func (c *CreateApplicationVersion) sameAsExisting(ctx context.Context, transaction *sql.Tx, state *State, metadata *db.DBReleaseWithMetaData) error {
 	if c.SourceCommitId != "" {

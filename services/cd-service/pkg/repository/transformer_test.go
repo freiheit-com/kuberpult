@@ -1535,6 +1535,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging":    "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -1599,6 +1600,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging":    "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -1671,6 +1673,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "some staging manifest",
 					},
 					WriteCommitData: true,
+					Version:         3,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1746,6 +1749,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "some staging manifest",
 					},
 					WriteCommitData: true,
+					Version:         4,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1802,6 +1806,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         5,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "dev",
@@ -1817,6 +1822,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         6,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1853,6 +1859,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Application:     "app",
@@ -1955,6 +1962,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "",
+					Version:         8,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1964,6 +1972,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         9,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1985,6 +1994,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "",
+					Version:         10,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1994,6 +2004,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         11,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -2003,6 +2014,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Version:         12,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -2036,6 +2048,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "",
+					Version:         10,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -2045,6 +2058,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         11,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -2054,6 +2068,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         12,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -2136,6 +2151,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Application:     "app",
@@ -2170,6 +2186,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -2184,6 +2201,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -2274,6 +2292,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					envAcceptance: "acceptance",
 				},
 				WriteCommitData: true,
+				Version:         uint64(i),
 			})
 		}
 		return ret
@@ -2287,6 +2306,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					Application:     "app",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app",
@@ -2306,11 +2326,13 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					Application:     "app1",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application:     "app2",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2407,6 +2429,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 						envAcceptance: "acceptance", // not empty
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2437,6 +2460,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 						envAcceptance: "", // empty!
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2656,6 +2680,7 @@ func TestUndeployErrors(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2680,6 +2705,7 @@ func TestUndeployErrors(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -3322,6 +3348,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -3330,6 +3357,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3368,6 +3396,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -3376,6 +3405,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3404,6 +3434,7 @@ func TestTransformerChanges(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         1,
 				},
 				&CreateEnvironmentTeamLock{ //team lock always needs to come after some release creation
 					Environment: envProduction,
@@ -3419,6 +3450,7 @@ func TestTransformerChanges(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         1,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3513,6 +3545,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Authentication: Authentication{},
@@ -5135,7 +5168,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationReleases("test")
+					rel, err := s.GetAllApplicationReleasesFromFile("test")
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -6278,13 +6311,18 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 }
 
 func SetupRepositoryTestWithDB(t *testing.T) Repository {
+	return SetupRepositoryTestWithDBOptions(t, false)
+}
+
+func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repository {
 	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
 	dbConfig := &db.DBConfig{
-		MigrationsPath: migrationsPath,
 		DriverName:     "sqlite3",
+		MigrationsPath: migrationsPath,
+		WriteEslOnly:   writeEslOnly,
 	}
 
 	dir := t.TempDir()
@@ -6959,7 +6997,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, repo, nil, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, nil, state, repo, nil, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -7199,7 +7237,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, repo, tc.changes, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, nil, state, repo, tc.changes, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}

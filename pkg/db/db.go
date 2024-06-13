@@ -502,7 +502,7 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 		"SELECT eslVersion, created, appName, metadata " +
 			" FROM all_releases " +
 			" WHERE appName=?" +
-			" ORDER BY eslVersion ASC " +
+			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
 		ctx,
@@ -616,6 +616,7 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 
 	} else {
 		row = nil
+		logger.FromContext(ctx).Sugar().Warnf("could not find row for release")
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -673,6 +674,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx, app string, allVersions []int64, previousEslVersion EslId) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
 	defer span.Finish()
+	slices.Sort(allVersions)
 	metadataJson, err := json.Marshal(DBAllReleaseMetaData{
 		Releases: allVersions,
 	})
@@ -692,7 +694,7 @@ func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx
 		metadataJson,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert all_releases for app '%s' into DB. Error: %w\n", app, err)
+		return fmt.Errorf("could not insert all_releases for app '%s' and esl '%v' into DB. Error: %w\n", app, previousEslVersion+1, err)
 	}
 	logger.FromContext(ctx).Sugar().Infof("inserted all_releases for app '%s'", app)
 	return nil

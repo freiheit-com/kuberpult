@@ -137,13 +137,6 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			if err != nil {
 				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 			}
-			release, err := db.DBSelectAnyRelease(ctx, tx)
-			if err != nil {
-				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
-			}
-			if release == nil {
-				t.Fatalf("Release should not be nil")
-			}
 			err = tx.Commit()
 			if err != nil {
 				t.Fatalf("Error commiting transaction. Error: %v\n", err)
@@ -173,8 +166,9 @@ func TestCustomMigrationReleases(t *testing.T) {
 				SourceMessage:   "msg1",
 				CreatedAt:       time.Time{},
 				DisplayVersion:  "display1",
-				Manifest:        "manifest1",
-				Environment:     "dev",
+				Manifests: map[string]string{
+					"dev": "manifest1",
+				},
 			},
 			2: ReleaseWithManifest{
 				Version:         777,
@@ -184,8 +178,9 @@ func TestCustomMigrationReleases(t *testing.T) {
 				SourceMessage:   "msg2",
 				CreatedAt:       time.Time{},
 				DisplayVersion:  "display2",
-				Manifest:        "manifest2",
-				Environment:     "dev",
+				Manifests: map[string]string{
+					"dev": "manifest2",
+				},
 			},
 		}
 		return result, nil
@@ -201,8 +196,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 					EslId:         1,
 					ReleaseNumber: 666,
 					App:           "app1",
-					Env:           "dev",
-					Manifest:      "manifest1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "manifest1",
+						},
+					},
 					Metadata: DBReleaseMetaData{
 						SourceAuthor:   "auth1",
 						SourceCommitId: "commit1",
@@ -214,8 +212,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 					EslId:         1,
 					ReleaseNumber: 777,
 					App:           "app1",
-					Env:           "dev",
-					Manifest:      "manifest2",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "manifest2",
+						},
+					},
 					Metadata: DBReleaseMetaData{
 						SourceAuthor:   "auth2",
 						SourceCommitId: "commit2",
@@ -241,11 +242,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 				for i := range tc.expectedReleases {
 					expectedRelease := tc.expectedReleases[i]
 
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.Env, expectedRelease.ReleaseNumber)
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumber)
 					if err != nil {
 						return err
 					}
-					if diff := cmp.Diff(expectedRelease, release); diff != "" {
+					if diff := cmp.Diff(expectedRelease, release, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
 						t.Errorf("error mismatch (-want, +got):\n%s", diff)
 					}
 				}

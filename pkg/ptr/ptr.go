@@ -37,3 +37,11 @@ func ToUint64(u *uint64) uint64 {
 	}
 	return *u
 }
+
+func ToUint64Slice(us []int64) []uint64 {
+	var result []uint64
+	for i := range us {
+		result = append(result, uint64(i))
+	}
+	return result
+}

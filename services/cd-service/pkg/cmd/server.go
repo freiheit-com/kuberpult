@@ -336,7 +336,7 @@ func RunServer() {
 			}
 			getAllReleases := func(ctx context.Context, app string) (db.AllReleases, error) {
 				s := repo.State()
-				releases, err := s.GetApplicationReleases(app)
+				releases, err := s.GetAllApplicationReleasesFromFile(app)
 				if err != nil {
 					return nil, fmt.Errorf("cannot get releases of app %s: %v", app, err)
 				}
@@ -347,7 +347,7 @@ func RunServer() {
 					if err != nil {
 						return nil, fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 					}
-					manifests, err := s.GetApplicationReleaseManifests(app, releaseVersion)
+					manifests, err := s.GetApplicationReleaseManifestsFromFile(app, releaseVersion)
 					if err != nil {
 						return nil, fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
 					}

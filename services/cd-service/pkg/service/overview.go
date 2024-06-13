@@ -245,7 +245,7 @@ func (o *OverviewServiceServer) getOverview(
 							}
 						}
 					}
-					deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, envName, appName)
+					deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, transaction, envName, appName)
 					if err != nil {
 						return nil, err
 					}
@@ -273,17 +273,21 @@ func (o *OverviewServiceServer) getOverview(
 				SourceRepoUrl:   "",
 				Team:            "",
 			}
-			if rels, err := s.GetApplicationReleases(appName); err != nil {
+			if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
 				return nil, err
 			} else {
 				for _, id := range rels {
-					if rel, err := s.GetApplicationReleaseFromManifest(appName, id); err != nil {
+					if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
 						return nil, err
 					} else {
-						release := rel.ToProto()
-						release.Version = id
+						if rel == nil {
+							logger.FromContext(ctx).Sugar().Warnf("missing release for app %s: %v", appName, id)
+						} else {
+							release := rel.ToProto()
+							release.Version = id
 
-						app.Releases = append(app.Releases, release)
+							app.Releases = append(app.Releases, release)
+						}
 					}
 				}
 			}
@@ -302,6 +306,8 @@ func (o *OverviewServiceServer) getOverview(
 			result.Applications[appName] = &app
 		}
 	}
+	logger.FromContext(ctx).Sugar().Warnf("overview result: %v", result.Applications)
+	fmt.Printf("overview result printf: %v", result.Applications)
 	return &result, nil
 }
 

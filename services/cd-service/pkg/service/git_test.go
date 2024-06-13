@@ -18,7 +18,6 @@ package service
 
 import (
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -233,7 +232,7 @@ func TestGetProductOverview(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			repo, err := setupRepositoryTest(t)
+			repo, err := setupRepositoryTestWithoutDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -622,8 +621,8 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 
 					{
-						Uuid:      "00000000-0000-0000-0000-000000000004",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
+						Uuid:      "00000000-0000-0000-0000-000000000005",
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:       "app",
@@ -700,8 +699,8 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 
 					{
-						Uuid:      "00000000-0000-0000-0000-000000000004",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
+						Uuid:      "00000000-0000-0000-0000-000000000005",
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:       "app",
@@ -722,16 +721,7 @@ func TestGetCommitInfo(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			dir, err := testutil.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatalf("setup error could not detect dir \n%v", err)
-				return
-			}
-			cfg := db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: dir,
-			}
-			repo, err := setupRepositoryTestWithDB(t, &cfg)
+			repo, err := setupRepositoryTestWithoutDB(t)
 
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)

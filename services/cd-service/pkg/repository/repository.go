@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"io"
 	"net/http"
@@ -776,7 +777,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, r.State(), r, changes, time.Now())
+		ddError := UpdateDatadogMetrics(ctx, tx, r.State(), r, changes, time.Now())
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}
@@ -1691,11 +1692,9 @@ func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lo
 		return result, nil
 	}
 }
-func (s *State) GetDeploymentMetaData(ctx context.Context, environment, application string) (string, time.Time, error) {
+func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, environment, application string) (string, time.Time, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		result, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.Deployment, error) {
-			return s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
-		})
+		result, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
 		if err != nil {
 			return "", time.Time{}, err
 		}
@@ -2000,7 +1999,7 @@ func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
 }
 
-// GetApplicationsFromFile returns all apps that exist in any env
+// GetApplications returns all apps that exist in any env
 func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
@@ -2097,7 +2096,19 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.A
 	return result, nil
 }
 
-func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
+func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		app, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+		if err != nil {
+			return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
+		}
+		return ptr.ToUint64Slice(app.Metadata.Releases), nil
+	} else {
+		return s.GetAllApplicationReleasesFromFile(application)
+	}
+}
+
+func (s *State) GetAllApplicationReleasesFromFile(application string) ([]uint64, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
 	} else {
@@ -2256,14 +2267,58 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 	return &release, nil
 }
 
-func (s *State) GetApplicationReleaseManifests(application string, version uint64) (map[string]*api.Manifest, error) {
+func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application string, version uint64) (map[string]*api.Manifest, error) {
+	manifests := map[string]*api.Manifest{}
+	if s.DBHandler.ShouldUseOtherTables() {
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		if err != nil {
+			return nil, fmt.Errorf("could not get release for app %s with version %v: %w", application, version, err)
+		}
+		for index, mani := range release.Manifests.Manifests {
+			manifests[index] = &api.Manifest{
+				Environment: index,
+				Content:     mani,
+			}
+		}
+		return manifests, nil
+	} else {
+		dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
+
+		entries, err := s.Filesystem.ReadDir(dir)
+		if err != nil {
+			return nil, fmt.Errorf("reading manifest directory: %w", err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			manifestPath := filepath.Join(dir, entry.Name(), "manifests.yaml")
+			file, err := s.Filesystem.Open(manifestPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open %s: %w", manifestPath, err)
+			}
+			content, err := io.ReadAll(file)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read %s: %w", manifestPath, err)
+			}
+
+			manifests[entry.Name()] = &api.Manifest{
+				Environment: entry.Name(),
+				Content:     string(content),
+			}
+		}
+		return manifests, nil
+	}
+}
+
+func (s *State) GetApplicationReleaseManifestsFromFile(application string, version uint64) (map[string]*api.Manifest, error) {
+	manifests := map[string]*api.Manifest{}
 	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
 
 	entries, err := s.Filesystem.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("reading manifest directory: %w", err)
 	}
-	manifests := map[string]*api.Manifest{}
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue

@@ -89,6 +89,8 @@ export const App: React.FC = () => {
                 .pipe(retryWhen(retryStrategy(8)))
                 .subscribe(
                     (result) => {
+                        // eslint-disable-next-line no-console
+                        console.info('SU DEBUG: ', result);
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });

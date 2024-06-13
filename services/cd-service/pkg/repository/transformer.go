@@ -179,7 +179,7 @@ func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
 	}
 }
 
-func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
+func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
 	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -199,7 +199,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(filesystem, env, app.Name())
 
-				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, env, app.Name())
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
 				if err != nil {
 					return err
 				}
@@ -253,8 +253,21 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 }
 
 func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
-	if err := UpdateDatadogMetrics(ctx, repo.State(), repo, nil, time.Now()); err != nil {
-		panic(err.Error())
+	s := repo.State()
+	if s.DBHandler.ShouldUseOtherTables() {
+		err := s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			if err := UpdateDatadogMetrics(ctx, transaction, s, repo, nil, time.Now()); err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			panic(err.Error())
+		}
+	} else {
+		if err := UpdateDatadogMetrics(ctx, nil, s, repo, nil, time.Now()); err != nil {
+			panic(err.Error())
+		}
 	}
 }
 
@@ -370,7 +383,7 @@ var (
 	ctxMarkerGenerateUuidKey = &ctxMarkerGenerateUuid{}
 )
 
-func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
+func GetLastReleaseFromFile(fs billy.Filesystem, application string) (uint64, error) {
 	var err error
 	releasesDir := releasesDirectory(fs, application)
 	err = fs.MkdirAll(releasesDir, 0777)
@@ -391,6 +404,18 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 			}
 		}
 		return lastRelease, nil
+	}
+}
+func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, application string) (uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+		if err != nil {
+			return 0, fmt.Errorf("could not get releases of app %s: %v", application, err)
+		}
+		l := len(releases.Metadata.Releases)
+		return uint64(releases.Metadata.Releases[l-1]), nil
+	} else {
+		return GetLastReleaseFromFile(fs, application)
 	}
 }
 
@@ -599,6 +624,26 @@ func (c *CreateApplicationVersion) Transform(
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
+		allReleases, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		if allReleases == nil {
+			allReleases = &db.DBAllReleasesWithMetaData{
+				EslId:   db.InitialEslId - 1,
+				Created: time.Now(),
+				App:     c.Application,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{int64(release.ReleaseNumber)},
+				},
+			}
+		} else {
+			allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(release.ReleaseNumber))
+		}
+		err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslId)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
 	}
 
 	for i := range sortedKeys {
@@ -769,7 +814,7 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 		if state.DBHandler.ShouldUseOtherTables() {
 			return 0, fmt.Errorf("version is required when using the database")
 		}
-		lastRelease, err := GetLastRelease(bfs, c.Application)
+		lastRelease, err := state.GetLastRelease(ctx, transaction, bfs, c.Application)
 		if err != nil {
 			return 0, err
 		}
@@ -965,7 +1010,7 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 }
 
 func isLatestsVersion(state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetApplicationReleases(application)
+	rels, err := state.GetAllApplicationReleasesFromFile(application)
 	if err != nil {
 		return false, err
 	}
@@ -995,7 +1040,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 ) (string, error) {
 	fs := state.Filesystem
 
-	lastRelease, err := GetLastRelease(fs, c.Application)
+	lastRelease, err := state.GetLastRelease(ctx, transaction, fs, c.Application)
 	if err != nil {
 		return "", err
 	}
@@ -1145,7 +1190,7 @@ func (u *UndeployApplication) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := GetLastRelease(fs, u.Application)
+	lastRelease, err := state.GetLastRelease(ctx, transaction, fs, u.Application)
 	if err != nil {
 		return "", err
 	}
@@ -1340,7 +1385,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if err != nil {
 		return nil, err
 	}
-	versions, err := state.GetApplicationReleases(name)
+	versions, err := state.GetAllApplicationReleasesFromFile(name)
 	if err != nil {
 		return nil, err
 	}
@@ -2314,7 +2359,7 @@ func (c *DeployApplicationVersion) Transform(
 	if c.WriteCommitData { // write the corresponding event
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
 		if s.DBHandler.ShouldUseOtherTables() {
-			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
+			newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
 			if err != nil {
 				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 			} else {
@@ -2352,6 +2397,21 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, fs billy.Filesystem, release uint64, releaseDir string, app string) (string, error) {
+	if state.DBHandler.ShouldUseOtherTables() {
+		tmp, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, app, release)
+		if err != nil {
+			return "", err
+		}
+		if tmp == nil {
+			return "", fmt.Errorf("release %v not found for app %s", release, app)
+		}
+		return tmp.Metadata.SourceCommitId, nil
+	} else {
+		return getCommitIDFromReleaseDir(ctx, fs, releaseDir)
+	}
 }
 
 func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
@@ -2864,7 +2924,7 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 		} else if upstreamLatest {
-			versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
+			versionToDeploy, err = state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:        nil,
@@ -3056,7 +3116,7 @@ func (c *envReleaseTrain) Transform(
 	}
 	if prognosis.SkipCause != nil {
 		for appName := range prognosis.AppsPrognoses {
-			release, err := GetLastRelease(state.Filesystem, appName)
+			release, err := state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
 			if err != nil {
 				return "", fmt.Errorf("error getting latest release for app '%s' - %v", appName, err)
 			}
