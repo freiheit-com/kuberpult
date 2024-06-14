@@ -4897,7 +4897,8 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentTeamLocks("production", "sre-team")
+				ctx := testutil.MakeTestContext()
+				locks, err := s.GetEnvironmentTeamLocks(ctx, nil, "production", "sre-team")
 				if err != nil {
 					t.Fatal(err)
 				}

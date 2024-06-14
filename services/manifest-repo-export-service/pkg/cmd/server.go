@@ -300,6 +300,12 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtDeleteEnvironmentApplicationLock:
 		//exhaustruct:ignore
 		return &repository.DeleteEnvironmentApplicationLock{}, nil
+	case db.EvtCreateEnvironmentTeamLock:
+		//exhaustruct:ignore
+		return &repository.CreateEnvironmentTeamLock{}, nil
+	case db.EvtDeleteEnvironmentTeamLock:
+		//exhaustruct:ignore
+		return &repository.DeleteEnvironmentTeamLock{}, nil
 	case db.EvtCreateApplicationVersion:
 		//exhaustruct:ignore
 		return &repository.CreateApplicationVersion{}, nil
