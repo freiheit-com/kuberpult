@@ -2187,6 +2187,61 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 	return result, nil
 }
 
+func (s *State) GetAppsAndTeams() (map[string]string, error) {
+	result, err := s.GetApplicationsFromFile()
+	if err != nil {
+		return nil, fmt.Errorf("could not get apps from file: %v", err)
+	}
+	var teamByAppName = map[string]string{} // key: app, value: team
+	for i := range result {
+		app := result[i]
+
+		team, err := s.GetTeamNameFromManifest(app)
+		if err != nil {
+			// some apps do not have teams, that's not an error
+			teamByAppName[app] = ""
+		} else {
+			teamByAppName[app] = team
+		}
+	}
+	return teamByAppName, nil
+}
+
+func (s *State) GetAllReleases(ctx context.Context, app string) (db.AllReleases, error) {
+	releases, err := s.GetAllApplicationReleasesFromFile(app)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get releases of app %s: %v", app, err)
+	}
+	var result = db.AllReleases{}
+	for i := range releases {
+		releaseVersion := releases[i]
+		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
+		}
+		manifests, err := s.GetApplicationReleaseManifestsFromFile(app, releaseVersion)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
+		}
+		var manifestsMap = map[string]string{}
+		for index := range manifests {
+			manifest := manifests[index]
+			manifestsMap[manifest.Environment] = manifest.Content
+		}
+		result[releaseVersion] = db.ReleaseWithManifest{
+			Version:         releaseVersion,
+			UndeployVersion: repoRelease.UndeployVersion,
+			SourceAuthor:    repoRelease.SourceAuthor,
+			SourceCommitId:  repoRelease.SourceCommitId,
+			SourceMessage:   repoRelease.SourceMessage,
+			CreatedAt:       repoRelease.CreatedAt,
+			DisplayVersion:  repoRelease.DisplayVersion,
+			Manifests:       manifestsMap,
+		}
+	}
+	return result, nil
+}
+
 func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		app, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
