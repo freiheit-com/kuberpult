@@ -24,13 +24,13 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	yaml3 "gopkg.in/yaml.v3"
+	"io"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"os"
@@ -234,18 +234,31 @@ func (c *DeployApplicationVersion) Transform(
 ) (string, error) {
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
-	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
-	//manifest := fsys.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	var manifestContent []byte
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
-	if err != nil {
-		return "", err
+	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
+	if state.DBHandler.ShouldUseOtherTables() {
+		version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+		if err != nil {
+			return "", err
+		}
+		if version == nil {
+			return "", fmt.Errorf("release of app %s with version %v not found", c.Application, c.Version)
+		}
+		manifestContent = []byte(version.Manifests.Manifests[c.Environment])
+	} else {
+		// Check that the release exist and fetch manifest
+		manifest := fsys.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
+		if file, err := fsys.Open(manifest); err != nil {
+			return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
+		} else {
+			if content, err := io.ReadAll(file); err != nil {
+				return "", err
+			} else {
+				manifestContent = content
+			}
+			file.Close()
+		}
 	}
-	if version == nil {
-		return "", fmt.Errorf("release of app %s with version %v not found", c.Application, c.Version)
-	}
-	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
-	//releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
 
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
@@ -266,7 +279,7 @@ func (c *DeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-		
+
 		if errors.Is(err, os.ErrNotExist) {
 			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
 		} else {
