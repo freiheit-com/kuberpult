@@ -44,8 +44,8 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	git "github.com/libgit2/git2go/v34"
@@ -183,7 +183,7 @@ func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
 	}
 }
 
-func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
+func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
 	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -203,7 +203,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, ch
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(ctx, state, env, app.Name())
 
-				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, env, app.Name())
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
 				if err != nil {
 					return err
 				}
@@ -257,8 +257,21 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 }
 
 func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
-	if err := UpdateDatadogMetrics(ctx, repo.State(), repo, nil, time.Now()); err != nil {
-		panic(err.Error())
+	s := repo.State()
+	if s.DBHandler.ShouldUseOtherTables() {
+		err := s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			if err := UpdateDatadogMetrics(ctx, transaction, s, repo, nil, time.Now()); err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			panic(err.Error())
+		}
+	} else {
+		if err := UpdateDatadogMetrics(ctx, nil, s, repo, nil, time.Now()); err != nil {
+			panic(err.Error())
+		}
 	}
 }
 
@@ -374,7 +387,7 @@ var (
 	ctxMarkerGenerateUuidKey = &ctxMarkerGenerateUuid{}
 )
 
-func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
+func GetLastReleaseFromFile(fs billy.Filesystem, application string) (uint64, error) {
 	var err error
 	releasesDir := releasesDirectory(fs, application)
 	err = fs.MkdirAll(releasesDir, 0777)
@@ -397,6 +410,18 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 		return lastRelease, nil
 	}
 }
+func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, application string) (uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+		if err != nil {
+			return 0, fmt.Errorf("could not get releases of app %s: %v", application, err)
+		}
+		l := len(releases.Metadata.Releases)
+		return uint64(releases.Metadata.Releases[l-1]), nil
+	} else {
+		return GetLastReleaseFromFile(fs, application)
+	}
+}
 
 func (c *CreateApplicationVersion) Transform(
 	ctx context.Context,
@@ -404,7 +429,7 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	version, err := c.calculateVersion(state)
+	version, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err
 	}
@@ -497,30 +522,33 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	if c.SourceCommitId != "" {
-		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+	if !state.DBHandler.ShouldUseOtherTables() {
+		if c.SourceCommitId != "" {
+			c.SourceCommitId = strings.ToLower(c.SourceCommitId)
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
 		}
-	}
 
-	if c.SourceAuthor != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
+		if c.SourceAuthor != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if c.SourceMessage != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if c.DisplayVersion != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
-	}
-	if c.SourceMessage != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if c.DisplayVersion != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
+
 	}
 	if c.Team != "" && !state.DBHandler.ShouldUseOtherTables() {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
@@ -572,6 +600,57 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 	sortedKeys := sorting.SortKeys(c.Manifests)
+
+	if state.DBHandler.ShouldUseOtherTables() {
+		anyRelease, err := state.DBHandler.DBSelectAnyRelease(ctx, transaction)
+		if err != nil {
+			return "", err
+		}
+		var v = db.InitialEslId - 1
+		if anyRelease != nil {
+			v = anyRelease.EslId
+		}
+		release := db.DBReleaseWithMetaData{
+			EslId:         0,
+			ReleaseNumber: version,
+			App:           c.Application,
+			Manifests: db.DBReleaseManifests{
+				Manifests: c.Manifests,
+			},
+			Metadata: db.DBReleaseMetaData{
+				SourceAuthor:   c.SourceAuthor,
+				SourceCommitId: c.SourceCommitId,
+				SourceMessage:  c.SourceMessage,
+				DisplayVersion: c.DisplayVersion,
+			},
+			Created: time.Now(),
+		}
+		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		allReleases, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		if allReleases == nil {
+			allReleases = &db.DBAllReleasesWithMetaData{
+				EslId:   db.InitialEslId - 1,
+				Created: time.Now(),
+				App:     c.Application,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{int64(release.ReleaseNumber)},
+				},
+			}
+		} else {
+			allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(release.ReleaseNumber))
+		}
+		err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslId)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
 	for i := range sortedKeys {
 		env := sortedKeys[i]
 		man := c.Manifests[env]
@@ -588,11 +667,14 @@ func (c *CreateApplicationVersion) Transform(
 			hasUpstream = config.Upstream != nil
 		}
 
-		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+		if state.DBHandler.ShouldUseOtherTables() {
+		} else {
+			if err = fs.MkdirAll(envDir, 0777); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
 		}
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
@@ -731,32 +813,111 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 
 }
 
-func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
+func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (uint64, error) {
 	bfs := state.Filesystem
 	if c.Version == 0 {
-		lastRelease, err := GetLastRelease(bfs, c.Application)
+		if state.DBHandler.ShouldUseOtherTables() {
+			return 0, fmt.Errorf("version is required when using the database")
+		}
+		lastRelease, err := state.GetLastRelease(ctx, transaction, bfs, c.Application)
 		if err != nil {
 			return 0, err
 		}
 		return lastRelease + 1, nil
 	} else {
-		// check that the version doesn't already exist
-		dir := releasesDirectoryWithVersion(bfs, c.Application, c.Version)
-		_, err := bfs.Stat(dir)
-		if err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				return 0, err
+		if state.DBHandler.ShouldUseEslTable() {
+			metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+			if err != nil {
+				return 0, fmt.Errorf("could not calculate version, error: %v", err)
 			}
+			if metaData == nil {
+				logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v", c.Application, c.Version)
+				return c.Version, nil
+			}
+			logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v", metaData.ReleaseNumber, metaData)
+
+			existingRelease := metaData.ReleaseNumber
+			logger.FromContext(ctx).Sugar().Warnf("comparing release %v: %v", c.Version, existingRelease)
+			// check if version differs, if it's the same, that's ok
+			return 0, c.sameAsExistingDB(ctx, transaction, state, metaData)
 		} else {
-			// check if version differs
-			return 0, c.sameAsExisting(state, c.Version)
+			// check that the version doesn't already exist
+			dir := releasesDirectoryWithVersion(bfs, c.Application, c.Version)
+			_, err := bfs.Stat(dir)
+			if err != nil {
+				if !errors.Is(err, fs.ErrNotExist) {
+					return 0, err
+				}
+			} else {
+				// check if version differs
+				return 0, c.sameAsExisting(ctx, state, c.Version)
+			}
+			// TODO: check GC here
+			return c.Version, nil
 		}
-		// TODO: check GC here
-		return c.Version, nil
 	}
 }
 
-func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) error {
+func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transaction *sql.Tx, state *State, metadata *db.DBReleaseWithMetaData) error {
+	if c.SourceCommitId != "" {
+		existingSourceCommitIdStr := metadata.Metadata.SourceCommitId
+		if existingSourceCommitIdStr != c.SourceCommitId {
+			logger.FromContext(ctx).Sugar().Warnf("SourceCommitId is different1 '%s'!='%s'", c.SourceCommitId, existingSourceCommitIdStr)
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_COMMIT_ID, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
+		}
+	}
+	if c.SourceAuthor != "" {
+		existingSourceAuthorStr := metadata.Metadata.SourceAuthor
+		if existingSourceAuthorStr != c.SourceAuthor {
+			logger.FromContext(ctx).Sugar().Warnf("SourceAuthor is different1 '%s'!='%s'", c.SourceAuthor, existingSourceAuthorStr)
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_AUTHOR, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
+		}
+	}
+	if c.SourceMessage != "" {
+		existingSourceMessageStr := metadata.Metadata.SourceMessage
+		if existingSourceMessageStr != c.SourceMessage {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_MESSAGE, createUnifiedDiff(existingSourceMessageStr, c.SourceMessage, ""))
+		}
+	}
+	if c.DisplayVersion != "" {
+		existingDisplayVersionStr := metadata.Metadata.DisplayVersion
+		if existingDisplayVersionStr != c.DisplayVersion {
+			logger.FromContext(ctx).Sugar().Warnf("displayVersion is different1 '%s'!='%s'", c.DisplayVersion, metadata.Metadata.DisplayVersion)
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DISPLAY_VERSION, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
+		}
+	}
+	if c.Team != "" {
+		appData, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("team is different1 '%s'!='%s'", c.Team, appData.Metadata.Team)
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, "")
+		}
+		existingTeamStr := appData.Metadata.Team
+		if existingTeamStr != c.Team {
+			logger.FromContext(ctx).Sugar().Warnf("team is different2 '%s'!='%s'", c.Team, appData.Metadata.Team)
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
+		}
+	}
+	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+	if err != nil {
+		return fmt.Errorf("could not calculate version, error: %v", err)
+	}
+	if metaData == nil {
+		return fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
+	}
+	if err != nil {
+		return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for app %s", c.Application))
+	}
+	for env, man := range c.Manifests {
+		existingManStr := metaData.Manifests.Manifests[env]
+		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
+		}
+	}
+	return GetCreateReleaseAlreadyExistsSame()
+}
+
+func (c *CreateApplicationVersion) sameAsExisting(ctx context.Context, state *State, version uint64) error {
 	fs := state.Filesystem
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
@@ -814,10 +975,12 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 		envDir := fs.Join(releaseDir, "environments", env)
 		existingMan, err := util.ReadFile(fs, fs.Join(envDir, "manifests.yaml"))
 		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("manifest is different1 %v", err)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for env %s", env))
 		}
 		existingManStr := string(existingMan)
 		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
+			logger.FromContext(ctx).Sugar().Warnf("manifest is different2 %s!=%s", existingManStr, man)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
 		}
 	}
@@ -852,7 +1015,7 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 }
 
 func isLatestsVersion(state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetApplicationReleases(application)
+	rels, err := state.GetAllApplicationReleasesFromManifest(application)
 	if err != nil {
 		return false, err
 	}
@@ -882,7 +1045,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 ) (string, error) {
 	fs := state.Filesystem
 
-	lastRelease, err := GetLastRelease(fs, c.Application)
+	lastRelease, err := state.GetLastRelease(ctx, transaction, fs, c.Application)
 	if err != nil {
 		return "", err
 	}
@@ -1032,7 +1195,7 @@ func (u *UndeployApplication) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := GetLastRelease(fs, u.Application)
+	lastRelease, err := state.GetLastRelease(ctx, transaction, fs, u.Application)
 	if err != nil {
 		return "", err
 	}
@@ -1227,7 +1390,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if err != nil {
 		return nil, err
 	}
-	versions, err := state.GetApplicationReleases(name)
+	versions, err := state.GetAllApplicationReleasesFromManifest(name)
 	if err != nil {
 		return nil, err
 	}
@@ -2083,19 +2246,28 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 	fs := state.Filesystem
-	// Check that the release exist and fetch manifest
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
-	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
+
 	var manifestContent []byte
-	if file, err := fs.Open(manifest); err != nil {
-		return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
-	} else {
-		if content, err := io.ReadAll(file); err != nil {
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
+	if state.DBHandler.ShouldUseOtherTables() {
+		version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+		if err != nil {
 			return "", err
-		} else {
-			manifestContent = content
 		}
-		file.Close()
+		manifestContent = []byte(version.Manifests.Manifests[c.Environment])
+	} else {
+		// Check that the release exist and fetch manifest
+		manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
+		if file, err := fs.Open(manifest); err != nil {
+			return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
+		} else {
+			if content, err := io.ReadAll(file); err != nil {
+				return "", err
+			} else {
+				manifestContent = content
+			}
+			file.Close()
+		}
 	}
 	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
@@ -2118,7 +2290,7 @@ func (c *DeployApplicationVersion) Transform(
 		team, err := util.ReadFile(fs, fs.Join(appDir, "team"))
 
 		if errors.Is(err, os.ErrNotExist) {
-			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
+			teamLocks = map[string]Lock{} //If we do not find the team file, there is no team for application, meaning there can't be any team locks
 		} else {
 			teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, string(team))
 			if err != nil {
@@ -2299,7 +2471,7 @@ func (c *DeployApplicationVersion) Transform(
 	if c.WriteCommitData { // write the corresponding event
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
 		if s.DBHandler.ShouldUseOtherTables() {
-			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
+			newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
 			if err != nil {
 				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 			} else {
@@ -2337,6 +2509,21 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, fs billy.Filesystem, release uint64, releaseDir string, app string) (string, error) {
+	if state.DBHandler.ShouldUseOtherTables() {
+		tmp, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, app, release)
+		if err != nil {
+			return "", err
+		}
+		if tmp == nil {
+			return "", fmt.Errorf("release %v not found for app %s", release, app)
+		}
+		return tmp.Metadata.SourceCommitId, nil
+	} else {
+		return getCommitIDFromReleaseDir(ctx, fs, releaseDir)
+	}
 }
 
 func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
@@ -2601,7 +2788,7 @@ func (c *ReleaseTrain) Prognosis(
 	for _, envName := range envGroups {
 		var trainGroup *string
 		if isEnvGroup {
-			trainGroup = ptr.FromString(targetGroupName)
+			trainGroup = conversion.FromString(targetGroupName)
 		}
 
 		envReleaseTrain := &envReleaseTrain{
@@ -2657,7 +2844,7 @@ func (c *ReleaseTrain) Transform(
 	for _, envName := range envNames {
 		var trainGroup *string
 		if isEnvGroup {
-			trainGroup = ptr.FromString(targetGroupName)
+			trainGroup = conversion.FromString(targetGroupName)
 		}
 
 		if err := t.Execute(&envReleaseTrain{
@@ -2849,7 +3036,7 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 		} else if upstreamLatest {
-			versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
+			versionToDeploy, err = state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:        nil,
@@ -3041,7 +3228,7 @@ func (c *envReleaseTrain) Transform(
 	}
 	if prognosis.SkipCause != nil {
 		for appName := range prognosis.AppsPrognoses {
-			release, err := GetLastRelease(state.Filesystem, appName)
+			release, err := state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
 			if err != nil {
 				return "", fmt.Errorf("error getting latest release for app '%s' - %v", appName, err)
 			}

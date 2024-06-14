@@ -49,8 +49,8 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/go-git/go-billy/v5"
@@ -513,7 +513,7 @@ func TestDeployOnSelectedEnvs(t *testing.T) {
 			Expected: []Expected{
 				{
 					Path: "argocd/v1alpha1/acceptance.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: acceptance
@@ -553,7 +553,7 @@ spec:
 				},
 				{
 					Path: "argocd/v1alpha1/production.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: production
@@ -616,7 +616,7 @@ spec:
 			Expected: []Expected{
 				{
 					Path: "argocd/v1alpha1/acceptance.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: acceptance
@@ -657,7 +657,7 @@ spec:
 				{
 					Path: "argocd/v1alpha1/production.yaml",
 					// here we expect only the appProject with the app, because it hasn't been deployed yet
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: production
@@ -689,14 +689,14 @@ spec:
 						t.Fatalf("Expected [%d] an error but got content: '%s'", i, string(fileData))
 					}
 					var actual = string(fileData)
-					var exp = strings.ReplaceAll(ptr.ToString(expected.fileData), "%%%REPO%%%", repoUrl)
+					var exp = strings.ReplaceAll(conversion.ToString(expected.fileData), "%%%REPO%%%", repoUrl)
 					if diff := cmp.Diff(actual, exp); diff != "" {
 						t.Errorf("got %v, want %v, diff (-want +got) %s", actual, exp, diff)
 					}
 				} else {
 					// there is an error
 					if expected.fileData != nil {
-						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, ptr.ToString(expected.fileData), err)
+						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, conversion.ToString(expected.fileData), err)
 					}
 				}
 			}
@@ -1515,7 +1515,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: "staging",
 						},
-						EnvironmentGroup: ptr.FromString("production-group"),
+						EnvironmentGroup: conversion.FromString("production-group"),
 					},
 				},
 				&CreateEnvironment{
@@ -1535,6 +1535,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging":    "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -1579,7 +1580,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: "staging",
 						},
-						EnvironmentGroup: ptr.FromString("production-group"),
+						EnvironmentGroup: conversion.FromString("production-group"),
 					},
 				},
 				&CreateEnvironment{
@@ -1599,6 +1600,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging":    "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -1671,6 +1673,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "some staging manifest",
 					},
 					WriteCommitData: true,
+					Version:         3,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1746,6 +1749,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "some staging manifest",
 					},
 					WriteCommitData: true,
+					Version:         4,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1802,6 +1806,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         5,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "dev",
@@ -1817,6 +1822,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         6,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1853,6 +1859,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Application:     "app",
@@ -1955,6 +1962,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "",
+					Version:         8,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1964,6 +1972,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         9,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1985,6 +1994,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "",
+					Version:         10,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1994,6 +2004,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         11,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -2003,6 +2014,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Version:         12,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -2036,6 +2048,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "",
+					Version:         10,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -2045,6 +2058,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         11,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -2054,6 +2068,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					},
 					WriteCommitData: true,
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         12,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -2136,6 +2151,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Application:     "app",
@@ -2170,6 +2186,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -2184,6 +2201,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -2274,6 +2292,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					envAcceptance: "acceptance",
 				},
 				WriteCommitData: true,
+				Version:         uint64(i),
 			})
 		}
 		return ret
@@ -2287,6 +2306,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					Application:     "app",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app",
@@ -2306,11 +2326,13 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					Application:     "app1",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application:     "app2",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2407,6 +2429,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 						envAcceptance: "acceptance", // not empty
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2437,6 +2460,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 						envAcceptance: "", // empty!
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2656,6 +2680,7 @@ func TestUndeployErrors(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2680,6 +2705,7 @@ func TestUndeployErrors(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2753,7 +2779,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2762,7 +2788,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironmentLock{
@@ -2812,14 +2838,14 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
 						Upstream:         nil,
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
 					Environment: envAcceptance + "-de",
 					Config: config.EnvironmentConfig{
 						Upstream:         nil,
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -2860,7 +2886,7 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 							Environment: "",
 							Latest:      false,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2870,7 +2896,7 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 							Environment: "",
 							Latest:      false,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -2911,7 +2937,7 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 							Environment: "dev",
 							Latest:      true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2921,7 +2947,7 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 							Environment: "dev",
 							Latest:      true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -3322,6 +3348,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -3330,6 +3357,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3368,6 +3396,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -3376,6 +3405,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3404,6 +3434,7 @@ func TestTransformerChanges(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         1,
 				},
 				&CreateEnvironmentTeamLock{ //team lock always needs to come after some release creation
 					Environment: envProduction,
@@ -3419,6 +3450,7 @@ func TestTransformerChanges(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         1,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3513,6 +3545,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Authentication: Authentication{},
@@ -4538,7 +4571,7 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 3, actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
@@ -4564,7 +4597,7 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
@@ -4590,13 +4623,13 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
 					}
 					checkReleaseDoesNotExists := func(v uint64) {
-						release, err := s.GetApplicationRelease("test", v)
+						release, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err == nil {
 							t.Fatalf("expected release to not exist. release: %d, actual: %d", v, release.Version)
 						} else {
@@ -5038,7 +5071,7 @@ func TestTransformer(t *testing.T) {
 				}
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationRelease("test", 1)
+					rel, err := s.GetApplicationReleaseFromManifest("test", 1)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5075,7 +5108,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationRelease("test", 1)
+					rel, err := s.GetApplicationReleaseFromManifest("test", 1)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5137,7 +5170,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationReleases("test")
+					rel, err := s.GetAllApplicationReleasesFromManifest("test")
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5603,7 +5636,7 @@ func TestTransformer(t *testing.T) {
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 					},
@@ -5677,7 +5710,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("not-staging"),
+							Namespace: conversion.FromString("not-staging"),
 							Server:    "localhost:8080",
 						},
 						SyncWindows: []config.ArgoCdSyncWindow{
@@ -5726,7 +5759,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("not-staging"),
+							Namespace: conversion.FromString("not-staging"),
 							Server:    "localhost:8080",
 						},
 						ClusterResourceWhitelist: []config.AccessEntry{
@@ -5776,7 +5809,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 					},
@@ -5888,7 +5921,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 						ApplicationAnnotations: map[string]string{
@@ -5969,7 +6002,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 						IgnoreDifferences: []config.ArgoCdIgnoreDifference{
@@ -6280,13 +6313,18 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 }
 
 func SetupRepositoryTestWithDB(t *testing.T) Repository {
+	return SetupRepositoryTestWithDBOptions(t, false)
+}
+
+func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repository {
 	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
 	dbConfig := &db.DBConfig{
-		MigrationsPath: migrationsPath,
 		DriverName:     "sqlite3",
+		MigrationsPath: migrationsPath,
+		WriteEslOnly:   writeEslOnly,
 	}
 
 	dir := t.TempDir()
@@ -6961,7 +6999,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, repo, nil, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, nil, state, repo, nil, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -7201,7 +7239,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, repo, tc.changes, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, nil, state, repo, tc.changes, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -7476,7 +7514,7 @@ func TestDeleteLocks(t *testing.T) {
 }
 
 func TestEnvironmentGroupLocks(t *testing.T) {
-	group := ptr.FromString("prod")
+	group := conversion.FromString("prod")
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -7497,7 +7535,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},
@@ -7522,7 +7560,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},
@@ -7596,7 +7634,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},

@@ -214,7 +214,7 @@ func (o *OverviewServiceServer) getOverview(
 					}
 					app.UndeployVersion = false
 					if version != nil {
-						if release, err := s.GetApplicationRelease(appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
+						if release, err := s.GetApplicationRelease(ctx, transaction, appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
 							return nil, err
 						} else if release != nil {
 							app.UndeployVersion = release.UndeployVersion
@@ -245,7 +245,7 @@ func (o *OverviewServiceServer) getOverview(
 							}
 						}
 					}
-					deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, envName, appName)
+					deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, transaction, envName, appName)
 					if err != nil {
 						return nil, err
 					}
@@ -273,17 +273,21 @@ func (o *OverviewServiceServer) getOverview(
 				SourceRepoUrl:   "",
 				Team:            "",
 			}
-			if rels, err := s.GetApplicationReleases(appName); err != nil {
+			if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
 				return nil, err
 			} else {
 				for _, id := range rels {
-					if rel, err := s.GetApplicationRelease(appName, id); err != nil {
+					if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
 						return nil, err
 					} else {
-						release := rel.ToProto()
-						release.Version = id
+						if rel == nil {
+							// ignore
+						} else {
+							release := rel.ToProto()
+							release.Version = id
 
-						app.Releases = append(app.Releases, release)
+							app.Releases = append(app.Releases, release)
+						}
 					}
 				}
 			}

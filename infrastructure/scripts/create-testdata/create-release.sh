@@ -53,7 +53,6 @@ ls "${commit_message_file}"
 
 release_version=''
 case "${RELEASE_VERSION:-}" in
-	'') echo "No RELEASE_VERSION set. Using non-idempotent versioning scheme";;
 	*[!0-9]*) echo "Please set the env variable RELEASE_VERSION to a number"; exit 1;;
 	*) release_version='--form-string '"version=${RELEASE_VERSION:-}";;
 esac

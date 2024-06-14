@@ -143,7 +143,7 @@ integration-test:
     COPY infrastructure/scripts/create-testdata/create-release.sh .
     COPY tests/integration-tests integration-tests
     COPY go.mod go.sum .
-    COPY pkg/ptr pkg/ptr
+    COPY pkg/conversion  pkg/conversion
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version

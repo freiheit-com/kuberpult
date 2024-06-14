@@ -18,8 +18,10 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"os"
 	"strconv"
 
@@ -59,18 +61,21 @@ func (o *VersionServiceServer) GetVersion(
 	}
 	//exhaustruct:ignore
 	res := api.GetVersionResponse{}
+	if state.DBHandler.ShouldUseOtherTables() {
+		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: not supported yet for Database mode"))
+	}
 	version, err := state.GetEnvironmentApplicationVersion(ctx, in.Environment, in.Application, nil)
 	if err != nil {
 		return nil, err
 	}
 	if version != nil {
 		res.Version = *version
-		_, deployedAt, err := state.GetDeploymentMetaData(ctx, in.Environment, in.Application)
+		_, deployedAt, err := state.GetDeploymentMetaDataFromRepo(in.Environment, in.Application)
 		if err != nil {
 			return nil, err
 		}
 		res.DeployedAt = timestamppb.New(deployedAt)
-		release, err := state.GetApplicationRelease(in.Application, *version)
+		release, err := state.GetApplicationReleaseFromManifest(in.Application, *version)
 		if err != nil {
 			return nil, err
 		}
@@ -94,35 +99,72 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 		}
 	}
 
-	var (
-		err     error
-		release uint64
-	)
-	if req.Release == "latest" {
-		release, err = repository.GetLastRelease(state.Filesystem, req.Application)
-		if err != nil {
-			return nil, wrapError("application", err)
-		}
-		if release == 0 {
-			return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
-		}
-	} else {
-		release, err = strconv.ParseUint(req.Release, 10, 64)
-		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
-		}
-	}
-	repoRelease, err := state.GetApplicationRelease(req.Application, release)
-	if err != nil {
-		return nil, wrapError("release", err)
-	}
-	manifests, err := state.GetApplicationReleaseManifests(req.Application, release)
-	if err != nil {
-		return nil, wrapError("manifests", err)
-	}
+	if state.DBHandler.ShouldUseOtherTables() {
+		result, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
+			var (
+				err     error
+				release uint64
+			)
+			if req.Release == "latest" {
+				release, err = state.GetLastRelease(ctx, transaction, state.Filesystem, req.Application)
+				if err != nil {
+					return nil, wrapError("application", err)
+				}
+				if release == 0 {
+					return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
+				}
+			} else {
+				release, err = strconv.ParseUint(req.Release, 10, 64)
+				if err != nil {
+					return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
+				}
+			}
+			repoRelease, err := state.GetApplicationRelease(ctx, transaction, req.Application, release)
+			if err != nil {
+				return nil, wrapError("release", err)
+			}
+			manifests, err := state.GetApplicationReleaseManifests(ctx, transaction, req.Application, release)
+			if err != nil {
+				return nil, wrapError("manifests", err)
+			}
 
-	return &api.GetManifestsResponse{
-		Release:   repoRelease.ToProto(),
-		Manifests: manifests,
-	}, nil
+			return &api.GetManifestsResponse{
+				Release:   repoRelease.ToProto(),
+				Manifests: manifests,
+			}, nil
+		})
+		return result, err
+	} else {
+		var (
+			err     error
+			release uint64
+		)
+		if req.Release == "latest" {
+			release, err = repository.GetLastReleaseFromFile(state.Filesystem, req.Application)
+			if err != nil {
+				return nil, wrapError("application", err)
+			}
+			if release == 0 {
+				return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
+			}
+		} else {
+			release, err = strconv.ParseUint(req.Release, 10, 64)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
+			}
+		}
+		repoRelease, err := state.GetApplicationReleaseFromManifest(req.Application, release)
+		if err != nil {
+			return nil, wrapError("release", err)
+		}
+		manifests, err := state.GetApplicationReleaseManifestsFromManifest(req.Application, release)
+		if err != nil {
+			return nil, wrapError("manifests", err)
+		}
+
+		return &api.GetManifestsResponse{
+			Release:   repoRelease.ToProto(),
+			Manifests: manifests,
+		}, nil
+	}
 }

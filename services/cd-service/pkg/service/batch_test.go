@@ -34,7 +34,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -607,6 +607,35 @@ func TestBatchServiceLimit(t *testing.T) {
 	}
 }
 
+func setupRepositoryTestWithoutDB(t *testing.T) (repository.Repository, error) {
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+	t.Logf("test created dir: %s", localDir)
+
+	repoCfg := repository.RepositoryConfig{
+		URL:                    remoteDir,
+		Path:                   localDir,
+		CommitterEmail:         "kuberpult@freiheit.com",
+		CommitterName:          "kuberpult",
+		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+		ArgoCdGenerateFiles:    true,
+	}
+	repoCfg.DBHandler = nil
+
+	repo, err := repository.New(
+		testutil.MakeTestContext(),
+		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, nil
+}
+
 func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.Repository, error) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
@@ -813,7 +842,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 								Environment: "env",
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
-										Latest: ptr.Bool(true),
+										Latest: conversion.Bool(true),
 									},
 								},
 							},
@@ -843,7 +872,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 								Environment: "env",
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
-										Environment: ptr.FromString("other-env"),
+										Environment: conversion.FromString("other-env"),
 									},
 								},
 							},
@@ -904,9 +933,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
 											Name:                 "name",
 											Server:               "server",
-											Namespace:            ptr.FromString("namespace"),
-											AppProjectNamespace:  ptr.FromString("app-project-namespace"),
-											ApplicationNamespace: ptr.FromString("app-namespace"),
+											Namespace:            conversion.FromString("namespace"),
+											AppProjectNamespace:  conversion.FromString("app-project-namespace"),
+											ApplicationNamespace: conversion.FromString("app-namespace"),
 										},
 										SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{
 											&api.EnvironmentConfig_ArgoCD_SyncWindows{
@@ -952,9 +981,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 						Destination: config.ArgoCdDestination{
 							Name:                 "name",
 							Server:               "server",
-							Namespace:            ptr.FromString("namespace"),
-							AppProjectNamespace:  ptr.FromString("app-project-namespace"),
-							ApplicationNamespace: ptr.FromString("app-namespace"),
+							Namespace:            conversion.FromString("namespace"),
+							AppProjectNamespace:  conversion.FromString("app-project-namespace"),
+							ApplicationNamespace: conversion.FromString("app-namespace"),
 						},
 						SyncWindows: []config.ArgoCdSyncWindow{
 							{
