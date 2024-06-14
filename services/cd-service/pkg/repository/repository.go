@@ -2432,32 +2432,7 @@ func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction 
 		}
 		return manifests, nil
 	} else {
-		dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
-
-		entries, err := s.Filesystem.ReadDir(dir)
-		if err != nil {
-			return nil, fmt.Errorf("reading manifest directory: %w", err)
-		}
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			manifestPath := filepath.Join(dir, entry.Name(), "manifests.yaml")
-			file, err := s.Filesystem.Open(manifestPath)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open %s: %w", manifestPath, err)
-			}
-			content, err := io.ReadAll(file)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read %s: %w", manifestPath, err)
-			}
-
-			manifests[entry.Name()] = &api.Manifest{
-				Environment: entry.Name(),
-				Content:     string(content),
-			}
-		}
-		return manifests, nil
+		return s.GetApplicationReleaseManifestsFromFile(application, version)
 	}
 }
 

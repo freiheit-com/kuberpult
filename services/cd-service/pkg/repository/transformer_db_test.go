@@ -30,6 +30,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
+	gotime "time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -464,10 +465,12 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 }
 
 func TestCreateApplicationVersionDB(t *testing.T) {
+	const appName = "app1"
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedDbContent *db.DBAppWithMetaData
+		Name               string
+		Transformers       []Transformer
+		expectedDbContent  *db.DBAppWithMetaData
+		expectedDbReleases *db.DBAllReleasesWithMetaData
 	}{
 		{
 			Name: "create one version",
@@ -477,7 +480,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     10000,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -486,10 +489,18 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
 				EslId:       2,
-				App:         "app1",
+				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
 					Team: "",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslId:   1,
+				Created: gotime.Time{},
+				App:     appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10000},
 				},
 			},
 		},
@@ -501,7 +512,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     10,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -509,7 +520,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "noteam",
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     11,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -519,10 +530,18 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
 				EslId:       2, // even when CreateApplicationVersion is called twice, we still write the app only once
-				App:         "app1",
+				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
 					Team: "noteam",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslId:   2,
+				Created: gotime.Time{},
+				App:     appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10, 11},
 				},
 			},
 		},
@@ -534,7 +553,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     10,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -542,7 +561,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "old",
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     11,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -552,10 +571,18 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
 				EslId:       3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
-				App:         "app1",
+				App:         appName,
 				StateChange: db.AppStateChangeUpdate,
 				Metadata: db.DBAppMetaData{
 					Team: "new",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslId:   2,
+				Created: gotime.Time{},
+				App:     appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10, 11},
 				},
 			},
 		},
@@ -577,6 +604,13 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					return fmt.Errorf("error: %v", err2)
 				}
 				if diff := cmp.Diff(tc.expectedDbContent, res); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				actualRelease, err3 := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("error: %v", err3)
+				}
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease, cmpopts.IgnoreFields(db.DBAllReleasesWithMetaData{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
