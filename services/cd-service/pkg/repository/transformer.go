@@ -2120,7 +2120,7 @@ func (c *DeployApplicationVersion) Transform(
 		if errors.Is(err, os.ErrNotExist) {
 			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
 		} else {
-			teamLocks, err = state.GetEnvironmentTeamLocks(ctx, c.Environment, string(team))
+			teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, string(team))
 			if err != nil {
 				return "", err
 			}
@@ -2941,7 +2941,7 @@ func (c *envReleaseTrain) prognosis(
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
-			teamLocks, err := state.GetEnvironmentTeamLocks(ctx, c.Env, teamName)
+			teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
 
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{

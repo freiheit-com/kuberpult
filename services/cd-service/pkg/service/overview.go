@@ -174,7 +174,7 @@ func (o *OverviewServiceServer) getOverview(
 						},
 					}
 					if err == nil {
-						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(ctx, envName, teamName); teamErr != nil {
+						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(ctx, transaction, envName, teamName); teamErr != nil {
 							return nil, teamErr
 						} else {
 							for lockId, lock := range teamLocks {

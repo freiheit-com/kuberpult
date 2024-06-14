@@ -781,9 +781,9 @@ type AllTeamLocks map[string]map[string][]TeamLock       // EnvName-> Team -> []
 type AllReleases map[uint64]ReleaseWithManifest
 
 type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
-type GetAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllEnvLocks, error)
+type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
-type GetAllTeamLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllTeamLocks, error)
+type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
 type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
@@ -1249,7 +1249,7 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 			return nil
 		}
 
-		allEnvLocksInRepo, err := getAllEnvLocksFun(ctx, transaction)
+		allEnvLocksInRepo, err := getAllEnvLocksFun(ctx)
 		if err != nil {
 			return fmt.Errorf("could not get current environment locks to run custom migrations: %v", err)
 		}
@@ -1337,7 +1337,7 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 			return nil
 		}
 
-		allTeamLocksInRepo, err := getAllTeamLocksFun(ctx, transaction)
+		allTeamLocksInRepo, err := getAllTeamLocksFun(ctx)
 		if err != nil {
 			return fmt.Errorf("could not get current team locks to run custom migrations: %v", err)
 		}

@@ -1711,15 +1711,17 @@ func (s *State) GetEnvironmentApplicationLocksFromManifest(environment, applicat
 	}
 }
 
-func (s *State) GetEnvironmentTeamLocks(ctx context.Context, environment, team string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentTeamLocks(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentTeamLocksFromDB(ctx, environment, team)
+		return s.GetEnvironmentTeamLocksFromDB(ctx, transaction, environment, team)
 	}
 	return s.GetEnvironmentTeamLocksFromManifest(environment, team)
 }
 
-func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, environment, team string) (map[string]Lock, error) {
-	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.TeamLock, error) {
+func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
+	var locks []db.TeamLock
+	var err error
+	retrieveLocks := func(ctx context.Context, transaction *sql.Tx, environment, team string) ([]db.TeamLock, error) {
 		locks, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
 		if err != nil {
 			return nil, err
@@ -1729,8 +1731,15 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, environment, 
 			lockIds = locks.TeamLocks
 		}
 		return s.DBHandler.DBSelectTeamLockSet(ctx, transaction, environment, team, lockIds)
-	})
+	}
 
+	if transaction == nil {
+		locks, err = db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.TeamLock, error) {
+			return retrieveLocks(ctx, transaction, environment, team)
+		})
+	} else {
+		locks, err = retrieveLocks(ctx, transaction, environment, team)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -2146,7 +2155,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 }
 
 // GetCurrentEnvironmentLocks gets all locks on any environment in manifest
-func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.AllEnvLocks, error) {
+func (s *State) GetCurrentEnvironmentLocks(ctx context.Context) (db.AllEnvLocks, error) {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentEnvironmentLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllEnvLocks)
@@ -2227,7 +2236,7 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 	return result, nil
 }
 
-func (s *State) GetCurrentTeamLocks(ctx context.Context, tx *sql.Tx) (db.AllTeamLocks, error) {
+func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error) {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentTeamLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllTeamLocks)
@@ -2250,7 +2259,7 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context, tx *sql.Tx) (db.AllTeam
 		for _, currentApp := range appNames {
 			var currentTeamLocks []db.TeamLock
 
-			teamName, err := s.GetTeamName(ctx, tx, currentApp)
+			teamName, err := s.GetTeamNameFromManifest(currentApp)
 			if err != nil {
 				return nil, err
 			}
@@ -2261,7 +2270,7 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context, tx *sql.Tx) (db.AllTeam
 				continue
 			}
 
-			ls, err := s.GetEnvironmentTeamLocks(ctx, envName, teamName)
+			ls, err := s.GetEnvironmentTeamLocksFromManifest(envName, teamName)
 			if err != nil {
 				return nil, err
 			}
@@ -2462,18 +2471,21 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 		}
 		return app.Metadata.Team, nil
 	} else {
-		appDir := applicationDirectory(s.Filesystem, application)
-		appTeam := s.Filesystem.Join(appDir, "team")
+		return s.GetApplicationTeamOwnerFromManifest(application)
+	}
+}
+func (s *State) GetApplicationTeamOwnerFromManifest(application string) (string, error) {
+	appDir := applicationDirectory(s.Filesystem, application)
+	appTeam := s.Filesystem.Join(appDir, "team")
 
-		if team, err := readFile(s.Filesystem, appTeam); err != nil {
-			if os.IsNotExist(err) {
-				return "", nil
-			} else {
-				return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
-			}
+	if team, err := readFile(s.Filesystem, appTeam); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
 		} else {
-			return string(team), nil
+			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
 		}
+	} else {
+		return string(team), nil
 	}
 }
 
