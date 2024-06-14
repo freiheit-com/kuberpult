@@ -487,7 +487,8 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: envAcceptance,
 					},
-					Team: team,
+					Team:    team,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: envAcceptance,
@@ -513,7 +514,8 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: envAcceptance,
 					},
-					Team: team,
+					Team:    team,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: envAcceptance,
@@ -542,7 +544,8 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: envAcceptance,
 					},
-					Team: team,
+					Team:    team,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: envAcceptance,
