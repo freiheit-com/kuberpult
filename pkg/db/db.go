@@ -2508,48 +2508,7 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 		ctx,
 		selectQuery,
 	)
-	if err != nil {
-		return nil, fmt.Errorf("could not query all_team_locks table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
-	//exhaustruct:ignore
-	var row = AllTeamLocksRow{}
-	if rows.Next() {
-		err := rows.Scan(&row.Version, &row.Created, &row.Environment, &row.Team, &row.Data)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning team lock row from DB. Error: %w\n", err)
-		}
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		//exhaustruct:ignore
-		var dataJson = AllTeamLocksJson{}
-		err = json.Unmarshal(([]byte)(row.Data), &dataJson)
-		if err != nil {
-			return nil, fmt.Errorf("Error unmarshalling error. Error: %w\n", err)
-		}
-		return &AllTeamLocksGo{
-			Version:          row.Version,
-			Created:          row.Created,
-			Environment:      row.Environment,
-			Team:             row.Team,
-			AllTeamLocksJson: AllTeamLocksJson{TeamLocks: dataJson.TeamLocks}}, nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil // no rows, but also no error
+	return h.processAllTeamLocksRow(ctx, err, rows)
 }
 
 func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, environment, teamName, message, authorName, authorEmail string) error {
@@ -2743,58 +2702,7 @@ func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, enviro
 		"SELECT version, created, environment, teamName, json FROM all_team_locks WHERE environment = ? AND teamName = ? ORDER BY version DESC LIMIT 1;")
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment, teamName)
-	if err != nil {
-		return nil, fmt.Errorf("could not query all team locks table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
-	if rows.Next() {
-		var row = AllTeamLocksRow{
-			Version:     0,
-			Created:     time.Time{},
-			Environment: "",
-			Team:        "",
-			Data:        "",
-		}
-
-		err := rows.Scan(&row.Version, &row.Created, &row.Environment, &row.Team, &row.Data)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
-		}
-
-		//exhaustruct:ignore
-		var resultJson = AllTeamLocksJson{}
-		err = json.Unmarshal(([]byte)(row.Data), &resultJson)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Data)
-		}
-
-		var resultGo = AllTeamLocksGo{
-			Version:          row.Version,
-			Created:          row.Created,
-			Environment:      row.Environment,
-			Team:             row.Team,
-			AllTeamLocksJson: AllTeamLocksJson{TeamLocks: resultJson.TeamLocks},
-		}
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		return &resultGo, nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return h.processAllTeamLocksRow(ctx, err, rows)
 }
 
 func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) error {
@@ -2949,6 +2857,12 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 	if err != nil {
 		return nil, fmt.Errorf("could not read team lock from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("team locks: row could not be closed: %v", err)
+		}
+	}(rows)
 	teamLocks := make([]TeamLock, 0)
 	for rows.Next() {
 		var row = DBTeamLock{
@@ -2990,4 +2904,50 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 		return nil, err
 	}
 	return teamLocks, nil
+}
+
+func (h *DBHandler) processAllTeamLocksRow(ctx context.Context, err error, rows *sql.Rows) (*AllTeamLocksGo, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query all_team_locks table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var row = &AllTeamLocksRow{}
+	var result AllTeamLocksGo
+	if rows.Next() {
+
+		err := rows.Scan(&row.Version, &row.Created, &row.Environment, &row.Team, &row.Data)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		//exhaustruct:ignore
+		var resultJson = AllTeamLocksJson{}
+		err = json.Unmarshal(([]byte)(row.Data), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Data)
+		}
+
+		result = AllTeamLocksGo{
+			Version:          row.Version,
+			Created:          row.Created,
+			Environment:      row.Environment,
+			Team:             row.Team,
+			AllTeamLocksJson: AllTeamLocksJson{TeamLocks: resultJson.TeamLocks},
+		}
+	} else {
+		row = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
