@@ -6090,8 +6090,6 @@ spec:
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
-			//repo, err := New(
-			//	testutil.MakeTestContext(),
 			cfg := RepositoryConfig{
 				URL:                  remoteDir,
 				Path:                 localDir,
@@ -6101,11 +6099,7 @@ spec:
 				ArgoCdGenerateFiles:  true,
 				ReleaseVersionsLimit: tc.ReleaseVersionsLimit,
 			}
-			//)
 			repo := SetupRepositoryTestWithoutDB(t, &cfg)
-			//if err != nil {
-			//	t.Fatal(err)
-			//}
 			var err error
 			for i, tf := range tc.Transformers {
 				ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)

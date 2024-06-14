@@ -1662,6 +1662,9 @@ func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction 
 }
 
 func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentApplicationLocksFromDB: No transaction provided")
+	}
 	activeLockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
 	if err != nil {
 		return nil, err
