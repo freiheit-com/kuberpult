@@ -1015,7 +1015,7 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 }
 
 func isLatestsVersion(state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetAllApplicationReleasesFromFile(application)
+	rels, err := state.GetAllApplicationReleasesFromManifest(application)
 	if err != nil {
 		return false, err
 	}
@@ -1390,7 +1390,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if err != nil {
 		return nil, err
 	}
-	versions, err := state.GetAllApplicationReleasesFromFile(name)
+	versions, err := state.GetAllApplicationReleasesFromManifest(name)
 	if err != nil {
 		return nil, err
 	}

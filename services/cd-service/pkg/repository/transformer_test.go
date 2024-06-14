@@ -5169,7 +5169,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that reading is possible
 				{
-					rel, err := s.GetAllApplicationReleasesFromFile("test")
+					rel, err := s.GetAllApplicationReleasesFromManifest("test")
 					if err != nil {
 						t.Fatal(err)
 					}

@@ -2208,7 +2208,7 @@ func (s *State) GetAppsAndTeams() (map[string]string, error) {
 }
 
 func (s *State) GetAllReleases(ctx context.Context, app string) (db.AllReleases, error) {
-	releases, err := s.GetAllApplicationReleasesFromFile(app)
+	releases, err := s.GetAllApplicationReleasesFromManifest(app)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get releases of app %s: %v", app, err)
 	}
@@ -2254,11 +2254,11 @@ func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.
 		res := conversion.ToUint64Slice(app.Metadata.Releases)
 		return res, nil
 	} else {
-		return s.GetAllApplicationReleasesFromFile(application)
+		return s.GetAllApplicationReleasesFromManifest(application)
 	}
 }
 
-func (s *State) GetAllApplicationReleasesFromFile(application string) ([]uint64, error) {
+func (s *State) GetAllApplicationReleasesFromManifest(application string) ([]uint64, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
 	} else {
