@@ -157,7 +157,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 		if err != nil {
 			return nil, wrapError("release", err)
 		}
-		manifests, err := state.GetApplicationReleaseManifestsFromFile(req.Application, release)
+		manifests, err := state.GetApplicationReleaseManifestsFromManifest(req.Application, release)
 		if err != nil {
 			return nil, wrapError("manifests", err)
 		}

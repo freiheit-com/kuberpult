@@ -2260,7 +2260,7 @@ func (s *State) GetAllReleases(ctx context.Context, app string) (db.AllReleases,
 		if err != nil {
 			return nil, fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 		}
-		manifests, err := s.GetApplicationReleaseManifestsFromFile(app, releaseVersion)
+		manifests, err := s.GetApplicationReleaseManifestsFromManifest(app, releaseVersion)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
 		}
@@ -2532,11 +2532,11 @@ func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction 
 		}
 		return manifests, nil
 	} else {
-		return s.GetApplicationReleaseManifestsFromFile(application, version)
+		return s.GetApplicationReleaseManifestsFromManifest(application, version)
 	}
 }
 
-func (s *State) GetApplicationReleaseManifestsFromFile(application string, version uint64) (map[string]*api.Manifest, error) {
+func (s *State) GetApplicationReleaseManifestsFromManifest(application string, version uint64) (map[string]*api.Manifest, error) {
 	manifests := map[string]*api.Manifest{}
 	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
 
