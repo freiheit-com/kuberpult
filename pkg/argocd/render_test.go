@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/google/go-cmp/cmp"
 	godebug "github.com/kylelemons/godebug/diff"
 )
@@ -299,8 +299,8 @@ spec:
 				ArgoCd: &config.EnvironmentConfigArgoCd{
 					Destination: config.ArgoCdDestination{
 						Namespace:            nil,
-						AppProjectNamespace:  ptr.FromString("bar1"),
-						ApplicationNamespace: ptr.FromString("bar2"),
+						AppProjectNamespace:  conversion.FromString("bar1"),
+						ApplicationNamespace: conversion.FromString("bar2"),
 					},
 				},
 			},
@@ -354,7 +354,7 @@ spec:
 				ArgoCd: &config.EnvironmentConfigArgoCd{
 					Destination: config.ArgoCdDestination{
 						Namespace:            nil,
-						AppProjectNamespace:  ptr.FromString("bar1"),
+						AppProjectNamespace:  conversion.FromString("bar1"),
 						ApplicationNamespace: nil,
 					},
 				},
@@ -408,8 +408,8 @@ spec:
 				ArgoCd: &config.EnvironmentConfigArgoCd{
 					Destination: config.ArgoCdDestination{
 						Namespace:            nil,
-						AppProjectNamespace:  ptr.FromString("bar1"),
-						ApplicationNamespace: ptr.FromString("bar2"),
+						AppProjectNamespace:  conversion.FromString("bar1"),
+						ApplicationNamespace: conversion.FromString("bar2"),
 					},
 				},
 			},
@@ -430,9 +430,9 @@ spec:
 			config: config.EnvironmentConfig{
 				ArgoCd: &config.EnvironmentConfigArgoCd{
 					Destination: config.ArgoCdDestination{
-						Namespace:            ptr.FromString("foo"),
-						AppProjectNamespace:  ptr.FromString("bar1"),
-						ApplicationNamespace: ptr.FromString("bar2"),
+						Namespace:            conversion.FromString("foo"),
+						AppProjectNamespace:  conversion.FromString("bar1"),
+						ApplicationNamespace: conversion.FromString("bar2"),
 					},
 				},
 			},
@@ -453,7 +453,7 @@ spec:
 			config: config.EnvironmentConfig{
 				ArgoCd: &config.EnvironmentConfigArgoCd{
 					Destination: config.ArgoCdDestination{
-						Namespace:            ptr.FromString("foo"),
+						Namespace:            conversion.FromString("foo"),
 						AppProjectNamespace:  nil,
 						ApplicationNamespace: nil,
 					},
@@ -477,7 +477,7 @@ spec:
 				ArgoCd: &config.EnvironmentConfigArgoCd{
 					Destination: config.ArgoCdDestination{
 						Namespace:            nil,
-						AppProjectNamespace:  ptr.FromString("bar1"),
+						AppProjectNamespace:  conversion.FromString("bar1"),
 						ApplicationNamespace: nil,
 					},
 				},

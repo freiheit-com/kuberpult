@@ -23,8 +23,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -42,7 +42,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			Config: config.EnvironmentConfig{
 				Upstream:         nil,
 				ArgoCd:           nil,
-				EnvironmentGroup: ptr.FromString("mygroup"),
+				EnvironmentGroup: conversion.FromString("mygroup"),
 			},
 		},
 		&CreateEnvironment{
@@ -54,7 +54,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 					Latest:      false,
 				},
 				ArgoCd:           nil,
-				EnvironmentGroup: ptr.FromString("staging-group"),
+				EnvironmentGroup: conversion.FromString("staging-group"),
 			},
 		},
 		&CreateApplicationVersion{

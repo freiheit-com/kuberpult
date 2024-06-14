@@ -435,12 +435,6 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 // We still store the eslId for consistency with other tables,
 // but technically it's not required here.
 
-type DBRelease struct {
-	EslId EslId
-	App   string
-	Env   string
-}
-
 type DBReleaseMetaData struct {
 	SourceAuthor   string
 	SourceCommitId string
@@ -897,7 +891,7 @@ type ReleaseWithManifest struct {
 
 type AllDeployments []Deployment
 type AllEnvLocks map[string][]EnvironmentLock
-type AllReleases map[uint64]ReleaseWithManifest
+type AllReleases map[uint64]ReleaseWithManifest // keys: releaseVersion; value: release with manifests
 
 type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
 

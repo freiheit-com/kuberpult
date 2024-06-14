@@ -44,8 +44,8 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	git "github.com/libgit2/git2go/v34"
@@ -2736,7 +2736,7 @@ func (c *ReleaseTrain) Prognosis(
 	for _, envName := range envGroups {
 		var trainGroup *string
 		if isEnvGroup {
-			trainGroup = ptr.FromString(targetGroupName)
+			trainGroup = conversion.FromString(targetGroupName)
 		}
 
 		envReleaseTrain := &envReleaseTrain{
@@ -2792,7 +2792,7 @@ func (c *ReleaseTrain) Transform(
 	for _, envName := range envNames {
 		var trainGroup *string
 		if isEnvGroup {
-			trainGroup = ptr.FromString(targetGroupName)
+			trainGroup = conversion.FromString(targetGroupName)
 		}
 
 		if err := t.Execute(&envReleaseTrain{

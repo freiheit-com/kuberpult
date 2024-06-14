@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package ptr
+package conversion
 
 import (
 	"github.com/google/go-cmp/cmp"

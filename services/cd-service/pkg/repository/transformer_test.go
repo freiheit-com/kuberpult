@@ -49,8 +49,8 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/go-git/go-billy/v5"
@@ -513,7 +513,7 @@ func TestDeployOnSelectedEnvs(t *testing.T) {
 			Expected: []Expected{
 				{
 					Path: "argocd/v1alpha1/acceptance.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: acceptance
@@ -553,7 +553,7 @@ spec:
 				},
 				{
 					Path: "argocd/v1alpha1/production.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: production
@@ -616,7 +616,7 @@ spec:
 			Expected: []Expected{
 				{
 					Path: "argocd/v1alpha1/acceptance.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: acceptance
@@ -657,7 +657,7 @@ spec:
 				{
 					Path: "argocd/v1alpha1/production.yaml",
 					// here we expect only the appProject with the app, because it hasn't been deployed yet
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: production
@@ -689,14 +689,14 @@ spec:
 						t.Fatalf("Expected [%d] an error but got content: '%s'", i, string(fileData))
 					}
 					var actual = string(fileData)
-					var exp = strings.ReplaceAll(ptr.ToString(expected.fileData), "%%%REPO%%%", repoUrl)
+					var exp = strings.ReplaceAll(conversion.ToString(expected.fileData), "%%%REPO%%%", repoUrl)
 					if diff := cmp.Diff(actual, exp); diff != "" {
 						t.Errorf("got %v, want %v, diff (-want +got) %s", actual, exp, diff)
 					}
 				} else {
 					// there is an error
 					if expected.fileData != nil {
-						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, ptr.ToString(expected.fileData), err)
+						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, conversion.ToString(expected.fileData), err)
 					}
 				}
 			}
@@ -1515,7 +1515,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: "staging",
 						},
-						EnvironmentGroup: ptr.FromString("production-group"),
+						EnvironmentGroup: conversion.FromString("production-group"),
 					},
 				},
 				&CreateEnvironment{
@@ -1580,7 +1580,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: "staging",
 						},
-						EnvironmentGroup: ptr.FromString("production-group"),
+						EnvironmentGroup: conversion.FromString("production-group"),
 					},
 				},
 				&CreateEnvironment{
@@ -2779,7 +2779,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2788,7 +2788,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironmentLock{
@@ -2838,14 +2838,14 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
 						Upstream:         nil,
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
 					Environment: envAcceptance + "-de",
 					Config: config.EnvironmentConfig{
 						Upstream:         nil,
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -2886,7 +2886,7 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 							Environment: "",
 							Latest:      false,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2896,7 +2896,7 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 							Environment: "",
 							Latest:      false,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -2937,7 +2937,7 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 							Environment: "dev",
 							Latest:      true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2947,7 +2947,7 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 							Environment: "dev",
 							Latest:      true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -5635,7 +5635,7 @@ func TestTransformer(t *testing.T) {
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 					},
@@ -5709,7 +5709,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("not-staging"),
+							Namespace: conversion.FromString("not-staging"),
 							Server:    "localhost:8080",
 						},
 						SyncWindows: []config.ArgoCdSyncWindow{
@@ -5758,7 +5758,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("not-staging"),
+							Namespace: conversion.FromString("not-staging"),
 							Server:    "localhost:8080",
 						},
 						ClusterResourceWhitelist: []config.AccessEntry{
@@ -5808,7 +5808,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 					},
@@ -5920,7 +5920,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 						ApplicationAnnotations: map[string]string{
@@ -6001,7 +6001,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 						IgnoreDifferences: []config.ArgoCdIgnoreDifference{
@@ -7513,7 +7513,7 @@ func TestDeleteLocks(t *testing.T) {
 }
 
 func TestEnvironmentGroupLocks(t *testing.T) {
-	group := ptr.FromString("prod")
+	group := conversion.FromString("prod")
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -7534,7 +7534,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},
@@ -7559,7 +7559,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},
@@ -7633,7 +7633,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},

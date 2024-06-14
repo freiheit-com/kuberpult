@@ -27,8 +27,8 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -168,9 +168,9 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				XXX_NoUnkeyedLiteral: struct{}{},
 				XXX_unrecognized:     nil,
 				XXX_sizecache:        0,
-				Validate:             ptr.Bool(false),
+				Validate:             conversion.Bool(false),
 				Application:          appToUpdate,
-				Project:              ptr.FromString(appToUpdate.Spec.Project),
+				Project:              conversion.FromString(appToUpdate.Spec.Project),
 			}
 
 			//exhaustruct:ignore
@@ -256,7 +256,7 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[strin
 			XXX_NoUnkeyedLiteral: struct{}{},
 			XXX_unrecognized:     nil,
 			XXX_sizecache:        0,
-			Name:                 ptr.FromString(toDelete[i].Name),
+			Name:                 conversion.FromString(toDelete[i].Name),
 		})
 
 		if err != nil {
