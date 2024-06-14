@@ -1710,7 +1710,48 @@ func (s *State) GetEnvironmentApplicationLocksFromManifest(environment, applicat
 		return result, nil
 	}
 }
-func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lock, error) {
+
+func (s *State) GetEnvironmentTeamLocks(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentTeamLocksFromDB(ctx, transaction, environment, team)
+	}
+	return s.GetEnvironmentTeamLocksFromManifest(environment, team)
+}
+
+func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentTeamLocksFromDB: No transation provided")
+	}
+	activeLockIDs, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
+	if err != nil {
+		return nil, err
+	}
+
+	var lockIds []string
+	if activeLockIDs != nil {
+		lockIds = activeLockIDs.TeamLocks
+	}
+	locks, err := s.DBHandler.DBSelectTeamLockSet(ctx, transaction, environment, team, lockIds)
+
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]Lock, len(locks))
+	for _, lock := range locks {
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt: lock.Created,
+		}
+		result[lock.LockID] = genericLock
+	}
+	return result, nil
+}
+
+func (s *State) GetEnvironmentTeamLocksFromManifest(environment, team string) (map[string]Lock, error) {
 	base := s.GetTeamLocksDir(environment, team)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -2107,7 +2148,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 }
 
 // GetCurrentEnvironmentLocks gets all locks on any environment in manifest
-func (s *State) GetCurrentEnvironmentLocks(ctx context.Context, _ *sql.Tx) (db.AllEnvLocks, error) {
+func (s *State) GetCurrentEnvironmentLocks(ctx context.Context) (db.AllEnvLocks, error) {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentEnvironmentLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllEnvLocks)
@@ -2188,6 +2229,64 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 	return result, nil
 }
 
+func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error) {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentTeamLocks")
+	defer ddSpan.Finish()
+	result := make(db.AllTeamLocks)
+	_, envNames, err := s.GetEnvironmentConfigsSorted()
+
+	if err != nil {
+		return nil, err
+	}
+
+	for envNameIndex := range envNames {
+		processedTeams := map[string]bool{} //TeamName -> boolean (processed or not)
+		envName := envNames[envNameIndex]
+
+		appNames, err := s.GetEnvironmentApplicationsFromManifest(envName)
+		if err != nil {
+			return nil, err
+		}
+
+		result[envName] = make(map[string][]db.TeamLock)
+		for _, currentApp := range appNames {
+			var currentTeamLocks []db.TeamLock
+
+			teamName, err := s.GetTeamNameFromManifest(currentApp)
+			if err != nil {
+				return nil, err
+			}
+			_, exists := processedTeams[teamName]
+			if !exists {
+				processedTeams[teamName] = true
+			} else {
+				continue
+			}
+
+			ls, err := s.GetEnvironmentTeamLocksFromManifest(envName, teamName)
+			if err != nil {
+				return nil, err
+			}
+			for lockId, lock := range ls {
+				currentTeamLocks = append(currentTeamLocks, db.TeamLock{
+					EslVersion: 0,
+					Env:        envName,
+					LockID:     lockId,
+					Created:    lock.CreatedAt,
+					Metadata: db.LockMetadata{
+						CreatedByName:  lock.CreatedBy.Name,
+						CreatedByEmail: lock.CreatedBy.Email,
+						Message:        lock.Message,
+					},
+					Team:    teamName,
+					Deleted: false,
+				})
+			}
+			result[envName][teamName] = currentTeamLocks
+		}
+	}
+	return result, nil
+}
 func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
@@ -2365,18 +2464,21 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 		}
 		return app.Metadata.Team, nil
 	} else {
-		appDir := applicationDirectory(s.Filesystem, application)
-		appTeam := s.Filesystem.Join(appDir, "team")
+		return s.GetApplicationTeamOwnerFromManifest(application)
+	}
+}
+func (s *State) GetApplicationTeamOwnerFromManifest(application string) (string, error) {
+	appDir := applicationDirectory(s.Filesystem, application)
+	appTeam := s.Filesystem.Join(appDir, "team")
 
-		if team, err := readFile(s.Filesystem, appTeam); err != nil {
-			if os.IsNotExist(err) {
-				return "", nil
-			} else {
-				return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
-			}
+	if team, err := readFile(s.Filesystem, appTeam); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
 		} else {
-			return string(team), nil
+			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
 		}
+	} else {
+		return string(team), nil
 	}
 }
 
