@@ -927,6 +927,47 @@ cd:
 				},
 			},
 		},
+		{
+			Name: "ESL processing backoff is set",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    writeEslTableOnly: false
+
+manifestRepoExport:
+  eslProcessingBackoff: 5
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ESL_PROCESSING_BACKOFF",
+					Value: "5",
+				},
+			},
+		},
+		{
+			Name: "ESL processing backoff is not set",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    writeEslTableOnly: false
+`,
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ESL_PROCESSING_BACKOFF",
+					Value: "",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
