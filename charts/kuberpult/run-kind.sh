@@ -292,9 +292,9 @@ print "connection to frontend service successful"
 kubectl get deployment
 kubectl get pods
 
-for _ in $(seq 1 3)
+for v in $(seq 1 3)
 do
-   ../../infrastructure/scripts/create-testdata/create-release.sh echo;
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release.sh echo;
 done
 
 
