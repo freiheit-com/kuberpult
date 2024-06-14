@@ -24,6 +24,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -313,6 +314,7 @@ func TestAppParameter(t *testing.T) {
 	testCases := []struct {
 		name                string
 		inputNumberAppParam int
+		inputVersion        int
 		expectedStatusCode  int
 		expectedError       error
 		expectedBody        string
@@ -320,12 +322,14 @@ func TestAppParameter(t *testing.T) {
 		{
 			name:                "0 app names",
 			inputNumberAppParam: 0,
+			inputVersion:        98,
 			expectedStatusCode:  400,
 			expectedBody:        "Must provide application name",
 		},
 		{
 			name:                "1 app name",
 			inputNumberAppParam: 1,
+			inputVersion:        99,
 			expectedStatusCode:  201,
 			expectedBody:        "{\"Success\":{}}\n",
 		},
@@ -339,6 +343,7 @@ func TestAppParameter(t *testing.T) {
 			for i := 0; i < tc.inputNumberAppParam; i++ {
 				values["application"] = strings.NewReader("app1")
 			}
+			values["version"] = strings.NewReader(strconv.Itoa(tc.inputVersion))
 
 			files := map[string]io.Reader{}
 			files["manifests[dev]"] = strings.NewReader("manifest")
