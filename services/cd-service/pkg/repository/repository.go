@@ -1596,28 +1596,18 @@ func (s *State) GetTeamLocksDir(environment string, team string) string {
 }
 
 func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
-	var locks []db.EnvironmentLock
-	var err error
-
-	retrieveLocks := func(ctx context.Context, transaction *sql.Tx, environment string) ([]db.EnvironmentLock, error) {
-		locks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
-		if err != nil {
-			return nil, err
-		}
-		var lockIds []string
-		if locks != nil {
-			lockIds = locks.EnvLocks
-		}
-		return s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentLocksFromDB: No transaction provided")
 	}
-
-	if transaction == nil { //If no tx is provided, we create our own.
-		locks, err = db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.EnvironmentLock, error) {
-			return retrieveLocks(ctx, transaction, environment)
-		})
-	} else {
-		locks, err = retrieveLocks(ctx, transaction, environment)
+	allActiveLockIds, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
+	if err != nil {
+		return nil, err
 	}
+	var lockIds []string
+	if allActiveLockIds != nil {
+		lockIds = allActiveLockIds.EnvLocks
+	}
+	locks, err := s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
 
 	if err != nil {
 		return nil, err
@@ -1672,28 +1662,15 @@ func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction 
 }
 
 func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
-	var locks []db.ApplicationLock
-	var err error
-
-	retrieveLocks := func(ctx context.Context, transaction *sql.Tx, environment, application string) ([]db.ApplicationLock, error) {
-		locks, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
-		if err != nil {
-			return nil, err
-		}
-		var lockIds []string
-		if locks != nil {
-			lockIds = locks.AppLocks
-		}
-		return s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
+	activeLockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
+	if err != nil {
+		return nil, err
 	}
-
-	if transaction == nil { //If no tx is provided, we create our own. (Should only be needed when calling these functions outside the transformer flow)
-		locks, err = db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.ApplicationLock, error) {
-			return retrieveLocks(ctx, transaction, environment, application)
-		})
-	} else {
-		locks, err = retrieveLocks(ctx, transaction, environment, application)
+	var lockIds []string
+	if activeLockIds != nil {
+		lockIds = activeLockIds.AppLocks
 	}
+	locks, err := s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
 
 	if err != nil {
 		return nil, err
