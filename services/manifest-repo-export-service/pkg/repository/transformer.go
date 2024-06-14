@@ -50,13 +50,7 @@ const (
 )
 
 const (
-	yamlParsingError = "# yaml parsing error"
-
-	fieldSourceAuthor   = "source_author"
-	fieldSourceMessage  = "source_message"
-	fieldSourceCommitId = "source_commit_id"
-	fieldDisplayVersion = "display_version"
-	fieldTeam           = "team"
+	fieldTeam = "team"
 )
 
 func versionToString(Version uint64) string {
@@ -272,12 +266,7 @@ func (c *DeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-
-		teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, teamName)
-		if err != nil {
-			return "", err
-		}
-
+		
 		if errors.Is(err, os.ErrNotExist) {
 			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
 		} else {
