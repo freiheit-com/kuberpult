@@ -24,7 +24,8 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
@@ -49,6 +50,8 @@ const (
 )
 
 const (
+	yamlParsingError = "# yaml parsing error"
+
 	fieldSourceAuthor   = "source_author"
 	fieldSourceMessage  = "source_message"
 	fieldSourceCommitId = "source_commit_id"
@@ -237,6 +240,8 @@ func (c *DeployApplicationVersion) Transform(
 ) (string, error) {
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
+	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
+	//manifest := fsys.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	var manifestContent []byte
 	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
 	if err != nil {
@@ -246,7 +251,7 @@ func (c *DeployApplicationVersion) Transform(
 		return "", fmt.Errorf("release of app %s with version %v not found", c.Application, c.Version)
 	}
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
-	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
+	//releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
 
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
@@ -273,6 +278,14 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 
+		if errors.Is(err, os.ErrNotExist) {
+			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
+		} else {
+			teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, string(teamName))
+			if err != nil {
+				return "", err
+			}
+		}
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
@@ -585,7 +598,7 @@ func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
 func (c *CreateApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
-	_ TransformerContext,
+	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
 	version := c.Version
@@ -610,36 +623,6 @@ func (c *CreateApplicationVersion) Transform(
 
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
-
-	///
-
-	if c.SourceCommitId != "" {
-		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-
-	if c.SourceAuthor != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if c.SourceMessage != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if c.DisplayVersion != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
-	}
-
-	///
 
 	if c.Team != "" {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
@@ -700,7 +683,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if err != nil {
 		return nil, err
 	}
-	versions, err := state.GetApplicationReleasesFromFile(name)
+	versions, err := state.GetApplicationReleases(ctx, transaction, name)
 	if err != nil {
 		return nil, err
 	}
@@ -731,4 +714,154 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return nil, nil
 	}
 	return versions[0 : positionOfOldestVersion-(int(releaseVersionsLimit)-1)], err
+}
+
+func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
+	var err error
+	releasesDir := releasesDirectory(fs, application)
+	err = fs.MkdirAll(releasesDir, 0777)
+	if err != nil {
+		return 0, err
+	}
+	if entries, err := fs.ReadDir(releasesDir); err != nil {
+		return 0, err
+	} else {
+		var lastRelease uint64 = 0
+		for _, e := range entries {
+			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
+				//TODO(HVG): decide what to do with bad named releases
+			} else {
+				if i > lastRelease {
+					lastRelease = i
+				}
+			}
+		}
+		return lastRelease, nil
+	}
+}
+
+type CreateEnvironmentTeamLock struct {
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	Team           string `json:"team"`
+	LockId         string `json:"lockId"`
+	Message        string `json:"message"`
+}
+
+func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentTeamLock
+}
+
+func (c *CreateEnvironmentTeamLock) Transform(
+	ctx context.Context,
+	state *State,
+	_ TransformerContext,
+	tx *sql.Tx,
+) (string, error) {
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.TeamName(c.Team) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid team: '%s'", c.Team))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid lock id: '%s'", c.LockId))
+	}
+
+	fs := state.Filesystem
+
+	foundTeam := false
+	var err error
+	if apps, err := state.GetApplicationsFromFile(); err == nil {
+		for _, currentApp := range apps {
+			currentTeamName, err := state.GetTeamName(currentApp)
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
+			} else {
+				if c.Team == currentTeamName {
+					foundTeam = true
+					break
+				}
+			}
+		}
+	}
+	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
+		return "", &TeamNotFoundErr{err: fmt.Errorf("team '%s' does not exist", c.Team)}
+	}
+
+	envDir := fs.Join("environments", c.Environment)
+	if _, err := fs.Stat(envDir); err != nil {
+		return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
+	}
+
+	teamDir := fs.Join(envDir, "teams", c.Team)
+	if err := fs.MkdirAll(teamDir, 0777); err != nil {
+		return "", fmt.Errorf("error could not create teams directory %q: %w", envDir, err)
+	}
+	chroot, err := fs.Chroot(teamDir)
+	if err != nil {
+		return "", fmt.Errorf("error changing root of fs to  %s: %w", teamDir, err)
+	}
+
+	lock, err := state.DBHandler.DBSelectTeamLock(ctx, tx, c.Environment, c.Team, c.LockId)
+	if err != nil {
+		return "", err
+	}
+
+	if lock == nil {
+		return "", fmt.Errorf("could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'.\n", c.Team, c.Environment, c.LockId)
+	}
+
+	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Created lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+}
+
+type DeleteEnvironmentTeamLock struct {
+	Authentication `json:"-"`
+	Environment    string `json:"env"`
+	Team           string `json:"team"`
+	LockId         string `json:"lockId"`
+}
+
+func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentTeamLock
+}
+
+func (c *DeleteEnvironmentTeamLock) Transform(
+	ctx context.Context,
+	state *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	if !valid.EnvironmentName(c.Environment) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.TeamName(c.Team) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid team: '%s'", c.Team))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid lock id: '%s'", c.LockId))
+	}
+	fs := state.Filesystem
+
+	lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
+	_, err := fs.Stat(lockDir)
+
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+	}
+
+	if err := state.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
 }

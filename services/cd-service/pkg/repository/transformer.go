@@ -1972,56 +1972,95 @@ func (c *CreateEnvironmentTeamLock) Transform(
 ) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
 	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig)
+
 	if err != nil {
 		return "", err
 	}
 
-	if !valid.EnvironmentName(c.Environment) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
-	}
-	if !valid.TeamName(c.Team) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid team: '%s'", c.Team))
-	}
-	if !valid.LockId(c.LockId) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid lock id: '%s'", c.LockId))
-	}
+	if state.DBHandler.ShouldUseOtherTables() {
+		user, err := auth.ReadUserFromContext(ctx)
+		if err != nil {
+			return "", err
+		}
+		//Write to locks table
+		errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, c.Message, user.Name, user.Email)
+		if errW != nil {
+			return "", errW
+		}
 
-	fs := state.Filesystem
+		//Add it to all locks
+		allTeamLocks, err := state.DBHandler.DBSelectAllTeamLocks(ctx, transaction, c.Environment, c.Team)
+		if err != nil {
+			return "", err
+		}
 
-	foundTeam := false
+		if allTeamLocks == nil {
+			allTeamLocks = &db.AllTeamLocksGo{
+				Version: 1,
+				AllTeamLocksJson: db.AllTeamLocksJson{
+					TeamLocks: []string{},
+				},
+				Created:     time.Now(),
+				Environment: c.Environment,
+				Team:        c.Team,
+			}
+		}
 
-	if apps, err := state.GetApplications(ctx, transaction); err == nil {
-		for _, currentApp := range apps {
-			currentTeamName, err := state.GetTeamName(ctx, transaction, currentApp)
+		if !slices.Contains(allTeamLocks.TeamLocks, c.LockId) {
+			allTeamLocks.TeamLocks = append(allTeamLocks.TeamLocks, c.LockId)
+			err := state.DBHandler.DBWriteAllTeamLocks(ctx, transaction, allTeamLocks.Version, c.Environment, c.Team, allTeamLocks.TeamLocks)
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
-			} else {
-				if c.Team == currentTeamName {
-					foundTeam = true
-					break
+				return "", err
+			}
+		}
+	} else {
+		if !valid.EnvironmentName(c.Environment) {
+			return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
+		}
+		if !valid.TeamName(c.Team) {
+			return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid team: '%s'", c.Team))
+		}
+		if !valid.LockId(c.LockId) {
+			return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid lock id: '%s'", c.LockId))
+		}
+
+		fs := state.Filesystem
+
+		foundTeam := false
+
+		if apps, err := state.GetApplications(ctx, transaction); err == nil {
+			for _, currentApp := range apps {
+				currentTeamName, err := state.GetTeamName(ctx, transaction, currentApp)
+				if err != nil {
+					logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
+				} else {
+					if c.Team == currentTeamName {
+						foundTeam = true
+						break
+					}
 				}
 			}
 		}
-	}
-	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
-		return "", &TeamNotFoundErr{err: fmt.Errorf("Team '%s' does not exist.", c.Team)}
-	}
+		if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
+			return "", &TeamNotFoundErr{err: fmt.Errorf("Team '%s' does not exist.", c.Team)}
+		}
 
-	envDir := fs.Join("environments", c.Environment)
-	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
-	}
+		envDir := fs.Join("environments", c.Environment)
+		if _, err := fs.Stat(envDir); err != nil {
+			return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
+		}
 
-	teamDir := fs.Join(envDir, "teams", c.Team)
-	if err := fs.MkdirAll(teamDir, 0777); err != nil {
-		return "", fmt.Errorf("error could not create teams directory %q: %w", envDir, err)
-	}
-	chroot, err := fs.Chroot(teamDir)
-	if err != nil {
-		return "", fmt.Errorf("error changing root of fs to  %s: %w", teamDir, err)
-	}
-	if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
-		return "", fmt.Errorf("error creating lock. ID: %s Lock Message: %s. %w", c.LockId, c.Message, err)
+		teamDir := fs.Join(envDir, "teams", c.Team)
+		if err := fs.MkdirAll(teamDir, 0777); err != nil {
+			return "", fmt.Errorf("error could not create teams directory %q: %w", envDir, err)
+		}
+		chroot, err := fs.Chroot(teamDir)
+		if err != nil {
+			return "", fmt.Errorf("error changing root of fs to  %s: %w", teamDir, err)
+		}
+		if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
+			return "", fmt.Errorf("error creating lock. ID: %s Lock Message: %s. %w", c.LockId, c.Message, err)
+		}
 	}
 
 	return fmt.Sprintf("Created lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
@@ -2045,43 +2084,56 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig)
+
 	if err != nil {
 		return "", err
 	}
-
-	if !valid.EnvironmentName(c.Environment) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
-	}
-	if !valid.TeamName(c.Team) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid team: '%s'", c.Team))
-	}
-	if !valid.LockId(c.LockId) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid lock id: '%s'", c.LockId))
-	}
-
-	fs := state.Filesystem
-	lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
-	_, err = fs.Stat(lockDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for team lock does not exist", lockDir))
+	if state.DBHandler.ShouldUseOtherTables() {
+		err := state.DBHandler.DBDeleteTeamLock(ctx, transaction, c.Environment, c.Team, c.LockId)
+		if err != nil {
+			return "", err
 		}
-		return "", err
-	}
-	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
-	}
-	s := State{
-		Commit:                 nil,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "",
-		Filesystem:             fs,
-		DBHandler:              state.DBHandler,
-		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
-		CloudRunClient:         state.CloudRunClient,
-	}
-	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
-		return "", err
+		allTeamLocks, err := state.DBHandler.DBSelectAllTeamLocks(ctx, transaction, c.Environment, c.Team)
+		if err != nil {
+			return "", fmt.Errorf("DeleteEnvironmentTeamLock: could not select all env team locks for team '%v' on '%v': '%w'", c.Team, c.Environment, err)
+		}
+		var locks []string
+		if allTeamLocks != nil {
+			locks = db.Remove(allTeamLocks.TeamLocks, c.LockId)
+		}
+
+		err = state.DBHandler.DBWriteAllTeamLocks(ctx, transaction, allTeamLocks.Version, c.Environment, c.Team, locks)
+		if err != nil {
+			return "", fmt.Errorf("DeleteEnvironmentTeamLock: could not write team locks for team '%v' on '%v': '%w'", c.Team, c.Environment, err)
+		}
+	} else {
+
+		if !valid.EnvironmentName(c.Environment) {
+			return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
+		}
+		if !valid.TeamName(c.Team) {
+			return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid team: '%s'", c.Team))
+		}
+		if !valid.LockId(c.LockId) {
+			return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid lock id: '%s'", c.LockId))
+		}
+		fs := state.Filesystem
+
+		lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
+		_, err = fs.Stat(lockDir)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for team lock does not exist", lockDir))
+			}
+			return "", err
+		}
+		if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+		}
+
+		if err := state.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
+			return "", err
+		}
 	}
 
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
@@ -2240,7 +2292,7 @@ func (c *DeployApplicationVersion) Transform(
 		if errors.Is(err, os.ErrNotExist) {
 			teamLocks = map[string]Lock{} //If we do not find the team file, there is no team for application, meaning there can't be any team locks
 		} else {
-			teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, string(team))
+			teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, string(team))
 			if err != nil {
 				return "", err
 			}
@@ -3076,7 +3128,7 @@ func (c *envReleaseTrain) prognosis(
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
-			teamLocks, err := state.GetEnvironmentTeamLocks(c.Env, teamName)
+			teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
 
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{

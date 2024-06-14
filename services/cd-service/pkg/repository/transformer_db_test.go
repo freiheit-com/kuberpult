@@ -464,6 +464,160 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 	}
 }
 
+func TestTeamLockTransformersWithDB(t *testing.T) {
+	const team = "test-team"
+	const lockID = "l123"
+	const message = "my lock"
+	tcs := []struct {
+		Name            string
+		Transformers    []Transformer
+		expectedError   *TransformerBatchApplyError
+		shouldSucceed   bool
+		ExpectedLockIds []string
+	}{
+		{
+			Name: "Simple Create team lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envAcceptance: envAcceptance,
+					},
+					Team: team,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      lockID,
+					Message:     message,
+					Team:        team,
+				},
+			},
+			shouldSucceed: true,
+			ExpectedLockIds: []string{
+				lockID,
+			},
+		},
+		{
+			Name: "Simple Create and Deleted team lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envAcceptance: envAcceptance,
+					},
+					Team: team,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      lockID,
+					Message:     message,
+					Team:        team,
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      lockID,
+					Team:        team,
+				},
+			},
+			shouldSucceed:   true,
+			ExpectedLockIds: []string{},
+		},
+		{
+			Name: "Create three team locks and delete one ",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envAcceptance: envAcceptance,
+					},
+					Team: team,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      "l1",
+					Message:     message,
+					Team:        team,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      "l2",
+					Message:     message,
+					Team:        team,
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      "l1",
+					Team:        team,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      "l3",
+					Message:     message,
+					Team:        team,
+				},
+			},
+			shouldSucceed: true,
+			ExpectedLockIds: []string{
+				"l2", "l3",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			var err error = nil
+			repo = SetupRepositoryTestWithDB(t)
+			r := repo.(*repository)
+			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				var batchError *TransformerBatchApplyError = nil
+				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if batchError != nil {
+					return batchError
+				}
+				return nil
+			})
+			if err != nil {
+				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				if !tc.shouldSucceed {
+					return
+				}
+			}
+
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
+				return repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
+			})
+
+			if locks == nil {
+				t.Fatalf("Expected locks but got none")
+			}
+
+			if diff := cmp.Diff(tc.ExpectedLockIds, locks.TeamLocks); diff != "" {
+				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestCreateApplicationVersionDB(t *testing.T) {
 	const appName = "app1"
 	tcs := []struct {
