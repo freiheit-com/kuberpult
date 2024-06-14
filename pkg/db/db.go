@@ -2920,7 +2920,7 @@ func (h *DBHandler) processAllTeamLocksRow(ctx context.Context, err error, rows 
 	}(rows)
 	//exhaustruct:ignore
 	var row = &AllTeamLocksRow{}
-	var result AllTeamLocksGo
+	var result *AllTeamLocksGo
 	if rows.Next() {
 
 		err := rows.Scan(&row.Version, &row.Created, &row.Environment, &row.Team, &row.Data)
@@ -2937,7 +2937,7 @@ func (h *DBHandler) processAllTeamLocksRow(ctx context.Context, err error, rows 
 			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Data)
 		}
 
-		result = AllTeamLocksGo{
+		result = &AllTeamLocksGo{
 			Version:          row.Version,
 			Created:          row.Created,
 			Environment:      row.Environment,
@@ -2946,10 +2946,11 @@ func (h *DBHandler) processAllTeamLocksRow(ctx context.Context, err error, rows 
 		}
 	} else {
 		row = nil
+		result = nil
 	}
 	err = closeRows(rows)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return result, nil
 }

@@ -1719,27 +1719,20 @@ func (s *State) GetEnvironmentTeamLocks(ctx context.Context, transaction *sql.Tx
 }
 
 func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
-	var locks []db.TeamLock
-	var err error
-	retrieveLocks := func(ctx context.Context, transaction *sql.Tx, environment, team string) ([]db.TeamLock, error) {
-		locks, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
-		if err != nil {
-			return nil, err
-		}
-		var lockIds []string
-		if locks != nil {
-			lockIds = locks.TeamLocks
-		}
-		return s.DBHandler.DBSelectTeamLockSet(ctx, transaction, environment, team, lockIds)
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentTeamLocksFromDB: No transation provided")
+	}
+	activeLockIDs, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
+	if err != nil {
+		return nil, err
 	}
 
-	if transaction == nil {
-		locks, err = db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.TeamLock, error) {
-			return retrieveLocks(ctx, transaction, environment, team)
-		})
-	} else {
-		locks, err = retrieveLocks(ctx, transaction, environment, team)
+	var lockIds []string
+	if activeLockIDs != nil {
+		lockIds = activeLockIDs.TeamLocks
 	}
+	locks, err := s.DBHandler.DBSelectTeamLockSet(ctx, transaction, environment, team, lockIds)
+
 	if err != nil {
 		return nil, err
 	}
