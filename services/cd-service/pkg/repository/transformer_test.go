@@ -4819,7 +4819,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				ctx := testutil.MakeTestContext()
-				locks, err := s.GetEnvironmentLocks(ctx, "production")
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4858,7 +4858,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				ctx := testutil.MakeTestContext()
-				locks, err := s.GetEnvironmentApplicationLocks(ctx, "production", "test")
+				locks, err := s.GetEnvironmentApplicationLocks(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4933,7 +4933,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				ctx := testutil.MakeTestContext()
-				locks, err := s.GetEnvironmentLocks(ctx, "production")
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4968,7 +4968,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				ctx := testutil.MakeTestContext()
-				locks, err := s.GetEnvironmentLocks(ctx, "production")
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
