@@ -2172,8 +2172,6 @@ func (c *CreateEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	fs := state.Filesystem
-	envDir := fs.Join("environments", c.Environment)
 	// Creation of environment is possible, but configuring it is not if running in bootstrap mode.
 	// Configuration needs to be done by modifying config map in source repo
 	//exhaustruct:ignore
@@ -2181,21 +2179,61 @@ func (c *CreateEnvironment) Transform(
 	if state.BootstrapMode && c.Config != defaultConfig {
 		return "", fmt.Errorf("Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead.")
 	}
-	if err := fs.MkdirAll(envDir, 0777); err != nil {
-		return "", err
-	}
-	configFile := fs.Join(envDir, "config.json")
-	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
-	if err != nil {
-		return "", fmt.Errorf("error creating config: %w", err)
-	}
-	enc := json.NewEncoder(file)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(c.Config); err != nil {
-		return "", fmt.Errorf("error writing json: %w", err)
+	if state.DBHandler.ShouldUseOtherTables() {
+		// write to environments table
+		err := state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config)
+		if err != nil {
+			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
+		}
+		// write to all_environments table
+		allEnvironments, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+
+		if err != nil {
+			return "", fmt.Errorf("unable to read from all_environments table, error: %w", err)
+		}
+
+		if allEnvironments == nil {
+			allEnvironments = &db.AllEnvironmentGo{
+				Version: 1,
+				Created: time.Now(),
+				AllEnvironmentsJson: db.AllEnvironmentsJson{
+					Environments: []string{},
+				},
+			}
+		}
+
+		if !slices.Contains(allEnvironments.Environments, c.Environment) {
+			// this environment is new
+			allEnvironments.Environments = append(allEnvironments.Environments, c.Environment)
+			err = state.DBHandler.DBWriteAllEnvironments(ctx, transaction, allEnvironments.Version, allEnvironments.Environments)
+
+			if err != nil {
+				return "", fmt.Errorf("unable to write to all_environments table, error: %w", err)
+			}
+		}
+	} else {
+		fs := state.Filesystem
+		envDir := fs.Join("environments", c.Environment)
+		if err := fs.MkdirAll(envDir, 0777); err != nil {
+			return "", err
+		}
+		configFile := fs.Join(envDir, "config.json")
+		file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+		if err != nil {
+			return "", fmt.Errorf("error creating config: %w", err)
+		}
+		enc := json.NewEncoder(file)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(c.Config); err != nil {
+			return "", fmt.Errorf("error writing json: %w", err)
+		}
+		err = file.Close()
+		if err != nil {
+			return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+		}
 	}
 	// we do not need to inform argoCd when creating an environment, as there are no apps yet
-	return fmt.Sprintf("create environment %q", c.Environment), file.Close()
+	return fmt.Sprintf("create environment %q", c.Environment), nil
 }
 
 type QueueApplicationVersion struct {

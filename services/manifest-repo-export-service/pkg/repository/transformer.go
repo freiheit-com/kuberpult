@@ -19,10 +19,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -940,6 +943,46 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	}
 
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+}
+
+type CreateEnvironment struct {
+	Authentication `json:"-"`
+	Environment    string                   `json:"env"`
+	Config         config.EnvironmentConfig `json:"config"`
+}
+
+func (c *CreateEnvironment) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironment
+}
+
+func (c *CreateEnvironment) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+	envDir := fs.Join("environments", c.Environment)
+	if err := fs.MkdirAll(envDir, 0777); err != nil {
+		return "", err
+	}
+	configFile := fs.Join(envDir, "config.json")
+	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+	if err != nil {
+		return "", fmt.Errorf("error creating config: %w", err)
+	}
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(c.Config); err != nil {
+		return "", fmt.Errorf("error writing json: %w", err)
+	}
+	err = file.Close()
+	if err != nil {
+		return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+	}
+
+	// we do not need to inform argoCd when creating an environment, as there are no apps yet
+	return fmt.Sprintf("create environment %q", c.Environment), nil
 }
 
 func commitDirectory(fs billy.Filesystem, commit string) string {

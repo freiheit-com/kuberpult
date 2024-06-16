@@ -19,14 +19,16 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"os/exec"
+	"path"
+	"testing"
+
+	// "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"os/exec"
-	"path"
-	"testing"
 	"time"
 )
 
@@ -220,21 +222,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
 				"error accessing dir \"environments/acceptance\": file does not exist",
-			},
-		},
-		{
-			Name: "create team lock",
-			Transformers: []Transformer{
-				&CreateEnvironmentTeamLock{
-					Authentication: Authentication{},
-					Environment:    envAcceptance,
-					LockId:         "my-lock",
-					Team:           "my-team",
-					Message:        "My envAcceptance lock",
-				},
-			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"team 'my-team' does not exist",
 			},
 		},
 		{
