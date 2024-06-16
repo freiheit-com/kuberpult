@@ -911,7 +911,7 @@ type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, err
 type GetAllAppsFun = func() (map[string]string, error)
 
 // return value is a map from environment name to environment config
-type GetAllEnvironmentsFun = func() (map[string]string, error)
+type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.EnvironmentConfig, error)
 
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
@@ -3115,8 +3115,9 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, tx *sql.Tx) (*A
 	
 	log.Infof("you're now trying to read from the all_environments table")
 
-	ret := &AllEnvironmentGo{}
-	return ret, nil
+	ret := AllEnvironmentGo{}
+
+	return &ret, nil
 }
 
 func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, tx *sql.Tx, previousVersion int64, environmentNames []string) error {
@@ -3128,9 +3129,18 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, tx *sql.Tx, prev
 }
 
 func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEnvironmentsFun GetAllEnvironmentsFun) error {
-	log := logger.FromContext(ctx).Sugar()
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		// log := logger.FromContext(ctx).Sugar()
 
-	log.Infof("you're now tring to run custom migrations for environments (good luck lol)")
+		allEnvironments, err := getAllEnvironmentsFun(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get environments, error: %w", err)
+		}
 
-	return nil
+		for envName, config := range allEnvironments {
+			err = h.DBWriteEnvironment(ctx, transaction, envName, config)
+		}
+		
+		return nil
+	})
 }

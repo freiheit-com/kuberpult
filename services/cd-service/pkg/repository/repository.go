@@ -2610,10 +2610,28 @@ func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) 
 	}
 }
 
-func (s *State) GetAllEnvironments() (map[string]string, error) {
-	return map[string]string{
-		"test key": "test value",
-	}, nil
+func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+	result := map[string]config.EnvironmentConfig{}
+	
+	fs := s.Filesystem
+	
+	envDir, err := fs.ReadDir("environments")
+	if err != nil {
+		return nil, fmt.Errorf("error while reading the environments directory, error: %w", err)
+	}
+
+	for _, envName := range envDir {		
+		configFilePath := fs.Join("environments", envName.Name(), "config.json")
+		configBytes, err := readFile(fs, configFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("could not read file at %s, error: %w", configFilePath, err)
+		}
+		config := config.EnvironmentConfig{}
+		json.Unmarshal(configBytes, &config)
+		result[envName.Name()] = config
+	}
+
+	return result, nil
 }
 
 func names(fs billy.Filesystem, path string) ([]string, error) {
