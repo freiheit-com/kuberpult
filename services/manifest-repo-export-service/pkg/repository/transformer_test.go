@@ -19,14 +19,16 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"os/exec"
+	"path"
+	"testing"
+
+	// "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"os/exec"
-	"path"
-	"testing"
 )
 
 const (
@@ -216,6 +218,25 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
 				"error accessing dir \"environments/acceptance\": file does not exist",
+			},
+		},
+		{
+			Name: "Create a single environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: testutil.MakeEnvConfigLatest(nil),
+				},
+			},
+			ExpectedFile: &FilenameAndData{
+				path: "/environments/development/config.json",
+				fileData: []byte(
+`{
+  "upstream": {
+    "latest": true
+  }
+}
+`),
 			},
 		},
 	}

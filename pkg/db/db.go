@@ -40,6 +40,7 @@ import (
 	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	config "github.com/freiheit-com/kuberpult/pkg/config"
 )
 
 type DBConfig struct {
@@ -2411,4 +2412,40 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 		return nil, err
 	}
 	return envLocks, nil
+}
+
+// Environments
+
+type AllEnvironmentsJson struct {
+	Environments []string `json:"environments"`
+}
+
+type AllEnvironmentGo struct {
+	Version int64
+	Created time.Time
+	AllEnvironmentsJson
+}
+
+func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig) error {
+	log := logger.FromContext(ctx).Sugar()
+
+	log.Infof("you're now trying to write to write config %v for environment %s", environmentConfig, environmentName)
+	return nil
+}
+
+func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, tx *sql.Tx) (*AllEnvironmentGo, error) {
+	log := logger.FromContext(ctx).Sugar()
+	
+	log.Infof("you're now trying to read from the all_environments table")
+
+	ret := &AllEnvironmentGo{}
+	return ret, nil
+}
+
+func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, tx *sql.Tx, previousVersion int64, environmentNames []string) error {
+	log := logger.FromContext(ctx).Sugar()
+	
+	log.Infof("you're now trying to insert into the all_environments table")
+
+	return nil
 }
