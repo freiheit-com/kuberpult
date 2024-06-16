@@ -2610,6 +2610,12 @@ func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) 
 	}
 }
 
+func (s *State) GetAllEnvironments() (map[string]string, error) {
+	return map[string]string{
+		"test key": "test value",
+	}, nil
+}
+
 func names(fs billy.Filesystem, path string) ([]string, error) {
 	files, err := fs.ReadDir(path)
 	if err != nil {

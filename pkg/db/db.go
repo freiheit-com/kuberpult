@@ -910,6 +910,9 @@ type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, err
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
 
+// return value is a map from environment name to environment config
+type GetAllEnvironmentsFun = func() (map[string]string, error)
+
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
@@ -918,6 +921,7 @@ func (h *DBHandler) RunCustomMigrations(
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
 	getAllTeamLocksFun GetAllTeamLocksFun,
+	getAllEnvironmentsFun GetAllEnvironmentsFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
@@ -948,6 +952,10 @@ func (h *DBHandler) RunCustomMigrations(
 	err = h.RunCustomMigrationTeamLocks(ctx, getAllTeamLocksFun)
 	if err != nil {
 		return err
+	}
+	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
+	if err != nil {
+		return err // better wrap the error in a descriptive message?
 	}
 	return nil
 }
@@ -3115,6 +3123,14 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, tx *sql.Tx, prev
 	log := logger.FromContext(ctx).Sugar()
 	
 	log.Infof("you're now trying to insert into the all_environments table")
+
+	return nil
+}
+
+func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEnvironmentsFun GetAllEnvironmentsFun) error {
+	log := logger.FromContext(ctx).Sugar()
+
+	log.Infof("you're now tring to run custom migrations for environments (good luck lol)")
 
 	return nil
 }
