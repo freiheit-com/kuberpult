@@ -290,6 +290,27 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Create a single environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "/environments/development/config.json",
+					fileData: []byte(
+						`{
+  "upstream": {
+    "latest": true
+  }
+}
+`),
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
