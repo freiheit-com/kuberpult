@@ -323,7 +323,11 @@ func RunServer() {
 				repo.State().GetCurrentEnvironmentLocks,
 				repo.State().GetCurrentApplicationLocks,
 				repo.State().GetCurrentTeamLocks,
+<<<<<<< HEAD
 				repo.State().GetAllQueuedAppVersions,
+=======
+				repo.State().GetAllEnvironments,
+>>>>>>> 25d12967 (add placeholder database migration)
 			)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))

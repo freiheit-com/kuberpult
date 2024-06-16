@@ -961,6 +961,9 @@ type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, err
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
 
+// return value is a map from environment name to environment config
+type GetAllEnvironmentsFun = func() (map[string]string, error)
+
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
@@ -969,6 +972,7 @@ func (h *DBHandler) RunCustomMigrations(
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
 	getAllTeamLocksFun GetAllTeamLocksFun,
+	getAllEnvironmentsFun GetAllEnvironmentsFun,
 	getAllQueuedVersionsFun GetAllQueuedVersionsFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
@@ -1004,6 +1008,14 @@ func (h *DBHandler) RunCustomMigrations(
 	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
 	if err != nil {
 		return err
+	}
+	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
+	if err != nil {
+		return err // better wrap the error in a descriptive message?
 	}
 	return nil
 }
