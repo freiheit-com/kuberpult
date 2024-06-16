@@ -962,7 +962,7 @@ type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, err
 type GetAllAppsFun = func() (map[string]string, error)
 
 // return value is a map from environment name to environment config
-type GetAllEnvironmentsFun = func() (map[string]string, error)
+type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.EnvironmentConfig, error)
 
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
@@ -3432,8 +3432,9 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, tx *sql.Tx) (*A
 	
 	log.Infof("you're now trying to read from the all_environments table")
 
-	ret := &AllEnvironmentGo{}
-	return ret, nil
+	ret := AllEnvironmentGo{}
+
+	return &ret, nil
 }
 
 func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, tx *sql.Tx, previousVersion int64, environmentNames []string) error {
@@ -3442,4 +3443,21 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, tx *sql.Tx, prev
 	log.Infof("you're now trying to insert into the all_environments table")
 
 	return nil
+}
+
+func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEnvironmentsFun GetAllEnvironmentsFun) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		// log := logger.FromContext(ctx).Sugar()
+
+		allEnvironments, err := getAllEnvironmentsFun(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get environments, error: %w", err)
+		}
+
+		for envName, config := range allEnvironments {
+			err = h.DBWriteEnvironment(ctx, transaction, envName, config)
+		}
+		
+		return nil
+	})
 }
