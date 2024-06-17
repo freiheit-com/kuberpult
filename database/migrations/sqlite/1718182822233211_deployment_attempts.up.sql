@@ -4,6 +4,6 @@ CREATE TABLE IF NOT EXISTS deployment_attempts
     created TIMESTAMP,
     envName VARCHAR,
     appName VARCHAR,
-    queuedVersion BIGINT NULL, -- this ID is provided by the API caller
+    queuedVersion BIGINT NULL,
     PRIMARY KEY(eslVersion, appName, envName)
 );

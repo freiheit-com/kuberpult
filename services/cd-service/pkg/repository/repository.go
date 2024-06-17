@@ -1596,20 +1596,19 @@ func (s *State) GetTeamLocksDir(environment string, team string) string {
 	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
 }
 
-func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment string) (map[string]Lock, error) {
-	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.EnvironmentLock, error) {
-
-		locks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("LOCKS: %v\n", locks)
-		var lockIds []string
-		if locks != nil {
-			lockIds = locks.EnvLocks
-		}
-		return s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
-	})
+func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentLocksFromDB: No transaction provided")
+	}
+	allActiveLockIds, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
+	if err != nil {
+		return nil, err
+	}
+	var lockIds []string
+	if allActiveLockIds != nil {
+		lockIds = allActiveLockIds.EnvLocks
+	}
+	locks, err := s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
 
 	if err != nil {
 		return nil, err
@@ -1629,9 +1628,9 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment strin
 	return result, nil
 }
 
-func (s *State) GetEnvironmentLocks(ctx context.Context, environment string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentLocks(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentLocksFromDB(ctx, environment)
+		return s.GetEnvironmentLocksFromDB(ctx, transaction, environment)
 	}
 	return s.GetEnvironmentLocksFromManifest(environment)
 }
@@ -1656,25 +1655,26 @@ func (s *State) GetEnvironmentLocksFromManifest(environment string) (map[string]
 	}
 }
 
-func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, environment, application string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentApplicationLocksFromDB(ctx, environment, application)
+		return s.GetEnvironmentApplicationLocksFromDB(ctx, transaction, environment, application)
 	}
 	return s.GetEnvironmentApplicationLocksFromManifest(environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, environment, application string) (map[string]Lock, error) {
-	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.ApplicationLock, error) {
-		locks, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
-		if err != nil {
-			return nil, err
-		}
-		var lockIds []string
-		if locks != nil {
-			lockIds = locks.AppLocks
-		}
-		return s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
-	})
+func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentApplicationLocksFromDB: No transaction provided")
+	}
+	activeLockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
+	if err != nil {
+		return nil, err
+	}
+	var lockIds []string
+	if activeLockIds != nil {
+		lockIds = activeLockIds.AppLocks
+	}
+	locks, err := s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
 
 	if err != nil {
 		return nil, err
@@ -1872,20 +1872,25 @@ func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx,
 		return nil, err
 	}
 
-	var v uint64
-	if &queuedDeployments[0] != nil {
-		v = uint64(*queuedDeployments[0].Version)
+	var v *uint64
+	v = nil
+	if queuedDeployments[0].Version != nil {
+		*v = uint64(*queuedDeployments[0].Version)
 	}
-
-	return &v, nil
+	return v, nil
 }
 
 func (s *State) GetQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		return s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
 	}
+	return s.GetQueuedVersionFromManifest(environment, application)
+}
+
+func (s *State) GetQueuedVersionFromManifest(environment string, application string) (*uint64, error) {
 	return s.readSymlink(environment, application, queueFileName)
 }
+
 func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
 	return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application)
 }
@@ -2249,6 +2254,46 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 				})
 			}
 			result[envName][currentApp] = currentAppLocks
+		}
+	}
+	return result, nil
+}
+
+func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersions, error) {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
+	defer ddSpan.Finish()
+	result := make(db.AllQueuedVersions)
+	_, envNames, err := s.GetEnvironmentConfigsSorted()
+
+	if err != nil {
+		return nil, err
+	}
+	for envNameIndex := range envNames {
+
+		envName := envNames[envNameIndex]
+
+		appNames, err := s.GetEnvironmentApplicationsFromManifest(envName)
+		if err != nil {
+			return nil, err
+		}
+
+		result[envName] = make(map[string]*int64)
+		for _, currentApp := range appNames {
+			var version *uint64
+			version, err := s.GetQueuedVersionFromManifest(envName, currentApp)
+			if err != nil {
+				return nil, err
+			}
+
+			var versionIntPtr *int64
+			if version != nil {
+				var versionInt = int64(*version)
+				versionIntPtr = &versionInt
+			} else {
+				versionIntPtr = nil
+			}
+			result[envName][currentApp] = versionIntPtr
+
 		}
 	}
 	return result, nil

@@ -806,11 +806,6 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&QueueApplicationVersion{
-					Application: "test",
-					Environment: "production",
-					Version:     1,
-				},
 			},
 			expectedDbContent: []db.QueuedDeployment{
 				{
@@ -847,7 +842,6 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
-				fmt.Println(result)
 				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
@@ -866,7 +860,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 		expectedDbContent []db.QueuedDeployment
 	}{
 		{
-			Name: "create one version",
+			Name: "Test queue deployment through CreateApplicationVersion",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envProduction,
@@ -886,16 +880,11 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&QueueApplicationVersion{
-					Application: "test",
-					Environment: "production",
-					Version:     1,
-				},
 			},
 			expectedDbContent: []db.QueuedDeployment{
 				{
 					EslVersion: 1,
-					Env:        "production",
+					Env:        envProduction,
 					App:        "test",
 					Version:    version(1),
 				},
@@ -917,7 +906,6 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
-				fmt.Println(result)
 				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
