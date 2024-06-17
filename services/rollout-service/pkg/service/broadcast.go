@@ -23,7 +23,7 @@ import (
 	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -60,7 +60,7 @@ func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEv
 		a.kuberpultVersion = ev.Version
 		a.environmentGroup = ev.EnvironmentGroup
 		a.team = ev.Team
-		a.isProduction = ptr.Bool(ev.IsProduction)
+		a.isProduction = conversion.Bool(ev.IsProduction)
 		return a.getEvent(ev.Application, ev.Environment)
 	}
 	return nil

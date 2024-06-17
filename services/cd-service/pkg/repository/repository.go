@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"io"
 	"net/http"
@@ -776,7 +777,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, r.State(), r, changes, time.Now())
+		ddError := UpdateDatadogMetrics(ctx, tx, r.State(), r, changes, time.Now())
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}
@@ -1772,11 +1773,9 @@ func (s *State) GetEnvironmentTeamLocksFromManifest(environment, team string) (m
 		return result, nil
 	}
 }
-func (s *State) GetDeploymentMetaData(ctx context.Context, environment, application string) (string, time.Time, error) {
+func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, environment, application string) (string, time.Time, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		result, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.Deployment, error) {
-			return s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
-		})
+		result, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
 		if err != nil {
 			return "", time.Time{}, err
 		}
@@ -2231,6 +2230,94 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 	return result, nil
 }
 
+func (s *State) GetAppsAndTeams() (map[string]string, error) {
+	result, err := s.GetApplicationsFromFile()
+	if err != nil {
+		return nil, fmt.Errorf("could not get apps from file: %v", err)
+	}
+	var teamByAppName = map[string]string{} // key: app, value: team
+	for i := range result {
+		app := result[i]
+
+		team, err := s.GetTeamNameFromManifest(app)
+		if err != nil {
+			// some apps do not have teams, that's not an error
+			teamByAppName[app] = ""
+		} else {
+			teamByAppName[app] = team
+		}
+	}
+	return teamByAppName, nil
+}
+
+func (s *State) GetAllReleases(ctx context.Context, app string) (db.AllReleases, error) {
+	releases, err := s.GetAllApplicationReleasesFromManifest(app)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get releases of app %s: %v", app, err)
+	}
+	var result = db.AllReleases{}
+	for i := range releases {
+		releaseVersion := releases[i]
+		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
+		}
+		manifests, err := s.GetApplicationReleaseManifestsFromManifest(app, releaseVersion)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
+		}
+		var manifestsMap = map[string]string{}
+		for index := range manifests {
+			manifest := manifests[index]
+			manifestsMap[manifest.Environment] = manifest.Content
+		}
+		result[releaseVersion] = db.ReleaseWithManifest{
+			Version:         releaseVersion,
+			UndeployVersion: repoRelease.UndeployVersion,
+			SourceAuthor:    repoRelease.SourceAuthor,
+			SourceCommitId:  repoRelease.SourceCommitId,
+			SourceMessage:   repoRelease.SourceMessage,
+			CreatedAt:       repoRelease.CreatedAt,
+			DisplayVersion:  repoRelease.DisplayVersion,
+			Manifests:       manifestsMap,
+		}
+	}
+	return result, nil
+}
+
+func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		app, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+		if err != nil {
+			return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
+		}
+		if app == nil {
+			return nil, fmt.Errorf("could not get all releases of app %s (nil)", application)
+		}
+		res := conversion.ToUint64Slice(app.Metadata.Releases)
+		return res, nil
+	} else {
+		return s.GetAllApplicationReleasesFromManifest(application)
+	}
+}
+
+func (s *State) GetAllApplicationReleasesFromManifest(application string) ([]uint64, error) {
+	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
+		return nil, err
+	} else {
+		result := make([]uint64, 0, len(ns))
+		for _, n := range ns {
+			if i, err := strconv.ParseUint(n, 10, 64); err == nil {
+				result = append(result, i)
+			}
+		}
+		sort.Slice(result, func(i, j int) bool {
+			return result[i] < result[j]
+		})
+		return result, nil
+	}
+}
+
 func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error) {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentTeamLocks")
 	defer ddSpan.Finish()
@@ -2289,22 +2376,6 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error
 	}
 	return result, nil
 }
-func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
-	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
-		return nil, err
-	} else {
-		result := make([]uint64, 0, len(ns))
-		for _, n := range ns {
-			if i, err := strconv.ParseUint(n, 10, 64); err == nil {
-				result = append(result, i)
-			}
-		}
-		sort.Slice(result, func(i, j int) bool {
-			return result[i] < result[j]
-		})
-		return result, nil
-	}
-}
 
 type Release struct {
 	Version uint64
@@ -2362,7 +2433,30 @@ func (s *State) IsUndeployVersion(application string, version uint64) (bool, err
 	return true, nil
 }
 
-func (s *State) GetApplicationRelease(application string, version uint64) (*Release, error) {
+func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		if err != nil {
+			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
+		}
+		if env == nil {
+			return nil, nil
+		}
+		return &Release{
+			Version:         env.ReleaseNumber,
+			UndeployVersion: false,
+			SourceAuthor:    env.Metadata.SourceAuthor,
+			SourceCommitId:  env.Metadata.SourceCommitId,
+			SourceMessage:   env.Metadata.SourceMessage,
+			CreatedAt:       env.Created,
+			DisplayVersion:  env.Metadata.DisplayVersion,
+		}, nil
+	} else {
+		return s.GetApplicationReleaseFromManifest(application, version)
+	}
+}
+
+func (s *State) GetApplicationReleaseFromManifest(application string, version uint64) (*Release, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
 	if err != nil {
@@ -2425,14 +2519,33 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	return &release, nil
 }
 
-func (s *State) GetApplicationReleaseManifests(application string, version uint64) (map[string]*api.Manifest, error) {
+func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application string, version uint64) (map[string]*api.Manifest, error) {
+	manifests := map[string]*api.Manifest{}
+	if s.DBHandler.ShouldUseOtherTables() {
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		if err != nil {
+			return nil, fmt.Errorf("could not get release for app %s with version %v: %w", application, version, err)
+		}
+		for index, mani := range release.Manifests.Manifests {
+			manifests[index] = &api.Manifest{
+				Environment: index,
+				Content:     mani,
+			}
+		}
+		return manifests, nil
+	} else {
+		return s.GetApplicationReleaseManifestsFromManifest(application, version)
+	}
+}
+
+func (s *State) GetApplicationReleaseManifestsFromManifest(application string, version uint64) (map[string]*api.Manifest, error) {
+	manifests := map[string]*api.Manifest{}
 	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
 
 	entries, err := s.Filesystem.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("reading manifest directory: %w", err)
 	}
-	manifests := map[string]*api.Manifest{}
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue

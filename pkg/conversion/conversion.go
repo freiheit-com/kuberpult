@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package ptr
+package conversion
 
 func FromString(s string) *string {
 	return &s
@@ -36,4 +36,13 @@ func ToUint64(u *uint64) uint64 {
 		return 0
 	}
 	return *u
+}
+
+func ToUint64Slice(us []int64) []uint64 {
+	var result = []uint64{}
+	for i := range us {
+		var tmp = uint64(us[i])
+		result = append(result, tmp)
+	}
+	return result
 }

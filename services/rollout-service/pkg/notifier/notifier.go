@@ -23,8 +23,8 @@ import (
 
 	argoapplication "github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	argoappv1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -61,8 +61,8 @@ func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application st
 		l := logger.FromContext(ctx).With(zap.String("environment", environment), zap.String("application", application))
 		//exhaustruct:ignore
 		_, err = n.client.Get(ctx, &argoapplication.ApplicationQuery{
-			Name:    ptr.FromString(fmt.Sprintf("%s-%s", environment, application)),
-			Refresh: ptr.FromString(string(argoappv1.RefreshTypeNormal)),
+			Name:    conversion.FromString(fmt.Sprintf("%s-%s", environment, application)),
+			Refresh: conversion.FromString(string(argoappv1.RefreshTypeNormal)),
 		})
 		if err != nil {
 			l.Error("argocd.refresh", zap.Error(err))

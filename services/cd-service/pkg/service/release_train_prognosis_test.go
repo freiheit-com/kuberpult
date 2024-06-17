@@ -28,7 +28,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -41,7 +41,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "",
 					Latest:      true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -51,7 +51,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "",
 					Latest:      true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -61,7 +61,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "",
 					Latest:      true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -71,7 +71,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "development-1",
 					Latest:      false,
 				},
-				EnvironmentGroup: ptr.FromString("staging"),
+				EnvironmentGroup: conversion.FromString("staging"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -81,7 +81,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "development-1", // CAREFUL, downstream from development-1, not development-2
 					Latest:      false,
 				},
-				EnvironmentGroup: ptr.FromString("staging"),
+				EnvironmentGroup: conversion.FromString("staging"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -91,7 +91,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "development-3",
 					Latest:      false,
 				},
-				EnvironmentGroup: ptr.FromString("staging"),
+				EnvironmentGroup: conversion.FromString("staging"),
 			},
 		},
 	}

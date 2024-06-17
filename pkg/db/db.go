@@ -431,12 +431,9 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 }
 
 // RELEASES
-
-type DBRelease struct {
-	EslId EslId
-	App   string
-	Env   string
-}
+// Releases work a bit different, because they are already immutable.
+// We still store the eslId for consistency with other tables,
+// but technically it's not required here.
 
 type DBReleaseMetaData struct {
 	SourceAuthor   string
@@ -445,18 +442,32 @@ type DBReleaseMetaData struct {
 	DisplayVersion string
 }
 
+type DBReleaseManifests struct {
+	Manifests map[string]string
+}
+
 type DBReleaseWithMetaData struct {
 	EslId         EslId
 	ReleaseNumber uint64
+	Created       time.Time
 	App           string
-	Env           string
-	Manifest      string
+	Manifests     DBReleaseManifests
 	Metadata      DBReleaseMetaData
+}
+
+type DBAllReleaseMetaData struct {
+	Releases []int64
+}
+type DBAllReleasesWithMetaData struct {
+	EslId    EslId
+	Created  time.Time
+	App      string
+	Metadata DBAllReleaseMetaData
 }
 
 func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, envName, metadata, manifest, releaseVersion " +
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion " +
 			" FROM releases " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
@@ -466,24 +477,38 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 	return h.processReleaseRow(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, env string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, envName, metadata, manifest, releaseVersion " +
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion " +
 			" FROM releases " +
-			" WHERE appName=? AND envName=? AND releaseVersion=?" +
+			" WHERE appName=? AND releaseVersion=?" +
 			" ORDER BY eslVersion ASC " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		app,
-		env,
 		releaseVersion,
 	)
 	return h.processReleaseRow(ctx, err, rows)
 }
 
-func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.Rows) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, metadata " +
+			" FROM all_releases " +
+			" WHERE appName=?" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+	)
+	return h.processAllReleasesRow(ctx, err, rows)
+}
+
+func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -494,21 +519,18 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 		}
 	}(rows)
 	//exhaustruct:ignore
-	var row = &DBReleaseWithMetaData{}
+	var row = &DBAllReleasesWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
-		err := rows.Scan(&row.EslId, &row.App, &row.Env, &metadataStr, &row.Manifest, &row.ReleaseNumber)
+		err := rows.Scan(&row.EslId, &row.Created, &row.App, &metadataStr)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
 		}
-		var metaData = DBReleaseMetaData{
-			SourceAuthor:   "",
-			SourceCommitId: "",
-			SourceMessage:  "",
-			DisplayVersion: "",
+		var metaData = DBAllReleaseMetaData{
+			Releases: []int64{},
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
@@ -525,30 +547,128 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 	return row, nil
 }
 
+func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.Rows) (*DBReleaseWithMetaData, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var row = &DBReleaseWithMetaData{}
+	if rows.Next() {
+		var metadataStr string
+		var manifestStr string
+		err := rows.Scan(&row.EslId, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		// handle meta data
+		var metaData = DBReleaseMetaData{
+			SourceAuthor:   "",
+			SourceCommitId: "",
+			SourceMessage:  "",
+			DisplayVersion: "",
+		}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Metadata = metaData
+
+		// handle manifests
+		var manifestData = DBReleaseManifests{
+			Manifests: map[string]string{},
+		}
+		err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Manifests = manifestData
+
+	} else {
+		row = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
 func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslId) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
 	defer span.Finish()
-	jsonToInsert, err := json.Marshal(release.Metadata)
+	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
 		return fmt.Errorf("insert release: could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, envName, manifest, metadata)  VALUES (?, ?, ?, ?, ?, ?, ?);",
+		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata)  VALUES (?, ?, ?, ?, ?, ?);",
 	)
 	span.SetTag("query", insertQuery)
+	manifestJson, err := json.Marshal(release.Manifests)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
 		time.Now(),
 		release.ReleaseNumber,
 		release.App,
-		release.Env,
-		release.Manifest,
-		jsonToInsert,
+		manifestJson,
+		metadataJson,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert release into DB. Error: %w\n", err)
+		return fmt.Errorf(
+			"could not insert release for app '%s' and version '%v' and eslVersion '%v' into DB. Error: %w\n",
+			release.App,
+			release.ReleaseNumber,
+			previousEslVersion+1,
+			err)
 	}
+	logger.FromContext(ctx).Sugar().Infof(
+		"inserted release: app '%s' and version '%v' and eslVersion %v",
+		release.App,
+		release.ReleaseNumber,
+		previousEslVersion+1)
+	return nil
+}
+
+func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx, app string, allVersions []int64, previousEslVersion EslId) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
+	defer span.Finish()
+	slices.Sort(allVersions)
+	metadataJson, err := json.Marshal(DBAllReleaseMetaData{
+		Releases: allVersions,
+	})
+	if err != nil {
+		return fmt.Errorf("insert release: could not marshal json data: %w", err)
+	}
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO all_releases (eslVersion, created, appName, metadata)  VALUES (?, ?, ?, ?);",
+	)
+	span.SetTag("query", insertQuery)
+
+	_, err = transaction.Exec(
+		insertQuery,
+		previousEslVersion+1,
+		time.Now(),
+		app,
+		metadataJson,
+	)
+	if err != nil {
+		return fmt.Errorf("could not insert all_releases for app '%s' and esl '%v' into DB. Error: %w\n", app, previousEslVersion+1, err)
+	}
+	logger.FromContext(ctx).Sugar().Infof("inserted all_releases for app '%s'", app)
 	return nil
 }
 
@@ -766,25 +886,23 @@ type ReleaseWithManifest struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 
-	Manifest    string
-	Environment string
+	Manifests map[string]string // keys: environment; value: manifest
 }
-
-// During the "CustomMigrations" we read from the manifest repo, and write to the database.
-// The functions here are there to retrieve data, so they should not need to access the DB.
-// Therefore, they should not need a "transaction" parameter.
-// There are currently some exceptions, like GetAllDeploymentsFun. This will be changed in SRX-PA568W.
 
 type AllDeployments []Deployment
 type AllEnvLocks map[string][]EnvironmentLock
+type AllReleases map[uint64]ReleaseWithManifest // keys: releaseVersion; value: release with manifests
+
+// GetAllDeploymentsFun and other functions here are used during migration.
+// They are supposed to read data from files in the manifest repo,
+// and therefore should not need to access the Database at all.
+type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
+type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
+
 type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
 type AllTeamLocks map[string]map[string][]TeamLock       // EnvName-> Team -> []Locks
 
-type AllReleases map[uint64]ReleaseWithManifest
-
-type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
 type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
-type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
 type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
 
@@ -982,7 +1100,7 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 		jsonToInsert,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert an app into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
 	}
 	return nil
 }
@@ -1157,14 +1275,18 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 			if err != nil {
 				return fmt.Errorf("geAllReleases failed %v", err)
 			}
+
+			releaseNumbers := []int64{}
 			for r := range releases {
 				repoRelease := releases[r]
 				dbRelease := DBReleaseWithMetaData{
 					EslId:         InitialEslId,
+					Created:       time.Now(),
 					ReleaseNumber: repoRelease.Version,
 					App:           app,
-					Env:           repoRelease.Environment,
-					Manifest:      repoRelease.Manifest,
+					Manifests: DBReleaseManifests{
+						Manifests: repoRelease.Manifests,
+					},
 					Metadata: DBReleaseMetaData{
 						SourceAuthor:   repoRelease.SourceAuthor,
 						SourceCommitId: repoRelease.SourceCommitId,
@@ -1174,11 +1296,15 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 				}
 				err = h.DBInsertRelease(ctx, transaction, dbRelease, InitialEslId-1)
 				if err != nil {
-					return fmt.Errorf("error writing Release to DB for app %s in env %s: %v",
-						app, repoRelease.Environment, err)
+					return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
 				}
+				releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
 			}
 			l.Infof("done with app %s", app)
+			err = h.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslId-1)
+			if err != nil {
+				return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
+			}
 		}
 		return nil
 	})
@@ -1868,7 +1994,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		environment,
 		jsonToInsert)
 	if err != nil {
-		return fmt.Errorf("could not insert all envs into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert all env locks into DB. Error: %w\n", err)
 	}
 	return nil
 }
@@ -1884,6 +2010,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	defer span.Finish()
 	var previousVersion EslId
 
+	//See if there is an existing lock with the same lock id in this environment. If it exists, just add a +1 to the eslversion
 	existingEnvLock, err := h.DBSelectEnvironmentLock(ctx, tx, environment, lockID)
 
 	if err != nil {
