@@ -3132,9 +3132,9 @@ func (h *DBHandler) DBSelectAnyQueuedVersion(ctx context.Context, tx *sql.Tx) (*
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBSelectLatestDeploymentAttempt: no transaction provided")
+		return nil, fmt.Errorf("DBSelectAnyQueuedVersion: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyQueuedVersion")
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery(
@@ -3152,9 +3152,9 @@ func (h *DBHandler) DBSelectQueuedDeploymentHistory(ctx context.Context, tx *sql
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBSelectLatestDeploymentAttempt: no transaction provided")
+		return nil, fmt.Errorf("DBSelectQueuedDeploymentHistory: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectQueuedDeploymentHistory")
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery(
