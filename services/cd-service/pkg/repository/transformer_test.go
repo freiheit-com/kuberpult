@@ -3056,7 +3056,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 				},
 			},
 			ReleaseTrainEnv:    "staging",
-			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
+			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 0 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
 			overrideCommitHash: "",
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
@@ -3075,7 +3075,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 			},
 		},
 		{
-			Name: "Release train done with commit Hash",
+			Name: "Release train done with commit Hash but nothing to deploy",
 			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",
@@ -3110,7 +3110,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 
 Release Train to 'staging' environment:
 
-The release train deployed 1 services from 'dev' to 'staging'
+The release train deployed 0 services from 'dev' to 'staging'
 deployed version 1 of "test" to "staging"`,
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
@@ -3129,7 +3129,7 @@ deployed version 1 of "test" to "staging"`,
 			},
 		},
 		{
-			Name: "Release train done with commit but nothing to deploy",
+			Name: "Release train done with commit hash",
 			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",

@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-	"github.com/google/go-cmp/cmp"
 	"io"
 	"io/fs"
 	"os"
@@ -33,6 +31,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/google/go-cmp/cmp"
 
 	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -3282,9 +3283,16 @@ func (c *envReleaseTrain) Transform(
 	}, transaction); err != nil {
 		return "", err
 	}
+	deployedApps := 0
+	for _, checker := range prognosis.AppsPrognoses {
+		if checker.SkipCause != nil {
+			deployedApps += 1
+		}
+
+	}
 	return fmt.Sprintf("Release Train to '%s' environment:\n\n"+
 		"The release train deployed %d services from '%s' to '%s'%s",
-		c.Env, len(prognosis.AppsPrognoses), source, c.Env, teamInfo,
+		c.Env, deployedApps, source, c.Env, teamInfo,
 	), nil
 }
 
