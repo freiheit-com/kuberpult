@@ -1866,15 +1866,8 @@ func (s *State) DeleteDirIfEmpty(directoryName string) (SuccessReason, error) {
 }
 
 func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
-	var queuedDeployments []db.QueuedDeployment
-	var err error
-	if transaction == nil {
-		queuedDeployments, err = db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.QueuedDeployment, error) {
-			return s.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, environment, application, 1)
-		})
-	} else {
-		queuedDeployments, err = s.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, environment, application, 1)
-	}
+	queuedDeployments, err := s.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, environment, application, 1)
+
 	if err != nil || queuedDeployments == nil || len(queuedDeployments) == 0 {
 		return nil, err
 	}
@@ -1894,11 +1887,6 @@ func (s *State) GetQueuedVersion(ctx context.Context, transaction *sql.Tx, envir
 	return s.readSymlink(environment, application, queueFileName)
 }
 func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
-	if transaction == nil {
-		return s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-			return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application)
-		})
-	}
 	return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application)
 }
 

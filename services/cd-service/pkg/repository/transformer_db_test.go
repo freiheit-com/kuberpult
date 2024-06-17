@@ -830,7 +830,6 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		tc := tc
-		fmt.Println("My test")
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
@@ -905,7 +904,6 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		tc := tc
-		fmt.Println("My test")
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
