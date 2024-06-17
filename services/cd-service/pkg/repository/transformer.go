@@ -2643,11 +2643,9 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 	if err != nil {
 		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
 	}
-	result := mapper.MapEnvironmentsToGroups(envs)
 	for envName, config := range envs {
 		var groupName = mapper.DeriveGroupName(config, envName)
-		var envInGroup = getEnvironmentInGroup(result, groupName, envName)
-		if upstreamEnvName != envInGroup.Name || upstreamEnvName != groupName {
+		if upstreamEnvName != envName && groupName != envName {
 			continue
 		}
 		apps, err := s.GetEnvironmentApplications(ctx, transaction, envName)
