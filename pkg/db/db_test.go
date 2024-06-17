@@ -1072,7 +1072,7 @@ func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
 	return dbHandler
 }
 
-//@@@@@
+// @@@@@
 func TestReadWriteTeamLock(t *testing.T) {
 	tcs := []struct {
 		Name         string
@@ -1242,4 +1242,3 @@ func TestDeleteTeamLock(t *testing.T) {
 		})
 	}
 }
-			
