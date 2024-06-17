@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-	"github.com/google/go-cmp/cmp"
 	"io"
 	"io/fs"
 	"os"
@@ -33,6 +31,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/google/go-cmp/cmp"
 
 	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -2609,19 +2610,6 @@ func (c *ReleaseTrain) GetDBEventType() db.EventType {
 type Overview struct {
 	App     string
 	Version uint64
-}
-
-func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
-	for _, currentGroup := range groups {
-		if currentGroup.EnvironmentGroupName == groupNameToReturn {
-			for _, currentEnv := range currentGroup.Environments {
-				if currentEnv.Name == envNameToReturn {
-					return currentEnv
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
