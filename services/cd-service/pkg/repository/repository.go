@@ -1866,18 +1866,19 @@ func (s *State) DeleteDirIfEmpty(directoryName string) (SuccessReason, error) {
 }
 
 func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
-	queuedDeployments, err := s.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, environment, application, 1)
+	queuedDeployment, err := s.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, environment, application)
 
-	if err != nil || queuedDeployments == nil || len(queuedDeployments) == 0 {
+	if err != nil || queuedDeployment == nil {
 		return nil, err
 	}
 
-	var v *uint64
-	v = nil
-	if queuedDeployments[0].Version != nil {
-		*v = uint64(*queuedDeployments[0].Version)
+	var v uint64
+	if queuedDeployment.Version != nil {
+		v = uint64(*queuedDeployment.Version)
+	} else {
+		return nil, nil
 	}
-	return v, nil
+	return &v, nil
 }
 
 func (s *State) GetQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
