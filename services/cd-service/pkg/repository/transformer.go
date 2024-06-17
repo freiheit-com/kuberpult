@@ -2181,12 +2181,10 @@ func (c *CreateEnvironment) Transform(
 		}
 
 		if allEnvironments == nil {
-			allEnvironments = &db.AllEnvironmentsGo{
-				Version: 1,
-				Created: time.Now(),
-				AllEnvironmentsJson: db.AllEnvironmentsJson{
-					Environments: []string{},
-				},
+			allEnvironments = &db.DBAllEnvironments{
+				Version:      1,
+				Created:      time.Now(),
+				Environments: []string{},
 			}
 		}
 

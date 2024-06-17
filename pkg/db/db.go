@@ -3094,14 +3094,16 @@ func (h *DBHandler) processAllTeamLocksRow(ctx context.Context, err error, rows 
 
 // Environments
 
-type AllEnvironmentsJson struct {
-	Environments []string `json:"environments"`
+type DBAllEnvironments struct {
+	Created      time.Time
+	Version      int64
+	Environments []string
 }
 
-type AllEnvironmentsGo struct {
-	Version int64
-	Created time.Time
-	AllEnvironmentsJson
+type DBAllEnvironmentsRow struct {
+	Created      time.Time
+	Version      int64
+	Environments string
 }
 
 type DBEnvironment struct {
@@ -3226,14 +3228,67 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	return nil
 }
 
-func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, tx *sql.Tx) (*AllEnvironmentsGo, error) {
-	log := logger.FromContext(ctx).Sugar()
+func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("no transaction provided when selecting all environments from all_environments table")
+	}
 
-	log.Infof("you're now trying to read from the all_environments table")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
+	defer span.Finish()
 
-	ret := AllEnvironmentsGo{}
+	selectQuery := h.AdaptQuery(
+		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
+	)
 
-	return &ret, nil
+	rows, err := transaction.QueryContext(ctx, selectQuery)
+	if err != nil {
+		return nil, fmt.Errorf("error while execuring query to get all environments, error: %w", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row on all_environments table, error: %w", err)
+		}
+	}(rows)
+
+	if rows.Next() {
+		row := DBAllEnvironmentsRow{}
+
+		err := rows.Scan(&row.Created, &row.Version, &row.Environments)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error while scanning all_environments row, error: %w", err)
+		}
+
+		parsedEnvironments := make([]string, 0)
+		err = json.Unmarshal([]byte(row.Environments), &parsedEnvironments)
+		if err != nil {
+			return nil, fmt.Errorf("error occured during JSON unmarshalling, JSON: %s, error: %w", row.Environments, err)
+		}
+
+		err = closeRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("error while closing rows, error: %w", err)
+		}
+
+		return &DBAllEnvironments{
+			Created:      row.Created,
+			Version:      row.Version,
+			Environments: parsedEnvironments,
+		}, nil
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("error while closing rows, error: %w", err)
+	}
+	return nil, nil
 }
 
 func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql.Tx, previousVersion int64, environmentNames []string) error {
@@ -3262,14 +3317,8 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 	return nil
 }
 
-type AllEnvironmentsRow struct {
-	Created time.Time
-	Version int64
-	json    string
-}
-
 // this function was made in the image of DBSelectAnyActiveEnvLocks to make the code uniform
-func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*AllEnvironmentsGo, error) {
+func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DBAllEnvironments, error) {
 	selectQuery := h.AdaptQuery(
 		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
 	)
@@ -3284,9 +3333,9 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*Al
 		}
 	}(rows)
 
-	row := AllEnvironmentsRow{}
+	row := DBAllEnvironmentsRow{}
 	if rows.Next() {
-		err := rows.Scan(&row.Created, &row.Version, &row.json)
+		err := rows.Scan(&row.Created, &row.Version, &row.Environments)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -3299,18 +3348,16 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*Al
 		}
 
 		jsonData := make([]string, 0)
-		err = json.Unmarshal([]byte(row.json), &jsonData)
+		err = json.Unmarshal([]byte(row.Environments), &jsonData)
 
 		if err != nil {
-			return nil, fmt.Errorf("error parsing the value of the JSON column of the all_environments table, JSON content: %s, error: %w", row.json, err)
+			return nil, fmt.Errorf("error parsing the value of the JSON column of the all_environments table, JSON content: %s, error: %w", row.Environments, err)
 		}
 
-		return &AllEnvironmentsGo{
-			Version:             row.Version,
-			Created:             row.Created,
-			AllEnvironmentsJson: AllEnvironmentsJson{
-				Environments: jsonData,
-			},
+		return &DBAllEnvironments{
+			Version:      row.Version,
+			Created:      row.Created,
+			Environments: jsonData,
 		}, nil
 	}
 
