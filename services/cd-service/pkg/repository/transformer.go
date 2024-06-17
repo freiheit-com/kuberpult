@@ -2191,9 +2191,6 @@ type QueueApplicationVersion struct {
 	Version     uint64
 }
 
-func (c *QueueApplicationVersion) GetDBEventType() db.EventType {
-	return db.EvtQueueApplicationVersion
-}
 func (c *QueueApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,

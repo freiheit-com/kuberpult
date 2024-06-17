@@ -302,7 +302,6 @@ const (
 	EvtCreateEnvironmentApplicationLock EventType = "CreateEnvironmentApplicationLock"
 	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"
 	EvtReleaseTrain                     EventType = "ReleaseTrain"
-	EvtQueueApplicationVersion          EventType = "QueueApplicationVersion"
 )
 
 // ESL EVENTS
@@ -3145,45 +3144,7 @@ func (h *DBHandler) DBSelectAnyQueuedVersion(ctx context.Context, tx *sql.Tx) (*
 	rows, err := tx.QueryContext(
 		ctx,
 		insertQuery)
-
-	if err != nil {
-		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
-	if rows.Next() {
-		//exhaustruct:ignore
-		var row = QueuedDeployment{}
-		var releaseVersion sql.NullInt64
-
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.Env, &row.App, &releaseVersion)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployment attempts row from DB. Error: %w\n", err)
-		}
-
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		if releaseVersion.Valid {
-			row.Version = &releaseVersion.Int64
-		}
-		return &row, nil
-	}
-
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil // no rows, but also no error
+	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
 func (h *DBHandler) DBSelectQueuedDeploymentHistory(ctx context.Context, tx *sql.Tx, environmentName, appName string, limit int) ([]QueuedDeployment, error) {
@@ -3218,25 +3179,9 @@ func (h *DBHandler) DBSelectQueuedDeploymentHistory(ctx context.Context, tx *sql
 
 	queuedDeployments := make([]QueuedDeployment, 0)
 	for rows.Next() {
-		var queuedVersion sql.NullInt64
-		var row = QueuedDeployment{
-			EslVersion: 0,
-			Created:    time.Time{},
-			Env:        "",
-			App:        "",
-			Version:    nil,
-		}
-
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.Env, &row.App, &queuedVersion)
+		row, err := h.processSingleDeploymentAttemptsRow(rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployment attempts row from DB. Error: %w\n", err)
-		}
-
-		if queuedVersion.Valid {
-			row.Version = &queuedVersion.Int64
+			return nil, err
 		}
 		queuedDeployments = append(queuedDeployments, QueuedDeployment{
 			EslVersion: row.EslVersion,
@@ -3272,46 +3217,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 		insertQuery,
 		environmentName,
 		appName)
-
-	if err != nil {
-		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
-
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
-	if rows.Next() {
-		//exhaustruct:ignore
-		var row = QueuedDeployment{}
-		var releaseVersion sql.NullInt64
-
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.Env, &row.App, &releaseVersion)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployment attempts row from DB. Error: %w\n", err)
-		}
-
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		if releaseVersion.Valid {
-			row.Version = &releaseVersion.Int64
-		}
-		return &row, nil
-	}
-
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil // no rows, but also no error
+	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
 func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64) error {
@@ -3329,6 +3235,25 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 		Env:        envName,
 		App:        appName,
 		Version:    version,
+	})
+}
+
+func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBDeleteDeploymentAttempt: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
+	defer span.Finish()
+
+	return h.dbWriteDeploymentAttemptInternal(ctx, tx, &QueuedDeployment{
+		EslVersion: 0,
+		Created:    time.Time{},
+		Env:        envName,
+		App:        appName,
+		Version:    nil,
 	})
 }
 
@@ -3374,22 +3299,49 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	return nil
 }
 
-func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string) error {
-	if h == nil {
-		return nil
-	}
-	if tx == nil {
-		return fmt.Errorf("DBDeleteDeploymentAttempt: no transaction provided")
-	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
-	defer span.Finish()
+func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows, err error) (*QueuedDeployment, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
 
-	return h.dbWriteDeploymentAttemptInternal(ctx, tx, &QueuedDeployment{
-		EslVersion: 0,
-		Created:    time.Time{},
-		Env:        envName,
-		App:        appName,
-		Version:    nil,
-	})
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	var row *QueuedDeployment
+	if rows.Next() {
+		row, err = h.processSingleDeploymentAttemptsRow(rows)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return row, nil // no rows, but also no error
+}
+
+// processSingleDeploymentAttemptsRow only processes the row. It assumes that there is an element ready to be processed in rows.
+func (h *DBHandler) processSingleDeploymentAttemptsRow(rows *sql.Rows) (*QueuedDeployment, error) {
+	//exhaustruct:ignore
+
+	var row = QueuedDeployment{}
+	var releaseVersion sql.NullInt64
+
+	err := rows.Scan(&row.EslVersion, &row.Created, &row.Env, &row.App, &releaseVersion)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("Error scanning deployment attempts row from DB. Error: %w\n", err)
+	}
+
+	if releaseVersion.Valid {
+		row.Version = &releaseVersion.Int64
+	}
+	return &row, nil
 
 }
