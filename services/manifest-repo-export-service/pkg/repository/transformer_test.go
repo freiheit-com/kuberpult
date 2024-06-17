@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path"
 	"testing"
+	"time"
 )
 
 const (
@@ -138,9 +139,8 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"deployment failed: could not open manifest for app myapp with release 7 on env acceptance " +
-				"'applications/myapp/releases/7/environments/acceptance/manifests.yaml': " +
-				"file does not exist"},
+				"release of app myapp with version 7 not found",
+			},
 			ExpectedApp:  nil,
 			ExpectedFile: nil,
 		},
@@ -218,6 +218,21 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				"error accessing dir \"environments/acceptance\": file does not exist",
 			},
 		},
+		{
+			Name: "create team lock",
+			Transformers: []Transformer{
+				&CreateEnvironmentTeamLock{
+					Authentication: Authentication{},
+					Environment:    envAcceptance,
+					LockId:         "my-lock",
+					Team:           "my-team",
+					Message:        "My envAcceptance lock",
+				},
+			},
+			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
+				"team 'my-team' does not exist",
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -232,6 +247,25 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				err := dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					EslId:         0,
+					ReleaseNumber: 1,
+					Created:       time.Time{},
+					App:           appName,
+					Manifests:     db.DBReleaseManifests{},
+					Metadata:      db.DBReleaseMetaData{},
+				}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslId)
 				if err != nil {
 					return err
 				}

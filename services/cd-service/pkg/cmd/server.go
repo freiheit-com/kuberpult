@@ -315,60 +315,15 @@ func RunServer() {
 			}
 		if dbHandler.ShouldUseOtherTables() {
 			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=true")
-			getAppsAndTeams := func() (map[string]string, error) {
-				result, err := repo.State().GetApplicationsFromFile()
-				if err != nil {
-					return nil, fmt.Errorf("could not get apps from file: %v", err)
-				}
-				var teamByAppName = map[string]string{} // key: app, value: team
-				for i := range result {
-					app := result[i]
-
-					team, err := repo.State().GetTeamNameFromManifest(app)
-					if err != nil {
-						// some apps do not have teams, that's not an error
-						teamByAppName[app] = ""
-					} else {
-						teamByAppName[app] = team
-					}
-				}
-				return teamByAppName, nil
-			}
-			getAllReleases := func(ctx context.Context, app string) (db.AllReleases, error) {
-				s := repo.State()
-				releases, err := s.GetApplicationReleases(app)
-				if err != nil {
-					return nil, fmt.Errorf("cannot get releases of app %s: %v", app, err)
-				}
-				var result = db.AllReleases{}
-				for i := range releases {
-					releaseVersion := releases[i]
-					repoRelease, err := s.GetApplicationRelease(app, releaseVersion)
-					if err != nil {
-						return nil, fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
-					}
-					manifests, err := s.GetApplicationReleaseManifests(app, releaseVersion)
-					if err != nil {
-						return nil, fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
-					}
-					for index := range manifests {
-						manifest := manifests[index]
-						result[releaseVersion] = db.ReleaseWithManifest{
-							Version:         releaseVersion,
-							UndeployVersion: repoRelease.UndeployVersion,
-							SourceAuthor:    repoRelease.SourceAuthor,
-							SourceCommitId:  repoRelease.SourceCommitId,
-							SourceMessage:   repoRelease.SourceMessage,
-							CreatedAt:       repoRelease.CreatedAt,
-							DisplayVersion:  repoRelease.DisplayVersion,
-							Manifest:        manifest.Content,
-							Environment:     manifest.Environment,
-						}
-					}
-				}
-				return result, nil
-			}
-			migErr := dbHandler.RunCustomMigrations(ctx, getAppsAndTeams, repo.State().GetCurrentlyDeployed, getAllReleases, repo.State().GetCurrentEnvironmentLocks, repo.State().GetCurrentApplicationLocks)
+			migErr := dbHandler.RunCustomMigrations(
+				ctx,
+				repo.State().GetAppsAndTeams,
+				repo.State().GetCurrentlyDeployed,
+				repo.State().GetAllReleases,
+				repo.State().GetCurrentEnvironmentLocks,
+				repo.State().GetCurrentApplicationLocks,
+				repo.State().GetCurrentTeamLocks,
+			)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
 			} else {

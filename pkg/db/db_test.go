@@ -166,8 +166,9 @@ func TestCustomMigrationReleases(t *testing.T) {
 				SourceMessage:   "msg1",
 				CreatedAt:       time.Time{},
 				DisplayVersion:  "display1",
-				Manifest:        "manifest1",
-				Environment:     "dev",
+				Manifests: map[string]string{
+					"dev": "manifest1",
+				},
 			},
 			2: ReleaseWithManifest{
 				Version:         777,
@@ -177,8 +178,9 @@ func TestCustomMigrationReleases(t *testing.T) {
 				SourceMessage:   "msg2",
 				CreatedAt:       time.Time{},
 				DisplayVersion:  "display2",
-				Manifest:        "manifest2",
-				Environment:     "dev",
+				Manifests: map[string]string{
+					"dev": "manifest2",
+				},
 			},
 		}
 		return result, nil
@@ -194,8 +196,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 					EslId:         1,
 					ReleaseNumber: 666,
 					App:           "app1",
-					Env:           "dev",
-					Manifest:      "manifest1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "manifest1",
+						},
+					},
 					Metadata: DBReleaseMetaData{
 						SourceAuthor:   "auth1",
 						SourceCommitId: "commit1",
@@ -207,8 +212,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 					EslId:         1,
 					ReleaseNumber: 777,
 					App:           "app1",
-					Env:           "dev",
-					Manifest:      "manifest2",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "manifest2",
+						},
+					},
 					Metadata: DBReleaseMetaData{
 						SourceAuthor:   "auth2",
 						SourceCommitId: "commit2",
@@ -234,11 +242,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 				for i := range tc.expectedReleases {
 					expectedRelease := tc.expectedReleases[i]
 
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.Env, expectedRelease.ReleaseNumber)
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumber)
 					if err != nil {
 						return err
 					}
-					if diff := cmp.Diff(expectedRelease, release); diff != "" {
+					if diff := cmp.Diff(expectedRelease, release, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
 						t.Errorf("error mismatch (-want, +got):\n%s", diff)
 					}
 				}
@@ -921,7 +929,6 @@ func TestQueueApplicationVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
-
 				if diff := cmp.Diff(tc.ExpectedDeployments, actual, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
 					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
 				}
@@ -983,7 +990,6 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 				if err != nil {
 					return err
 				}
-
 				actual, err := dbHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, tc.Env, tc.AppName, len(tc.ExpectedDeployments))
 				if err != nil {
 					return err
@@ -1065,3 +1071,175 @@ func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
 	}
 	return dbHandler
 }
+
+//@@@@@
+func TestReadWriteTeamLock(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Env          string
+		LockID       string
+		Message      string
+		TeamName     string
+		AuthorName   string
+		AuthorEmail  string
+		ExpectedLock *TeamLock
+	}{
+		{
+			Name:        "Simple application lock",
+			Env:         "dev",
+			LockID:      "dev-team-lock",
+			Message:     "My team lock on dev for my-team",
+			AuthorName:  "myself",
+			AuthorEmail: "myself@example.com",
+			TeamName:    "my-team",
+			ExpectedLock: &TeamLock{
+				Env:        "dev",
+				LockID:     "dev-team-lock",
+				EslVersion: 1,
+				Deleted:    false,
+				Team:       "my-team",
+				Metadata: LockMetadata{
+					Message:        "My team lock on dev for my-team",
+					CreatedByName:  "myself",
+					CreatedByEmail: "myself@example.com",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				envLock, err2 := dbHandler.DBSelectTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID)
+				if err2 != nil {
+					return err2
+				}
+				if envLock != nil {
+					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+				}
+				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				if err != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectTeamLockHistory(ctx, transaction, tc.Env, tc.TeamName, tc.LockID, 1)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(1, len(actual)); diff != "" {
+					t.Fatalf("number of team locks mismatch (-want, +got):\n%s", diff)
+				}
+				target := actual[0]
+				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(TeamLock{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestDeleteTeamLock(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Env           string
+		LockID        string
+		Message       string
+		TeamName      string
+		AuthorName    string
+		AuthorEmail   string
+		ExpectedLocks []TeamLock
+		ExpectedError error
+	}{
+		{
+			Name:        "Write and delete",
+			Env:         "dev",
+			LockID:      "dev-lock",
+			TeamName:    "my-team",
+			Message:     "My lock on dev for my-team",
+			AuthorName:  "myself",
+			AuthorEmail: "myself@example.com",
+			ExpectedLocks: []TeamLock{
+				{ //Sort DESC
+					Env:        "dev",
+					Team:       "my-team",
+					LockID:     "dev-lock",
+					EslVersion: 2,
+					Deleted:    true,
+					Metadata: LockMetadata{
+						Message:        "My lock on dev for my-team",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+					},
+				},
+				{
+					Env:        "dev",
+					LockID:     "dev-lock",
+					Team:       "my-team",
+					EslVersion: 1,
+					Deleted:    false,
+					Metadata: LockMetadata{
+						Message:        "My lock on dev for my-team",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				envLock, err2 := dbHandler.DBSelectTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID)
+				if err2 != nil {
+					return err2
+				}
+				if envLock != nil {
+					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+				}
+				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				if err != nil {
+					return err
+				}
+
+				errDelete := dbHandler.DBDeleteTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID)
+				if errDelete != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBSelectTeamLockHistory(ctx, transaction, tc.Env, tc.TeamName, tc.LockID, 2)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(len(tc.ExpectedLocks), len(actual)); diff != "" {
+					t.Fatalf("number of team locks mismatch (-want, +got):\n%s", diff)
+				}
+
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(TeamLock{}, "Created")); diff != "" {
+					t.Fatalf("team locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+			

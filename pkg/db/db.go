@@ -379,6 +379,8 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			}
 			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
 		}
+	} else {
+		row = nil
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -430,12 +432,9 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 }
 
 // RELEASES
-
-type DBRelease struct {
-	EslId EslId
-	App   string
-	Env   string
-}
+// Releases work a bit different, because they are already immutable.
+// We still store the eslId for consistency with other tables,
+// but technically it's not required here.
 
 type DBReleaseMetaData struct {
 	SourceAuthor   string
@@ -444,18 +443,32 @@ type DBReleaseMetaData struct {
 	DisplayVersion string
 }
 
+type DBReleaseManifests struct {
+	Manifests map[string]string
+}
+
 type DBReleaseWithMetaData struct {
 	EslId         EslId
 	ReleaseNumber uint64
+	Created       time.Time
 	App           string
-	Env           string
-	Manifest      string
+	Manifests     DBReleaseManifests
 	Metadata      DBReleaseMetaData
+}
+
+type DBAllReleaseMetaData struct {
+	Releases []int64
+}
+type DBAllReleasesWithMetaData struct {
+	EslId    EslId
+	Created  time.Time
+	App      string
+	Metadata DBAllReleaseMetaData
 }
 
 func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, envName, metadata, manifest, releaseVersion " +
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion " +
 			" FROM releases " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
@@ -465,24 +478,38 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 	return h.processReleaseRow(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, env string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, envName, metadata, manifest, releaseVersion " +
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion " +
 			" FROM releases " +
-			" WHERE appName=? AND envName=? AND releaseVersion=?" +
+			" WHERE appName=? AND releaseVersion=?" +
 			" ORDER BY eslVersion ASC " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		app,
-		env,
 		releaseVersion,
 	)
 	return h.processReleaseRow(ctx, err, rows)
 }
 
-func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.Rows) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, metadata " +
+			" FROM all_releases " +
+			" WHERE appName=?" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+	)
+	return h.processAllReleasesRow(ctx, err, rows)
+}
+
+func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -493,21 +520,18 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 		}
 	}(rows)
 	//exhaustruct:ignore
-	var row = &DBReleaseWithMetaData{}
+	var row = &DBAllReleasesWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
-		err := rows.Scan(&row.EslId, &row.App, &row.Env, &metadataStr, &row.Manifest, &row.ReleaseNumber)
+		err := rows.Scan(&row.EslId, &row.Created, &row.App, &metadataStr)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
 		}
-		var metaData = DBReleaseMetaData{
-			SourceAuthor:   "",
-			SourceCommitId: "",
-			SourceMessage:  "",
-			DisplayVersion: "",
+		var metaData = DBAllReleaseMetaData{
+			Releases: []int64{},
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
@@ -524,30 +548,128 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 	return row, nil
 }
 
+func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.Rows) (*DBReleaseWithMetaData, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var row = &DBReleaseWithMetaData{}
+	if rows.Next() {
+		var metadataStr string
+		var manifestStr string
+		err := rows.Scan(&row.EslId, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		// handle meta data
+		var metaData = DBReleaseMetaData{
+			SourceAuthor:   "",
+			SourceCommitId: "",
+			SourceMessage:  "",
+			DisplayVersion: "",
+		}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Metadata = metaData
+
+		// handle manifests
+		var manifestData = DBReleaseManifests{
+			Manifests: map[string]string{},
+		}
+		err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Manifests = manifestData
+
+	} else {
+		row = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
 func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslId) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
 	defer span.Finish()
-	jsonToInsert, err := json.Marshal(release.Metadata)
+	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
 		return fmt.Errorf("insert release: could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, envName, manifest, metadata)  VALUES (?, ?, ?, ?, ?, ?, ?);",
+		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata)  VALUES (?, ?, ?, ?, ?, ?);",
 	)
 	span.SetTag("query", insertQuery)
+	manifestJson, err := json.Marshal(release.Manifests)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
 		time.Now(),
 		release.ReleaseNumber,
 		release.App,
-		release.Env,
-		release.Manifest,
-		jsonToInsert,
+		manifestJson,
+		metadataJson,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert release into DB. Error: %w\n", err)
+		return fmt.Errorf(
+			"could not insert release for app '%s' and version '%v' and eslVersion '%v' into DB. Error: %w\n",
+			release.App,
+			release.ReleaseNumber,
+			previousEslVersion+1,
+			err)
 	}
+	logger.FromContext(ctx).Sugar().Infof(
+		"inserted release: app '%s' and version '%v' and eslVersion %v",
+		release.App,
+		release.ReleaseNumber,
+		previousEslVersion+1)
+	return nil
+}
+
+func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx, app string, allVersions []int64, previousEslVersion EslId) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
+	defer span.Finish()
+	slices.Sort(allVersions)
+	metadataJson, err := json.Marshal(DBAllReleaseMetaData{
+		Releases: allVersions,
+	})
+	if err != nil {
+		return fmt.Errorf("insert release: could not marshal json data: %w", err)
+	}
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO all_releases (eslVersion, created, appName, metadata)  VALUES (?, ?, ?, ?);",
+	)
+	span.SetTag("query", insertQuery)
+
+	_, err = transaction.Exec(
+		insertQuery,
+		previousEslVersion+1,
+		time.Now(),
+		app,
+		metadataJson,
+	)
+	if err != nil {
+		return fmt.Errorf("could not insert all_releases for app '%s' and esl '%v' into DB. Error: %w\n", app, previousEslVersion+1, err)
+	}
+	logger.FromContext(ctx).Sugar().Infof("inserted all_releases for app '%s'", app)
 	return nil
 }
 
@@ -765,26 +887,24 @@ type ReleaseWithManifest struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 
-	Manifest    string
-	Environment string
+	Manifests map[string]string // keys: environment; value: manifest
 }
-
-// During the "CustomMigrations" we read from the manifest repo, and write to the database.
-// The functions here are there to retrieve data, so they should not need to access the DB.
-// Therefore, they should not need a "transaction" parameter.
-// There are currently some exceptions, like GetAllDeploymentsFun. This will be changed in SRX-PA568W.
 
 type AllDeployments []Deployment
 type AllEnvLocks map[string][]EnvironmentLock
+type AllReleases map[uint64]ReleaseWithManifest // keys: releaseVersion; value: release with manifests
 
-type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
-
+// GetAllDeploymentsFun and other functions here are used during migration.
+// They are supposed to read data from files in the manifest repo,
+// and therefore should not need to access the Database at all.
+type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
 type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 
-type AllReleases map[uint64]ReleaseWithManifest
+type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
+type AllTeamLocks map[string]map[string][]TeamLock       // EnvName-> Team -> []Locks
 
-type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
-type GetAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx) (AllEnvLocks, error)
+type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
+type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
 type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
@@ -797,6 +917,7 @@ func (h *DBHandler) RunCustomMigrations(
 	getAllReleasesFun GetAllReleasesFun,
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
+	getAllTeamLocksFun GetAllTeamLocksFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
@@ -821,6 +942,10 @@ func (h *DBHandler) RunCustomMigrations(
 		return err
 	}
 	err = h.RunCustomMigrationAppLocks(ctx, getAllAppLocksFun)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationTeamLocks(ctx, getAllTeamLocksFun)
 	if err != nil {
 		return err
 	}
@@ -976,7 +1101,7 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 		jsonToInsert,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert an app into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
 	}
 	return nil
 }
@@ -1151,14 +1276,18 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 			if err != nil {
 				return fmt.Errorf("geAllReleases failed %v", err)
 			}
+
+			releaseNumbers := []int64{}
 			for r := range releases {
 				repoRelease := releases[r]
 				dbRelease := DBReleaseWithMetaData{
 					EslId:         InitialEslId,
+					Created:       time.Now(),
 					ReleaseNumber: repoRelease.Version,
 					App:           app,
-					Env:           repoRelease.Environment,
-					Manifest:      repoRelease.Manifest,
+					Manifests: DBReleaseManifests{
+						Manifests: repoRelease.Manifests,
+					},
 					Metadata: DBReleaseMetaData{
 						SourceAuthor:   repoRelease.SourceAuthor,
 						SourceCommitId: repoRelease.SourceCommitId,
@@ -1168,11 +1297,15 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 				}
 				err = h.DBInsertRelease(ctx, transaction, dbRelease, InitialEslId-1)
 				if err != nil {
-					return fmt.Errorf("error writing Release to DB for app %s in env %s: %v",
-						app, repoRelease.Environment, err)
+					return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
 				}
+				releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
 			}
 			l.Infof("done with app %s", app)
+			err = h.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslId-1)
+			if err != nil {
+				return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
+			}
 		}
 		return nil
 	})
@@ -1245,7 +1378,7 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 			return nil
 		}
 
-		allEnvLocksInRepo, err := getAllEnvLocksFun(ctx, transaction)
+		allEnvLocksInRepo, err := getAllEnvLocksFun(ctx)
 		if err != nil {
 			return fmt.Errorf("could not get current environment locks to run custom migrations: %v", err)
 		}
@@ -1308,10 +1441,54 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLoc
 				if len(activeLockIds) == 0 {
 					activeLockIds = []string{}
 				}
+
 				err := h.DBWriteAllAppLocks(ctx, transaction, 0, envName, appName, activeLockIds)
 				if err != nil {
 					return fmt.Errorf("error writing existing locks to DB for application '%s' on environment '%s': %v",
 						appName, envName, err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamLocksFun GetAllTeamLocksFun) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		l := logger.FromContext(ctx).Sugar()
+		allTeamLocksDb, err := h.DBSelectAnyActiveTeamLock(ctx, transaction)
+		if err != nil {
+			l.Infof("could not get team locks from database - assuming the manifest repo is correct: %v", err)
+			allTeamLocksDb = nil
+		}
+		if allTeamLocksDb != nil {
+			l.Infof("There are already team locks in the DB - skipping migrations")
+			return nil
+		}
+
+		allTeamLocksInRepo, err := getAllTeamLocksFun(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get current team locks to run custom migrations: %v", err)
+		}
+
+		for envName, apps := range allTeamLocksInRepo {
+			for teamName, currentTeamLocks := range apps {
+				var activeLockIds []string
+				for _, currentLock := range currentTeamLocks {
+					activeLockIds = append(activeLockIds, currentLock.LockID)
+					err = h.DBWriteTeamLockInternal(ctx, transaction, currentLock, 0, true)
+					if err != nil {
+						return fmt.Errorf("error writing team locks to DB for team '%s' on '%s': %v",
+							teamName, envName, err)
+					}
+				}
+				if len(activeLockIds) == 0 {
+					activeLockIds = []string{}
+				}
+				err := h.DBWriteAllTeamLocks(ctx, transaction, 0, envName, teamName, activeLockIds)
+				if err != nil {
+					return fmt.Errorf("error writing existing locks to DB for team '%s' on environment '%s': %v",
+						teamName, envName, err)
 				}
 			}
 		}
@@ -1818,7 +1995,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		environment,
 		jsonToInsert)
 	if err != nil {
-		return fmt.Errorf("could not insert all envs into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert all env locks into DB. Error: %w\n", err)
 	}
 	return nil
 }
@@ -1834,6 +2011,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	defer span.Finish()
 	var previousVersion EslId
 
+	//See if there is an existing lock with the same lock id in this environment. If it exists, just add a +1 to the eslversion
 	existingEnvLock, err := h.DBSelectEnvironmentLock(ctx, tx, environment, lockID)
 
 	if err != nil {
@@ -2412,6 +2590,500 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 	return envLocks, nil
 }
 
+type AllTeamLocksJson struct {
+	TeamLocks []string `json:"teamLocks"`
+}
+
+type AllTeamLocksRow struct {
+	Version     int64
+	Created     time.Time
+	Environment string
+	Team        string
+	Data        string
+}
+
+type AllTeamLocksGo struct {
+	Version     int64
+	Created     time.Time
+	Environment string
+	Team        string
+	AllTeamLocksJson
+}
+
+type TeamLock struct {
+	EslVersion EslId
+	Created    time.Time
+	LockID     string
+	Env        string
+	Team       string
+	Deleted    bool
+	Metadata   LockMetadata
+}
+
+// DBTeamLock Just used to fetch info from DB
+type DBTeamLock struct {
+	EslVersion EslId
+	Created    time.Time
+	LockID     string
+	Env        string
+	TeamName   string
+	Deleted    bool
+	Metadata   string
+}
+
+func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (*AllTeamLocksGo, error) {
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, teamName, json FROM all_team_locks ORDER BY version DESC LIMIT 1;")
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	return h.processAllTeamLocksRow(ctx, err, rows)
+}
+
+func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, environment, teamName, message, authorName, authorEmail string) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteTeamLock: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLock")
+	defer span.Finish()
+
+	var previousVersion EslId
+
+	existingEnvLock, err := h.DBSelectTeamLock(ctx, tx, environment, teamName, lockID)
+
+	if err != nil {
+		return fmt.Errorf("Could not obtain existing team lock: %w\n", err)
+	}
+
+	if existingEnvLock == nil {
+		previousVersion = 0
+	} else {
+		previousVersion = existingEnvLock.EslVersion
+	}
+
+	teamLock := TeamLock{
+		EslVersion: 0,
+		LockID:     lockID,
+		Created:    time.Time{},
+		Env:        environment,
+		Metadata: LockMetadata{
+			Message:        message,
+			CreatedByName:  authorName,
+			CreatedByEmail: authorEmail,
+		},
+		Team:    teamName,
+		Deleted: false,
+	}
+	return h.DBWriteTeamLockInternal(ctx, tx, teamLock, previousVersion, false)
+}
+
+func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, teamLock TeamLock, previousEslVersion EslId, useTimeInLock bool) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteTeamLockInternal: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLockInternal")
+	defer span.Finish()
+
+	jsonToInsert, err := json.Marshal(teamLock.Metadata)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO team_locks (eslVersion, created, lockID, envName, teamName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
+
+	var timetoInsert time.Time
+	if useTimeInLock {
+		timetoInsert = teamLock.Created
+	} else {
+		timetoInsert = time.Now()
+	}
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		previousEslVersion+1,
+		timetoInsert,
+		teamLock.LockID,
+		teamLock.Env,
+		teamLock.Team,
+		teamLock.Deleted,
+		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write team lock into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteAllTeamLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment, teamName string, lockIds []string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllTeamLocks")
+	defer span.Finish()
+	slices.Sort(lockIds) // we don't really *need* the sorting, it's just for convenience
+	jsonToInsert, err := json.Marshal(AllTeamLocksJson{
+		TeamLocks: lockIds,
+	})
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+	insertQuery := h.AdaptQuery("INSERT INTO all_team_locks (version , created, environment, teamName, json)  VALUES (?, ?, ?, ?, ?);")
+	span.SetTag("query", insertQuery)
+	_, err = transaction.Exec(
+		insertQuery,
+		previousVersion+1,
+		time.Now(),
+		environment,
+		teamName,
+		jsonToInsert)
+	if err != nil {
+		return fmt.Errorf("could not insert all team locks into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) (*TeamLock, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, lockID, envName, teamName, metadata, deleted" +
+			" FROM team_locks " +
+			" WHERE envName=? AND teamName=? AND lockID=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environment,
+		teamName,
+		lockID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query team locks table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	if rows.Next() {
+		var row = DBTeamLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			TeamName:   "",
+			Deleted:    true,
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.TeamName, &row.Metadata, &row.Deleted)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = LockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		err = closeRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		return &TeamLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			Team:       row.TeamName,
+			Deleted:    row.Deleted,
+			Metadata:   resultJson,
+		}, nil
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil // no rows, but also no error
+}
+func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, environment, teamName string) (*AllTeamLocksGo, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllTeamLocks: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocks")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, teamName, json FROM all_team_locks WHERE environment = ? AND teamName = ? ORDER BY version DESC LIMIT 1;")
+
+	rows, err := tx.QueryContext(ctx, selectQuery, environment, teamName)
+	return h.processAllTeamLocksRow(ctx, err, rows)
+}
+
+func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBDeleteTeamLock: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteTeamLock")
+	defer span.Finish()
+	var previousVersion EslId
+
+	existingTeamLock, err := h.DBSelectTeamLock(ctx, tx, environment, teamName, lockID)
+
+	if err != nil {
+		return fmt.Errorf("Could not obtain existing team lock: %w\n", err)
+	}
+
+	if existingTeamLock == nil {
+		logger.FromContext(ctx).Sugar().Warnf("could not delete team lock. The team lock '%s' on team '%s' on environment '%s' does not exist. Continuing anyway.", lockID, teamName, environment)
+		return nil
+	}
+	if existingTeamLock.Deleted {
+		logger.FromContext(ctx).Sugar().Warnf("could not delete team lock. The team lock '%s' on team '%s' on environment '%s' has already been deleted. Continuing anyway.", lockID, teamName, environment)
+		return nil
+	} else {
+		previousVersion = existingTeamLock.EslVersion
+	}
+
+	existingTeamLock.Deleted = true
+	err = h.DBWriteTeamLockInternal(ctx, tx, *existingTeamLock, previousVersion, false)
+
+	if err != nil {
+		return fmt.Errorf("could not delete team lock from DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environment, teamName string, lockIDs []string) ([]TeamLock, error) {
+	if len(lockIDs) == 0 {
+		return nil, nil
+	}
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectTeamLockSet: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockSet")
+	defer span.Finish()
+
+	var teamLocks []TeamLock
+	var rows *sql.Rows
+	defer func(rows *sql.Rows) {
+		if rows == nil {
+			return
+		}
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	//Get the latest change to each lock
+	for _, id := range lockIDs {
+		var err error
+		selectQuery := h.AdaptQuery(
+			"SELECT eslVersion, created, lockID, envName, teamName, metadata, deleted" +
+				" FROM team_locks " +
+				" WHERE envName=? AND lockID=? AND teamName=?" +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT 1;")
+		rows, err = tx.QueryContext(ctx, selectQuery, environment, id, teamName)
+		if err != nil {
+			return nil, fmt.Errorf("could not query team locks table from DB. Error: %w\n", err)
+		}
+
+		var row = DBTeamLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			TeamName:   "",
+			Deleted:    false,
+			Metadata:   "",
+		}
+		if rows.Next() {
+			err = rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.TeamName, &row.Metadata, &row.Deleted)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return nil, nil
+				}
+				return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
+			}
+
+			//exhaustruct:ignore
+			var resultJson = LockMetadata{}
+			err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+			if err != nil {
+				return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			}
+			teamLocks = append(teamLocks, TeamLock{
+				EslVersion: row.EslVersion,
+				Created:    row.Created,
+				LockID:     row.LockID,
+				Env:        row.Env,
+				Team:       row.TeamName,
+				Deleted:    row.Deleted,
+				Metadata:   resultJson,
+			})
+		}
+		err = closeRows(rows)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err := closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return teamLocks, nil
+}
+
+// DBSelectTeamLockHistory returns the last N events associated with some lock on some environment for some team. Currently only used in testing.
+func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, environmentName, teamName, lockID string, limit int) ([]TeamLock, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectTeamLockHistory: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockHistory")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		fmt.Sprintf(
+			"SELECT eslVersion, created, lockID, envName, teamName, metadata, deleted" +
+				" FROM team_locks " +
+				" WHERE envName=? AND lockID=? AND teamName=?" +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT ?;"))
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+		lockID,
+		teamName,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not read team lock from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("team locks: row could not be closed: %v", err)
+		}
+	}(rows)
+	teamLocks := make([]TeamLock, 0)
+	for rows.Next() {
+		var row = DBTeamLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			TeamName:   "",
+			Env:        "",
+			Deleted:    true,
+			Metadata:   "",
+		}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.TeamName, &row.Metadata, &row.Deleted)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = LockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		teamLocks = append(teamLocks, TeamLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			Deleted:    row.Deleted,
+			Team:       row.TeamName,
+			Metadata:   resultJson,
+		})
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return teamLocks, nil
+}
+
+func (h *DBHandler) processAllTeamLocksRow(ctx context.Context, err error, rows *sql.Rows) (*AllTeamLocksGo, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query all_team_locks table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var row = &AllTeamLocksRow{}
+	var result *AllTeamLocksGo
+	if rows.Next() {
+
+		err := rows.Scan(&row.Version, &row.Created, &row.Environment, &row.Team, &row.Data)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		//exhaustruct:ignore
+		var resultJson = AllTeamLocksJson{}
+		err = json.Unmarshal(([]byte)(row.Data), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Data)
+		}
+
+		result = &AllTeamLocksGo{
+			Version:          row.Version,
+			Created:          row.Created,
+			Environment:      row.Environment,
+			Team:             row.Team,
+			AllTeamLocksJson: AllTeamLocksJson{TeamLocks: resultJson.TeamLocks},
+		}
+	} else {
+		row = nil
+		result = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+//@@@@@@@@@@@@
+
 type QueuedDeployment struct {
 	EslVersion EslId
 	Created    time.Time
@@ -2509,6 +3181,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
+
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -2623,4 +3296,5 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		App:        appName,
 		Version:    nil,
 	})
+
 }

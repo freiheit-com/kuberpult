@@ -23,13 +23,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
+	gotime "time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -42,7 +43,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			Config: config.EnvironmentConfig{
 				Upstream:         nil,
 				ArgoCd:           nil,
-				EnvironmentGroup: ptr.FromString("mygroup"),
+				EnvironmentGroup: conversion.FromString("mygroup"),
 			},
 		},
 		&CreateEnvironment{
@@ -54,7 +55,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 					Latest:      false,
 				},
 				ArgoCd:           nil,
-				EnvironmentGroup: ptr.FromString("staging-group"),
+				EnvironmentGroup: conversion.FromString("staging-group"),
 			},
 		},
 		&CreateApplicationVersion{
@@ -286,7 +287,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
-			repo := SetupRepositoryTestWithDB(t)
+			repo := SetupRepositoryTestWithDBOptions(t, true)
 			r := repo.(*repository)
 			row := &db.EslEventRow{}
 			err = repo.Apply(ctx, setupTransformers...)
@@ -463,11 +464,170 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 	}
 }
 
-func TestCreateApplicationVersionDB(t *testing.T) {
+func TestTeamLockTransformersWithDB(t *testing.T) {
+	const team = "test-team"
+	const lockID = "l123"
+	const message = "my lock"
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedDbContent *db.DBAppWithMetaData
+		Name            string
+		Transformers    []Transformer
+		expectedError   *TransformerBatchApplyError
+		shouldSucceed   bool
+		ExpectedLockIds []string
+	}{
+		{
+			Name: "Simple Create team lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envAcceptance: envAcceptance,
+					},
+					Team:    team,
+					Version: 1,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      lockID,
+					Message:     message,
+					Team:        team,
+				},
+			},
+			shouldSucceed: true,
+			ExpectedLockIds: []string{
+				lockID,
+			},
+		},
+		{
+			Name: "Simple Create and Deleted team lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envAcceptance: envAcceptance,
+					},
+					Team:    team,
+					Version: 1,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      lockID,
+					Message:     message,
+					Team:        team,
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      lockID,
+					Team:        team,
+				},
+			},
+			shouldSucceed:   true,
+			ExpectedLockIds: []string{},
+		},
+		{
+			Name: "Create three team locks and delete one ",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envAcceptance: envAcceptance,
+					},
+					Team:    team,
+					Version: 1,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      "l1",
+					Message:     message,
+					Team:        team,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      "l2",
+					Message:     message,
+					Team:        team,
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      "l1",
+					Team:        team,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envAcceptance,
+					LockId:      "l3",
+					Message:     message,
+					Team:        team,
+				},
+			},
+			shouldSucceed: true,
+			ExpectedLockIds: []string{
+				"l2", "l3",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			var err error = nil
+			repo = SetupRepositoryTestWithDB(t)
+			r := repo.(*repository)
+			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				var batchError *TransformerBatchApplyError = nil
+				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if batchError != nil {
+					return batchError
+				}
+				return nil
+			})
+			if err != nil {
+				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				if !tc.shouldSucceed {
+					return
+				}
+			}
+
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
+				return repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
+			})
+
+			if locks == nil {
+				t.Fatalf("Expected locks but got none")
+			}
+
+			if diff := cmp.Diff(tc.ExpectedLockIds, locks.TeamLocks); diff != "" {
+				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCreateApplicationVersionDB(t *testing.T) {
+	const appName = "app1"
+	tcs := []struct {
+		Name               string
+		Transformers       []Transformer
+		expectedDbContent  *db.DBAppWithMetaData
+		expectedDbReleases *db.DBAllReleasesWithMetaData
 	}{
 		{
 			Name: "create one version",
@@ -477,7 +637,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     10000,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -486,10 +646,18 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
 				EslId:       2,
-				App:         "app1",
+				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
 					Team: "",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslId:   1,
+				Created: gotime.Time{},
+				App:     appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10000},
 				},
 			},
 		},
@@ -501,7 +669,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     10,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -509,7 +677,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "noteam",
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     11,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -519,10 +687,18 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
 				EslId:       2, // even when CreateApplicationVersion is called twice, we still write the app only once
-				App:         "app1",
+				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
 					Team: "noteam",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslId:   2,
+				Created: gotime.Time{},
+				App:     appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10, 11},
 				},
 			},
 		},
@@ -534,7 +710,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     10,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -542,7 +718,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "old",
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: appName,
 					Version:     11,
 					Manifests: map[string]string{
 						envAcceptance: "{}",
@@ -552,10 +728,18 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
 				EslId:       3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
-				App:         "app1",
+				App:         appName,
 				StateChange: db.AppStateChangeUpdate,
 				Metadata: db.DBAppMetaData{
 					Team: "new",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslId:   2,
+				Created: gotime.Time{},
+				App:     appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10, 11},
 				},
 			},
 		},
@@ -577,6 +761,13 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					return fmt.Errorf("error: %v", err2)
 				}
 				if diff := cmp.Diff(tc.expectedDbContent, res); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				actualRelease, err3 := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("error: %v", err3)
+				}
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease, cmpopts.IgnoreFields(db.DBAllReleasesWithMetaData{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil

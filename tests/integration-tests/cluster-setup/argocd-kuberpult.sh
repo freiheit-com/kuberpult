@@ -204,7 +204,7 @@ kubectl get pods
 
 for i in $(seq 1 3)
 do
-   /kp/create-release.sh echo;
+   RELEASE_VERSION=$i /kp/create-release.sh echo;
 done
 
 echo "Done. Kuberpult and argoCd are running."
