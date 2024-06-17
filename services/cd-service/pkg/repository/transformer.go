@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-	"github.com/google/go-cmp/cmp"
 	"io"
 	"io/fs"
 	"os"
@@ -33,6 +31,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/google/go-cmp/cmp"
 
 	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -2180,7 +2181,7 @@ func (c *CreateEnvironment) Transform(
 		}
 
 		if allEnvironments == nil {
-			allEnvironments = &db.AllEnvironmentGo{
+			allEnvironments = &db.AllEnvironmentsGo{
 				Version: 1,
 				Created: time.Now(),
 				AllEnvironmentsJson: db.AllEnvironmentsJson{
