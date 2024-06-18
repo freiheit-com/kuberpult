@@ -203,7 +203,7 @@ func (o *OverviewServiceServer) getOverview(
 						}
 					}
 
-					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+					if queuedVersion, err := s.GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
 						if queuedVersion == nil {
