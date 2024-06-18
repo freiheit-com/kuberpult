@@ -118,7 +118,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 		Transformers  []Transformer
 		ExpectedError error
 		ExpectedApp   *db.DBAppWithMetaData
-		ExpectedFile  *FilenameAndData
+		ExpectedFile  []*FilenameAndData
 	}{
 		{
 			// as of now we only have the DeployApplicationVersion transformer,
@@ -169,9 +169,11 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 			ExpectedError: nil,
-			ExpectedFile: &FilenameAndData{
-				path:     "/applications/" + appName + "/team",
-				fileData: []byte("team-123"),
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "/applications/" + appName + "/team",
+					fileData: []byte("team-123"),
+				},
 			},
 			ExpectedApp: &db.DBAppWithMetaData{
 				EslId: 0,
@@ -281,15 +283,18 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			}
 
 			if tc.ExpectedFile != nil {
-				updatedState := repo.State()
-				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.ExpectedFile.path)
-				actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-				if err != nil {
-					t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-				}
+				for i := range tc.ExpectedFile {
+					expectedFile := tc.ExpectedFile[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
 
-				if !cmp.Equal(actualFileData, tc.ExpectedFile.fileData) {
-					t.Fatalf("Expected '%v', got '%v'", string(tc.ExpectedFile.fileData), string(actualFileData))
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
 				}
 			}
 		})
