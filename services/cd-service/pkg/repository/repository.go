@@ -1273,7 +1273,7 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
-	configs, err := state.GetEnvironmentConfigs()
+	configs, err := state.GetEnvironmentConfigsFromManifest()
 	if err != nil {
 		return err
 	}
@@ -1989,7 +1989,7 @@ func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFo
 
 func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
 	logger := logger.FromContext(ctx)
-	envConfigs, err := s.GetEnvironmentConfigs()
+	envConfigs, err := s.GetEnvironmentConfigsFromManifest()
 	if err != nil {
 		return nil, err
 	}
@@ -2018,7 +2018,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 }
 
 func (s *State) GetEnvironmentConfigsSorted() (map[string]config.EnvironmentConfig, []string, error) {
-	configs, err := s.GetEnvironmentConfigs()
+	configs, err := s.GetEnvironmentConfigsFromManifest()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2031,7 +2031,14 @@ func (s *State) GetEnvironmentConfigsSorted() (map[string]config.EnvironmentConf
 	return configs, envNames, nil
 }
 
-func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetEnvironmentConfigs(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentConfigsFromDB(ctx)
+	}
+	return s.GetEnvironmentConfigsFromManifest()
+}
+
+func (s *State) GetEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
 		result := map[string]config.EnvironmentConfig{}
 		buf, err := os.ReadFile(s.EnvironmentConfigsPath)
@@ -2064,6 +2071,33 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 	}
 }
 
+func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+	if s.BootstrapMode {
+		// not sure what happens here
+		return nil, nil
+	} else {
+		ret, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+			dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+			if err != nil {
+				return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
+			}
+			ret := make(map[string]config.EnvironmentConfig)
+			for _, envName := range dbAllEnvs.Environments {
+				dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+				if err != nil {
+					return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
+				}
+				ret[envName] = dbEnv.Config
+			}
+			return &ret, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return *ret, nil
+	}
+}
+
 func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {
 	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
 	var config config.EnvironmentConfig
@@ -2076,7 +2110,7 @@ func (s *State) GetEnvironmentConfig(environmentName string) (*config.Environmen
 }
 
 func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error) {
-	allEnvConfigs, err := s.GetEnvironmentConfigs()
+	allEnvConfigs, err := s.GetEnvironmentConfigsFromManifest()
 	if err != nil {
 		return nil, err
 	}
@@ -2693,15 +2727,15 @@ func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) 
 
 func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
 	result := map[string]config.EnvironmentConfig{}
-	
+
 	fs := s.Filesystem
-	
+
 	envDir, err := fs.ReadDir("environments")
 	if err != nil {
 		return nil, fmt.Errorf("error while reading the environments directory, error: %w", err)
 	}
 
-	for _, envName := range envDir {		
+	for _, envName := range envDir {
 		configFilePath := fs.Join("environments", envName.Name(), "config.json")
 		configBytes, err := readFile(fs, configFilePath)
 		if err != nil {
