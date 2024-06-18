@@ -1037,7 +1037,8 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
 				t.Errorf("batch response mismatch: %s", d)
 			}
-			envs, err := repo.State().GetEnvironmentConfigsFromManifest()
+			ctx := testutil.MakeTestContext()
+			envs, err := repo.State().GetEnvironmentConfigs(ctx)
 			if err != nil {
 				t.Errorf("unexpected error: %q", err)
 			}

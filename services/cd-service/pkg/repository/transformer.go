@@ -189,7 +189,7 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	if ddMetrics == nil {
 		return nil
 	}
-	_, envNames, err := state.GetEnvironmentConfigsSorted()
+	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx)
 	if err != nil {
 		return err
 	}
@@ -515,7 +515,7 @@ func (c *CreateApplicationVersion) Transform(
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
 
-	configs, err := state.GetEnvironmentConfigsFromManifest()
+	configs, err := state.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		if errors.Is(err, InvalidJson) {
 			return "", err
@@ -1059,7 +1059,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		return "", err
 	}
 
-	configs, err := state.GetEnvironmentConfigsFromManifest()
+	configs, err := state.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -1211,7 +1211,7 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
 	appDir := applicationDirectory(fs, u.Application)
-	configs, err := state.GetEnvironmentConfigsFromManifest()
+	configs, err := state.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -1387,7 +1387,7 @@ func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 // Finds old releases for an application
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
-	envConfigs, err := state.GetEnvironmentConfigsFromManifest()
+	envConfigs, err := state.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1499,7 +1499,7 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
 	}
 
-	envs, err := s.GetEnvironmentConfigsFromManifest()
+	envs, err := s.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return err
 	}
@@ -1742,7 +1742,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(c.EnvironmentGroup)
+	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, c.EnvironmentGroup)
 	if err != nil {
 		return "", grpc.PublicError(ctx, err)
 	}
@@ -1782,7 +1782,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(c.EnvironmentGroup)
+	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, c.EnvironmentGroup)
 	if err != nil {
 		return "", grpc.PublicError(ctx, err)
 	}
@@ -2676,7 +2676,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 		}
 		return nil, fmt.Errorf("unable to get oid: %w", err)
 	}
-	envs, err := s.GetEnvironmentConfigsFromManifest()
+	envs, err := s.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
 	}
@@ -2796,7 +2796,7 @@ func (c *ReleaseTrain) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainPrognosis {
-	configs, err := state.GetEnvironmentConfigsFromManifest()
+	configs, err := state.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.InternalError(ctx, err),
@@ -2868,7 +2868,7 @@ func (c *ReleaseTrain) Transform(
 	}
 
 	var targetGroupName = c.Target
-	configs, _ := state.GetEnvironmentConfigsFromManifest()
+	configs, _ := state.GetEnvironmentConfigs(ctx)
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
 	// sorting for determinism

@@ -25,8 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/conversion"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"io"
 	"net/http"
 	"os"
@@ -38,6 +36,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
@@ -1268,7 +1269,7 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
-	configs, err := state.GetEnvironmentConfigsFromManifest()
+	configs, err := state.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return err
 	}
@@ -1951,7 +1952,7 @@ func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFo
 
 func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
 	logger := logger.FromContext(ctx)
-	envConfigs, err := s.GetEnvironmentConfigsFromManifest()
+	envConfigs, err := s.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1979,8 +1980,8 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 	return envConfigs, err
 }
 
-func (s *State) GetEnvironmentConfigsSorted() (map[string]config.EnvironmentConfig, []string, error) {
-	configs, err := s.GetEnvironmentConfigsFromManifest()
+func (s *State) GetEnvironmentConfigsSorted(ctx context.Context) (map[string]config.EnvironmentConfig, []string, error) {
+	configs, err := s.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2043,6 +2044,9 @@ func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]con
 			if err != nil {
 				return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 			}
+			if dbAllEnvs == nil {
+				return nil, nil
+			}
 			ret := make(map[string]config.EnvironmentConfig)
 			for _, envName := range dbAllEnvs.Environments {
 				dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
@@ -2055,6 +2059,9 @@ func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]con
 		})
 		if err != nil {
 			return nil, err
+		}
+		if ret == nil {
+			return nil, nil
 		}
 		return *ret, nil
 	}
@@ -2071,8 +2078,8 @@ func (s *State) GetEnvironmentConfig(environmentName string) (*config.Environmen
 	return &config, nil
 }
 
-func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error) {
-	allEnvConfigs, err := s.GetEnvironmentConfigsFromManifest()
+func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, envGroup string) ([]string, error) {
+	allEnvConfigs, err := s.GetEnvironmentConfigs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2140,7 +2147,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentlyDeployed")
 	defer ddSpan.Finish()
 	var result = db.AllDeployments{}
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSorted(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2185,7 +2192,7 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context) (db.AllEnvLocks,
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentEnvironmentLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllEnvLocks)
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSorted(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2220,7 +2227,7 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentApplicationLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllAppLocks)
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSorted(ctx)
 
 	if err != nil {
 		return nil, err
@@ -2354,7 +2361,7 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentTeamLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllTeamLocks)
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSorted(ctx)
 
 	if err != nil {
 		return nil, err
