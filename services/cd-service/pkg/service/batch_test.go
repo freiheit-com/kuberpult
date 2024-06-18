@@ -19,12 +19,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -1036,7 +1037,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
 				t.Errorf("batch response mismatch: %s", d)
 			}
-			envs, err := repo.State().GetEnvironmentConfigs()
+			envs, err := repo.State().GetEnvironmentConfigsFromManifest()
 			if err != nil {
 				t.Errorf("unexpected error: %q", err)
 			}

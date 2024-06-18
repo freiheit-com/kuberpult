@@ -21,10 +21,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"os"
 	"sync"
 	"sync/atomic"
+
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -111,7 +112,7 @@ func (o *OverviewServiceServer) getOverview(
 	}
 	result.ManifestRepoUrl = o.RepositoryConfig.URL
 	result.Branch = o.RepositoryConfig.Branch
-	if envs, err := s.GetEnvironmentConfigs(); err != nil {
+	if envs, err := s.GetEnvironmentConfigsFromManifest(); err != nil {
 		return nil, grpc.InternalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)

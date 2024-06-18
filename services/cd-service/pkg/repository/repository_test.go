@@ -22,9 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"io"
 	"io/fs"
 	"net/http"
@@ -36,6 +33,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -574,7 +575,7 @@ func TestBootstrapModeReadConfig(t *testing.T) {
 			if !state.BootstrapMode {
 				t.Fatalf("Bootstrap mode not preserved")
 			}
-			configs, err := state.GetEnvironmentConfigs()
+			configs, err := state.GetEnvironmentConfigsFromManifest()
 			if err != nil {
 				t.Fatal(err)
 			}
