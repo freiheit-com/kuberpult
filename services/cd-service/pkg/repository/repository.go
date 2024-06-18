@@ -2023,7 +2023,7 @@ func (s *State) GetEnvironmentConfigsFromManifest() (map[string]config.Environme
 		}
 		result := map[string]config.EnvironmentConfig{}
 		for _, env := range envs {
-			c, err := s.GetEnvironmentConfig(env.Name())
+			c, err := s.GetEnvironmentConfigFromManifest(env.Name())
 			if err != nil {
 				return nil, err
 
@@ -2067,7 +2067,14 @@ func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]con
 	}
 }
 
-func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {
+func (s *State) GetEnvironmentConfig(ctx context.Context, environmentName string) (*config.EnvironmentConfig, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentConfigFromDB(ctx, environmentName)
+	}
+	return s.GetEnvironmentConfigFromManifest(environmentName)
+}
+
+func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*config.EnvironmentConfig, error) {
 	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
 	var config config.EnvironmentConfig
 	if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
@@ -2076,6 +2083,23 @@ func (s *State) GetEnvironmentConfig(environmentName string) (*config.Environmen
 		}
 	}
 	return &config, nil
+}
+
+func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, environmentName string) (*config.EnvironmentConfig, error) {
+	config, err := db.WithTransactionT(s.DBHandler, ctx, func (ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
+		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName)
+		if err != nil {
+			return nil, fmt.Errorf("error while selecting entry for environment %s from the database, error: %w", environmentName, err)
+		}
+		if dbEnv == nil {
+			return nil, nil
+		}
+		return &dbEnv.Config, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error while running transaction for getting environment config for %s, error: %w", environmentName, err)
+	}
+	return config, nil
 }
 
 func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, envGroup string) ([]string, error) {
