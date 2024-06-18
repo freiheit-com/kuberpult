@@ -1874,8 +1874,7 @@ func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx,
 
 	var v *uint64
 	if queuedDeployment.Version != nil {
-		var parsedInt uint64
-		parsedInt = uint64(*queuedDeployment.Version)
+		parsedInt := uint64(*queuedDeployment.Version)
 		v = &parsedInt
 	} else {
 		v = nil
