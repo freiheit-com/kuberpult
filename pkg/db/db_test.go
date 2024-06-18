@@ -21,17 +21,20 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"go.uber.org/zap"
 	"os"
 	"os/exec"
 	"path"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
 )
 
 func createMigrationFolder(dbLocation string) (string, error) {
@@ -1019,9 +1022,147 @@ func TestDeleteTeamLock(t *testing.T) {
 	}
 }
 
-
 func TestReadWriteEnvironment(t *testing.T) {
-	
+	type EnvAndConfig struct {
+		EnvironmentName   string
+		EnvironmentConfig config.EnvironmentConfig
+	}
+	type TestCase struct {
+		Name          string
+		EnvsToWrite   []EnvAndConfig
+		EnvToQuery    string
+		ExpectedEntry *DBEnvironment
+		ExepctedEror  error
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "write one environment and read it",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version: 1,
+				Name:    "development",
+				Config:  testutil.MakeEnvConfigLatest(nil),
+			},
+		},
+		{
+			Name: "write one environment and read it, but this time with a more elaborate config",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // "elaborate config" being the env group
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version: 1,
+				Name:    "development",
+				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+			},
+		},
+		{
+			Name: "write one environment two times and read it",
+			EnvsToWrite: []EnvAndConfig{
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil), // without group
+				},
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // with group
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version: 2,
+				Name:    "development",
+				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+			},
+		},
+		{
+			Name: "write one environment three times and read it",
+			EnvsToWrite: []EnvAndConfig{
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil), // without group
+				},
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // with group
+				},
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-development-group")), // with group
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version: 3,
+				Name:    "development",
+				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-development-group")),
+			},
+		},
+		{
+			Name: "write multiple environments and read one of them",
+			EnvsToWrite: []EnvAndConfig{
+				EnvAndConfig{
+					EnvironmentName: "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+				},
+				EnvAndConfig{
+					EnvironmentName: "staging",
+					EnvironmentConfig: testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			EnvToQuery: "staging",
+			ExpectedEntry: &DBEnvironment{
+				Version: 1,
+				Name: "staging",
+				Config: testutil.MakeEnvConfigUpstream("development", nil),
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			for _, envToWrite := range tc.EnvsToWrite {
+				err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig)
+					if err != nil {
+						return fmt.Errorf("error while writing environment, error: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("error while running the transaction for writing environment %s to the database, error: %v", envToWrite.EnvironmentName, err)
+				}
+			}
+
+			envEntry, err := WithTransactionT(dbHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
+				envEntry, err := dbHandler.DBSelectEnvironment(ctx, transaction, tc.EnvToQuery)
+				if err != nil {
+					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
+				}
+				return envEntry, nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for selecting the target environment, error: %v", err)
+			}
+			if diff := cmp.Diff(envEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(DBEnvironment{}, "Created")); diff != "" {
+				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, envEntry, diff)
+			}
+		})
+	}
 }
 
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent

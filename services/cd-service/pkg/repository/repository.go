@@ -2038,7 +2038,7 @@ func (s *State) GetEnvironmentConfigsFromManifest() (map[string]config.Environme
 
 func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
-		// not sure what happens here
+		
 		return nil, nil
 	} else {
 		ret, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
@@ -2054,6 +2054,9 @@ func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]con
 				dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 				if err != nil {
 					return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
+				}
+				if dbEnv == nil {
+					return nil, fmt.Errorf("the all_environments and environments tables are inconsistent in the database, environment %s was listed in the all_environments tables, but is not found in the environments table", envName)
 				}
 				ret[envName] = dbEnv.Config
 			}
