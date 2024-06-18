@@ -25,6 +25,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"google.golang.org/grpc/codes"
@@ -654,6 +655,41 @@ func (c *CreateApplicationVersion) Transform(
 		for _, oldVersion := range oldVersions {
 			if version == oldVersion {
 				return "", GetCreateReleaseTooOld()
+			}
+		}
+	}
+	configs, err := state.GetEnvironmentConfigs()
+	if err != nil {
+		return "", err
+	}
+	sortedKeys := sorting.SortKeys(c.Manifests)
+	for i := range sortedKeys {
+		env := sortedKeys[i]
+		config, found := configs[env]
+		hasUpstream := false
+		if found {
+			hasUpstream = config.Upstream != nil
+		}
+
+		if hasUpstream && config.Upstream.Latest && isLatest {
+			d := &DeployApplicationVersion{
+				SourceTrain:     nil,
+				Environment:     env,
+				Application:     c.Application,
+				Version:         version,
+				LockBehaviour:   api.LockBehavior_RECORD,
+				Authentication:  c.Authentication,
+				WriteCommitData: c.WriteCommitData,
+				Author:          c.SourceAuthor,
+			}
+			err := t.Execute(d, transaction)
+			if err != nil {
+				_, ok := err.(*LockedError)
+				if ok {
+					continue // LockedErrors are expected
+				} else {
+					return "", GetCreateReleaseGeneralFailure(err)
+				}
 			}
 		}
 	}
