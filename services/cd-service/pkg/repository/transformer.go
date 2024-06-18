@@ -668,8 +668,7 @@ func (c *CreateApplicationVersion) Transform(
 			hasUpstream = config.Upstream != nil
 		}
 
-		if state.DBHandler.ShouldUseOtherTables() {
-		} else {
+		if !state.DBHandler.ShouldUseOtherTables() {
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
