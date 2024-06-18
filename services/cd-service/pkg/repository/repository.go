@@ -2038,8 +2038,8 @@ func (s *State) GetEnvironmentConfigsFromManifest() (map[string]config.Environme
 
 func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
-		
-		return nil, nil
+		// this should never ever happen
+		return nil, fmt.Errorf("bootstrap mode cannot be enabled when writing to the database")
 	} else {
 		ret, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 			dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
