@@ -80,14 +80,14 @@ func TestMigrationScript(t *testing.T) {
 			migrationFile: `
 CREATE TABLE IF NOT EXISTS all_apps
 (
-    Version BIGINT,
+    version BIGINT,
     created TIMESTAMP,
     json VARCHAR(255),
-    PRIMARY KEY(Version)
+    PRIMARY KEY(version)
 );
 
-INSERT INTO all_apps (Version , created , json)  VALUES (0, 	'1713218400', 'First Message');
-INSERT INTO all_apps (Version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
+INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
+INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
 			expectedData: &AllApplicationsGo{
 				Version: 1,
 				Created: time.Unix(1713218400, 0).UTC(),
@@ -372,8 +372,8 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 		},
 		{
 			Name:          "insert with 3 parameter",
-			inputQuery:    "INSERT INTO all_apps (Version , created , json)  VALUES (?, ?, ?)",
-			expectedQuery: "INSERT INTO all_apps (Version , created , json)  VALUES ($1, $2, $3)",
+			inputQuery:    "INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?)",
+			expectedQuery: "INSERT INTO all_apps (version , created , json)  VALUES ($1, $2, $3)",
 		},
 	}
 	for _, tc := range tcs {
