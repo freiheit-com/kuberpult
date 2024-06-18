@@ -2343,6 +2343,9 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error
 
 			teamName, err := s.GetTeamNameFromManifest(currentApp)
 			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue //If app has no team, we skip it
+				}
 				return nil, err
 			}
 			_, exists := processedTeams[teamName]
