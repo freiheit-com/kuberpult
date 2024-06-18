@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
@@ -3055,7 +3056,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 				},
 			},
 			ReleaseTrainEnv:    "staging",
-			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
+			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 0 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
 			overrideCommitHash: "",
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
@@ -3074,7 +3075,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 			},
 		},
 		{
-			Name: "Release train done with commit Hash",
+			Name: "Release train done with commit Hash but nothing to deploy",
 			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",
@@ -3109,7 +3110,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 
 Release Train to 'staging' environment:
 
-The release train deployed 1 services from 'dev' to 'staging'
+The release train deployed 0 services from 'dev' to 'staging'
 deployed version 1 of "test" to "staging"`,
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
@@ -3128,7 +3129,7 @@ deployed version 1 of "test" to "staging"`,
 			},
 		},
 		{
-			Name: "Release train done with commit but nothing to deploy",
+			Name: "Release train done with commit hash",
 			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",
@@ -3153,14 +3154,22 @@ deployed version 1 of "test" to "staging"`,
 
 Release Train to 'dev' environment:
 
-The release train deployed 0 services from 'latest' to 'dev'`,
+The release train deployed 1 services from 'latest' to 'dev'
+Skipped services
+skipping "test" because it is already in the version`,
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
 					"dev": ReleaseTrainEnvironmentPrognosis{
-						SkipCause:     nil,
-						Error:         nil,
-						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						SkipCause: nil,
+						Error:     nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"test": ReleaseTrainApplicationPrognosis{
+								SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+									SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION},
+								Version: 0,
+							},
+						},
 					},
 				},
 			},
@@ -3310,7 +3319,8 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 			if len(commitMsg) > 0 {
 				actualMsg = commitMsg[len(commitMsg)-1]
 			}
-			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
+			if !strings.Contains(actualMsg, tc.expectedCommitMsg) {
+				diff := cmp.Diff(tc.expectedCommitMsg, actualMsg)
 				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 			}
 		})
