@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-	"github.com/google/go-cmp/cmp"
 	"io"
 	"io/fs"
 	"os"
@@ -33,6 +31,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/google/go-cmp/cmp"
 
 	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -2611,19 +2612,6 @@ type Overview struct {
 	Version uint64
 }
 
-func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
-	for _, currentGroup := range groups {
-		if currentGroup.EnvironmentGroupName == groupNameToReturn {
-			for _, currentEnv := range currentGroup.Environments {
-				if currentEnv.Name == envNameToReturn {
-					return currentEnv
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
 	oid, err := git.NewOid(commitHash)
 	if err != nil {
@@ -2643,11 +2631,9 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 	if err != nil {
 		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
 	}
-	result := mapper.MapEnvironmentsToGroups(envs)
 	for envName, config := range envs {
 		var groupName = mapper.DeriveGroupName(config, envName)
-		var envInGroup = getEnvironmentInGroup(result, groupName, envName)
-		if upstreamEnvName != envInGroup.Name || upstreamEnvName != groupName {
+		if upstreamEnvName != envName && groupName != envName {
 			continue
 		}
 		apps, err := s.GetEnvironmentApplications(ctx, transaction, envName)
@@ -3297,9 +3283,16 @@ func (c *envReleaseTrain) Transform(
 	}, transaction); err != nil {
 		return "", err
 	}
+	deployedApps := 0
+	for _, checker := range prognosis.AppsPrognoses {
+		if checker.SkipCause != nil {
+			deployedApps += 1
+		}
+
+	}
 	return fmt.Sprintf("Release Train to '%s' environment:\n\n"+
 		"The release train deployed %d services from '%s' to '%s'%s",
-		c.Env, len(prognosis.AppsPrognoses), source, c.Env, teamInfo,
+		c.Env, deployedApps, source, c.Env, teamInfo,
 	), nil
 }
 
