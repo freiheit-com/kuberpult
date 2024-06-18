@@ -2060,7 +2060,7 @@ func (s *State) GetEnvironmentConfigsFromManifest() (map[string]config.Environme
 		}
 		result := map[string]config.EnvironmentConfig{}
 		for _, env := range envs {
-			c, err := s.GetEnvironmentConfig(env.Name())
+			c, err := s.GetEnvironmentConfigFromManifest(env.Name())
 			if err != nil {
 				return nil, err
 
@@ -2073,8 +2073,8 @@ func (s *State) GetEnvironmentConfigsFromManifest() (map[string]config.Environme
 
 func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
-		// not sure what happens here
-		return nil, nil
+		// this should never ever happen
+		return nil, fmt.Errorf("bootstrap mode cannot be enabled when writing to the database")
 	} else {
 		ret, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 			dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
@@ -2090,6 +2090,9 @@ func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]con
 				if err != nil {
 					return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
 				}
+				if dbEnv == nil {
+					return nil, fmt.Errorf("the all_environments and environments tables are inconsistent in the database, environment %s was listed in the all_environments tables, but is not found in the environments table", envName)
+				}
 				ret[envName] = dbEnv.Config
 			}
 			return &ret, nil
@@ -2104,7 +2107,39 @@ func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context) (map[string]con
 	}
 }
 
-func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {
+// for use with custom migrations, otherwise use the two functions above
+func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+	result := map[string]config.EnvironmentConfig{}
+
+	fs := s.Filesystem
+
+	envDir, err := fs.ReadDir("environments")
+	if err != nil {
+		return nil, fmt.Errorf("error while reading the environments directory, error: %w", err)
+	}
+
+	for _, envName := range envDir {
+		configFilePath := fs.Join("environments", envName.Name(), "config.json")
+		configBytes, err := readFile(fs, configFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("could not read file at %s, error: %w", configFilePath, err)
+		}
+		config := config.EnvironmentConfig{}
+		json.Unmarshal(configBytes, &config)
+		result[envName.Name()] = config
+	}
+
+	return result, nil
+}
+
+func (s *State) GetEnvironmentConfig(ctx context.Context, environmentName string) (*config.EnvironmentConfig, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentConfigFromDB(ctx, environmentName)
+	}
+	return s.GetEnvironmentConfigFromManifest(environmentName)
+}
+
+func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*config.EnvironmentConfig, error) {
 	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
 	var config config.EnvironmentConfig
 	if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
@@ -2113,6 +2148,23 @@ func (s *State) GetEnvironmentConfig(environmentName string) (*config.Environmen
 		}
 	}
 	return &config, nil
+}
+
+func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, environmentName string) (*config.EnvironmentConfig, error) {
+	config, err := db.WithTransactionT(s.DBHandler, ctx, func (ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
+		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName)
+		if err != nil {
+			return nil, fmt.Errorf("error while selecting entry for environment %s from the database, error: %w", environmentName, err)
+		}
+		if dbEnv == nil {
+			return nil, nil
+		}
+		return &dbEnv.Config, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error while running transaction for getting environment config for %s, error: %w", environmentName, err)
+	}
+	return config, nil
 }
 
 func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, envGroup string) ([]string, error) {
@@ -2729,30 +2781,6 @@ func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) 
 	} else {
 		return string(url), nil
 	}
-}
-
-func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
-	result := map[string]config.EnvironmentConfig{}
-
-	fs := s.Filesystem
-
-	envDir, err := fs.ReadDir("environments")
-	if err != nil {
-		return nil, fmt.Errorf("error while reading the environments directory, error: %w", err)
-	}
-
-	for _, envName := range envDir {
-		configFilePath := fs.Join("environments", envName.Name(), "config.json")
-		configBytes, err := readFile(fs, configFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("could not read file at %s, error: %w", configFilePath, err)
-		}
-		config := config.EnvironmentConfig{}
-		json.Unmarshal(configBytes, &config)
-		result[envName.Name()] = config
-	}
-
-	return result, nil
 }
 
 func names(fs billy.Filesystem, path string) ([]string, error) {

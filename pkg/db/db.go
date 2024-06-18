@@ -3608,15 +3608,23 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 	return nil, nil
 }
 
-func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql.Tx, previousVersion int64, environmentNames []string) error {
+func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql.Tx, environmentNames []string) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironments")
 	defer span.Finish()
-
-	slices.Sort(environmentNames)
 
 	jsonToInsert, err := json.Marshal(environmentNames)
 	if err != nil {
 		return fmt.Errorf("could not marshal the environment names list %v, error: %w", environmentNames, err)
+	}
+
+	allEnvironments, err := h.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("unable to select all environments, error: %w", err)
+	}
+	
+	previousVersion := int64(0)
+	if allEnvironments != nil {
+		previousVersion = allEnvironments.Version
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO all_environments (created, version, json) VALUES (?, ?, ?)")
@@ -3713,7 +3721,7 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 			}
 		}
-		err = h.DBWriteAllEnvironments(ctx, transaction, 0, allEnvironmentNames)
+		err = h.DBWriteAllEnvironments(ctx, transaction, allEnvironmentNames)
 		if err != nil {
 			return fmt.Errorf("unable to write to write all environments list to the database, error: %w", err)
 		}

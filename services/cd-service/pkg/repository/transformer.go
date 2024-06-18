@@ -2193,17 +2193,13 @@ func (c *CreateEnvironment) Transform(
 		}
 
 		if allEnvironments == nil {
-			allEnvironments = &db.DBAllEnvironments{
-				Version:      1,
-				Created:      time.Now(),
-				Environments: []string{},
-			}
+			allEnvironments = &db.DBAllEnvironments{}
 		}
 
 		if !slices.Contains(allEnvironments.Environments, c.Environment) {
 			// this environment is new
 			allEnvironments.Environments = append(allEnvironments.Environments, c.Environment)
-			err = state.DBHandler.DBWriteAllEnvironments(ctx, transaction, allEnvironments.Version, allEnvironments.Environments)
+			err = state.DBHandler.DBWriteAllEnvironments(ctx, transaction, allEnvironments.Environments)
 
 			if err != nil {
 				return "", fmt.Errorf("unable to write to all_environments table, error: %w", err)
