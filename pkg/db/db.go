@@ -684,7 +684,7 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-	insertQuery := h.AdaptQuery("INSERT INTO all_apps (Version , created , json)  VALUES (?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
@@ -791,7 +791,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
 	defer span.Finish()
-	query := "SELECT Version, created, json FROM all_apps ORDER BY Version DESC LIMIT 1;"
+	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
 	span.SetTag("query", query)
 	rows := transaction.QueryRowContext(ctx, query)
 	result := AllApplicationsRow{
@@ -1598,7 +1598,7 @@ func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun Ge
 
 func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (*AllEnvLocksGo, error) {
 	selectQuery := h.AdaptQuery(
-		"SELECT Version, created, environment, json FROM all_env_locks ORDER BY Version DESC LIMIT 1;")
+		"SELECT version, created, environment, json FROM all_env_locks ORDER BY version DESC LIMIT 1;")
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1876,7 +1876,7 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentLocks")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(
-		"SELECT Version, created, environment, json FROM all_env_locks WHERE environment = ? ORDER BY Version DESC LIMIT 1;")
+		"SELECT version, created, environment, json FROM all_env_locks WHERE environment = ? ORDER BY version DESC LIMIT 1;")
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment)
 	if err != nil {
@@ -2023,7 +2023,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-	insertQuery := h.AdaptQuery("INSERT INTO all_env_locks (Version , created, environment, json)  VALUES (?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO all_env_locks (version , created, environment, json)  VALUES (?, ?, ?, ?);")
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
@@ -2145,7 +2145,7 @@ func (h *DBHandler) DBWriteAllAppLocks(ctx context.Context, transaction *sql.Tx,
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-	insertQuery := h.AdaptQuery("INSERT INTO all_app_locks (Version , created, environment, appName, json)  VALUES (?, ?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO all_app_locks (version , created, environment, appName, json)  VALUES (?, ?, ?, ?, ?);")
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
@@ -2170,7 +2170,7 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocks")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(
-		"SELECT Version, created, environment, appName, json FROM all_app_locks WHERE environment = ? AND appName = ? ORDER BY Version DESC LIMIT 1;")
+		"SELECT version, created, environment, appName, json FROM all_app_locks WHERE environment = ? AND appName = ? ORDER BY version DESC LIMIT 1;")
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment, appName)
 	if err != nil {
@@ -2504,7 +2504,7 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 
 func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*AllAppLocksGo, error) {
 	selectQuery := h.AdaptQuery(
-		"SELECT Version, created, environment, appName, json FROM all_app_locks ORDER BY Version DESC LIMIT 1;")
+		"SELECT version, created, environment, appName, json FROM all_app_locks ORDER BY version DESC LIMIT 1;")
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
