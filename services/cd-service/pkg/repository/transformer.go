@@ -195,13 +195,13 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	repo.(*repository).GaugeQueueSize(ctx)
 	for i := range envNames {
 		env := envNames[i]
-		GaugeEnvLockMetric(ctx, state, nil, env)
+		GaugeEnvLockMetric(ctx, state, transaction, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
 			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
 			sort.Slice(entries, sortFiles(entries))
 			for _, app := range entries {
-				GaugeEnvAppLockMetric(ctx, state, nil, env, app.Name())
+				GaugeEnvAppLockMetric(ctx, state, transaction, env, app.Name())
 
 				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
 				if err != nil {
