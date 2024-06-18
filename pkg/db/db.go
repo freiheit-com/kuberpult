@@ -3147,14 +3147,14 @@ func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx
 	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectQueuedDeploymentHistory(ctx context.Context, tx *sql.Tx, environmentName, appName string, limit int) ([]QueuedDeployment, error) {
+func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sql.Tx, environmentName, appName string, limit int) ([]QueuedDeployment, error) {
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBSelectQueuedDeploymentHistory: no transaction provided")
+		return nil, fmt.Errorf("DBSelectDeploymentAttemptHistory: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectQueuedDeploymentHistory")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentAttemptHistory")
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery(

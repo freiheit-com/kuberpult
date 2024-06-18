@@ -838,7 +838,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				if err2 != nil {
 					t.Fatalf("expected no error, got %v", err2)
 				}
-				result, err2 := state.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, envProduction, "test", 10)
+				result, err2 := state.DBHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envProduction, "test", 10)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
@@ -902,7 +902,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				result, err2 := state.DBHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, envProduction, "test", 10)
+				result, err2 := state.DBHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envProduction, "test", 10)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}

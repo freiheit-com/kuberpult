@@ -925,7 +925,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 					}
 				}
 
-				actual, err := dbHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, envName, appName, 10)
+				actual, err := dbHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envName, appName, 10)
 				if err != nil {
 					return err
 				}
@@ -990,7 +990,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				actual, err := dbHandler.DBSelectQueuedDeploymentHistory(ctx, transaction, tc.Env, tc.AppName, len(tc.ExpectedDeployments))
+				actual, err := dbHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, tc.Env, tc.AppName, len(tc.ExpectedDeployments))
 				if err != nil {
 					return err
 				}
