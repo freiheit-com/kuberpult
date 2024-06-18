@@ -122,25 +122,25 @@ func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
 	return fs.Join(commitDirectory(fs, commit), "events", eventId)
 }
 
-func (s *State) GetEnvironmentLocksCount(ctx context.Context, env string) (float64, error) {
-	locks, err := s.GetEnvironmentLocks(ctx, env)
+func (s *State) GetEnvironmentLocksCount(ctx context.Context, transaction *sql.Tx, env string) (float64, error) {
+	locks, err := s.GetEnvironmentLocks(ctx, transaction, env)
 	if err != nil {
 		return -1, err
 	}
 	return float64(len(locks)), nil
 }
 
-func (s *State) GetEnvironmentApplicationLocksCount(ctx context.Context, environment, application string) (float64, error) {
-	locks, err := s.GetEnvironmentApplicationLocks(ctx, environment, application)
+func (s *State) GetEnvironmentApplicationLocksCount(ctx context.Context, transaction *sql.Tx, environment, application string) (float64, error) {
+	locks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, environment, application)
 	if err != nil {
 		return -1, err
 	}
 	return float64(len(locks)), nil
 }
 
-func GaugeEnvLockMetric(ctx context.Context, s *State, env string) {
+func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env string) {
 	if ddMetrics != nil {
-		count, err := s.GetEnvironmentLocksCount(ctx, env)
+		count, err := s.GetEnvironmentLocksCount(ctx, transaction, env)
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
@@ -150,9 +150,9 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, env string) {
 		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1) //nolint: errcheck
 	}
 }
-func GaugeEnvAppLockMetric(ctx context.Context, s *State, env, app string) {
+func GaugeEnvAppLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env, app string) {
 	if ddMetrics != nil {
-		count, err := s.GetEnvironmentApplicationLocksCount(ctx, env, app)
+		count, err := s.GetEnvironmentApplicationLocksCount(ctx, transaction, env, app)
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
@@ -196,13 +196,13 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	repo.(*repository).GaugeQueueSize(ctx)
 	for i := range envNames {
 		env := envNames[i]
-		GaugeEnvLockMetric(ctx, state, env)
+		GaugeEnvLockMetric(ctx, state, nil, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
 			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
 			sort.Slice(entries, sortFiles(entries))
 			for _, app := range entries {
-				GaugeEnvAppLockMetric(ctx, state, env, app.Name())
+				GaugeEnvAppLockMetric(ctx, state, nil, env, app.Name())
 
 				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
 				if err != nil {
@@ -1594,7 +1594,7 @@ func (c *CreateEnvironmentLock) Transform(
 			return "", err
 		}
 	}
-	GaugeEnvLockMetric(ctx, state, c.Environment)
+	GaugeEnvLockMetric(ctx, state, transaction, c.Environment)
 	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 }
 
@@ -1717,7 +1717,7 @@ func (c *DeleteEnvironmentLock) Transform(
 			additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
 		}
 	}
-	GaugeEnvLockMetric(ctx, state, c.Environment)
+	GaugeEnvLockMetric(ctx, state, transaction, c.Environment)
 	return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), nil
 }
 
@@ -1879,7 +1879,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		}
 
 	}
-	GaugeEnvAppLockMetric(ctx, state, c.Environment, c.Application)
+	GaugeEnvAppLockMetric(ctx, state, transaction, c.Environment, c.Application)
 	// locks are invisible to argoCd, so no changes here
 	return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
 }
@@ -1947,7 +1947,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 			return "", err
 		}
 
-		GaugeEnvAppLockMetric(ctx, state, c.Environment, c.Application)
+		GaugeEnvAppLockMetric(ctx, state, transaction, c.Environment, c.Application)
 	}
 
 	return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
@@ -2313,11 +2313,11 @@ func (c *DeployApplicationVersion) Transform(
 			envLocks, appLocks, teamLocks map[string]Lock
 			err                           error
 		)
-		envLocks, err = state.GetEnvironmentLocks(ctx, c.Environment)
+		envLocks, err = state.GetEnvironmentLocks(ctx, transaction, c.Environment)
 		if err != nil {
 			return "", err
 		}
-		appLocks, err = state.GetEnvironmentApplicationLocks(ctx, c.Environment, c.Application)
+		appLocks, err = state.GetEnvironmentApplicationLocks(ctx, transaction, c.Environment, c.Application)
 		if err != nil {
 			return "", err
 		}
@@ -2987,7 +2987,7 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 
-	envLocks, err := state.GetEnvironmentLocks(ctx, c.Env)
+	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:        nil,
@@ -3115,7 +3115,7 @@ func (c *envReleaseTrain) prognosis(
 			continue
 		}
 
-		appLocks, err := state.GetEnvironmentApplicationLocks(ctx, c.Env, appName)
+		appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, c.Env, appName)
 
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
