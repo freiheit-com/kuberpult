@@ -2283,9 +2283,7 @@ func (c *DeployApplicationVersion) Transform(
 			envLocks, appLocks, teamLocks map[string]Lock
 			err                           error
 		)
-
 		envLocks, err = state.GetEnvironmentLocks(ctx, transaction, c.Environment)
-
 		if err != nil {
 			return "", err
 		}
