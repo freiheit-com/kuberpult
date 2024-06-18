@@ -137,7 +137,7 @@ func (o *OverviewServiceServer) getOverview(
 				Applications: map[string]*api.Environment_Application{},
 			}
 			envInGroup.Config = env.Config
-			if locks, err := s.GetEnvironmentLocks(ctx, envName); err != nil {
+			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
 				return nil, err
 			} else {
 				for lockId, lock := range locks {
@@ -222,7 +222,7 @@ func (o *OverviewServiceServer) getOverview(
 						}
 					}
 
-					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, envName, appName); err != nil {
+					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
 						return nil, err
 					} else {
 						for lockId, lock := range appLocks {

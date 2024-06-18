@@ -1597,18 +1597,19 @@ func (s *State) GetTeamLocksDir(environment string, team string) string {
 	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
 }
 
-func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment string) (map[string]Lock, error) {
-	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.EnvironmentLock, error) {
-		locks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
-		if err != nil {
-			return nil, err
-		}
-		var lockIds []string
-		if locks != nil {
-			lockIds = locks.EnvLocks
-		}
-		return s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
-	})
+func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentLocksFromDB: No transaction provided")
+	}
+	allActiveLockIds, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
+	if err != nil {
+		return nil, err
+	}
+	var lockIds []string
+	if allActiveLockIds != nil {
+		lockIds = allActiveLockIds.EnvLocks
+	}
+	locks, err := s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
 
 	if err != nil {
 		return nil, err
@@ -1628,9 +1629,9 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, environment strin
 	return result, nil
 }
 
-func (s *State) GetEnvironmentLocks(ctx context.Context, environment string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentLocks(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentLocksFromDB(ctx, environment)
+		return s.GetEnvironmentLocksFromDB(ctx, transaction, environment)
 	}
 	return s.GetEnvironmentLocksFromManifest(environment)
 }
@@ -1655,25 +1656,26 @@ func (s *State) GetEnvironmentLocksFromManifest(environment string) (map[string]
 	}
 }
 
-func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, environment, application string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentApplicationLocksFromDB(ctx, environment, application)
+		return s.GetEnvironmentApplicationLocksFromDB(ctx, transaction, environment, application)
 	}
 	return s.GetEnvironmentApplicationLocksFromManifest(environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, environment, application string) (map[string]Lock, error) {
-	locks, err := db.WithTransactionMultipleEntriesT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]db.ApplicationLock, error) {
-		locks, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
-		if err != nil {
-			return nil, err
-		}
-		var lockIds []string
-		if locks != nil {
-			lockIds = locks.AppLocks
-		}
-		return s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
-	})
+func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentApplicationLocksFromDB: No transaction provided")
+	}
+	activeLockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
+	if err != nil {
+		return nil, err
+	}
+	var lockIds []string
+	if activeLockIds != nil {
+		lockIds = activeLockIds.AppLocks
+	}
+	locks, err := s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
 
 	if err != nil {
 		return nil, err

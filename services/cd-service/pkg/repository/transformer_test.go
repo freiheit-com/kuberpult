@@ -4852,7 +4852,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				ctx := testutil.MakeTestContext()
-				locks, err := s.GetEnvironmentLocks(ctx, "production")
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4891,7 +4891,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				ctx := testutil.MakeTestContext()
-				locks, err := s.GetEnvironmentApplicationLocks(ctx, "production", "test")
+				locks, err := s.GetEnvironmentApplicationLocks(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4967,7 +4967,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				ctx := testutil.MakeTestContext()
-				locks, err := s.GetEnvironmentLocks(ctx, "production")
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5002,7 +5002,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				ctx := testutil.MakeTestContext()
-				locks, err := s.GetEnvironmentLocks(ctx, "production")
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -6124,22 +6124,17 @@ spec:
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
-			repo, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                  remoteDir,
-					Path:                 localDir,
-					CommitterEmail:       "kuberpult@freiheit.com",
-					CommitterName:        "kuberpult",
-					BootstrapMode:        tc.BootstrapMode,
-					ArgoCdGenerateFiles:  true,
-					ReleaseVersionsLimit: tc.ReleaseVersionsLimit,
-				},
-			)
-			if err != nil {
-				t.Fatal(err)
+			cfg := RepositoryConfig{
+				URL:                  remoteDir,
+				Path:                 localDir,
+				CommitterEmail:       "kuberpult@freiheit.com",
+				CommitterName:        "kuberpult",
+				BootstrapMode:        tc.BootstrapMode,
+				ArgoCdGenerateFiles:  true,
+				ReleaseVersionsLimit: tc.ReleaseVersionsLimit,
 			}
-
+			repo := SetupRepositoryTestWithoutDB(t, &cfg)
+			var err error
 			for i, tf := range tc.Transformers {
 				ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 				err = repo.Apply(ctxWithTime, tf)
@@ -6367,6 +6362,40 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repositor
 	repo, err := New(
 		testutil.MakeTestContext(),
 		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo
+}
+func SetupRepositoryTestWithoutDB(t *testing.T, repositoryConfig *RepositoryConfig) Repository {
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err := cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil
+	}
+	t.Logf("test created dir: %s", localDir)
+
+	repositoryConfig.URL = remoteDir
+	repositoryConfig.Path = localDir
+	repositoryConfig.CommitterName = "kuberpult"
+	repositoryConfig.CommitterEmail = "kuberpult@freiheit.com"
+	repositoryConfig.EnvironmentConfigsPath = filepath.Join(remoteDir, "..", "environment_configs.json")
+	repositoryConfig.ArgoCdGenerateFiles = true
+	repositoryConfig.DBHandler = nil
+
+	repo, err := New(
+		testutil.MakeTestContext(),
+		*repositoryConfig,
 	)
 	if err != nil {
 		t.Fatal(err)
