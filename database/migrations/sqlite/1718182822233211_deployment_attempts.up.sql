@@ -4,6 +4,6 @@ CREATE TABLE IF NOT EXISTS deployment_attempts
     created TIMESTAMP,
     envName VARCHAR,
     appName VARCHAR,
-    queuedVersion BIGINT NULL,
+    queuedReleaseVersion BIGINT NULL,
     PRIMARY KEY(eslVersion, appName, envName)
 );

@@ -1505,7 +1505,7 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Context, getAllQueuedVersionsFun GetAllQueuedVersionsFun) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
-		allTeamLocksDb, err := h.DBSelectAnyQueuedVersion(ctx, transaction)
+		allTeamLocksDb, err := h.DBSelectAnyDeploymentAttempt(ctx, transaction)
 		if err != nil {
 			l.Infof("could not get queued deployments friom database - assuming the manifest repo is correct: %v", err)
 			allTeamLocksDb = nil
@@ -3127,18 +3127,18 @@ type QueuedDeployment struct {
 	Version    *int64
 }
 
-func (h *DBHandler) DBSelectAnyQueuedVersion(ctx context.Context, tx *sql.Tx) (*QueuedDeployment, error) {
+func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx) (*QueuedDeployment, error) {
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBSelectAnyQueuedVersion: no transaction provided")
+		return nil, fmt.Errorf("DBSelectAnyDeploymentAttempt: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyQueuedVersion")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyDeploymentAttempt")
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, envName, appName, queuedVersion FROM deployment_attempts ORDER BY eslVersion DESC LIMIT 1;")
+		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts ORDER BY eslVersion DESC LIMIT 1;")
 
 	span.SetTag("query", insertQuery)
 	rows, err := tx.QueryContext(
@@ -3158,7 +3158,7 @@ func (h *DBHandler) DBSelectQueuedDeploymentHistory(ctx context.Context, tx *sql
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, envName, appName, queuedVersion FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT ?;")
+		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT ?;")
 
 	span.SetTag("query", insertQuery)
 	rows, err := tx.QueryContext(
@@ -3209,7 +3209,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, envName, appName, queuedVersion FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT 1;")
+		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT 1;")
 
 	span.SetTag("query", insertQuery)
 	rows, err := tx.QueryContext(
@@ -3282,7 +3282,7 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	nullVersion := NewNullInt(deployment.Version)
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO deployment_attempts (eslVersion, created, envName, appName, queuedVersion) VALUES (?, ?, ?, ?, ?);")
+		"INSERT INTO deployment_attempts (eslVersion, created, envName, appName, queuedReleaseVersion) VALUES (?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
@@ -3321,7 +3321,7 @@ func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.
 	if err != nil {
 		return nil, err
 	}
-	return row, nil // no rows, but also no error
+	return row, nil
 }
 
 // processSingleDeploymentAttemptsRow only processes the row. It assumes that there is an element ready to be processed in rows.

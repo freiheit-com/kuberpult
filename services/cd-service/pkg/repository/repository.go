@@ -1872,13 +1872,15 @@ func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx,
 		return nil, err
 	}
 
-	var v uint64
+	var v *uint64
 	if queuedDeployment.Version != nil {
-		v = uint64(*queuedDeployment.Version)
+		var parsedInt uint64
+		parsedInt = uint64(*queuedDeployment.Version)
+		v = &parsedInt
 	} else {
-		return nil, nil
+		v = nil
 	}
-	return &v, nil
+	return v, nil
 }
 
 func (s *State) GetQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
