@@ -1127,6 +1127,21 @@ func TestReadWriteEnvironment(t *testing.T) {
 				Config: testutil.MakeEnvConfigUpstream("development", nil),
 			},
 		},
+		{
+			Name: "don't write any environments and query something",
+			EnvToQuery: "development",
+			ExpectedEntry: nil,
+		},
+		{
+			Name: "write some environment, query something else",
+			EnvsToWrite: []EnvAndConfig{
+				EnvAndConfig{
+					EnvironmentName: "staging",
+					EnvironmentConfig: testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			EnvToQuery: "development",
+		},
 	}
 	for _, tc := range testCases {
 		tc := tc
