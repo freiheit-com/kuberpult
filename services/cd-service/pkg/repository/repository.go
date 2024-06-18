@@ -25,8 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/conversion"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"io"
 	"net/http"
 	"os"
@@ -38,6 +36,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
@@ -332,7 +333,11 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 			}
 			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
 		} else {
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagRef.Id().String()})
+			commit, err := tagRef.Target().AsCommit()
+			if err != nil {
+				return nil, fmt.Errorf("unable to lookup tag [%s]: %v", tagObject.Name(), err)
+			}
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: commit.Id().String()})
 		}
 	}
 
