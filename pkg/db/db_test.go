@@ -1019,6 +1019,11 @@ func TestDeleteTeamLock(t *testing.T) {
 	}
 }
 
+
+func TestReadWriteEnvironment(t *testing.T) {
+	
+}
+
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
 	dir, err := testutil.CreateMigrationsPath(2)
