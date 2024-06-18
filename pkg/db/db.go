@@ -3295,8 +3295,6 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironments")
 	defer span.Finish()
 
-	slices.Sort(environmentNames)
-
 	jsonToInsert, err := json.Marshal(environmentNames)
 	if err != nil {
 		return fmt.Errorf("could not marshal the environment names list %v, error: %w", environmentNames, err)

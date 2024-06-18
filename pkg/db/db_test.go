@@ -1032,7 +1032,6 @@ func TestReadWriteEnvironment(t *testing.T) {
 		EnvsToWrite   []EnvAndConfig
 		EnvToQuery    string
 		ExpectedEntry *DBEnvironment
-		ExepctedEror  error
 	}
 
 	testCases := []TestCase{
@@ -1175,6 +1174,74 @@ func TestReadWriteEnvironment(t *testing.T) {
 			}
 			if diff := cmp.Diff(envEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(DBEnvironment{}, "Created")); diff != "" {
 				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, envEntry, diff)
+			}
+		})
+	}
+}
+
+func TestReadWriteAllEnvironments(t *testing.T) {
+	type TestCase struct {
+		Name          string
+		AllEnvsToWrite   [][]string
+		ExpectedEntry *DBAllEnvironments
+	}
+	testCases := []TestCase {
+		{
+			Name: "create entry with one environment entry only",
+			AllEnvsToWrite: [][]string{
+				{"development"},
+			},
+			ExpectedEntry: &DBAllEnvironments{
+				Version: 1,
+				Environments: []string{"development"},
+			},
+		},
+		{
+			Name: "create entries with increasing length",
+			AllEnvsToWrite: [][]string{
+				{"development"},
+				{"development", "staging"},
+				{"development", "staging", "production"},
+			},
+			ExpectedEntry: &DBAllEnvironments{
+				Version: 3,
+				Environments: []string{"development", "staging", "production"},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			for _, allEnvs := range tc.AllEnvsToWrite {
+				err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+					err := dbHandler.DBWriteAllEnvironments(ctx, transaction, allEnvs)
+					if err != nil {
+						return fmt.Errorf("error while writing environment, error: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("error while running the transaction for writing all environments %v to the database, error: %v", allEnvs, err)
+				}
+			}
+
+			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+				allEnvsEntry, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
+				if err != nil {
+					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
+				}
+				return allEnvsEntry, nil
+			})
+			
+			if err != nil {
+				t.Fatalf("error while running the transaction for selecting the target all environment, error: %v", err)
+			}
+			if diff := cmp.Diff(allEnvsEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(DBAllEnvironments{}, "Created")); diff != "" {
+				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, allEnvsEntry, diff)
 			}
 		})
 	}
