@@ -27,6 +27,7 @@ import (
 	"os"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
@@ -101,6 +102,15 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
+	if err != nil {
+		enableMetricsString = "false"
+	}
+	enableMetrics := enableMetricsString == "true"
+	DatatDogStatsAddr, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
+	if err != nil {
+		DatatDogStatsAddr = "127.0.0.1:8125"
+	}
 
 	var eslProcessingBackoff uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
@@ -150,6 +160,14 @@ func Run(ctx context.Context) error {
 	dbHandler, err := db.Connect(dbCfg)
 	if err != nil {
 		return err
+	}
+	var ddMetrics statsd.ClientInterface;
+	if enableMetrics {
+		ddMetrics, err = statsd.New(DatatDogStatsAddr, statsd.WithNamespace("Kuberpult"))
+		if err != nil {
+			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
+		}
+		ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
 	}
 
 	cfg := repository.RepositoryConfig{
@@ -216,7 +234,15 @@ func Run(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("error in DBWriteCutoff %v", err)
 			}
-
+			if ddMetrics != nil {
+				processDelay, err := calculateProcessDelay(ctx, transaction, dbHandler)
+				if err != nil {
+					log.Warn("error in calculateProcessDelay %v", err)
+				}
+				if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
+					log.Warn("error in ddMetrics.Gauge %v", err)
+				}
+			}
 			return nil
 		})
 		if err != nil {
@@ -228,6 +254,18 @@ func Run(ctx context.Context) error {
 			time.Sleep(d)
 		}
 	}
+}
+
+func calculateProcessDelay(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) (float64, error) {
+	lastEslToProcess, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
+	if err != nil {
+		return 0, err
+	}
+	if lastEslToProcess == nil {
+		return 0, nil
+	}
+	diff := time.Now().Sub(lastEslToProcess.Created).Seconds()
+	return diff, nil
 }
 
 func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log *zap.SugaredLogger, dbHandler *db.DBHandler) (*db.EslEventRow, error) {
