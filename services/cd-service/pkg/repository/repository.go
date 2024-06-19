@@ -2362,7 +2362,7 @@ func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersio
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
 	defer ddSpan.Finish()
 	result := make(db.AllQueuedVersions)
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSorted(ctx)
 
 	if err != nil {
 		return nil, err
