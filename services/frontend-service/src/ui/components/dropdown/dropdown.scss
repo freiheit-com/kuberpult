@@ -52,6 +52,7 @@ div.mdc-select {
     position: absolute;
     transform: none;
     padding-top: 10px;
+    background-color: var(--mdc-theme-background);
 }
 
 .dropdown-arrow-container {
@@ -70,4 +71,5 @@ div.mdc-select {
     border-radius: $border-radius-small;
     border: 1px solid blue;
     padding-left: 1em;
+    background-color: var(--mdc-theme-background);
 }
