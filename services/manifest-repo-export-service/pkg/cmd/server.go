@@ -310,8 +310,8 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 		//exhaustruct:ignore
 		return &repository.CreateApplicationVersion{}, nil
 	case db.EvtReleaseTrain:
-		//exhaustruct:ignore
 		logger.FromContext(ctx).Sugar().Warn("Release train event found. No action will be taken and event will be skipped.")
+		//exhaustruct:ignore
 		return &repository.ReleaseTrain{}, nil
 	default:
 		logger.FromContext(ctx).Sugar().Warnf("Found an unknown event %s. No further events will be processed.", eslEventType)
