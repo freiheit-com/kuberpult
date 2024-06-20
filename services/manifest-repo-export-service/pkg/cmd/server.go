@@ -104,12 +104,12 @@ func Run(ctx context.Context) error {
 	}
 	enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
 	if err != nil {
-		enableMetricsString = "false"
+		return err
 	}
 	enableMetrics := enableMetricsString == "true"
 	DatatDogStatsAddr, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
 	if err != nil {
-		DatatDogStatsAddr = "127.0.0.1:8125"
+		return err
 	}
 
 	var eslProcessingBackoff uint64
@@ -218,10 +218,10 @@ func Run(ctx context.Context) error {
 			if ddMetrics != nil {
 				processDelay, err := calculateProcessDelay(ctx, esl, time.Now())
 				if err != nil {
-					log.Warn("error in calculateProcessDelay %v", err)
+					log.Error("Error in calculateProcessDelay %v", err)
 				}
 				if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
-					log.Warn("error in ddMetrics.Gauge %v", err)
+					log.Error("Error in ddMetrics.Gauge %v", err)
 				}
 			}
 			if esl == nil {
