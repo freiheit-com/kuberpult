@@ -12,19 +12,17 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package service
 
 import (
 	"fmt"
-	"sort"
-	"testing"
-	"time"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"sort"
+	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
@@ -33,8 +31,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -53,18 +51,18 @@ func TestGetProductOverview(t *testing.T) {
 		},
 		{
 			Name:        "get Product Overview with no commitHash",
-			givenEnv:    ptr.FromString("testing"),
+			givenEnv:    conversion.FromString("testing"),
 			expectedErr: fmt.Errorf("Must have a commit to get the product summary for"),
 		},
 		{
 			Name:          "get Product Overview with both env and envGroup",
-			givenEnv:      ptr.FromString("testing"),
-			givenEnvGroup: ptr.FromString("testingGroup"),
+			givenEnv:      conversion.FromString("testing"),
+			givenEnvGroup: conversion.FromString("testingGroup"),
 			expectedErr:   fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for"),
 		},
 		{
 			Name:     "get Product Overview as expected with env",
-			givenEnv: ptr.FromString("development"),
+			givenEnv: conversion.FromString("development"),
 			Setup: []rp.Transformer{
 				&rp.CreateEnvironment{
 					Environment: "development",
@@ -73,7 +71,7 @@ func TestGetProductOverview(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: ptr.FromString("dev"),
+						EnvironmentGroup: conversion.FromString("dev"),
 					},
 				},
 				&rp.CreateApplicationVersion{
@@ -84,7 +82,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					Team:            "sre-team",
 					WriteCommitData: true,
@@ -99,7 +96,7 @@ func TestGetProductOverview(t *testing.T) {
 		},
 		{
 			Name:     "get Product Overview as expected with env but without team",
-			givenEnv: ptr.FromString("development"),
+			givenEnv: conversion.FromString("development"),
 			Setup: []rp.Transformer{
 				&rp.CreateEnvironment{
 					Environment: "development",
@@ -108,7 +105,7 @@ func TestGetProductOverview(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: ptr.FromString("dev"),
+						EnvironmentGroup: conversion.FromString("dev"),
 					},
 				},
 				&rp.CreateApplicationVersion{
@@ -119,7 +116,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					WriteCommitData: true,
 				},
@@ -133,7 +129,7 @@ func TestGetProductOverview(t *testing.T) {
 		},
 		{
 			Name:     "invalid environment used",
-			givenEnv: ptr.FromString("staging"),
+			givenEnv: conversion.FromString("staging"),
 			Setup: []rp.Transformer{
 				&rp.CreateEnvironment{
 					Environment: "development",
@@ -142,7 +138,7 @@ func TestGetProductOverview(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: ptr.FromString("dev"),
+						EnvironmentGroup: conversion.FromString("dev"),
 					},
 				},
 				&rp.CreateApplicationVersion{
@@ -153,7 +149,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					WriteCommitData: true,
 				},
@@ -167,7 +162,7 @@ func TestGetProductOverview(t *testing.T) {
 		},
 		{
 			Name:          "get Product Overview as expected with envGroup",
-			givenEnvGroup: ptr.FromString("dev"),
+			givenEnvGroup: conversion.FromString("dev"),
 			Setup: []rp.Transformer{
 				&rp.CreateEnvironment{
 					Environment: "development",
@@ -176,7 +171,7 @@ func TestGetProductOverview(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: ptr.FromString("dev"),
+						EnvironmentGroup: conversion.FromString("dev"),
 					},
 				},
 				&rp.CreateApplicationVersion{
@@ -187,7 +182,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					Team:            "sre-team",
 					WriteCommitData: true,
@@ -202,7 +196,7 @@ func TestGetProductOverview(t *testing.T) {
 		},
 		{
 			Name:          "invalid envGroup used",
-			givenEnvGroup: ptr.FromString("notDev"),
+			givenEnvGroup: conversion.FromString("notDev"),
 			Setup: []rp.Transformer{
 				&rp.CreateEnvironment{
 					Environment: "development",
@@ -211,7 +205,7 @@ func TestGetProductOverview(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: ptr.FromString("dev"),
+						EnvironmentGroup: conversion.FromString("dev"),
 					},
 				},
 				&rp.CreateApplicationVersion{
@@ -222,7 +216,6 @@ func TestGetProductOverview(t *testing.T) {
 					SourceAuthor:    "example <example@example.com>",
 					SourceCommitId:  "testing25",
 					SourceMessage:   "changed something (#678)",
-					SourceRepoUrl:   "testing@testing.com/abc",
 					DisplayVersion:  "v1.0.2",
 					WriteCommitData: true,
 				},
@@ -239,7 +232,7 @@ func TestGetProductOverview(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			repo, err := setupRepositoryTest(t)
+			repo, err := setupRepositoryTestWithoutDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -273,9 +266,6 @@ func TestGetProductOverview(t *testing.T) {
 	}
 }
 
-func fixedTime() time.Time {
-	return time.Unix(666, 0)
-}
 func TestGetCommitInfo(t *testing.T) {
 	environmentSetup := []rp.Transformer{
 		&rp.CreateEnvironment{
@@ -284,7 +274,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Upstream: &config.EnvironmentConfigUpstream{
 					Latest: true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -293,7 +283,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Upstream: &config.EnvironmentConfigUpstream{
 					Latest: true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -302,7 +292,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Upstream: &config.EnvironmentConfigUpstream{
 					Latest: true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 
@@ -312,7 +302,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Upstream: &config.EnvironmentConfigUpstream{
 					Environment: "development-1",
 				},
-				EnvironmentGroup: ptr.FromString("staging"),
+				EnvironmentGroup: conversion.FromString("staging"),
 			},
 		},
 	}
@@ -717,7 +707,7 @@ func TestGetCommitInfo(t *testing.T) {
 								TargetEnvironment: "staging-1",
 								ReleaseTrainSource: &api.DeploymentEvent_ReleaseTrainSource{
 									UpstreamEnvironment:    "development-1",
-									TargetEnvironmentGroup: ptr.FromString("staging"),
+									TargetEnvironmentGroup: conversion.FromString("staging"),
 								},
 							},
 						},
@@ -731,7 +721,8 @@ func TestGetCommitInfo(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			repo, err := setupRepositoryTest(t)
+			repo, err := setupRepositoryTestWithoutDB(t)
+
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -753,6 +744,7 @@ func TestGetCommitInfo(t *testing.T) {
 			config := rp.RepositoryConfig{
 				WriteCommitData:     tc.allowReadingCommitData,
 				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
 			}
 			sv := &GitServer{
 				OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown},

@@ -12,7 +12,7 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com
+# Copyright freiheit.com
 # Default values for ..
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -50,6 +50,11 @@ git:
 
   # If enabled, write data to the `/commit` directory in the manifest repo on every release.
   # Disabling this option does not delete the `/commit` directory.
+  # In order to make use of this feature, the commit hashes provided to kuberpult (via the /release endpoint)
+  # need to be the full 40 characters. For details see https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md
+  # Kuberpult will not break if you enable this flag and do not provide the 40 characters, but you won't be able to use this feature.
+  # Note that this features writes more files into the manifest repository. It is currently not recommended to be used on
+  # setups with a huge manifest repository.
   enableWritingCommitData: false
 
   # Kuberpult tries to reduce the number of pushes and can bundle concurrent commits into a single push.
@@ -57,6 +62,12 @@ git:
   # The correct number largely depends on the performance of the git host and repository size. For small to medium sized deployments the default is good.
   # We recommend values between 1 and 20.
   maximumCommitsPerPush: 5
+
+  # The maximum number of application release versions to keep a history of. The value must be within the limit: 5 <= n <= 30.
+  # Values outside of the range will fail the service during startup.
+  releaseVersionsLimit: 20
+  # garbageCollectionFrequency determines how often cd-service cleans up git objects. Set to 0 to turn it off.
+  garbageCollectionFrequency: 20
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
@@ -88,6 +99,11 @@ cd:
   db:
     location: "127.0.0.1"
     authProxyPort: 5432
+# As the Database feature is still work in progress, for now we recommend to set:
+# dbOption: "NO_DB"
+# Other valid values are "cloudsql" and "sqlite".
+# If you do want to try out the database, for now use
+# writeEslTableOnly: true
     dbOption: "NO_DB"
 # k8sName is required if `dbOption = "cloudsql"`, otherwise it's ignored.
 # k8sName is the name of the kubernetes service account.
@@ -97,6 +113,9 @@ cd:
     dbUser: "username"
     dbPassword: "password"
     migrations: /migrations
+    # If set to true, kuberpult will write only the ESL table.
+    # This is useful to already collect historical data in the database, while waiting for the full database implementation.
+    writeEslTableOnly: false
     requests:
       cpu: "100m"
       memory: "200Mi"
@@ -113,6 +132,16 @@ cd:
       timeoutSeconds: 5
       failureThreshold: 10
       initialDelaySeconds: 5
+manifestRepoExport:
+  image: kuberpult-manifest-repo-export-service
+  resources:
+    limits:
+      cpu: 2
+      memory: 3Gi
+    requests:
+      cpu: 2
+      memory: 3Gi
+  eslProcessingBackoff: 5
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.
@@ -132,6 +161,8 @@ frontend:
   batchClient:
     # This value needs to be higher than the network timeout for git
     timeout: 2m
+  # The maximum message size in mega bytes the client can receive.
+  grpcMaxRecvMsgSize: 4
 rollout:
   enabled: false
   image: kuberpult-rollout-service
@@ -142,6 +173,8 @@ rollout:
     requests:
       cpu: 500m
       memory: 250Mi
+  # The maximum message size in mega bytes the client can receive.
+  grpcMaxRecvMsgSize: 4
   # annotations given here will take precedence over the defaults defined in _helpers.tpl
   podAnnotations: {}
 
@@ -161,9 +194,7 @@ ingress:
     secretName: kuberpult-tls-secret
 ssh:
   # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
-  identity: |
-    -----BEGIN OPENSSH PRIVATE KEY-----
-    -----END OPENSSH PRIVATE KEY-----
+  identity: "some SSH key"  # This value must be the complete OpenSSH private key file content (i.e. starts with "-----BEGIN OPENSSH PRIVATE KEY-----")
   known_hosts: |
     github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
 pgp:
@@ -273,6 +304,12 @@ auth:
     enabled: false
     # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
     installDex: false
+    # If kuberpult cannot find a role in the dex response, it will use the role "default".
+    # This is only recommended for when you want the simplest possible setup, or for testing purposes.
+    defaultRoleEnabled: false
+    # If using e.g. GCP IAP cluster internal communication to Dex is necessary as otherwise its endpoints cannot be accessed by the frontend service
+    # If enabled, kuberpult communicates with dex over http, not https
+    useClusterInternalCommunicationToDex: false
     # Defines the rbac policy when using Dex.
     # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
     #

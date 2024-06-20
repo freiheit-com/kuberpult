@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { act, render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
@@ -494,6 +494,30 @@ describe('Action details', () => {
                 application: 'bar',
                 lockId: 'ui-v2-1337',
                 lockMessage: 'bar',
+            },
+        },
+        {
+            name: 'test createEnvironmentTeamLock action',
+            action: {
+                action: {
+                    $case: 'createEnvironmentTeamLock',
+                    createEnvironmentTeamLock: {
+                        environment: 'foo',
+                        team: 'sre-team',
+                        lockId: 'ui-v2-1339',
+                        message: 'bar',
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.CreateEnvironmentTeamLock,
+                name: 'Create Team Lock',
+                dialogTitle: 'Are you sure you want to add this team lock?',
+                summary: 'Create new team lock for "sre-team" on foo',
+                tooltip:
+                    'A team lock will prevent automated process from changing the deployed version - note that kuberpult users can still deploy despite locks.',
+                environment: 'foo',
+                team: 'sre-team',
             },
         },
         {

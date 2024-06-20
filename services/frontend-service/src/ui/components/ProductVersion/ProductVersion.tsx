@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import './ProductVersion.scss';
 import * as React from 'react';
 import {
@@ -28,9 +28,9 @@ import { Spinner } from '../Spinner/Spinner';
 import { EnvironmentGroup, GetProductSummaryResponse, ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
-import { EnvSelectionDialog } from '../ServiceLane/EnvSelectionDialog';
 import { useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
+import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 
 export type TableProps = {
     productSummary: ProductSummary[];

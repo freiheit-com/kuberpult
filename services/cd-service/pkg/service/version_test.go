@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package service
 
@@ -20,10 +20,11 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/time"
 	"testing"
-	"time"
+	gotime "time"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
@@ -31,7 +32,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -40,7 +41,7 @@ func TestVersion(t *testing.T) {
 		Environment            string
 		Application            string
 		ExpectedVersion        uint64
-		ExpectedDeployedAt     time.Time
+		ExpectedDeployedAt     gotime.Time
 		ExpectedSourceCommitId string
 	}
 	tcs := []struct {
@@ -80,7 +81,7 @@ func TestVersion(t *testing.T) {
 					Environment:        "development",
 					Application:        "test",
 					ExpectedVersion:    1,
-					ExpectedDeployedAt: time.Unix(2, 0),
+					ExpectedDeployedAt: gotime.Unix(2, 0),
 				},
 				{
 					Environment:     "staging",
@@ -122,7 +123,7 @@ func TestVersion(t *testing.T) {
 					Environment:            "development",
 					Application:            "test",
 					ExpectedVersion:        1,
-					ExpectedDeployedAt:     time.Unix(2, 0),
+					ExpectedDeployedAt:     gotime.Unix(2, 0),
 					ExpectedSourceCommitId: "deadbeef",
 				},
 			},
@@ -138,8 +139,8 @@ func TestVersion(t *testing.T) {
 			sv := &VersionServiceServer{Repository: repo}
 
 			for i, transformer := range tc.Setup {
-				now := time.Unix(int64(i), 0)
-				ctx := repository.WithTimeNow(testutil.MakeTestContext(), now)
+				now := gotime.Unix(int64(i), 0)
+				ctx := time.WithTimeNow(testutil.MakeTestContext(), now)
 				err := repo.Apply(ctx, transformer)
 				if err != nil {
 					t.Fatal(err)
@@ -326,8 +327,8 @@ func TestGetManifests(t *testing.T) {
 			sv := &VersionServiceServer{Repository: repo}
 
 			for i, transformer := range tc.setup {
-				now := time.Unix(int64(i), 0)
-				ctx := repository.WithTimeNow(testutil.MakeTestContext(), now)
+				now := gotime.Unix(int64(i), 0)
+				ctx := time.WithTimeNow(testutil.MakeTestContext(), now)
 				err := repo.Apply(ctx, transformer)
 				if err != nil {
 					t.Fatal(err)

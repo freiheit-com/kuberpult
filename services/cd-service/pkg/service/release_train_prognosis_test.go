@@ -12,23 +12,23 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package service
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -41,7 +41,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "",
 					Latest:      true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -51,7 +51,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "",
 					Latest:      true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -61,7 +61,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "",
 					Latest:      true,
 				},
-				EnvironmentGroup: ptr.FromString("development"),
+				EnvironmentGroup: conversion.FromString("development"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -71,7 +71,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "development-1",
 					Latest:      false,
 				},
-				EnvironmentGroup: ptr.FromString("staging"),
+				EnvironmentGroup: conversion.FromString("staging"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -81,7 +81,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "development-1", // CAREFUL, downstream from development-1, not development-2
 					Latest:      false,
 				},
-				EnvironmentGroup: ptr.FromString("staging"),
+				EnvironmentGroup: conversion.FromString("staging"),
 			},
 		},
 		&rp.CreateEnvironment{
@@ -91,7 +91,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					Environment: "development-3",
 					Latest:      false,
 				},
-				EnvironmentGroup: ptr.FromString("staging"),
+				EnvironmentGroup: conversion.FromString("staging"),
 			},
 		},
 	}
@@ -224,7 +224,83 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			},
 			ExpectedError: codes.OK,
 		},
-
+		{
+			Name: "some application is skipped because of team lock",
+			Setup: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[string]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+					Team: "sre-team",
+				},
+				&rp.CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[string]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+					Team: "sre-team",
+				},
+				&rp.DeployApplicationVersion{
+					Environment: "development-1",
+					Application: "potato-app",
+					Version:     2,
+				},
+				&rp.DeployApplicationVersion{
+					Environment: "staging-1",
+					Application: "potato-app",
+					Version:     1,
+				},
+				&rp.CreateEnvironmentTeamLock{
+					Environment: "staging-1",
+					Team:        "sre-team",
+					LockId:      "staging-1-sre-team-lock",
+				},
+			},
+			Request: &api.ReleaseTrainRequest{
+				Target: "staging",
+			},
+			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"staging-1": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"potato-app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
+										},
+									},
+								},
+							},
+						},
+					},
+					"staging-2": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"potato-app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+										},
+									},
+								},
+							},
+						},
+					},
+					"staging-3": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{},
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: codes.OK,
+		},
 		{
 			Name: "proper release train",
 			Setup: []rp.Transformer{

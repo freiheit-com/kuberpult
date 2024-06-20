@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package service
 
@@ -26,7 +26,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -218,6 +218,7 @@ func (d *BatchServer) processAction(
 			LockBehaviour:   b,
 			WriteCommitData: d.Config.WriteCommitData,
 			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
+			Author:          "",
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
@@ -256,9 +257,7 @@ func (d *BatchServer) processAction(
 				SourceCommitId:  in.SourceCommitId,
 				SourceAuthor:    in.SourceAuthor,
 				SourceMessage:   in.SourceMessage,
-				SourceRepoUrl:   in.SourceRepoUrl,
 				PreviousCommit:  in.PreviousCommitId,
-				NextCommit:      in.NextCommitId,
 				Team:            in.Team,
 				DisplayVersion:  in.DisplayVersion,
 				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
@@ -370,6 +369,11 @@ func (d *BatchServer) ProcessBatch(
 		case *repository.TeamNotFoundErr:
 			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", applyErr.TransformerError.Error()))
 		default:
+			tmp, ok := status.FromError(applyErr.TransformerError)
+			if tmp != nil && ok {
+				// in order to pass the right status code, we need to return the inner error:
+				return nil, applyErr.TransformerError
+			}
 			return nil, err
 		}
 	}

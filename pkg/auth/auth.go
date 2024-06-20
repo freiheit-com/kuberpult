@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package auth
 
@@ -86,7 +86,8 @@ type GrpcContextReader interface {
 }
 
 type DexGrpcContextReader struct {
-	DexEnabled bool
+	DexEnabled            bool
+	DexDefaultRoleEnabled bool
 }
 
 type DummyGrpcContextReader struct {
@@ -143,18 +144,36 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	// RBAC Role of the user. only mandatory if DEX is enabled.
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
+
 		if len(rolesInHeader) == 0 {
-			return nil, grpc.AuthError(ctx, fmt.Errorf("extract: role undefined but dex is enabled"))
+			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
+
 		userRole, err := Decode64(rolesInHeader[0])
+
 		if err != nil {
 			return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-role in grpc context %s", userRole))
+		}
+
+		if userRole == "" {
+			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
 		u.DexAuthContext = &DexAuthContext{
 			Role: userRole,
 		}
 	}
 	return u, nil
+}
+
+func useDexDefaultRole(ctx context.Context, dexDefaultRoleEnabled bool, u *User) (*User, error) {
+	if dexDefaultRoleEnabled {
+		u.DexAuthContext = &DexAuthContext{
+			Role: "default",
+		}
+		logger.FromContext(ctx).Warn("role undefined but dex is enabled. Default user role enabled. Proceeding with default role.")
+		return u, nil
+	}
+	return nil, grpc.AuthError(ctx, fmt.Errorf("extract: role undefined but dex is enabled"))
 }
 
 // ReadUserFromHttpHeader should only be used in the cd-service.

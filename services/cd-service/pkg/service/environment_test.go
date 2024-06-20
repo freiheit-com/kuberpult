@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package service
 
@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -43,9 +43,9 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 					Destination: config.ArgoCdDestination{
 						Name:                 "destination",
 						Server:               "destinationServer",
-						Namespace:            ptr.FromString("destinationNamespace"),
-						AppProjectNamespace:  ptr.FromString("destinationAppProjectNamespace"),
-						ApplicationNamespace: ptr.FromString("destinationApplicationNamespace"),
+						Namespace:            conversion.FromString("destinationNamespace"),
+						AppProjectNamespace:  conversion.FromString("destinationAppProjectNamespace"),
+						ApplicationNamespace: conversion.FromString("destinationApplicationNamespace"),
 					},
 					SyncWindows: []config.ArgoCdSyncWindow{
 						{
@@ -92,8 +92,8 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 			},
 			expectedApiConfig: api.EnvironmentConfig{
 				Upstream: &api.EnvironmentConfig_Upstream{
-					Environment: ptr.FromString("upstream"),
-					Latest:      ptr.Bool(true),
+					Environment: conversion.FromString("upstream"),
+					Latest:      conversion.Bool(true),
 				},
 				Argocd: &api.EnvironmentConfig_ArgoCD{
 					SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{
@@ -106,9 +106,9 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 					Destination: &api.EnvironmentConfig_ArgoCD_Destination{
 						Name:                 "destination",
 						Server:               "destinationServer",
-						Namespace:            ptr.FromString("destinationNamespace"),
-						AppProjectNamespace:  ptr.FromString("destinationAppProjectNamespace"),
-						ApplicationNamespace: ptr.FromString("destinationApplicationNamespace"),
+						Namespace:            conversion.FromString("destinationNamespace"),
+						AppProjectNamespace:  conversion.FromString("destinationAppProjectNamespace"),
+						ApplicationNamespace: conversion.FromString("destinationApplicationNamespace"),
 					},
 					AccessList: []*api.EnvironmentConfig_ArgoCD_AccessEntry{
 						{

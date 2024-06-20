@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 import { render } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -93,7 +93,7 @@ describe('Commit info page tests', () => {
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
             expectedText:
-                'The provided commit ID was not found in the manifest repo. This is because either the commit ID is incorrect, or it refers to an old commit whose release has been cleaned up by now.',
+                'The provided commit ID was not found in the manifest repository. This is because either the commit "potato" is incorrect, is not tracked by Kuberpult yet, or it refers to an old commit whose release has been cleaned up by now.',
             commitInfoStoreData: {
                 response: undefined,
                 commitInfoReady: CommitInfoState.NOTFOUND,
@@ -105,7 +105,7 @@ describe('Commit info page tests', () => {
             commitHash: 'potato',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: 'Commit Add google to windows', // this "Commit + commit_message_first_line" string comes from the CommitInfo component logic (so we know that it actually rendered without having some mocking magic)
+            expectedText: 'Add google to windows', // this "Commit + commit_message_first_line" string comes from the CommitInfo component logic (so we know that it actually rendered without having some mocking magic)
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.READY,
                 response: {
@@ -140,7 +140,7 @@ Commit message body line 2`,
             expect(container.getElementsByClassName('spinner')).toHaveLength(tc.expectedSpinnerCount);
             expect(container.getElementsByClassName('main-content')).toHaveLength(tc.expectedMainContentCount);
 
-            for (const expectedString of tc.expectedText) expect(container.textContent).toContain(expectedString);
+            expect(container.textContent).toContain(tc.expectedText);
         });
     });
 });

@@ -1,4 +1,4 @@
-VERSION 0.7
+VERSION 0.8
 
 
 
@@ -18,7 +18,7 @@ deps:
     WORKDIR /deps
 
     RUN apk add envsubst curl git
-    
+
     RUN pip install yamale yamllint
 
     RUN curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz"
@@ -27,7 +27,7 @@ deps:
     RUN mv linux-amd64/helm /usr/local/bin/helm
     RUN chmod +x /usr/local/bin/helm
 
-    RUN curl --fail --silent --show-error --location --remote-name "https://github.com/mikefarah/yq/releases/download/v4.41.1/yq_linux_amd64" 
+    RUN curl --fail --silent --show-error --location --remote-name "https://github.com/mikefarah/yq/releases/download/v4.41.1/yq_linux_amd64"
     RUN echo ce0d5a61c256a463fd32f67f133e0c2948bc2cf77d44c42ff335a40e6bef34bf yq_linux_amd64 | sha256sum -c
     RUN mv yq_linux_amd64 /usr/local/bin/yq
     RUN chmod +x /usr/local/bin/yq
@@ -54,16 +54,20 @@ chart.yaml:
 chart-tarball:
     LOCALLY
     ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
-    
     FROM +deps
+
     WORKDIR /kp
 
+    COPY ../../+migration-deps/* migrations
     COPY +chart.yaml/Chart.yaml .
     COPY values.yaml .
     COPY templates templates
 
     RUN helm dependency update
+    RUN helm template -s templates/migrations.yaml ./ -f values.yaml --set git.url=test --set ingress.domainName=kuberpult.example.com > templates/generated-migrations.yaml
     RUN rm -rf charts
+    RUN rm -rf migrations
+    RUN rm templates/migrations.yaml
     RUN helm dependency update
     RUN tar -xzvf charts/*.tgz --directory=charts
 

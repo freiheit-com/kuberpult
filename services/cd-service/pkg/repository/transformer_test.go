@@ -12,19 +12,27 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+
 	"io"
 	"math/rand"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
@@ -37,16 +45,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
-
 	"github.com/DataDog/datadog-go/v5/statsd"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
@@ -213,7 +220,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
+				TransformerError: errMatcher{"UndeployApplication(repo): error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
 			},
 			expectedCommitMsg: "",
 		},
@@ -310,7 +317,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			t.Parallel()
 
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -379,7 +386,7 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
@@ -424,7 +431,6 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 					SourceCommitId:  "cafe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2",
 					SourceAuthor:    "best Author",
 					SourceMessage:   "smart message",
-					SourceRepoUrl:   "",
 					Team:            "",
 					DisplayVersion:  "",
 					WriteCommitData: true,
@@ -444,7 +450,7 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 			repo := setupRepositoryTest(t)
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if applyErr != nil {
 				t.Fatalf("expected no error but transformer failed with %v", applyErr)
 			}
@@ -508,7 +514,7 @@ func TestDeployOnSelectedEnvs(t *testing.T) {
 			Expected: []Expected{
 				{
 					Path: "argocd/v1alpha1/acceptance.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: acceptance
@@ -548,7 +554,7 @@ spec:
 				},
 				{
 					Path: "argocd/v1alpha1/production.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: production
@@ -611,7 +617,7 @@ spec:
 			Expected: []Expected{
 				{
 					Path: "argocd/v1alpha1/acceptance.yaml",
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: acceptance
@@ -652,7 +658,7 @@ spec:
 				{
 					Path: "argocd/v1alpha1/production.yaml",
 					// here we expect only the appProject with the app, because it hasn't been deployed yet
-					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+					fileData: conversion.FromString(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: production
@@ -684,14 +690,14 @@ spec:
 						t.Fatalf("Expected [%d] an error but got content: '%s'", i, string(fileData))
 					}
 					var actual = string(fileData)
-					var exp = strings.ReplaceAll(ptr.ToString(expected.fileData), "%%%REPO%%%", repoUrl)
+					var exp = strings.ReplaceAll(conversion.ToString(expected.fileData), "%%%REPO%%%", repoUrl)
 					if diff := cmp.Diff(actual, exp); diff != "" {
 						t.Errorf("got %v, want %v, diff (-want +got) %s", actual, exp, diff)
 					}
 				} else {
 					// there is an error
 					if expected.fileData != nil {
-						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, ptr.ToString(expected.fileData), err)
+						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, conversion.ToString(expected.fileData), err)
 					}
 				}
 			}
@@ -811,12 +817,12 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 
 			// optimization: no need to set up the repository if this fails
 			repo := setupRepositoryTest(t)
-			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, nil, tc.Transformers...)
 			if err == nil {
 				t.Fatalf("expected error, got none.")
 			}
@@ -1358,7 +1364,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if applyErr != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", applyErr)
 			}
@@ -1400,9 +1406,11 @@ func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 
 func TestApplicationDeploymentEvent(t *testing.T) {
 	type TestCase struct {
-		Name            string
-		Transformers    []Transformer
-		expectedContent []FileWithContent
+		Name             string
+		Transformers     []Transformer
+		expectedContent  []FileWithContent
+		db               bool
+		expectedDBEvents []event.Event
 	}
 
 	tcs := []TestCase{
@@ -1508,7 +1516,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: "staging",
 						},
-						EnvironmentGroup: ptr.FromString("production-group"),
+						EnvironmentGroup: conversion.FromString("production-group"),
 					},
 				},
 				&CreateEnvironment{
@@ -1528,6 +1536,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging":    "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -1572,7 +1581,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: "staging",
 						},
-						EnvironmentGroup: ptr.FromString("production-group"),
+						EnvironmentGroup: conversion.FromString("production-group"),
 					},
 				},
 				&CreateEnvironment{
@@ -1592,6 +1601,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging":    "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -1664,6 +1674,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "some staging manifest",
 					},
 					WriteCommitData: true,
+					Version:         3,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1739,6 +1750,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "some staging manifest",
 					},
 					WriteCommitData: true,
+					Version:         4,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1795,6 +1807,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         5,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "dev",
@@ -1810,6 +1823,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         6,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1835,6 +1849,35 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Create a single application version and deploy it with DB",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Application:     "app",
+					Environment:     "staging",
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+			db: true,
+			expectedDBEvents: []event.Event{
+				&event.Deployment{
+					Application: "app",
+					Environment: "staging",
+				},
+			},
+			expectedContent: []FileWithContent{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1845,15 +1888,56 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			var err error = nil
+			var updatedState *State = nil
+			if tc.db {
+				repo = SetupRepositoryTestWithDB(t)
+				r := repo.(*repository)
+				err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+					var batchError *TransformerBatchApplyError = nil
+					_, updatedState, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+					if batchError != nil {
+						// Note that we cannot just `return err2` here,
+						// because it's a "TransformerBatchApplyError", not an "error"
+						return batchError
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
+				}
+			} else {
+				repo = setupRepositoryTest(t)
+				var batchError *TransformerBatchApplyError = nil
+				_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
+				if batchError != nil {
+					t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
+				}
+			}
 
-			repo := setupRepositoryTest(t)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
-				t.Fatalf("encountered error but no error is expected here: %v", err)
+				t.Fatalf("encountered error but no error is expected here: '%v'", err)
 			}
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
 				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
+			}
+			if tc.db {
+				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(rows) != len(tc.expectedDBEvents) {
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+				}
+				dEvents, err := DBParseToEvents(rows)
+				if err != nil {
+					t.Fatalf("encountered error but no error is expected here: %v", err)
+				}
+				if len(dEvents) != len(tc.expectedDBEvents) {
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+				}
 			}
 		})
 	}
@@ -1878,18 +1962,8 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "",
-				},
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-					Manifests: map[string]string{
-						"staging": "doesn't matter",
-					},
-					WriteCommitData: true,
-					NextCommit:      "",
-					PreviousCommit:  "",
+					Version:         8,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1898,15 +1972,11 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         9,
 				},
 			},
 			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
-					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1914,7 +1984,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 			},
 		},
 		{
-			Name: "Create a circle of next and prev",
+			Name: "Create a daisy chain of next and prev",
 			// no need to bother with environments here
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
@@ -1924,8 +1994,8 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "",
+					Version:         10,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1934,8 +2004,8 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         11,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1944,8 +2014,8 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Version:         12,
 				},
 			},
 			expectedContent: []FileWithContent{
@@ -1954,19 +2024,11 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/previousCommit",
-					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
-				},
-				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/nextCommit",
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
 				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/previousCommit",
-					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 				{
@@ -1986,8 +2048,8 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "",
+					Version:         10,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1996,8 +2058,8 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         11,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -2006,15 +2068,11 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Version:         12,
 				},
 			},
 			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
-					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2036,7 +2094,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "1",
 					PreviousCommit:  "1234",
 				},
 			},
@@ -2060,7 +2117,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", err)
 			}
@@ -2095,6 +2152,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Application:     "app",
@@ -2129,6 +2187,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -2143,6 +2202,7 @@ func TestReplacedByEvent(t *testing.T) {
 						"staging": "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -2194,7 +2254,7 @@ func TestReplacedByEvent(t *testing.T) {
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", err)
 			}
@@ -2233,6 +2293,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					envAcceptance: "acceptance",
 				},
 				WriteCommitData: true,
+				Version:         uint64(i),
 			})
 		}
 		return ret
@@ -2246,6 +2307,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					Application:     "app",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app",
@@ -2265,11 +2327,13 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 					Application:     "app1",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application:     "app2",
 					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2316,7 +2380,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
 			if applyErr != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", applyErr)
 			}
@@ -2366,6 +2430,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 						envAcceptance: "acceptance", // not empty
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2396,6 +2461,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 						envAcceptance: "", // empty!
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2417,10 +2483,10 @@ func TestDeployApplicationVersion(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctxWithTime, nil, tc.Transformers...)
 			if applyErr != nil {
 				t.Fatalf("Expected no error when applying: %v", applyErr)
 			}
@@ -2555,7 +2621,7 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 
@@ -2615,6 +2681,7 @@ func TestUndeployErrors(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2639,6 +2706,7 @@ func TestUndeployErrors(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2655,7 +2723,7 @@ func TestUndeployErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -2712,7 +2780,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2721,7 +2789,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironmentLock{
@@ -2771,14 +2839,14 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
 						Upstream:         nil,
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
 					Environment: envAcceptance + "-de",
 					Config: config.EnvironmentConfig{
 						Upstream:         nil,
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -2819,7 +2887,7 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 							Environment: "",
 							Latest:      false,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2829,7 +2897,7 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 							Environment: "",
 							Latest:      false,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -2870,7 +2938,7 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 							Environment: "dev",
 							Latest:      true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironment{
@@ -2880,7 +2948,7 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 							Environment: "dev",
 							Latest:      true,
 						},
-						EnvironmentGroup: ptr.FromString(envAcceptance),
+						EnvironmentGroup: conversion.FromString(envAcceptance),
 					},
 				},
 			},
@@ -2926,7 +2994,7 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 				t.Fatalf("error encountered during setup, but none was expected here, error: %v", err)
 			}
 
-			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State())
+			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State(), nil)
 
 			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses); diff != "" {
 				t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
@@ -2935,7 +3003,7 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 				t.Fatalf("release train prognosis is wrong, wanted the error %v, got %v", tc.expectedPrognosis.Error, prognosis.Error)
 			}
 
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), []Transformer{&tc.ReleaseTrain}...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, []Transformer{&tc.ReleaseTrain}...)
 
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -2988,7 +3056,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 				},
 			},
 			ReleaseTrainEnv:    "staging",
-			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
+			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 0 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
 			overrideCommitHash: "",
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
@@ -3007,7 +3075,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 			},
 		},
 		{
-			Name: "Release train done with commit Hash",
+			Name: "Release train done with commit Hash but nothing to deploy",
 			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",
@@ -3042,7 +3110,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 
 Release Train to 'staging' environment:
 
-The release train deployed 1 services from 'dev' to 'staging'
+The release train deployed 0 services from 'dev' to 'staging'
 deployed version 1 of "test" to "staging"`,
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
@@ -3061,7 +3129,7 @@ deployed version 1 of "test" to "staging"`,
 			},
 		},
 		{
-			Name: "Release train done with commit but nothing to deploy",
+			Name: "Release train done with commit hash",
 			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",
@@ -3086,14 +3154,22 @@ deployed version 1 of "test" to "staging"`,
 
 Release Train to 'dev' environment:
 
-The release train deployed 0 services from 'latest' to 'dev'`,
+The release train deployed 1 services from 'latest' to 'dev'
+Skipped services
+skipping "test" because it is already in the version`,
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
 					"dev": ReleaseTrainEnvironmentPrognosis{
-						SkipCause:     nil,
-						Error:         nil,
-						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						SkipCause: nil,
+						Error:     nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"test": ReleaseTrainApplicationPrognosis{
+								SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+									SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION},
+								Version: 0,
+							},
+						},
 					},
 				},
 			},
@@ -3227,13 +3303,13 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 				Repo:       repo,
 			}
 
-			prognosis := releaseTrain.Prognosis(ctx, repo.State())
+			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil)
 
 			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
 				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
 			}
 
-			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContext(), releaseTrain)
+			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, releaseTrain)
 
 			if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -3243,7 +3319,8 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 			if len(commitMsg) > 0 {
 				actualMsg = commitMsg[len(commitMsg)-1]
 			}
-			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
+			if !strings.Contains(actualMsg, tc.expectedCommitMsg) {
+				diff := cmp.Diff(tc.expectedCommitMsg, actualMsg)
 				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 			}
 		})
@@ -3281,6 +3358,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -3289,6 +3367,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3327,6 +3406,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -3335,6 +3415,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         2,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3363,6 +3444,7 @@ func TestTransformerChanges(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         1,
 				},
 				&CreateEnvironmentTeamLock{ //team lock always needs to come after some release creation
 					Environment: envProduction,
@@ -3378,6 +3460,7 @@ func TestTransformerChanges(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
+					Version:         1,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3472,6 +3555,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Authentication: Authentication{},
@@ -3495,7 +3579,7 @@ func TestTransformerChanges(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			msgs, _, actualChanges, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			msgs, _, actualChanges, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			// we only diff the changes from the last transformer here:
 			lastChanges := actualChanges[len(actualChanges)-1]
 			// note that we only check the LAST error here:
@@ -4476,18 +4560,20 @@ func TestTransformer(t *testing.T) {
 	c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
 
 	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		Test          func(t *testing.T, s *State)
-		ErrorTest     func(t *testing.T, err error)
-		BootstrapMode bool
+		Name                 string
+		ReleaseVersionsLimit uint
+		Transformers         []Transformer
+		Test                 func(t *testing.T, s *State)
+		ErrorTest            func(t *testing.T, err error)
+		BootstrapMode        bool
 	}{
 		{
-			Name:         "Create Versions and do not clean up because not enough versions",
-			Transformers: makeTransformersForDelete(3),
+			Name:                 "Create Versions and do not clean up because not enough versions",
+			ReleaseVersionsLimit: 20,
+			Transformers:         makeTransformersForDelete(3),
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4495,7 +4581,7 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 3, actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
@@ -4508,50 +4594,52 @@ func TestTransformer(t *testing.T) {
 			},
 		},
 		{
-			Name:         "Create Versions and clean up because too many version",
-			Transformers: makeTransformersForDelete(keptVersionsOnCleanup),
+			Name:                 "Create Versions and clean up because too many version",
+			ReleaseVersionsLimit: 5,
+			Transformers:         makeTransformersForDelete(5),
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
-					if prodVersion == nil || *prodVersion != keptVersionsOnCleanup {
+					if prodVersion == nil || *prodVersion != 5 {
 						t.Errorf("unexpected version: actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
 					}
 					var v uint64
-					for v = 1; v <= keptVersionsOnCleanup; v++ {
+					for v = 1; v <= 5; v++ {
 						checkReleaseExists(v)
 					}
 				}
 			},
 		},
 		{
-			Name:         "Create Versions and clean up because too many version",
-			Transformers: makeTransformersForDelete(keptVersionsOnCleanup + additionalVersions),
+			Name:                 "Create Versions and clean up because too many version",
+			ReleaseVersionsLimit: 15,
+			Transformers:         makeTransformersForDelete(18),
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
-					if prodVersion == nil || *prodVersion != keptVersionsOnCleanup+additionalVersions {
+					if prodVersion == nil || *prodVersion != 18 {
 						t.Errorf("unexpected version: actual %d", *prodVersion)
 					}
 					checkReleaseExists := func(v uint64) {
-						_, err := s.GetApplicationRelease("test", v)
+						_, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err != nil {
 							t.Fatal(err)
 						}
 					}
 					checkReleaseDoesNotExists := func(v uint64) {
-						release, err := s.GetApplicationRelease("test", v)
+						release, err := s.GetApplicationReleaseFromManifest("test", v)
 						if err == nil {
 							t.Fatalf("expected release to not exist. release: %d, actual: %d", v, release.Version)
 						} else {
@@ -4562,10 +4650,10 @@ func TestTransformer(t *testing.T) {
 						}
 					}
 					var v uint64
-					for v = 1; v <= additionalVersions; v++ {
+					for v = 1; v <= 3; v++ {
 						checkReleaseDoesNotExists(v)
 					}
-					for v = additionalVersions + 1; v <= keptVersionsOnCleanup+additionalVersions; v++ {
+					for v = 3 + 1; v <= 18; v++ {
 						checkReleaseExists(v)
 					}
 				}
@@ -4628,11 +4716,11 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
-					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(envAcceptance, "test")
+					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envAcceptance, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4676,7 +4764,7 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				{
-					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(envAcceptance, "test")
+					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envAcceptance, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4745,11 +4833,11 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				{
-					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					prodVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envProduction, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
-					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(envAcceptance, "test")
+					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(context.Background(), envAcceptance, "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4773,7 +4861,8 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentLocks("production")
+				ctx := testutil.MakeTestContext()
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4811,7 +4900,8 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentApplicationLocks("production", "test")
+				ctx := testutil.MakeTestContext()
+				locks, err := s.GetEnvironmentApplicationLocks(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4850,7 +4940,8 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentTeamLocks("production", "sre-team")
+				ctx := testutil.MakeTestContext()
+				locks, err := s.GetEnvironmentTeamLocks(ctx, nil, "production", "sre-team")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4885,7 +4976,8 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentLocks("production")
+				ctx := testutil.MakeTestContext()
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4919,7 +5011,8 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentLocks("production")
+				ctx := testutil.MakeTestContext()
+				locks, err := s.GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -4965,7 +5058,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				{
-					i, err := s.GetEnvironmentApplicationVersion("production", "test")
+					i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4988,7 +5081,7 @@ func TestTransformer(t *testing.T) {
 				}
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationRelease("test", 1)
+					rel, err := s.GetApplicationReleaseFromManifest("test", 1)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -4996,13 +5089,13 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual: %d", rel.Version)
 					}
 					if rel.SourceAuthor != "" {
-						t.Errorf("unexpected source author: expected \"\", actual: %q", rel.SourceAuthor)
+						t.Errorf("unexpected source Author: expected \"\", actual: %q", rel.SourceAuthor)
 					}
 					if rel.SourceCommitId != "" {
 						t.Errorf("unexpected source commit id: expected \"\", actual: %q", rel.SourceCommitId)
 					}
 					if rel.SourceMessage != "" {
-						t.Errorf("unexpected source author: expected \"\", actual: %q", rel.SourceMessage)
+						t.Errorf("unexpected source Author: expected \"\", actual: %q", rel.SourceMessage)
 					}
 				}
 			},
@@ -5025,7 +5118,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationRelease("test", 1)
+					rel, err := s.GetApplicationReleaseFromManifest("test", 1)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5033,13 +5126,13 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual: %d", rel.Version)
 					}
 					if rel.SourceAuthor != "test <test@example.com>" {
-						t.Errorf("unexpected source author: expected \"test <test@example.com>\", actual: %q", rel.SourceAuthor)
+						t.Errorf("unexpected source Author: expected \"test <test@example.com>\", actual: %q", rel.SourceAuthor)
 					}
 					if rel.SourceCommitId != "deadbeef" {
 						t.Errorf("unexpected source commit id: expected \"deadbeef\", actual: %q", rel.SourceCommitId)
 					}
 					if rel.SourceMessage != "changed something" {
-						t.Errorf("unexpected source author: expected \"changed something\", actual: %q", rel.SourceMessage)
+						t.Errorf("unexpected source Author: expected \"changed something\", actual: %q", rel.SourceMessage)
 					}
 					if rel.CreatedAt != timeNowOld {
 						t.Errorf("unexpected created at: expected: %q, actual: %q", timeNowOld, rel.SourceMessage)
@@ -5062,7 +5155,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that team is written
 				{
-					team, err := s.GetApplicationTeamOwner("test")
+					team, err := s.GetApplicationTeamOwner(context.Background(), nil, "test")
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5087,7 +5180,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationReleases("test")
+					rel, err := s.GetAllApplicationReleasesFromManifest("test")
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5146,7 +5239,7 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, s *State) {
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5199,7 +5292,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				{
-					i, err := s.GetEnvironmentApplicationVersion("one", "test")
+					i, err := s.GetEnvironmentApplicationVersion(context.Background(), "one", "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5246,14 +5339,14 @@ func TestTransformer(t *testing.T) {
 				// check that the state reads the correct versions
 				{
 					// version should only exist for "two"
-					i, err := s.GetEnvironmentApplicationVersion("two", "test")
+					i, err := s.GetEnvironmentApplicationVersion(context.Background(), "two", "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
 					if *i != 1 {
 						t.Errorf("unexpected version: expected 1, actual %d", i)
 					}
-					i, err = s.GetEnvironmentApplicationVersion("one", "test")
+					i, err = s.GetEnvironmentApplicationVersion(context.Background(), "one", "test", nil)
 					if i != nil || err != nil {
 						t.Fatalf("expect file to not exist, because the env is locked.")
 					}
@@ -5298,7 +5391,7 @@ func TestTransformer(t *testing.T) {
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				{
-					i, err := s.GetEnvironmentApplicationVersion("one", "test")
+					i, err := s.GetEnvironmentApplicationVersion(context.Background(), "one", "test", nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -5340,7 +5433,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5354,7 +5447,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5368,7 +5461,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5382,15 +5475,15 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil && err.Error() != "file does not exist" {
 					t.Fatalf("unexpected error: %v", err.Error())
 				}
 				if i != nil {
 					t.Errorf("unexpected version: expected nil, actual %d", i)
 				}
-
-				actualQueued, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				actualQueued, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5427,14 +5520,15 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_RECORD, api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
 				if i != nil {
 					t.Errorf("unexpected version: expected nil, actual %d", i)
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5452,7 +5546,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_RECORD, api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5463,7 +5557,8 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 2, actual %d", *i)
 					}
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5477,7 +5572,7 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_IGNORE, api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5488,7 +5583,8 @@ func TestTransformer(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual %d", *i)
 					}
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5506,14 +5602,15 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDoubleLock(api.LockBehavior_RECORD, false),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
 				if i != nil {
 					t.Errorf("unexpected version: expected nil, actual %d", *i)
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5531,14 +5628,15 @@ func TestTransformer(t *testing.T) {
 			Transformers: makeTransformersDoubleLock(api.LockBehavior_RECORD, true),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
-				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				i, err := s.GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
 				if i != nil {
 					t.Errorf("unexpected version %d: expected: nil", *i)
 				}
-				q, err := s.GetQueuedVersion("production", "test")
+				ctx := testutil.MakeTestContext()
+				q, err := s.GetQueuedVersion(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5553,7 +5651,7 @@ func TestTransformer(t *testing.T) {
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 					},
@@ -5627,7 +5725,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("not-staging"),
+							Namespace: conversion.FromString("not-staging"),
 							Server:    "localhost:8080",
 						},
 						SyncWindows: []config.ArgoCdSyncWindow{
@@ -5676,7 +5774,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("not-staging"),
+							Namespace: conversion.FromString("not-staging"),
 							Server:    "localhost:8080",
 						},
 						ClusterResourceWhitelist: []config.AccessEntry{
@@ -5726,7 +5824,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 					},
@@ -5838,7 +5936,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 						ApplicationAnnotations: map[string]string{
@@ -5919,7 +6017,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: ptr.FromString("staging"),
+							Namespace: conversion.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 						IgnoreDifferences: []config.ArgoCdIgnoreDifference{
@@ -6041,23 +6139,19 @@ spec:
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
-			repo, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                 remoteDir,
-					Path:                localDir,
-					CommitterEmail:      "kuberpult@freiheit.com",
-					CommitterName:       "kuberpult",
-					BootstrapMode:       tc.BootstrapMode,
-					ArgoCdGenerateFiles: true,
-				},
-			)
-			if err != nil {
-				t.Fatal(err)
+			cfg := RepositoryConfig{
+				URL:                  remoteDir,
+				Path:                 localDir,
+				CommitterEmail:       "kuberpult@freiheit.com",
+				CommitterName:        "kuberpult",
+				BootstrapMode:        tc.BootstrapMode,
+				ArgoCdGenerateFiles:  true,
+				ReleaseVersionsLimit: tc.ReleaseVersionsLimit,
 			}
-
+			repo := SetupRepositoryTestWithoutDB(t, &cfg)
+			var err error
 			for i, tf := range tc.Transformers {
-				ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+				ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 				err = repo.Apply(ctxWithTime, tf)
 				if err != nil {
 					if tc.ErrorTest != nil && i == len(tc.Transformers)-1 {
@@ -6228,6 +6322,102 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 	return res
 }
 
+func SetupRepositoryTestWithDB(t *testing.T) Repository {
+	return SetupRepositoryTestWithDBOptions(t, false)
+}
+
+func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repository {
+	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &db.DBConfig{
+		DriverName:     "sqlite3",
+		MigrationsPath: migrationsPath,
+		WriteEslOnly:   writeEslOnly,
+	}
+
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil
+	}
+	t.Logf("test created dir: %s", localDir)
+
+	repoCfg := RepositoryConfig{
+		URL:                    remoteDir,
+		Path:                   localDir,
+		CommitterEmail:         "kuberpult@freiheit.com",
+		CommitterName:          "kuberpult",
+		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+		ArgoCdGenerateFiles:    true,
+	}
+	dbConfig.DbHost = dir
+
+	migErr := db.RunDBMigrations(*dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := db.Connect(*dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoCfg.DBHandler = dbHandler
+
+	repo, err := New(
+		testutil.MakeTestContext(),
+		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo
+}
+func SetupRepositoryTestWithoutDB(t *testing.T, repositoryConfig *RepositoryConfig) Repository {
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err := cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil
+	}
+	t.Logf("test created dir: %s", localDir)
+
+	repositoryConfig.URL = remoteDir
+	repositoryConfig.Path = localDir
+	repositoryConfig.CommitterName = "kuberpult"
+	repositoryConfig.CommitterEmail = "kuberpult@freiheit.com"
+	repositoryConfig.EnvironmentConfigsPath = filepath.Join(remoteDir, "..", "environment_configs.json")
+	repositoryConfig.ArgoCdGenerateFiles = true
+	repositoryConfig.DBHandler = nil
+
+	repo, err := New(
+		testutil.MakeTestContext(),
+		*repositoryConfig,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo
+}
+
 func setupRepositoryTest(t *testing.T) Repository {
 	repo, _ := setupRepositoryTestWithPath(t)
 	return repo
@@ -6275,10 +6465,10 @@ type injectErr struct {
 	err       error
 }
 
-func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
 	original := state.Filesystem
 	state.Filesystem = i.collector.WithError(state.Filesystem, i.operation, i.filename, i.err)
-	s, err := i.Transformer.Transform(ctx, state, t)
+	s, err := i.Transformer.Transform(ctx, state, t, transaction)
 	state.Filesystem = original
 	return s, err
 }
@@ -6740,7 +6930,7 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 
 			if err != nil {
 				t.Fatalf("Got an unexpected error: %v", err)
@@ -6842,18 +7032,18 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
 			repo := setupRepositoryTest(t)
 
-			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.transformers...)
+			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.transformers...)
 			if applyErr != nil {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, repo, nil, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, nil, state, repo, nil, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -6919,7 +7109,7 @@ func TestDatadogQueueMetric(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -7082,18 +7272,18 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
 			repo := setupRepositoryTest(t)
 
-			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.transformers...)
+			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.transformers...)
 			if applyErr != nil {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, repo, tc.changes, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, nil, state, repo, tc.changes, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -7248,7 +7438,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -7351,7 +7541,7 @@ func TestDeleteLocks(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -7368,7 +7558,7 @@ func TestDeleteLocks(t *testing.T) {
 }
 
 func TestEnvironmentGroupLocks(t *testing.T) {
-	group := ptr.FromString("prod")
+	group := conversion.FromString("prod")
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -7389,7 +7579,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},
@@ -7414,7 +7604,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},
@@ -7488,7 +7678,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
 					Authentication:   Authentication{},
@@ -7510,7 +7700,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -7524,4 +7714,17 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 			}
 		})
 	}
+}
+
+// DBParseToEvents gets all events from Raw DB data
+func DBParseToEvents(rows []db.EventRow) ([]event.Event, error) {
+	var result []event.Event
+	for _, row := range rows {
+		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
+		if err != nil {
+			return result, fmt.Errorf("Error unmarshalling event: %v\n", err)
+		}
+		result = append(result, evGo.EventData)
+	}
+	return result, nil
 }

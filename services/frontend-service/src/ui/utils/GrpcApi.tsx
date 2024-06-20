@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import * as api from '../../api/api';
 
 export interface Api {
@@ -37,6 +37,7 @@ class GrpcApi implements Api {
     _rolloutService: api.RolloutService;
     _gitService: api.GitService;
     _environmentService: api.EnvironmentService;
+    _releaseTrainPrognosisService: api.ReleaseTrainPrognosisService;
     constructor() {
         // eslint-disable-next-line no-restricted-globals
         const gcli = new api.GrpcWebImpl(location.protocol + '//' + location.host, {});
@@ -46,6 +47,7 @@ class GrpcApi implements Api {
         this._rolloutService = new api.RolloutServiceClientImpl(gcli);
         this._gitService = new api.GitServiceClientImpl(gcli);
         this._environmentService = new api.EnvironmentServiceClientImpl(gcli);
+        this._releaseTrainPrognosisService = new api.ReleaseTrainPrognosisServiceClientImpl(gcli);
     }
     overviewService(): api.OverviewService {
         return this._overviewService;
@@ -64,6 +66,9 @@ class GrpcApi implements Api {
     }
     environmentService(): api.EnvironmentService {
         return this._environmentService;
+    }
+    releaseTrainPrognosisService(): api.ReleaseTrainPrognosisService {
+        return this._releaseTrainPrognosisService;
     }
 }
 

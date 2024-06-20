@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package release
 
@@ -23,12 +23,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 type mockHttpServer struct {
 	response      int
+	header        http.Header
 	multipartForm *multipart.Form
 }
 
@@ -38,11 +40,20 @@ func (s *mockHttpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		panic(fmt.Errorf("error while parsing the multipart form in the mock HTTP server, error: %w", err))
 	}
 	s.multipartForm = req.MultipartForm
+	s.header = req.Header
 
 	w.WriteHeader(s.response)
 }
 
 const MAXIMUM_MULTIPART_SIZE = 12 * 1024 * 1024 // = 12Mi, taken from environments.go
+
+func strPtr(s string) *string {
+	return &s
+}
+
+func intPtr(n uint64) *uint64 {
+	return &n
+}
 
 func TestRequestCreation(t *testing.T) {
 	// simplified version of multipart.FileHeader
@@ -53,43 +64,43 @@ func TestRequestCreation(t *testing.T) {
 
 	type testCase struct {
 		name                       string
-		params                     *ReleaseParameters
+		params                     ReleaseParameters
+		authParams                 kuberpult_utils.AuthenticationParameters
+		expectedHeaders            http.Header
 		expectedMultipartFormValue map[string][]string
 		expectedMultipartFormFile  map[string][]simpleMultipartFormFileHeader
-		expectedErrorMsg           string
+		expectedErrorMsg           error
 		responseCode               int
 	}
 
 	tcs := []testCase{
 		{
 			name: "no manifests",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
 			},
 			expectedMultipartFormValue: map[string][]string{
 				"application": {"potato"},
 			},
-			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
-				
-			},
-			responseCode: http.StatusOK,
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{},
+			responseCode:              http.StatusOK,
 		},
 		{
 			name: "one environment manifest",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
-				"application":            {"potato"},
+				"application": {"potato"},
 			},
 			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
-						content: "some development manifest",
+						content:  "some development manifest",
 					},
 				},
 			},
@@ -97,12 +108,14 @@ func TestRequestCreation(t *testing.T) {
 			responseCode: http.StatusOK,
 		},
 		{
-			name: "multiple environment manifests",
-			params: &ReleaseParameters{
+			name: "one environment manifest with signature",
+			params: ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+				},
+				Signatures: map[string][]byte{
+					"development": []byte("some development signature"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -112,13 +125,85 @@ func TestRequestCreation(t *testing.T) {
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
-						content: "some development manifest",
+						content:  "some development manifest",
+					},
+				},
+				"signatures[development]": {
+					{
+						filename: "development-signature",
+						content:  "some development signature",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "multiple environment manifests",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
 					},
 				},
 				"manifests[production]": {
 					{
 						filename: "production-manifest",
-						content: "some production manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "multiple environment manifests with signatures",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Signatures: map[string][]byte{
+					"development": []byte("some development signature"),
+					"production":  []byte("some production signature"),
+				},
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+				"signatures[development]": {
+					{
+						filename: "development-signature",
+						content:  "some development signature",
+					},
+				},
+				"signatures[production]": {
+					{
+						filename: "production-signature",
+						content:  "some production signature",
 					},
 				},
 			},
@@ -126,11 +211,11 @@ func TestRequestCreation(t *testing.T) {
 		},
 		{
 			name: "multiple environment manifests with response code BadRequest",
-			params: &ReleaseParameters{
+			params: ReleaseParameters{
 				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
@@ -140,18 +225,364 @@ func TestRequestCreation(t *testing.T) {
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
-						content: "some development manifest",
+						content:  "some development manifest",
 					},
 				},
 				"manifests[production]": {
 					{
 						filename: "production-manifest",
-						content: "some production manifest",
+						content:  "some production manifest",
 					},
 				},
 			},
-			expectedErrorMsg: "error while issuing HTTP request, error: response was not OK or Accepted, response code: 400",
-			responseCode:     http.StatusBadRequest,
+			expectedErrorMsg: errMatcher{
+				msg: "error while issuing HTTP request, error: response was not OK or Accepted\nresponse code: 400\nresponse body:\n   ",
+			},
+			responseCode: http.StatusBadRequest,
+		},
+		{
+			name: "multiple environment manifests with teams set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team: strPtr("potato-team"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
+				"team":        {"potato-team"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "source commit ID is set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:           strPtr("potato-team"),
+				SourceCommitId: strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":      {"potato"},
+				"team":             {"potato-team"},
+				"source_commit_id": {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "previous commit ID is set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "source_author is set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "source_message is set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test source message"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test source message"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "source_message is set with newlines",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test\nsource\nmessage"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test\nsource\nmessage"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "version is set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test\nsource\nmessage"),
+				Version:          intPtr(123123),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test\nsource\nmessage"},
+				"version":            {"123123"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "display_version is set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test\nsource\nmessage"),
+				Version:          intPtr(123123),
+				DisplayVersion:   strPtr("1.23.4"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test\nsource\nmessage"},
+				"version":            {"123123"},
+				"display_version":    {"1.23.4"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "authentication params are set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test\nsource\nmessage"),
+				Version:          intPtr(123123),
+				DisplayVersion:   strPtr("1.23.4"),
+			},
+			authParams: kuberpult_utils.AuthenticationParameters{
+				IapToken:    strPtr("some IAP token"),
+				DexToken:    strPtr("some DEX token"),
+				AuthorName:  strPtr("some author name"),
+				AuthorEmail: strPtr("some author email"),
+			},
+			expectedHeaders: http.Header{
+				"Proxy-Authorization": {"Bearer some IAP token"},
+				"Authorization":       {"Bearer some DEX token"},
+				"Author-Name":         {"c29tZSBhdXRob3IgbmFtZQ=="}, // base64 encoding of "some author name"
+				"Author-Email":        {"c29tZSBhdXRob3IgZW1haWw="}, // base64 encoding of "some author email"
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test\nsource\nmessage"},
+				"version":            {"123123"},
+				"display_version":    {"1.23.4"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
 		},
 	}
 
@@ -159,22 +590,33 @@ func TestRequestCreation(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			
+
 			mockServer := &mockHttpServer{
 				response: tc.responseCode,
 			}
 			server := httptest.NewServer(mockServer)
 
+			authParams := tc.authParams
+			err := Release(server.URL, authParams, tc.params)
 			// check errors
-			err := Release(server.URL, tc.params)
-			// check errors
-			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+			if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
+			// check headers, note that we cannot compare with cmp.Diff because there are some default headers that we shouldn't bother checking (like Accept-Encoding etc)
+			for key, expectedVal := range tc.expectedHeaders {
+				actualVal, ok := mockServer.header[key]
+				if !ok {
+					t.Fatalf("there is a key in the expected headers that does not exist in the received headers\nexpected:\n  %v\nreceived:\n  %v\nmissing key:\n  %s", tc.expectedHeaders, mockServer.header, key)
+				}
+				if diff := cmp.Diff(expectedVal, actualVal); diff != "" {
+					t.Fatalf("there is a mismatch between the expected headers and the received headers\nexpected:\n  %v\nreceived:\n  %v\ndiffering key:\n  %s\ndiff:\n  %s", tc.expectedHeaders, mockServer.header, key, diff)
+				}
+			}
+
 			// check multipart form values
-			if !cmp.Equal(mockServer.multipartForm.Value, tc.expectedMultipartFormValue) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormValue, mockServer.multipartForm)
+			if diff := cmp.Diff(mockServer.multipartForm.Value, tc.expectedMultipartFormValue); diff != "" {
+				t.Fatalf("request multipart forms are different\nexpected:\n  %v\nreceived:\n  %v\ndiff:\n  %s", tc.expectedMultipartFormValue, mockServer.multipartForm, diff)
 			}
 
 			// check multipart form files
@@ -187,7 +629,7 @@ func TestRequestCreation(t *testing.T) {
 					if err != nil {
 						t.Fatalf("error encountered while opening the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
 					}
-					defer file.Close()  
+					defer file.Close()
 
 					bytes := make([]byte, MAXIMUM_MULTIPART_SIZE)
 					n, err := file.Read(bytes)
@@ -198,15 +640,15 @@ func TestRequestCreation(t *testing.T) {
 					content := string(bytes)
 					simpleHeader := simpleMultipartFormFileHeader{
 						filename: header.Filename,
-						content: content,
+						content:  content,
 					}
 
 					simpleHeaders = append(simpleHeaders, simpleHeader)
 				}
 				fileHeaders[key] = simpleHeaders
 			}
-			if !cmp.Equal(fileHeaders, tc.expectedMultipartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormFile, fileHeaders)
+			if diff := cmp.Diff(fileHeaders, tc.expectedMultipartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})); diff != "" {
+				t.Fatalf("request multipart forms are different\nexpected:\n  %v\nreceived:\n  %v\ndiff:\n  %s\n", tc.expectedMultipartFormFile, fileHeaders, diff)
 			}
 		})
 	}

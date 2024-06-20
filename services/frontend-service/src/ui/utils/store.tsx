@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { createStore } from 'react-use-sub';
 import {
     Application,
@@ -30,6 +30,7 @@ import {
     RolloutStatus,
     GetCommitInfoResponse,
     GetEnvironmentConfigResponse,
+    GetReleaseTrainPrognosisResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -85,6 +86,17 @@ export type CommitInfoResponse = {
     commitInfoReady: CommitInfoState;
 };
 
+export enum ReleaseTrainPrognosisState {
+    LOADING,
+    READY,
+    ERROR,
+    NOTFOUND,
+}
+export type ReleaseTrainPrognosisResponse = {
+    response: GetReleaseTrainPrognosisResponse | undefined;
+    releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
+};
+
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
@@ -121,6 +133,38 @@ export const getCommitInfo = (commitHash: string, authHeader: AuthHeader): void 
 export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>({
     response: undefined,
     commitInfoReady: CommitInfoState.LOADING,
+});
+
+export const getReleaseTrainPrognosis = (envName: string, authHeader: AuthHeader): void => {
+    useApi
+        .releaseTrainPrognosisService()
+        .GetReleaseTrainPrognosis({ target: envName }, authHeader)
+        .then((result: GetReleaseTrainPrognosisResponse) => {
+            updateReleaseTrainPrognosis.set({
+                response: result,
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.READY,
+            });
+        })
+        .catch((e) => {
+            const GrpcErrorNotFound = 3;
+            if (e.code === GrpcErrorNotFound) {
+                updateReleaseTrainPrognosis.set({
+                    response: undefined,
+                    releaseTrainPrognosisReady: ReleaseTrainPrognosisState.NOTFOUND,
+                });
+            } else {
+                showSnackbarError(e.message);
+                updateReleaseTrainPrognosis.set({
+                    response: undefined,
+                    releaseTrainPrognosisReady: ReleaseTrainPrognosisState.ERROR,
+                });
+            }
+        });
+};
+
+export const [useReleaseTrainPrognosis, updateReleaseTrainPrognosis] = createStore<ReleaseTrainPrognosisResponse>({
+    response: undefined,
+    releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
 });
 
 export const [_, PanicOverview] = createStore({ error: '' });
@@ -219,6 +263,22 @@ export const addAction = (action: BatchAction): void => {
                             action.action.deleteEnvironmentApplicationLock.lockId &&
                         act.action.deleteEnvironmentApplicationLock.application ===
                             action.action.deleteEnvironmentApplicationLock.application
+                )
+            )
+                return;
+            break;
+        case 'createEnvironmentTeamLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'createEnvironmentTeamLock' &&
+                        action.action?.$case === 'createEnvironmentTeamLock' &&
+                        act.action.createEnvironmentTeamLock.environment ===
+                            action.action.createEnvironmentTeamLock.environment &&
+                        act.action.createEnvironmentTeamLock.lockId ===
+                            action.action.createEnvironmentTeamLock.lockId &&
+                        act.action.createEnvironmentTeamLock.team === action.action.createEnvironmentTeamLock.team
+                    // lockId and message are ignored
                 )
             )
                 return;

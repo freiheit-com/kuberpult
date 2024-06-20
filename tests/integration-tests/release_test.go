@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package integration_tests
 
@@ -24,10 +24,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -170,8 +170,8 @@ func TestReleaseCalls(t *testing.T) {
 		inputManifest      string
 		inputSignature     string
 		inputManifestEnv   string
-		inputSignatureEnv  string  // usually the same as inputManifestEnv
-		inputVersion       *string // actually an int, but for testing purposes it may be a string
+		inputSignatureEnv  string // usually the same as inputManifestEnv
+		inputVersion       string // actually an int, but for testing purposes it may be a string
 		expectedStatusCode int
 	}{
 		{
@@ -181,7 +181,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
-			inputVersion:       nil,
+			inputVersion:       "1",
 			expectedStatusCode: 201,
 		},
 		{
@@ -193,7 +193,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
-			inputVersion:       ptr.FromString("99"),
+			inputVersion:       "99",
 			expectedStatusCode: 201,
 		},
 		{
@@ -204,7 +204,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
-			inputVersion:       ptr.FromString("99"),
+			inputVersion:       "99",
 			expectedStatusCode: 200,
 		},
 		{
@@ -214,7 +214,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
-			inputVersion:       ptr.FromString("notanumber"),
+			inputVersion:       "notanumber",
 			expectedStatusCode: 400,
 		},
 		{
@@ -224,7 +224,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
-			inputVersion:       nil,
+			inputVersion:       "2",
 			expectedStatusCode: 400,
 		},
 		{
@@ -234,7 +234,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputSignature:     "not valid!",
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
-			inputVersion:       nil,
+			inputVersion:       "3",
 			expectedStatusCode: 400,
 		},
 		{
@@ -244,7 +244,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  stageEnv, // !!
-			inputVersion:       nil,
+			inputVersion:       "4",
 			expectedStatusCode: 400,
 		},
 	}
@@ -255,9 +255,7 @@ func TestReleaseCalls(t *testing.T) {
 			values := map[string]io.Reader{
 				"application": strings.NewReader(tc.inputApp),
 			}
-			if tc.inputVersion != nil {
-				values["version"] = strings.NewReader(ptr.ToString(tc.inputVersion))
-			}
+			values["version"] = strings.NewReader(tc.inputVersion)
 			files := map[string]io.Reader{
 				"manifests[" + tc.inputManifestEnv + "]":   strings.NewReader(tc.inputManifest),
 				"signatures[" + tc.inputSignatureEnv + "]": strings.NewReader(tc.inputSignature),
@@ -316,6 +314,7 @@ func TestAppParameter(t *testing.T) {
 	testCases := []struct {
 		name                string
 		inputNumberAppParam int
+		inputVersion        int
 		expectedStatusCode  int
 		expectedError       error
 		expectedBody        string
@@ -323,12 +322,14 @@ func TestAppParameter(t *testing.T) {
 		{
 			name:                "0 app names",
 			inputNumberAppParam: 0,
+			inputVersion:        98,
 			expectedStatusCode:  400,
 			expectedBody:        "Must provide application name",
 		},
 		{
 			name:                "1 app name",
 			inputNumberAppParam: 1,
+			inputVersion:        99,
 			expectedStatusCode:  201,
 			expectedBody:        "{\"Success\":{}}\n",
 		},
@@ -342,6 +343,7 @@ func TestAppParameter(t *testing.T) {
 			for i := 0; i < tc.inputNumberAppParam; i++ {
 				values["application"] = strings.NewReader("app1")
 			}
+			values["version"] = strings.NewReader(strconv.Itoa(tc.inputVersion))
 
 			files := map[string]io.Reader{}
 			files["manifests[dev]"] = strings.NewReader("manifest")

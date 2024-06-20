@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package auth
 
@@ -43,28 +43,55 @@ import (
 func TestNewDexAppClient(t *testing.T) {
 	DEX_URL, _ := url.Parse(dexServiceURL)
 	testCases := []struct {
-		Name          string
-		clientID      string
-		clientSecret  string
-		baseURL       string
-		scopes        []string
-		wantErr       bool
-		wantClientApp *DexAppClient
+		Name                            string
+		clientID                        string
+		clientSecret                    string
+		baseURL                         string
+		scopes                          []string
+		useClusterInternalCommunication bool
+		wantErr                         bool
+		wantClientApp                   *DexAppClient
 	}{
 		{
-			Name:         "Creates the a new Dex App Client as expected",
-			clientID:     "test-client",
-			clientSecret: "test-secret",
-			baseURL:      "www.test-url.com",
-			scopes:       []string{"scope1", "scope2"},
-			wantErr:      false,
+			Name:                            "Creates the a new Dex App Client as expected",
+			clientID:                        "test-client",
+			clientSecret:                    "test-secret",
+			baseURL:                         "www.test-url.com",
+			scopes:                          []string{"scope1", "scope2"},
+			useClusterInternalCommunication: false,
+			wantErr:                         false,
 			wantClientApp: &DexAppClient{
-				ClientID:     "test-client",
-				ClientSecret: "test-secret",
-				RedirectURI:  "www.test-url.com/callback",
-				IssuerURL:    "www.test-url.com/dex",
-				BaseURL:      "www.test-url.com",
-				Scopes:       []string{"scope1", "scope2"},
+				ClientID:                        "test-client",
+				ClientSecret:                    "test-secret",
+				RedirectURI:                     "www.test-url.com/callback",
+				IssuerURL:                       "www.test-url.com/dex",
+				BaseURL:                         "www.test-url.com",
+				UseClusterInternalCommunication: false,
+				Scopes:                          []string{"scope1", "scope2"},
+				Client: &http.Client{
+					Transport: DexRewriteURLRoundTripper{
+						DexURL: DEX_URL,
+						T:      http.DefaultTransport,
+					},
+				},
+			},
+		},
+		{
+			Name:                            "Creates the a new Dex App Client as expected with internal communication",
+			clientID:                        "test-client",
+			clientSecret:                    "test-secret",
+			baseURL:                         "www.test-url.com",
+			scopes:                          []string{"scope1", "scope2"},
+			useClusterInternalCommunication: true,
+			wantErr:                         false,
+			wantClientApp: &DexAppClient{
+				ClientID:                        "test-client",
+				ClientSecret:                    "test-secret",
+				RedirectURI:                     "www.test-url.com/callback",
+				IssuerURL:                       "www.test-url.com/dex",
+				BaseURL:                         "www.test-url.com",
+				UseClusterInternalCommunication: true,
+				Scopes:                          []string{"scope1", "scope2"},
 				Client: &http.Client{
 					Transport: DexRewriteURLRoundTripper{
 						DexURL: DEX_URL,
@@ -76,7 +103,8 @@ func TestNewDexAppClient(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			a, err := NewDexAppClient(tc.clientID, tc.clientSecret, tc.baseURL, tc.scopes)
+			http.DefaultServeMux = http.NewServeMux()
+			a, err := NewDexAppClient(tc.clientID, tc.clientSecret, tc.baseURL, tc.scopes, tc.useClusterInternalCommunication)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
 			}
@@ -164,7 +192,8 @@ func TestValidateToken(t *testing.T) {
 	clientSecret := "test-client"
 	hostURL := "https://www.test.com"
 	scopes := []string{"scope1", "scope2"}
-	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes)
+	useClusterInternalCommunication := false
+	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes, useClusterInternalCommunication)
 
 	testCases := []struct {
 		Name            string
@@ -207,7 +236,7 @@ func TestValidateToken(t *testing.T) {
 			token, _ := GetSignedJwt(jwkPrivateKey, claims)
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
-			_, err := ValidateOIDCToken(ctx, appDex.IssuerURL, string(token), tc.allowedAudience)
+			_, err := ValidateOIDCToken(ctx, appDex.IssuerURL, string(token), tc.allowedAudience, useClusterInternalCommunication)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
 			}
@@ -223,13 +252,14 @@ func TestVerifyToken(t *testing.T) {
 	clientSecret := "test-client"
 	hostURL := "https://www.test.com"
 	scopes := []string{"scope1", "scope2"}
-	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes)
+	useClusterInternalCommunication := false
+	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes, useClusterInternalCommunication)
 
 	testCases := []struct {
-		Name     string
-		claims   jwtV5.MapClaims
-		wantErr  string
-		wantUser string
+		Name      string
+		claims    jwtV5.MapClaims
+		wantErr   string
+		wantClaim jwtV5.MapClaims
 	}{
 		{
 			Name: "Token Verifier works as expected with the correct token value",
@@ -239,17 +269,19 @@ func TestVerifyToken(t *testing.T) {
 				"name":          "User",
 				"email":         "user@mail.com",
 				"groups":        []string{"Developer"}},
-			wantUser: "Developer,",
+			wantClaim: jwtV5.MapClaims{
+				"email":  "user@mail.com",
+				"name":   string("User"),
+				"groups": []any{string("Developer")},
+			},
 		},
 		{
 			Name: "Token Verifier works as expected with no name",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
 				jwt.IssuerKey:   appDex.IssuerURL,
-				"name":          "",
-				"email":         "user@mail.com",
-				"groups":        []string{}},
-			wantErr: "failed to verify token: no group defined",
+				"name":          ""},
+			wantErr: "need required fields to determine group of user",
 		},
 	}
 	for _, tc := range testCases {
@@ -281,14 +313,14 @@ func TestVerifyToken(t *testing.T) {
 			req.AddCookie(cookie)
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
-			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL)
+			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, useClusterInternalCommunication)
 			if err != nil {
 				if diff := cmp.Diff(tc.wantErr, err.Error()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			} else {
-				if diff := cmp.Diff(u, tc.wantUser); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantUser, diff)
+				if diff := cmp.Diff(u["groups"], tc.wantClaim["groups"]); diff != "" {
+					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantClaim, diff)
 				}
 			}
 		})

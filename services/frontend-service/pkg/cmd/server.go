@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package cmd
 
@@ -59,6 +59,8 @@ import (
 
 var c config.ServerConfig
 var backendServiceId string = ""
+
+const megaBytes int = 1024 * 1024
 
 func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 	if c.GKEBackendServiceID == "" && c.GKEBackendServiceName == "" {
@@ -155,6 +157,7 @@ func runServer(ctx context.Context) error {
 	logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 	logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 	logger.FromContext(ctx).Info("config.gke_backend_service_name: " + c.GKEBackendServiceName + "\n")
+	logger.FromContext(ctx).Info(fmt.Sprintf("config.grpc_max_recv_msg_size: %d", c.GrpcMaxRecvMsgSize*megaBytes))
 
 	if c.GKEProjectNumber != "" {
 		backendServiceId = getBackendServiceId(c, ctx)
@@ -184,6 +187,7 @@ func runServer(ctx context.Context) error {
 
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(cred),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(c.GrpcMaxRecvMsgSize * megaBytes)),
 	}
 
 	if c.EnableTracing {
@@ -234,11 +238,17 @@ func runServer(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	http.DefaultServeMux = mux
+	var policy *auth.RBACPolicies
+	var dexClient *auth.DexAppClient
 	if c.DexEnabled {
 		// Registers Dex handlers.
-		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
+		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
+		}
+		policy, err = auth.ReadRbacPolicy(true, c.DexRbacPolicyPath)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("error getting RBAC policy: ", zap.Error(err))
 		}
 	}
 
@@ -255,6 +265,7 @@ func runServer(ctx context.Context) error {
 	gsrv := grpc.NewServer(
 		grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 		grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
+		grpc.MaxRecvMsgSize(c.GrpcMaxRecvMsgSize*megaBytes),
 	)
 	cdCon, err := grpc.Dial(c.CdServer, grpcClientOpts...)
 	if err != nil {
@@ -289,6 +300,7 @@ func runServer(ctx context.Context) error {
 	api.RegisterRolloutServiceServer(gsrv, gproxy)
 	api.RegisterGitServiceServer(gsrv, gproxy)
 	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
+	api.RegisterReleaseTrainPrognosisServiceServer(gsrv, gproxy)
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
@@ -327,7 +339,7 @@ func runServer(ctx context.Context) error {
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
 			return
 		}
 		httpHandler.Handle(w, req)
@@ -350,6 +362,11 @@ func runServer(ctx context.Context) error {
 			return
 		}
 
+		if c.DexEnabled {
+			interceptors.DexAPIInterceptor(w, req, httpHandler.HandleAPI, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
+			return
+		}
+
 		if !c.IapEnabled {
 			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
 			return
@@ -361,6 +378,21 @@ func runServer(ctx context.Context) error {
 		"/api/",
 	} {
 		mux.Handle(endpoint, restApiHandler)
+	}
+
+	dexHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		defer readAllAndClose(req.Body, 1024)
+		if !c.DexEnabled {
+			http.Error(w, "Dex not enabled, /token unavailable.", http.StatusUnauthorized)
+			return
+		}
+		httpHandler.HandleDex(w, req, dexClient)
+	})
+	for _, endpoint := range []string{
+		"/token",
+		"/token/",
+	} {
+		mux.Handle(endpoint, dexHandler)
 	}
 
 	mux.Handle("/", http.FileServer(http.Dir("build")))
@@ -433,6 +465,7 @@ func runServer(ctx context.Context) error {
 		HttpServer:  splitGrpcHandler,
 		DefaultUser: defaultUser,
 		KeyRing:     pgpKeyRing,
+		Policy:      policy,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -470,6 +503,7 @@ type Auth struct {
 	DefaultUser auth.User
 	// KeyRing is as of now required because we do not have technical users yet. So we protect public endpoints by requiring a signature
 	KeyRing openpgp.KeyRing
+	Policy  *auth.RBACPolicies
 }
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
@@ -524,6 +558,19 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			user = getRequestAuthorFromGoogleIAP(ctx, r)
 			source = "iap"
 		}
+		if c.DexEnabled {
+			source = "dex"
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, p.Policy, c.DexUseClusterInternalCommunication)
+			if dexAuthContext == nil {
+				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
+			} else {
+				if user == nil {
+					user = &p.DefaultUser
+				}
+				user.DexAuthContext = dexAuthContext
+				logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
+			}
+		}
 		if user != nil {
 			span.SetTag("current-user-name", user.Name)
 			span.SetTag("current-user-email", user.Email)
@@ -534,12 +581,29 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		auth.WriteUserToHttpHeader(r, combinedUser)
 		ctx = auth.WriteUserToContext(ctx, combinedUser)
 		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
+		if user != nil && user.DexAuthContext != nil {
+			ctx = auth.WriteUserRoleToGrpcContext(ctx, user.DexAuthContext.Role)
+		}
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	})
 	if err != nil {
 		fmt.Printf("error: %v %#v", err, err)
 	}
+}
+
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy, useClusterInternalCommunication)
+	if err != nil {
+		return nil
+	}
+	headerRole64 := req.Header.Get(auth.HeaderUserRole)
+	headerRole, err := auth.Decode64(headerRole64)
+	if err != nil {
+		logger.FromContext(httpCtx).Info("could not decode user role")
+		return nil
+	}
+	return &auth.DexAuthContext{Role: headerRole}
 }
 
 // GrpcProxy passes through gRPC messages to another server.

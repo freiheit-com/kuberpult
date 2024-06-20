@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package argo
 
@@ -27,8 +27,8 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -168,15 +168,19 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				XXX_NoUnkeyedLiteral: struct{}{},
 				XXX_unrecognized:     nil,
 				XXX_sizecache:        0,
-				Validate:             ptr.Bool(false),
+				Validate:             conversion.Bool(false),
 				Application:          appToUpdate,
-				Project:              ptr.FromString(appToUpdate.Spec.Project),
+				Project:              conversion.FromString(appToUpdate.Spec.Project),
 			}
-			//We have to exclude the unexported type isServerInferred. It is managed by Argo.
 
 			//exhaustruct:ignore
 			emptyAppSpec := v1alpha1.ApplicationSpec{}
-			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination))
+			//exhaustruct:ignore
+			emptyAppSyncPolicy := v1alpha1.SyncPolicyAutomated{}
+			//We have to exclude the unexported type destination and the syncPolicy
+			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
+				cmp.AllowUnexported(emptyAppSpec.Destination),
+				cmp.AllowUnexported(emptyAppSyncPolicy))
 			if diff != "" {
 				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
 				updateSpan.SetTag("application", app.Name)
@@ -252,7 +256,7 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[strin
 			XXX_NoUnkeyedLiteral: struct{}{},
 			XXX_unrecognized:     nil,
 			XXX_sizecache:        0,
-			Name:                 ptr.FromString(toDelete[i].Name),
+			Name:                 conversion.FromString(toDelete[i].Name),
 		})
 
 		if err != nil {

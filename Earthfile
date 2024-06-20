@@ -1,4 +1,4 @@
-VERSION 0.7
+VERSION 0.8
 FROM busybox
 ARG --global UID=1000
 ARG --global target=docker
@@ -35,6 +35,8 @@ deps:
     RUN mv exhaustruct /usr/local/bin/exhaustruct
 
     WORKDIR /kp
+    RUN mkdir -p database/migrations
+    COPY database/migrations database/migrations
     COPY go.mod go.sum ./
     RUN go mod download
 
@@ -42,8 +44,18 @@ deps:
     SAVE ARTIFACT go.sum
     SAVE ARTIFACT $BUF_BIN_PATH/buf
 
+migration-deps:
+    FROM scratch
+
+    COPY database/ database/
+
+    SAVE ARTIFACT database/migrations
+
 cd-service:
     BUILD ./services/cd-service+$target --UID=$UID --service=cd-service
+
+manifest-repo-export-service:
+    BUILD ./services/manifest-repo-export-service+$target --UID=$UID --service=manifest-repo-export-service
 
 rollout-service:
     BUILD ./services/rollout-service+$target --UID=$UID --service=rollout-service
@@ -57,11 +69,13 @@ ui:
 all-services:
     BUILD ./pkg+deps
     BUILD ./services/cd-service+docker --service=cd-service --UID=$UID
+    BUILD ./services/manifest-repo-export-service+docker --service=manifest-repo-export-service --UID=$UID
     BUILD ./services/frontend-service+docker --service=frontend-service
     BUILD ./services/frontend-service+docker-ui
 
 cache:
     BUILD ./services/cd-service+release --service=cd-service --UID=$UID
+    BUILD ./services/manifest-repo-export-service+release --service=manifest-repo-export-service --UID=$UID
     BUILD ./services/rollout-service+release --service=rollout-service --UID=$UID
     BUILD ./services/frontend-service+release --service=frontend-service
     BUILD ./services/frontend-service+release-ui
@@ -77,6 +91,7 @@ commitlint:
 
 test-all:
     BUILD ./services/cd-service+unit-test --service=cd-service
+    BUILD ./services/manifest-repo-export-service+unit-test --service=manifest-repo-export-service
     BUILD ./services/rollout-service+unit-test --service=rollout-service
     BUILD ./services/frontend-service+unit-test --service=frontend-service
     BUILD ./services/frontend-service+unit-test-ui
@@ -122,12 +137,13 @@ integration-test:
     # Note that multiple commands here are writing to "." which is slightly dangerous, because
     # if there are files with the same name, old ones will be overridden.
     COPY charts/kuberpult .
+    COPY database/migrations migrations
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
     COPY infrastructure/scripts/create-testdata/create-release.sh .
     COPY tests/integration-tests integration-tests
     COPY go.mod go.sum .
-    COPY pkg/ptr pkg/ptr
+    COPY pkg/conversion  pkg/conversion
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version

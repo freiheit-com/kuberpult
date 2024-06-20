@@ -12,14 +12,16 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -27,8 +29,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
@@ -69,14 +69,35 @@ func (o *OverviewServiceServer) GetOverview(
 			}
 			return nil, err
 		}
-		return o.getOverview(ctx, state)
+		return o.getOverviewDB(ctx, state)
 	}
-	return o.getOverview(ctx, o.Repository.State())
+	return o.getOverviewDB(ctx, o.Repository.State())
+}
+
+func (o *OverviewServiceServer) getOverviewDB(
+	ctx context.Context,
+	s *repository.State) (*api.GetOverviewResponse, error) {
+
+	var response *api.GetOverviewResponse
+	if s.DBHandler.ShouldUseOtherTables() {
+		err := s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			var err2 error
+			response, err2 = o.getOverview(ctx, s, transaction)
+			return err2
+		})
+		if err != nil {
+			return nil, err
+		}
+		return response, nil
+	}
+	return o.getOverview(ctx, s, nil)
 }
 
 func (o *OverviewServiceServer) getOverview(
 	ctx context.Context,
-	s *repository.State) (*api.GetOverviewResponse, error) {
+	s *repository.State,
+	transaction *sql.Tx,
+) (*api.GetOverviewResponse, error) {
 	var rev string
 	if s.Commit != nil {
 		rev = s.Commit.Id().String()
@@ -115,7 +136,7 @@ func (o *OverviewServiceServer) getOverview(
 				Applications: map[string]*api.Environment_Application{},
 			}
 			envInGroup.Config = env.Config
-			if locks, err := s.GetEnvironmentLocks(envName); err != nil {
+			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
 				return nil, err
 			} else {
 				for lockId, lock := range locks {
@@ -132,12 +153,12 @@ func (o *OverviewServiceServer) getOverview(
 				envInGroup.Locks = env.Locks
 			}
 
-			if apps, err := s.GetEnvironmentApplications(envName); err != nil {
+			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
 				return nil, err
 			} else {
 
 				for _, appName := range apps {
-					teamName, err := s.GetTeamName(appName)
+					teamName, err := s.GetTeamName(ctx, transaction, appName)
 					app := api.Environment_Application{
 						Version:         0,
 						QueuedVersion:   0,
@@ -153,7 +174,7 @@ func (o *OverviewServiceServer) getOverview(
 						},
 					}
 					if err == nil {
-						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
+						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(ctx, transaction, envName, teamName); teamErr != nil {
 							return nil, teamErr
 						} else {
 							for lockId, lock := range teamLocks {
@@ -171,7 +192,8 @@ func (o *OverviewServiceServer) getOverview(
 					} // Err != nil means no team name was found so no need to parse team locks
 
 					var version *uint64
-					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+					version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
+					if err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
 						if version == nil {
@@ -180,7 +202,8 @@ func (o *OverviewServiceServer) getOverview(
 							app.Version = *version
 						}
 					}
-					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+
+					if queuedVersion, err := s.GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
 						if queuedVersion == nil {
@@ -191,14 +214,14 @@ func (o *OverviewServiceServer) getOverview(
 					}
 					app.UndeployVersion = false
 					if version != nil {
-						if release, err := s.GetApplicationRelease(appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
+						if release, err := s.GetApplicationRelease(ctx, transaction, appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
 							return nil, err
 						} else if release != nil {
 							app.UndeployVersion = release.UndeployVersion
 						}
 					}
 
-					if appLocks, err := s.GetEnvironmentApplicationLocks(envName, appName); err != nil {
+					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
 						return nil, err
 					} else {
 						for lockId, lock := range appLocks {
@@ -222,7 +245,7 @@ func (o *OverviewServiceServer) getOverview(
 							}
 						}
 					}
-					deployAuthor, deployTime, err := s.GetDeploymentMetaData(envName, appName)
+					deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, transaction, envName, appName)
 					if err != nil {
 						return nil, err
 					}
@@ -238,7 +261,7 @@ func (o *OverviewServiceServer) getOverview(
 			envInGroup.Applications = env.Applications
 		}
 	}
-	if apps, err := s.GetApplicationsFromFile(); err != nil {
+	if apps, err := s.GetApplications(ctx, transaction); err != nil {
 		return nil, err
 	} else {
 		for _, appName := range apps {
@@ -250,21 +273,25 @@ func (o *OverviewServiceServer) getOverview(
 				SourceRepoUrl:   "",
 				Team:            "",
 			}
-			if rels, err := s.GetApplicationReleases(appName); err != nil {
+			if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
 				return nil, err
 			} else {
 				for _, id := range rels {
-					if rel, err := s.GetApplicationRelease(appName, id); err != nil {
+					if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
 						return nil, err
 					} else {
-						release := rel.ToProto()
-						release.Version = id
+						if rel == nil {
+							// ignore
+						} else {
+							release := rel.ToProto()
+							release.Version = id
 
-						app.Releases = append(app.Releases, release)
+							app.Releases = append(app.Releases, release)
+						}
 					}
 				}
 			}
-			if team, err := s.GetApplicationTeamOwner(appName); err != nil {
+			if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 				return nil, err
 			} else {
 				app.Team = team
@@ -448,7 +475,7 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {
-	r, err := o.getOverview(context.Background(), s)
+	r, err := o.getOverviewDB(context.Background(), s)
 	if err != nil {
 		panic(err)
 	}

@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package cloudrun
 
@@ -28,6 +28,21 @@ type ServiceReadyCondition struct {
 
 func (c ServiceReadyCondition) String() string {
 	return fmt.Sprintf("Service:%s, ObservedGeneration:%d, Ready:%s, Reason:%s, Message:%s", c.Name, c.Revision, c.Status, c.Reason, c.Message)
+}
+
+type serviceManifestError struct {
+	metadataMissing bool
+	nameEmpty       bool
+}
+
+func (p serviceManifestError) Error() string {
+	if p.metadataMissing {
+		return "Error: No metadata found in service manifest"
+	}
+	if p.nameEmpty {
+		return "Error: Service name cannot be empty"
+	}
+	return "Configuration error"
 }
 
 type serviceConfigError struct {

@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package auth
 
@@ -30,7 +30,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/oauth2"
 )
 
@@ -56,6 +56,8 @@ type DexAppClient struct {
 	Scopes []string
 	// The http client used.
 	Client *http.Client
+	// Whether dex should be accessed via internal cluster communication.
+	UseClusterInternalCommunication bool
 }
 
 const (
@@ -74,15 +76,16 @@ const (
 )
 
 // NewDexAppClient a Dex Client.
-func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string) (*DexAppClient, error) {
+func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string, useClusterInternalCommunication bool) (*DexAppClient, error) {
 	a := DexAppClient{
-		Client:       nil,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Scopes:       scopes,
-		BaseURL:      baseURL,
-		RedirectURI:  baseURL + callbackPATH,
-		IssuerURL:    baseURL + issuerPATH,
+		Client:                          nil,
+		ClientID:                        clientID,
+		ClientSecret:                    clientSecret,
+		Scopes:                          scopes,
+		BaseURL:                         baseURL,
+		RedirectURI:                     baseURL + callbackPATH,
+		IssuerURL:                       baseURL + issuerPATH,
+		UseClusterInternalCommunication: useClusterInternalCommunication,
 	}
 	//exhaustruct:ignore
 	transport := &http.Transport{
@@ -209,9 +212,9 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID)
+	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID, a.UseClusterInternalCommunication)
 	if err != nil {
-		http.Error(w, "failed to verify the token", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to verify the token: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -237,15 +240,33 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.BaseURL, http.StatusSeeOther)
 }
 
-func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedAudience string) (token *oidc.IDToken, err error) {
-	p, err := oidc.NewProvider(ctx, issuerURL)
-	if err != nil {
-		return nil, err
-	}
-
+func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedAudience string, useClusterInternalCommunication bool) (token *oidc.IDToken, err error) {
+	var p *oidc.Provider
 	// Token must be verified against an allowed audience.
 	//exhaustruct:ignore
 	config := oidc.Config{ClientID: allowedAudience}
+	if useClusterInternalCommunication {
+		// When using e.g. GCP IAP, calls to https://kuberpult.com/dex/.well-known/openid-configuration will not return the needed JSON, so we do cluster-internal calls instead to e.g. http://kuberpult-dex:5556/dex
+		discoveryBaseURL := dexServiceURL + issuerPATH
+		pc := &oidc.ProviderConfig{
+			IssuerURL:     discoveryBaseURL,
+			AuthURL:       discoveryBaseURL + "/auth",
+			TokenURL:      discoveryBaseURL + "/token",
+			DeviceAuthURL: discoveryBaseURL + "/device/code",
+			UserInfoURL:   discoveryBaseURL + "/userinfo",
+			JWKSURL:       discoveryBaseURL + "/keys",
+			Algorithms:    []string{"RS256"},
+		}
+		p = pc.NewProvider(ctx)
+		// As the issuer is e.g. https://kuberpult.com/dex and the providerBaseUrl is http://kuberpult-dex:5556/dex we need to SkipIssuerChecks
+		config.SkipIssuerCheck = true
+	} else {
+		p, err = oidc.NewProvider(ctx, issuerURL)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	verifier := p.Verifier(&config)
 	idToken, err := verifier.Verify(ctx, rawToken)
 	if err != nil {
@@ -272,38 +293,47 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 }
 
 // Verifies if the user is authenticated.
-func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string) (group string, err error) {
+func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
+
+	//If token not in cookie verify in header
+	var tokenString string
 	if err != nil {
-		return "", fmt.Errorf("%s token not found", dexOAUTHTokenName)
+		reqToken := r.Header.Get("Authorization")
+		if reqToken == "" {
+			return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
+		}
+		splitToken := strings.Split(reqToken, "Bearer ")
+		if len(splitToken) != 2 {
+			return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
+		}
+		tokenString = splitToken[1]
+	} else {
+		tokenString = cookie.Value
 	}
-	tokenString := cookie.Value
 
 	// Validates token audience and expiring date.
-	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID)
+	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID, useClusterInternalCommunication)
 	if err != nil {
-		return "", fmt.Errorf("failed to verify token: %s", err)
+		return nil, fmt.Errorf("failed to verify token: %s", err)
 	}
 	// Extract token claims and verify the token is not expired.
 	claims := jwt.MapClaims{
 		"groups": []string{},
+		"email":  "",
+		"name":   "",
+		"sub":    "",
 	}
 	err = idToken.Claims(&claims)
 	if err != nil {
-		return "", fmt.Errorf("could not parse token claims")
+		return nil, fmt.Errorf("could not parse token claims")
 	}
 
-	// Convert the `groups` claim to an comma separated group string.
-	var groups string
-	if len(claims["groups"].([]interface{})) == 0 {
-		return "", fmt.Errorf("failed to verify token: no group defined")
-	}
-	for _, group := range claims["groups"].([]interface{}) {
-		groupName := strings.Trim(group.(string), "\"")
-		groups = groupName + "," + groups
+	// check if claims is empty in terms of required fields for identification
+	if claims["email"].(string) == "" && len(claims["groups"].([]string)) < 1 {
+		return nil, fmt.Errorf("need required fields to determine group of user")
 	}
 
-	// Returns the user object with the token information
-	return groups, nil
+	return claims, nil
 }

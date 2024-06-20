@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { Home } from '../Pages/Home/Home';
 import { EnvironmentsPage } from '../Pages/Environments/EnvironmentsPage';
 import { ReleasesPage } from '../Pages/Releases/ReleasesPage';
@@ -20,11 +20,16 @@ import { LocksPage } from '../Pages/Locks/LocksPage';
 import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
 import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
 import { CommitInfoPage } from '../Pages/CommitInfo/CommitInfoPage';
+import { ReleaseTrainPage } from '../Pages/ReleaseTrain/ReleaseTrainPage';
 
 const routes = [
     {
         path: `/ui/environments/*`,
         element: <EnvironmentsPage />,
+    },
+    {
+        path: `/ui/environments/:targetEnv/releaseTrain`,
+        element: <ReleaseTrainPage />,
     },
     {
         path: `/ui/locks/*`,

@@ -1,4 +1,4 @@
-VERSION --use-function-keyword 0.7
+VERSION 0.8
 
 DEPS:
     FUNCTION
@@ -22,12 +22,12 @@ COMPILE:
         GOARCH=$USERARCH \
 	    GOOS=linux \
         go build -o bin/main .
-    
+
     IF [ "$cgo_enabled" = "1" ]
         RUN bash -c "ldd $main_path/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $main_path/%"
         SAVE ARTIFACT $main_path/lib/
         IF [ "$USERARCH" != "arm64" ]
-            SAVE ARTIFACT $main_path/usr/
+            SAVE ARTIFACT --if-exists $main_path/usr/
         END
     END
 
@@ -72,7 +72,7 @@ DOCKER:
     IF [  "$cgo_enabled" = "1" ]
         COPY ../../../services/$service+compile/lib/* /lib
         IF [ "$USERARCH" != "arm64" ]
-            COPY ../../../services/$service+compile/usr/* /lib
+            COPY --if-exists ../../../services/$service+compile/usr/* /lib
         END
     END
 

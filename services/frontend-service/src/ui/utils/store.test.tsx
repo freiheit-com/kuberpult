@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { act, renderHook } from '@testing-library/react';
 import {
     addAction,
@@ -565,6 +565,31 @@ describe('Test addAction duplicate detection', () => {
                         environment: 'dev',
                         application: 'app2',
                         lockId: 'foo',
+                    },
+                },
+            },
+        },
+        {
+            name: 'create team lock',
+            firstAction: {
+                action: {
+                    $case: 'createEnvironmentTeamLock',
+                    createEnvironmentTeamLock: {
+                        environment: 'dev',
+                        team: 'team1',
+                        lockId: 'foo',
+                        message: 'do it',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'createEnvironmentTeamLock',
+                    createEnvironmentTeamLock: {
+                        environment: 'dev',
+                        team: 'team2',
+                        lockId: 'foo',
+                        message: 'do it',
                     },
                 },
             },

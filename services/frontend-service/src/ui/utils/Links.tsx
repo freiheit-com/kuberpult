@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 import React from 'react';
 import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl } from './store';
@@ -252,4 +252,18 @@ export const setOpenEnvironmentConfigDialog = (params: URLSearchParams, envName:
     } else {
         params.delete(envConfigDialogParamName);
     }
+};
+
+export const ReleaseTrainLink: React.FC<{ env: string }> = (props): JSX.Element | null => {
+    const { env } = props;
+
+    const currentLink = window.location.href;
+
+    return (
+        <a
+            title={'Opens a preview of release trains on this environment'}
+            href={currentLink + '/' + env + '/releaseTrain'}>
+            Release train details
+        </a>
+    );
 };

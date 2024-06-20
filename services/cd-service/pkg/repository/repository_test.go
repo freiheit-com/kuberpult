@@ -12,16 +12,16 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"io"
 	"io/fs"
 	"net/http"
@@ -34,7 +34,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -427,8 +430,8 @@ func TestGetTags(t *testing.T) {
 			}
 			var expectedCommits []api.TagData
 			for addTag := range tc.tagsToAdd {
-				_, err := repo.Tags.Create(tc.tagsToAdd[addTag], commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
-				expectedCommits = append(expectedCommits, api.TagData{Tag: tc.tagsToAdd[addTag], CommitId: commit.Id().String()})
+				commit, err := repo.Tags.Create(tc.tagsToAdd[addTag], commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
+				expectedCommits = append(expectedCommits, api.TagData{Tag: tc.tagsToAdd[addTag], CommitId: commit.String()})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -885,21 +888,21 @@ func TestGc(t *testing.T) {
 		ExpectedGarbageMax uint64
 	}{
 		{
-			// 0 disables GC entirely
-			// we are reasonably expecting some additional files around
+			// we are going to perform 101 requests, which should trigger gc every N*GcFrequency writes.
+			// The number of objects is not constant per write, so we set a range of expected count of objects based on the number of writes after GC.
+			// ExpectedGarbageMin = (101 % GcFrequency)
+			// ExpectedGarbageMax = 10 * ExpectedGarbageMin
 			Name:               "gc disabled",
 			GcFrequency:        0,
 			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 906,
-			ExpectedGarbageMax: 1500,
+			ExpectedGarbageMin: 101,
+			ExpectedGarbageMax: 1010,
 		},
 		{
-			// we are going to perform 101 requests, that should trigger a gc
-			// the number of additional files should be lower than in the case above
 			Name:               "gc enabled",
-			GcFrequency:        100,
+			GcFrequency:        25,
 			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 9,
+			ExpectedGarbageMin: 1,
 			ExpectedGarbageMax: 10,
 		},
 		{
@@ -1052,7 +1055,11 @@ type SlowTransformer struct {
 	started  chan struct{}
 }
 
-func (s *SlowTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (s *SlowTransformer) GetDBEventType() db.EventType {
+	return "invalid"
+}
+
+func (s *SlowTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	s.started <- struct{}{}
 	<-s.finished
 	return "ok", nil
@@ -1060,13 +1067,21 @@ func (s *SlowTransformer) Transform(ctx context.Context, state *State, t Transfo
 
 type EmptyTransformer struct{}
 
-func (p *EmptyTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (p *EmptyTransformer) GetDBEventType() db.EventType {
+	return "invalid"
+}
+
+func (p *EmptyTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "nothing happened", nil
 }
 
 type PanicTransformer struct{}
 
-func (p *PanicTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (p *PanicTransformer) GetDBEventType() db.EventType {
+	return "invalid"
+}
+
+func (p *PanicTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	panic("panic tranformer")
 }
 
@@ -1074,13 +1089,21 @@ var TransformerError = errors.New("error transformer")
 
 type ErrorTransformer struct{}
 
-func (p *ErrorTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (p *ErrorTransformer) GetDBEventType() db.EventType {
+	return "invalid"
+}
+
+func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "error", TransformerError
 }
 
 type InvalidJsonTransformer struct{}
 
-func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (p *InvalidJsonTransformer) GetDBEventType() db.EventType {
+	return "invalid"
+}
+
+func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "error", InvalidJson
 }
 
@@ -2252,7 +2275,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			_, applyErr := repo.(*repository).ApplyTransformers(ctx, transformers...)
+			_, applyErr := repo.(*repository).ApplyTransformers(ctx, nil, transformers...)
 
 			state = repo.State() //update state
 			if applyErr != nil {

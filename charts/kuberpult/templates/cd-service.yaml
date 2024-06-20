@@ -12,7 +12,7 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com
+# Copyright freiheit.com
 # This file is part of kuberpult.
 
 # Kuberpult is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com
+# Copyright freiheit.com
 
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
@@ -217,6 +217,8 @@ spec:
 {{- if .Values.auth.dexAuth.enabled }}
         - name: KUBERPULT_DEX_RBAC_POLICY_PATH
           value: /kuberpult-rbac/policy.csv
+        - name: KUBERPULT_DEX_DEFAULT_ROLE_ENABLED
+          value: "{{ .Values.auth.dexAuth.defaultRoleEnabled }}"
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
@@ -238,6 +240,8 @@ spec:
           value: "{{ .Values.cd.backendConfig.queueSize }}"
         - name: KUBERPULT_DB_OPTION # { NO_DB, cloudsql, sqlite }
           value: {{ .Values.cd.db.dbOption }}
+        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
+          value: "{{ .Values.cd.db.writeEslTableOnly }}"
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.cd.db.location }}
@@ -254,6 +258,10 @@ spec:
 {{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
+        - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
+          value: "{{ .Values.git.releaseVersionsLimit }}"
+        - name: KUBERPULT_GARBAGE_COLLECTION_FREQUENCY
+          value: "{{ .Values.git.garbageCollectionFrequency }}"
         volumeMounts:
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
         - name: migrations
@@ -280,7 +288,7 @@ spec:
 {{- if .Values.auth.dexAuth.enabled }}
         - name: kuberpult-rbac
           mountPath: /kuberpult-rbac
-{{- end }} 
+{{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: dsdsocket
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
@@ -311,11 +319,16 @@ spec:
         configMap:
           name: kuberpult-keyring
 {{- end }}
-{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
       - name: migrations
         configMap:
-          name: kuberpult-migrations
-{{- end }} 
+          name: kuberpult-migrations-cloudsql
+{{- end }}
+{{- if eq .Values.cd.db.dbOption "sqlite" }}
+      - name: migrations
+        configMap:
+          name: kuberpult-migrations-sqlite
+{{- end }}
 {{- if eq .Values.cd.db.dbOption "sqlite" }}
       - name: sqlite
         emptyDir:
@@ -420,13 +433,3 @@ metadata:
 data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
 {{- end }}
-{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kuberpult-migrations
-data:
-  1713956693027648_all_apps.up.sql: "CREATE TABLE IF NOT EXISTS all_apps(version BIGINT, created TIMESTAMP, json VARCHAR(255), PRIMARY KEY(version));"
-{{- end }}
-

@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import {
     addAction,
     EnvironmentGroupExtended,
@@ -33,7 +33,7 @@ import { AppLockSummary, TeamLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
 import { useCallback, useState } from 'react';
-import { EnvSelectionDialog } from './EnvSelectionDialog';
+import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width

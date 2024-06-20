@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { Button } from '../button';
 import { DeleteGray, HideBarWhite } from '../../../images';
 import { BatchAction, DeleteEnvironmentTeamLockRequest } from '../../../api/api';
@@ -139,6 +139,21 @@ export const getActionDetails = (
                 lockId: action.deleteEnvironmentApplicationLock.lockId,
                 lockMessage: appLocks.find((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)
                     ?.message,
+            };
+        case 'createEnvironmentTeamLock':
+            return {
+                type: ActionTypes.CreateEnvironmentTeamLock,
+                name: 'Create Team Lock',
+                dialogTitle: 'Are you sure you want to add this team lock?',
+                summary:
+                    'Create new team lock for "' +
+                    action.createEnvironmentTeamLock.team +
+                    '" on ' +
+                    action.createEnvironmentTeamLock.environment,
+                tooltip:
+                    'A team lock will prevent automated process from changing the deployed version - note that kuberpult users can still deploy despite locks.',
+                environment: action.createEnvironmentTeamLock.environment,
+                team: action.createEnvironmentTeamLock.team,
             };
         case 'deleteEnvironmentTeamLock':
             const findMatchingTeamLock = (
@@ -382,7 +397,8 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     const lockCreationList = actions.filter(
         (action) =>
             action.action?.$case === 'createEnvironmentLock' ||
-            action.action?.$case === 'createEnvironmentApplicationLock'
+            action.action?.$case === 'createEnvironmentApplicationLock' ||
+            action.action?.$case === 'createEnvironmentTeamLock'
     );
     const [showSpinner, setShowSpinner] = useState(false);
     const [dialogState, setDialogState] = useState({
@@ -407,6 +423,9 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 if (action.action?.$case === 'createEnvironmentApplicationLock') {
                     action.action.createEnvironmentApplicationLock.message = lockMessage;
                 }
+                if (action.action?.$case === 'createEnvironmentTeamLock') {
+                    action.action.createEnvironmentTeamLock.message = lockMessage;
+                }
             });
             setLockMessage('');
         }
@@ -419,6 +438,9 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 }
                 if (action.action?.$case === 'createEnvironmentLock') {
                     action.action.createEnvironmentLock.lockId = lockId;
+                }
+                if (action.action?.$case === 'createEnvironmentTeamLock') {
+                    action.action.createEnvironmentTeamLock.lockId = lockId;
                 }
             }
             api.batchService()

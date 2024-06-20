@@ -12,7 +12,7 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com
+# Copyright freiheit.com
 SHELL := sh
 
 include ./Makefile.variables
@@ -85,6 +85,7 @@ cache:
 	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:cache --push +frontend-service --target release --UID=$(USER_UID)
 	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-cd-service:cache --push +cd-service --UID=$(USER_UID) --target release
 	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache --push +rollout-service --UID=$(USER_UID) --target release
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache --push +manifest-repo-export-service --UID=$(USER_UID) --target release
 
 integration-test:
 	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)

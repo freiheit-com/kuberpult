@@ -209,7 +209,6 @@ message CreateReleaseRequest {
   string source_repo_url = 9;
   string display_version = 10;
   string previous_commit_id = 11;
-  string next_commit_id = 12;
 }
 
 message CreateReleaseResponseSuccess {
@@ -621,6 +620,7 @@ enum ReleaseTrainAppSkipCause {
   APP_IS_LOCKED = 2;
   APP_DOES_NOT_EXIST_IN_ENV = 3;
   APP_IS_LOCKED_BY_ENV = 4; // there is an env lock that prevents deployment for this app
+  TEAM_IS_LOCKED = 5; //there is a team lock that prevents deployment for this app
 }
 
 message ReleaseTrainAppPrognosis {
@@ -666,3 +666,13 @@ message GetManifestsResponse {
   Release release = 1;
   map<string, Manifest> manifests = 2;
 }
+
+service CloudRunService {
+  rpc Deploy (ServiceDeployRequest) returns (ServiceDeployResponse) {}
+}
+
+message ServiceDeployRequest {
+    bytes manifest = 1;
+}
+
+message ServiceDeployResponse {}

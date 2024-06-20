@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package argo
 
@@ -30,8 +30,8 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -727,7 +727,7 @@ func (a mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo m
 
 	for i := range toDelete {
 		a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
-			Name: ptr.FromString(toDelete[i].Name),
+			Name: conversion.FromString(toDelete[i].Name),
 		})
 
 	}
@@ -767,9 +767,9 @@ func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 			XXX_NoUnkeyedLiteral: struct{}{},
 			XXX_unrecognized:     nil,
 			XXX_sizecache:        0,
-			Validate:             ptr.Bool(false),
+			Validate:             conversion.Bool(false),
 			Application:          appToUpdate,
-			Project:              ptr.FromString(appToUpdate.Spec.Project),
+			Project:              conversion.FromString(appToUpdate.Spec.Project),
 		}
 
 		if !cmp.Equal(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(v1alpha1.ApplicationSpec{}.Destination)) {

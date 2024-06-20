@@ -12,7 +12,7 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-# Copyright 2023 freiheit.com
+# Copyright freiheit.com
 # This file is part of kuberpult.
 {{- if .Values.rollout.tag }}
 {{ fail "Values.rollout.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
@@ -153,6 +153,8 @@ spec:
               key: KUBERPULT_REVOLUTION_DORA_TOKEN
         - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
           value: "2h"
+        - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
+          value: "{{ .Values.rollout.grpcMaxRecvMsgSize }}"
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp

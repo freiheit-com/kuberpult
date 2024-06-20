@@ -12,19 +12,19 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package service
 
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"testing"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -33,8 +33,8 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -263,7 +263,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			// check deployment version
 			{
-				version, err := tc.svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
+				version, err := tc.svc.Repository.State().GetEnvironmentApplicationVersion(tc.context, "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -276,7 +276,8 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			// check that the envlock was created/deleted
 			{
-				envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks("production")
+				ctx := testutil.MakeTestContext()
+				envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks(ctx, nil, "production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -294,7 +295,8 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			// check that the applock was created/deleted
 			{
-				appLocks, err := tc.svc.Repository.State().GetEnvironmentApplicationLocks("production", "test")
+				ctx := testutil.MakeTestContext()
+				appLocks, err := tc.svc.Repository.State().GetEnvironmentApplicationLocks(ctx, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -312,7 +314,8 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			//Check that Team lock was created
 			{
-				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks("production", "test-team")
+				ctx := testutil.MakeTestContext()
+				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks(ctx, nil, "production", "test-team")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -589,7 +592,7 @@ func TestBatchServiceLimit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
+				version, err := svc.Repository.State().GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -604,8 +607,7 @@ func TestBatchServiceLimit(t *testing.T) {
 	}
 }
 
-func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
-	t.Parallel()
+func setupRepositoryTestWithoutDB(t *testing.T) (repository.Repository, error) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -613,21 +615,72 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	cmd.Start()
 	cmd.Wait()
 	t.Logf("test created dir: %s", localDir)
+
+	repoCfg := repository.RepositoryConfig{
+		URL:                    remoteDir,
+		Path:                   localDir,
+		CommitterEmail:         "kuberpult@freiheit.com",
+		CommitterName:          "kuberpult",
+		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+		ArgoCdGenerateFiles:    true,
+	}
+	repoCfg.DBHandler = nil
+
 	repo, err := repository.New(
 		testutil.MakeTestContext(),
-		repository.RepositoryConfig{
-			URL:                    remoteDir,
-			Path:                   localDir,
-			CommitterEmail:         "kuberpult@freiheit.com",
-			CommitterName:          "kuberpult",
-			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-			ArgoCdGenerateFiles:    true,
-		},
+		repoCfg,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return repo, nil
+}
+
+func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.Repository, error) {
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+	t.Logf("test created dir: %s", localDir)
+
+	repoCfg := repository.RepositoryConfig{
+		URL:                    remoteDir,
+		Path:                   localDir,
+		CommitterEmail:         "kuberpult@freiheit.com",
+		CommitterName:          "kuberpult",
+		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+		ArgoCdGenerateFiles:    true,
+	}
+	if dbConfig != nil {
+		dbConfig.DbHost = dir
+
+		migErr := db.RunDBMigrations(*dbConfig)
+		if migErr != nil {
+			t.Fatal(migErr)
+		}
+
+		db, err := db.Connect(*dbConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		repoCfg.DBHandler = db
+		fmt.Println(dbConfig.DbHost)
+	}
+
+	repo, err := repository.New(
+		testutil.MakeTestContext(),
+		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, nil
+}
+
+func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
+	return setupRepositoryTestWithDB(t, nil)
 }
 
 func TestReleaseTrain(t *testing.T) {
@@ -789,7 +842,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 								Environment: "env",
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
-										Latest: ptr.Bool(true),
+										Latest: conversion.Bool(true),
 									},
 								},
 							},
@@ -819,7 +872,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 								Environment: "env",
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
-										Environment: ptr.FromString("other-env"),
+										Environment: conversion.FromString("other-env"),
 									},
 								},
 							},
@@ -880,9 +933,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
 											Name:                 "name",
 											Server:               "server",
-											Namespace:            ptr.FromString("namespace"),
-											AppProjectNamespace:  ptr.FromString("app-project-namespace"),
-											ApplicationNamespace: ptr.FromString("app-namespace"),
+											Namespace:            conversion.FromString("namespace"),
+											AppProjectNamespace:  conversion.FromString("app-project-namespace"),
+											ApplicationNamespace: conversion.FromString("app-namespace"),
 										},
 										SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{
 											&api.EnvironmentConfig_ArgoCD_SyncWindows{
@@ -928,9 +981,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 						Destination: config.ArgoCdDestination{
 							Name:                 "name",
 							Server:               "server",
-							Namespace:            ptr.FromString("namespace"),
-							AppProjectNamespace:  ptr.FromString("app-project-namespace"),
-							ApplicationNamespace: ptr.FromString("app-namespace"),
+							Namespace:            conversion.FromString("namespace"),
+							AppProjectNamespace:  conversion.FromString("app-project-namespace"),
+							ApplicationNamespace: conversion.FromString("app-namespace"),
 						},
 						SyncWindows: []config.ArgoCdSyncWindow{
 							{

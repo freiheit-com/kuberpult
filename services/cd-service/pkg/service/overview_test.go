@@ -12,19 +12,19 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package service
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"sync"
 	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
@@ -247,7 +247,6 @@ func TestOverviewService(t *testing.T) {
 					SourceAuthor:   "example <example@example.com>",
 					SourceCommitId: "deadbeef",
 					SourceMessage:  "changed something (#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-team",
@@ -264,7 +263,6 @@ func TestOverviewService(t *testing.T) {
 					SourceAuthor:   "example <example@example.com>",
 					SourceCommitId: "deadbeef",
 					SourceMessage:  "changed something (#678",
-					SourceRepoUrl:  "testing@testing.com/abc",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-only-pr-number",
@@ -274,7 +272,6 @@ func TestOverviewService(t *testing.T) {
 					SourceAuthor:   "example <example@example.com>",
 					SourceCommitId: "deadbeef",
 					SourceMessage:  "(#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
 				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
@@ -322,9 +319,6 @@ func TestOverviewService(t *testing.T) {
 					t.Errorf("expected %d environmentGroups, got %q", expectedEnvs, resp.EnvironmentGroups)
 				}
 				testApp := resp.Applications["test"]
-				if testApp.SourceRepoUrl != "testing@testing.com/abc" {
-					t.Errorf("Expected \"testing@testing.com/abc\", but got %#q", resp.Applications["test"].SourceRepoUrl)
-				}
 				releases := testApp.Releases
 				if len(releases) != 1 {
 					t.Errorf("Expected one release, but got %#q", len(releases))
@@ -660,7 +654,6 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "deadbeef",
 						SourceMessage:  "changed something (#678)",
-						SourceRepoUrl:  "testing@testing.com/abc",
 					},
 				},
 				{
@@ -681,7 +674,6 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "deadbeef",
 						SourceMessage:  "changed something (#678",
-						SourceRepoUrl:  "testing@testing.com/abc",
 					},
 				},
 				{
@@ -693,7 +685,6 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "deadbeef",
 						SourceMessage:  "(#678)",
-						SourceRepoUrl:  "testing@testing.com/abc",
 					},
 				},
 				{

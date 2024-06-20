@@ -12,12 +12,13 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 
 package testrepository
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -42,7 +43,7 @@ func (fr *failingRepository) Push(ctx context.Context, pushAction func() error) 
 	return fr.err
 }
 
-func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, transformers ...repository.Transformer) ([]string, *repository.State, []*repository.TransformerResult, *repository.TransformerBatchApplyError) {
+func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...repository.Transformer) ([]string, *repository.State, []*repository.TransformerResult, *repository.TransformerBatchApplyError) {
 	return nil, nil, nil, &repository.TransformerBatchApplyError{TransformerError: fr.err, Index: 0}
 }
 
