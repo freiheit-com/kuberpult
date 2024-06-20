@@ -548,7 +548,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 				fmt.Printf("Error starting transaction at index: (%d/%d) Continuing.\n", i, absoluteIndex)
-				continue //Skip this transformer
+				continue //Skip this batch
 			}
 		}
 		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
