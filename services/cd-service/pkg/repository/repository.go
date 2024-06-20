@@ -547,7 +547,6 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			if txErr != nil {
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-				fmt.Printf("Error starting transaction at index: (%d/%d) Continuing.\n", i, absoluteIndex)
 				continue //Skip this batch
 			}
 		}
@@ -560,7 +559,6 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 				if rollBackError != nil {
 					e.finish(rollBackError)
 					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-					fmt.Printf("Error rolling bac transaction at index: (%d/%d) Continuing.\n", i, absoluteIndex)
 					continue
 				}
 			}
@@ -583,6 +581,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 					continue
 				}
+
 			}
 			i++
 		}
@@ -729,6 +728,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 		return
 	}
 
+	logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
 	// Try pushing once
 	err = r.Push(e.ctx, pushAction(pushOptions, r))
 	if err != nil {
@@ -761,6 +761,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	defer span.Finish()
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
+
 	if r.config.DogstatsdEvents {
 		ddError := UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
 		if ddError != nil {
@@ -1230,7 +1231,6 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 
 	span, ctx := tracer.StartSpanFromContext(ctx, "Apply")
 	defer span.Finish()
-
 	eb := r.backOffProvider()
 	return backoff.Retry(
 		func() error {
