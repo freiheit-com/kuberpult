@@ -310,7 +310,7 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 		//exhaustruct:ignore
 		return &repository.CreateApplicationVersion{}, nil
 	default:
-		logger.FromContext(ctx).Sugar().Infof("ignoring unknown event %s", eslEventType)
+		logger.FromContext(ctx).Sugar().Warnf("Found an unknown event %s. No further events will be processed.", eslEventType)
 		return nil, nil
 	}
 }
