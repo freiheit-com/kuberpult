@@ -242,9 +242,6 @@ func Run(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("error in DBWriteCutoff %v", err)
 			}
-			if err != nil {
-				log.Warn("error in DBReadCutoff %v", err)
-			}
 			return nil
 		})
 		if err != nil {
