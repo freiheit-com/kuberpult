@@ -523,33 +523,67 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 	}
 }
 
-func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool, transaction *sql.Tx) ([]transformerBatch, error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool) ([]transformerBatch, error, *TransformerResult) {
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
+	transactions := make([]*sql.Tx, len(transformerBatches))
+	absoluteIndex := -1
+	if r.DB.ShouldUseEslTable() {
+		defer func(txs []*sql.Tx) { //Makes sure we always attempt a rollback on every created tx.
+			for _, tx := range txs {
+				_ = tx.Rollback() //If tx has already been closed, we ignore the error saying tx has ended. If not, we roll it back.
+			}
+		}(transactions)
+	}
+
 	for i := 0; i < len(transformerBatches); {
+		var transaction *sql.Tx
+		var txErr error
 		e := transformerBatches[i]
+		absoluteIndex++
+		if r.DB.ShouldUseEslTable() {
+			transaction, txErr = r.DB.DB.BeginTx(e.ctx, nil)
+			transactions[absoluteIndex] = transaction
+			if txErr != nil {
+				e.finish(txErr)
+				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+				fmt.Printf("Error starting transaction at index: (%d/%d) Continuing.\n", i, absoluteIndex)
+				continue //Skip this transformer
+			}
+		}
 		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
 		changes.Combine(subChanges)
 		if applyErr != nil {
+			//Some transformer on this batch failed. Rollback the transaction
+			if r.DB.ShouldUseEslTable() {
+				rollBackError := transaction.Rollback()
+				if rollBackError != nil {
+					e.finish(rollBackError)
+					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+					fmt.Printf("Error rolling bac transaction at index: (%d/%d) Continuing.\n", i, absoluteIndex)
+					continue
+				}
+			}
 			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
 					return transformerBatches, err, nil
 				}
-				return r.applyTransformerBatches(transformerBatches, false, transaction)
+				return r.applyTransformerBatches(transformerBatches, false)
 			} else {
 				e.finish(applyErr)
-				if r.DB.ShouldUseEslTable() {
-					// if we use the DB at all, then we only do one transformer per git push
-					// AND we need to handle the error in the caller to rollback in case of an error:
-					return nil, applyErr, nil
-				}
-				// here, we keep all transformerBatches "behind i".
-				// these are the transformerBatches that have not been applied yet
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 			}
 		} else {
+			if r.DB.ShouldUseEslTable() {
+				err := transaction.Commit()
+				if err != nil {
+					e.finish(err)
+					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+					continue
+				}
+			}
 			i++
 		}
 	}
@@ -585,10 +619,7 @@ func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
 		return nil
 	}
-	if r.DB != nil {
-		logger.FromContext(ctx).Sugar().Warnf("configured commit queue size is ignored, because database is enabled")
-		return nil
-	}
+
 	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
 	defer r.queue.GaugeQueueSize(ctx)
@@ -692,33 +723,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 		RemoteCallbacks: RemoteCallbacks,
 	}
 
-	// Apply the items
-	var tx *sql.Tx = nil
-	if r.DB.ShouldUseEslTable() {
-		var txErr error
-		tx, txErr = r.DB.DB.BeginTx(ctx, nil)
-		if txErr != nil {
-			err = txErr
-			return
-		}
-		defer func(tx *sql.Tx) {
-			_ = tx.Rollback()
-		}(tx)
-	}
-	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true, tx)
-	if err != nil {
-		if r.DB.ShouldUseEslTable() {
-			logger.Sugar().Warnf("rolling back transaction because of %v", err)
-			_ = tx.Rollback()
-		}
-		return
-	}
-	if r.DB.ShouldUseEslTable() {
-		err = tx.Commit()
-		if err != nil {
-			return
-		}
-	}
+	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
 
 	if len(transformerBatches) == 0 {
 		return
@@ -734,32 +739,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 			if err != nil {
 				return
 			}
-			// Apply the items
-			if r.DB.ShouldUseEslTable() {
-				var txErr error
-				tx, txErr = r.DB.DB.BeginTx(ctx, nil)
-				if txErr != nil {
-					err = txErr
-					return
-				}
-				defer func(tx *sql.Tx) {
-					_ = tx.Rollback()
-				}(tx)
-			}
-			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false, tx)
-			if err != nil {
-				if r.DB.ShouldUseEslTable() {
-					logger.Sugar().Warnf("rolling back transaction because of %v", err)
-					_ = tx.Rollback()
-				}
-				return
-			}
-			if r.DB.ShouldUseEslTable() {
-				err = tx.Commit()
-				if err != nil {
-					return
-				}
-			}
+			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
 			if err != nil || len(transformerBatches) == 0 {
 				return
 			}
@@ -782,7 +762,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, tx, r.State(), r, changes, time.Now())
+		ddError := UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}
