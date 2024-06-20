@@ -263,7 +263,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			// check deployment version
 			{
-				version, err := tc.svc.Repository.State().GetEnvironmentApplicationVersion(tc.context, "production", "test", nil)
+				version, err := tc.svc.Repository.State().GetEnvironmentApplicationVersion(tc.context, nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -592,7 +592,7 @@ func TestBatchServiceLimit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				version, err := svc.Repository.State().GetEnvironmentApplicationVersion(context.Background(), "production", "test", nil)
+				version, err := svc.Repository.State().GetEnvironmentApplicationVersion(context.Background(), nil, "production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}

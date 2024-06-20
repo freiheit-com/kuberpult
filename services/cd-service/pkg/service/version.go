@@ -64,7 +64,7 @@ func (o *VersionServiceServer) GetVersion(
 	if state.DBHandler.ShouldUseOtherTables() {
 		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: not supported yet for Database mode"))
 	}
-	version, err := state.GetEnvironmentApplicationVersion(ctx, in.Environment, in.Application, nil)
+	version, err := state.GetEnvironmentApplicationVersion(ctx, nil, in.Environment, in.Application)
 	if err != nil {
 		return nil, err
 	}

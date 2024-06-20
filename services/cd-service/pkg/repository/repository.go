@@ -1307,7 +1307,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 			if err != nil {
 				return err
 			}
-			version, err := state.GetEnvironmentApplicationVersion(ctx, env, appName, transaction)
+			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -1921,7 +1921,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, environment, application string, transaction *sql.Tx) (*uint64, error) {
+func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
 		depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
 		if err != nil {
@@ -2737,7 +2737,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 			return "", nil
 		}
 
-		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, environment, application, transaction)
+		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
 		if err != nil {
 			return "", err
 		}
