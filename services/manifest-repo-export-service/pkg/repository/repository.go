@@ -37,9 +37,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/DataDog/datadog-go/v5/statsd"
 
 	backoff "github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -56,6 +56,7 @@ import (
 )
 
 type contextKey string
+
 const DdMetricsKey contextKey = "ddMetrics"
 
 var (

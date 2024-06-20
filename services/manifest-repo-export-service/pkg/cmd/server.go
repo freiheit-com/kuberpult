@@ -26,8 +26,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
@@ -161,7 +161,7 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var ddMetrics statsd.ClientInterface;
+	var ddMetrics statsd.ClientInterface
 	if enableMetrics {
 		ddMetrics, err = statsd.New(DatatDogStatsAddr, statsd.WithNamespace("Kuberpult"))
 		if err != nil {
@@ -215,6 +215,15 @@ func Run(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("error in readEslEvent %v", err)
 			}
+			if ddMetrics != nil {
+				processDelay, err := calculateProcessDelay(ctx, esl, time.Now())
+				if err != nil {
+					log.Warn("error in calculateProcessDelay %v", err)
+				}
+				if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
+					log.Warn("error in ddMetrics.Gauge %v", err)
+				}
+			}
 			if esl == nil {
 				log.Warn("event processing skipped: no esl event found")
 				eslTableEmpty = true
@@ -234,14 +243,8 @@ func Run(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("error in DBWriteCutoff %v", err)
 			}
-			if ddMetrics != nil {
-				processDelay, err := calculateProcessDelay(ctx, transaction, dbHandler)
-				if err != nil {
-					log.Warn("error in calculateProcessDelay %v", err)
-				}
-				if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
-					log.Warn("error in ddMetrics.Gauge %v", err)
-				}
+			if err != nil {
+				log.Warn("error in DBReadCutoff %v", err)
 			}
 			return nil
 		})
@@ -256,15 +259,14 @@ func Run(ctx context.Context) error {
 	}
 }
 
-func calculateProcessDelay(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) (float64, error) {
-	lastEslToProcess, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
-	if err != nil {
-		return 0, err
-	}
-	if lastEslToProcess == nil {
+func calculateProcessDelay(ctx context.Context, nextEslToProcess *db.EslEventRow, currentTime time.Time) (float64, error) {
+	if nextEslToProcess == nil {
 		return 0, nil
 	}
-	diff := time.Now().Sub(lastEslToProcess.Created).Seconds()
+	if nextEslToProcess.Created.IsZero() {
+		return 0, nil
+	}
+	diff := currentTime.Sub(nextEslToProcess.Created).Seconds()
 	return diff, nil
 }
 
