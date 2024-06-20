@@ -333,11 +333,11 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 			}
 			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
 		} else {
-			commit, err := tagRef.Target().AsCommit()
+			tagCommit, err := repo.LookupCommit(tagRef.TargetId())
 			if err != nil {
 				return nil, fmt.Errorf("unable to lookup tag [%s]: %v", tagObject.Name(), err)
 			}
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: commit.Id().String()})
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
 		}
 	}
 
