@@ -37,7 +37,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -58,10 +57,6 @@ import (
 type contextKey string
 
 const DdMetricsKey contextKey = "ddMetrics"
-
-var (
-	ddMetrics statsd.ClientInterface
-)
 
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
@@ -209,13 +204,6 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	logger := logger.FromContext(ctx)
-
-	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
-	if ddMetricsFromCtx != nil {
-		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
-	} else {
-		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
-	}
 
 	if cfg.Branch == "" {
 		cfg.Branch = "master"
