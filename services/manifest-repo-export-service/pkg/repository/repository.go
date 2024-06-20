@@ -54,10 +54,6 @@ import (
 	git "github.com/libgit2/git2go/v34"
 )
 
-type contextKey string
-
-const DdMetricsKey contextKey = "ddMetrics"
-
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error

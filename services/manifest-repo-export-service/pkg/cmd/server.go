@@ -167,7 +167,6 @@ func Run(ctx context.Context) error {
 		if err != nil {
 			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 		}
-		ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
 	}
 
 	cfg := repository.RepositoryConfig{
