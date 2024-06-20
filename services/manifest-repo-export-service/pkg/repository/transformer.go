@@ -555,7 +555,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	ctx context.Context,
 	state *State,
 	_ TransformerContext,
-	_ *sql.Tx,
+	transaction *sql.Tx,
 ) (string, error) {
 
 	fs := state.Filesystem
@@ -569,7 +569,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		return "", fmt.Errorf("failed to delete directory %q: %w.", lockDir, err)
 	}
 
-	queueMessage, err = state.ProcessQueue(ctx, fs, c.Environment, c.Application)
+	queueMessage, err = state.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}
@@ -734,7 +734,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	// Use the latest version as oldest deployed version
 	oldestDeployedVersion := versions[len(versions)-1]
 	for env := range envConfigs {
-		version, err := state.GetEnvironmentApplicationVersion(env, name)
+		version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, name)
 		if err != nil {
 			return nil, err
 		}

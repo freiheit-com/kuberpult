@@ -1403,7 +1403,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	// Use the latest version as oldest deployed version
 	oldestDeployedVersion := versions[len(versions)-1]
 	for env := range envConfigs {
-		version, err := state.GetEnvironmentApplicationVersion(ctx, env, name, transaction)
+		version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, name)
 		if err != nil {
 			return nil, err
 		}
@@ -2658,7 +2658,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 				TeamLocks:          nil,
 				Team:               "",
 			}
-			version, err := s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
+			version, err := s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, fmt.Errorf("unable to get EnvironmentApplicationVersion for %s: %w", appName, err)
 			}
@@ -3010,7 +3010,7 @@ func (c *envReleaseTrain) prognosis(
 			}
 		}
 
-		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, c.Env, appName, transaction)
+		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
 				SkipCause:        nil,
@@ -3038,7 +3038,7 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 		} else {
-			upstreamVersion, err := state.GetEnvironmentApplicationVersion(ctx, upstreamEnvName, appName, transaction)
+			upstreamVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, upstreamEnvName, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:        nil,
@@ -3195,7 +3195,7 @@ func (c *envReleaseTrain) Transform(
 	renderApplicationSkipCause := func(SkipCause *api.ReleaseTrainAppPrognosis_SkipCause, appName string) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
-		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(ctx, c.Env, appName, transaction)
+		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
 		teamName, _ := state.GetTeamName(ctx, transaction, appName)
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
