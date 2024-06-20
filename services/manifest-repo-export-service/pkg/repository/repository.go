@@ -730,7 +730,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(env); err != nil {
+	if apps, err := state.GetEnvironmentApplications(ctx, transaction, env); err != nil {
 		return err
 	} else {
 		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
@@ -746,7 +746,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			if err != nil {
 				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
 			}
-			version, err := state.GetEnvironmentApplicationVersion(env, appName)
+			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -1148,8 +1148,16 @@ func (s *State) DeleteQueuedVersionIfExists(environment string, application stri
 	return s.DeleteQueuedVersion(environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationVersion(environment, application string) (*uint64, error) {
-	return s.readSymlink(environment, application, "version")
+func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment, application string) (*uint64, error) {
+	depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+	if err != nil {
+		return nil, err
+	}
+	if depl == nil || depl.Version == nil {
+		return nil, nil
+	}
+	var v = uint64(*depl.Version)
+	return &v, nil
 }
 
 // returns nil if there is no file
@@ -1288,9 +1296,15 @@ func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error)
 	return groupEnvNames, nil
 }
 
-func (s *State) GetEnvironmentApplications(environment string) ([]string, error) {
-	appDir := s.Filesystem.Join("environments", environment, "applications")
-	return names(s.Filesystem, appDir)
+func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
+	applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+	if err != nil {
+		return nil, err
+	}
+	if applications == nil {
+		return make([]string, 0), nil
+	}
+	return applications.Apps, nil
 }
 
 // GetApplicationsFromFile returns apps from the filesystem
@@ -1543,7 +1557,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 // ProcessQueue checks if there is something in the queue
 // deploys if necessary
 // deletes the queue
-func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environment string, application string) (string, error) {
+func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment string, application string) (string, error) {
 	queuedVersion, err := s.GetQueuedVersion(environment, application)
 	queueDeploymentMessage := ""
 	if err != nil {
@@ -1555,7 +1569,7 @@ func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environme
 			return "", nil
 		}
 
-		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(environment, application)
+		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
 		if err != nil {
 			return "", err
 		}
