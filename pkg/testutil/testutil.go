@@ -58,7 +58,7 @@ func MakeTestContextDexEnabledUser(role string) context.Context {
 	u := auth.User{
 		Email:          "testmail@example.com",
 		Name:           "test tester",
-		DexAuthContext: &auth.DexAuthContext{Role: role},
+		DexAuthContext: &auth.DexAuthContext{Role: []string{role}},
 	}
 	ctx := auth.WriteUserToContext(context.Background(), u)
 	ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{

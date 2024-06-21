@@ -582,7 +582,9 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ctx = auth.WriteUserToContext(ctx, combinedUser)
 		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
 		if user != nil && user.DexAuthContext != nil {
-			ctx = auth.WriteUserRoleToGrpcContext(ctx, user.DexAuthContext.Role)
+			for _, role := range user.DexAuthContext.Role {
+				ctx = auth.WriteUserRoleToGrpcContext(ctx, role)
+			}
 		}
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
@@ -603,7 +605,7 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL 
 		logger.FromContext(httpCtx).Info("could not decode user role")
 		return nil
 	}
-	return &auth.DexAuthContext{Role: headerRole}
+	return &auth.DexAuthContext{Role: []string{headerRole}}
 }
 
 // GrpcProxy passes through gRPC messages to another server.

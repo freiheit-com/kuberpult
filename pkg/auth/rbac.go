@@ -242,7 +242,7 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 
 type PermissionError struct {
 	User        string
-	Role        string
+	Role        []string
 	Action      string
 	Environment string
 	Team        string
@@ -281,11 +281,14 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 				if rbacConfig.Policy == nil {
 					return errors.New("the desired action can not be performed because Dex is enabled without any RBAC policies")
 				}
-				permissionsWanted := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, pEnvGroup, pEnv, pApplication)
-				_, permissionsExist := rbacConfig.Policy.Permissions[permissionsWanted]
-				if permissionsExist {
-					return nil
+				for _, role := range user.DexAuthContext.Role {
+					permissionsWanted := fmt.Sprintf(PermissionTemplate, role, action, pEnvGroup, pEnv, pApplication)
+					_, permissionsExist := rbacConfig.Policy.Permissions[permissionsWanted]
+					if permissionsExist {
+						return nil
+					}
 				}
+
 			}
 		}
 	}

@@ -141,7 +141,7 @@ func TestCheckUserPermissions(t *testing.T) {
 	}{
 		{
 			Name:        "Check user permission works as expected",
-			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
 			env:         "production",
 			envGroup:    "production",
 			application: "app1",
@@ -151,7 +151,7 @@ func TestCheckUserPermissions(t *testing.T) {
 		},
 		{
 			Name:        "Environment independent works as expected",
-			user:        &User{Name: "user", DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			user:        &User{Name: "user", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
 			env:         "production",
 			envGroup:    "production",
 			application: "app1",
@@ -161,7 +161,7 @@ func TestCheckUserPermissions(t *testing.T) {
 		},
 		{
 			Name:        "User does not have permission: wrong environment/group",
-			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
 			env:         "production",
 			envGroup:    "staging",
 			application: "app1",
@@ -169,7 +169,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: &RBACPolicies{Permissions: map[string]Permission{"p,role:Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}}},
 			team:        "random-team",
 			WantError: PermissionError{
-				Role:        "Developer",
+				Role:        []string{"Developer"},
 				Action:      "CreateLock",
 				Environment: "production",
 				Team:        "random-team",
@@ -177,7 +177,7 @@ func TestCheckUserPermissions(t *testing.T) {
 		},
 		{
 			Name:        "User does not have permission: wrong app",
-			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
 			env:         "production",
 			envGroup:    "production",
 			application: "app2",
@@ -185,7 +185,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			team:        "other-team",
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: &RBACPolicies{Permissions: map[string]Permission{"p,role:Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}}},
 			WantError: PermissionError{
-				Role:        "Developer",
+				Role:        []string{"Developer"},
 				Action:      "CreateLock",
 				Environment: "production",
 				Team:        "other-team",
@@ -193,7 +193,7 @@ func TestCheckUserPermissions(t *testing.T) {
 		},
 		{
 			Name:        "There are no policies specified",
-			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
 			env:         "production",
 			envGroup:    "production",
 			application: "app2",
@@ -276,7 +276,7 @@ func TestCheckUserPermissionsWildcards(t *testing.T) {
 	}{
 		{
 			Name:        "Check user permission works for all wildcard combinations",
-			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
 			env:         "production",
 			envGroup:    "production",
 			application: "app1",
