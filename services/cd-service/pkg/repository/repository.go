@@ -1262,7 +1262,7 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 
 	span, ctx := tracer.StartSpanFromContext(ctx, "Apply")
 	defer span.Finish()
-	
+
 	eb := r.backOffProvider()
 	return backoff.Retry(
 		func() error {
