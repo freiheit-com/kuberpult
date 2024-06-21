@@ -670,7 +670,8 @@ type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
 func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
 	logger := logger.FromContext(ctx)
-
+	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
+	defer span.Finish()
 	/**
 	Note that this function has a bit different error handling.
 	The error is not returned, but send to the transformer in `el.finish(err)`
@@ -757,7 +758,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
-	span, ctx := tracer.StartSpanFromContext(e.ctx, "PostPush")
+	span, ctx := tracer.StartSpanFromContext(ctx, "PostPush")
 	defer span.Finish()
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
@@ -846,6 +847,7 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 
 	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook-Retries")
 	defer span.Finish()
+
 	success := false
 	var err error = nil
 	for i := 1; i <= maxArgoRequests; i++ {
