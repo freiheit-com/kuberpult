@@ -242,7 +242,7 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 
 type PermissionError struct {
 	User        string
-	Role        []string
+	Role        string
 	Action      string
 	Environment string
 	Team        string
@@ -295,7 +295,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 	// The permission is not found. Return an error.
 	return PermissionError{
 		User:        user.Name,
-		Role:        user.DexAuthContext.Role,
+		Role:        strings.Join(user.DexAuthContext.Role, ", "),
 		Action:      action,
 		Environment: env,
 		Team:        team,

@@ -169,7 +169,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: &RBACPolicies{Permissions: map[string]Permission{"p,role:Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}}},
 			team:        "random-team",
 			WantError: PermissionError{
-				Role:        []string{"Developer"},
+				Role:        "Developer",
 				Action:      "CreateLock",
 				Environment: "production",
 				Team:        "random-team",
@@ -185,7 +185,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			team:        "other-team",
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: &RBACPolicies{Permissions: map[string]Permission{"p,role:Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}}},
 			WantError: PermissionError{
-				Role:        []string{"Developer"},
+				Role:        "Developer",
 				Action:      "CreateLock",
 				Environment: "production",
 				Team:        "other-team",
