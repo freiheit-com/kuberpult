@@ -605,7 +605,7 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL 
 		logger.FromContext(httpCtx).Info("could not decode user role")
 		return nil
 	}
-	return &auth.DexAuthContext{Role: []string{headerRole}}
+	return &auth.DexAuthContext{Role: strings.Split(headerRole, ",")}
 }
 
 // GrpcProxy passes through gRPC messages to another server.

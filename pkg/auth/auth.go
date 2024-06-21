@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -154,7 +155,7 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 			if err != nil {
 				return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-role in grpc context %s", userRole))
 			}
-			userRole = append(userRole, newRole)
+			userRole = append(userRole, strings.Split(newRole, ",")...)
 		}
 
 		if len(userRole) == 0 {
@@ -203,7 +204,7 @@ func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error)
 			Email: headerEmail,
 			Name:  headerName,
 			DexAuthContext: &DexAuthContext{
-				Role: []string{headerRole},
+				Role: strings.Split(headerRole, ","),
 			},
 		}, nil
 	}
