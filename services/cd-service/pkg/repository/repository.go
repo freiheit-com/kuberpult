@@ -763,7 +763,12 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
+		var ddError error
+		if r.DB.ShouldUseEslTable() {
+			ddError = UpdateDatadogMetricsDB(ctx, r.State(), r, changes, time.Now())
+		} else {
+			ddError = UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
+		}
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}
@@ -775,6 +780,30 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}
 
 	r.notify.Notify()
+}
+
+func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
+	var transaction *sql.Tx
+	var txErr error
+	repo := r.(*repository)
+	transaction, txErr = repo.DB.DB.BeginTx(ctx, nil)
+	if txErr != nil {
+		return txErr
+	}
+	defer func(tx *sql.Tx) {
+		_ = tx.Rollback()
+	}(transaction)
+
+	ddError := UpdateDatadogMetrics(ctx, transaction, state, r, changes, now)
+	if ddError != nil {
+		return ddError
+	}
+
+	err := transaction.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger, changes *TransformerResult) {
