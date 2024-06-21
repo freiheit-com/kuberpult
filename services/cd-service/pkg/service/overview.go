@@ -192,7 +192,7 @@ func (o *OverviewServiceServer) getOverview(
 					} // Err != nil means no team name was found so no need to parse team locks
 
 					var version *uint64
-					version, err = s.GetEnvironmentApplicationVersion(ctx, envName, appName, transaction)
+					version, err = s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
 					if err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
