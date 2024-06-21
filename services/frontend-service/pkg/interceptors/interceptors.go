@@ -125,10 +125,9 @@ func GoogleIAPInterceptor(
 	httpHandler(w, req)
 }
 
-func AddRoleToContext(httpCtx context.Context, w http.ResponseWriter, req *http.Request, roles []string) context.Context {
+func AddRoleToContext(w http.ResponseWriter, req *http.Request, roles []string) context.Context {
 	auth.WriteUserRoleToHttpHeader(req, strings.Join(roles, ","))
-	httpCtx = auth.WriteUserRoleToGrpcContext(req.Context(), strings.Join(roles, ","))
-	return httpCtx
+	return auth.WriteUserRoleToGrpcContext(req.Context(), strings.Join(roles, ","))
 }
 
 func CreateRoleString(userGroup string, roles []string, policy *auth.RBACPolicies) []string {
@@ -210,7 +209,7 @@ func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseU
 		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login")
 	}
 	if len(roles) != 0 {
-		httpCtx = AddRoleToContext(httpCtx, w, req, roles)
+		httpCtx = AddRoleToContext(w, req, roles)
 	}
 	return httpCtx, nil
 }
