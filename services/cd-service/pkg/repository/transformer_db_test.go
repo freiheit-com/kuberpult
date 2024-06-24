@@ -966,6 +966,58 @@ func TestCleanupOldVersionDB(t *testing.T) {
 			},
 			ExpectedActiveReleases: []int64{2, 3},
 		},
+		{
+			Name:                "No release is old, but number of releases > ReleaseVersionLimit",
+			ReleaseVersionLimit: 2,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envProduction, Latest: false}},
+				},
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     1,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     2,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     3,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&DeployApplicationVersion{
+					Application: appName,
+					Environment: envAcceptance,
+					Version:     1,
+				},
+				&DeployApplicationVersion{
+					Application: appName,
+					Environment: envProduction,
+					Version:     3,
+				},
+			},
+			ExpectedActiveReleases: []int64{1, 2, 3},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
