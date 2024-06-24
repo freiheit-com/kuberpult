@@ -42,10 +42,10 @@ func storageBackend(enableSqlite bool) repository.StorageBackend {
 	}
 }
 
-const (
-	minReleaseVersionsLimit = 5
-	maxReleaseVersionsLimit = 30
-)
+//const (
+//	minReleaseVersionsLimit = 5
+//	maxReleaseVersionsLimit = 30
+//)
 
 func RunServer() {
 	_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
