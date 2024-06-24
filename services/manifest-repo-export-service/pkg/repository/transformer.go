@@ -1063,3 +1063,25 @@ func (c *CleanupOldApplicationVersions) Transform(
 	}
 	return msg, nil
 }
+
+type ReleaseTrain struct {
+	Authentication  `json:"-"`
+	Target          string     `json:"target"`
+	Team            string     `json:"team,omitempty"`
+	CommitHash      string     `json:"commitHash"`
+	WriteCommitData bool       `json:"writeCommitData"`
+	Repo            Repository `json:"-"`
+}
+
+func (c *ReleaseTrain) GetDBEventType() db.EventType {
+	return db.EvtReleaseTrain
+}
+
+func (c *ReleaseTrain) Transform(
+	_ context.Context,
+	_ *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	return "", nil
+}
