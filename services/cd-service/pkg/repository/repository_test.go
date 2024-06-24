@@ -1947,6 +1947,168 @@ func TestProcessQueueOnce(t *testing.T) {
 	}
 }
 
+func TestApplyTransformerBatch(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		Batches             []transformerBatch
+		failingBatchIndexes []int
+	}{
+		{
+			Name: "One Batch One Transformer success",
+			Batches: []transformerBatch{
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&EmptyTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+			},
+			failingBatchIndexes: nil,
+		},
+		{
+			Name: "One Batch Multiple Transformer success",
+			Batches: []transformerBatch{
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&EmptyTransformer{},
+						&EmptyTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+			},
+			failingBatchIndexes: nil,
+		},
+		{
+			Name: "Multiple Batches Multiple Transformer success",
+			Batches: []transformerBatch{
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&EmptyTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&EmptyTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+			},
+			failingBatchIndexes: nil,
+		},
+		{
+			Name: "Multiple Batches Some fail",
+			Batches: []transformerBatch{
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&EmptyTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&ErrorTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&EmptyTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&ErrorTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+			},
+			failingBatchIndexes: []int{1, 3},
+		},
+		{
+			Name: "Multiple Batches Multiple transformer Some fail",
+			Batches: []transformerBatch{
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&EmptyTransformer{},
+						&ErrorTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&ErrorTransformer{},
+						&EmptyTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&EmptyTransformer{},
+						&EmptyTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+				{
+					ctx: testutil.MakeTestContext(),
+					transformers: []Transformer{
+						&ErrorTransformer{},
+						&ErrorTransformer{},
+					},
+					result: make(chan error, 1),
+				},
+			},
+			failingBatchIndexes: []int{0, 1, 3},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			repo := SetupRepositoryTestWithDB(t)
+
+			repoInternal := repo.(*repository)
+			resultingBatches, err, _ := repoInternal.applyTransformerBatches(tc.Batches, false)
+			if err != nil {
+				t.Errorf("Got error here but was not expecting: %v\n", err)
+			}
+
+			if tc.failingBatchIndexes == nil {
+				if diff := cmp.Diff(tc.Batches, resultingBatches, cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+			} else {
+				if diff := cmp.Diff(len(tc.Batches)-len(tc.failingBatchIndexes), len(resultingBatches), cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
+					t.Errorf("Number of resulting transformers mismatch (-want, +got):\n%s", diff)
+				}
+				batches := tc.Batches
+				removedElements := 0
+				for _, elem := range tc.failingBatchIndexes { //Filter out the supposed failed batches
+					batches = append(batches[:elem-removedElements], batches[elem+1-removedElements:]...)
+					removedElements++
+				}
+
+				if diff := cmp.Diff(batches, resultingBatches, cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
 func TestGitPushDoesntGetStuck(t *testing.T) {
 	tcs := []struct {
 		Name string
