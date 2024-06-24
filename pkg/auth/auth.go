@@ -107,7 +107,7 @@ func (x *DummyGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*
 		Name:  "userName",
 		DexAuthContext: &DexAuthContext{
 			Role:   []string{x.Role},
-			Expiry: time.Now().Add(60),
+			Expiry: time.Now().Add(time.Hour),
 		},
 	}
 	return user, nil
@@ -185,7 +185,7 @@ func useDexDefaultRole(ctx context.Context, dexDefaultRoleEnabled bool, u *User)
 	if dexDefaultRoleEnabled {
 		u.DexAuthContext = &DexAuthContext{
 			Role:   []string{"default"},
-			Expiry: time.Now().Add(100),
+			Expiry: time.Now().Add(time.Hour),
 		}
 		logger.FromContext(ctx).Warn("role undefined but dex is enabled. Default user role enabled. Proceeding with default role.")
 		return u, nil
