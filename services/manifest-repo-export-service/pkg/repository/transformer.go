@@ -1025,7 +1025,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	fmt.Printf("ReleaseVersionLimit: %d\n", state.ReleaseVersionsLimit)
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)

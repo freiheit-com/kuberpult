@@ -918,6 +918,84 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 	}
 }
 
+func TestCleanupOldVersionDB(t *testing.T) {
+	const appName = "app1"
+	tcs := []struct {
+		Name                   string
+		ReleaseVersionLimit    uint
+		Transformers           []Transformer
+		ExpectedActiveReleases []int64
+	}{
+		{
+			Name:                "Three Versions, Keep 2",
+			ReleaseVersionLimit: 2,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     1,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     2,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     3,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+				&DeployApplicationVersion{
+					Application: appName,
+					Environment: envAcceptance,
+					Version:     3,
+				},
+			},
+			ExpectedActiveReleases: []int64{2, 3},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				res, err2 := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.ExpectedActiveReleases, res.Metadata.Releases); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
 func version(v int) *int64 {
 	var result = int64(v)
 	return &result
