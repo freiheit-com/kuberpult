@@ -125,14 +125,18 @@ func GoogleIAPInterceptor(
 	httpHandler(w, req)
 }
 
-func AddRoleToContext(httpCtx context.Context, w http.ResponseWriter, req *http.Request, userGroup string, policy *auth.RBACPolicies) context.Context {
+func AddRoleToContext(w http.ResponseWriter, req *http.Request, roles []string) context.Context {
+	auth.WriteUserRoleToHttpHeader(req, strings.Join(roles, ","))
+	return auth.WriteUserRoleToGrpcContext(req.Context(), strings.Join(roles, ","))
+}
+
+func CreateRoleString(userGroup string, roles []string, policy *auth.RBACPolicies) []string {
 	for _, policyGroup := range policy.Groups {
 		if policyGroup.Group == userGroup {
-			auth.WriteUserRoleToHttpHeader(req, policyGroup.Role)
-			httpCtx = auth.WriteUserRoleToGrpcContext(req.Context(), policyGroup.Role)
+			roles = append(roles, policyGroup.Role)
 		}
 	}
-	return httpCtx
+	return roles
 }
 
 // DexLoginInterceptor intercepts HTTP calls to the frontend service.
@@ -184,23 +188,27 @@ func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseU
 		return req.Context(), err
 	}
 	httpCtx := req.Context()
+	var roles []string
 	// switch case to handle multiple types of claims that can be extracted from the Dex Response
 	switch val := claims["groups"].(type) {
 	case []interface{}:
 		for _, group := range val {
 			groupName := strings.Trim(group.(string), "\"")
-			httpCtx = AddRoleToContext(httpCtx, w, req, groupName, DexRbacPolicy)
+			roles = CreateRoleString(groupName, roles, DexRbacPolicy)
 		}
 	case []string:
-		httpCtx = AddRoleToContext(httpCtx, w, req, strings.Join(val, ","), DexRbacPolicy)
+		roles = CreateRoleString(strings.Join(val, ","), roles, DexRbacPolicy)
 	case string:
-		httpCtx = AddRoleToContext(httpCtx, w, req, val, DexRbacPolicy)
+		roles = CreateRoleString(val, roles, DexRbacPolicy)
 	}
 
 	if claims["email"].(string) != "" {
-		httpCtx = AddRoleToContext(httpCtx, w, req, claims["email"].(string), DexRbacPolicy)
+		roles = CreateRoleString(claims["email"].(string), roles, DexRbacPolicy)
 	} else if claims["groups"] == nil {
 		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login")
+	}
+	if len(roles) != 0 {
+		httpCtx = AddRoleToContext(w, req, roles)
 	}
 	return httpCtx, nil
 }
