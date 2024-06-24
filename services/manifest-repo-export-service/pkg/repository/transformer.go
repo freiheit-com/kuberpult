@@ -26,6 +26,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"google.golang.org/grpc/codes"
@@ -44,6 +45,10 @@ import (
 
 const (
 	queueFileName       = "queued_version"
+	fieldSourceAuthor   = "source_author"
+	fieldSourceMessage  = "source_message"
+	fieldSourceCommitId = "source_commit_id"
+	fieldDisplayVersion = "display_version"
 	fieldCreatedAt      = "created_at"
 	fieldCreatedByName  = "created_by_name"
 	fieldCreatedByEmail = "created_by_email"
@@ -626,6 +631,32 @@ func (c *CreateApplicationVersion) Transform(
 
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
+
+	if c.SourceCommitId != "" {
+		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
+	if c.SourceAuthor != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+	if c.SourceMessage != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+	if c.DisplayVersion != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+		return "", GetCreateReleaseGeneralFailure(err)
+	}
 
 	if c.Team != "" {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
