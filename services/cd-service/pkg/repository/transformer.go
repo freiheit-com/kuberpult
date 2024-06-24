@@ -1,4 +1,4 @@
-/*This file is part of kuberpult.
+ /*This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -448,7 +448,6 @@ func (c *CreateApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	version, err := c.calculateVersion(ctx, transaction, state)
-	fmt.Println(version)
 	if err != nil {
 		return "", err
 	}
