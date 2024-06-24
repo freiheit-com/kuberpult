@@ -660,9 +660,7 @@ func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transact
 		logger.FromContext(ctx).Sugar().Infof("Could not find release '%d' for appliation '%s' to delete.", releaseToDelete, application)
 		return nil //If we don't find it, not an error, but we do nothing
 	}
-	fmt.Printf("Old All releases: %v\n", allReleases.Metadata.Releases)
 	allReleases.Metadata.Releases = append(allReleases.Metadata.Releases[:idxToDelete], allReleases.Metadata.Releases[idxToDelete+1:]...)
-	fmt.Printf("New All releases: %v\n", allReleases.Metadata.Releases)
 	if err := h.DBInsertAllReleases(ctx, transaction, application, allReleases.Metadata.Releases, allReleases.EslId); err != nil {
 		return err
 	}

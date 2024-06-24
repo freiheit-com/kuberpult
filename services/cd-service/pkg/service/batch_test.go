@@ -666,7 +666,6 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 			t.Fatal(err)
 		}
 		repoCfg.DBHandler = db
-		fmt.Println(dbConfig.DbHost)
 	}
 
 	repo, err := repository.New(

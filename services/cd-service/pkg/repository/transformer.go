@@ -1416,13 +1416,10 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
 		return versions[i] >= oldestDeployedVersion
 	})
-	fmt.Printf("oldestDeployedVersion: %v\n", oldestDeployedVersion)
-	fmt.Printf("positionOfOldestVersion: %v\n", positionOfOldestVersion)
+
 	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
-		fmt.Printf("Threshold not reached for cleaning up versions: %d < %d\n", positionOfOldestVersion, (int(state.ReleaseVersionsLimit) - 1))
 		return nil, nil
 	}
-	fmt.Printf("Old Versions to delete: %v\n", versions[0:positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)])
 	return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], err
 }
 
@@ -1432,7 +1429,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	fmt.Println("Executing CleanupOldApplicationVersions Transformer")
 	fs := state.Filesystem
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
@@ -2262,7 +2258,6 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	fmt.Println("Executing DeployApplicationVersion Transformer")
 	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig)
 	if err != nil {
 		return "", err
@@ -2469,7 +2464,6 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 	}
-	fmt.Println("Before STATE!")
 	s := State{
 		Commit:                 nil,
 		BootstrapMode:          false,
@@ -2484,14 +2478,12 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
-	fmt.Println("Before CleanupOldApplicationVersions!")
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 	}
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
 	}
-	fmt.Println("After CleanupOldApplicationVersions!")
 	if c.WriteCommitData { // write the corresponding event
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
 		if s.DBHandler.ShouldUseOtherTables() {
