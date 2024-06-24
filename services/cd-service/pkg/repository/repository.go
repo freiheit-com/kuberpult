@@ -526,24 +526,13 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool) ([]transformerBatch, error, *TransformerResult) {
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
-	transactions := make([]*sql.Tx, len(transformerBatches))
-	absoluteIndex := -1
-	if r.DB.ShouldUseEslTable() {
-		defer func(txs []*sql.Tx) { //Makes sure we always attempt a rollback on every created tx.
-			for _, tx := range txs {
-				_ = tx.Rollback() //If tx has already been closed, we ignore the error saying tx has ended. If not, we roll it back.
-			}
-		}(transactions)
-	}
 
 	for i := 0; i < len(transformerBatches); {
 		var transaction *sql.Tx
 		var txErr error
 		e := transformerBatches[i]
-		absoluteIndex++
 		if r.DB.ShouldUseEslTable() {
 			transaction, txErr = r.DB.DB.BeginTx(e.ctx, nil)
-			transactions[absoluteIndex] = transaction
 			if txErr != nil {
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
@@ -551,7 +540,6 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			}
 		}
 		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
-		changes.Combine(subChanges)
 		if applyErr != nil {
 			//Some transformer on this batch failed. Rollback the transaction
 			if r.DB.ShouldUseEslTable() {
@@ -581,8 +569,8 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 					continue
 				}
-
 			}
+			changes.Combine(subChanges)
 			i++
 		}
 	}
