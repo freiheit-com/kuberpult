@@ -53,12 +53,7 @@ const (
 	fieldCreatedAt      = "created_at"
 	fieldCreatedByName  = "created_by_name"
 	fieldCreatedByEmail = "created_by_email"
-	fieldSourceCommitId = "source_commit_id"
-	fieldDisplayVersion = "display_version"
 	fieldMessage        = "message"
-	fieldSourceMessage  = "source_message"
-
-	fieldSourceAuthor = "source_author"
 )
 
 const (
