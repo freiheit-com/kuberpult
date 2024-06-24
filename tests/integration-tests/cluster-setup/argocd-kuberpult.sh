@@ -162,6 +162,7 @@ ingress:
 log:
   level: INFO
 git:
+  releaseVersionLimit: 10
   url: "ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests"
   sourceRepoUrl: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
 ssh:
