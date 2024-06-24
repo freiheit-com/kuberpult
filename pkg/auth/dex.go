@@ -37,7 +37,8 @@ import (
 // Extracted information from JWT/Cookie.
 type DexAuthContext struct {
 	// The user role extracted from the Cookie.
-	Role []string
+	Role   []string
+	Expiry time.Time
 }
 
 // Dex App Client.
@@ -293,7 +294,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 }
 
 // Verifies if the user is authenticated.
-func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
+func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string, useClusterInternalCommunication bool) (jwt.MapClaims, time.Time, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 
@@ -302,11 +303,11 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string,
 	if err != nil {
 		reqToken := r.Header.Get("Authorization")
 		if reqToken == "" {
-			return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
+			return nil, time.Time{}, fmt.Errorf("%s token not found", dexOAUTHTokenName)
 		}
 		splitToken := strings.Split(reqToken, "Bearer ")
 		if len(splitToken) != 2 {
-			return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
+			return nil, time.Time{}, fmt.Errorf("%s token not found", dexOAUTHTokenName)
 		}
 		tokenString = splitToken[1]
 	} else {
@@ -316,7 +317,7 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string,
 	// Validates token audience and expiring date.
 	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID, useClusterInternalCommunication)
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify token: %s", err)
+		return nil, time.Time{}, fmt.Errorf("failed to verify token: %s", err)
 	}
 	// Extract token claims and verify the token is not expired.
 	claims := jwt.MapClaims{
@@ -327,13 +328,13 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string,
 	}
 	err = idToken.Claims(&claims)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse token claims")
+		return nil, time.Time{}, fmt.Errorf("could not parse token claims")
 	}
 
 	// check if claims is empty in terms of required fields for identification
 	if claims["email"].(string) == "" && len(claims["groups"].([]string)) < 1 {
-		return nil, fmt.Errorf("need required fields to determine group of user")
+		return nil, time.Time{}, fmt.Errorf("need required fields to determine group of user")
 	}
 
-	return claims, nil
+	return claims, cookie.Expires, nil
 }

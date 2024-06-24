@@ -313,7 +313,7 @@ func TestVerifyToken(t *testing.T) {
 			req.AddCookie(cookie)
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
-			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, useClusterInternalCommunication)
+			u, _, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, useClusterInternalCommunication)
 			if err != nil {
 				if diff := cmp.Diff(tc.wantErr, err.Error()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)

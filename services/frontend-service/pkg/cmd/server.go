@@ -26,6 +26,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 
@@ -605,7 +606,17 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL 
 		logger.FromContext(httpCtx).Info("could not decode user role")
 		return nil
 	}
-	return &auth.DexAuthContext{Role: strings.Split(headerRole, ",")}
+	tokenExpiry64 := req.Header.Get(auth.HeaderTokenExpiry)
+	tokenExpiry, err := auth.Decode64(tokenExpiry64)
+	if err != nil {
+		logger.FromContext(httpCtx).Info("could not decode user token expiry")
+		return nil
+	}
+	expTime, err := time.Parse(time.UnixDate, tokenExpiry)
+	if err != nil {
+		return nil
+	}
+	return &auth.DexAuthContext{Role: strings.Split(headerRole, ","), Expiry: expTime}
 }
 
 // GrpcProxy passes through gRPC messages to another server.

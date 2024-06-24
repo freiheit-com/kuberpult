@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
@@ -267,11 +268,25 @@ func (e PermissionError) GRPCStatus() *status.Status {
 	return status.New(codes.PermissionDenied, e.Error())
 }
 
+type ExpiredTokenError struct {
+}
+
+func (e ExpiredTokenError) Error() string {
+	return "token has expired please login again"
+}
+
+func (e ExpiredTokenError) GRPCStatus() *status.Status {
+	return status.New(codes.Unauthenticated, e.Error())
+}
+
 // Checks user permissions on the RBAC policy.
 func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup, application, action string) error {
 	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
 	if isEnvironmentIndependent(action) {
 		env = "*"
+	}
+	if !user.DexAuthContext.Expiry.IsZero() && user.DexAuthContext.Expiry.Before(time.Now()) {
+		return ExpiredTokenError{}
 	}
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
 	for _, pEnvGroup := range []string{envGroup, "*"} {
