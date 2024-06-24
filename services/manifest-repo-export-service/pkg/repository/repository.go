@@ -155,6 +155,8 @@ type RepositoryConfig struct {
 
 	ArgoCdGenerateFiles bool
 
+	ReleaseVersionsLimit uint
+
 	DBHandler *db.DBHandler
 }
 
@@ -216,7 +218,10 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
 	}
-
+	// The value here is set to keptVersionsOnCleanup to maintain compatibility with tests that do not pass ReleaseVersionsLimit in the repository config
+	if cfg.ReleaseVersionsLimit == 0 {
+		cfg.ReleaseVersionsLimit = keptVersionsOnCleanup
+	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -851,6 +856,7 @@ type State struct {
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	ReleaseVersionsLimit   uint
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }

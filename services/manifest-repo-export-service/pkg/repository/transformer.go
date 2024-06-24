@@ -45,16 +45,16 @@ import (
 )
 
 const (
-	queueFileName       = "queued_version"
-	fieldCreatedAt      = "created_at"
-	fieldCreatedByName  = "created_by_name"
-	fieldCreatedByEmail = "created_by_email"
-	fieldSourceCommitId = "source_commit_id"
-	fieldDisplayVersion = "display_version"
-	fieldMessage        = "message"
-	fieldSourceMessage  = "source_message"
-
-	fieldSourceAuthor = "source_author"
+	queueFileName         = "queued_version"
+	fieldCreatedAt        = "created_at"
+	fieldCreatedByName    = "created_by_name"
+	fieldCreatedByEmail   = "created_by_email"
+	fieldSourceCommitId   = "source_commit_id"
+	fieldDisplayVersion   = "display_version"
+	fieldMessage          = "message"
+	fieldSourceMessage    = "source_message"
+	fieldSourceAuthor     = "source_author"
+	keptVersionsOnCleanup = 20
 )
 
 const (
@@ -375,6 +375,13 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
+	d := &CleanupOldApplicationVersions{
+		Application: c.Application,
+	}
+	if err := t.Execute(d, transaction); err != nil {
+		return "", err
+	}
+
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
@@ -476,6 +483,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
+		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
 		DBHandler:              state.DBHandler,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
@@ -747,14 +755,15 @@ const (
 	releaseVersionsLimit = 5
 )
 
-// Finds old releases for an application
+// Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
+// Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
 	envConfigs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return nil, err
 	}
-	versions, err := state.GetApplicationReleases(ctx, transaction, name)
+	versions, err := state.GetApplicationReleasesFromFile(name)
 	if err != nil {
 		return nil, err
 	}
@@ -1016,6 +1025,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
+	fmt.Printf("ReleaseVersionLimit: %d\n", state.ReleaseVersionsLimit)
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
