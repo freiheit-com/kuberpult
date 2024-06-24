@@ -37,7 +37,7 @@ import (
 // Extracted information from JWT/Cookie.
 type DexAuthContext struct {
 	// The user role extracted from the Cookie.
-	Role string
+	Role []string
 }
 
 // Dex App Client.
