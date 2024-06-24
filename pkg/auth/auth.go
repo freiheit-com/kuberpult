@@ -250,6 +250,10 @@ func WriteUserRoleToHttpHeader(r *http.Request, role string) {
 	r.Header.Add(HeaderUserRole, Encode64(role))
 }
 
+func WriteTokenExpiryToHttpHeader(r *http.Request, expiry string) {
+	r.Header.Add(HeaderTokenExpiry, Encode64(expiry))
+}
+
 func GetUserOrDefault(u *User, defaultUser User) User {
 	var userAdapted = User{
 		DexAuthContext: nil,

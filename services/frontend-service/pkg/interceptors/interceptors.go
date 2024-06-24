@@ -132,8 +132,8 @@ func AddRoleToContext(w http.ResponseWriter, req *http.Request, roles []string) 
 }
 
 func AddExpiryToContext(w http.ResponseWriter, req *http.Request, expiry time.Time, ctx context.Context) context.Context {
-	auth.WriteUserRoleToHttpHeader(req, expiry.String())
-	return auth.WriteUserRoleToGrpcContext(ctx, expiry.String())
+	auth.WriteTokenExpiryToHttpHeader(req, expiry.String())
+	return auth.WriteTokenExpiryToGrpcContext(ctx, expiry.String())
 }
 
 func CreateRoleString(userGroup string, roles []string, policy *auth.RBACPolicies) []string {
