@@ -154,10 +154,8 @@ type RepositoryConfig struct {
 	EnvironmentConfigsPath string
 
 	ArgoCdGenerateFiles bool
-
-	ReleaseVersionsLimit uint
-
-	DBHandler *db.DBHandler
+	ReleaseVersionLimit int64
+	DBHandler           *db.DBHandler
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -219,8 +217,8 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		cfg.NetworkTimeout = time.Minute
 	}
 	// The value here is set to keptVersionsOnCleanup to maintain compatibility with tests that do not pass ReleaseVersionsLimit in the repository config
-	if cfg.ReleaseVersionsLimit == 0 {
-		cfg.ReleaseVersionsLimit = keptVersionsOnCleanup
+	if cfg.ReleaseVersionLimit == 0 {
+		cfg.ReleaseVersionLimit = keptVersionsOnCleanup
 	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
@@ -815,7 +813,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 						DBHandler:              r.DB,
-						ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
+						ReleaseVersionsLimit:   20,
 					}, nil
 				}
 			}
@@ -838,7 +836,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-		ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
+		ReleaseVersionsLimit:   20,
 		DBHandler:              r.DB,
 	}, nil
 }

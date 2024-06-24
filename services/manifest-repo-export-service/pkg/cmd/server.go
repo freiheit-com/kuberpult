@@ -117,7 +117,7 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
-	releaseVersionLimit := 20
+	//releaseVersionLimit := 20
 	//if val, exists := os.LookupEnv("KUBERPULT_RELEASE_VERSIONS_LIMIT"); !exists {
 	//	log.Infof("environment variable KUBERPULT_RELEASE_VERSIONS_LIMIT is not set, using default releaseVersionLimit of 20.")
 	//	releaseVersionLimit = 20
@@ -127,9 +127,9 @@ func Run(ctx context.Context) error {
 	//		return fmt.Errorf("error converting KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	//	}
 	//
-	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
-		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
-	}
+	//if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
+	//	return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
+	//}
 
 	var eslProcessingBackoff uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
@@ -205,8 +205,8 @@ func Run(ctx context.Context) error {
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "./environment_configs.json",
 		StorageBackend:         storageBackend(enableSqliteStorageBackend),
+		ReleaseVersionLimit:    20,
 		ArgoCdGenerateFiles:    argoCdGenerateFiles,
-		ReleaseVersionsLimit:   uint(releaseVersionLimit),
 		DBHandler:              dbHandler,
 	}
 
