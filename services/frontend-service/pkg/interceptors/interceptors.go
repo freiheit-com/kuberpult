@@ -181,7 +181,6 @@ func DexAPIInterceptor(
 	httpHandler(w, req)
 }
 
-// change to add all in comma separated array at once then separate when receiving
 func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
 	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, useClusterInternalCommunication)
 	if err != nil {

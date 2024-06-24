@@ -1497,7 +1497,6 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
 	}
-	logger.FromContext(ctx).Warn("The roles of the user are: " + strings.Join(user.DexAuthContext.Role, ", "))
 
 	envs, err := s.GetEnvironmentConfigs()
 	if err != nil {
