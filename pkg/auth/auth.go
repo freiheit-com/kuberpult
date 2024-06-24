@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -99,7 +100,7 @@ func (x *DummyGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*
 		Email: "dummyMail@example.com",
 		Name:  "userName",
 		DexAuthContext: &DexAuthContext{
-			Role: x.Role,
+			Role: []string{x.Role},
 		},
 	}
 	return user, nil
@@ -148,14 +149,16 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 		if len(rolesInHeader) == 0 {
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
-
-		userRole, err := Decode64(rolesInHeader[0])
-
-		if err != nil {
-			return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-role in grpc context %s", userRole))
+		var userRole []string
+		for _, role := range rolesInHeader {
+			newRole, err := Decode64(role)
+			if err != nil {
+				return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-role in grpc context %s", userRole))
+			}
+			userRole = append(userRole, strings.Split(newRole, ",")...)
 		}
 
-		if userRole == "" {
+		if len(userRole) == 0 {
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
 		u.DexAuthContext = &DexAuthContext{
@@ -168,7 +171,7 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 func useDexDefaultRole(ctx context.Context, dexDefaultRoleEnabled bool, u *User) (*User, error) {
 	if dexDefaultRoleEnabled {
 		u.DexAuthContext = &DexAuthContext{
-			Role: "default",
+			Role: []string{"default"},
 		}
 		logger.FromContext(ctx).Warn("role undefined but dex is enabled. Default user role enabled. Proceeding with default role.")
 		return u, nil
@@ -201,7 +204,7 @@ func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error)
 			Email: headerEmail,
 			Name:  headerName,
 			DexAuthContext: &DexAuthContext{
-				Role: headerRole,
+				Role: strings.Split(headerRole, ","),
 			},
 		}, nil
 	}
@@ -220,7 +223,7 @@ func WriteUserToHttpHeader(r *http.Request, user User) {
 // WriteUserRoleToHttpHeader writes the user role into http headers
 // it is used for requests like /release and managing locks which are delegated from frontend-service to cd-service
 func WriteUserRoleToHttpHeader(r *http.Request, role string) {
-	r.Header.Set(HeaderUserRole, Encode64(role))
+	r.Header.Add(HeaderUserRole, Encode64(role))
 }
 
 func GetUserOrDefault(u *User, defaultUser User) User {
