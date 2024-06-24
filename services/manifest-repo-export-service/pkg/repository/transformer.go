@@ -790,10 +790,10 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return versions[i] >= oldestDeployedVersion
 	})
 
-	if positionOfOldestVersion < (int(releaseVersionsLimit) - 1) {
+	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
-	return versions[0 : positionOfOldestVersion-(int(releaseVersionsLimit)-1)], err
+	return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], err
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
