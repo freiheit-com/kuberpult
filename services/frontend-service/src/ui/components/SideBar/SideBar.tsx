@@ -457,7 +457,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                         showSnackbarError(e.message);
                     } else if (e.code === 16) {
                         showSnackbarError(e.message);
-                } else {
+                    } else {
                         showSnackbarError('Actions were not applied. Please try again');
                     }
                 })
