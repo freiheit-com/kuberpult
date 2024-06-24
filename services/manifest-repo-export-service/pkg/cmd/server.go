@@ -127,11 +127,10 @@ func Run(ctx context.Context) error {
 	//		return fmt.Errorf("error converting KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	//	}
 	//
-	//	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
-	//		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
-	//	}
-	//}
-
+	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
+		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
+	}
+	
 	var eslProcessingBackoff uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
 		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
