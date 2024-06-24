@@ -18,12 +18,14 @@ package auth
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"google.golang.org/grpc/codes"
@@ -288,6 +290,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 	if !user.DexAuthContext.Expiry.IsZero() && user.DexAuthContext.Expiry.Before(time.Now()) {
 		return ExpiredTokenError{}
 	}
+	logger.FromContext(context.Background()).Warn("the expiry date is: " + user.DexAuthContext.Expiry.String())
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
 	for _, pEnvGroup := range []string{envGroup, "*"} {
 		for _, pEnv := range []string{env, "*"} {
