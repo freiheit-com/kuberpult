@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -181,11 +182,38 @@ func DexAPIInterceptor(
 	httpHandler(w, req)
 }
 
+type ExpiredTokenError struct {
+}
+
+func (e ExpiredTokenError) Error() string {
+	return "token has expired please login again"
+}
+
+func (e ExpiredTokenError) GRPCStatus() *status.Status {
+	return status.New(codes.Unauthenticated, e.Error())
+}
+
 func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
 	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		return req.Context(), err
+	}
+	switch val := claims["exp"].(type) {
+	case string:
+		if val != "" {
+			tokenExp, err := time.Parse(time.UnixDate, val)
+			if err != nil {
+				return nil, fmt.Errorf("unable to conver time to UNIX")
+			}
+			if tokenExp.Before(time.Now()) {
+				return nil, ExpiredTokenError{}
+			}
+		}
+	case time.Time:
+		if val.Before(time.Now()) {
+			return nil, ExpiredTokenError{}
+		}
 	}
 	httpCtx := req.Context()
 	var roles []string
