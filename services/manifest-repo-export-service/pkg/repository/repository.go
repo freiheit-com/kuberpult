@@ -814,6 +814,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+						ReleaseVersionsLimit:   20,
 						DBHandler:              r.DB,
 					}, nil
 				}
@@ -837,6 +838,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+		ReleaseVersionsLimit:   20,
 		DBHandler:              r.DB,
 	}, nil
 }
