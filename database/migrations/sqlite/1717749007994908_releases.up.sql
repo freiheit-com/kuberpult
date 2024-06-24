@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS releases
     appName VARCHAR,
     manifests VARCHAR, -- json blob, map where each key is an environment and each value is a manifest
     metadata VARCHAR,  -- json blob about the release, sourceAuthor, sourceCommitId, etc
+    deleted  BOOLEAN,
     PRIMARY KEY(eslVersion, releaseVersion, appName)
 );
 

@@ -1241,3 +1241,96 @@ func TestDeleteTeamLock(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteRelease(t *testing.T) {
+	tcs := []struct {
+		Name     string
+		toInsert DBReleaseWithMetaData
+		expected DBReleaseWithMetaData
+	}{
+		{
+			Name: "yeet",
+			toInsert: DBReleaseWithMetaData{
+				EslId:         InitialEslId,
+				Created:       time.Now(),
+				ReleaseNumber: 1,
+				App:           "app",
+				Manifests: DBReleaseManifests{
+					Manifests: map[string]string{"development": "development"},
+				},
+				Metadata: DBReleaseMetaData{
+					SourceAuthor:   "me",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "message",
+					DisplayVersion: "1.0.0",
+				},
+				Deleted: false,
+			},
+			expected: DBReleaseWithMetaData{
+				EslId:         InitialEslId + 1,
+				Created:       time.Now(),
+				ReleaseNumber: 1,
+				App:           "app",
+				Manifests: DBReleaseManifests{
+					Manifests: map[string]string{"development": "development"},
+				},
+				Metadata: DBReleaseMetaData{
+					SourceAuthor:   "me",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "message",
+					DisplayVersion: "1.0.0",
+				},
+				Deleted: true,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.DBInsertRelease(ctx, transaction, tc.toInsert, tc.toInsert.EslId-1)
+				if err2 != nil {
+					return err2
+				}
+
+				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber)
+				if errDelete != nil {
+					return errDelete
+				}
+
+				errDelete2 := dbHandler.DBDeleteReleaseFromAllReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber)
+				if errDelete2 != nil {
+					return errDelete2
+				}
+
+				allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, tc.toInsert.App)
+				if err != nil {
+					return err
+				}
+				if len(allReleases.Metadata.Releases) != 0 {
+					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases.Metadata.Releases))
+				}
+
+				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber)
+				if err != nil {
+					return err
+				}
+				if !latestRelease.Deleted {
+					t.Fatalf("Not deleted:\n%d", latestRelease.Deleted)
+				}
+				if diff := cmp.Diff(&tc.expected, &latestRelease, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
+					t.Fatalf("team locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
