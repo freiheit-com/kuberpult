@@ -751,10 +751,6 @@ func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, app
 	return true, nil
 }
 
-const (
-	releaseVersionsLimit = 5
-)
-
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
 // Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {

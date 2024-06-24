@@ -1249,7 +1249,7 @@ func TestDeleteRelease(t *testing.T) {
 		expected DBReleaseWithMetaData
 	}{
 		{
-			Name: "yeet",
+			Name: "Delete Release from database",
 			toInsert: DBReleaseWithMetaData{
 				EslId:         InitialEslId,
 				Created:       time.Now(),
