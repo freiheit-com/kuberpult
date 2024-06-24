@@ -383,9 +383,9 @@ func readEnvVar(envName string) (string, error) {
 	return envValue, nil
 }
 
-func checkReleaseVersionLimit(limit uint) error {
-	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
-		return releaseVersionsLimitError{limit: limit}
-	}
-	return nil
-}
+//func checkReleaseVersionLimit(limit uint) error {
+//	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
+//		return releaseVersionsLimitError{limit: limit}
+//	}
+//	return nil
+//}

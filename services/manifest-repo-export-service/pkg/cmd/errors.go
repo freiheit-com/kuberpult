@@ -16,12 +16,10 @@ Copyright freiheit.com*/
 
 package cmd
 
-import "fmt"
-
-type releaseVersionsLimitError struct {
-	limit uint
-}
-
-func (s releaseVersionsLimitError) Error() string {
-	return fmt.Sprintf("releaseVersionsLimit: %d, must be between %d and %d", s.limit, minReleaseVersionsLimit, maxReleaseVersionsLimit)
-}
+//type releaseVersionsLimitError struct {
+//	limit uint
+//}
+//
+//func (s releaseVersionsLimitError) Error() string {
+//	return fmt.Sprintf("releaseVersionsLimit: %d, must be between %d and %d", s.limit, minReleaseVersionsLimit, maxReleaseVersionsLimit)
+//}
