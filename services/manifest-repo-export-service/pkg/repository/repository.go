@@ -257,7 +257,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
 			}
-			result.State()
 			result.headLock.Lock()
 
 			defer result.headLock.Unlock()
