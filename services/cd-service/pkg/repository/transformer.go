@@ -431,6 +431,7 @@ func (c *CreateApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	version, err := c.calculateVersion(ctx, transaction, state)
+	fmt.Println(version)
 	if err != nil {
 		return "", err
 	}
