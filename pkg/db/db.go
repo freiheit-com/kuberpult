@@ -483,7 +483,7 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
 			" WHERE appName=? AND releaseVersion=?" +
-			" ORDER BY eslVersion ASC " +
+			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
 		ctx,
