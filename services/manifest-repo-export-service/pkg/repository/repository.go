@@ -257,6 +257,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
 			}
+			result.State()
 			result.headLock.Lock()
 
 			defer result.headLock.Unlock()
@@ -815,6 +816,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 						DBHandler:              r.DB,
+						ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 					}, nil
 				}
 			}
@@ -837,6 +839,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+		ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
 		DBHandler:              r.DB,
 	}, nil
 }

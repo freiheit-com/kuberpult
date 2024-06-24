@@ -212,6 +212,7 @@ func Run(ctx context.Context) error {
 	}
 
 	repo, err := repository.New(ctx, cfg)
+	fmt.Println(repo.State().ReleaseVersionsLimit)
 	if err != nil {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
