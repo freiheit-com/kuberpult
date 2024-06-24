@@ -653,7 +653,10 @@ func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transact
 	if err != nil {
 		return err
 	}
-
+	if allReleases == nil {
+		logger.FromContext(ctx).Sugar().Infof("No releases.")
+		return nil
+	}
 	idxToDelete := slices.Index(allReleases.Metadata.Releases, int64(releaseToDelete))
 
 	if idxToDelete == -1 {
@@ -668,7 +671,7 @@ func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transact
 }
 
 func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteReleaseFromAllReleases")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
 	defer span.Finish()
 
 	targetRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, application, releaseToDelete)
@@ -682,8 +685,9 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	}
 
 	targetRelease.Deleted = true
-
+	fmt.Println(targetRelease)
 	if err := h.DBInsertRelease(ctx, transaction, *targetRelease, targetRelease.EslId); err != nil {
+		fmt.Println(err)
 		return err
 	}
 
