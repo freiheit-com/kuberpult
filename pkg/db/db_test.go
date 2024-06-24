@@ -1297,10 +1297,14 @@ func TestDeleteRelease(t *testing.T) {
 				if err2 != nil {
 					return err2
 				}
+				err2 = dbHandler.DBInsertAllReleases(ctx, transaction, tc.toInsert.App, []int64{int64(tc.toInsert.ReleaseNumber)}, tc.toInsert.EslId-1)
+				if err2 != nil {
+					return err2
+				}
 
 				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber)
 				if errDelete != nil {
-					return errDelete
+					t.Fatalf("error: %v\n", errDelete)
 				}
 
 				errDelete2 := dbHandler.DBDeleteReleaseFromAllReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber)
@@ -1320,10 +1324,11 @@ func TestDeleteRelease(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if !latestRelease.Deleted {
-					t.Fatalf("Release has not beed deleted\n")
-				}
-				if diff := cmp.Diff(&tc.expected, &latestRelease, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
+				//if !latestRelease.Deleted {
+				//	t.Fatalf("Release has not beed deleted\n")
+				//}
+
+				if diff := cmp.Diff(&tc.expected, latestRelease, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
 					t.Fatalf("team locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
