@@ -1321,7 +1321,7 @@ func TestDeleteRelease(t *testing.T) {
 					return err
 				}
 				if !latestRelease.Deleted {
-					t.Fatalf("Not deleted:\n%d", latestRelease.Deleted)
+					t.Fatalf("Release has not beed deleted\n")
 				}
 				if diff := cmp.Diff(&tc.expected, &latestRelease, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
 					t.Fatalf("team locks mismatch (-want, +got):\n%s", diff)
