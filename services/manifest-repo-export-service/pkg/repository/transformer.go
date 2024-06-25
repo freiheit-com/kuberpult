@@ -1068,6 +1068,7 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 
 type CleanupOldApplicationVersions struct {
 	Application string
+	TransformerMetadata
 }
 
 func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {

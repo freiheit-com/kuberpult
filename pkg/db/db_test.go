@@ -19,6 +19,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -1430,6 +1431,84 @@ func TestReadWriteEnvironment(t *testing.T) {
 			}
 			if diff := cmp.Diff(envEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(DBEnvironment{}, "Created")); diff != "" {
 				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, envEntry, diff)
+			}
+		})
+	}
+}
+func TestReadWriteEslEvent(t *testing.T) {
+	const envName = "dev"
+	const appName = "my-app"
+	const lockId = "ui-v2-ke1up"
+	const message = "test"
+	const authorName = "testauthor"
+	const authorEmail = "testemail@example.com"
+	const evtType = EvtCreateApplicationVersion
+	expectedJson, _ := json.Marshal(map[string]interface{}{
+		"env":     envName,
+		"app":     appName,
+		"lockId":  lockId,
+		"message": message,
+		"metadata": map[string]string{
+			"authorName":  authorName,
+			"authorEmail": authorEmail,
+		},
+	})
+
+	tcs := []struct {
+		Name          string
+		EventType     EventType
+		EventData     *map[string]string
+		EventMetadata *map[string]string
+		ExpectedEsl   EslEventRow
+	}{
+		{
+			Name:      "Write and read",
+			EventType: evtType,
+			EventData: &map[string]string{
+				"env":     envName,
+				"app":     appName,
+				"lockId":  lockId,
+				"message": message,
+			},
+			EventMetadata: &map[string]string{
+				"authorName":  authorName,
+				"authorEmail": authorEmail,
+			},
+			ExpectedEsl: EslEventRow{
+				EventType: evtType,
+				EventJson: string(expectedJson),
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEslEventInternal(ctx, tc.EventType, transaction, tc.EventData, tc.EventMetadata)
+				if err != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedEsl.EventType, actual.EventType); diff != "" {
+					t.Fatalf("event type mismatch (-want, +got):\n%s", diff)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedEsl.EventJson, actual.EventJson); diff != "" {
+					t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
 			}
 		})
 	}
