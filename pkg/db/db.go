@@ -680,7 +680,7 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	}
 
 	if targetRelease.Deleted {
-		logger.FromContext(ctx).Sugar().Infof("Release '%d' for appliation '%s' to delete has already been deleted", releaseToDelete, application)
+		logger.FromContext(ctx).Sugar().Infof("Release '%d' for application '%s' has already been deleted.", releaseToDelete, application)
 		return nil
 	}
 
