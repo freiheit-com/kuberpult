@@ -111,6 +111,10 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	_, err = readEnvVar("DOES_NOT_EXIST_ENV_VAR")
+	if err != nil {
+		return fmt.Errorf("integrationtest-test: this should fail the test")
+	}
 
 	var eslProcessingBackoff uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
