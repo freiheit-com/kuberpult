@@ -153,9 +153,13 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
 		expiry := md.Get(HeaderTokenExpiry)
-		expTime, err := time.Parse(time.UnixDate, expiry[0])
-		if err != nil {
-			return nil, err
+		var expTime time.Time
+		if len(expiry) > 0 {
+			expTime, err = time.Parse(time.UnixDate, expiry[0])
+			if err != nil {
+				return nil, err
+
+			}
 		}
 
 		if len(rolesInHeader) == 0 {
