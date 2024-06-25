@@ -60,6 +60,10 @@ const (
 	fieldTeam = "team"
 )
 
+const (
+	keptVersionsOnCleanup = 20
+)
+
 func versionToString(Version uint64) string {
 	return strconv.FormatUint(Version, 10)
 }
