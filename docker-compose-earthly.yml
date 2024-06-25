@@ -18,7 +18,6 @@ services:
       - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
       - KUBERPULT_ALLOW_LONG_APP_NAMES=true
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
-      - KUBERPULT_RELEASE_VERSIONS_LIMIT=5
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -45,7 +44,6 @@ services:
       - KUBERPULT_ENABLE_METRICS=false
       - KUBERPULT_DOGSTATSD_ADDR=127.0.0.1:8125
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
-      - KUBERPULT_RELEASE_VERSIONS_LIMIT=5
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database
