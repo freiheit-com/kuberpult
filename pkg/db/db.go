@@ -246,7 +246,7 @@ const (
 // ESL EVENTS
 
 // DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
-func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}) error {
+func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}, metadata interface{}) error {
 	if h == nil {
 		return nil
 	}
@@ -256,9 +256,19 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
 
-	jsonToInsert, err := json.Marshal(data)
+	dataJson, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+	combinedData := make(map[string]interface{})
+	err = json.Unmarshal(dataJson, &combinedData)
+	if err != nil {
+		return fmt.Errorf("could not unmarshal json data: %w", err)
+	}
+	combinedData["metadata"] = metadata
+	jsonToInsert, err := json.Marshal(combinedData)
+	if err != nil {
+		return fmt.Errorf("could not marshal combined json data: %w", err)
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")

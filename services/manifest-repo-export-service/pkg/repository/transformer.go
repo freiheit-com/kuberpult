@@ -88,12 +88,21 @@ func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application strin
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
+	GetMetadata() *map[string]string
 }
 
 type TransformerContext interface {
 	Execute(t Transformer, transaction *sql.Tx) error
 	AddAppEnv(app string, env string, team string)
 	DeleteEnvFromApp(app string, env string)
+}
+
+type TransformerMetadata struct {
+	Metadata *map[string]string `json:"metadata,omitempty"`
+}
+
+func (t *TransformerMetadata) GetMetadata() *map[string]string {
+	return t.Metadata
 }
 
 func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx) (string, *TransformerResult, error) {
@@ -218,7 +227,8 @@ func (c *QueueApplicationVersion) Transform(
 }
 
 type DeployApplicationVersion struct {
-	Authentication  `json:"-"`
+	Authentication `json:"-"`
+	TransformerMetadata
 	Environment     string                          `json:"env"`
 	Application     string                          `json:"app"`
 	Version         uint64                          `json:"version"`
@@ -390,9 +400,10 @@ func (c *DeployApplicationVersion) Transform(
 
 type CreateEnvironmentLock struct {
 	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	TransformerMetadata
+	Environment string `json:"env"`
+	LockId      string `json:"lockId"`
+	Message     string `json:"message"`
 }
 
 func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
@@ -466,8 +477,9 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, autho
 
 type DeleteEnvironmentLock struct {
 	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	LockId         string `json:"lockId"`
+	TransformerMetadata
+	Environment string `json:"env"`
+	LockId      string `json:"lockId"`
 }
 
 func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
@@ -508,10 +520,11 @@ func (c *DeleteEnvironmentLock) Transform(
 
 type CreateEnvironmentApplicationLock struct {
 	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Application    string `json:"app"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	TransformerMetadata
+	Environment string `json:"env"`
+	Application string `json:"app"`
+	LockId      string `json:"lockId"`
+	Message     string `json:"message"`
 }
 
 func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -560,9 +573,10 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 
 type DeleteEnvironmentApplicationLock struct {
 	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Application    string `json:"app"`
-	LockId         string `json:"lockId"`
+	TransformerMetadata
+	Environment string `json:"env"`
+	Application string `json:"app"`
+	LockId      string `json:"lockId"`
 }
 
 func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -599,7 +613,8 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 }
 
 type CreateApplicationVersion struct {
-	Authentication  `json:"-"`
+	Authentication `json:"-"`
+	TransformerMetadata
 	Version         uint64            `json:"version"`
 	Application     string            `json:"app"`
 	Manifests       map[string]string `json:"manifests"`
@@ -821,10 +836,11 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 
 type CreateEnvironmentTeamLock struct {
 	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Team           string `json:"team"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	TransformerMetadata
+	Environment string `json:"env"`
+	Team        string `json:"team"`
+	LockId      string `json:"lockId"`
+	Message     string `json:"message"`
 }
 
 func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
@@ -901,9 +917,10 @@ func (c *CreateEnvironmentTeamLock) Transform(
 
 type DeleteEnvironmentTeamLock struct {
 	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Team           string `json:"team"`
-	LockId         string `json:"lockId"`
+	TransformerMetadata
+	Environment string `json:"env"`
+	Team        string `json:"team"`
+	LockId      string `json:"lockId"`
 }
 
 func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {

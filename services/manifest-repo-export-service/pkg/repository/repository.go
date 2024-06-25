@@ -567,8 +567,8 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 
 	// TODO this will be handled in Ref SRX-PA568W
 	user := auth.User{
-		Email:          "invalid@example.com",
-		Name:           "invalid",
+		Email:          (*transformers[0].GetMetadata())["authorEmail"],
+		Name:           (*transformers[0].GetMetadata())["authorName"],
 		DexAuthContext: nil,
 	}
 
