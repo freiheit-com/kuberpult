@@ -653,7 +653,9 @@ func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transact
 	if err != nil {
 		return err
 	}
-
+	if allReleases == nil {
+		return nil
+	}
 	idxToDelete := slices.Index(allReleases.Metadata.Releases, int64(releaseToDelete))
 
 	if idxToDelete == -1 {
