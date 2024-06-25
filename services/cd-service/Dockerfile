@@ -18,6 +18,7 @@ RUN go build -o /kp/main /kp/services/cd-service/cmd/server/
 FROM alpine:3.18
 ARG UID=1000
 ARG DIR
+# note that this label has influence on githubs access permissions: https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility
 LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
 RUN apk --update add ca-certificates tzdata libgit2 git sqlite-libs
 RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
