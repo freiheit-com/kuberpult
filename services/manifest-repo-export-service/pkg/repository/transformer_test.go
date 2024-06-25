@@ -311,6 +311,32 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Create a single environment twice",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+				},
+				
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "/environments/staging/config.json",
+					fileData: []byte(
+						`{
+  "upstream": {
+    "environment": "development"
+  }
+}
+`),
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
