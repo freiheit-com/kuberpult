@@ -481,11 +481,15 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			}
 
 			// Check configuration for errors and abort early if any:
-			_, err = db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
-				_, err = state.GetEnvironmentConfigsAndValidate(ctx, transaction)
-				
-				return nil, err
-			})
+			if state.DBHandler.ShouldUseOtherTables() {
+				_, err = db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
+					return &ret, err
+				})
+			} else {
+				_, err = state.GetEnvironmentConfigsAndValidate(ctx, nil)
+			}
+
 			if err != nil {
 				return nil, nil, err
 			}

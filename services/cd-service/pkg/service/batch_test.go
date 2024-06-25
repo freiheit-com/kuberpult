@@ -1038,14 +1038,22 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				t.Errorf("batch response mismatch: %s", d)
 			}
 			ctx := testutil.MakeTestContext()
-			envs, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
-				envs, err :=repo.State().GetEnvironmentConfigs(ctx, transaction)
-				return &envs, err
-			})
+			
+			var envs map[string]config.EnvironmentConfig
+			if repo.State().DBHandler.ShouldUseOtherTables() {
+				var envsPtr *map[string]config.EnvironmentConfig
+				envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+					envs, err := repo.State().GetEnvironmentConfigs(ctx, transaction)
+					return &envs, err
+				})
+				envs = *envsPtr
+			} else {
+				envs, err = repo.State().GetEnvironmentConfigs(ctx, nil)
+			}
 			if err != nil {
 				t.Errorf("unexpected error: %q", err)
 			}
-			if d := cmp.Diff(tc.ExpectedEnvironments, *envs); d != "" {
+			if d := cmp.Diff(tc.ExpectedEnvironments, envs); d != "" {
 				t.Errorf("batch response mismatch: %s", d)
 			}
 		})

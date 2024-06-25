@@ -18,7 +18,6 @@ package reposerver
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os"
 	"os/exec"
 	"path"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	v1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
