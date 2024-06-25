@@ -550,6 +550,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
+
 	if c.Team != "" && !state.DBHandler.ShouldUseOtherTables() {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
 		//team are deployed, team names simply get concatenated. Just remove the file beforehand.
@@ -2464,6 +2465,7 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 	}
+
 	s := State{
 		Commit:                 nil,
 		BootstrapMode:          false,
@@ -2477,10 +2479,10 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 	}
+
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
 	}
