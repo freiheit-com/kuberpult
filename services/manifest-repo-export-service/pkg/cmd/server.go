@@ -107,15 +107,15 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
-	if err != nil {
-		return err
-	}
-	enableMetrics := enableMetricsString == "true"
-	DatatDogStatsAddr, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
-	if err != nil {
-		return err
-	}
+	//enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
+	//if err != nil {
+	//	return err
+	//}
+	//enableMetrics := enableMetricsString == "true"
+	//DatatDogStatsAddr, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
+	//if err != nil {
+	//	return err
+	//}
 
 	//releaseVersionLimit := 20
 	//if val, exists := os.LookupEnv("KUBERPULT_RELEASE_VERSIONS_LIMIT"); !exists {
@@ -181,12 +181,12 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	var ddMetrics statsd.ClientInterface
-	if enableMetrics {
-		ddMetrics, err = statsd.New(DatatDogStatsAddr, statsd.WithNamespace("Kuberpult"))
-		if err != nil {
-			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
-		}
-	}
+	//if enableMetrics {
+	//	ddMetrics, err = statsd.New(DatatDogStatsAddr, statsd.WithNamespace("Kuberpult"))
+	//	if err != nil {
+	//		logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
+	//	}
+	//}
 
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
