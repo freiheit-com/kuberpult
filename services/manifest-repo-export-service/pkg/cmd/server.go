@@ -42,10 +42,10 @@ func storageBackend(enableSqlite bool) repository.StorageBackend {
 	}
 }
 
-//const (
-//	minReleaseVersionsLimit = 5
-//	maxReleaseVersionsLimit = 30
-//)
+const (
+	minReleaseVersionsLimit = 5
+	maxReleaseVersionsLimit = 30
+)
 
 func RunServer() {
 	_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
@@ -107,29 +107,30 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	//enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
-	//if err != nil {
-	//	return err
-	//}
-	//enableMetrics := enableMetricsString == "true"
-	//DatatDogStatsAddr, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
-	//if err != nil {
-	//	return err
-	//}
+	enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
+	if err != nil {
+		return err
+	}
+	enableMetrics := enableMetricsString == "true"
+	DatatDogStatsAddr, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
+	if err != nil {
+		return err
+	}
 
-	//releaseVersionLimit := 20
-	//if val, exists := os.LookupEnv("KUBERPULT_RELEASE_VERSIONS_LIMIT"); !exists {
-	//	log.Infof("environment variable KUBERPULT_RELEASE_VERSIONS_LIMIT is not set, using default releaseVersionLimit of 20.")
-	//	releaseVersionLimit = 20
-	//} else {
-	//	releaseVersionLimit, err = strconv.ParseUint(val, 10, 64)
-	//	if err != nil {
-	//		return fmt.Errorf("error converting KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
-	//	}
-	//
-	//if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
-	//	return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
-	//}
+	var releaseVersionLimit uint64
+	if val, exists := os.LookupEnv("KUBERPULT_RELEASE_VERSIONS_LIMIT"); !exists {
+		log.Infof("environment variable KUBERPULT_RELEASE_VERSIONS_LIMIT is not set, using default releaseVersionLimit of 20.")
+		releaseVersionLimit = 20
+	} else {
+		releaseVersionLimit, err = strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error converting KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
+		}
+
+		if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
+			return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
+		}
+	}
 
 	var eslProcessingBackoff uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
@@ -181,12 +182,12 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	var ddMetrics statsd.ClientInterface
-	//if enableMetrics {
-	//	ddMetrics, err = statsd.New(DatatDogStatsAddr, statsd.WithNamespace("Kuberpult"))
-	//	if err != nil {
-	//		logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
-	//	}
-	//}
+	if enableMetrics {
+		ddMetrics, err = statsd.New(DatatDogStatsAddr, statsd.WithNamespace("Kuberpult"))
+		if err != nil {
+			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
+		}
+	}
 
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
@@ -205,7 +206,7 @@ func Run(ctx context.Context) error {
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "./environment_configs.json",
 		StorageBackend:         storageBackend(enableSqliteStorageBackend),
-		ReleaseVersionLimit:    20,
+		ReleaseVersionLimit:    uint(releaseVersionLimit),
 		ArgoCdGenerateFiles:    argoCdGenerateFiles,
 		DBHandler:              dbHandler,
 	}
@@ -383,9 +384,9 @@ func readEnvVar(envName string) (string, error) {
 	return envValue, nil
 }
 
-//func checkReleaseVersionLimit(limit uint) error {
-//	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
-//		return releaseVersionsLimitError{limit: limit}
-//	}
-//	return nil
-//}
+func checkReleaseVersionLimit(limit uint) error {
+	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
+		return releaseVersionsLimitError{limit: limit}
+	}
+	return nil
+}

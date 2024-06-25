@@ -154,7 +154,7 @@ type RepositoryConfig struct {
 	EnvironmentConfigsPath string
 
 	ArgoCdGenerateFiles bool
-	ReleaseVersionLimit int64
+	ReleaseVersionLimit uint
 	DBHandler           *db.DBHandler
 }
 
@@ -813,7 +813,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 						DBHandler:              r.DB,
-						ReleaseVersionsLimit:   20,
+						ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
 					}, nil
 				}
 			}
@@ -836,7 +836,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-		ReleaseVersionsLimit:   20,
+		ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
 		DBHandler:              r.DB,
 	}, nil
 }
