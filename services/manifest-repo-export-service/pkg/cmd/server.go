@@ -219,6 +219,9 @@ func Run(ctx context.Context) error {
 				if err != nil {
 					log.Error("Error in calculateProcessDelay %v", err)
 				}
+				if processDelay < 0 {
+					log.Warn("process delay is negative: esl-time: %v, now: %v, delay: %v", esl.Created, time.Now().UTC(), processDelay)
+				}
 				if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
 					log.Error("Error in ddMetrics.Gauge %v", err)
 				}
