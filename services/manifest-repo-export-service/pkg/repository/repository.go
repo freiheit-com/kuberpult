@@ -216,7 +216,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
 	}
-	// The value here is set to keptVersionsOnCleanup to maintain compatibility with tests that do not pass ReleaseVersionsLimit in the repository config
 	if cfg.ReleaseVersionLimit == 0 {
 		cfg.ReleaseVersionLimit = keptVersionsOnCleanup
 	}
