@@ -1453,9 +1453,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 			_, err := fs.Stat(releasesDir)
 			if err != nil {
 				return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
-			}
-
-			{
+			} else {
 				commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 				dat, err := util.ReadFile(fs, commitIDFile)
 				if err != nil {
