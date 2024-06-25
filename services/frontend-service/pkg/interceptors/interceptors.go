@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -130,6 +131,11 @@ func AddRoleToContext(w http.ResponseWriter, req *http.Request, roles []string) 
 	return auth.WriteUserRoleToGrpcContext(req.Context(), strings.Join(roles, ","))
 }
 
+func AddExpiryToContext(w http.ResponseWriter, req *http.Request, expiry time.Time, ctx context.Context) context.Context {
+	auth.WriteTokenExpiryToHttpHeader(req, expiry.String())
+	return auth.WriteTokenExpiryToGrpcContext(ctx, expiry.String())
+}
+
 func CreateRoleString(userGroup string, roles []string, policy *auth.RBACPolicies) []string {
 	for _, policyGroup := range policy.Groups {
 		if policyGroup.Group == userGroup {
@@ -209,6 +215,14 @@ func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseU
 	}
 	if len(roles) != 0 {
 		httpCtx = AddRoleToContext(w, req, roles)
+	}
+	if claims["exp"].(string) != "" {
+		expTime, err := time.Parse(time.UnixDate, claims["exp"].(string))
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse expiration of token for DEX")
+		}
+		AddExpiryToContext(w, req, expTime, httpCtx)
+
 	}
 	return httpCtx, nil
 }

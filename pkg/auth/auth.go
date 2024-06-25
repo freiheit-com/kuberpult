@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -41,9 +42,10 @@ The frontend-service also allows overwriting the default values, see function `g
 The cd-service generally expects these headers, either in the grpc context or the http headers.
 */
 const (
-	HeaderUserName  = "author-name"
-	HeaderUserEmail = "author-email"
-	HeaderUserRole  = "author-role"
+	HeaderUserName    = "author-name"
+	HeaderUserEmail   = "author-email"
+	HeaderUserRole    = "author-role"
+	HeaderTokenExpiry = "token-expires-at"
 )
 
 func Encode64(s string) string {
@@ -82,6 +84,10 @@ func WriteUserRoleToGrpcContext(ctx context.Context, userRole string) context.Co
 	return metadata.AppendToOutgoingContext(ctx, HeaderUserRole, Encode64(userRole))
 }
 
+func WriteTokenExpiryToGrpcContext(ctx context.Context, expiry string) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, HeaderTokenExpiry, Encode64(expiry))
+}
+
 type GrpcContextReader interface {
 	ReadUserFromGrpcContext(ctx context.Context) (*User, error)
 }
@@ -100,7 +106,8 @@ func (x *DummyGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*
 		Email: "dummyMail@example.com",
 		Name:  "userName",
 		DexAuthContext: &DexAuthContext{
-			Role: []string{x.Role},
+			Role:   []string{x.Role},
+			Expiry: time.Now().Add(time.Hour),
 		},
 	}
 	return user, nil
@@ -145,6 +152,15 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	// RBAC Role of the user. only mandatory if DEX is enabled.
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
+		expiry := md.Get(HeaderTokenExpiry)
+		var expTime time.Time
+		if len(expiry) > 0 {
+			expTime, err = time.Parse(time.UnixDate, expiry[0])
+			if err != nil {
+				return nil, err
+
+			}
+		}
 
 		if len(rolesInHeader) == 0 {
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
@@ -162,7 +178,8 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
 		u.DexAuthContext = &DexAuthContext{
-			Role: userRole,
+			Role:   userRole,
+			Expiry: expTime,
 		}
 	}
 	return u, nil
@@ -171,7 +188,8 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 func useDexDefaultRole(ctx context.Context, dexDefaultRoleEnabled bool, u *User) (*User, error) {
 	if dexDefaultRoleEnabled {
 		u.DexAuthContext = &DexAuthContext{
-			Role: []string{"default"},
+			Role:   []string{"default"},
+			Expiry: time.Now().Add(time.Hour),
 		}
 		logger.FromContext(ctx).Warn("role undefined but dex is enabled. Default user role enabled. Proceeding with default role.")
 		return u, nil
@@ -198,13 +216,23 @@ func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error)
 	if err != nil {
 		return nil, grpc.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in role: '%s'", headerRole64))
 	}
+	expiry64 := r.Header.Get(HeaderTokenExpiry)
+	expiry, err := Decode64(expiry64)
+	if err != nil {
+		return nil, grpc.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data for time expiry: '%s'", expiry64))
+	}
+	expTime, err := time.Parse(time.UnixDate, expiry)
+	if err != nil {
+		return nil, err
+	}
 
 	if headerName != "" && headerEmail != "" {
 		return &User{
 			Email: headerEmail,
 			Name:  headerName,
 			DexAuthContext: &DexAuthContext{
-				Role: strings.Split(headerRole, ","),
+				Role:   strings.Split(headerRole, ","),
+				Expiry: expTime,
 			},
 		}, nil
 	}
@@ -224,6 +252,10 @@ func WriteUserToHttpHeader(r *http.Request, user User) {
 // it is used for requests like /release and managing locks which are delegated from frontend-service to cd-service
 func WriteUserRoleToHttpHeader(r *http.Request, role string) {
 	r.Header.Add(HeaderUserRole, Encode64(role))
+}
+
+func WriteTokenExpiryToHttpHeader(r *http.Request, expiry string) {
+	r.Header.Add(HeaderTokenExpiry, Encode64(expiry))
 }
 
 func GetUserOrDefault(u *User, defaultUser User) User {

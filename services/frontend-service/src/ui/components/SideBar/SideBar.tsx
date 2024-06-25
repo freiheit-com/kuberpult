@@ -455,6 +455,8 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                     const GrpcErrorPermissionDenied = 7;
                     if (e.code === GrpcErrorPermissionDenied) {
                         showSnackbarError(e.message);
+                    } else if (e.code === 16) {
+                        showSnackbarError(e.message);
                     } else {
                         showSnackbarError('Actions were not applied. Please try again');
                     }

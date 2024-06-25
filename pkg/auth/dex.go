@@ -37,7 +37,8 @@ import (
 // Extracted information from JWT/Cookie.
 type DexAuthContext struct {
 	// The user role extracted from the Cookie.
-	Role []string
+	Role   []string
+	Expiry time.Time
 }
 
 // Dex App Client.
@@ -324,6 +325,7 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string,
 		"email":  "",
 		"name":   "",
 		"sub":    "",
+		"exp":    "",
 	}
 	err = idToken.Claims(&claims)
 	if err != nil {
