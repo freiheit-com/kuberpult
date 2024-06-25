@@ -14,7 +14,7 @@ function waitForDeployment() {
   print "waitForDeployment: $ns/$label"
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
-    sleep 4s
+    sleep 4
     print "logs:"
     kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
     print "describe pod:"
@@ -34,7 +34,7 @@ function portForwardAndWait() {
   print "portForwardAndWait: waiting until the port forward works..."
   until nc -vz localhost "$portHere"
   do
-    sleep 1s
+    sleep 1
   done
 }
 

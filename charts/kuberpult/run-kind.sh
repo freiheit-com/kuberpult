@@ -168,8 +168,18 @@ then
   docker pull "$frontend_imagename"
   print 'pulling rollout service...'
   docker pull "$rollout_imagename"
+
+
 else
   print 'not pulling cd or frontend service...'
+  print 'pulling argocd service...'
+  docker pull quay.io/argoproj/argocd:v2.7.4
+  print 'pulling dex service...'
+  docker pull ghcr.io/dexidp/dex:v2.36.0
+  print 'pulling cloud-sql-proxy service...'
+  docker pull gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+  print 'pulling argocd service...'
+  docker pull public.ecr.aws/docker/library/redis:7.0.11-alpine
 fi
 
 print 'loading docker images into kind...'
