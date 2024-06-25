@@ -188,7 +188,7 @@ func DexAPIInterceptor(
 }
 
 func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
-	claims, expiry, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, useClusterInternalCommunication)
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		return req.Context(), err
@@ -216,6 +216,13 @@ func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseU
 	if len(roles) != 0 {
 		httpCtx = AddRoleToContext(w, req, roles)
 	}
-	AddExpiryToContext(w, req, expiry, httpCtx)
+	if claims["exp"].(string) != "" {
+		expTime, err := time.Parse(time.UnixDate, claims["exp"].(string))
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse expiration of token for DEX")
+		}
+		AddExpiryToContext(w, req, expTime, httpCtx)
+
+	}
 	return httpCtx, nil
 }
