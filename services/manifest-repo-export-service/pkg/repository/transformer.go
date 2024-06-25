@@ -740,6 +740,9 @@ func (c *CreateApplicationVersion) Transform(
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
 				Author:          c.SourceAuthor,
+				TransformerMetadata: TransformerMetadata{
+					Metadata: &map[string]string{},
+				},
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
