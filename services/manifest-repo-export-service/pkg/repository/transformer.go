@@ -480,6 +480,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
 		DBHandler:              state.DBHandler,
+		ReleaseVersionsLimit:   keptVersionsOnCleanup,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err := fs.Stat(lockDir)

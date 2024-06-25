@@ -815,6 +815,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 						DBHandler:              r.DB,
+						ReleaseVersionsLimit:   keptVersionsOnCleanup,
 					}, nil
 				}
 			}
@@ -838,6 +839,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		DBHandler:              r.DB,
+		ReleaseVersionsLimit:   keptVersionsOnCleanup,
 	}, nil
 }
 
