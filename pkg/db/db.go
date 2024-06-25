@@ -654,7 +654,7 @@ func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transact
 		return err
 	}
 	if allReleases == nil {
-		logger.FromContext(ctx).Sugar().Infof("No releases.")
+		logger.FromContext(ctx).Sugar().Infof("Could not find release '%d' for appliation '%s' to delete. No releases found.", releaseToDelete, application)
 		return nil
 	}
 	idxToDelete := slices.Index(allReleases.Metadata.Releases, int64(releaseToDelete))
