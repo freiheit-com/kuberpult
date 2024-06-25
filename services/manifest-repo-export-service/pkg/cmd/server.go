@@ -117,19 +117,18 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
-	var releaseVersionLimit uint64
-	if val, exists := os.LookupEnv("KUBERPULT_RELEASE_VERSIONS_LIMIT"); !exists {
-		log.Infof("environment variable KUBERPULT_RELEASE_VERSIONS_LIMIT is not set, using default releaseVersionLimit of 20.")
-		releaseVersionLimit = 20
-	} else {
-		releaseVersionLimit, err = strconv.ParseUint(val, 10, 64)
-		if err != nil {
-			return fmt.Errorf("error converting KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
-		}
+	releaseVersionLimitStr, err := readEnvVar("KUBERPULT_RELEASE_VERSIONS_LIMIT")
+	if err != nil {
+		return err
+	}
 
-		if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
-			return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
-		}
+	releaseVersionLimit, err := strconv.ParseUint(releaseVersionLimitStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("error converting KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
+	}
+
+	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
+		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
 
 	var eslProcessingBackoff uint64
@@ -212,7 +211,6 @@ func Run(ctx context.Context) error {
 	}
 
 	repo, err := repository.New(ctx, cfg)
-	fmt.Println(repo.State().ReleaseVersionsLimit)
 	if err != nil {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
