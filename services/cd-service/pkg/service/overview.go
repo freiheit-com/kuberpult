@@ -112,7 +112,7 @@ func (o *OverviewServiceServer) getOverview(
 	}
 	result.ManifestRepoUrl = o.RepositoryConfig.URL
 	result.Branch = o.RepositoryConfig.Branch
-	if envs, err := s.GetEnvironmentConfigs(ctx); err != nil {
+	if envs, err := s.GetEnvironmentConfigs(ctx, transaction); err != nil {
 		return nil, grpc.InternalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)

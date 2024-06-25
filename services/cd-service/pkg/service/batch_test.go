@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os/exec"
 	"path"
@@ -1037,11 +1038,14 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				t.Errorf("batch response mismatch: %s", d)
 			}
 			ctx := testutil.MakeTestContext()
-			envs, err := repo.State().GetEnvironmentConfigs(ctx)
+			envs, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				envs, err :=repo.State().GetEnvironmentConfigs(ctx, transaction)
+				return &envs, err
+			})
 			if err != nil {
 				t.Errorf("unexpected error: %q", err)
 			}
-			if d := cmp.Diff(tc.ExpectedEnvironments, envs); d != "" {
+			if d := cmp.Diff(tc.ExpectedEnvironments, *envs); d != "" {
 				t.Errorf("batch response mismatch: %s", d)
 			}
 		})

@@ -189,7 +189,7 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	if ddMetrics == nil {
 		return nil
 	}
-	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx)
+	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
 	if err != nil {
 		return err
 	}
@@ -515,7 +515,7 @@ func (c *CreateApplicationVersion) Transform(
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
 
-	configs, err := state.GetEnvironmentConfigs(ctx)
+	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		if errors.Is(err, InvalidJson) {
 			return "", err
@@ -657,7 +657,7 @@ func (c *CreateApplicationVersion) Transform(
 		env := sortedKeys[i]
 		man := c.Manifests[env]
 
-		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
+		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1059,7 +1059,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		return "", err
 	}
 
-	configs, err := state.GetEnvironmentConfigs(ctx)
+	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
@@ -1071,7 +1071,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		return "", err
 	}
 	for env := range configs {
-		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateUndeploy, "", c.RBACConfig)
+		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateUndeploy, "", c.RBACConfig)
 		if err != nil {
 			return "", err
 		}
@@ -1211,12 +1211,12 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
 	appDir := applicationDirectory(fs, u.Application)
-	configs, err := state.GetEnvironmentConfigs(ctx)
+	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
 	for env := range configs {
-		err := state.checkUserPermissions(ctx, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig)
+		err := state.checkUserPermissions(ctx, transaction, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig)
 		if err != nil {
 			return "", err
 		}
@@ -1338,7 +1338,7 @@ func (u *DeleteEnvFromApp) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1387,7 +1387,7 @@ func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 // Finds old releases for an application
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
-	envConfigs, err := state.GetEnvironmentConfigs(ctx)
+	envConfigs, err := state.GetEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -1502,7 +1502,7 @@ func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentLock
 }
 
-func (s *State) checkUserPermissions(ctx context.Context, env, application, action, team string, RBACConfig auth.RBACConfig) error {
+func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -1511,7 +1511,7 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
 	}
 
-	envs, err := s.GetEnvironmentConfigs(ctx)
+	envs, err := s.GetEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return err
 	}
@@ -1552,7 +1552,7 @@ func (c *CreateEnvironmentLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1665,7 +1665,7 @@ func (c *DeleteEnvironmentLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1750,11 +1750,11 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionCreateLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.EnvironmentGroup, "*", auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
-	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, c.EnvironmentGroup)
+	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, transaction, c.EnvironmentGroup)
 	if err != nil {
 		return "", grpc.PublicError(ctx, err)
 	}
@@ -1790,11 +1790,11 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.EnvironmentGroup, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
-	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, c.EnvironmentGroup)
+	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, transaction, c.EnvironmentGroup)
 	if err != nil {
 		return "", grpc.PublicError(ctx, err)
 	}
@@ -1831,7 +1831,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
-	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionCreateLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1913,7 +1913,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeleteLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeleteLock, "", c.RBACConfig)
 
 	if err != nil {
 		return "", err
@@ -1984,7 +1984,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
-	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig)
 
 	if err != nil {
 		return "", err
@@ -2096,7 +2096,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig)
 
 	if err != nil {
 		return "", err
@@ -2293,7 +2293,7 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -2678,7 +2678,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 		}
 		return nil, fmt.Errorf("unable to get oid: %w", err)
 	}
-	envs, err := s.GetEnvironmentConfigs(ctx)
+	envs, err := s.GetEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
 	}
@@ -2796,7 +2796,7 @@ func (c *ReleaseTrain) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainPrognosis {
-	configs, err := state.GetEnvironmentConfigs(ctx)
+	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.InternalError(ctx, err),
@@ -2868,7 +2868,7 @@ func (c *ReleaseTrain) Transform(
 	}
 
 	var targetGroupName = c.Target
-	configs, _ := state.GetEnvironmentConfigs(ctx)
+	configs, _ := state.GetEnvironmentConfigs(ctx, transaction)
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
 	// sorting for determinism
@@ -2933,6 +2933,7 @@ func (c *envReleaseTrain) prognosis(
 
 	err := state.checkUserPermissions(
 		ctx,
+		transaction,
 		c.Env,
 		"*",
 		auth.PermissionDeployReleaseTrain,
