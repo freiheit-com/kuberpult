@@ -79,6 +79,7 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 		CommitterEmail:      "kuberpult@freiheit.com",
 		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
+		ReleaseVersionLimit: 2,
 	}
 
 	if dbConfig != nil {
@@ -114,11 +115,12 @@ type FilenameAndData struct {
 func TestTransformerWorksWithDb(t *testing.T) {
 	const appName = "myapp"
 	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		ExpectedError error
-		ExpectedApp   *db.DBAppWithMetaData
-		ExpectedFile  []*FilenameAndData
+		Name                string
+		Transformers        []Transformer
+		ExpectedError       error
+		ExpectedApp         *db.DBAppWithMetaData
+		ExpectedAllReleases *db.DBReleaseWithMetaData
+		ExpectedFile        []*FilenameAndData
 	}{
 		{
 			// as of now we only have the DeployApplicationVersion transformer,
@@ -235,12 +237,79 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				"team 'my-team' does not exist",
 			},
 		},
+		{
+			Name: "CleanupOldApplicationVersions", //ReleaseLimit is 2
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        2,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        3,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+				},
+				&CleanupOldApplicationVersions{
+					Application: appName,
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					fileData: []byte("123456789abcdef"),
+				},
+				{
+					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					fileData: []byte("abcdef"),
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
+
 			ctx := context.Background()
 			dbHandler := repo.State().DBHandler
 			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {

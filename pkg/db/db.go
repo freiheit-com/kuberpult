@@ -453,6 +453,7 @@ type DBReleaseWithMetaData struct {
 	App           string
 	Manifests     DBReleaseManifests
 	Metadata      DBReleaseMetaData
+	Deleted       bool
 }
 
 type DBAllReleaseMetaData struct {
@@ -467,7 +468,7 @@ type DBAllReleasesWithMetaData struct {
 
 func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion " +
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
@@ -479,10 +480,10 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion " +
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
 			" WHERE appName=? AND releaseVersion=?" +
-			" ORDER BY eslVersion ASC " +
+			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
 	rows, err := tx.QueryContext(
 		ctx,
@@ -562,7 +563,7 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 	if rows.Next() {
 		var metadataStr string
 		var manifestStr string
-		err := rows.Scan(&row.EslId, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber)
+		err := rows.Scan(&row.EslId, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber, &row.Deleted)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -610,7 +611,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		return fmt.Errorf("insert release: could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata)  VALUES (?, ?, ?, ?, ?, ?);",
+		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata, deleted)  VALUES (?, ?, ?, ?, ?, ?, ?);",
 	)
 	span.SetTag("query", insertQuery)
 	manifestJson, err := json.Marshal(release.Manifests)
@@ -626,6 +627,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		release.App,
 		manifestJson,
 		metadataJson,
+		release.Deleted,
 	)
 	if err != nil {
 		return fmt.Errorf(
@@ -640,6 +642,53 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		release.App,
 		release.ReleaseNumber,
 		previousEslVersion+1)
+	return nil
+}
+
+func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteReleaseFromAllReleases")
+	defer span.Finish()
+
+	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
+	if err != nil {
+		return err
+	}
+	if allReleases == nil {
+		logger.FromContext(ctx).Sugar().Infof("Could not find release '%d' for appliation '%s' to delete. No releases found.", releaseToDelete, application)
+		return nil
+	}
+	idxToDelete := slices.Index(allReleases.Metadata.Releases, int64(releaseToDelete))
+
+	if idxToDelete == -1 {
+		logger.FromContext(ctx).Sugar().Infof("Could not find release '%d' for appliation '%s' to delete.", releaseToDelete, application)
+		return nil //If we don't find it, not an error, but we do nothing
+	}
+	allReleases.Metadata.Releases = append(allReleases.Metadata.Releases[:idxToDelete], allReleases.Metadata.Releases[idxToDelete+1:]...)
+	if err := h.DBInsertAllReleases(ctx, transaction, application, allReleases.Metadata.Releases, allReleases.EslId); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
+	defer span.Finish()
+
+	targetRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, application, releaseToDelete)
+	if err != nil {
+		return err
+	}
+
+	if targetRelease.Deleted {
+		logger.FromContext(ctx).Sugar().Infof("Release '%d' for application '%s' has already been deleted.", releaseToDelete, application)
+		return nil
+	}
+
+	targetRelease.Deleted = true
+	if err := h.DBInsertRelease(ctx, transaction, *targetRelease, targetRelease.EslId); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1300,6 +1349,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 						SourceMessage:  repoRelease.SourceMessage,
 						DisplayVersion: repoRelease.DisplayVersion,
 					},
+					Deleted: false,
 				}
 				err = h.DBInsertRelease(ctx, transaction, dbRelease, InitialEslId-1)
 				if err != nil {

@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/status"
 	yaml3 "gopkg.in/yaml.v3"
 	"io"
+	"path"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"os"
@@ -44,15 +45,16 @@ import (
 )
 
 const (
-	queueFileName       = "queued_version"
-	fieldSourceAuthor   = "source_author"
-	fieldSourceMessage  = "source_message"
-	fieldSourceCommitId = "source_commit_id"
-	fieldDisplayVersion = "display_version"
-	fieldCreatedAt      = "created_at"
-	fieldCreatedByName  = "created_by_name"
-	fieldCreatedByEmail = "created_by_email"
-	fieldMessage        = "message"
+	queueFileName         = "queued_version"
+	fieldCreatedAt        = "created_at"
+	fieldCreatedByName    = "created_by_name"
+	fieldCreatedByEmail   = "created_by_email"
+	fieldSourceCommitId   = "source_commit_id"
+	fieldDisplayVersion   = "display_version"
+	fieldMessage          = "message"
+	fieldSourceMessage    = "source_message"
+	fieldSourceAuthor     = "source_author"
+	keptVersionsOnCleanup = 20
 )
 
 const (
@@ -373,6 +375,13 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
+	d := &CleanupOldApplicationVersions{
+		Application: c.Application,
+	}
+	if err := t.Execute(d, transaction); err != nil {
+		return "", err
+	}
+
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
@@ -474,6 +483,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
+		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
 		DBHandler:              state.DBHandler,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
@@ -741,18 +751,15 @@ func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, app
 	return true, nil
 }
 
-const (
-	releaseVersionsLimit = 20
-)
-
-// Finds old releases for an application
+// Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
+// Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
 	envConfigs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return nil, err
 	}
-	versions, err := state.GetApplicationReleases(ctx, transaction, name)
+	versions, err := state.GetApplicationReleasesFromFile(name)
 	if err != nil {
 		return nil, err
 	}
@@ -779,10 +786,10 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return versions[i] >= oldestDeployedVersion
 	})
 
-	if positionOfOldestVersion < (int(releaseVersionsLimit) - 1) {
+	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
-	return versions[0 : positionOfOldestVersion-(int(releaseVersionsLimit)-1)], err
+	return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], err
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
@@ -933,6 +940,124 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	}
 
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+}
+
+func commitDirectory(fs billy.Filesystem, commit string) string {
+	return fs.Join("commits", commit[:2], commit[2:])
+}
+
+func commitApplicationDirectory(fs billy.Filesystem, commit, application string) string {
+	return fs.Join(commitDirectory(fs, commit), "applications", application)
+}
+
+func removeCommit(fs billy.Filesystem, commitID, application string) error {
+	errorTemplate := func(message string, err error) error {
+		return fmt.Errorf("while removing applicaton %s from commit %s and error was encountered, message: %s, error %w", application, commitID, message, err)
+	}
+
+	commitApplicationDir := commitApplicationDirectory(fs, commitID, application)
+	if err := fs.Remove(commitApplicationDir); err != nil {
+		if os.IsNotExist(err) {
+			// could not read the directory commitApplicationDir - but that's ok, because we don't know
+			// if the kuberpult version that accepted this commit in the release endpoint, did already have commit writing enabled.
+			// So there's no guarantee that this file ever existed
+			return nil
+		}
+		return errorTemplate(fmt.Sprintf("could not remove the application directory %s", commitApplicationDir), err)
+	}
+	// check if there are no other services updated by this commit
+	// if there are none, start removing the entire branch of the commit
+
+	deleteDirIfEmpty := func(dir string) error {
+		files, err := fs.ReadDir(dir)
+		if err != nil {
+			return errorTemplate(fmt.Sprintf("could not read the directory %s", dir), err)
+		}
+		if len(files) == 0 {
+			if err = fs.Remove(dir); err != nil {
+				return errorTemplate(fmt.Sprintf("could not remove the directory %s", dir), err)
+			}
+		}
+		return nil
+	}
+
+	commitApplicationsDir := path.Dir(commitApplicationDir)
+	if err := deleteDirIfEmpty(commitApplicationsDir); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", commitApplicationsDir), err)
+	}
+	commitDir2 := path.Dir(commitApplicationsDir)
+
+	// if there are no more apps in the "applications" dir, then remove the commit message file and continue cleaning going up
+	if _, err := fs.Stat(commitApplicationsDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := fs.Remove(fs.Join(commitDir2)); err != nil {
+				return errorTemplate(fmt.Sprintf("could not remove commit dir %s file", commitDir2), err)
+			}
+		} else {
+			return errorTemplate(fmt.Sprintf("could not stat directory %s with an unexpected error", commitApplicationsDir), err)
+		}
+	}
+
+	commitDir1 := path.Dir(commitDir2)
+	if err := deleteDirIfEmpty(commitDir1); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", commitDir2), err)
+	}
+
+	return nil
+}
+
+type CleanupOldApplicationVersions struct {
+	Application string
+}
+
+func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
+	panic("CleanupOldApplicationVersions GetDBEventType")
+}
+
+func (c *CleanupOldApplicationVersions) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
+	if err != nil {
+		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
+	}
+
+	msg := ""
+	for _, oldRelease := range oldVersions {
+
+		// delete oldRelease:
+		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
+		_, err := fs.Stat(releasesDir)
+		if err != nil {
+			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
+		}
+
+		{
+			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
+			dat, err := util.ReadFile(fs, commitIDFile)
+			if err != nil {
+				// not a problem, might be the undeploy commit or the commit has was not specified in CreateApplicationVersion
+			} else {
+				commitID := string(dat)
+				if valid.SHA1CommitID(commitID) {
+					if err := removeCommit(fs, commitID, c.Application); err != nil {
+						return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
+					}
+				}
+			}
+		}
+		err = fs.Remove(releasesDir)
+		if err != nil {
+			return "", fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
+				c.Application, err)
+		}
+		msg = fmt.Sprintf("%sremoved version %d of app %v as cleanup\n", msg, oldRelease, c.Application)
+	}
+	return msg, nil
 }
 
 type ReleaseTrain struct {

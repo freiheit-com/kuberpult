@@ -44,6 +44,7 @@ services:
       - KUBERPULT_ENABLE_METRICS=false
       - KUBERPULT_DOGSTATSD_ADDR=127.0.0.1:8125
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
+      - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database
