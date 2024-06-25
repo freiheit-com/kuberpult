@@ -215,7 +215,7 @@ func Run(ctx context.Context) error {
 				return fmt.Errorf("error in readEslEvent %v", err)
 			}
 			if ddMetrics != nil {
-				processDelay, err := calculateProcessDelay(ctx, esl, time.Now())
+				processDelay, err := calculateProcessDelay(ctx, esl, time.Now().UTC())
 				if err != nil {
 					log.Error("Error in calculateProcessDelay %v", err)
 				}
