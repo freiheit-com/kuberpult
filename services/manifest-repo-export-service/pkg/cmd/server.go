@@ -187,8 +187,9 @@ func Run(ctx context.Context) error {
 		EnvironmentConfigsPath: "./environment_configs.json",
 		StorageBackend:         storageBackend(enableSqliteStorageBackend),
 
-		ArgoCdGenerateFiles: argoCdGenerateFiles,
-		DBHandler:           dbHandler,
+		ArgoCdGenerateFiles:  argoCdGenerateFiles,
+		ReleaseVersionsLimit: 20,
+		DBHandler:            dbHandler,
 	}
 
 	repo, err := repository.New(ctx, cfg)
