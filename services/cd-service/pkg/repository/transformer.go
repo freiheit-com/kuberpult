@@ -1512,6 +1512,8 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
+	logger.FromContext(ctx).Warn("the expiry date is: " + user.DexAuthContext.Expiry.String())
+
 	return auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
 }
 
