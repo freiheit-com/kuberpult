@@ -685,9 +685,7 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	}
 
 	targetRelease.Deleted = true
-	fmt.Println(targetRelease)
 	if err := h.DBInsertRelease(ctx, transaction, *targetRelease, targetRelease.EslId); err != nil {
-		fmt.Println(err)
 		return err
 	}
 
