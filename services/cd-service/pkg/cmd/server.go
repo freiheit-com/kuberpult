@@ -113,6 +113,10 @@ func (c *Config) storageBackend() repository.StorageBackend {
 
 func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
+		_, ok := os.LookupEnv("DOES_NOT_EXIST_ENV_VAR2")
+		if !ok {
+			return fmt.Errorf("integrationtest-test: this should fail the test:2")
+		}
 
 		var c Config
 

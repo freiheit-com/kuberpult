@@ -111,9 +111,9 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = readEnvVar("DOES_NOT_EXIST_ENV_VAR")
+	_, err = readEnvVar("DOES_NOT_EXIST_ENV_VAR1")
 	if err != nil {
-		return fmt.Errorf("integrationtest-test: this should fail the test")
+		return fmt.Errorf("manifest: integrationtest-test: this should fail the test")
 	}
 
 	var eslProcessingBackoff uint64
