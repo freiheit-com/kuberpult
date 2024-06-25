@@ -1453,7 +1453,9 @@ func (c *CleanupOldApplicationVersions) Transform(
 			_, err := fs.Stat(releasesDir)
 			if err != nil {
 				return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
-			} else {
+			}
+
+			{
 				commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 				dat, err := util.ReadFile(fs, commitIDFile)
 				if err != nil {
@@ -1467,11 +1469,13 @@ func (c *CleanupOldApplicationVersions) Transform(
 					}
 				}
 			}
+
 			err = fs.Remove(releasesDir)
 			if err != nil {
 				return "", fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
 					c.Application, err)
 			}
+			msg = fmt.Sprintf("%sremoved version %d of app %v as cleanup\n", msg, oldRelease, c.Application)
 		}
 		msg = fmt.Sprintf("%sremoved version %d of app %v as cleanup\n", msg, oldRelease, c.Application)
 	}
