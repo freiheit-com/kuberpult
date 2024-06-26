@@ -797,7 +797,13 @@ func (h *DBHandler) DBSelectAllEventsForTransformer(ctx context.Context, transac
 	return row, nil
 }
 
-func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
+func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction *sql.Tx, commitHash string) ([]EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
 	defer span.Finish()
 
@@ -849,6 +855,12 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 
 // DBSelectAllApplications returns (nil, nil) if there are no rows
 func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
 	defer span.Finish()
 	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
