@@ -968,6 +968,37 @@ cd:
 				},
 			},
 		},
+		{
+			Name: "Release version limit set",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionLimit: 15
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_RELEASE_VERSION_LIMIT",
+					Value: "15",
+				},
+			},
+		},
+		{
+			Name: "Release version limit default",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_RELEASE_VERSION_LIMIT",
+					Value: "20",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
