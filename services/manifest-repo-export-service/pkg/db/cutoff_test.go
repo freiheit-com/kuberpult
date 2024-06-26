@@ -38,13 +38,13 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	}{
 		{
 			Name:          "test with one write operation",
-			eslId:         []db.EslId{1},
-			ExpectedEslId: 1,
+			eslId:         []db.EslId{7},
+			ExpectedEslId: 7,
 		},
 		{
 			Name:          "test with multiple write operations",
-			eslId:         []db.EslId{1, 2, 3, 4, 5},
-			ExpectedEslId: 5,
+			eslId:         []db.EslId{1, 2, 7, 666, 777},
+			ExpectedEslId: 777,
 		},
 	}
 
@@ -56,7 +56,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 
 			dbHandler := setupDB(t)
 
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				//We need to add transformers for these eslids beforehand (FK)
 				tf := EmptyTransformer{}
 				i := 0
