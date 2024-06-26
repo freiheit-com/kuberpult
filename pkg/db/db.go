@@ -3638,7 +3638,6 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 	return nil
 }
 
-// this function was made in the image of DBSelectAnyActiveEnvLocks to make the code uniform
 func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DBAllEnvironments, error) {
 	selectQuery := h.AdaptQuery(
 		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
