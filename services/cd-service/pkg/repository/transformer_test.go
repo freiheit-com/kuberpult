@@ -1894,7 +1894,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			if tc.db {
 				repo = SetupRepositoryTestWithDB(t)
 				r := repo.(*repository)
-				err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					var batchError *TransformerBatchApplyError = nil
 					_, updatedState, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 					if batchError != nil {

@@ -260,7 +260,7 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 	s := repo.State()
 	if s.DBHandler.ShouldUseOtherTables() {
-		err := s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 			if err := UpdateDatadogMetrics(ctx, transaction, s, repo, nil, time.Now()); err != nil {
 				return err
 			}
