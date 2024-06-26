@@ -35,11 +35,11 @@ func (o *EnvironmentServiceServer) GetEnvironmentConfig(
 	ctx context.Context,
 	in *api.GetEnvironmentConfigRequest) (*api.GetEnvironmentConfigResponse, error) {
 	state := o.Repository.State()
-	
-	config, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx)(*config.EnvironmentConfig, error) {
+
+	config, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
 		return state.GetEnvironmentConfig(ctx, transaction, in.Environment)
 	})
-	
+
 	if err != nil {
 		return nil, err
 	}
