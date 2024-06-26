@@ -1453,6 +1453,16 @@ func TestReadWriteEslEvent(t *testing.T) {
 			"authorName":  authorName,
 		},
 	})
+	expectedJsonWithoutMetadata, _ := json.Marshal(map[string]interface{}{
+		"env":     envName,
+		"app":     appName,
+		"lockId":  lockId,
+		"message": message,
+		"metadata": map[string]string{
+			"authorEmail": "",
+			"authorName":  "",
+		},
+	})
 
 	tcs := []struct {
 		Name          string
@@ -1479,6 +1489,20 @@ func TestReadWriteEslEvent(t *testing.T) {
 				EventJson: string(expectedJson),
 			},
 		},
+		{
+			Name:      "Write and read with nil metadata",
+			EventType: evtType,
+			EventData: &map[string]string{
+				"env":     envName,
+				"app":     appName,
+				"lockId":  lockId,
+				"message": message,
+			},
+			ExpectedEsl: EslEventRow{
+				EventType: evtType,
+				EventJson: string(expectedJsonWithoutMetadata),
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1501,7 +1525,6 @@ func TestReadWriteEslEvent(t *testing.T) {
 				if diff := cmp.Diff(tc.ExpectedEsl.EventType, actual.EventType); diff != "" {
 					t.Fatalf("event type mismatch (-want, +got):\n%s", diff)
 				}
-				t.Logf("event json: %s", actual.EventJson)
 				if diff := cmp.Diff(tc.ExpectedEsl.EventJson, actual.EventJson); diff != "" {
 					t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
 				}

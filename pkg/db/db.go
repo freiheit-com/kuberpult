@@ -291,6 +291,9 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 }
 
 func convertObjectToMap(obj interface{}) (map[string]interface{}, error) {
+	if obj == nil {
+		return map[string]interface{}{}, nil
+	}
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
