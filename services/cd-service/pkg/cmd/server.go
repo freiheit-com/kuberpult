@@ -324,6 +324,7 @@ func RunServer() {
 				repo.State().GetCurrentApplicationLocks,
 				repo.State().GetCurrentTeamLocks,
 				repo.State().GetAllQueuedAppVersions,
+				repo.State().GetAllCommitEvents,
 			)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))

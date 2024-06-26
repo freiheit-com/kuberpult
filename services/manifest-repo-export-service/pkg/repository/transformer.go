@@ -276,7 +276,7 @@ func (c *DeployApplicationVersion) Transform(
 			file.Close()
 		}
 	}
-
+	//lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
@@ -305,7 +305,7 @@ func (c *DeployApplicationVersion) Transform(
 				return "", err
 			}
 		}
-		//lockPreventedDeployment := false
+
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			if c.WriteCommitData {
 				var lockType, lockMsg string
@@ -431,7 +431,38 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
+	if c.WriteCommitData { // write the corresponding event
+		dbEvent, err := state.DBHandler.DBSelectAllEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeDeployment)
+		if err != nil {
+			return "", err
+		}
+
+		if dbEvent == nil {
+			return "", fmt.Errorf("Triggered event deployment for transformer ID '%d', but none was found on database!", c.TransformerEslID)
+		}
+		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
+		if err := addEventForRelease(ctx, fsys, dbEvent.Uuid, releaseDir, deploymentEvent); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+func createDeploymentEvent(application, environment string, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
+	ev := event.Deployment{
+		SourceTrainEnvironmentGroup: nil,
+		SourceTrainUpstream:         nil,
+		Application:                 application,
+		Environment:                 environment,
+	}
+	if sourceTrain != nil {
+		if sourceTrain.TargetGroup != nil {
+			ev.SourceTrainEnvironmentGroup = sourceTrain.TargetGroup
+		}
+		ev.SourceTrainUpstream = &sourceTrain.Upstream
+	}
+	return &ev
 }
 
 func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
@@ -451,10 +482,9 @@ func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, release
 }
 
 func addEventForRelease(ctx context.Context, fs billy.Filesystem, uuid string, releaseDir string, ev event.Event) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "eventsForRelease")
+	span, ctx := tracer.StartSpanFromContext(ctx, "addEventForRelease")
 	defer span.Finish()
 	if commitID, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
-
 		if !valid.SHA1CommitID(commitID) {
 			logger.FromContext(ctx).Sugar().Infof(
 				"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
@@ -466,9 +496,6 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, uuid string, r
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",
 				commitID, err)
-			//return fmt.Errorf(
-			//	"could not write an event for commit %s with uuid %s, error: %w",
-			//	commitID, eventUuid, err)
 		}
 	}
 	return nil
@@ -480,7 +507,7 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
 		return fmt.Errorf(
-			"could not write an event for commit %s for uuid %s, error: %w",
+			"could not write an event for commit '%s' for uuid '%s', error: %w",
 			sourceCommitId, eventId, err)
 	}
 	return nil
