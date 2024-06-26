@@ -303,7 +303,7 @@ func RunServer() {
 			DBHandler:              dbHandler,
 			CloudRunClient:         cloudRunClient,
 		}
-		
+
 		if cfg.DBHandler.ShouldUseOtherTables() && cfg.BootstrapMode {
 			logger.FromContext(ctx).Fatal("bootstrap mode cannot be used with the database")
 		}
