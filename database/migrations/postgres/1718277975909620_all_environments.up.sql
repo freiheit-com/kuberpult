@@ -1,1 +1,1 @@
-sqlite/1718277975909620_all_environments.up.sql
+../sqlite/1718277975909620_all_environments.up.sql
