@@ -322,7 +322,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					Environment: "staging",
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
-				
 			},
 			ExpectedFile: []*FilenameAndData{
 				{

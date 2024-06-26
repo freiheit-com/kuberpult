@@ -2193,6 +2193,7 @@ func (c *CreateEnvironment) Transform(
 		}
 
 		if allEnvironments == nil {
+			//exhaustruct:ignore
 			allEnvironments = &db.DBAllEnvironments{}
 		}
 

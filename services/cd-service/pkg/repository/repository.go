@@ -2140,6 +2140,7 @@ func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.Envir
 		if err != nil {
 			return nil, fmt.Errorf("could not read file at %s, error: %w", configFilePath, err)
 		}
+		//exhaustruct:ignore
 		config := config.EnvironmentConfig{}
 		json.Unmarshal(configBytes, &config)
 		result[envName.Name()] = config

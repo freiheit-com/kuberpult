@@ -1038,7 +1038,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				t.Errorf("batch response mismatch: %s", d)
 			}
 			ctx := testutil.MakeTestContext()
-			
+
 			var envs map[string]config.EnvironmentConfig
 			if repo.State().DBHandler.ShouldUseOtherTables() {
 				var envsPtr *map[string]config.EnvironmentConfig

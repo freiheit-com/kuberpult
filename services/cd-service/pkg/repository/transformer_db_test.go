@@ -1054,14 +1054,14 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		Transformers              []Transformer
 		expectedEnvironmentConfig map[string]config.EnvironmentConfig
 	}
-	
-	testCases := []TestCase {
+
+	testCases := []TestCase{
 		{
 			Name: "create a single environment",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "development",
-					Config: testutil.MakeEnvConfigLatest(nil),
+					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 			},
 			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
@@ -1073,11 +1073,11 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "staging",
-					Config: testutil.MakeEnvConfigLatest(nil),
+					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config: testutil.MakeEnvConfigUpstream("development", nil),
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
 			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
@@ -1089,19 +1089,18 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "development",
-					Config: testutil.MakeEnvConfigLatest(nil),
+					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 				&CreateEnvironment{
 					Environment: "staging",
-					Config: testutil.MakeEnvConfigUpstream("development", nil),
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
 			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
 				"development": testutil.MakeEnvConfigLatest(nil),
-				"staging": testutil.MakeEnvConfigUpstream("development", nil),
+				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
 		},
-		
 	}
 
 	for _, tc := range testCases {
