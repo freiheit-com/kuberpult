@@ -245,8 +245,13 @@ const (
 
 // ESL EVENTS
 
+type ESLMetadata struct {
+	AuthorName  string `json:"authorName"`
+	AuthorEmail string `json:"authorEmail"`
+}
+
 // DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
-func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}, metadata interface{}) error {
+func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}, metadata ESLMetadata) error {
 	if h == nil {
 		return nil
 	}
@@ -256,17 +261,16 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
 
-	dataJson, err := json.Marshal(data)
+	dataMap, err := convertObjectToMap(data)
 	if err != nil {
-		return fmt.Errorf("could not marshal json data: %w", err)
+		return fmt.Errorf("could not convert object to map: %w", err)
 	}
-	combinedData := make(map[string]interface{})
-	err = json.Unmarshal(dataJson, &combinedData)
+	metadataMap, err := convertObjectToMap(metadata)
 	if err != nil {
-		return fmt.Errorf("could not unmarshal json data: %w", err)
+		return fmt.Errorf("could not convert object to map: %w", err)
 	}
-	combinedData["metadata"] = metadata
-	jsonToInsert, err := json.Marshal(combinedData)
+	dataMap["metadata"] = metadataMap
+	jsonToInsert, err := json.Marshal(dataMap)
 	if err != nil {
 		return fmt.Errorf("could not marshal combined json data: %w", err)
 	}
@@ -284,6 +288,19 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
 	}
 	return nil
+}
+
+func convertObjectToMap(obj interface{}) (map[string]interface{}, error) {
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	var result = make(map[string]interface{})
+	err = json.Unmarshal(data, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 type EslEventRow struct {

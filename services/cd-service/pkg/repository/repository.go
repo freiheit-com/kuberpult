@@ -1030,9 +1030,9 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					Index:            -1,
 				}
 			}
-			eventMetadata := map[string]interface{}{
-				"authorName":  user.Name,
-				"authorEmail": user.Email,
+			eventMetadata := db.ESLMetadata{
+				AuthorName:  user.Name,
+				AuthorEmail: user.Email,
 			}
 			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
 			if err != nil {

@@ -22,11 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
-	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"io"
 	"os"
 	"path/filepath"
@@ -36,6 +31,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -546,8 +547,8 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 	return r
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
-	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
+func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformer Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformer)
 	if applyErr != nil {
 		return nil, applyErr
 	}
@@ -565,18 +566,16 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 		When:  time.Now(),
 	}
 
-	// TODO this will be handled in Ref SRX-PA568W
-	authorEmail, ok := (*transformers[0].GetMetadata())["authorEmail"]
-	if !ok {
-		authorEmail = "invalid@gmail.com"
-	}
-	authorName, ok := (*transformers[0].GetMetadata())["authorName"]
-	if !ok {
-		authorName = "invalid"
+	transformerMetadata := transformer.GetMetadata()
+	if transformerMetadata.AuthorEmail == "" || transformerMetadata.AuthorName == "" {
+		return nil, &TransformerBatchApplyError{
+			TransformerError: fmt.Errorf("transformer metadata is empty"),
+			Index:            -1,
+		}
 	}
 	user := auth.User{
-		Email:          authorEmail,
-		Name:           authorName,
+		Email:          transformerMetadata.AuthorEmail,
+		Name:           transformerMetadata.AuthorName,
 		DexAuthContext: nil,
 	}
 

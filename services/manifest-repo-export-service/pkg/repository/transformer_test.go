@@ -23,13 +23,13 @@ import (
 	"path"
 	"testing"
 
-	// "github.com/freiheit-com/kuberpult/pkg/config"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"time"
 )
 
 const (
@@ -174,10 +174,8 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					WriteCommitData: false,
 					PreviousCommit:  "",
 					TransformerMetadata: TransformerMetadata{
-						Metadata: &map[string]string{
-							"authorName":  authorName,
-							"authorEmail": authorEmail,
-						},
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
 					},
 				},
 			},
@@ -198,6 +196,30 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			ExpectedAuthor: &map[string]string{
 				"Name":  authorName,
 				"Email": authorEmail,
+			},
+		},
+		{
+			Name: "Should give an error when the metadata is nil",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        7,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+				},
+			},
+			ExpectedError: errMatcher{"first apply failed, aborting: error not specific to one transformer of this batch: " +
+				"transformer metadata is empty",
 			},
 		},
 		{
@@ -271,7 +293,8 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					WriteCommitData: false,
 					PreviousCommit:  "",
 					TransformerMetadata: TransformerMetadata{
-						Metadata: &map[string]string{},
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
 					},
 				},
 				&CreateApplicationVersion{
@@ -290,7 +313,8 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					WriteCommitData: false,
 					PreviousCommit:  "",
 					TransformerMetadata: TransformerMetadata{
-						Metadata: &map[string]string{},
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
 					},
 				},
 				&CreateApplicationVersion{
@@ -309,13 +333,15 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					WriteCommitData: false,
 					PreviousCommit:  "",
 					TransformerMetadata: TransformerMetadata{
-						Metadata: &map[string]string{},
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
 					},
 				},
 				&CleanupOldApplicationVersions{
 					Application: appName,
 					TransformerMetadata: TransformerMetadata{
-						Metadata: &map[string]string{},
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
 					},
 				},
 			},
@@ -329,7 +355,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					fileData: []byte("abcdef"),
 				},
 			},
-			ExpectedAuthor: nil,
+			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
 			Name: "Create a single environment",

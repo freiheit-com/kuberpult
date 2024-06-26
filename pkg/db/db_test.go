@@ -1449,8 +1449,8 @@ func TestReadWriteEslEvent(t *testing.T) {
 		"lockId":  lockId,
 		"message": message,
 		"metadata": map[string]string{
-			"authorName":  authorName,
 			"authorEmail": authorEmail,
+			"authorName":  authorName,
 		},
 	})
 
@@ -1458,7 +1458,7 @@ func TestReadWriteEslEvent(t *testing.T) {
 		Name          string
 		EventType     EventType
 		EventData     *map[string]string
-		EventMetadata *map[string]string
+		EventMetadata ESLMetadata
 		ExpectedEsl   EslEventRow
 	}{
 		{
@@ -1470,9 +1470,9 @@ func TestReadWriteEslEvent(t *testing.T) {
 				"lockId":  lockId,
 				"message": message,
 			},
-			EventMetadata: &map[string]string{
-				"authorName":  authorName,
-				"authorEmail": authorEmail,
+			EventMetadata: ESLMetadata{
+				AuthorName:  authorName,
+				AuthorEmail: authorEmail,
 			},
 			ExpectedEsl: EslEventRow{
 				EventType: evtType,
@@ -1501,7 +1501,7 @@ func TestReadWriteEslEvent(t *testing.T) {
 				if diff := cmp.Diff(tc.ExpectedEsl.EventType, actual.EventType); diff != "" {
 					t.Fatalf("event type mismatch (-want, +got):\n%s", diff)
 				}
-
+				t.Logf("event json: %s", actual.EventJson)
 				if diff := cmp.Diff(tc.ExpectedEsl.EventJson, actual.EventJson); diff != "" {
 					t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
 				}
