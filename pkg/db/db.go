@@ -1010,10 +1010,6 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
-	if err != nil {
-		return err
-	}
 	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
 	if err != nil {
 		return err // better wrap the error in a descriptive message?
