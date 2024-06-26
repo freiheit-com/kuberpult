@@ -3405,6 +3405,7 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(rows *sql.Rows) (*QueuedD
 	return &row, nil
 
 }
+
 // Environments
 
 type DBAllEnvironments struct {
@@ -3617,7 +3618,7 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("unable to select all environments, error: %w", err)
 	}
-	
+
 	previousVersion := int64(0)
 	if allEnvironments != nil {
 		previousVersion = allEnvironments.Version

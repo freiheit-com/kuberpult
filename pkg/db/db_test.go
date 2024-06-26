@@ -1367,31 +1367,31 @@ func TestReadWriteEnvironment(t *testing.T) {
 			Name: "write multiple environments and read one of them",
 			EnvsToWrite: []EnvAndConfig{
 				EnvAndConfig{
-					EnvironmentName: "development",
+					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
 				},
 				EnvAndConfig{
-					EnvironmentName: "staging",
+					EnvironmentName:   "staging",
 					EnvironmentConfig: testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
 			EnvToQuery: "staging",
 			ExpectedEntry: &DBEnvironment{
 				Version: 1,
-				Name: "staging",
-				Config: testutil.MakeEnvConfigUpstream("development", nil),
+				Name:    "staging",
+				Config:  testutil.MakeEnvConfigUpstream("development", nil),
 			},
 		},
 		{
-			Name: "don't write any environments and query something",
-			EnvToQuery: "development",
+			Name:          "don't write any environments and query something",
+			EnvToQuery:    "development",
 			ExpectedEntry: nil,
 		},
 		{
 			Name: "write some environment, query something else",
 			EnvsToWrite: []EnvAndConfig{
 				EnvAndConfig{
-					EnvironmentName: "staging",
+					EnvironmentName:   "staging",
 					EnvironmentConfig: testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
@@ -1437,18 +1437,18 @@ func TestReadWriteEnvironment(t *testing.T) {
 
 func TestReadWriteAllEnvironments(t *testing.T) {
 	type TestCase struct {
-		Name          string
-		AllEnvsToWrite   [][]string
-		ExpectedEntry *DBAllEnvironments
+		Name           string
+		AllEnvsToWrite [][]string
+		ExpectedEntry  *DBAllEnvironments
 	}
-	testCases := []TestCase {
+	testCases := []TestCase{
 		{
 			Name: "create entry with one environment entry only",
 			AllEnvsToWrite: [][]string{
 				{"development"},
 			},
 			ExpectedEntry: &DBAllEnvironments{
-				Version: 1,
+				Version:      1,
 				Environments: []string{"development"},
 			},
 		},
@@ -1460,7 +1460,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 				{"development", "staging", "production"},
 			},
 			ExpectedEntry: &DBAllEnvironments{
-				Version: 3,
+				Version:      3,
 				Environments: []string{"development", "staging", "production"},
 			},
 		},
@@ -1492,7 +1492,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 				}
 				return allEnvsEntry, nil
 			})
-			
+
 			if err != nil {
 				t.Fatalf("error while running the transaction for selecting the target all environment, error: %v", err)
 			}
