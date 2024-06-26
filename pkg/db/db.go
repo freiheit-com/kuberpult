@@ -3463,6 +3463,7 @@ LIMIT 1;
 	}(rows)
 
 	if rows.Next() {
+		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
 		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
 		if err != nil {
@@ -3472,6 +3473,7 @@ LIMIT 1;
 			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
 		}
 
+		//exhaustruct:ignore
 		parsedConfig := config.EnvironmentConfig{}
 		err = json.Unmarshal([]byte(row.Config), &parsedConfig)
 		if err != nil {
@@ -3570,6 +3572,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 	}(rows)
 
 	if rows.Next() {
+		//exhaustruct:ignore
 		row := DBAllEnvironmentsRow{}
 
 		err := rows.Scan(&row.Created, &row.Version, &row.Environments)
@@ -3654,6 +3657,7 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DB
 		}
 	}(rows)
 
+	//exhaustruct:ignore
 	row := DBAllEnvironmentsRow{}
 	if rows.Next() {
 		err := rows.Scan(&row.Created, &row.Version, &row.Environments)
