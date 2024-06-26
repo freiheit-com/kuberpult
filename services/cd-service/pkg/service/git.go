@@ -198,7 +198,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		touchedApps = append(touchedApps, dir.Name())
 	}
 	sort.Strings(touchedApps)
-
+	
 	events, err := s.GetEvents(ctx, fs, commitPath)
 	if err != nil {
 		return nil, err

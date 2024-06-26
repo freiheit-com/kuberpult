@@ -436,7 +436,6 @@ func (c *DeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-
 		if dbEvent == nil {
 			return "", fmt.Errorf("Triggered event deployment for transformer ID '%d', but none was found on database!", c.TransformerEslID)
 		}
@@ -445,7 +444,6 @@ func (c *DeployApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
-
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
