@@ -215,12 +215,13 @@ func Run(ctx context.Context) error {
 				return fmt.Errorf("error in readEslEvent %v", err)
 			}
 			if ddMetrics != nil {
-				processDelay, err := calculateProcessDelay(ctx, esl, time.Now().UTC())
+                                now :=time.Now().UTC()
+				processDelay, err := calculateProcessDelay(ctx, esl, now)
 				if err != nil {
 					log.Error("Error in calculateProcessDelay %v", err)
 				}
 				if processDelay < 0 {
-					log.Warn("process delay is negative: esl-time: %v, now: %v, delay: %v", esl.Created, time.Now().UTC(), processDelay)
+					log.Warn("process delay is negative: esl-time: %v, now: %v, delay: %v", esl.Created, now, processDelay)
 				}
 				if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
 					log.Error("Error in ddMetrics.Gauge %v", err)
