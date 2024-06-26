@@ -1281,7 +1281,7 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
-	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return err
 	}
@@ -1997,7 +1997,7 @@ func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFo
 
 func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	logger := logger.FromContext(ctx)
-	envConfigs, err := s.GetEnvironmentConfigs(ctx, transaction)
+	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -2026,7 +2026,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 }
 
 func (s *State) GetEnvironmentConfigsSorted(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, []string, error) {
-	configs, err := s.GetEnvironmentConfigs(ctx, transaction)
+	configs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2040,7 +2040,7 @@ func (s *State) GetEnvironmentConfigsSorted(ctx context.Context, transaction *sq
 }
 
 func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[string]config.EnvironmentConfig, []string, error) {
-	configs, err := s.GetEnvironmentConfigsFromManifest()
+	configs, err := s.GetAllEnvironmentConfigsFromManifest()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2053,14 +2053,14 @@ func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[string]config.Env
 	return configs, envNames, nil
 }
 
-func (s *State) GetEnvironmentConfigs(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentConfigsFromDB(ctx, transaction)
+		return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	}
-	return s.GetEnvironmentConfigsFromManifest()
+	return s.GetAllEnvironmentConfigsFromManifest()
 }
 
-func (s *State) GetEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
 		result := map[string]config.EnvironmentConfig{}
 		buf, err := os.ReadFile(s.EnvironmentConfigsPath)
@@ -2093,7 +2093,7 @@ func (s *State) GetEnvironmentConfigsFromManifest() (map[string]config.Environme
 	}
 }
 
-func (s *State) GetEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
 		// this should never ever happen
 		return nil, fmt.Errorf("bootstrap mode cannot be enabled when writing to the database")
@@ -2188,7 +2188,7 @@ func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, environmentName 
 }
 
 func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *sql.Tx, envGroup string) ([]string, error) {
-	allEnvConfigs, err := s.GetEnvironmentConfigs(ctx, transaction)
+	allEnvConfigs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}

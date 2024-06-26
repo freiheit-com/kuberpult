@@ -1043,12 +1043,12 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			if repo.State().DBHandler.ShouldUseOtherTables() {
 				var envsPtr *map[string]config.EnvironmentConfig
 				envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
-					envs, err := repo.State().GetEnvironmentConfigs(ctx, transaction)
+					envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
 					return &envs, err
 				})
 				envs = *envsPtr
 			} else {
-				envs, err = repo.State().GetEnvironmentConfigs(ctx, nil)
+				envs, err = repo.State().GetAllEnvironmentConfigs(ctx, nil)
 			}
 			if err != nil {
 				t.Errorf("unexpected error: %q", err)

@@ -22,6 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"testing"
+	gotime "time"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -29,8 +32,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
-	"testing"
-	gotime "time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -1114,7 +1115,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				result, err2 := state.GetEnvironmentConfigs(ctx, transaction)
+				result, err2 := state.GetAllEnvironmentConfigs(ctx, transaction)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}

@@ -515,7 +515,7 @@ func (c *CreateApplicationVersion) Transform(
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
 
-	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		if errors.Is(err, InvalidJson) {
 			return "", err
@@ -1059,7 +1059,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		return "", err
 	}
 
-	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
@@ -1211,7 +1211,7 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
 	appDir := applicationDirectory(fs, u.Application)
-	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
@@ -1387,7 +1387,7 @@ func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 // Finds old releases for an application
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
-	envConfigs, err := state.GetEnvironmentConfigs(ctx, transaction)
+	envConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -1511,7 +1511,7 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
 	}
 
-	envs, err := s.GetEnvironmentConfigs(ctx, transaction)
+	envs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return err
 	}
@@ -2679,7 +2679,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 		}
 		return nil, fmt.Errorf("unable to get oid: %w", err)
 	}
-	envs, err := s.GetEnvironmentConfigs(ctx, transaction)
+	envs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
 	}
@@ -2797,7 +2797,7 @@ func (c *ReleaseTrain) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainPrognosis {
-	configs, err := state.GetEnvironmentConfigs(ctx, transaction)
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.InternalError(ctx, err),
@@ -2869,7 +2869,7 @@ func (c *ReleaseTrain) Transform(
 	}
 
 	var targetGroupName = c.Target
-	configs, _ := state.GetEnvironmentConfigs(ctx, transaction)
+	configs, _ := state.GetAllEnvironmentConfigs(ctx, transaction)
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
 	// sorting for determinism
