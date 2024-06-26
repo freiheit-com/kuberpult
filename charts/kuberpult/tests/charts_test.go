@@ -973,13 +973,17 @@ cd:
 			Values: `
 git:
   url: "testURL"
-  releaseVersionLimit: 15
+  releaseVersionsLimit: 15
 ingress:
   domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    writeEslTableOnly: false
 `,
-			ExpectedMissing: []core.EnvVar{
+			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_RELEASE_VERSION_LIMIT",
+					Name:  "KUBERPULT_RELEASE_VERSIONS_LIMIT",
 					Value: "15",
 				},
 			},
@@ -991,10 +995,14 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    writeEslTableOnly: false
 `,
-			ExpectedMissing: []core.EnvVar{
+			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_RELEASE_VERSION_LIMIT",
+					Name:  "KUBERPULT_RELEASE_VERSIONS_LIMIT",
 					Value: "20",
 				},
 			},
