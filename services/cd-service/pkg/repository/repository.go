@@ -2142,7 +2142,10 @@ func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.Envir
 		}
 		//exhaustruct:ignore
 		config := config.EnvironmentConfig{}
-		json.Unmarshal(configBytes, &config)
+		err = json.Unmarshal(configBytes, &config)
+		if err != nil {
+			return nil, fmt.Errorf("error while unmarshaling the database JSON, error: %w", err)
+		}
 		result[envName.Name()] = config
 	}
 
