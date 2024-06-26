@@ -2171,20 +2171,15 @@ func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*confi
 }
 
 func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
-	config, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
-		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName)
-		if err != nil {
-			return nil, fmt.Errorf("error while selecting entry for environment %s from the database, error: %w", environmentName, err)
-		}
-		if dbEnv == nil {
-			return nil, nil
-		}
-		return &dbEnv.Config, nil
-	})
+	dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName)
 	if err != nil {
-		return nil, fmt.Errorf("error while running transaction for getting environment config for %s, error: %w", environmentName, err)
+		return nil, fmt.Errorf("error while selecting entry for environment %s from the database, error: %w", environmentName, err)
 	}
-	return config, nil
+	if dbEnv == nil {
+		return nil, nil
+	}
+
+	return &dbEnv.Config, nil
 }
 
 func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *sql.Tx, envGroup string) ([]string, error) {
