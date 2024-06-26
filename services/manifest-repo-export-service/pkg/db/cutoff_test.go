@@ -53,7 +53,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 
 			dbHandler := setupDB(t)
 
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				eslId, err2 := DBReadCutoff(dbHandler, ctx, transaction)
 				if err2 != nil {
 					return err2

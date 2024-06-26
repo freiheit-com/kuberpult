@@ -136,7 +136,7 @@ func (h *DBHandler) RunCustomMigrations(
 }
 
 func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
@@ -169,7 +169,7 @@ func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAp
 }
 
 func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		dbApp, err := h.DBSelectAnyApp(ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("could not get dbApp from database - assuming the manifest repo is correct: %v", err)
@@ -197,7 +197,7 @@ func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun Ge
 }
 
 func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun GetAllDeploymentsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
 		if err != nil {
@@ -227,7 +227,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 }
 
 func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, getAllReleasesFun GetAllReleasesFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allReleasesDb, err := h.DBSelectAnyRelease(ctx, transaction)
 		if err != nil {
@@ -286,7 +286,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 }
 
 func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLocksFun GetAllEnvLocksFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allEnvLocksDb, err := h.DBSelectAnyActiveEnvLocks(ctx, transaction)
 		if err != nil {
@@ -330,7 +330,7 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 }
 
 func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLocksFun GetAllAppLocksFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
 		if err != nil {
@@ -374,7 +374,7 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLoc
 }
 
 func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamLocksFun GetAllTeamLocksFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allTeamLocksDb, err := h.DBSelectAnyActiveTeamLock(ctx, transaction)
 		if err != nil {
@@ -417,7 +417,7 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 }
 
 func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Context, getAllQueuedVersionsFun GetAllQueuedVersionsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allTeamLocksDb, err := h.DBSelectAnyDeploymentAttempt(ctx, transaction)
 		if err != nil {

@@ -27,8 +27,8 @@ type DBFunctionMultipleEntriesT[T any] func(ctx context.Context, transaction *sq
 
 // WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback.
 // Use this if the only thing to return from `f` is an error.
-func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
-	_, err := WithTransactionT(h, ctx, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
+func (h *DBHandler) WithTransaction(ctx context.Context, readonly bool, f DBFunction) error {
+	_, err := WithTransactionT(h, ctx, readonly, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
 		err2 := f(ctx, transaction)
 		if err2 != nil {
 			return nil, err2
@@ -42,8 +42,8 @@ func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 }
 
 // WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
-func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]) (*T, error) {
-	res, err := WithTransactionMultipleEntriesT(h, ctx, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
+func WithTransactionT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionT[T]) (*T, error) {
+	res, err := WithTransactionMultipleEntriesT(h, ctx, readonly, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
 		fRes, err2 := f(ctx, transaction)
 		if err2 != nil {
 			return nil, err2
@@ -60,8 +60,11 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]
 }
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
-func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	tx, err := h.DB.BeginTx(ctx, nil)
+func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
+	tx, err := h.DB.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelLinearizable,
+		ReadOnly:  readonly,
+	})
 	if err != nil {
 		return nil, err
 	}

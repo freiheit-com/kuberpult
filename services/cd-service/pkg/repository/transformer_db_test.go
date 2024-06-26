@@ -295,7 +295,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				t.Errorf("setup error could not set up transformers \n%v", err)
 			}
 
-			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformer)
 				if err2 != nil {
 					return err2
@@ -429,7 +429,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			var err error = nil
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
-			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
@@ -446,7 +446,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
 			})
 
@@ -589,7 +589,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			var err error = nil
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
-			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
@@ -606,7 +606,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
 			})
 
@@ -751,7 +751,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -829,7 +829,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -897,7 +897,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1027,7 +1027,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
