@@ -329,7 +329,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
-		time.Now(),
+		time.Now().UTC(),
 		eventType,
 		jsonToInsert)
 
@@ -624,7 +624,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		release.ReleaseNumber,
 		release.App,
 		manifestJson,
@@ -712,7 +712,7 @@ func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		app,
 		metadataJson,
 	)
@@ -740,7 +740,7 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		jsonToInsert)
 
 	if err != nil {
@@ -1160,7 +1160,7 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		appName,
 		stateChange,
 		jsonToInsert,
@@ -1304,7 +1304,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		nullVersion,
 		deployment.App,
 		deployment.Env,
@@ -1347,7 +1347,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 				repoRelease := releases[r]
 				dbRelease := DBReleaseWithMetaData{
 					EslId:         InitialEslId,
-					Created:       time.Now(),
+					Created:       time.Now().UTC(),
 					ReleaseNumber: repoRelease.Version,
 					App:           app,
 					Manifests: DBReleaseManifests{
@@ -1837,7 +1837,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	if useTimeInLock {
 		timetoInsert = envLock.Created
 	} else {
-		timetoInsert = time.Now()
+		timetoInsert = time.Now().UTC()
 	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
@@ -2088,7 +2088,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		environment,
 		jsonToInsert)
 	if err != nil {
@@ -2210,7 +2210,7 @@ func (h *DBHandler) DBWriteAllAppLocks(ctx context.Context, transaction *sql.Tx,
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		environment,
 		appName,
 		jsonToInsert)
@@ -2506,7 +2506,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if useTimeInLock {
 		timetoInsert = appLock.Created
 	} else {
-		timetoInsert = time.Now()
+		timetoInsert = time.Now().UTC()
 	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
@@ -2800,7 +2800,7 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 	if useTimeInLock {
 		timetoInsert = teamLock.Created
 	} else {
-		timetoInsert = time.Now()
+		timetoInsert = time.Now().UTC()
 	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
@@ -2834,7 +2834,7 @@ func (h *DBHandler) DBWriteAllTeamLocks(ctx context.Context, transaction *sql.Tx
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		environment,
 		teamName,
 		jsonToInsert)
@@ -3348,7 +3348,7 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now(),
+		time.Now().UTC(),
 		deployment.Env,
 		deployment.App,
 		nullVersion)

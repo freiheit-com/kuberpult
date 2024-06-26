@@ -75,7 +75,7 @@ func DBWriteCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, eslId db.Es
 	_, err := tx.Exec(
 		insertQuery,
 		eslId,
-		time.Now(),
+		time.Now().UTC(),
 	)
 	if err != nil {
 		return fmt.Errorf("could not query cutoff table from DB. Error: %w\n", err)
