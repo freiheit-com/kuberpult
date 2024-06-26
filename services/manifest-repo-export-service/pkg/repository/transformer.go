@@ -83,6 +83,10 @@ func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application strin
 	return fs.Join(releasesDirectoryWithVersion(fs, application, version), "environments")
 }
 
+func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
+	return fs.Join(commitDirectory(fs, commit), "events", eventId)
+}
+
 // A Transformer updates the files in the worktree
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
@@ -219,15 +223,15 @@ func (c *QueueApplicationVersion) Transform(
 }
 
 type DeployApplicationVersion struct {
-	Authentication  `json:"-"`
-	Environment     string                          `json:"env"`
-	Application     string                          `json:"app"`
-	Version         uint64                          `json:"version"`
-	LockBehaviour   api.LockBehavior                `json:"lockBehaviour"`
-	WriteCommitData bool                            `json:"writeCommitData"`
-	SourceTrain     *DeployApplicationVersionSource `json:"sourceTrain"`
-	Author          string                          `json:"author"`
-	//eslid
+	Authentication   `json:"-"`
+	Environment      string                          `json:"env"`
+	Application      string                          `json:"app"`
+	Version          uint64                          `json:"version"`
+	LockBehaviour    api.LockBehavior                `json:"lockBehaviour"`
+	WriteCommitData  bool                            `json:"writeCommitData"`
+	SourceTrain      *DeployApplicationVersionSource `json:"sourceTrain"`
+	Author           string                          `json:"author"`
+	TransformerEslID uint                            `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
@@ -301,7 +305,7 @@ func (c *DeployApplicationVersion) Transform(
 				return "", err
 			}
 		}
-		lockPreventedDeployment := false
+		//lockPreventedDeployment := false
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			if c.WriteCommitData {
 				var lockType, lockMsg string
@@ -328,13 +332,19 @@ func (c *DeployApplicationVersion) Transform(
 
 				}
 
-				// REad the event from
-				// Ev 1 - uuid 1
-				// Ev 2 - uuid 2
-				if err := addEventForRelease(ctx, fsys, releaseDir, ev); err != nil {
+				dbEvent, err := state.DBHandler.DBSelectAllEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeLockPreventeDeployment)
+				if err != nil {
 					return "", err
 				}
-				lockPreventedDeployment = true
+
+				if dbEvent == nil {
+					return "", fmt.Errorf("Triggered event lock prevented deployment for transformer ID '%d', but none was found on database!", c.TransformerEslID)
+				}
+				ev := createLockPreventedDeploymentEvent(c.Application, c.Environment, lockType, lockMsg)
+				if err := addEventForRelease(ctx, fsys, dbEvent.Uuid, releaseDir, ev); err != nil {
+					return "", err
+				}
+				//lockPreventedDeployment = true
 			}
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
@@ -440,12 +450,10 @@ func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, release
 	return commitID, nil
 }
 
-func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
+func addEventForRelease(ctx context.Context, fs billy.Filesystem, uuid string, releaseDir string, ev event.Event) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "eventsForRelease")
 	defer span.Finish()
 	if commitID, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
-		gen := getGenerator(ctx)
-		eventUuid := gen.Generate()
 
 		if !valid.SHA1CommitID(commitID) {
 			logger.FromContext(ctx).Sugar().Infof(
@@ -454,7 +462,7 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 			return nil
 		}
 
-		if err := writeEvent(ctx, eventUuid, commitID, fs, ev); err != nil {
+		if err := writeEvent(ctx, uuid, commitID, fs, ev); err != nil {
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",
 				commitID, err)
@@ -464,6 +472,19 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 		}
 	}
 	return nil
+}
+
+func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
+	defer span.Finish()
+	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
+	if err := event.Write(filesystem, eventDir, ev); err != nil {
+		return fmt.Errorf(
+			"could not write an event for commit %s for uuid %s, error: %w",
+			sourceCommitId, eventId, err)
+	}
+	return nil
+
 }
 
 type CreateEnvironmentLock struct {
@@ -677,17 +698,18 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 }
 
 type CreateApplicationVersion struct {
-	Authentication  `json:"-"`
-	Version         uint64            `json:"version"`
-	Application     string            `json:"app"`
-	Manifests       map[string]string `json:"manifests"`
-	SourceCommitId  string            `json:"sourceCommitId"`
-	SourceAuthor    string            `json:"sourceCommitAuthor"`
-	SourceMessage   string            `json:"sourceCommitMessage"`
-	Team            string            `json:"team"`
-	DisplayVersion  string            `json:"displayVersion"`
-	WriteCommitData bool              `json:"writeCommitData"`
-	PreviousCommit  string            `json:"previousCommit"`
+	Authentication   `json:"-"`
+	Version          uint64            `json:"version"`
+	Application      string            `json:"app"`
+	Manifests        map[string]string `json:"manifests"`
+	SourceCommitId   string            `json:"sourceCommitId"`
+	SourceAuthor     string            `json:"sourceCommitAuthor"`
+	SourceMessage    string            `json:"sourceCommitMessage"`
+	Team             string            `json:"team"`
+	DisplayVersion   string            `json:"displayVersion"`
+	WriteCommitData  bool              `json:"writeCommitData"`
+	PreviousCommit   string            `json:"previousCommit"`
+	TransformerEslID uint              `json:"eslID"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -795,14 +817,15 @@ func (c *CreateApplicationVersion) Transform(
 
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
-				SourceTrain:     nil,
-				Environment:     env,
-				Application:     c.Application,
-				Version:         version,
-				LockBehaviour:   api.LockBehavior_RECORD,
-				Authentication:  c.Authentication,
-				WriteCommitData: c.WriteCommitData,
-				Author:          c.SourceAuthor,
+				SourceTrain:      nil,
+				Environment:      env,
+				Application:      c.Application,
+				Version:          version,
+				LockBehaviour:    api.LockBehavior_RECORD,
+				Authentication:   c.Authentication,
+				WriteCommitData:  c.WriteCommitData,
+				Author:           c.SourceAuthor,
+				TransformerEslID: c.TransformerEslID,
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {

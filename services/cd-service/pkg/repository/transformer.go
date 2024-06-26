@@ -280,6 +280,7 @@ func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
+	SetEslID(eslid uint)
 }
 
 type TransformerContext interface {
@@ -365,21 +366,26 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env string) {
 }
 
 type CreateApplicationVersion struct {
-	Authentication  `json:"-"`
-	Version         uint64            `json:"version"`
-	Application     string            `json:"app"`
-	Manifests       map[string]string `json:"manifests"`
-	SourceCommitId  string            `json:"sourceCommitId"`
-	SourceAuthor    string            `json:"sourceCommitAuthor"`
-	SourceMessage   string            `json:"sourceCommitMessage"`
-	Team            string            `json:"team"`
-	DisplayVersion  string            `json:"displayVersion"`
-	WriteCommitData bool              `json:"writeCommitData"`
-	PreviousCommit  string            `json:"previousCommit"`
+	Authentication   `json:"-"`
+	Version          uint64            `json:"version"`
+	Application      string            `json:"app"`
+	Manifests        map[string]string `json:"manifests"`
+	SourceCommitId   string            `json:"sourceCommitId"`
+	SourceAuthor     string            `json:"sourceCommitAuthor"`
+	SourceMessage    string            `json:"sourceCommitMessage"`
+	Team             string            `json:"team"`
+	DisplayVersion   string            `json:"displayVersion"`
+	WriteCommitData  bool              `json:"writeCommitData"`
+	PreviousCommit   string            `json:"previousCommit"`
+	TransformerEslID uint              `json:"eslid"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
 	return db.EvtCreateApplicationVersion
+}
+
+func (c *CreateApplicationVersion) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -430,6 +436,7 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	fmt.Printf("CreateApplicationVersion Transformer ID: %d\n", c.TransformerEslID)
 	version, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err
@@ -684,14 +691,15 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
-				SourceTrain:     nil,
-				Environment:     env,
-				Application:     c.Application,
-				Version:         version, // the train should queue deployments, instead of giving up:
-				LockBehaviour:   api.LockBehavior_RECORD,
-				Authentication:  c.Authentication,
-				WriteCommitData: c.WriteCommitData,
-				Author:          c.SourceAuthor,
+				SourceTrain:      nil,
+				Environment:      env,
+				Application:      c.Application,
+				Version:          version, // the train should queue deployments, instead of giving up:
+				LockBehaviour:    api.LockBehavior_RECORD,
+				Authentication:   c.Authentication,
+				WriteCommitData:  c.WriteCommitData,
+				Author:           c.SourceAuthor,
+				TransformerEslID: c.TransformerEslID,
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
@@ -1038,6 +1046,10 @@ func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
 	return db.EvtCreateUndeployApplicationVersion
 }
 
+func (c *CreateUndeployApplicationVersion) SetEslID(id uint) {
+	//Does nothing
+}
+
 func (c *CreateUndeployApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
@@ -1189,6 +1201,10 @@ func (u *UndeployApplication) GetDBEventType() db.EventType {
 	return db.EvtUndeployApplication
 }
 
+func (c *UndeployApplication) SetEslID(id uint) {
+	//Does nothing
+}
+
 func (u *UndeployApplication) Transform(
 	ctx context.Context,
 	state *State,
@@ -1332,6 +1348,10 @@ func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvFromApp
 }
 
+func (c *DeleteEnvFromApp) SetEslID(id uint) {
+	//Does nothing
+}
+
 func (u *DeleteEnvFromApp) Transform(
 	ctx context.Context,
 	state *State,
@@ -1382,6 +1402,10 @@ type CleanupOldApplicationVersions struct {
 
 func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 	panic("CleanupOldApplicationVersions GetDBEventType")
+}
+
+func (c *CleanupOldApplicationVersions) SetEslID(_ uint) {
+	//Does nothing
 }
 
 // Finds old releases for an application
@@ -1500,6 +1524,10 @@ type CreateEnvironmentLock struct {
 
 func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentLock
+}
+
+func (c *CreateEnvironmentLock) SetEslID(_ uint) {
+	//Does nothing
 }
 
 func (s *State) checkUserPermissions(ctx context.Context, env, application, action, team string, RBACConfig auth.RBACConfig) error {
@@ -1659,6 +1687,10 @@ func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentLock
 }
 
+func (c *DeleteEnvironmentLock) SetEslID(_ uint) {
+	//Does nothing
+}
+
 func (c *DeleteEnvironmentLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -1744,6 +1776,10 @@ func (c *CreateEnvironmentGroupLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentGroupLock
 }
 
+func (c *CreateEnvironmentGroupLock) SetEslID(_ uint) {
+	//Does nothing
+}
+
 func (c *CreateEnvironmentGroupLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -1784,6 +1820,9 @@ func (c *DeleteEnvironmentGroupLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentGroupLock
 }
 
+func (c *DeleteEnvironmentGroupLock) SetEslID(_ uint) {
+	//Does nothing
+}
 func (c *DeleteEnvironmentGroupLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -1822,6 +1861,10 @@ type CreateEnvironmentApplicationLock struct {
 
 func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentApplicationLock
+}
+
+func (c *CreateEnvironmentApplicationLock) SetEslID(_ uint) {
+	//Does nothing
 }
 
 func (c *CreateEnvironmentApplicationLock) Transform(
@@ -1907,6 +1950,10 @@ func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentApplicationLock
 }
 
+func (c *DeleteEnvironmentApplicationLock) SetEslID(_ uint) {
+	//Does nothing
+}
+
 func (c *DeleteEnvironmentApplicationLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -1975,6 +2022,10 @@ type CreateEnvironmentTeamLock struct {
 
 func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentTeamLock
+}
+
+func (c *CreateEnvironmentTeamLock) SetEslID(_ uint) {
+	//Does nothing
 }
 
 func (c *CreateEnvironmentTeamLock) Transform(
@@ -2090,6 +2141,10 @@ func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentTeamLock
 }
 
+func (c *DeleteEnvironmentTeamLock) SetEslID(_ uint) {
+	//Does nothing
+}
+
 func (c *DeleteEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2160,6 +2215,10 @@ type CreateEnvironment struct {
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironment
+}
+
+func (c *CreateEnvironment) SetEslID(_ uint) {
+	//Does nothing
 }
 
 func (c *CreateEnvironment) Transform(
@@ -2236,18 +2295,23 @@ func (c *QueueApplicationVersion) Transform(
 }
 
 type DeployApplicationVersion struct {
-	Authentication  `json:"-"`
-	Environment     string                          `json:"env"`
-	Application     string                          `json:"app"`
-	Version         uint64                          `json:"version"`
-	LockBehaviour   api.LockBehavior                `json:"lockBehaviour"`
-	WriteCommitData bool                            `json:"writeCommitData"`
-	SourceTrain     *DeployApplicationVersionSource `json:"sourceTrain"`
-	Author          string                          `json:"author"`
+	Authentication   `json:"-"`
+	Environment      string                          `json:"env"`
+	Application      string                          `json:"app"`
+	Version          uint64                          `json:"version"`
+	LockBehaviour    api.LockBehavior                `json:"lockBehaviour"`
+	WriteCommitData  bool                            `json:"writeCommitData"`
+	SourceTrain      *DeployApplicationVersionSource `json:"sourceTrain"`
+	Author           string                          `json:"author"`
+	TransformerEslID uint                            `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
 	return db.EvtDeployApplicationVersion
+}
+
+func (c *DeployApplicationVersion) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 type DeployApplicationVersionSource struct {
@@ -2353,7 +2417,7 @@ func (c *DeployApplicationVersion) Transform(
 					} else {
 						gen := getGenerator(ctx)
 						eventUuid := gen.Generate()
-						err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, eventUuid, newReleaseCommitId, c.Author, ev)
+						err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, c.Author, ev)
 						if err != nil {
 							return "", GetCreateReleaseGeneralFailure(err)
 						}
@@ -2511,7 +2575,7 @@ func (c *DeployApplicationVersion) Transform(
 				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
 
-				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, eventUuid, newReleaseCommitId, c.Author, deploymentEvent)
+				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, c.Author, deploymentEvent)
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)
 				}
@@ -2637,16 +2701,21 @@ func createLockPreventedDeploymentEvent(application, environment, lockMsg, lockT
 }
 
 type ReleaseTrain struct {
-	Authentication  `json:"-"`
-	Target          string     `json:"target"`
-	Team            string     `json:"team,omitempty"`
-	CommitHash      string     `json:"commitHash"`
-	WriteCommitData bool       `json:"writeCommitData"`
-	Repo            Repository `json:"-"`
+	Authentication   `json:"-"`
+	Target           string     `json:"target"`
+	Team             string     `json:"team,omitempty"`
+	CommitHash       string     `json:"commitHash"`
+	WriteCommitData  bool       `json:"writeCommitData"`
+	Repo             Repository `json:"-"`
+	TransformerEslId uint       `json:"eslid"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
 	return db.EvtReleaseTrain
+}
+
+func (c *ReleaseTrain) SetEslID(id uint) {
+	c.TransformerEslId = id
 }
 
 type Overview struct {
@@ -2903,6 +2972,10 @@ type envReleaseTrain struct {
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
 	panic("envReleaseTrain GetDBEventType")
+}
+
+func (c *envReleaseTrain) SetEslID(_ uint) {
+	//Does nothing
 }
 
 func (c *envReleaseTrain) prognosis(
@@ -3348,6 +3421,10 @@ func (c *skippedServices) GetDBEventType() db.EventType {
 	panic("GetDBEventType for skippedServices")
 }
 
+func (c *skippedServices) SetEslID(id uint) {
+	//Does Nothing
+}
+
 func (c *skippedServices) Transform(
 	_ context.Context,
 	_ *State,
@@ -3373,6 +3450,9 @@ func (c *skippedService) GetDBEventType() db.EventType {
 	panic("GetDBEventType for skippedService")
 }
 
+func (c *skippedService) SetEslID(id uint) {
+	//Does Nothing
+}
 func (c *skippedService) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (string, error) {
 	return c.Message, nil
 }
