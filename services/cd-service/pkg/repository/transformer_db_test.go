@@ -22,6 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"testing"
+	gotime "time"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -29,8 +32,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
-	"testing"
-	gotime "time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -1037,6 +1038,88 @@ func TestCleanupOldVersionDB(t *testing.T) {
 					return fmt.Errorf("error: %v", err2)
 				}
 				if diff := cmp.Diff(tc.ExpectedActiveReleases, res.Metadata.Releases); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestCreateEnvironmentTransformer(t *testing.T) {
+	type TestCase struct {
+		Name                      string
+		Transformers              []Transformer
+		expectedEnvironmentConfig map[string]config.EnvironmentConfig
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "create a single environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"development": testutil.MakeEnvConfigLatest(nil),
+			},
+		},
+		{
+			Name: "create a single environment twice",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"staging": testutil.MakeEnvConfigUpstream("development", nil),
+			},
+		},
+		{
+			Name: "create multiple environments",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"development": testutil.MakeEnvConfigLatest(nil),
+				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				result, err2 := state.GetAllEnvironmentConfigs(ctx, transaction)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedEnvironmentConfig, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil

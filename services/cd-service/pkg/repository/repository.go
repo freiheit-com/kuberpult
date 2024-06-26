@@ -482,7 +482,15 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			}
 
 			// Check configuration for errors and abort early if any:
-			_, err = state.GetEnvironmentConfigsAndValidate(ctx)
+			if state.DBHandler.ShouldUseOtherTables() {
+				_, err = db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
+					return &ret, err
+				})
+			} else {
+				_, err = state.GetEnvironmentConfigsAndValidate(ctx, nil)
+			}
+
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1283,7 +1291,7 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
-	configs, err := state.GetEnvironmentConfigs()
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return err
 	}
@@ -1997,9 +2005,9 @@ func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFo
 	return false
 }
 
-func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	logger := logger.FromContext(ctx)
-	envConfigs, err := s.GetEnvironmentConfigs()
+	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -2027,8 +2035,8 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 	return envConfigs, err
 }
 
-func (s *State) GetEnvironmentConfigsSorted() (map[string]config.EnvironmentConfig, []string, error) {
-	configs, err := s.GetEnvironmentConfigs()
+func (s *State) GetEnvironmentConfigsSorted(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, []string, error) {
+	configs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2041,7 +2049,28 @@ func (s *State) GetEnvironmentConfigsSorted() (map[string]config.EnvironmentConf
 	return configs, envNames, nil
 }
 
-func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[string]config.EnvironmentConfig, []string, error) {
+	configs, err := s.GetAllEnvironmentConfigsFromManifest()
+	if err != nil {
+		return nil, nil, err
+	}
+	// sorting the environments to get a deterministic order of events:
+	var envNames []string = nil
+	for envName := range configs {
+		envNames = append(envNames, envName)
+	}
+	sort.Strings(envNames)
+	return configs, envNames, nil
+}
+
+func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	}
+	return s.GetAllEnvironmentConfigsFromManifest()
+}
+
+func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
 		result := map[string]config.EnvironmentConfig{}
 		buf, err := os.ReadFile(s.EnvironmentConfigsPath)
@@ -2063,7 +2092,7 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 		}
 		result := map[string]config.EnvironmentConfig{}
 		for _, env := range envs {
-			c, err := s.GetEnvironmentConfig(env.Name())
+			c, err := s.GetEnvironmentConfigFromManifest(env.Name())
 			if err != nil {
 				return nil, err
 
@@ -2074,7 +2103,73 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 	}
 }
 
-func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {
+func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
+	if s.BootstrapMode {
+		// this should never ever happen
+		return nil, fmt.Errorf("bootstrap mode cannot be enabled when writing to the database")
+	} else {
+		dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
+		}
+		if dbAllEnvs == nil {
+			return nil, nil
+		}
+		ret := make(map[string]config.EnvironmentConfig)
+		for _, envName := range dbAllEnvs.Environments {
+			dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+			if err != nil {
+				return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
+			}
+			if dbEnv == nil {
+				return nil, fmt.Errorf("the all_environments and environments tables are inconsistent in the database, environment %s was listed in the all_environments tables, but is not found in the environments table", envName)
+			}
+			ret[envName] = dbEnv.Config
+		}
+		if err != nil {
+			return nil, err
+		}
+		return ret, nil
+	}
+}
+
+// for use with custom migrations, otherwise use the two functions above
+func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+	result := map[string]config.EnvironmentConfig{}
+
+	fs := s.Filesystem
+
+	envDir, err := fs.ReadDir("environments")
+	if err != nil {
+		return nil, fmt.Errorf("error while reading the environments directory, error: %w", err)
+	}
+
+	for _, envName := range envDir {
+		configFilePath := fs.Join("environments", envName.Name(), "config.json")
+		configBytes, err := readFile(fs, configFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("could not read file at %s, error: %w", configFilePath, err)
+		}
+		//exhaustruct:ignore
+		config := config.EnvironmentConfig{}
+		err = json.Unmarshal(configBytes, &config)
+		if err != nil {
+			return nil, fmt.Errorf("error while unmarshaling the database JSON, error: %w", err)
+		}
+		result[envName.Name()] = config
+	}
+
+	return result, nil
+}
+
+func (s *State) GetEnvironmentConfig(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentConfigFromDB(ctx, transaction, environmentName)
+	}
+	return s.GetEnvironmentConfigFromManifest(environmentName)
+}
+
+func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*config.EnvironmentConfig, error) {
 	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
 	var config config.EnvironmentConfig
 	if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
@@ -2085,8 +2180,20 @@ func (s *State) GetEnvironmentConfig(environmentName string) (*config.Environmen
 	return &config, nil
 }
 
-func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error) {
-	allEnvConfigs, err := s.GetEnvironmentConfigs()
+func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
+	dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName)
+	if err != nil {
+		return nil, fmt.Errorf("error while selecting entry for environment %s from the database, error: %w", environmentName, err)
+	}
+	if dbEnv == nil {
+		return nil, nil
+	}
+
+	return &dbEnv.Config, nil
+}
+
+func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *sql.Tx, envGroup string) ([]string, error) {
+	allEnvConfigs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -2154,7 +2261,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentlyDeployed")
 	defer ddSpan.Finish()
 	var result = db.AllDeployments{}
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
 		return nil, err
 	}
@@ -2199,7 +2306,7 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context) (db.AllEnvLocks,
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentEnvironmentLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllEnvLocks)
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
 		return nil, err
 	}
@@ -2234,7 +2341,7 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentApplicationLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllAppLocks)
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 
 	if err != nil {
 		return nil, err
@@ -2280,7 +2387,7 @@ func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersio
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
 	defer ddSpan.Finish()
 	result := make(db.AllQueuedVersions)
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest()
 
 	if err != nil {
 		return nil, err
@@ -2462,7 +2569,7 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentTeamLocks")
 	defer ddSpan.Finish()
 	result := make(db.AllTeamLocks)
-	_, envNames, err := s.GetEnvironmentConfigsSorted()
+	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 
 	if err != nil {
 		return nil, err

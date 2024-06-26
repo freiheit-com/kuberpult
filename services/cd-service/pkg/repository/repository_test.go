@@ -575,7 +575,8 @@ func TestBootstrapModeReadConfig(t *testing.T) {
 			if !state.BootstrapMode {
 				t.Fatalf("Bootstrap mode not preserved")
 			}
-			configs, err := state.GetEnvironmentConfigs()
+			ctx := testutil.MakeTestContext()
+			configs, err := state.GetAllEnvironmentConfigs(ctx, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

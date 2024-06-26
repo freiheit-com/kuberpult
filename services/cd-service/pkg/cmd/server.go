@@ -120,7 +120,6 @@ func RunServer() {
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
 		}
-
 		if c.EnableProfiling {
 			ddFilename := c.DatadogApiKeyLocation
 			if ddFilename == "" {
@@ -304,6 +303,11 @@ func RunServer() {
 			DBHandler:              dbHandler,
 			CloudRunClient:         cloudRunClient,
 		}
+
+		if cfg.DBHandler.ShouldUseOtherTables() && cfg.BootstrapMode {
+			logger.FromContext(ctx).Fatal("bootstrap mode cannot be used with the database")
+		}
+
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
@@ -323,6 +327,7 @@ func RunServer() {
 				repo.State().GetCurrentEnvironmentLocks,
 				repo.State().GetCurrentApplicationLocks,
 				repo.State().GetCurrentTeamLocks,
+				repo.State().GetAllEnvironments,
 				repo.State().GetAllQueuedAppVersions,
 				repo.State().GetAllCommitEvents,
 			)

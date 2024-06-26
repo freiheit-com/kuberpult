@@ -18,8 +18,10 @@ package service
 
 import (
 	"context"
+	"database/sql"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -33,7 +35,11 @@ func (o *EnvironmentServiceServer) GetEnvironmentConfig(
 	ctx context.Context,
 	in *api.GetEnvironmentConfigRequest) (*api.GetEnvironmentConfigResponse, error) {
 	state := o.Repository.State()
-	config, err := state.GetEnvironmentConfig(in.Environment)
+
+	config, err := db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
+		return state.GetEnvironmentConfig(ctx, transaction, in.Environment)
+	})
+
 	if err != nil {
 		return nil, err
 	}

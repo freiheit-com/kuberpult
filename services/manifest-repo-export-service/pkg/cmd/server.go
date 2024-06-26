@@ -234,9 +234,13 @@ func Run(ctx context.Context) error {
 				return fmt.Errorf("error in readEslEvent %v", err)
 			}
 			if ddMetrics != nil {
-				processDelay, err := calculateProcessDelay(ctx, esl, time.Now())
+				now := time.Now().UTC()
+				processDelay, err := calculateProcessDelay(ctx, esl, now)
 				if err != nil {
 					log.Error("Error in calculateProcessDelay %v", err)
+				}
+				if processDelay < 0 {
+					log.Warn("process delay is negative: esl-time: %v, now: %v, delay: %v", esl.Created, now, processDelay)
 				}
 				if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
 					log.Error("Error in ddMetrics.Gauge %v", err)
@@ -368,6 +372,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 		logger.FromContext(ctx).Sugar().Warn("Release train event found. No action will be taken and event will be skipped.")
 		//exhaustruct:ignore
 		return &repository.ReleaseTrain{}, nil
+	case db.EvtCreateEnvironment:
+		//exhaustruct:ignore
+		return &repository.CreateEnvironment{}, nil
 	default:
 		logger.FromContext(ctx).Sugar().Warnf("Found an unknown event %s. No further events will be processed.", eslEventType)
 		return nil, nil
