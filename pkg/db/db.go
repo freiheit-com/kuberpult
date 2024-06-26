@@ -771,6 +771,22 @@ func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, eventuu
 	return nil
 }
 
+func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, uuid, sourceCommitHash, email string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
+	metadata := event.Metadata{
+		AuthorEmail: email,
+		Uuid:        uuid,
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     lockPreventedDeploymentEvent,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
+}
+
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
 	metadata := event.Metadata{
 		AuthorEmail: email,
@@ -785,6 +801,55 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
 	}
 	return h.writeEvent(ctx, transaction, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
+}
+
+func (h *DBHandler) DBSelectAllEventsForCommitOfType(ctx context.Context, commitHash string, eventType event.EventType) ([]EventRow, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommitOfType")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) AND eventType = (?) ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := h.DB.QueryContext(ctx, query, commitHash)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying events. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("events row could not be closed: %v", err)
+		}
+	}(rows)
+
+	var result []EventRow
+
+	for rows.Next() {
+		var row = EventRow{
+			Uuid:       "",
+			Timestamp:  time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
+			CommitHash: "",
+			EventType:  "",
+			EventJson:  "",
+		}
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning events row from DB. Error: %w\n", err)
+		}
+
+		result = append(result, row)
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("events: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("events: row has error: %v\n", err)
+	}
+	return result, nil
 }
 
 func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {

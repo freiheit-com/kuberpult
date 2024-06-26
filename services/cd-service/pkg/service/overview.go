@@ -196,11 +196,13 @@ func (o *OverviewServiceServer) getOverview(
 					if err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
+
 						if version == nil {
 							app.Version = 0
 						} else {
 							app.Version = *version
 						}
+						fmt.Printf("Env: %s, App: %s | version: %d\n", envName, appName, app.Version)
 					}
 
 					if queuedVersion, err := s.GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -276,6 +278,7 @@ func (o *OverviewServiceServer) getOverview(
 			if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
 				return nil, err
 			} else {
+				fmt.Printf("App: %s | releases:%v\n", appName, rels)
 				for _, id := range rels {
 					if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
 						return nil, err
@@ -305,6 +308,7 @@ func (o *OverviewServiceServer) getOverview(
 			app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
 			result.Applications[appName] = &app
 		}
+
 	}
 	return &result, nil
 }

@@ -24,6 +24,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -31,6 +32,7 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"path"
@@ -85,6 +87,8 @@ func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application strin
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
+	// Set
+	// Get
 }
 
 type TransformerContext interface {
@@ -223,6 +227,7 @@ type DeployApplicationVersion struct {
 	WriteCommitData bool                            `json:"writeCommitData"`
 	SourceTrain     *DeployApplicationVersionSource `json:"sourceTrain"`
 	Author          string                          `json:"author"`
+	//eslid
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
@@ -296,7 +301,41 @@ func (c *DeployApplicationVersion) Transform(
 				return "", err
 			}
 		}
+		lockPreventedDeployment := false
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
+			if c.WriteCommitData {
+				var lockType, lockMsg string
+				if len(envLocks) > 0 {
+					lockType = "environment"
+					for _, lock := range envLocks {
+						lockMsg = lock.Message
+						break
+					}
+				} else {
+					if len(appLocks) > 0 {
+						lockType = "application"
+						for _, lock := range appLocks {
+							lockMsg = lock.Message
+							break
+						}
+					} else {
+						lockType = "team"
+						for _, lock := range teamLocks {
+							lockMsg = lock.Message
+							break
+						}
+					}
+
+				}
+
+				// REad the event from
+				// Ev 1 - uuid 1
+				// Ev 2 - uuid 2
+				if err := addEventForRelease(ctx, fsys, releaseDir, ev); err != nil {
+					return "", err
+				}
+				lockPreventedDeployment = true
+			}
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
@@ -383,6 +422,48 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
+	commitIdPath := fs.Join(releaseDir, "source_commit_id")
+
+	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Infof(
+			"Error while reading source commit ID file at %s, error %w"+
+				". Deployment event not stored.",
+			commitIdPath, err)
+		return "", err
+	}
+	commitID := string(commitIDBytes)
+	// if the stored source commit ID is invalid then we will not be able to store the event (simply)
+	return commitID, nil
+}
+
+func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "eventsForRelease")
+	defer span.Finish()
+	if commitID, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
+		gen := getGenerator(ctx)
+		eventUuid := gen.Generate()
+
+		if !valid.SHA1CommitID(commitID) {
+			logger.FromContext(ctx).Sugar().Infof(
+				"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
+				commitID)
+			return nil
+		}
+
+		if err := writeEvent(ctx, eventUuid, commitID, fs, ev); err != nil {
+			return fmt.Errorf(
+				"could not write an event for commit %s, error: %w",
+				commitID, err)
+			//return fmt.Errorf(
+			//	"could not write an event for commit %s with uuid %s, error: %w",
+			//	commitID, eventUuid, err)
+		}
+	}
+	return nil
 }
 
 type CreateEnvironmentLock struct {
@@ -1058,6 +1139,16 @@ func (c *CleanupOldApplicationVersions) Transform(
 		msg = fmt.Sprintf("%sremoved version %d of app %v as cleanup\n", msg, oldRelease, c.Application)
 	}
 	return msg, nil
+}
+
+func createLockPreventedDeploymentEvent(application, environment, lockMsg, lockType string) *event.LockPreventedDeployment {
+	ev := event.LockPreventedDeployment{
+		Application: application,
+		Environment: environment,
+		LockMessage: lockMsg,
+		LockType:    lockType,
+	}
+	return &ev
 }
 
 type ReleaseTrain struct {

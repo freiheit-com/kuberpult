@@ -2342,13 +2342,26 @@ func (c *DeployApplicationVersion) Transform(
 					}
 
 				}
-				if err := addEventForRelease(ctx, fs, releaseDir, &event.LockPreventedDeployment{
-					Application: c.Application,
-					Environment: c.Environment,
-					LockMessage: lockMsg,
-					LockType:    lockType,
-				}); err != nil {
-					return "", err
+				ev := createLockPreventedDeploymentEvent(c.Application, c.Environment, lockMsg, lockType)
+				if state.DBHandler.ShouldUseOtherTables() {
+					newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
+					if err != nil {
+						return "", err
+					}
+					if err != nil {
+						logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+					} else {
+						gen := getGenerator(ctx)
+						eventUuid := gen.Generate()
+						err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, eventUuid, newReleaseCommitId, c.Author, ev)
+						if err != nil {
+							return "", GetCreateReleaseGeneralFailure(err)
+						}
+					}
+				} else {
+					if err := addEventForRelease(ctx, fs, releaseDir, ev); err != nil {
+						return "", err
+					}
 				}
 				lockPreventedDeployment = true
 			}
@@ -2609,6 +2622,16 @@ func createReplacedByEvent(application, environment, commitId string) *event.Rep
 		Application:       application,
 		Environment:       environment,
 		CommitIDtoReplace: commitId,
+	}
+	return &ev
+}
+
+func createLockPreventedDeploymentEvent(application, environment, lockMsg, lockType string) *event.LockPreventedDeployment {
+	ev := event.LockPreventedDeployment{
+		Application: application,
+		Environment: environment,
+		LockMessage: lockMsg,
+		LockType:    lockType,
 	}
 	return &ev
 }
