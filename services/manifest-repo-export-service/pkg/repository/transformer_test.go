@@ -225,6 +225,21 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			},
 		},
 		{
+			Name: "create team lock",
+			Transformers: []Transformer{
+				&CreateEnvironmentTeamLock{
+					Authentication: Authentication{},
+					Environment:    envAcceptance,
+					LockId:         "my-lock",
+					Team:           "my-team",
+					Message:        "My envAcceptance lock",
+				},
+			},
+			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
+				"team 'my-team' does not exist",
+			},
+		},
+		{
 			Name: "CleanupOldApplicationVersions", //ReleaseLimit is 2
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
