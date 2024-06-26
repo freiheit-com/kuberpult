@@ -200,8 +200,6 @@ func SqliteToPostgresQuery(query string) string {
 	return q
 }
 
-type DBFunction func(ctx context.Context, transaction *sql.Tx) error
-
 func Remove(s []string, r string) []string {
 	for i, v := range s {
 		if v == r {
@@ -209,67 +207,6 @@ func Remove(s []string, r string) []string {
 		}
 	}
 	return s
-}
-
-// WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback.
-// Use this if the only thing to return from `f` is an error.
-func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
-	_, err := WithTransactionT(h, ctx, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
-		err2 := f(ctx, transaction)
-		if err2 != nil {
-			return nil, err2
-		}
-		return nil, nil
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type DBFunctionT[T any] func(ctx context.Context, transaction *sql.Tx) (*T, error)
-
-// WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
-func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]) (*T, error) {
-	res, err := WithTransactionMultipleEntriesT(h, ctx, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
-		fRes, err2 := f(ctx, transaction)
-		if err2 != nil {
-			return nil, err2
-		}
-		if fRes == nil {
-			return make([]T, 0), nil
-		}
-		return []T{*fRes}, nil
-	})
-	if err != nil || len(res) == 0 {
-		return nil, err
-	}
-	return &res[0], err
-}
-
-type DBFunctionMultipleEntriesT[T any] func(ctx context.Context, transaction *sql.Tx) ([]T, error)
-
-// WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
-func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func(tx *sql.Tx) {
-		_ = tx.Rollback()
-		// we ignore the error returned from Rollback() here,
-		// because it is always set when Commit() was successful
-	}(tx)
-
-	result, err := f(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 func closeRows(rows *sql.Rows) error {
