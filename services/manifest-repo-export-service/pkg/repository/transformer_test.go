@@ -270,6 +270,9 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					DisplayVersion:  "",
 					WriteCommitData: false,
 					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						Metadata: &map[string]string{},
+					},
 				},
 				&CreateApplicationVersion{
 					Authentication: Authentication{},
@@ -286,6 +289,9 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					DisplayVersion:  "",
 					WriteCommitData: false,
 					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						Metadata: &map[string]string{},
+					},
 				},
 				&CreateApplicationVersion{
 					Authentication: Authentication{},
@@ -302,9 +308,15 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					DisplayVersion:  "",
 					WriteCommitData: false,
 					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						Metadata: &map[string]string{},
+					},
 				},
 				&CleanupOldApplicationVersions{
 					Application: appName,
+					TransformerMetadata: TransformerMetadata{
+						Metadata: &map[string]string{},
+					},
 				},
 			},
 			ExpectedFile: []*FilenameAndData{
@@ -317,6 +329,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					fileData: []byte("abcdef"),
 				},
 			},
+			ExpectedAuthor: nil,
 		},
 		{
 			Name: "Create a single environment",

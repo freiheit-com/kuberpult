@@ -390,6 +390,8 @@ func (c *DeployApplicationVersion) Transform(
 
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
+		TransformerMetadata: TransformerMetadata{
+			Metadata: &map[string]string{}},
 	}
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
@@ -1125,7 +1127,8 @@ func (c *CleanupOldApplicationVersions) Transform(
 }
 
 type ReleaseTrain struct {
-	Authentication  `json:"-"`
+	Authentication `json:"-"`
+	TransformerMetadata
 	Target          string     `json:"target"`
 	Team            string     `json:"team,omitempty"`
 	CommitHash      string     `json:"commitHash"`
