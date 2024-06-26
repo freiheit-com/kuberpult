@@ -2152,9 +2152,9 @@ func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.Envir
 	return result, nil
 }
 
-func (s *State) GetEnvironmentConfig(ctx context.Context, environmentName string) (*config.EnvironmentConfig, error) {
+func (s *State) GetEnvironmentConfig(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentConfigFromDB(ctx, environmentName)
+		return s.GetEnvironmentConfigFromDB(ctx, transaction, environmentName)
 	}
 	return s.GetEnvironmentConfigFromManifest(environmentName)
 }
@@ -2170,7 +2170,7 @@ func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*confi
 	return &config, nil
 }
 
-func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, environmentName string) (*config.EnvironmentConfig, error) {
+func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
 	config, err := db.WithTransactionT(s.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
 		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName)
 		if err != nil {
