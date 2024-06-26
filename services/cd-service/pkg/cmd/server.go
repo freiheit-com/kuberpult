@@ -121,6 +121,10 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
 		}
 
+		if c.BootstrapMode && !c.DbWriteEslTableOnly {
+			logger.FromContext(ctx).Fatal("bootstrap mode cannot be used with the database")
+		}
+
 		if c.EnableProfiling {
 			ddFilename := c.DatadogApiKeyLocation
 			if ddFilename == "" {
