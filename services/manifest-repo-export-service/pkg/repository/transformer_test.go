@@ -19,14 +19,16 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"os/exec"
+	"path"
+	"testing"
+
+	// "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"os/exec"
-	"path"
-	"testing"
 	"time"
 )
 
@@ -300,6 +302,52 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				{
 					path:     "/applications/" + appName + "/releases/2/source_commit_id",
 					fileData: []byte("abcdef"),
+				},
+			},
+		},
+		{
+			Name: "Create a single environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "/environments/development/config.json",
+					fileData: []byte(
+						`{
+  "upstream": {
+    "latest": true
+  }
+}
+`),
+				},
+			},
+		},
+		{
+			Name: "Create a single environment twice",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "/environments/staging/config.json",
+					fileData: []byte(
+						`{
+  "upstream": {
+    "environment": "development"
+  }
+}
+`),
 				},
 			},
 		},

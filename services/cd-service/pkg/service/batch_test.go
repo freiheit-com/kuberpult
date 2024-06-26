@@ -18,13 +18,15 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -1035,7 +1037,19 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
 				t.Errorf("batch response mismatch: %s", d)
 			}
-			envs, err := repo.State().GetEnvironmentConfigs()
+			ctx := testutil.MakeTestContext()
+
+			var envs map[string]config.EnvironmentConfig
+			if repo.State().DBHandler.ShouldUseOtherTables() {
+				var envsPtr *map[string]config.EnvironmentConfig
+				envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+					envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
+					return &envs, err
+				})
+				envs = *envsPtr
+			} else {
+				envs, err = repo.State().GetAllEnvironmentConfigs(ctx, nil)
+			}
 			if err != nil {
 				t.Errorf("unexpected error: %q", err)
 			}

@@ -22,18 +22,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
-	"github.com/onokonem/sillyQueueServer/timeuuid"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path"
 	"reflect"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
+	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	psql "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -897,6 +899,9 @@ type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, err
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
 
+// return value is a map from environment name to environment config
+type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.EnvironmentConfig, error)
+
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
@@ -905,6 +910,7 @@ func (h *DBHandler) RunCustomMigrations(
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
 	getAllTeamLocksFun GetAllTeamLocksFun,
+	getAllEnvironmentsFun GetAllEnvironmentsFun,
 	getAllQueuedVersionsFun GetAllQueuedVersionsFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
@@ -940,6 +946,10 @@ func (h *DBHandler) RunCustomMigrations(
 	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
 	if err != nil {
 		return err
+	}
+	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
+	if err != nil {
+		return err // better wrap the error in a descriptive message?
 	}
 	return nil
 }
@@ -3331,4 +3341,327 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(rows *sql.Rows) (*QueuedD
 	}
 	return &row, nil
 
+}
+
+// Environments
+
+type DBAllEnvironments struct {
+	Created      time.Time
+	Version      int64
+	Environments []string
+}
+
+type DBAllEnvironmentsRow struct {
+	Created      time.Time
+	Version      int64
+	Environments string
+}
+
+type DBEnvironment struct {
+	Created time.Time
+	Version int64
+	Name    string
+	Config  config.EnvironmentConfig
+}
+
+type DBEnvironmentRow struct {
+	Created time.Time
+	Version int64
+	Name    string
+	Config  string
+}
+
+func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
+	selectQuery := h.AdaptQuery(
+		`
+SELECT created, version, name, json
+FROM environments
+WHERE name=?
+ORDER BY version DESC
+LIMIT 1;
+`,
+	)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query the environments table for environment %s, error: %w", environmentName, err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
+		}
+	}(rows)
+
+	if rows.Next() {
+		//exhaustruct:ignore
+		row := DBEnvironmentRow{}
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
+		}
+
+		//exhaustruct:ignore
+		parsedConfig := config.EnvironmentConfig{}
+		err = json.Unmarshal([]byte(row.Config), &parsedConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Config, err)
+		}
+		err = closeRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("error while closing database rows, error: %w", err)
+		}
+
+		return &DBEnvironment{
+			Created: row.Created,
+			Version: row.Version,
+			Name:    environmentName,
+			Config:  parsedConfig,
+		}, nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("errpr while closing database rows, error: %w", err)
+	}
+	return nil, nil
+}
+
+func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("attempting to write to the environmets table without a transaction")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
+	defer span.Finish()
+
+	jsonToInsert, err := json.Marshal(environmentConfig)
+	if err != nil {
+		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
+	}
+
+	existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName)
+	if err != nil {
+		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
+	}
+
+	var existingEnvironmentVersion int64
+	if existingEnvironment == nil {
+		existingEnvironmentVersion = 0
+	} else {
+		existingEnvironmentVersion = existingEnvironment.Version
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT Into environments (created, version, name, json) VALUES (?, ?, ?, ?);",
+	)
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		time.Now(),
+		existingEnvironmentVersion+1,
+		environmentName,
+		jsonToInsert,
+	)
+	if err != nil {
+		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("no transaction provided when selecting all environments from all_environments table")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
+	)
+
+	rows, err := transaction.QueryContext(ctx, selectQuery)
+	if err != nil {
+		return nil, fmt.Errorf("error while execuring query to get all environments, error: %w", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row on all_environments table, error: %w", err)
+		}
+	}(rows)
+
+	if rows.Next() {
+		//exhaustruct:ignore
+		row := DBAllEnvironmentsRow{}
+
+		err := rows.Scan(&row.Created, &row.Version, &row.Environments)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error while scanning all_environments row, error: %w", err)
+		}
+
+		parsedEnvironments := make([]string, 0)
+		err = json.Unmarshal([]byte(row.Environments), &parsedEnvironments)
+		if err != nil {
+			return nil, fmt.Errorf("error occured during JSON unmarshalling, JSON: %s, error: %w", row.Environments, err)
+		}
+
+		err = closeRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("error while closing rows, error: %w", err)
+		}
+
+		return &DBAllEnvironments{
+			Created:      row.Created,
+			Version:      row.Version,
+			Environments: parsedEnvironments,
+		}, nil
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("error while closing rows, error: %w", err)
+	}
+	return nil, nil
+}
+
+func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql.Tx, environmentNames []string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironments")
+	defer span.Finish()
+
+	jsonToInsert, err := json.Marshal(environmentNames)
+	if err != nil {
+		return fmt.Errorf("could not marshal the environment names list %v, error: %w", environmentNames, err)
+	}
+
+	allEnvironments, err := h.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("unable to select all environments, error: %w", err)
+	}
+
+	previousVersion := int64(0)
+	if allEnvironments != nil {
+		previousVersion = allEnvironments.Version
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO all_environments (created, version, json) VALUES (?, ?, ?)")
+	span.SetTag("query", insertQuery)
+	_, err = transaction.Exec(
+		insertQuery,
+		time.Now(),
+		previousVersion+1,
+		jsonToInsert,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to perform the insert query, error: %w", err)
+	}
+
+	return nil
+}
+
+func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DBAllEnvironments, error) {
+	selectQuery := h.AdaptQuery(
+		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
+	)
+	rows, err := tx.QueryContext(ctx, selectQuery)
+	if err != nil {
+		return nil, fmt.Errorf("could not query the all_environments table, error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing the row of all_environments, error: %w", err)
+		}
+	}(rows)
+
+	//exhaustruct:ignore
+	row := DBAllEnvironmentsRow{}
+	if rows.Next() {
+		err := rows.Scan(&row.Created, &row.Version, &row.Environments)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning the results of the query for selecting any row in all_environments, error: %w", err)
+		}
+		err = closeRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("error while closing the rows of the query for selecting any row in all_environments, error: %w", err)
+		}
+
+		jsonData := make([]string, 0)
+		err = json.Unmarshal([]byte(row.Environments), &jsonData)
+
+		if err != nil {
+			return nil, fmt.Errorf("error parsing the value of the JSON column of the all_environments table, JSON content: %s, error: %w", row.Environments, err)
+		}
+
+		return &DBAllEnvironments{
+			Version:      row.Version,
+			Created:      row.Created,
+			Environments: jsonData,
+		}, nil
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("error while closing the rows of the query for selecting any row in all_environments (where no rows were returned), error: %w", err)
+	}
+
+	return nil, nil
+}
+
+func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEnvironmentsFun GetAllEnvironmentsFun) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		log := logger.FromContext(ctx).Sugar()
+
+		arbitraryAllEnvsRow, err := h.DBSelectAnyEnvironment(ctx, transaction)
+
+		if err != nil {
+			return fmt.Errorf("unable to check if custom migration for environments has already occured, error: %w", err)
+		}
+		if arbitraryAllEnvsRow != nil {
+			log.Infof("custom migration for environments already ran because row %v was found, skipping custom migration", arbitraryAllEnvsRow)
+			return nil
+		}
+
+		allEnvironments, err := getAllEnvironmentsFun(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get environments, error: %w", err)
+		}
+
+		allEnvironmentNames := make([]string, 0)
+		for envName, config := range allEnvironments {
+			allEnvironmentNames = append(allEnvironmentNames, envName)
+			err = h.DBWriteEnvironment(ctx, transaction, envName, config)
+			if err != nil {
+				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
+			}
+		}
+		err = h.DBWriteAllEnvironments(ctx, transaction, allEnvironmentNames)
+		if err != nil {
+			return fmt.Errorf("unable to write to write all environments list to the database, error: %w", err)
+		}
+		return nil
+	})
 }
