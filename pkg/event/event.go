@@ -244,9 +244,8 @@ func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 }
 
 type Metadata struct {
-	AuthorEmail string
-	Uuid        string
-	EventType   string
+	Uuid      string
+	EventType string
 }
 
 type DBEventGo struct {

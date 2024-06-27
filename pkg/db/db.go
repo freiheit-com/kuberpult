@@ -719,11 +719,10 @@ func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transfo
 	return nil
 }
 
-func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash, email string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
+func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
 	metadata := event.Metadata{
-		AuthorEmail: email,
-		Uuid:        uuid,
-		EventType:   string(event.EventTypeLockPreventeDeployment),
+		Uuid:      uuid,
+		EventType: string(event.EventTypeLockPreventeDeployment),
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     lockPreventedDeploymentEvent,
@@ -736,11 +735,10 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
 }
 
-func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash string, deployment *event.Deployment) error {
 	metadata := event.Metadata{
-		AuthorEmail: email,
-		Uuid:        uuid,
-		EventType:   string(event.EventTypeDeployment),
+		Uuid:      uuid,
+		EventType: string(event.EventTypeDeployment),
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     deployment,

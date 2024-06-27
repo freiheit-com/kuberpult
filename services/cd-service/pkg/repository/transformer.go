@@ -2449,7 +2449,7 @@ func (c *DeployApplicationVersion) Transform(
 					} else {
 						gen := getGenerator(ctx)
 						eventUuid := gen.Generate()
-						err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, c.Author, ev)
+						err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, ev)
 						if err != nil {
 							return "", GetCreateReleaseGeneralFailure(err)
 						}
@@ -2607,7 +2607,7 @@ func (c *DeployApplicationVersion) Transform(
 				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
 
-				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, c.Author, deploymentEvent)
+				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, deploymentEvent)
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)
 				}

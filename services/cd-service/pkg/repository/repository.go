@@ -2473,9 +2473,8 @@ func (s *State) GetAllCommitEvents(ctx context.Context) (db.AllCommitEvents, err
 					currentEvents = append(currentEvents, event.DBEventGo{
 						EventData: fsEvent,
 						EventMetadata: event.Metadata{
-							Uuid:        fileName,
-							AuthorEmail: "",
-							EventType:   string(eType),
+							Uuid:      fileName,
+							EventType: string(eType),
 						},
 					})
 				}
