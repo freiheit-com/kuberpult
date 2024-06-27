@@ -88,12 +88,22 @@ func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application strin
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
+	GetMetadata() *TransformerMetadata
 }
 
 type TransformerContext interface {
 	Execute(t Transformer, transaction *sql.Tx) error
 	AddAppEnv(app string, env string, team string)
 	DeleteEnvFromApp(app string, env string)
+}
+
+type TransformerMetadata struct {
+	AuthorName  string `json:"authorName,omitempty"`
+	AuthorEmail string `json:"authorEmail,omitempty"`
+}
+
+func (t *TransformerMetadata) GetMetadata() *TransformerMetadata {
+	return t
 }
 
 func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx) (string, *TransformerResult, error) {
@@ -218,14 +228,15 @@ func (c *QueueApplicationVersion) Transform(
 }
 
 type DeployApplicationVersion struct {
-	Authentication  `json:"-"`
-	Environment     string                          `json:"env"`
-	Application     string                          `json:"app"`
-	Version         uint64                          `json:"version"`
-	LockBehaviour   api.LockBehavior                `json:"lockBehaviour"`
-	WriteCommitData bool                            `json:"writeCommitData"`
-	SourceTrain     *DeployApplicationVersionSource `json:"sourceTrain"`
-	Author          string                          `json:"author"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string                          `json:"env"`
+	Application         string                          `json:"app"`
+	Version             uint64                          `json:"version"`
+	LockBehaviour       api.LockBehavior                `json:"lockBehaviour"`
+	WriteCommitData     bool                            `json:"writeCommitData"`
+	SourceTrain         *DeployApplicationVersionSource `json:"sourceTrain"`
+	Author              string                          `json:"author"`
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
@@ -380,6 +391,10 @@ func (c *DeployApplicationVersion) Transform(
 
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
+		TransformerMetadata: TransformerMetadata{
+			AuthorName:  existingDeployment.Metadata.DeployedByName,
+			AuthorEmail: existingDeployment.Metadata.DeployedByEmail,
+		},
 	}
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
@@ -389,10 +404,11 @@ func (c *DeployApplicationVersion) Transform(
 }
 
 type CreateEnvironmentLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string `json:"env"`
+	LockId              string `json:"lockId"`
+	Message             string `json:"message"`
 }
 
 func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
@@ -465,9 +481,10 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, autho
 }
 
 type DeleteEnvironmentLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	LockId         string `json:"lockId"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string `json:"env"`
+	LockId              string `json:"lockId"`
 }
 
 func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
@@ -507,11 +524,12 @@ func (c *DeleteEnvironmentLock) Transform(
 }
 
 type CreateEnvironmentApplicationLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Application    string `json:"app"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string `json:"env"`
+	Application         string `json:"app"`
+	LockId              string `json:"lockId"`
+	Message             string `json:"message"`
 }
 
 func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -559,10 +577,11 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 }
 
 type DeleteEnvironmentApplicationLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Application    string `json:"app"`
-	LockId         string `json:"lockId"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string `json:"env"`
+	Application         string `json:"app"`
+	LockId              string `json:"lockId"`
 }
 
 func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -599,17 +618,18 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 }
 
 type CreateApplicationVersion struct {
-	Authentication  `json:"-"`
-	Version         uint64            `json:"version"`
-	Application     string            `json:"app"`
-	Manifests       map[string]string `json:"manifests"`
-	SourceCommitId  string            `json:"sourceCommitId"`
-	SourceAuthor    string            `json:"sourceCommitAuthor"`
-	SourceMessage   string            `json:"sourceCommitMessage"`
-	Team            string            `json:"team"`
-	DisplayVersion  string            `json:"displayVersion"`
-	WriteCommitData bool              `json:"writeCommitData"`
-	PreviousCommit  string            `json:"previousCommit"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Version             uint64            `json:"version"`
+	Application         string            `json:"app"`
+	Manifests           map[string]string `json:"manifests"`
+	SourceCommitId      string            `json:"sourceCommitId"`
+	SourceAuthor        string            `json:"sourceCommitAuthor"`
+	SourceMessage       string            `json:"sourceCommitMessage"`
+	Team                string            `json:"team"`
+	DisplayVersion      string            `json:"displayVersion"`
+	WriteCommitData     bool              `json:"writeCommitData"`
+	PreviousCommit      string            `json:"previousCommit"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -725,6 +745,10 @@ func (c *CreateApplicationVersion) Transform(
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
 				Author:          c.SourceAuthor,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  c.SourceAuthor,
+					AuthorEmail: "",
+				},
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
@@ -820,11 +844,12 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 }
 
 type CreateEnvironmentTeamLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Team           string `json:"team"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string `json:"env"`
+	Team                string `json:"team"`
+	LockId              string `json:"lockId"`
+	Message             string `json:"message"`
 }
 
 func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
@@ -900,10 +925,11 @@ func (c *CreateEnvironmentTeamLock) Transform(
 }
 
 type DeleteEnvironmentTeamLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Team           string `json:"team"`
-	LockId         string `json:"lockId"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string `json:"env"`
+	Team                string `json:"team"`
+	LockId              string `json:"lockId"`
 }
 
 func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
@@ -946,9 +972,10 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 }
 
 type CreateEnvironment struct {
-	Authentication `json:"-"`
-	Environment    string                   `json:"env"`
-	Config         config.EnvironmentConfig `json:"config"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string                   `json:"env"`
+	Config              config.EnvironmentConfig `json:"config"`
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
@@ -1050,7 +1077,8 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 }
 
 type CleanupOldApplicationVersions struct {
-	Application string
+	Application         string
+	TransformerMetadata `json:"metadata"`
 }
 
 func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
@@ -1104,12 +1132,13 @@ func (c *CleanupOldApplicationVersions) Transform(
 }
 
 type ReleaseTrain struct {
-	Authentication  `json:"-"`
-	Target          string     `json:"target"`
-	Team            string     `json:"team,omitempty"`
-	CommitHash      string     `json:"commitHash"`
-	WriteCommitData bool       `json:"writeCommitData"`
-	Repo            Repository `json:"-"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Target              string     `json:"target"`
+	Team                string     `json:"team,omitempty"`
+	CommitHash          string     `json:"commitHash"`
+	WriteCommitData     bool       `json:"writeCommitData"`
+	Repo                Repository `json:"-"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
