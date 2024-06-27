@@ -363,6 +363,10 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				&CreateEnvironment{
 					Environment: "development",
 					Config:      testutil.MakeEnvConfigLatest(nil),
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 			},
 			ExpectedFile: []*FilenameAndData{
@@ -384,10 +388,18 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				&CreateEnvironment{
 					Environment: "staging",
 					Config:      testutil.MakeEnvConfigLatest(nil),
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 				&CreateEnvironment{
 					Environment: "staging",
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 			},
 			ExpectedFile: []*FilenameAndData{

@@ -972,9 +972,10 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 }
 
 type CreateEnvironment struct {
-	Authentication `json:"-"`
-	Environment    string                   `json:"env"`
-	Config         config.EnvironmentConfig `json:"config"`
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string                   `json:"env"`
+	Config              config.EnvironmentConfig `json:"config"`
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
