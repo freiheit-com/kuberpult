@@ -436,10 +436,11 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 // but technically it's not required here.
 
 type DBReleaseMetaData struct {
-	SourceAuthor   string
-	SourceCommitId string
-	SourceMessage  string
-	DisplayVersion string
+	SourceAuthor    string
+	SourceCommitId  string
+	SourceMessage   string
+	DisplayVersion  string
+	UndeployVersion bool
 }
 
 type DBReleaseManifests struct {
