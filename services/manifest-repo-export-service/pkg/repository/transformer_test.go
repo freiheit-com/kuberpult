@@ -19,15 +19,17 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"os/exec"
+	"path"
+	"testing"
+
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"os/exec"
-	"path"
-	"testing"
-	"time"
 )
 
 const (
@@ -114,6 +116,8 @@ type FilenameAndData struct {
 
 func TestTransformerWorksWithDb(t *testing.T) {
 	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
 	tcs := []struct {
 		Name                string
 		Transformers        []Transformer
@@ -121,6 +125,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 		ExpectedApp         *db.DBAppWithMetaData
 		ExpectedAllReleases *db.DBReleaseWithMetaData
 		ExpectedFile        []*FilenameAndData
+		ExpectedAuthor      *map[string]string
 	}{
 		{
 			// as of now we only have the DeployApplicationVersion transformer,
@@ -168,6 +173,10 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					DisplayVersion:  "",
 					WriteCommitData: false,
 					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 			},
 			ExpectedError: nil,
@@ -183,6 +192,34 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "team-123",
 				},
+			},
+			ExpectedAuthor: &map[string]string{
+				"Name":  authorName,
+				"Email": authorEmail,
+			},
+		},
+		{
+			Name: "Should give an error when the metadata is nil",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        7,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+				},
+			},
+			ExpectedError: errMatcher{"first apply failed, aborting: error not specific to one transformer of this batch: " +
+				"transformer metadata is empty",
 			},
 		},
 		{
@@ -255,6 +292,10 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					DisplayVersion:  "",
 					WriteCommitData: false,
 					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 				&CreateApplicationVersion{
 					Authentication: Authentication{},
@@ -271,6 +312,10 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					DisplayVersion:  "",
 					WriteCommitData: false,
 					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 				&CreateApplicationVersion{
 					Authentication: Authentication{},
@@ -287,9 +332,17 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					DisplayVersion:  "",
 					WriteCommitData: false,
 					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 				&CleanupOldApplicationVersions{
 					Application: appName,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 			},
 			ExpectedFile: []*FilenameAndData{
@@ -300,6 +353,65 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				{
 					path:     "/applications/" + appName + "/releases/2/source_commit_id",
 					fileData: []byte("abcdef"),
+				},
+			},
+			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
+		},
+		{
+			Name: "Create a single environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "/environments/development/config.json",
+					fileData: []byte(
+						`{
+  "upstream": {
+    "latest": true
+  }
+}
+`),
+				},
+			},
+		},
+		{
+			Name: "Create a single environment twice",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "/environments/staging/config.json",
+					fileData: []byte(
+						`{
+  "upstream": {
+    "environment": "development"
+  }
+}
+`),
 				},
 			},
 		},
@@ -363,6 +475,14 @@ func TestTransformerWorksWithDb(t *testing.T) {
 
 					if !cmp.Equal(actualFileData, expectedFile.fileData) {
 						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+					if tc.ExpectedAuthor != nil {
+						if !cmp.Equal(updatedState.Commit.Author().Name, (*tc.ExpectedAuthor)["Name"]) {
+							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Name"], updatedState.Commit.Author().Name)
+						}
+						if !cmp.Equal(updatedState.Commit.Author().Email, (*tc.ExpectedAuthor)["Email"]) {
+							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Email"], updatedState.Commit.Author().Email)
+						}
 					}
 				}
 			}

@@ -968,6 +968,45 @@ cd:
 				},
 			},
 		},
+		{
+			Name: "Release version limit set",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_RELEASE_VERSIONS_LIMIT",
+					Value: "15",
+				},
+			},
+		},
+		{
+			Name: "Release version limit default",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_RELEASE_VERSIONS_LIMIT",
+					Value: "20",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {

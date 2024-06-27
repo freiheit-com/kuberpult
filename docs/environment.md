@@ -1,6 +1,6 @@
 ## Environment
 
-An environment is a kuberpult concept that describes the target of deployments.
+An environment is a Kuberpult concept that describes the target of deployments.
 Essentially, it is a set of machines where your microservices will run.
 In practice, an environment in kuberpult corresponds 1:1 to a kubernetes cluster (for example on GCP).
 An `environment` is the set of machines where your microservices will run.

@@ -19,19 +19,23 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"go.uber.org/zap"
 	"os"
 	"os/exec"
 	"path"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
 )
 
 func createMigrationFolder(dbLocation string) (string, error) {
@@ -1007,71 +1011,6 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 	}
 }
 
-// setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
-func setupDB(t *testing.T) *DBHandler {
-	dir, err := testutil.CreateMigrationsPath(2)
-	tmpDir := t.TempDir()
-	t.Logf("directory for DB migrations: %s", dir)
-	t.Logf("tmp dir for DB data: %s", tmpDir)
-	cfg := DBConfig{
-		MigrationsPath: dir,
-		DriverName:     "sqlite3",
-		DbHost:         tmpDir,
-	}
-
-	migErr := RunDBMigrations(cfg)
-	if migErr != nil {
-		t.Fatal(migErr)
-	}
-
-	dbHandler, err := Connect(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return dbHandler
-}
-
-func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
-	migrationsPath, err := testutil.CreateMigrationsPath(2)
-	if err != nil {
-		t.Fatalf("CreateMigrationsPath error: %v", err)
-	}
-	dbConfig := &DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
-	}
-
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("error starting %v", err)
-		return nil
-	}
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("error waiting %v", err)
-		return nil
-	}
-	t.Logf("test created dir: %s", localDir)
-
-	dbConfig.DbHost = dir
-
-	migErr := RunDBMigrations(*dbConfig)
-	if migErr != nil {
-		t.Fatal(migErr)
-	}
-
-	dbHandler, err := Connect(*dbConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return dbHandler
-}
-
 func TestReadWriteTeamLock(t *testing.T) {
 	tcs := []struct {
 		Name         string
@@ -1338,4 +1277,395 @@ func TestDeleteRelease(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReadWriteEnvironment(t *testing.T) {
+	type EnvAndConfig struct {
+		EnvironmentName   string
+		EnvironmentConfig config.EnvironmentConfig
+	}
+	type TestCase struct {
+		Name          string
+		EnvsToWrite   []EnvAndConfig
+		EnvToQuery    string
+		ExpectedEntry *DBEnvironment
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "write one environment and read it",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version: 1,
+				Name:    "development",
+				Config:  testutil.MakeEnvConfigLatest(nil),
+			},
+		},
+		{
+			Name: "write one environment and read it, but this time with a more elaborate config",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // "elaborate config" being the env group
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version: 1,
+				Name:    "development",
+				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+			},
+		},
+		{
+			Name: "write one environment two times and read it",
+			EnvsToWrite: []EnvAndConfig{
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil), // without group
+				},
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // with group
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version: 2,
+				Name:    "development",
+				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+			},
+		},
+		{
+			Name: "write one environment three times and read it",
+			EnvsToWrite: []EnvAndConfig{
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil), // without group
+				},
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // with group
+				},
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-development-group")), // with group
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version: 3,
+				Name:    "development",
+				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-development-group")),
+			},
+		},
+		{
+			Name: "write multiple environments and read one of them",
+			EnvsToWrite: []EnvAndConfig{
+				EnvAndConfig{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+				},
+				EnvAndConfig{
+					EnvironmentName:   "staging",
+					EnvironmentConfig: testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			EnvToQuery: "staging",
+			ExpectedEntry: &DBEnvironment{
+				Version: 1,
+				Name:    "staging",
+				Config:  testutil.MakeEnvConfigUpstream("development", nil),
+			},
+		},
+		{
+			Name:          "don't write any environments and query something",
+			EnvToQuery:    "development",
+			ExpectedEntry: nil,
+		},
+		{
+			Name: "write some environment, query something else",
+			EnvsToWrite: []EnvAndConfig{
+				EnvAndConfig{
+					EnvironmentName:   "staging",
+					EnvironmentConfig: testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			EnvToQuery: "development",
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			for _, envToWrite := range tc.EnvsToWrite {
+				err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig)
+					if err != nil {
+						return fmt.Errorf("error while writing environment, error: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("error while running the transaction for writing environment %s to the database, error: %v", envToWrite.EnvironmentName, err)
+				}
+			}
+
+			envEntry, err := WithTransactionT(dbHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
+				envEntry, err := dbHandler.DBSelectEnvironment(ctx, transaction, tc.EnvToQuery)
+				if err != nil {
+					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
+				}
+				return envEntry, nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for selecting the target environment, error: %v", err)
+			}
+			if diff := cmp.Diff(envEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(DBEnvironment{}, "Created")); diff != "" {
+				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, envEntry, diff)
+			}
+		})
+	}
+}
+func TestReadWriteEslEvent(t *testing.T) {
+	const envName = "dev"
+	const appName = "my-app"
+	const lockId = "ui-v2-ke1up"
+	const message = "test"
+	const authorName = "testauthor"
+	const authorEmail = "testemail@example.com"
+	const evtType = EvtCreateApplicationVersion
+	expectedJson, _ := json.Marshal(map[string]interface{}{
+		"env":     envName,
+		"app":     appName,
+		"lockId":  lockId,
+		"message": message,
+		"metadata": map[string]string{
+			"authorEmail": authorEmail,
+			"authorName":  authorName,
+		},
+	})
+	expectedJsonWithoutMetadata, _ := json.Marshal(map[string]interface{}{
+		"env":     envName,
+		"app":     appName,
+		"lockId":  lockId,
+		"message": message,
+		"metadata": map[string]string{
+			"authorEmail": "",
+			"authorName":  "",
+		},
+	})
+
+	tcs := []struct {
+		Name          string
+		EventType     EventType
+		EventData     *map[string]string
+		EventMetadata ESLMetadata
+		ExpectedEsl   EslEventRow
+	}{
+		{
+			Name:      "Write and read",
+			EventType: evtType,
+			EventData: &map[string]string{
+				"env":     envName,
+				"app":     appName,
+				"lockId":  lockId,
+				"message": message,
+			},
+			EventMetadata: ESLMetadata{
+				AuthorName:  authorName,
+				AuthorEmail: authorEmail,
+			},
+			ExpectedEsl: EslEventRow{
+				EventType: evtType,
+				EventJson: string(expectedJson),
+			},
+		},
+		{
+			Name:      "Write and read with nil metadata",
+			EventType: evtType,
+			EventData: &map[string]string{
+				"env":     envName,
+				"app":     appName,
+				"lockId":  lockId,
+				"message": message,
+			},
+			ExpectedEsl: EslEventRow{
+				EventType: evtType,
+				EventJson: string(expectedJsonWithoutMetadata),
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEslEventInternal(ctx, tc.EventType, transaction, tc.EventData, tc.EventMetadata)
+				if err != nil {
+					return err
+				}
+
+				actual, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedEsl.EventType, actual.EventType); diff != "" {
+					t.Fatalf("event type mismatch (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.ExpectedEsl.EventJson, actual.EventJson); diff != "" {
+					t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestReadWriteAllEnvironments(t *testing.T) {
+	type TestCase struct {
+		Name           string
+		AllEnvsToWrite [][]string
+		ExpectedEntry  *DBAllEnvironments
+	}
+	testCases := []TestCase{
+		{
+			Name: "create entry with one environment entry only",
+			AllEnvsToWrite: [][]string{
+				{"development"},
+			},
+			ExpectedEntry: &DBAllEnvironments{
+				Version:      1,
+				Environments: []string{"development"},
+			},
+		},
+		{
+			Name: "create entries with increasing length",
+			AllEnvsToWrite: [][]string{
+				{"development"},
+				{"development", "staging"},
+				{"development", "staging", "production"},
+			},
+			ExpectedEntry: &DBAllEnvironments{
+				Version:      3,
+				Environments: []string{"development", "staging", "production"},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			for _, allEnvs := range tc.AllEnvsToWrite {
+				err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+					err := dbHandler.DBWriteAllEnvironments(ctx, transaction, allEnvs)
+					if err != nil {
+						return fmt.Errorf("error while writing environment, error: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("error while running the transaction for writing all environments %v to the database, error: %v", allEnvs, err)
+				}
+			}
+
+			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+				allEnvsEntry, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
+				if err != nil {
+					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
+				}
+				return allEnvsEntry, nil
+			})
+
+			if err != nil {
+				t.Fatalf("error while running the transaction for selecting the target all environment, error: %v", err)
+			}
+			if diff := cmp.Diff(allEnvsEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(DBAllEnvironments{}, "Created")); diff != "" {
+				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, allEnvsEntry, diff)
+			}
+		})
+	}
+}
+
+// setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
+func setupDB(t *testing.T) *DBHandler {
+	dir, err := testutil.CreateMigrationsPath(2)
+	tmpDir := t.TempDir()
+	t.Logf("directory for DB migrations: %s", dir)
+	t.Logf("tmp dir for DB data: %s", tmpDir)
+	cfg := DBConfig{
+		MigrationsPath: dir,
+		DriverName:     "sqlite3",
+		DbHost:         tmpDir,
+	}
+
+	migErr := RunDBMigrations(cfg)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := Connect(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return dbHandler
+}
+
+func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
+	migrationsPath, err := testutil.CreateMigrationsPath(2)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &DBConfig{
+		MigrationsPath: migrationsPath,
+		DriverName:     "sqlite3",
+	}
+
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil
+	}
+	t.Logf("test created dir: %s", localDir)
+
+	dbConfig.DbHost = dir
+
+	migErr := RunDBMigrations(*dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := Connect(*dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dbHandler
 }
