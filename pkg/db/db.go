@@ -247,7 +247,7 @@ const (
 // ESL EVENTS
 
 // DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
-func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}, init ...bool) error {
+func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}) error {
 	if h == nil {
 		return nil
 	}
@@ -260,14 +260,10 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	jsonToInsert, err := json.Marshal(data)
 
 	if err != nil {
-		return fmt.Errorf("could not marshal json transformer: %w", err)
+		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-	var insertQuery string
-	if len(init) > 0 && init[0] {
-		insertQuery = h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
-	} else {
-		insertQuery = h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
-	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
@@ -762,9 +758,9 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 		return nil, nil
 	}
 	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAllEventsForTransformer: no transaction provided")
+		return nil, fmt.Errorf("DBSelectAnyEvent: no transaction provided")
 	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommitOfType")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEvent")
 	defer span.Finish()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events ORDER BY timestamp DESC LIMIT 1;")
@@ -779,13 +775,11 @@ func (h *DBHandler) DBSelectAllEventsForTransformer(ctx context.Context, transac
 	if transaction == nil {
 		return nil, fmt.Errorf("DBSelectAllEventsForTransformer: no transaction provided")
 	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommitOfType")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForTransformer")
 	defer span.Finish()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE eventType = (?) AND transformerEslId = (?) ORDER BY timestamp DESC LIMIT 1;")
 	span.SetTag("query", query)
-	fmt.Printf("Event Type: %v\n", string(eventType))
-	fmt.Printf("Transformer Type: %v\n", transformerID)
 
 	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID)
 	return h.processSingleEventsRow(ctx, rows, err)
@@ -812,7 +806,6 @@ func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, 
 			}
 			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
 		}
-
 	} else {
 		row = nil
 	}
@@ -834,7 +827,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	if transaction == nil {
 		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
 	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
 	defer span.Finish()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
@@ -1695,19 +1688,40 @@ func (p *MigrationTransformer) GetDBEventType() EventType {
 	return EvtMigrationTransformer
 }
 
-// For commit_events migrations, we need some transformer to be on the database
+// For commit_events migrations, we need some transformer to be on the database before we run their migrations.
 func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, false)
 		if err != nil {
 			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+			return err
 		}
 		if eslEvent != nil {
 			return nil
 		}
+		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
+		defer span.Finish()
 		t := MigrationTransformer{}
-		return h.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, true)
+		jsonToInsert, err := json.Marshal(interface{}(t))
+
+		if err != nil {
+			return fmt.Errorf("could not marshal json transformer: %w", err)
+		}
+
+		insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
+
+		span.SetTag("query", insertQuery)
+		_, err = transaction.Exec(
+			insertQuery,
+			time.Now().UTC(),
+			t.GetDBEventType(),
+			jsonToInsert)
+
+		if err != nil {
+			return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+		}
+		return nil
 	})
 }
 
