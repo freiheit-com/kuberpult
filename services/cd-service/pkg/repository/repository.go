@@ -2463,7 +2463,7 @@ func (s *State) GetAllCommitEvents(ctx context.Context) (db.AllCommitEvents, err
 					eType, err := readFile(fs, fs.Join(fs.Join(currentpath, fileName), "eventType"))
 
 					if err != nil {
-						return nil, fmt.Errorf("could not read event type '%s' not a UUID: %v", fs.Join(currentpath, fileName), err)
+						return nil, fmt.Errorf("could not read event type '%s': %v", fs.Join(currentpath, fileName), err)
 					}
 
 					fsEvent, err := event.Read(fs, fs.Join(currentpath, fileName))

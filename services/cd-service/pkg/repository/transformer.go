@@ -2442,9 +2442,6 @@ func (c *DeployApplicationVersion) Transform(
 				if state.DBHandler.ShouldUseOtherTables() {
 					newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
 					if err != nil {
-						return "", err
-					}
-					if err != nil {
 						logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 					} else {
 						gen := getGenerator(ctx)
@@ -2921,12 +2918,13 @@ func (c *ReleaseTrain) Prognosis(
 		}
 
 		envReleaseTrain := &envReleaseTrain{
-			Parent:          c,
-			Env:             envName,
-			EnvConfigs:      configs,
-			EnvGroupConfigs: envGroupConfigs,
-			WriteCommitData: c.WriteCommitData,
-			TrainGroup:      trainGroup,
+			Parent:           c,
+			Env:              envName,
+			EnvConfigs:       configs,
+			EnvGroupConfigs:  envGroupConfigs,
+			WriteCommitData:  c.WriteCommitData,
+			TrainGroup:       trainGroup,
+			TransformerEslId: c.TransformerEslId,
 		}
 
 		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction)
@@ -2977,12 +2975,13 @@ func (c *ReleaseTrain) Transform(
 		}
 
 		if err := t.Execute(&envReleaseTrain{
-			Parent:          c,
-			Env:             envName,
-			EnvConfigs:      configs,
-			EnvGroupConfigs: envGroupConfigs,
-			WriteCommitData: c.WriteCommitData,
-			TrainGroup:      trainGroup,
+			Parent:           c,
+			Env:              envName,
+			EnvConfigs:       configs,
+			EnvGroupConfigs:  envGroupConfigs,
+			WriteCommitData:  c.WriteCommitData,
+			TrainGroup:       trainGroup,
+			TransformerEslId: c.TransformerEslId,
 		}, transaction); err != nil {
 			return "", err
 		}
@@ -2994,20 +2993,21 @@ func (c *ReleaseTrain) Transform(
 }
 
 type envReleaseTrain struct {
-	Parent          *ReleaseTrain
-	Env             string
-	EnvConfigs      map[string]config.EnvironmentConfig
-	EnvGroupConfigs map[string]config.EnvironmentConfig
-	WriteCommitData bool
-	TrainGroup      *string
+	Parent           *ReleaseTrain
+	Env              string
+	EnvConfigs       map[string]config.EnvironmentConfig
+	EnvGroupConfigs  map[string]config.EnvironmentConfig
+	WriteCommitData  bool
+	TrainGroup       *string
+	TransformerEslId uint
 }
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
 	panic("envReleaseTrain GetDBEventType")
 }
 
-func (c *envReleaseTrain) SetEslID(_ uint) {
-	//Does nothing
+func (c *envReleaseTrain) SetEslID(id uint) {
+	c.TransformerEslId = id
 }
 
 func (c *envReleaseTrain) prognosis(
@@ -3367,13 +3367,24 @@ func (c *envReleaseTrain) Transform(
 				return "", fmt.Errorf("error getting latest release for app '%s' - %v", appName, err)
 			}
 			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
-			if err := addEventForRelease(ctx, state.Filesystem, releaseDir, &event.LockPreventedDeployment{
-				Application: appName,
-				Environment: c.Env,
-				LockMessage: prognosis.FirstLockMessage,
-				LockType:    "environment",
-			}); err != nil {
-				return "", err
+			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, prognosis.FirstLockMessage, "environment")
+
+			if state.DBHandler.ShouldUseOtherTables() {
+				commitID, err := getCommitID(ctx, transaction, state, state.Filesystem, prognosis.AppsPrognoses[appName].Version, releaseDir, appName)
+				if err != nil {
+					logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+				} else {
+					gen := getGenerator(ctx)
+					eventUuid := gen.Generate()
+					err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslId, eventUuid, commitID, newEvent)
+					if err != nil {
+						return "", GetCreateReleaseGeneralFailure(err)
+					}
+				}
+			} else {
+				if err := addEventForRelease(ctx, state.Filesystem, releaseDir, newEvent); err != nil {
+					return "", err
+				}
 			}
 		}
 
@@ -3416,7 +3427,8 @@ func (c *envReleaseTrain) Transform(
 				Upstream:    upstreamEnvName,
 				TargetGroup: c.TrainGroup,
 			},
-			Author: "",
+			Author:           "",
+			TransformerEslID: c.TransformerEslId,
 		}
 		if err := t.Execute(d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
