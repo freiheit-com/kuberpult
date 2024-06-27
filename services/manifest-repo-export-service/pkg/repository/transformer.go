@@ -93,8 +93,6 @@ func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
-	// Set
-	// Get
 }
 
 type TransformerContext interface {
@@ -278,7 +276,6 @@ func (c *DeployApplicationVersion) Transform(
 			file.Close()
 		}
 	}
-	//lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
@@ -346,7 +343,6 @@ func (c *DeployApplicationVersion) Transform(
 				if err := addEventForRelease(ctx, fsys, dbEvent.Uuid, releaseDir, ev); err != nil {
 					return "", err
 				}
-				//lockPreventedDeployment = true
 			}
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:

@@ -281,9 +281,8 @@ func TestDeploymentStorage(t *testing.T) {
 				SourceTrainEnvironmentGroup: nil,
 			},
 			metadata: event.Metadata{
-				AuthorEmail: "test@email.com",
-				Uuid:        "00000000-0000-0000-0000-000000000001",
-				EventType:   "deployment",
+				Uuid:      "00000000-0000-0000-0000-000000000001",
+				EventType: "deployment",
 			},
 		},
 	}
@@ -324,7 +323,7 @@ func TestDeploymentStorage(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Error creating transaction. Error: %v\n", err)
 				}
-				writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tx, 0, tc.metadata.Uuid, tc.commitHash, tc.email, &tc.event)
+				writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tx, 0, tc.metadata.Uuid, tc.commitHash, &tc.event)
 				if writeDeploymentError != nil {
 					t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
 				}
@@ -380,9 +379,8 @@ func TestLockPreventedStorage(t *testing.T) {
 				LockType:    "env",
 			},
 			metadata: event.Metadata{
-				AuthorEmail: "test@email.com",
-				Uuid:        "00000000-0000-0000-0000-000000000001",
-				EventType:   "lock-prevented-deployment",
+				Uuid:      "00000000-0000-0000-0000-000000000001",
+				EventType: "lock-prevented-deployment",
 			},
 		},
 	}
@@ -423,7 +421,7 @@ func TestLockPreventedStorage(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Error creating transaction. Error: %v\n", err)
 				}
-				writeDeploymentError := db.DBWriteLockPreventedDeploymentEvent(ctx, tx, 0, tc.metadata.Uuid, tc.commitHash, tc.email, &tc.event)
+				writeDeploymentError := db.DBWriteLockPreventedDeploymentEvent(ctx, tx, 0, tc.metadata.Uuid, tc.commitHash, &tc.event)
 				if writeDeploymentError != nil {
 					t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
 				}
