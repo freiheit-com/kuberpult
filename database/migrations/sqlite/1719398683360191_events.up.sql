@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS commit_events
     eventType VARCHAR(32),
     json VARCHAR,
     transformerEslId INTEGER,
-    PRIMARY KEY(uuid),
-    FOREIGN KEY(transformerEslId) REFERENCES event_sourcing_light(eslId)
+    PRIMARY KEY(uuid, transformerEslId),
+    FOREIGN KEY (transformerEslId) REFERENCES event_sourcing_light(eslId)
 );
 
 CREATE INDEX IF NOT EXISTS commitHashIdx on commit_events (commitHash);

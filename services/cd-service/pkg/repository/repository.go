@@ -1022,14 +1022,23 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				return nil, nil, nil, &applyErr
 			}
 			logger.FromContext(ctx).Info("writing esl event...")
-			ev, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
-			var id uint
-			if ev == nil {
-				id = 1
-			} else {
-				id = uint(ev.EslId) + 1
+			if r.DB.ShouldUseOtherTables() {
+				ev, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: err,
+						Index:            i,
+					}
+				}
+				var id uint
+				if ev == nil {
+					id = 1
+				} else {
+					id = uint(ev.EslId) + 1
+				}
+				t.SetEslID(id)
 			}
-			t.SetEslID(id)
+
 			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t)
 
 			if err != nil {

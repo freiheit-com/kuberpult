@@ -120,7 +120,7 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 		dbPool.SetConnMaxLifetime(5 * time.Minute)
 		return dbPool, nil
 	} else if cfg.DriverName == "sqlite3" {
-		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite"))
+		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite?_foreign_keys=on"))
 	}
 	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
 }
@@ -241,12 +241,13 @@ const (
 	EvtCreateEnvironmentApplicationLock EventType = "CreateEnvironmentApplicationLock"
 	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"
 	EvtReleaseTrain                     EventType = "ReleaseTrain"
+	EvtMigrationTransformer             EventType = "MigrationTransformer"
 )
 
 // ESL EVENTS
 
 // DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
-func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}) error {
+func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}, init ...bool) error {
 	if h == nil {
 		return nil
 	}
@@ -261,8 +262,12 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	if err != nil {
 		return fmt.Errorf("could not marshal json transformer: %w", err)
 	}
-
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
+	var insertQuery string
+	if len(init) > 0 && init[0] {
+		insertQuery = h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
+	} else {
+		insertQuery = h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
+	}
 
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
@@ -286,6 +291,12 @@ type EslEventRow struct {
 
 // DBReadEslEventInternal returns either the first or the last row of the esl table
 func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (*EslEventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBReadEslEventInternal: no transaction provided")
+	}
 	sort := "DESC"
 	if firstRow {
 		sort = "ASC"
@@ -746,6 +757,21 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
 }
 
+func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (*EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForTransformer: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommitOfType")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events ORDER BY timestamp DESC LIMIT 1;")
+	span.SetTag("query", query)
+	rows, err := transaction.QueryContext(ctx, query)
+	return h.processSingleEventsRow(ctx, rows, err)
+}
 func (h *DBHandler) DBSelectAllEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID uint, eventType event.EventType) (*EventRow, error) {
 	if h == nil {
 		return nil, nil
@@ -762,6 +788,10 @@ func (h *DBHandler) DBSelectAllEventsForTransformer(ctx context.Context, transac
 	fmt.Printf("Transformer Type: %v\n", transformerID)
 
 	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID)
+	return h.processSingleEventsRow(ctx, rows, err)
+}
+
+func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, err error) (*EventRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
 	}
@@ -810,7 +840,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
 	span.SetTag("query", query)
 
-	rows, err := h.DB.QueryContext(ctx, query, commitHash)
+	rows, err := transaction.QueryContext(ctx, query, commitHash)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
 	}
@@ -1002,7 +1032,11 @@ func (h *DBHandler) RunCustomMigrations(
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
-	err := h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
+	err := h.RunCustomMigrationsEventSourcingLight(ctx)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
@@ -1593,22 +1627,21 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 
 func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllEvents GetAllEventsFun) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-		//l := logger.FromContext(ctx).Sugar()
-		//allTeamLocksDb, err := h.DBSelectAnyDeploymentAttempt(ctx, transaction)
-		//if err != nil {
-		//	l.Infof("could not get queued deployments friom database - assuming the manifest repo is correct: %v", err)
-		//	allTeamLocksDb = nil
-		//}
-		//if allTeamLocksDb != nil {
-		//	l.Infof("There are already queued deployments in the DB - skipping migrations")
-		//	return nil
-		//}
+		l := logger.FromContext(ctx).Sugar()
+		ev, err := h.DBSelectAnyEvent(ctx, transaction)
+		if err != nil {
+			l.Infof("could not get commit events from database - assuming the manifest repo is correct: %v", err)
+			ev = nil
+		}
+		if ev != nil {
+			l.Infof("There are already commit events in the DB - skipping migrations")
+			return nil
+		}
 
 		allEvents, err := getAllEvents(ctx)
 		if err != nil {
-			return fmt.Errorf("could not get current queued versions to run custom migrations: %v", err)
+			return fmt.Errorf("could not get current commit events to run custom migrations: %v", err)
 		}
-		fmt.Printf("All Events: %v\n", allEvents)
 		for commitID, events := range allEvents {
 			for _, currentEvent := range events {
 				eventJson, err := json.Marshal(currentEvent)
@@ -1653,6 +1686,28 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 			}
 		}
 		return nil
+	})
+}
+
+type MigrationTransformer struct{}
+
+func (p *MigrationTransformer) GetDBEventType() EventType {
+	return EvtMigrationTransformer
+}
+
+// For commit_events migrations, we need some transformer to be on the database
+func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		l := logger.FromContext(ctx).Sugar()
+		eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, false)
+		if err != nil {
+			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+		}
+		if eslEvent != nil {
+			return nil
+		}
+		t := MigrationTransformer{}
+		return h.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, true)
 	})
 }
 

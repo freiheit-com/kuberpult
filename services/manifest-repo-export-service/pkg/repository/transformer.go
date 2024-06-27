@@ -19,6 +19,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -341,7 +342,7 @@ func (c *DeployApplicationVersion) Transform(
 				if dbEvent == nil {
 					return "", fmt.Errorf("Triggered event lock prevented deployment for transformer ID '%d', but none was found on database!", c.TransformerEslID)
 				}
-				ev := createLockPreventedDeploymentEvent(c.Application, c.Environment, lockType, lockMsg)
+				ev := createLockPreventedDeploymentEvent(c.Application, c.Environment, lockMsg, lockType)
 				if err := addEventForRelease(ctx, fsys, dbEvent.Uuid, releaseDir, ev); err != nil {
 					return "", err
 				}
@@ -1260,4 +1261,13 @@ func (c *ReleaseTrain) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	return "", nil
+}
+
+type MigrationTransformer struct{}
+
+func (c *MigrationTransformer) GetDBEventType() db.EventType {
+	return db.EvtMigrationTransformer
+}
+func (c *MigrationTransformer) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (string, error) {
+	return "Migration Transformer", nil
 }

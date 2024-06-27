@@ -436,7 +436,6 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	fmt.Printf("CreateApplicationVersion Transformer ID: %d\n", c.TransformerEslID)
 	version, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err
