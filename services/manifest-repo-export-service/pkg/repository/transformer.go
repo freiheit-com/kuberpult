@@ -76,6 +76,14 @@ func applicationDirectory(fs billy.Filesystem, application string) string {
 	return fs.Join("applications", application)
 }
 
+func environmentDirectory(fs billy.Filesystem, environment string) string {
+	return fs.Join("environments", environment)
+}
+
+func environmentApplicationDirectory(fs billy.Filesystem, environment, application string) string {
+	return fs.Join("environments", environment, "applications", application)
+}
+
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version uint64) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
 }
@@ -1152,4 +1160,55 @@ func (c *ReleaseTrain) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	return "", nil
+}
+
+type DeleteEnvFromApp struct {
+	Authentication      `json:"-"`
+	TransformerMetadata `json:"metadata"`
+	Environment         string `json:"environment"`
+	Application         string `json:"application"`
+}
+
+func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvFromApp
+}
+
+func (u *DeleteEnvFromApp) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transsaction *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+
+	thisSprintf := func(format string, a ...any) string {
+		return fmt.Sprintf("DeleteEnvFromApp app '%s' on env '%s': %s", u.Application, u.Environment, fmt.Sprintf(format, a...))
+	}
+
+	if u.Application == "" {
+		return "", fmt.Errorf(thisSprintf("Need to provide the application"))
+	}
+
+	if u.Environment == "" {
+		return "", fmt.Errorf(thisSprintf("Need to provide the environment"))
+	}
+
+	envAppDir := environmentApplicationDirectory(fs, u.Environment, u.Application)
+	entries, err := fs.ReadDir(envAppDir)
+	if err != nil {
+		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory. Does the app exist?"))
+	}
+
+	if entries == nil {
+		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
+		return fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist.", u.Environment, u.Application), nil
+	}
+
+	err = fs.Remove(envAppDir)
+	if err != nil {
+		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
+	}
+
+	t.DeleteEnvFromApp(u.Application, u.Environment)
+	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
 }
