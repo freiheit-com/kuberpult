@@ -481,6 +481,14 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					if !cmp.Equal(actualFileData, expectedFile.fileData) {
 						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
 					}
+					if tc.ExpectedAuthor != nil {
+						if !cmp.Equal(updatedState.Commit.Author().Name, (*tc.ExpectedAuthor)["Name"]) {
+							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Name"], updatedState.Commit.Author().Name)
+						}
+						if !cmp.Equal(updatedState.Commit.Author().Email, (*tc.ExpectedAuthor)["Email"]) {
+							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Email"], updatedState.Commit.Author().Email)
+						}
+					}
 				}
 			}
 		})
@@ -644,14 +652,6 @@ func TestDepoymentEvent(t *testing.T) {
 
 					if !cmp.Equal(actualFileData, expectedFile.fileData) {
 						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-					}
-					if tc.ExpectedAuthor != nil {
-						if !cmp.Equal(updatedState.Commit.Author().Name, (*tc.ExpectedAuthor)["Name"]) {
-							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Name"], updatedState.Commit.Author().Name)
-						}
-						if !cmp.Equal(updatedState.Commit.Author().Email, (*tc.ExpectedAuthor)["Email"]) {
-							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Email"], updatedState.Commit.Author().Email)
-						}
 					}
 				}
 			}

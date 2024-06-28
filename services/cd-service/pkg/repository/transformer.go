@@ -601,7 +601,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, fs)
+		err = writeCommitData(ctx, transaction, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, fs)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -726,7 +726,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, fs billy.Filesystem) error {
+func writeCommitData(ctx context.Context, transaction *sql.Tx, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, fs billy.Filesystem) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
