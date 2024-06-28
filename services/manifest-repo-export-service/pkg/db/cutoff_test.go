@@ -62,7 +62,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				i := 0
 				for i < len(tc.eslId) {
 					//Write bogus transformer for FK reasons
-					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(tf))
+					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(tf), db.ESLMetadata{})
 					if err != nil {
 						return err
 					}
