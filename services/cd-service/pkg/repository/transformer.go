@@ -1357,8 +1357,10 @@ func (u *DeleteEnvFromApp) Transform(
 				}
 			}
 			newRelese := db.DBReleaseWithMetaData{
+				EslId:         dbReleaseWithMetadata.EslId + 1,
 				ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
 				App:           dbReleaseWithMetadata.App,
+				Created:       time.Now().UTC(),
 				Manifests:     db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:      dbReleaseWithMetadata.Metadata,
 				Deleted:       dbReleaseWithMetadata.Deleted,
