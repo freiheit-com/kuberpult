@@ -43,6 +43,9 @@ func (c *FrontendConfigServiceServer) GetConfig(
 				CloudInstance: c.Config.Auth.AzureAuth.CloudInstance,
 				RedirectUrl:   c.Config.Auth.AzureAuth.RedirectURL,
 			},
+			DexAuth: &api.GetFrontendConfigResponse_Auth_DexAuthConfig{
+				Enabled: c.Config.Auth.DexAuthConfig.Enabled,
+			},
 		},
 		SourceRepoUrl:    c.Config.SourceRepoUrl,
 		ManifestRepoUrl:  c.Config.ManifestRepoUrl,

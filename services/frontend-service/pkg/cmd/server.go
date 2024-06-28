@@ -316,6 +316,9 @@ func runServer(ctx context.Context) error {
 					RedirectURL:   c.AzureRedirectUrl,
 					CloudInstance: c.AzureCloudInstance,
 				},
+				DexAuthConfig: &config.DexAuthConfig{
+					Enabled: c.DexEnabled,
+				},
 			},
 			ManifestRepoUrl:  c.ManifestRepoUrl,
 			SourceRepoUrl:    c.SourceRepoUrl,

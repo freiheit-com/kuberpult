@@ -73,6 +73,10 @@ export const App: React.FC = () => {
             .then(
                 (result: GetFrontendConfigResponse) => {
                     UpdateFrontendConfig.set({ configs: result, configReady: true });
+                    if (result.authConfig?.dexAuth?.enabled) {
+                        // eslint-disable-next-line no-console
+                        console.log('Dex is enabled lets redirect ');
+                    }
                 },
                 (error) => {
                     // eslint-disable-next-line no-console
