@@ -528,6 +528,8 @@ func listFilesHelper(fs billy.Filesystem, path string) []string {
 
 func TestDepoymentEvent(t *testing.T) {
 	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
 	tcs := []struct {
 		Name                string
 		Transformers        []Transformer
@@ -550,6 +552,10 @@ func TestDepoymentEvent(t *testing.T) {
 					WriteCommitData:  true,
 					Version:          1,
 					TransformerEslID: 0,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 				&DeployApplicationVersion{
 					Application:      appName,
@@ -557,6 +563,10 @@ func TestDepoymentEvent(t *testing.T) {
 					WriteCommitData:  true,
 					Version:          1,
 					TransformerEslID: 0,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
 				},
 			},
 			Event: event.Deployment{

@@ -1739,7 +1739,7 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
 	defer span.Finish()
 
-	jsonToInsert, err := json.Marshal("{}")
+	jsonToInsert, err := json.Marshal("{metadata: \"\"}")
 
 	if err != nil {
 		return fmt.Errorf("could not marshal json transformer: %w", err)
