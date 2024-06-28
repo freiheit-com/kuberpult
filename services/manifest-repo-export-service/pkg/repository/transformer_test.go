@@ -404,7 +404,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
-			updatedState := repo.State()
 			if tc.ExpectedFile != nil {
 				for i := range tc.ExpectedFile {
 					expectedFile := tc.ExpectedFile[i]
