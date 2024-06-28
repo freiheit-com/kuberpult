@@ -76,10 +76,6 @@ func applicationDirectory(fs billy.Filesystem, application string) string {
 	return fs.Join("applications", application)
 }
 
-func environmentDirectory(fs billy.Filesystem, environment string) string {
-	return fs.Join("environments", environment)
-}
-
 func environmentApplicationDirectory(fs billy.Filesystem, environment, application string) string {
 	return fs.Join("environments", environment, "applications", application)
 }
