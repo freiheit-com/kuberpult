@@ -749,6 +749,22 @@ func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transfo
 	return nil
 }
 
+func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeNewRelease),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     newReleaseEvent,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling lock new release event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
+}
+
 func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
 	metadata := event.Metadata{
 		Uuid:      uuid,
