@@ -601,7 +601,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, transaction, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, fs)
+		err = writeCommitData(ctx, state.DBHandler, transaction, c.TransformerEslID, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, state)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -726,7 +726,8 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, transaction *sql.Tx, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, fs billy.Filesystem) error {
+func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, transformerEslID uint, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, state *State) error {
+	fs := state.Filesystem
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
@@ -762,11 +763,20 @@ func writeCommitData(ctx context.Context, transaction *sql.Tx, sourceCommitId st
 	for _, env := range environments {
 		envMap[env] = struct{}{}
 	}
-	err := writeEvent(ctx, eventId, sourceCommitId, fs, &event.NewRelease{
+
+	ev := &event.NewRelease{
 		Environments: envMap,
-	})
-	if err != nil {
-		return fmt.Errorf("error while writing event: %v", err)
+	}
+	var writeError error
+	if h.ShouldUseEslTable() {
+		fmt.Println("Creating new release!")
+		writeError = writeEventToDB(ctx, transaction, transformerEslID, sourceCommitId, state, event.EventTypeNewRelease, ev)
+	} else {
+		writeError = writeEvent(ctx, eventId, sourceCommitId, fs, ev)
+	}
+
+	if writeError != nil {
+		return fmt.Errorf("error while writing event: %v", writeError)
 	}
 	return nil
 }
@@ -805,6 +815,36 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 			return err
 		}
 	}
+	return nil
+}
+
+func writeEventToDB(ctx context.Context, transaction *sql.Tx, transformedID uint, sourceCommitId string, state *State, eventType event.EventType, ev event.Event) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "writeEventToDB")
+	defer span.Finish()
+	var err error
+	gen := getGenerator(ctx)
+	eventUuid := gen.Generate()
+
+	switch eventType {
+	case "new-release":
+		err = state.DBHandler.DBWriteNewReleaseEvent(ctx, transaction, transformedID, eventUuid, sourceCommitId, ev.(*event.NewRelease))
+	case "deployment":
+		//exhaustruct:ignore
+		err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, transformedID, eventUuid, sourceCommitId, ev.(*event.Deployment))
+	case "lock-prevented-deployment":
+		//exhaustruct:ignore
+		err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, transformedID, eventUuid, sourceCommitId, ev.(*event.LockPreventedDeployment))
+	case "replaced-by":
+		//exhaustruct:ignore
+		return fmt.Errorf("unknown event type: %q", eventType)
+	default:
+		return fmt.Errorf("unknown event type: %q", eventType)
+	}
+
+	if err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+
 	return nil
 }
 
