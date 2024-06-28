@@ -30,6 +30,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"google.golang.org/grpc/codes"
@@ -65,6 +66,12 @@ const (
 	fieldTeam = "team"
 )
 
+type ctxMarkerGenerateUuid struct{}
+
+var (
+	ctxMarkerGenerateUuidKey = &ctxMarkerGenerateUuid{}
+)
+
 func versionToString(Version uint64) string {
 	return strconv.FormatUint(Version, 10)
 }
@@ -87,6 +94,10 @@ func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application strin
 
 func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
 	return fs.Join(commitDirectory(fs, commit), "events", eventId)
+}
+
+func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.Context {
+	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
 // A Transformer updates the files in the worktree

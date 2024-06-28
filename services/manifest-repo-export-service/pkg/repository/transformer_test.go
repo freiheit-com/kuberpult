@@ -19,8 +19,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/go-git/go-billy/v5"
 	"os/exec"
 	"path"
+	"sort"
+	"strings"
 	"testing"
 
 	// "github.com/freiheit-com/kuberpult/pkg/config"
@@ -357,12 +362,13 @@ func TestTransformerWorksWithDb(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
-
 			ctx := context.Background()
+
 			dbHandler := repo.State().DBHandler
 			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				// setup:
 				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+
 				err := dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
@@ -389,7 +395,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					return err
 				}
 				// actual transformer to be tested:
-				err = repo.Apply(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
@@ -398,7 +404,171 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
+			updatedState := repo.State()
+			if tc.ExpectedFile != nil {
+				for i := range tc.ExpectedFile {
+					expectedFile := tc.ExpectedFile[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
 
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
+			}
+		})
+	}
+}
+func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
+	for _, contentRequirement := range required {
+		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
+			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
+		} else if string(data) != string(contentRequirement.fileData) {
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
+		}
+	}
+	return nil
+}
+
+func listFiles(fs billy.Filesystem) []string {
+	paths := listFilesHelper(fs, ".")
+	sort.Slice(paths, func(i, j int) bool { return paths[i] < paths[j] })
+	return paths
+}
+
+func listFilesHelper(fs billy.Filesystem, path string) []string {
+	ret := make([]string, 0)
+
+	files, err := fs.ReadDir(path)
+	if err == nil {
+		for _, file := range files {
+			ret = append(ret, listFilesHelper(fs, fs.Join(path, file.Name()))...)
+		}
+	} else {
+		ret = append(ret, path)
+	}
+
+	return ret
+}
+
+func TestDepoymentEvent(t *testing.T) {
+	const appName = "myapp"
+	tcs := []struct {
+		Name                string
+		Transformers        []Transformer
+		ExpectedError       error
+		Event               event.Deployment
+		ExpectedApp         *db.DBAppWithMetaData
+		ExpectedAllReleases *db.DBReleaseWithMetaData
+		ExpectedFile        []*FilenameAndData
+	}{
+		{
+			Name: "Test Deploy Application event", //ReleaseLimit is 2
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					Team:             "my-team",
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&DeployApplicationVersion{
+					Application:      appName,
+					Environment:      "staging",
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 0,
+				},
+			},
+			Event: event.Deployment{
+				Application: appName,
+				Environment: "staging",
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
+					fileData: []byte(appName),
+				},
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
+					fileData: []byte("staging"),
+				},
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
+					fileData: []byte(appName),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			//ctx := context.Background()
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &tc.Event)
+
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					EslId:         0,
+					ReleaseNumber: 1,
+					Created:       time.Time{},
+					App:           appName,
+					Manifests:     db.DBReleaseManifests{},
+					Metadata:      db.DBReleaseMetaData{},
+				}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
 			if tc.ExpectedFile != nil {
 				for i := range tc.ExpectedFile {
 					expectedFile := tc.ExpectedFile[i]

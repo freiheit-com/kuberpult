@@ -1680,6 +1680,9 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 	})
 }
 
+// MigrationTransformer : The commit events have a field on the database that corresponds to the eslid of the transformer
+// that generated them. Commit events that were imported from the manifest upon database migrations don't have a reference transformer.
+// When we perform the migrations, we create a MigrationTransformer that serves as the reference to those events.
 type MigrationTransformer struct{}
 
 func (p *MigrationTransformer) GetDBEventType() EventType {
@@ -1700,27 +1703,40 @@ func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) e
 		}
 		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
 		defer span.Finish()
-		t := MigrationTransformer{}
-		jsonToInsert, err := json.Marshal(interface{}(t))
-
-		if err != nil {
-			return fmt.Errorf("could not marshal json transformer: %w", err)
-		}
-
-		insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
-
-		span.SetTag("query", insertQuery)
-		_, err = transaction.Exec(
-			insertQuery,
-			time.Now().UTC(),
-			t.GetDBEventType(),
-			jsonToInsert)
-
-		if err != nil {
-			return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
-		}
-		return nil
+		return h.DBWriteMigrationsTransformer(ctx, transaction)
 	})
+}
+
+func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transaction *sql.Tx) error {
+	if h == nil {
+		return nil
+	}
+	if transaction == nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer: no transaction provided")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
+	defer span.Finish()
+	t := MigrationTransformer{}
+	jsonToInsert, err := json.Marshal(interface{}(t))
+
+	if err != nil {
+		return fmt.Errorf("could not marshal json transformer: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err = transaction.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		t.GetDBEventType(),
+		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+	}
+	return nil
 }
 
 func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
