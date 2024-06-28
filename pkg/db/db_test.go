@@ -1605,6 +1605,125 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 	}
 }
 
+func TestReadReleasesByApp(t *testing.T) {
+
+	tcs := []struct {
+		Name        string
+		Releases    []DBReleaseWithMetaData
+		AppName     string
+		Expected    []*DBReleaseWithMetaData
+		ExpectedErr error
+	}{
+		{
+			Name: "Retrieve one release",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslId:         1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName: "app1",
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslId:         1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+		},
+		{
+			Name: "Retrieve multiple releases",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslId:         2,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslId:         2,
+					ReleaseNumber: 20,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+				},
+				{
+					EslId:         1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+				},
+				{
+					EslId:         2,
+					ReleaseNumber: 20,
+					App:           "app2",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest4"}},
+				},
+			},
+			AppName: "app1",
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslId:         2,
+					ReleaseNumber: 20,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+				},
+				{
+					EslId:         2,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+		},
+		{
+			Name: "Retrieve no releases",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslId:         2,
+					ReleaseNumber: 10,
+					App:           "app2",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName:  "app1`",
+			Expected: nil,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, release := range tc.Releases {
+					err := dbHandler.DBInsertRelease(ctx, transaction, release, release.EslId-1)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				releases, err := dbHandler.DBSelectReleasesByApp(ctx, transaction, tc.AppName)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+				if diff := cmp.Diff(tc.Expected, releases, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
+					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
 	dir, err := testutil.CreateMigrationsPath(2)
