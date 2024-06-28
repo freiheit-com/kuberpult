@@ -246,8 +246,13 @@ const (
 
 // ESL EVENTS
 
+type ESLMetadata struct {
+	AuthorName  string `json:"authorName"`
+	AuthorEmail string `json:"authorEmail"`
+}
+
 // DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
-func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}) error {
+func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}, metadata ESLMetadata) error {
 	if h == nil {
 		return nil
 	}
@@ -257,10 +262,19 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
 
-	jsonToInsert, err := json.Marshal(data)
+	dataMap, err := convertObjectToMap(data)
 
 	if err != nil {
-		return fmt.Errorf("could not marshal json data: %w", err)
+		return fmt.Errorf("could not convert object to map: %w", err)
+	}
+	metadataMap, err := convertObjectToMap(metadata)
+	if err != nil {
+		return fmt.Errorf("could not convert object to map: %w", err)
+	}
+	dataMap["metadata"] = metadataMap
+	jsonToInsert, err := json.Marshal(dataMap)
+	if err != nil {
+		return fmt.Errorf("could not marshal combined json data: %w", err)
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
@@ -276,6 +290,22 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
 	}
 	return nil
+}
+
+func convertObjectToMap(obj interface{}) (map[string]interface{}, error) {
+	if obj == nil {
+		return map[string]interface{}{}, nil
+	}
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	var result = make(map[string]interface{})
+	err = json.Unmarshal(data, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 type EslEventRow struct {
@@ -1680,15 +1710,6 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 	})
 }
 
-// MigrationTransformer : The commit events have a field on the database that corresponds to the eslid of the transformer
-// that generated them. Commit events that were imported from the manifest upon database migrations don't have a reference transformer.
-// When we perform the migrations, we create a MigrationTransformer that serves as the reference to those events.
-type MigrationTransformer struct{}
-
-func (p *MigrationTransformer) GetDBEventType() EventType {
-	return EvtMigrationTransformer
-}
-
 // For commit_events migrations, we need some transformer to be on the database before we run their migrations.
 func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1717,8 +1738,8 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
 	defer span.Finish()
-	t := MigrationTransformer{}
-	jsonToInsert, err := json.Marshal(interface{}(t))
+
+	jsonToInsert, err := json.Marshal("{}")
 
 	if err != nil {
 		return fmt.Errorf("could not marshal json transformer: %w", err)
@@ -1730,7 +1751,7 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	_, err = transaction.Exec(
 		insertQuery,
 		time.Now().UTC(),
-		t.GetDBEventType(),
+		EvtMigrationTransformer,
 		jsonToInsert)
 
 	if err != nil {

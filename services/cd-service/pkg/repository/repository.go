@@ -1022,6 +1022,14 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				return nil, nil, nil, &applyErr
 			}
 			logger.FromContext(ctx).Info("writing esl event...")
+			user, readUserErr := auth.ReadUserFromContext(ctx)
+
+			if readUserErr != nil {
+				return nil, nil, nil, &TransformerBatchApplyError{
+					TransformerError: readUserErr,
+					Index:            -1,
+				}
+			}
 			if r.DB.ShouldUseOtherTables() {
 				ev, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
 				if err != nil {
@@ -1039,8 +1047,11 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				t.SetEslID(id)
 			}
 
-			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t)
-
+			eventMetadata := db.ESLMetadata{
+				AuthorName:  user.Name,
+				AuthorEmail: user.Email,
+			}
+			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
 			if err != nil {
 				return nil, nil, nil, &TransformerBatchApplyError{
 					TransformerError: err,
