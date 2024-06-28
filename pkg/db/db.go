@@ -560,6 +560,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	var result []*DBReleaseWithMetaData
 	var maxEslId EslId = -1
 	for rows.Next() {
+		//exhaustruct:ignore
 		var row = &DBReleaseWithMetaData{}
 		var metadataStr string
 		var manifestStr string
