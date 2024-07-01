@@ -35,6 +35,9 @@
 {{- if not (or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") (eq .Values.cd.db.dbOption "NO_DB")) }}
 {{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, sqlite, cloudsql)."}}
 {{ end -}}
+{{- if (and (.Values.cd.db.dbOption.cloudSqlProxyEnabled) (eq .Values.cd.db.dbOption "NO_DB") }}
+{{ fail "Cloudsql proxy cannot be used with NO_DB option"}}
+{{ end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -79,7 +82,7 @@ spec:
       serviceAccountName: {{ .Values.cd.db.k8sName }}  
 {{- end }} 
       containers:
-{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+{{- if .Values.cd.db.dbOption.cloudSqlProxyEnabled }}
       - name: cloud-sql-proxy
         # It is recommended to use the latest version of the Cloud SQL Auth Proxy
         # Make sure to update on a regular schedule!

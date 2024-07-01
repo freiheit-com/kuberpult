@@ -108,6 +108,8 @@ cd:
 # k8sName is required if `dbOption = "cloudsql"`, otherwise it's ignored.
 # k8sName is the name of the kubernetes service account.
     k8sName: "k8sname"
+# cloudSqlProxyEnabled enables the cloudsql proxy. Not possible with `dbOption = "NO_DB"`.
+    cloudSqlProxyEnabled: false
     dbConnectionName: "connectioname"
     dbName: "databaseName"
     dbUser: "username"
