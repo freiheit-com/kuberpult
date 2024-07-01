@@ -101,7 +101,7 @@ cd:
     authProxyPort: 5432
 # As the Database feature is still work in progress, for now we recommend to set:
 # dbOption: "NO_DB"
-# Other valid values are "cloudsql" and "sqlite".
+# Other valid values are "cloudsql".
 # If you do want to try out the database, for now use
 # writeEslTableOnly: true
     dbOption: "NO_DB"
