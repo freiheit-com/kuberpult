@@ -1335,6 +1335,122 @@ func TestEvents(t *testing.T) {
 	}
 }
 
+func TestDeleteEnvFromAppWithDB(t *testing.T) {
+	firstRelease := db.DBReleaseWithMetaData{
+		EslId:         1,
+		ReleaseNumber: 10,
+		App:           "app",
+		Manifests: db.DBReleaseManifests{
+			Manifests: map[string]string{
+				"env":  "testenvmanifest",
+				"env2": "testenvmanifest2",
+			},
+		},
+		Metadata: db.DBReleaseMetaData{
+			SourceAuthor:   "test",
+			SourceMessage:  "test",
+			SourceCommitId: "test",
+			DisplayVersion: "test",
+		},
+	}
+	secondRelease := db.DBReleaseWithMetaData{
+		EslId:         1,
+		ReleaseNumber: 11,
+		App:           "app",
+		Manifests: db.DBReleaseManifests{
+			Manifests: map[string]string{
+				"env1": "testenvmanifest",
+				"env2": "testenvmanifest2",
+			},
+		},
+		Metadata: db.DBReleaseMetaData{
+			SourceAuthor:   "test",
+			SourceMessage:  "test",
+			SourceCommitId: "test",
+			DisplayVersion: "test",
+		},
+	}
+	tcs := []struct {
+		Name              string
+		PrevReleases      []db.DBReleaseWithMetaData
+		Transforms        []Transformer
+		ExpectedManifests map[string]string
+	}{
+		{
+			Name:         "Simple Delete Env From App",
+			PrevReleases: []db.DBReleaseWithMetaData{firstRelease},
+			Transforms: []Transformer{
+				&DeleteEnvFromApp{
+					Application: firstRelease.App,
+					Environment: "env",
+				},
+			},
+			ExpectedManifests: map[string]string{
+				"env2": "testenvmanifest2",
+			},
+		},
+		{
+			Name:         "Delete Env that doesn't exist",
+			PrevReleases: []db.DBReleaseWithMetaData{firstRelease},
+			Transforms: []Transformer{
+				&DeleteEnvFromApp{
+					Application: firstRelease.App,
+					Environment: "env3",
+				},
+			},
+			ExpectedManifests: firstRelease.Manifests.Manifests,
+		},
+		{
+			Name:         "Multiple Manifests",
+			PrevReleases: []db.DBReleaseWithMetaData{firstRelease, secondRelease},
+			Transforms: []Transformer{
+				&DeleteEnvFromApp{
+					Application: firstRelease.App,
+					Environment: "env",
+				},
+			},
+			ExpectedManifests: map[string]string{
+				"env2": "testenvmanifest2",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, release := range tc.PrevReleases {
+					repo.State().DBHandler.DBInsertRelease(ctx, transaction, release, 0)
+				}
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transforms...)
+				if err != nil {
+					return fmt.Errorf("error: %v", err)
+				}
+				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, firstRelease.App, false)
+				if err2 != nil {
+					return fmt.Errorf("error retrieving release: %v", err2)
+				}
+				for _, release := range releases {
+					if diff := cmp.Diff(firstRelease.EslId+1, release.EslId); diff != "" {
+						return fmt.Errorf("error mismatch ReleaseNumber - want, +got:\n%s", diff)
+					}
+					for env, manifest := range tc.ExpectedManifests {
+						if diff := cmp.Diff(manifest, release.Manifests.Manifests[env]); diff != "" {
+							return fmt.Errorf("error mismatch Manifests - want, +got:\n%s", diff)
+						}
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+		})
+	}
+}
+
 func version(v int) *int64 {
 	var result = int64(v)
 	return &result

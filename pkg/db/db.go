@@ -452,7 +452,14 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 		ctx,
 		selectQuery,
 	)
-	return h.processReleaseRow(ctx, err, rows)
+	processedRows, err := h.processReleaseRows(ctx, err, rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(processedRows) == 0 {
+		return nil, nil
+	}
+	return processedRows[0], nil
 }
 
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
@@ -468,7 +475,31 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 		app,
 		releaseVersion,
 	)
-	return h.processReleaseRow(ctx, err, rows)
+
+	processedRows, err := h.processReleaseRows(ctx, err, rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(processedRows) == 0 {
+		return nil, nil
+	}
+	return processedRows[0], nil
+}
+
+func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool) ([]*DBReleaseWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
+			" FROM releases " +
+			" WHERE appName=? AND deleted=?" +
+			" ORDER BY releaseVersion DESC, eslVersion DESC, created DESC;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+		deleted,
+	)
+
+	return h.processReleaseRows(ctx, err, rows)
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
@@ -524,8 +555,7 @@ func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *
 	}
 	return row, nil
 }
-
-func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.Rows) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows) ([]*DBReleaseWithMetaData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -536,8 +566,11 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 		}
 	}(rows)
 	//exhaustruct:ignore
-	var row = &DBReleaseWithMetaData{}
-	if rows.Next() {
+	var result []*DBReleaseWithMetaData
+	var lastSeenRelease uint64 = 0
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row = &DBReleaseWithMetaData{}
 		var metadataStr string
 		var manifestStr string
 		err := rows.Scan(&row.EslId, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber, &row.Deleted)
@@ -546,6 +579,11 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 				return nil, nil
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		if row.ReleaseNumber != lastSeenRelease {
+			lastSeenRelease = row.ReleaseNumber
+		} else {
+			continue
 		}
 		// handle meta data
 		var metaData = DBReleaseMetaData{
@@ -569,15 +607,13 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 			return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
 		}
 		row.Manifests = manifestData
-
-	} else {
-		row = nil
+		result = append(result, row)
 	}
 	err = closeRows(rows)
 	if err != nil {
 		return nil, err
 	}
-	return row, nil
+	return result, nil
 }
 
 func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslId) error {
