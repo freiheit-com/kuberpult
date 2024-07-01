@@ -126,6 +126,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 		ExpectedAllReleases *db.DBReleaseWithMetaData
 		ExpectedFile        []*FilenameAndData
 		ExpectedAuthor      *map[string]string
+		ExpectedDeletedFile string
 	}{
 		{
 			// as of now we only have the DeployApplicationVersion transformer,
@@ -415,6 +416,62 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Create an environment and delete it",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:  Authentication{},
+					Environment:     "staging",
+					Application:     appName,
+					Version:         1,
+					LockBehaviour:   0,
+					WriteCommitData: true,
+					SourceTrain:     nil,
+					Author:          authorEmail,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteEnvFromApp{
+					Environment: "staging",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					Application: appName,
+				},
+			},
+			ExpectedDeletedFile: "/environments/staging/applications/" + appName + "/deployed_by",
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -484,6 +541,14 @@ func TestTransformerWorksWithDb(t *testing.T) {
 							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Email"], updatedState.Commit.Author().Email)
 						}
 					}
+				}
+			}
+			if tc.ExpectedDeletedFile != "" {
+				updatedState := repo.State()
+				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.ExpectedDeletedFile)
+				_, err := util.ReadFile(updatedState.Filesystem, fullPath)
+				if err == nil {
+					t.Fatalf("Expected file to be deleted but it exists: %s", fullPath)
 				}
 			}
 		})
