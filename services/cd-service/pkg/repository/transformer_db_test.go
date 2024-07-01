@@ -1268,7 +1268,7 @@ func TestEvents(t *testing.T) {
 					LockId:      "my-lock",
 					Message:     "my-message",
 				},
-				&CreateApplicationVersion{ //This will create a
+				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					Manifests: map[string]string{
