@@ -41,6 +41,10 @@ type eventType struct {
 	EventType string `fs:"eventType"`
 }
 
+type Types interface {
+	NewRelease | Deployment | LockPreventedDeployment | ReplacedBy
+}
+
 // NewRelease is an event that denotes that a commit has been released
 // for the first time.
 type NewRelease struct {
@@ -220,9 +224,13 @@ func UnMarshallEvent(eventType EventType, eventJson string) (DBEventGo, error) {
 
 // Write an event to a filesystem
 func Write(filesystem billy.Filesystem, eventDir string, event Event) error {
-	_, err := filesystem.Stat(eventDir)
+	file, err := filesystem.Stat(eventDir)
+
 	if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("event file already exists: %w", err)
+		if err == nil {
+			fmt.Printf("File: %s, %s, %t", file.Name(), file.Mode(), file.IsDir())
+		}
+		return fmt.Errorf("event file already exists: %v", err)
 	}
 	if err := write(filesystem, eventDir, eventType{
 		EventType: event.eventType(),
@@ -240,6 +248,15 @@ func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 		Uuid:      eventID.String(),
 	}
 	ev.toProto(result)
+	return result
+}
+
+func CastToDeployment(genericEvents []Event) []*Deployment {
+	var result []*Deployment
+
+	for _, gEvent := range genericEvents {
+		result = append(result, gEvent.(*Deployment))
+	}
 	return result
 }
 

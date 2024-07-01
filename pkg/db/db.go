@@ -796,21 +796,57 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 	rows, err := transaction.QueryContext(ctx, query)
 	return h.processSingleEventsRow(ctx, rows, err)
 }
-func (h *DBHandler) DBSelectAllEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID uint, eventType event.EventType) (*EventRow, error) {
+func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID uint, eventType event.EventType) ([]event.DBEventGo, error) {
 	if h == nil {
 		return nil, nil
 	}
 	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAllEventsForTransformer: no transaction provided")
+		return nil, fmt.Errorf("DBSelectAllCommitEventsForTransformer: no transaction provided")
 	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForTransformer")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllCommitEventsForTransformer")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE eventType = (?) AND transformerEslId = (?) ORDER BY timestamp DESC LIMIT 1;")
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE eventType = (?) AND transformerEslId = (?) ORDER BY timestamp DESC;")
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID)
-	return h.processSingleEventsRow(ctx, rows, err)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
+		}
+	}(rows)
+
+	var result []event.DBEventGo
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row = &EventRow{}
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+		}
+
+		eventGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
+		if err != nil {
+			return nil, fmt.Errorf("Could not unmarshall commit event: %v\n", err)
+		}
+		result = append(result, eventGo)
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+	}
+	return result, nil
 }
 
 func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, err error) (*EventRow, error) {
@@ -1739,7 +1775,14 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
 	defer span.Finish()
 
-	jsonToInsert, err := json.Marshal("{metadata: \"\"}")
+	dataMap := make(map[string]interface{})
+	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
+	metadataMap, err := convertObjectToMap(metadata)
+	if err != nil {
+		return fmt.Errorf("could not convert object to map: %w", err)
+	}
+	dataMap["metadata"] = metadataMap
+	jsonToInsert, err := json.Marshal(dataMap)
 
 	if err != nil {
 		return fmt.Errorf("could not marshal json transformer: %w", err)

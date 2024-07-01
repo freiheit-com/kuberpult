@@ -329,40 +329,18 @@ func (c *DeployApplicationVersion) Transform(
 
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			if c.WriteCommitData {
-				var lockType, lockMsg string
-				if len(envLocks) > 0 {
-					lockType = "environment"
-					for _, lock := range envLocks {
-						lockMsg = lock.Message
-						break
-					}
-				} else {
-					if len(appLocks) > 0 {
-						lockType = "application"
-						for _, lock := range appLocks {
-							lockMsg = lock.Message
-							break
-						}
-					} else {
-						lockType = "team"
-						for _, lock := range teamLocks {
-							lockMsg = lock.Message
-							break
-						}
-					}
-
-				}
-
-				dbEvent, err := state.DBHandler.DBSelectAllEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeLockPreventeDeployment)
+				dbEvents, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeLockPreventeDeployment)
 				if err != nil {
 					return "", err
 				}
 
-				if dbEvent == nil {
+				targetEvent, eventUUID, err := parseDBCommitEvents(dbEvents, event.EventTypeLockPreventeDeployment, c.Application, c.Environment)
+
+				if targetEvent == nil {
 					return "", fmt.Errorf("Triggered event lock prevented deployment for transformer ID '%d', but none was found on database!", c.TransformerEslID)
 				}
-				ev := createLockPreventedDeploymentEvent(c.Application, c.Environment, lockMsg, lockType)
-				if err := addEventForRelease(ctx, fsys, dbEvent.Uuid, releaseDir, ev); err != nil {
+
+				if err := addEventForRelease(ctx, fsys, eventUUID, releaseDir, *targetEvent); err != nil {
 					return "", err
 				}
 			}
@@ -456,35 +434,50 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if c.WriteCommitData { // write the corresponding event
-		dbEvent, err := state.DBHandler.DBSelectAllEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeDeployment)
+		dbEvents, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeDeployment)
 		if err != nil {
 			return "", err
 		}
-		if dbEvent == nil {
-			return "", fmt.Errorf("Triggered event deployment for transformer ID '%d', but none was found on database!", c.TransformerEslID)
+		targetEvent, eventUUID, err := parseDBCommitEvents(dbEvents, event.EventTypeDeployment, c.Application, c.Environment)
+
+		if targetEvent == nil {
+			return "", fmt.Errorf("Triggered deployment event for transformer ID '%d', but none was found on database!", c.TransformerEslID)
 		}
-		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
-		if err := addEventForRelease(ctx, fsys, dbEvent.Uuid, releaseDir, deploymentEvent); err != nil {
+		if err := addEventForRelease(ctx, fsys, eventUUID, releaseDir, *targetEvent); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
-func createDeploymentEvent(application, environment string, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
-	ev := event.Deployment{
-		SourceTrainEnvironmentGroup: nil,
-		SourceTrainUpstream:         nil,
-		Application:                 application,
-		Environment:                 environment,
+func parseDBCommitEvents(dbEvents []event.DBEventGo, eType event.EventType, targetApp, targetEnv string) (*event.Event, string, error) {
+	if eType == event.EventTypeNewRelease {
+		return nil, "", nil
 	}
-	if sourceTrain != nil {
-		if sourceTrain.TargetGroup != nil {
-			ev.SourceTrainEnvironmentGroup = sourceTrain.TargetGroup
+
+	for _, goEvent := range dbEvents {
+		var app string
+		var env string
+
+		switch eType {
+		case "deployment":
+			app = goEvent.EventData.(*event.Deployment).Application
+			env = goEvent.EventData.(*event.Deployment).Environment
+		case "lock-prevented-deployment":
+			app = goEvent.EventData.(*event.LockPreventedDeployment).Application
+			env = goEvent.EventData.(*event.LockPreventedDeployment).Environment
+		case "replaced-by":
+			app = goEvent.EventData.(*event.ReplacedBy).Application
+			env = goEvent.EventData.(*event.ReplacedBy).Environment
+		default:
+			return nil, "", fmt.Errorf("unknown event type: %q", eType)
 		}
-		ev.SourceTrainUpstream = &sourceTrain.Upstream
+
+		if app == targetApp && env == targetEnv {
+			return &goEvent.EventData, goEvent.EventMetadata.Uuid, nil
+		}
 	}
-	return &ev
+	return nil, "", nil
 }
 
 func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
@@ -513,7 +506,6 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, uuid string, r
 				commitID)
 			return nil
 		}
-
 		if err := writeEvent(ctx, uuid, commitID, fs, ev); err != nil {
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",
