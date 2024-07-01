@@ -2643,7 +2643,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		}
 		return &Release{
 			Version:         env.ReleaseNumber,
-			UndeployVersion: false,
+			UndeployVersion: env.Metadata.UndeployVersion,
 			SourceAuthor:    env.Metadata.SourceAuthor,
 			SourceCommitId:  env.Metadata.SourceCommitId,
 			SourceMessage:   env.Metadata.SourceMessage,
