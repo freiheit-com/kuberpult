@@ -1344,7 +1344,7 @@ func (u *DeleteEnvFromApp) Transform(
 	}
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application)
+		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application, false)
 		if err != nil {
 			return "", err
 		}
@@ -1356,7 +1356,7 @@ func (u *DeleteEnvFromApp) Transform(
 					newManifests[envName] = manifest
 				}
 			}
-			newRelese := db.DBReleaseWithMetaData{
+			newRelease := db.DBReleaseWithMetaData{
 				EslId:         dbReleaseWithMetadata.EslId + 1,
 				ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
 				App:           dbReleaseWithMetadata.App,
@@ -1365,7 +1365,7 @@ func (u *DeleteEnvFromApp) Transform(
 				Metadata:      dbReleaseWithMetadata.Metadata,
 				Deleted:       dbReleaseWithMetadata.Deleted,
 			}
-			err = state.DBHandler.DBInsertRelease(ctx, transaction, newRelese, dbReleaseWithMetadata.EslId)
+			err = state.DBHandler.DBInsertRelease(ctx, transaction, newRelease, dbReleaseWithMetadata.EslId)
 			if err != nil {
 				return "", err
 			}

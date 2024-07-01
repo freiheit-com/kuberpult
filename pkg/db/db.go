@@ -478,16 +478,17 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	return processedRows[0], nil
 }
 
-func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool) ([]*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
-			" WHERE appName=?" +
+			" WHERE appName=? AND deleted=?" +
 			" ORDER BY eslVersion, created DESC;"))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		app,
+		deleted,
 	)
 
 	return h.processReleaseRows(ctx, err, rows)

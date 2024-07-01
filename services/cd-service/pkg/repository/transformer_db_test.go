@@ -1224,7 +1224,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("error: %v", err)
 				}
-				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, firstRelease.App)
+				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, firstRelease.App, false)
 				if err2 != nil {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}

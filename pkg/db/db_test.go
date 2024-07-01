@@ -1707,7 +1707,7 @@ func TestReadReleasesByApp(t *testing.T) {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
-				releases, err := dbHandler.DBSelectReleasesByApp(ctx, transaction, tc.AppName)
+				releases, err := dbHandler.DBSelectReleasesByApp(ctx, transaction, tc.AppName, false)
 				if err != nil {
 					return fmt.Errorf("error while selecting release, error: %w", err)
 				}
