@@ -2699,7 +2699,6 @@ func (c *DeployApplicationVersion) Transform(
 
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-
 			if newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application); err == nil {
 				if !valid.SHA1CommitID(newReleaseCommitId) {
 					logger.FromContext(ctx).Sugar().Infof(
