@@ -2553,16 +2553,30 @@ func (c *DeployApplicationVersion) Transform(
 	firstDeployment := false
 	versionFile := fs.Join(applicationDir, "version")
 	oldReleaseDir := ""
+	var oldVersion *int64
+	if state.DBHandler.ShouldUseOtherTables() {
+		deployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+		if err != nil {
+			return "", err
+		}
+		if deployment.Version == nil {
+			firstDeployment = true
+		} else {
+			oldVersion = deployment.Version
+		}
 
-	//Check if there is a version of target app already deployed on target environment
-	if _, err := fs.Lstat(versionFile); err == nil {
-		//File Exists
-		evaledPath, _ := fs.Readlink(versionFile) //Version is stored as symlink, eval it
-		oldReleaseDir = evaledPath
 	} else {
-		//File does not exist
-		firstDeployment = true
+		//Check if there is a version of target app already deployed on target environment
+		if _, err := fs.Lstat(versionFile); err == nil {
+			//File Exists
+			evaledPath, _ := fs.Readlink(versionFile) //Version is stored as symlink, eval it
+			oldReleaseDir = evaledPath
+		} else {
+			//File does not exist
+			firstDeployment = true
+		}
 	}
+
 	if state.CloudRunClient != nil {
 		err := state.CloudRunClient.DeployApplicationVersion(ctx, manifestContent)
 		if err != nil {
@@ -2685,14 +2699,29 @@ func (c *DeployApplicationVersion) Transform(
 
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-			if newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
+
+			if newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application); err == nil {
 				if !valid.SHA1CommitID(newReleaseCommitId) {
 					logger.FromContext(ctx).Sugar().Infof(
 						"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
 						newReleaseCommitId)
 				} else {
-					if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
-						return "", err
+					ev := createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)
+					if s.DBHandler.ShouldUseOtherTables() {
+						gen := getGenerator(ctx)
+						eventUuid := gen.Generate()
+						oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, uint64(*oldVersion), oldReleaseDir, c.Application)
+						if err != nil {
+							return "", GetCreateReleaseGeneralFailure(err)
+						}
+						err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslID, eventUuid, oldReleaseCommitId, ev)
+						if err != nil {
+							return "", err
+						}
+					} else {
+						if err := addEventForRelease(ctx, fs, oldReleaseDir, ev); err != nil {
+							return "", err
+						}
 					}
 				}
 			}

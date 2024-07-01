@@ -341,6 +341,7 @@ func (c *DeployApplicationVersion) Transform(
 			file.Close()
 		}
 	}
+	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
@@ -391,8 +392,17 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	applicationDir := fsys.Join("environments", c.Environment, "applications", c.Application)
+	firstDeployment := false
 	versionFile := fsys.Join(applicationDir, "version")
-
+	oldReleaseDir := ""
+	if _, err := fsys.Lstat(versionFile); err == nil {
+		//File Exists
+		evaledPath, _ := fsys.Readlink(versionFile) //Version is stored as symlink, eval it
+		oldReleaseDir = evaledPath
+	} else {
+		//File does not exist
+		firstDeployment = true
+	}
 	// Create a symlink to the release
 	if err := fsys.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
@@ -461,7 +471,6 @@ func (c *DeployApplicationVersion) Transform(
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
 	}
-
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
