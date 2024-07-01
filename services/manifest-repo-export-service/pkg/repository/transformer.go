@@ -1264,16 +1264,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 	return msg, nil
 }
 
-func createLockPreventedDeploymentEvent(application, environment, lockMsg, lockType string) *event.LockPreventedDeployment {
-	ev := event.LockPreventedDeployment{
-		Application: application,
-		Environment: environment,
-		LockMessage: lockMsg,
-		LockType:    lockType,
-	}
-	return &ev
-}
-
 type ReleaseTrain struct {
 	Authentication      `json:"-"`
 	TransformerMetadata `json:"metadata"`
