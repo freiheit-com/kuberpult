@@ -62,7 +62,7 @@ spec:
       serviceAccountName: {{ .Values.db.k8sName }}
 {{- end }}
       containers:
-{{- if eq .Values.db.cloudSqlProxyEnabled }}
+{{- if .Values.db.cloudSqlProxyEnabled }}
       - name: cloud-sql-proxy
         # It is recommended to use the latest version of the Cloud SQL Auth Proxy
         # Make sure to update on a regular schedule!
