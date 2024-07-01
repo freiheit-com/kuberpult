@@ -95,32 +95,6 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
-# The Database is not ready for use on production and the helm options might change in the near future.
-  db:
-    location: "127.0.0.1"
-    authProxyPort: 5432
-# As the Database feature is still work in progress, for now we recommend to set:
-# dbOption: "NO_DB"
-# Other valid values are "postgreSQL".
-# If you do want to try out the database, for now use
-# writeEslTableOnly: true
-    dbOption: "NO_DB"
-# k8sName is required if `dbOption = "postgreSQL"`, otherwise it's ignored.
-# k8sName is the name of the kubernetes service account.
-    k8sName: "k8sname"
-# cloudSqlProxyEnabled enables the cloudsql proxy. Not possible with `dbOption = "NO_DB"`.
-    cloudSqlProxyEnabled: false
-    dbConnectionName: "connectioname"
-    dbName: "databaseName"
-    dbUser: "username"
-    dbPassword: "password"
-    migrations: /migrations
-    # If set to true, kuberpult will write only the ESL table.
-    # This is useful to already collect historical data in the database, while waiting for the full database implementation.
-    writeEslTableOnly: false
-    requests:
-      cpu: "100m"
-      memory: "200Mi"
   probes:
     liveness:
       periodSeconds: 10
@@ -134,6 +108,32 @@ cd:
       timeoutSeconds: 5
       failureThreshold: 10
       initialDelaySeconds: 5
+# The Database is not ready for use on production and the helm options might change in the near future.
+db:
+  location: "127.0.0.1"
+  authProxyPort: 5432
+# As the Database feature is still work in progress, for now we recommend to set:
+# dbOption: "NO_DB"
+# Other valid values are "postgreSQL".
+# If you do want to try out the database, for now use
+# writeEslTableOnly: true
+  dbOption: "NO_DB"
+# k8sName is required if `dbOption = "postgreSQL"`, otherwise it's ignored.
+# k8sName is the name of the kubernetes service account.
+  k8sName: "k8sname"
+# cloudSqlProxyEnabled enables the cloudsql proxy. Not possible with `dbOption = "NO_DB"`.
+  cloudSqlProxyEnabled: false
+  dbConnectionName: "connectioname"
+  dbName: "databaseName"
+  dbUser: "username"
+  dbPassword: "password"
+  migrations: /migrations
+  # If set to true, kuberpult will write only the ESL table.
+  # This is useful to already collect historical data in the database, while waiting for the full database implementation.
+  writeEslTableOnly: false
+  requests:
+    cpu: "100m"
+    memory: "200Mi"
 manifestRepoExport:
   image: kuberpult-manifest-repo-export-service
   resources:

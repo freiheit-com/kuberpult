@@ -32,10 +32,10 @@
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
-{{- if not (or (eq .Values.cd.db.dbOption "postgreSQL") (eq .Values.cd.db.dbOption "NO_DB")) }}
-{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
+{{- if not (or (eq .Values.db.dbOption "postgreSQL") (eq .Values.db.dbOption "NO_DB")) }}
+{{ fail ".Values.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
 {{ end -}}
-{{- if (and (.Values.cd.db.dbOption.cloudSqlProxyEnabled) (eq .Values.cd.db.dbOption "NO_DB") }}
+{{- if (and (.Values.db.dbOption.cloudSqlProxyEnabled) (eq .Values.db.dbOption "NO_DB") }}
 {{ fail "Cloudsql proxy cannot be used with NO_DB option"}}
 {{ end -}}
 ---
@@ -78,11 +78,11 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if eq .Values.cd.db.dbOption "postgreSQL" }}
-      serviceAccountName: {{ .Values.cd.db.k8sName }}  
+{{- if eq .Values.db.dbOption "postgreSQL" }}
+      serviceAccountName: {{ .Values.db.k8sName }}  
 {{- end }} 
       containers:
-{{- if .Values.cd.db.dbOption.cloudSqlProxyEnabled }}
+{{- if .Values.db.dbOption.cloudSqlProxyEnabled }}
       - name: cloud-sql-proxy
         # It is recommended to use the latest version of the Cloud SQL Auth Proxy
         # Make sure to update on a regular schedule!
@@ -97,9 +97,9 @@ spec:
 
           # Replace DB_PORT with the port the proxy should listen on
 
-          - "--port={{ .Values.cd.db.authProxyPort }}"
+          - "--port={{ .Values.db.authProxyPort }}"
 
-          - {{ .Values.cd.db.dbConnectionName | quote }}
+          - {{ .Values.db.dbConnectionName | quote }}
         securityContext:
           # The default Cloud SQL Auth Proxy image runs as the
           # "nonroot" user and group (uid: 65532) by default.
@@ -114,11 +114,11 @@ spec:
             # The proxy's memory use scales linearly with the number of active
             # connections. Fewer open connections will use less memory. Adjust
             # this value based on your application's requirements.
-            memory: {{ .Values.cd.db.requests.memory }}
+            memory: {{ .Values.db.requests.memory }}
             # The proxy's CPU use scales linearly with the amount of IO between
             # the database and the application. Adjust this value based on your
             # application's requirements.
-            cpu:  {{ .Values.cd.db.requests.cpu }}
+            cpu:  {{ .Values.db.requests.cpu }}
 {{- end }}
       - name: service
         image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
@@ -242,22 +242,22 @@ spec:
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
         - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
-          value: {{ .Values.cd.db.dbOption }}
+          value: {{ .Values.db.dbOption }}
         - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
-          value: "{{ .Values.cd.db.writeEslTableOnly }}"
-{{- if (eq .Values.cd.db.dbOption "postgreSQL") }}
+          value: "{{ .Values.db.writeEslTableOnly }}"
+{{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
-          value: {{ .Values.cd.db.location }}
+          value: {{ .Values.db.location }}
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
-          value: {{ .Values.cd.db.migrations }}
+          value: {{ .Values.db.migrations }}
 {{- end }}
-{{- if eq .Values.cd.db.dbOption "postgreSQL" }}
+{{- if eq .Values.db.dbOption "postgreSQL" }}
         - name: KUBERPULT_DB_NAME
-          value: "{{ .Values.cd.db.dbName }}"
+          value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
-          value: "{{ .Values.cd.db.dbUser }}"
+          value: "{{ .Values.db.dbUser }}"
         - name: KUBERPULT_DB_USER_PASSWORD
-          value: "{{ .Values.cd.db.dbPassword }}"
+          value: "{{ .Values.db.dbPassword }}"
 {{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
@@ -266,9 +266,9 @@ spec:
         - name: KUBERPULT_GARBAGE_COLLECTION_FREQUENCY
           value: "{{ .Values.git.garbageCollectionFrequency }}"
         volumeMounts:
-{{- if (eq .Values.cd.db.dbOption "postgreSQL") }}
+{{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: migrations
-          mountPath: {{ .Values.cd.db.migrations }}
+          mountPath: {{ .Values.db.migrations }}
           readOnly: false
 {{- end }}
         - name: repository
@@ -317,7 +317,7 @@ spec:
         configMap:
           name: kuberpult-keyring
 {{- end }}
-{{- if eq .Values.cd.db.dbOption "postgreSQL" }}
+{{- if eq .Values.db.dbOption "postgreSQL" }}
       - name: migrations
         configMap:
           name: kuberpult-migrations-cloudsql

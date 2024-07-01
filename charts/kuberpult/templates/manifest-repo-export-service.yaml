@@ -14,14 +14,14 @@
 
 # Copyright freiheit.com
 
-{{- if not (or (eq .Values.cd.db.dbOption "postgreSQL") (eq .Values.cd.db.dbOption "NO_DB")) }}
-{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
+{{- if not (or (eq .Values.db.dbOption "postgreSQL") (eq .Values.db.dbOption "NO_DB")) }}
+{{ fail ".Values.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
 {{ end -}}
 
 # the export service is only enabled, if the DB is enabled
-{{- if (eq .Values.cd.db.dbOption "postgreSQL") }}
+{{- if (eq .Values.db.dbOption "postgreSQL") }}
 
-{{- if eq .Values.cd.db.writeEslTableOnly false }}
+{{- if eq .Values.db.writeEslTableOnly false }}
 
 
 ---
@@ -58,11 +58,11 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if eq .Values.cd.db.dbOption "postgreSQL" }}
-      serviceAccountName: {{ .Values.cd.db.k8sName }}
+{{- if eq .Values.db.dbOption "postgreSQL" }}
+      serviceAccountName: {{ .Values.db.k8sName }}
 {{- end }}
       containers:
-{{- if eq .Values.cd.db.cloudSqlProxyEnabled }}
+{{- if eq .Values.db.cloudSqlProxyEnabled }}
       - name: cloud-sql-proxy
         # It is recommended to use the latest version of the Cloud SQL Auth Proxy
         # Make sure to update on a regular schedule!
@@ -77,9 +77,9 @@ spec:
 
           # Replace DB_PORT with the port the proxy should listen on
 
-          - "--port={{ .Values.cd.db.authProxyPort }}"
+          - "--port={{ .Values.db.authProxyPort }}"
 
-          - {{ .Values.cd.db.dbConnectionName | quote }}
+          - {{ .Values.db.dbConnectionName | quote }}
         securityContext:
           # The default Cloud SQL Auth Proxy image runs as the
           # "nonroot" user and group (uid: 65532) by default.
@@ -94,11 +94,11 @@ spec:
             # The proxy's memory use scales linearly with the number of active
             # connections. Fewer open connections will use less memory. Adjust
             # this value based on your application's requirements.
-            memory: {{ .Values.cd.db.requests.memory }}
+            memory: {{ .Values.db.requests.memory }}
             # The proxy's CPU use scales linearly with the amount of IO between
             # the database and the application. Adjust this value based on your
             # application's requirements.
-            cpu:  {{ .Values.cd.db.requests.cpu }}
+            cpu:  {{ .Values.db.requests.cpu }}
 {{- end }}
       - name: service
         image: "{{ .Values.hub }}/{{ .Values.manifestRepoExport.image }}:{{ $.Chart.AppVersion }}"
@@ -162,17 +162,17 @@ spec:
           value: "/etc/datadog/api-key"
 {{- end }}
         - name: KUBERPULT_DB_LOCATION
-          value: "{{ .Values.cd.db.location }}"
+          value: "{{ .Values.db.location }}"
         - name: KUBERPULT_DB_NAME
-          value: "{{ .Values.cd.db.dbName }}"
+          value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
-          value: "{{ .Values.cd.db.dbUser }}"
+          value: "{{ .Values.db.dbUser }}"
         - name: KUBERPULT_DB_USER_PASSWORD
-          value: "{{ .Values.cd.db.dbPassword }}"
+          value: "{{ .Values.db.dbPassword }}"
         - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
-          value: {{ .Values.cd.db.dbOption }}
+          value: {{ .Values.db.dbOption }}
         - name: KUBERPULT_DB_AUTH_PROXY_PORT
-          value: "{{ .Values.cd.db.authProxyPort }}"
+          value: "{{ .Values.db.authProxyPort }}"
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
