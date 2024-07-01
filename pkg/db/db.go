@@ -483,7 +483,7 @@ func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app s
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
 			" WHERE appName=? AND deleted=?" +
-			" ORDER BY eslVersion, created DESC;"))
+			" ORDER BY releaseVersion DESC, eslVersion DESC, created DESC;"))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -559,7 +559,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	}(rows)
 	//exhaustruct:ignore
 	var result []*DBReleaseWithMetaData
-	var maxEslId EslId = -1
+	var lastSeenRelease uint64 = 0
 	for rows.Next() {
 		//exhaustruct:ignore
 		var row = &DBReleaseWithMetaData{}
@@ -572,8 +572,10 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
 		}
-		if row.EslId > maxEslId {
-			maxEslId = row.EslId
+		if row.ReleaseNumber != lastSeenRelease {
+			lastSeenRelease = row.ReleaseNumber
+		} else {
+			continue
 		}
 		// handle meta data
 		var metaData = DBReleaseMetaData{
@@ -598,12 +600,6 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		}
 		row.Manifests = manifestData
 		result = append(result, row)
-	}
-	for i := 0; i < len(result); i++ {
-		if result[i].EslId != maxEslId {
-			result = append(result[:i], result[i+1:]...)
-			i--
-		}
 	}
 	err = closeRows(rows)
 	if err != nil {

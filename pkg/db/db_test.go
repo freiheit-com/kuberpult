@@ -1691,6 +1691,50 @@ func TestReadReleasesByApp(t *testing.T) {
 			AppName:  "app1`",
 			Expected: nil,
 		},
+		{
+			Name: "Different Releases with different eslIDs",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslId:         1,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslId:         2,
+					ReleaseNumber: 2,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+				},
+				{
+					EslId:         1,
+					ReleaseNumber: 3,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+				},
+			},
+			AppName: "app1",
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslId:         1,
+					ReleaseNumber: 3,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+				},
+				{
+					EslId:         2,
+					ReleaseNumber: 2,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+				},
+				{
+					EslId:         1,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
