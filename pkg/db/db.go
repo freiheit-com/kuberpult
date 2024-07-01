@@ -455,6 +455,22 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 	return h.processReleaseRow(ctx, err, rows)
 }
 
+func (h *DBHandler) DBSelect(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
+			" FROM releases " +
+			" WHERE appName=? AND releaseVersion=?" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+		releaseVersion,
+	)
+	return h.processReleaseRow(ctx, err, rows)
+}
+
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
@@ -779,6 +795,22 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v\n", err)
 	}
 	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
+}
+
+func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash string, replacedBy *event.ReplacedBy) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeReplaceBy),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     replacedBy,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling replacedBys event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeReplaceBy, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash string, deployment *event.Deployment) error {

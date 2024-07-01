@@ -301,6 +301,7 @@ func (c *DeployApplicationVersion) Transform(
 			file.Close()
 		}
 	}
+	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
@@ -349,6 +350,7 @@ func (c *DeployApplicationVersion) Transform(
 				if err := addEventForRelease(ctx, fsys, eventUUID, releaseDir, *targetEvent); err != nil {
 					return "", err
 				}
+				lockPreventedDeployment = true
 			}
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
@@ -369,8 +371,17 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	applicationDir := fsys.Join("environments", c.Environment, "applications", c.Application)
+	firstDeployment := false
 	versionFile := fsys.Join(applicationDir, "version")
-
+	oldReleaseDir := ""
+	if _, err := fsys.Lstat(versionFile); err == nil {
+		//File Exists
+		evaledPath, _ := fsys.Readlink(versionFile) //Version is stored as symlink, eval it
+		oldReleaseDir = evaledPath
+	} else {
+		//File does not exist
+		firstDeployment = true
+	}
 	// Create a symlink to the release
 	if err := fsys.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
@@ -455,6 +466,38 @@ func (c *DeployApplicationVersion) Transform(
 		if err := addEventForRelease(ctx, fsys, eventUUID, releaseDir, *targetEvent); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
+	}
+
+	if !firstDeployment && !lockPreventedDeployment {
+		//If not first deployment and current deployment is successful, signal a new replaced by event
+		if newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fsys, releaseDir); err == nil {
+			if !valid.SHA1CommitID(newReleaseCommitId) {
+				logger.FromContext(ctx).Sugar().Infof(
+					"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
+					newReleaseCommitId)
+			} else {
+				dbEvents, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeReplaceBy, 100)
+				if err != nil {
+					return "", err
+				}
+				targetEvent, eventUUID, err := parseDBCommitEvents(dbEvents, event.EventTypeReplaceBy, c.Application, c.Environment)
+				if err != nil {
+					return "", fmt.Errorf("Could not process events for application '%s' on environment '%s'", c.Application, c.Environment)
+
+				}
+				if targetEvent == nil {
+					return "", fmt.Errorf("Triggered replaced by event for transformer ID '%d', but none was found on database!", c.TransformerEslID)
+				}
+
+				if err := addEventForRelease(ctx, fsys, eventUUID, oldReleaseDir, *targetEvent); err != nil {
+					return "", GetCreateReleaseGeneralFailure(err)
+				}
+
+			}
+		}
+	} else {
+		logger.FromContext(ctx).Sugar().Infof(
+			"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
 	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
