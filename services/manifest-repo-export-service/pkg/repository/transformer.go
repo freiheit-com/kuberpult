@@ -335,6 +335,9 @@ func (c *DeployApplicationVersion) Transform(
 				}
 
 				targetEvent, eventUUID, err := parseDBCommitEvents(dbEvents, event.EventTypeLockPreventeDeployment, c.Application, c.Environment)
+				if err != nil {
+					return "", fmt.Errorf("Could not process events for application '%s' on environment '%s'", c.Application, c.Environment)
+				}
 
 				if targetEvent == nil {
 					return "", fmt.Errorf("Triggered event lock prevented deployment for transformer ID '%d', but none was found on database!", c.TransformerEslID)
@@ -439,7 +442,10 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 		targetEvent, eventUUID, err := parseDBCommitEvents(dbEvents, event.EventTypeDeployment, c.Application, c.Environment)
+		if err != nil {
+			return "", fmt.Errorf("Could not process events for application '%s' on environment '%s'", c.Application, c.Environment)
 
+		}
 		if targetEvent == nil {
 			return "", fmt.Errorf("Triggered deployment event for transformer ID '%d', but none was found on database!", c.TransformerEslID)
 		}
