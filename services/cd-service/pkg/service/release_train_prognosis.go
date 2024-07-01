@@ -40,7 +40,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 		CommitHash:       in.CommitHash,
 		WriteCommitData:  false,
 		Repo:             s.Repository,
-		TransformerEslId: 0,
+		TransformerEslID: 0,
 	}
 
 	prognosis := t.Prognosis(ctx, s.Repository.State(), nil)
