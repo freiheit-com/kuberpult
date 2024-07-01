@@ -384,7 +384,7 @@ cd:
 			},
 		},
 		{
-			Name: "Database cloudsql enabled 1",
+			Name: "Database postgreSQL enabled 1",
 			Values: `
 git:
   url: "testURL"
@@ -392,7 +392,7 @@ ingress:
   domainName: "kuberpult-example.com"
 cd:
   db:
-    dbOption: cloudsql
+    dbOption: postgreSQL
     location: "127.0.0.1"
     dbName: dbName
     dbUser: dbUser
@@ -401,7 +401,7 @@ cd:
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "cloudsql",
+					Value: "postgreSQL",
 				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
@@ -423,7 +423,7 @@ cd:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Database cloudsql enabled 2",
+			Name: "Database postgreSQL enabled 2",
 			Values: `
 git:
   url: "testURL"
@@ -847,7 +847,7 @@ cd:
 			},
 		},
 		{
-			Name: "Database cloudsql enabled 1",
+			Name: "Database postgreSQL enabled 1",
 			Values: `
 git:
   url: "testURL"
@@ -855,7 +855,7 @@ ingress:
   domainName: "kuberpult-example.com"
 cd:
   db:
-    dbOption: cloudsql
+    dbOption: postgreSQL
     location: "127.0.0.1"
     dbName: dbName
     dbUser: dbUser
@@ -865,7 +865,7 @@ cd:
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "cloudsql",
+					Value: "postgreSQL",
 				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
@@ -887,7 +887,7 @@ cd:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Database cloudsql enabled 2",
+			Name: "Database postgreSQL enabled 2",
 			Values: `
 git:
   url: "testURL"

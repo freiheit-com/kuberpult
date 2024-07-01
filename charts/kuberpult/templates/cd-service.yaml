@@ -32,8 +32,8 @@
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
-{{- if not (or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "NO_DB")) }}
-{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, cloudsql)."}}
+{{- if not (or (eq .Values.cd.db.dbOption "postgreSQL") (eq .Values.cd.db.dbOption "NO_DB")) }}
+{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
 {{ end -}}
 {{- if (and (.Values.cd.db.dbOption.cloudSqlProxyEnabled) (eq .Values.cd.db.dbOption "NO_DB") }}
 {{ fail "Cloudsql proxy cannot be used with NO_DB option"}}
@@ -78,7 +78,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+{{- if eq .Values.cd.db.dbOption "postgreSQL" }}
       serviceAccountName: {{ .Values.cd.db.k8sName }}  
 {{- end }} 
       containers:
@@ -241,17 +241,17 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
-        - name: KUBERPULT_DB_OPTION # { NO_DB, cloudsql}
+        - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
           value: {{ .Values.cd.db.dbOption }}
         - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
           value: "{{ .Values.cd.db.writeEslTableOnly }}"
-{{- if (eq .Values.cd.db.dbOption "cloudsql") }}
+{{- if (eq .Values.cd.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.cd.db.location }}
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
           value: {{ .Values.cd.db.migrations }}
 {{- end }}
-{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+{{- if eq .Values.cd.db.dbOption "postgreSQL" }}
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.cd.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
@@ -266,7 +266,7 @@ spec:
         - name: KUBERPULT_GARBAGE_COLLECTION_FREQUENCY
           value: "{{ .Values.git.garbageCollectionFrequency }}"
         volumeMounts:
-{{- if (eq .Values.cd.db.dbOption "cloudsql") }}
+{{- if (eq .Values.cd.db.dbOption "postgreSQL") }}
         - name: migrations
           mountPath: {{ .Values.cd.db.migrations }}
           readOnly: false
@@ -317,7 +317,7 @@ spec:
         configMap:
           name: kuberpult-keyring
 {{- end }}
-{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+{{- if eq .Values.cd.db.dbOption "postgreSQL" }}
       - name: migrations
         configMap:
           name: kuberpult-migrations-cloudsql

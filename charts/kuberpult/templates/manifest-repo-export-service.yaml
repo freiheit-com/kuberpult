@@ -14,12 +14,12 @@
 
 # Copyright freiheit.com
 
-{{- if not (or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "NO_DB")) }}
-{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, cloudsql)."}}
+{{- if not (or (eq .Values.cd.db.dbOption "postgreSQL") (eq .Values.cd.db.dbOption "NO_DB")) }}
+{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
 {{ end -}}
 
 # the export service is only enabled, if the DB is enabled
-{{- if (eq .Values.cd.db.dbOption "cloudsql") }}
+{{- if (eq .Values.cd.db.dbOption "postgreSQL") }}
 
 {{- if eq .Values.cd.db.writeEslTableOnly false }}
 
@@ -58,7 +58,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+{{- if eq .Values.cd.db.dbOption "postgreSQL" }}
       serviceAccountName: {{ .Values.cd.db.k8sName }}
 {{- end }}
       containers:
@@ -169,7 +169,7 @@ spec:
           value: "{{ .Values.cd.db.dbUser }}"
         - name: KUBERPULT_DB_USER_PASSWORD
           value: "{{ .Values.cd.db.dbPassword }}"
-        - name: KUBERPULT_DB_OPTION # { NO_DB, cloudsql}
+        - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
           value: {{ .Values.cd.db.dbOption }}
         - name: KUBERPULT_DB_AUTH_PROXY_PORT
           value: "{{ .Values.cd.db.authProxyPort }}"
