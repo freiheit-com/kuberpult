@@ -769,7 +769,6 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 	}
 	var writeError error
 	if h.ShouldUseEslTable() {
-		fmt.Println("Creating new release!")
 		writeError = writeEventToDB(ctx, transaction, transformerEslID, sourceCommitId, state, event.EventTypeNewRelease, ev)
 	} else {
 		writeError = writeEvent(ctx, eventId, sourceCommitId, fs, ev)
@@ -1076,9 +1075,10 @@ func isLatestsVersion(state *State, application string, version uint64) (bool, e
 }
 
 type CreateUndeployApplicationVersion struct {
-	Authentication  `json:"-"`
-	Application     string `json:"app"`
-	WriteCommitData bool   `json:"writeCommitData"`
+	Authentication   `json:"-"`
+	Application      string `json:"app"`
+	WriteCommitData  bool   `json:"writeCommitData"`
+	TransformerEslID uint   `json:"eslid"`
 }
 
 func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
@@ -1086,7 +1086,7 @@ func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
 }
 
 func (c *CreateUndeployApplicationVersion) SetEslID(id uint) {
-	//Does nothing
+	c.TransformerEslID = id
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
@@ -1156,10 +1156,11 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				Application: c.Application,
 				Version:     lastRelease + 1,
 				// the train should queue deployments, instead of giving up:
-				LockBehaviour:   api.LockBehavior_RECORD,
-				Authentication:  c.Authentication,
-				WriteCommitData: c.WriteCommitData,
-				Author:          "",
+				LockBehaviour:    api.LockBehavior_RECORD,
+				Authentication:   c.Authentication,
+				WriteCommitData:  c.WriteCommitData,
+				Author:           "",
+				TransformerEslID: c.TransformerEslID,
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
