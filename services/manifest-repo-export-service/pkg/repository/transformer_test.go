@@ -533,7 +533,7 @@ func listFilesHelper(fs billy.Filesystem, path string) []string {
 	return ret
 }
 
-func TestDepoymentEvent(t *testing.T) {
+func TestDeploymentEvent(t *testing.T) {
 	const appName = "myapp"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
