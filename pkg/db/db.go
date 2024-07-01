@@ -1755,7 +1755,14 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
 	defer span.Finish()
 
-	jsonToInsert, err := json.Marshal("{metadata: \"\"}")
+	dataMap := make(map[string]interface{})
+	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
+	metadataMap, err := convertObjectToMap(metadata)
+	if err != nil {
+		return fmt.Errorf("could not convert object to map: %w", err)
+	}
+	dataMap["metadata"] = metadataMap
+	jsonToInsert, err := json.Marshal(dataMap)
 
 	if err != nil {
 		return fmt.Errorf("could not marshal json transformer: %w", err)

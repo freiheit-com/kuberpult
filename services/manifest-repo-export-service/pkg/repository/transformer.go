@@ -530,8 +530,9 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
-	fmt.Println(eventDir)
+	fmt.Printf("writeEvent: commitEventDir = %s\n", eventDir)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
+		fmt.Printf("event.Write gave an error = %s -> %v\n", eventDir, ev)
 		return fmt.Errorf(
 			"could not write an event for commit '%s' for uuid '%s', error: %w",
 			sourceCommitId, eventId, err)

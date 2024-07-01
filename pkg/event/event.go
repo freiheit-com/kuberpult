@@ -222,7 +222,11 @@ func UnMarshallEvent(eventType EventType, eventJson string) (DBEventGo, error) {
 func Write(filesystem billy.Filesystem, eventDir string, event Event) error {
 	_, err := filesystem.Stat(eventDir)
 	if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("event file already exists: %w", err)
+		if errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("event file already exists: %w", err)
+		} else {
+			return err
+		}
 	}
 	if err := write(filesystem, eventDir, eventType{
 		EventType: event.eventType(),
