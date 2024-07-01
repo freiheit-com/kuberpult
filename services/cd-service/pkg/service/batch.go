@@ -186,9 +186,10 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateUndeployApplicationVersion{
-			Application:     act.Application,
-			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
-			WriteCommitData: d.Config.WriteCommitData,
+			Application:      act.Application,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			WriteCommitData:  d.Config.WriteCommitData,
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_Undeploy:
 		act := action.Undeploy
@@ -211,14 +212,15 @@ func (d *BatchServer) processAction(
 			b = api.LockBehavior_IGNORE
 		}
 		return &repository.DeployApplicationVersion{
-			SourceTrain:     nil,
-			Environment:     act.Environment,
-			Application:     act.Application,
-			Version:         act.Version,
-			LockBehaviour:   b,
-			WriteCommitData: d.Config.WriteCommitData,
-			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
-			Author:          "",
+			SourceTrain:      nil,
+			Environment:      act.Environment,
+			Application:      act.Application,
+			Version:          act.Version,
+			LockBehaviour:    b,
+			WriteCommitData:  d.Config.WriteCommitData,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			Author:           "",
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
@@ -236,12 +238,13 @@ func (d *BatchServer) processAction(
 			return nil, nil, status.Error(codes.InvalidArgument, "invalid Team name")
 		}
 		return &repository.ReleaseTrain{
-				Repo:            d.Repository,
-				Target:          in.Target,
-				Team:            in.Team,
-				CommitHash:      in.CommitHash,
-				WriteCommitData: d.Config.WriteCommitData,
-				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
+				Repo:             d.Repository,
+				Target:           in.Target,
+				Team:             in.Team,
+				CommitHash:       in.CommitHash,
+				WriteCommitData:  d.Config.WriteCommitData,
+				Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+				TransformerEslID: 0,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},
@@ -251,17 +254,18 @@ func (d *BatchServer) processAction(
 		in := action.CreateRelease
 		response := api.CreateReleaseResponseSuccess{}
 		return &repository.CreateApplicationVersion{
-				Version:         in.Version,
-				Application:     in.Application,
-				Manifests:       in.Manifests,
-				SourceCommitId:  in.SourceCommitId,
-				SourceAuthor:    in.SourceAuthor,
-				SourceMessage:   in.SourceMessage,
-				PreviousCommit:  in.PreviousCommitId,
-				Team:            in.Team,
-				DisplayVersion:  in.DisplayVersion,
-				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
-				WriteCommitData: d.Config.WriteCommitData,
+				Version:          in.Version,
+				Application:      in.Application,
+				Manifests:        in.Manifests,
+				SourceCommitId:   in.SourceCommitId,
+				SourceAuthor:     in.SourceAuthor,
+				SourceMessage:    in.SourceMessage,
+				PreviousCommit:   in.PreviousCommitId,
+				Team:             in.Team,
+				DisplayVersion:   in.DisplayVersion,
+				Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+				WriteCommitData:  d.Config.WriteCommitData,
+				TransformerEslID: 0,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
 					CreateReleaseResponse: &api.CreateReleaseResponse{
