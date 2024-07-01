@@ -1036,9 +1036,11 @@ func isLatestsVersion(state *State, application string, version uint64) (bool, e
 }
 
 type CreateUndeployApplicationVersion struct {
-	Authentication  `json:"-"`
-	Application     string `json:"app"`
-	WriteCommitData bool   `json:"writeCommitData"`
+	Authentication   `json:"-"`
+	Application      string `json:"app"`
+	WriteCommitData  bool   `json:"writeCommitData"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
@@ -1046,7 +1048,7 @@ func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
 }
 
 func (c *CreateUndeployApplicationVersion) SetEslID(id uint) {
-	//Does nothing
+	c.TransformerEslID = id
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
@@ -1116,10 +1118,11 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				Application: c.Application,
 				Version:     lastRelease + 1,
 				// the train should queue deployments, instead of giving up:
-				LockBehaviour:   api.LockBehavior_RECORD,
-				Authentication:  c.Authentication,
-				WriteCommitData: c.WriteCommitData,
-				Author:          "",
+				LockBehaviour:    api.LockBehavior_RECORD,
+				Authentication:   c.Authentication,
+				WriteCommitData:  c.WriteCommitData,
+				Author:           "",
+				TransformerEslID: c.TransformerEslID,
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
@@ -2736,7 +2739,7 @@ type ReleaseTrain struct {
 	CommitHash       string     `json:"commitHash"`
 	WriteCommitData  bool       `json:"writeCommitData"`
 	Repo             Repository `json:"-"`
-	TransformerEslId uint       `json:"eslid"`
+	TransformerEslID uint       `json:"eslid"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -2744,7 +2747,7 @@ func (c *ReleaseTrain) GetDBEventType() db.EventType {
 }
 
 func (c *ReleaseTrain) SetEslID(id uint) {
-	c.TransformerEslId = id
+	c.TransformerEslID = id
 }
 
 type Overview struct {
@@ -2924,7 +2927,7 @@ func (c *ReleaseTrain) Prognosis(
 			EnvGroupConfigs:  envGroupConfigs,
 			WriteCommitData:  c.WriteCommitData,
 			TrainGroup:       trainGroup,
-			TransformerEslId: c.TransformerEslId,
+			TransformerEslId: c.TransformerEslID,
 		}
 
 		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction)
@@ -2981,7 +2984,7 @@ func (c *ReleaseTrain) Transform(
 			EnvGroupConfigs:  envGroupConfigs,
 			WriteCommitData:  c.WriteCommitData,
 			TrainGroup:       trainGroup,
-			TransformerEslId: c.TransformerEslId,
+			TransformerEslId: c.TransformerEslID,
 		}, transaction); err != nil {
 			return "", err
 		}
