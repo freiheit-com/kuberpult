@@ -432,13 +432,14 @@ func TestTransformerWorksWithDb(t *testing.T) {
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
-					SourceCommitId:  "abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
+					SourceCommitId:   "abcdef",
+					SourceAuthor:     "",
+					SourceMessage:    "",
+					Team:             "team-123",
+					DisplayVersion:   "",
+					WriteCommitData:  false,
+					PreviousCommit:   "",
+					TransformerEslID: 0,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -453,14 +454,15 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					},
 				},
 				&DeployApplicationVersion{
-					Authentication:  Authentication{},
-					Environment:     "staging",
-					Application:     appName,
-					Version:         1,
-					LockBehaviour:   0,
-					WriteCommitData: true,
-					SourceTrain:     nil,
-					Author:          authorEmail,
+					Authentication:   Authentication{},
+					Environment:      "staging",
+					Application:      appName,
+					Version:          1,
+					LockBehaviour:    0,
+					WriteCommitData:  true,
+					SourceTrain:      nil,
+					Author:           authorEmail,
+					TransformerEslID: 0,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -489,8 +491,15 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 				// setup:
 				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-
-				err := dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
