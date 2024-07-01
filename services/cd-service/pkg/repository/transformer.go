@@ -769,7 +769,6 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 	}
 	var writeError error
 	if h.ShouldUseEslTable() {
-		fmt.Println("Creating new release!")
 		writeError = writeEventToDB(ctx, transaction, transformerEslID, sourceCommitId, state, event.EventTypeNewRelease, ev)
 	} else {
 		writeError = writeEvent(ctx, eventId, sourceCommitId, fs, ev)
@@ -1080,7 +1079,6 @@ type CreateUndeployApplicationVersion struct {
 	Application      string           `json:"app"`
 	WriteCommitData  bool             `json:"writeCommitData"`
 	TransformerEslID db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
-
 }
 
 func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {

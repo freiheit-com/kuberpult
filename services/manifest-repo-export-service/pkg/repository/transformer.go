@@ -39,6 +39,7 @@ import (
 	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"path"
+	"slices"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"os"
@@ -60,6 +61,8 @@ const (
 	fieldSourceMessage    = "source_message"
 	fieldSourceAuthor     = "source_author"
 	keptVersionsOnCleanup = 20
+	fieldNextCommidId     = "nextCommit"
+	fieldPreviousCommitId = "previousCommit"
 )
 
 const (
@@ -466,6 +469,7 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
+	fmt.Println(eventDir)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
 		return fmt.Errorf(
 			"could not write an event for commit '%s' for uuid '%s', error: %w",
@@ -822,6 +826,24 @@ func (c *CreateApplicationVersion) Transform(
 			}
 		}
 	}
+	var allEnvsOfThisApp []string = nil
+
+	for env := range c.Manifests {
+		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
+	}
+	slices.Sort(allEnvsOfThisApp)
+
+	if c.WriteCommitData {
+		//Read event and write it
+		ev, err := state.DBHandler.DBSelectAllEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeNewRelease)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, ev.Uuid, allEnvsOfThisApp, c.PreviousCommit, state)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return "", err
@@ -864,6 +886,93 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
+}
+
+func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, state *State) error {
+	fs := state.Filesystem
+	if !valid.SHA1CommitID(sourceCommitId) {
+		return nil
+	}
+	commitDir := commitDirectory(fs, sourceCommitId)
+	if err := fs.MkdirAll(commitDir, 0777); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+	if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+
+	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
+		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {
+			return GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
+	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
+	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+	if err := util.WriteFile(fs, fs.Join(commitDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
+		return err
+	}
+	if err := util.WriteFile(fs, fs.Join(commitDir, "source_message"), []byte(sourceMessage), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+
+	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+	envMap := make(map[string]struct{}, len(environments))
+	for _, env := range environments {
+		envMap[env] = struct{}{}
+	}
+
+	ev := &event.NewRelease{
+		Environments: envMap,
+	}
+
+	writeError := writeEvent(ctx, eventId, sourceCommitId, fs, ev)
+
+	if writeError != nil {
+		return fmt.Errorf("error while writing event: %v", writeError)
+	}
+	return nil
+}
+
+func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId string, fieldSource string, application string, fs billy.Filesystem) error {
+
+	otherCommitId = strings.ToLower(otherCommitId)
+	sourceCommitDir := commitDirectory(fs, sourceCommitId)
+
+	otherCommitDir := commitDirectory(fs, otherCommitId)
+
+	if _, err := fs.Stat(otherCommitDir); err != nil {
+		logger.FromContext(ctx).Sugar().Warnf(
+			"Could not find the previous commit while trying to create a new release for commit %s and application %s. This is expected when `git.enableWritingCommitData` was just turned on, however it should not happen multiple times.", otherCommitId, application, otherCommitDir)
+		return nil
+	}
+
+	if err := util.WriteFile(fs, fs.Join(sourceCommitDir, fieldSource), []byte(otherCommitId), 0666); err != nil {
+		return err
+	}
+	fieldOther := ""
+	if otherCommitId != "" {
+
+		if fieldSource == fieldPreviousCommitId {
+			fieldOther = fieldNextCommidId
+		} else {
+			fieldOther = fieldPreviousCommitId
+		}
+
+		//This is a workaround. util.WriteFile does NOT truncate file contents, so we simply delete the file before writing.
+		if err := fs.Remove(fs.Join(otherCommitDir, fieldOther)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+
+		if err := util.WriteFile(fs, fs.Join(otherCommitDir, fieldOther), []byte(sourceCommitId), 0666); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
