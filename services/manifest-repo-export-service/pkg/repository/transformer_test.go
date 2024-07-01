@@ -582,15 +582,19 @@ func TestDeploymentEvent(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000000/eventType",
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/eventType",
 					fileData: []byte(event.EventTypeNewRelease),
 				},
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000002/application",
+					fileData: []byte(appName),
+				},
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000002/environment",
 					fileData: []byte("staging"),
 				},
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000002/application",
 					fileData: []byte(appName),
 				},
 			},
@@ -612,7 +616,6 @@ func TestDeploymentEvent(t *testing.T) {
 				if err != nil {
 					return err
 				}
-
 				for idx, t := range tc.Transformers {
 					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
 					if err != nil {
