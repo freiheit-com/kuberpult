@@ -935,46 +935,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, commitHash)
-	if err != nil {
-		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
-		}
-	}(rows)
-
-	var result []EventRow
-
-	for rows.Next() {
-		var row = EventRow{
-			Uuid:          "",
-			Timestamp:     time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
-			CommitHash:    "",
-			EventType:     "",
-			EventJson:     "",
-			TransformerID: 0,
-		}
-		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
-		}
-
-		result = append(result, row)
-	}
-	err = rows.Close()
-	if err != nil {
-		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
-	}
-	return result, nil
+	return processAllCommitEventRow(ctx, rows, err)
 }
 
 func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID uint) ([]EventRow, error) {
@@ -991,6 +952,10 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, transformerID)
+	return processAllCommitEventRow(ctx, rows, err)
+}
+
+func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([]EventRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
 	}
@@ -1004,23 +969,12 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 	var result []EventRow
 
 	for rows.Next() {
-		var row = EventRow{
-			Uuid:          "",
-			Timestamp:     time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
-			CommitHash:    "",
-			EventType:     "",
-			EventJson:     "",
-			TransformerID: 0,
-		}
-		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+		row, err := processSingleCommitEventRow(rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+			return nil, err
 		}
 
-		result = append(result, row)
+		result = append(result, *row)
 	}
 	err = rows.Close()
 	if err != nil {
@@ -1031,6 +985,25 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
 	}
 	return result, nil
+}
+
+func processSingleCommitEventRow(rows *sql.Rows) (*EventRow, error) {
+	var row = EventRow{
+		Uuid:          "",
+		Timestamp:     time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
+		CommitHash:    "",
+		EventType:     "",
+		EventJson:     "",
+		TransformerID: 0,
+	}
+	err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+	}
+	return &row, nil
 }
 
 // DBSelectAllApplications returns (nil, nil) if there are no rows
