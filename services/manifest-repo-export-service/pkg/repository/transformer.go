@@ -1161,8 +1161,8 @@ func (c *ReleaseTrain) Transform(
 type DeleteEnvFromApp struct {
 	Authentication      `json:"-"`
 	TransformerMetadata `json:"metadata"`
-	Environment         string `json:"environment"`
-	Application         string `json:"application"`
+	Environment         string `json:"env"`
+	Application         string `json:"app"`
 }
 
 func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
