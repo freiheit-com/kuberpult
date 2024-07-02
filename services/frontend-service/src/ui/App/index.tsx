@@ -74,7 +74,7 @@ export const App: React.FC = () => {
                 (result: GetFrontendConfigResponse) => {
                     UpdateFrontendConfig.set({ configs: result, configReady: true });
                     if (result.authConfig?.dexAuth?.enabled) {
-                        // TODO(BB): set the redirect to /login here. 
+                        // TODO(BB): set the redirect to /login here
                     }
                 },
                 (error) => {
