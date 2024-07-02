@@ -371,9 +371,10 @@ func (c *DeployApplicationVersion) Transform(
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
-					Environment: c.Environment,
-					Application: c.Application,
-					Version:     c.Version,
+					Environment:      c.Environment,
+					Application:      c.Application,
+					Version:          c.Version,
+					TransformerEslID: c.TransformerEslID,
 				}
 				return q.Transform(ctx, state, t, nil)
 			case api.LockBehavior_FAIL:
@@ -452,6 +453,7 @@ func (c *DeployApplicationVersion) Transform(
 			AuthorName:  existingDeployment.Metadata.DeployedByName,
 			AuthorEmail: existingDeployment.Metadata.DeployedByEmail,
 		},
+		TransformerEslID: c.TransformerEslID,
 	}
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
