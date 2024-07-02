@@ -569,7 +569,7 @@ func TestDepoymentEvent(t *testing.T) {
 					Environment:      "staging",
 					WriteCommitData:  true,
 					Version:          1,
-					TransformerEslID: 0,
+					TransformerEslID: 2,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -616,11 +616,17 @@ func TestDepoymentEvent(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+				for _, t := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+				}
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000002", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &tc.Event)
+				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 2, "00000000-0000-0000-0000-000000000002", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &tc.Event)
 				if err != nil {
 					return err
 				}
