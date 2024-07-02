@@ -73,6 +73,9 @@ export const App: React.FC = () => {
             .then(
                 (result: GetFrontendConfigResponse) => {
                     UpdateFrontendConfig.set({ configs: result, configReady: true });
+                    if (result.authConfig?.dexAuth?.enabled) {
+                        // TODO(BB): set the redirect to /login here
+                    }
                 },
                 (error) => {
                     // eslint-disable-next-line no-console

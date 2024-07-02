@@ -71,7 +71,8 @@ type ArgoCdConfig struct {
 }
 
 type AuthConfig struct {
-	AzureAuth *AzureAuthConfig `json:"azureAuth"`
+	AzureAuth     *AzureAuthConfig `json:"azureAuth"`
+	DexAuthConfig *DexAuthConfig   `json:"dexAuth"`
 }
 
 type AzureAuthConfig struct {
@@ -80,4 +81,8 @@ type AzureAuthConfig struct {
 	TenantId      string `json:"tenantId"`
 	CloudInstance string `json:"cloudInstance"`
 	RedirectURL   string `json:"redirectURL"`
+}
+
+type DexAuthConfig struct {
+	Enabled bool `json:"enabled"`
 }
