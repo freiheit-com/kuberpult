@@ -1195,8 +1195,10 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 }
 
 type UndeployApplication struct {
-	Authentication `json:"-"`
-	Application    string `json:"app"`
+	Authentication   `json:"-"`
+	Application      string `json:"app"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (u *UndeployApplication) GetDBEventType() db.EventType {
@@ -1204,7 +1206,7 @@ func (u *UndeployApplication) GetDBEventType() db.EventType {
 }
 
 func (c *UndeployApplication) SetEslID(id uint) {
-	//Does nothing
+	c.TransformerEslID = id
 }
 
 func (u *UndeployApplication) Transform(
@@ -1341,9 +1343,11 @@ func (u *UndeployApplication) Transform(
 }
 
 type DeleteEnvFromApp struct {
-	Authentication `json:"-"`
-	Application    string `json:"app"`
-	Environment    string `json:"env"`
+	Authentication   `json:"-"`
+	Application      string `json:"app"`
+	Environment      string `json:"env"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
@@ -1351,7 +1355,7 @@ func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
 }
 
 func (c *DeleteEnvFromApp) SetEslID(id uint) {
-	//Does nothing
+	c.TransformerEslID = id
 }
 
 func (u *DeleteEnvFromApp) Transform(
@@ -1429,15 +1433,16 @@ func (u *DeleteEnvFromApp) Transform(
 }
 
 type CleanupOldApplicationVersions struct {
-	Application string
+	Application      string
+	TransformerEslID uint `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
 }
 
 func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 	panic("CleanupOldApplicationVersions GetDBEventType")
 }
 
-func (c *CleanupOldApplicationVersions) SetEslID(_ uint) {
-	//Does nothing
+func (c *CleanupOldApplicationVersions) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 // Finds old releases for an application
@@ -1548,18 +1553,20 @@ type Authentication struct {
 }
 
 type CreateEnvironmentLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	Authentication   `json:"-"`
+	Environment      string `json:"env"`
+	LockId           string `json:"lockId"`
+	Message          string `json:"message"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentLock
 }
 
-func (c *CreateEnvironmentLock) SetEslID(_ uint) {
-	//Does nothing
+func (c *CreateEnvironmentLock) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig) error {
@@ -1710,17 +1717,19 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 }
 
 type DeleteEnvironmentLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	LockId         string `json:"lockId"`
+	Authentication   `json:"-"`
+	Environment      string `json:"env"`
+	LockId           string `json:"lockId"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentLock
 }
 
-func (c *DeleteEnvironmentLock) SetEslID(_ uint) {
-	//Does nothing
+func (c *DeleteEnvironmentLock) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 func (c *DeleteEnvironmentLock) Transform(
@@ -1802,14 +1811,16 @@ type CreateEnvironmentGroupLock struct {
 	EnvironmentGroup string `json:"env"`
 	LockId           string `json:"lockId"`
 	Message          string `json:"message"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *CreateEnvironmentGroupLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentGroupLock
 }
 
-func (c *CreateEnvironmentGroupLock) SetEslID(_ uint) {
-	//Does nothing
+func (c *CreateEnvironmentGroupLock) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 func (c *CreateEnvironmentGroupLock) Transform(
@@ -1846,14 +1857,16 @@ type DeleteEnvironmentGroupLock struct {
 	Authentication   `json:"-"`
 	EnvironmentGroup string `json:"envGroup"`
 	LockId           string `json:"lockId"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *DeleteEnvironmentGroupLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentGroupLock
 }
 
-func (c *DeleteEnvironmentGroupLock) SetEslID(_ uint) {
-	//Does nothing
+func (c *DeleteEnvironmentGroupLock) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 func (c *DeleteEnvironmentGroupLock) Transform(
 	ctx context.Context,
@@ -1884,19 +1897,21 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 }
 
 type CreateEnvironmentApplicationLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Application    string `json:"app"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	Authentication   `json:"-"`
+	Environment      string `json:"env"`
+	Application      string `json:"app"`
+	LockId           string `json:"lockId"`
+	Message          string `json:"message"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentApplicationLock
 }
 
-func (c *CreateEnvironmentApplicationLock) SetEslID(_ uint) {
-	//Does nothing
+func (c *CreateEnvironmentApplicationLock) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 func (c *CreateEnvironmentApplicationLock) Transform(
@@ -1972,18 +1987,20 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 }
 
 type DeleteEnvironmentApplicationLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Application    string `json:"app"`
-	LockId         string `json:"lockId"`
+	Authentication   `json:"-"`
+	Environment      string `json:"env"`
+	Application      string `json:"app"`
+	LockId           string `json:"lockId"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentApplicationLock
 }
 
-func (c *DeleteEnvironmentApplicationLock) SetEslID(_ uint) {
-	//Does nothing
+func (c *DeleteEnvironmentApplicationLock) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(
@@ -2045,19 +2062,21 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 }
 
 type CreateEnvironmentTeamLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Team           string `json:"team"`
-	LockId         string `json:"lockId"`
-	Message        string `json:"message"`
+	Authentication   `json:"-"`
+	Environment      string `json:"env"`
+	Team             string `json:"team"`
+	LockId           string `json:"lockId"`
+	Message          string `json:"message"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentTeamLock
 }
 
-func (c *CreateEnvironmentTeamLock) SetEslID(_ uint) {
-	//Does nothing
+func (c *CreateEnvironmentTeamLock) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 func (c *CreateEnvironmentTeamLock) Transform(
@@ -2163,18 +2182,20 @@ func (c *CreateEnvironmentTeamLock) Transform(
 }
 
 type DeleteEnvironmentTeamLock struct {
-	Authentication `json:"-"`
-	Environment    string `json:"env"`
-	Team           string `json:"team"`
-	LockId         string `json:"lockId"`
+	Authentication   `json:"-"`
+	Environment      string `json:"env"`
+	Team             string `json:"team"`
+	LockId           string `json:"lockId"`
+	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentTeamLock
 }
 
-func (c *DeleteEnvironmentTeamLock) SetEslID(_ uint) {
-	//Does nothing
+func (c *DeleteEnvironmentTeamLock) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 func (c *DeleteEnvironmentTeamLock) Transform(
@@ -2240,17 +2261,19 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 }
 
 type CreateEnvironment struct {
-	Authentication `json:"-"`
-	Environment    string                   `json:"env"`
-	Config         config.EnvironmentConfig `json:"config"`
+	Authentication   `json:"-"`
+	Environment      string                   `json:"env"`
+	Config           config.EnvironmentConfig `json:"config"`
+	TransformerEslID uint                     `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironment
 }
 
-func (c *CreateEnvironment) SetEslID(_ uint) {
-	//Does nothing
+func (c *CreateEnvironment) SetEslID(id uint) {
+	c.TransformerEslID = id
 }
 
 func (c *CreateEnvironment) Transform(
@@ -3492,7 +3515,9 @@ func (c *envReleaseTrain) Transform(
 // skippedServices is a helper Transformer to generate the "skipped
 // services" commit log.
 type skippedServices struct {
-	Messages []string
+	Messages         []string
+	TransformerEslID uint `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *skippedServices) GetDBEventType() db.EventType {
@@ -3500,7 +3525,7 @@ func (c *skippedServices) GetDBEventType() db.EventType {
 }
 
 func (c *skippedServices) SetEslID(id uint) {
-	//Does Nothing
+	c.TransformerEslID = id
 }
 
 func (c *skippedServices) Transform(
@@ -3521,7 +3546,9 @@ func (c *skippedServices) Transform(
 }
 
 type skippedService struct {
-	Message string
+	Message          string
+	TransformerEslID uint `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *skippedService) GetDBEventType() db.EventType {
@@ -3529,7 +3556,7 @@ func (c *skippedService) GetDBEventType() db.EventType {
 }
 
 func (c *skippedService) SetEslID(id uint) {
-	//Does Nothing
+	c.TransformerEslID = id
 }
 func (c *skippedService) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (string, error) {
 	return c.Message, nil

@@ -832,6 +832,7 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 	rows, err := transaction.QueryContext(ctx, query)
 	return h.processSingleEventsRow(ctx, rows, err)
 }
+
 func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID uint, eventType event.EventType) ([]event.DBEventGo, error) {
 	if h == nil {
 		return nil, nil
@@ -934,6 +935,62 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, commitHash)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
+		}
+	}(rows)
+
+	var result []EventRow
+
+	for rows.Next() {
+		var row = EventRow{
+			Uuid:          "",
+			Timestamp:     time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
+			CommitHash:    "",
+			EventType:     "",
+			EventJson:     "",
+			TransformerID: 0,
+		}
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+		}
+
+		result = append(result, row)
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+	}
+	return result, nil
+}
+
+func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID uint) ([]EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE transformerEslId = (?) ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := transaction.QueryContext(ctx, query, transformerID)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
 	}
@@ -1818,6 +1875,7 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 		return fmt.Errorf("could not convert object to map: %w", err)
 	}
 	dataMap["metadata"] = metadataMap
+	dataMap["eslid"] = 0
 	jsonToInsert, err := json.Marshal(dataMap)
 
 	if err != nil {

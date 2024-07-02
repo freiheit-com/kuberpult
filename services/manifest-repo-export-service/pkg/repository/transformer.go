@@ -109,6 +109,7 @@ type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
 	GetMetadata() *TransformerMetadata
+	GetEslID() uint
 }
 
 type TransformerContext interface {
@@ -138,6 +139,21 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 	if err := runner.Execute(t, transaction); err != nil {
 		return "", nil, err
 	}
+
+	rows, err := s.DBHandler.DBSelectAllCommitEventsForTransformerID(ctx, transaction, t.GetEslID())
+
+	if err != nil {
+		return "", nil, err
+	}
+	if len(rows) != 0 {
+		for _, r := range rows {
+			err := processCommitEvent(ctx, s, r)
+			if err != nil {
+				return "", nil, err
+			}
+		}
+	}
+
 	commitMsg := ""
 	if len(runner.Stack[0]) > 0 {
 		commitMsg = runner.Stack[0][0]
@@ -147,6 +163,17 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		DeletedRootApps: runner.DeletedRootApps,
 		Commits:         runner.Commits,
 	}, nil
+}
+
+func processCommitEvent(ctx context.Context, s *State, row db.EventRow) error {
+	ev, err := event.UnMarshallEvent(row.EventType, row.EventJson)
+	if err != nil {
+		return err
+	}
+	if err := writeEvent(ctx, row.Uuid, row.CommitHash, s.Filesystem, ev.EventData); err != nil {
+		return err
+	}
+	return nil
 }
 
 type transformerRunner struct {
@@ -218,9 +245,14 @@ type Authentication struct {
 }
 
 type QueueApplicationVersion struct {
-	Environment string
-	Application string
-	Version     uint64
+	Environment      string
+	Application      string
+	Version          uint64
+	TransformerEslID uint `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+}
+
+func (c *QueueApplicationVersion) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *QueueApplicationVersion) Transform(
@@ -262,6 +294,10 @@ type DeployApplicationVersion struct {
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
 	return db.EvtDeployApplicationVersion
+}
+
+func (c *DeployApplicationVersion) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 type DeployApplicationVersionSource struct {
@@ -332,25 +368,6 @@ func (c *DeployApplicationVersion) Transform(
 		}
 
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
-			if c.WriteCommitData {
-				dbEvents, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeLockPreventeDeployment)
-				if err != nil {
-					return "", err
-				}
-
-				targetEvent, eventUUID, err := parseDBCommitEvents(dbEvents, event.EventTypeLockPreventeDeployment, c.Application, c.Environment)
-				if err != nil {
-					return "", fmt.Errorf("Could not process events for application '%s' on environment '%s'", c.Application, c.Environment)
-				}
-
-				if targetEvent == nil {
-					return "", fmt.Errorf("Triggered event lock prevented deployment for transformer ID '%d', but none was found on database!", c.TransformerEslID)
-				}
-
-				if err := addEventForRelease(ctx, fsys, eventUUID, releaseDir, *targetEvent); err != nil {
-					return "", err
-				}
-			}
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
@@ -440,89 +457,7 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
-	if c.WriteCommitData { // write the corresponding event
-		dbEvents, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeDeployment)
-		if err != nil {
-			return "", err
-		}
-		targetEvent, eventUUID, err := parseDBCommitEvents(dbEvents, event.EventTypeDeployment, c.Application, c.Environment)
-		if err != nil {
-			return "", fmt.Errorf("Could not process events for application '%s' on environment '%s'", c.Application, c.Environment)
-
-		}
-		if targetEvent == nil {
-			return "", fmt.Errorf("Triggered deployment event for transformer ID '%d', but none was found on database!", c.TransformerEslID)
-		}
-		if err := addEventForRelease(ctx, fsys, eventUUID, releaseDir, *targetEvent); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
-}
-
-func parseDBCommitEvents(dbEvents []event.DBEventGo, eType event.EventType, targetApp, targetEnv string) (*event.Event, string, error) {
-	if eType == event.EventTypeNewRelease {
-		return nil, "", nil
-	}
-
-	for _, goEvent := range dbEvents {
-		var app string
-		var env string
-
-		switch eType {
-		case "deployment":
-			app = goEvent.EventData.(*event.Deployment).Application
-			env = goEvent.EventData.(*event.Deployment).Environment
-		case "lock-prevented-deployment":
-			app = goEvent.EventData.(*event.LockPreventedDeployment).Application
-			env = goEvent.EventData.(*event.LockPreventedDeployment).Environment
-		case "replaced-by":
-			app = goEvent.EventData.(*event.ReplacedBy).Application
-			env = goEvent.EventData.(*event.ReplacedBy).Environment
-		default:
-			return nil, "", fmt.Errorf("unknown event type: %q", eType)
-		}
-
-		if app == targetApp && env == targetEnv {
-			return &goEvent.EventData, goEvent.EventMetadata.Uuid, nil
-		}
-	}
-	return nil, "", nil
-}
-
-func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
-	commitIdPath := fs.Join(releaseDir, "source_commit_id")
-
-	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
-	if err != nil {
-		logger.FromContext(ctx).Sugar().Infof(
-			"Error while reading source commit ID file at %s, error %w"+
-				". Deployment event not stored.",
-			commitIdPath, err)
-		return "", err
-	}
-	commitID := string(commitIDBytes)
-	// if the stored source commit ID is invalid then we will not be able to store the event (simply)
-	return commitID, nil
-}
-
-func addEventForRelease(ctx context.Context, fs billy.Filesystem, uuid string, releaseDir string, ev event.Event) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "addEventForRelease")
-	defer span.Finish()
-	if commitID, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
-		if !valid.SHA1CommitID(commitID) {
-			logger.FromContext(ctx).Sugar().Infof(
-				"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
-				commitID)
-			return nil
-		}
-		if err := writeEvent(ctx, uuid, commitID, fs, ev); err != nil {
-			return fmt.Errorf(
-				"could not write an event for commit %s, error: %w",
-				commitID, err)
-		}
-	}
-	return nil
 }
 
 func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
@@ -544,6 +479,12 @@ type CreateEnvironmentLock struct {
 	Environment         string `json:"env"`
 	LockId              string `json:"lockId"`
 	Message             string `json:"message"`
+	TransformerEslID    uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
+}
+
+func (c *CreateEnvironmentLock) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
@@ -620,8 +561,13 @@ type DeleteEnvironmentLock struct {
 	TransformerMetadata `json:"metadata"`
 	Environment         string `json:"env"`
 	LockId              string `json:"lockId"`
+	TransformerEslID    uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
+func (c *DeleteEnvironmentLock) GetEslID() uint {
+	return c.TransformerEslID
+}
 func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentLock
 }
@@ -665,6 +611,12 @@ type CreateEnvironmentApplicationLock struct {
 	Application         string `json:"app"`
 	LockId              string `json:"lockId"`
 	Message             string `json:"message"`
+	TransformerEslID    uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
+}
+
+func (c *CreateEnvironmentApplicationLock) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -717,10 +669,16 @@ type DeleteEnvironmentApplicationLock struct {
 	Environment         string `json:"env"`
 	Application         string `json:"app"`
 	LockId              string `json:"lockId"`
+	TransformerEslID    uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
 func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentApplicationLock
+}
+
+func (c *DeleteEnvironmentApplicationLock) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(
@@ -766,6 +724,10 @@ type CreateApplicationVersion struct {
 	WriteCommitData     bool              `json:"writeCommitData"`
 	PreviousCommit      string            `json:"previousCommit"`
 	TransformerEslID    uint              `json:"eslID"`
+}
+
+func (c *CreateApplicationVersion) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -987,8 +949,13 @@ type CreateEnvironmentTeamLock struct {
 	Team                string `json:"team"`
 	LockId              string `json:"lockId"`
 	Message             string `json:"message"`
+	TransformerEslID    uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
 }
 
+func (c *CreateEnvironmentTeamLock) GetEslID() uint {
+	return c.TransformerEslID
+}
 func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentTeamLock
 }
@@ -1067,6 +1034,12 @@ type DeleteEnvironmentTeamLock struct {
 	Environment         string `json:"env"`
 	Team                string `json:"team"`
 	LockId              string `json:"lockId"`
+	TransformerEslID    uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
+}
+
+func (c *DeleteEnvironmentTeamLock) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
@@ -1113,6 +1086,12 @@ type CreateEnvironment struct {
 	TransformerMetadata `json:"metadata"`
 	Environment         string                   `json:"env"`
 	Config              config.EnvironmentConfig `json:"config"`
+	TransformerEslID    uint                     `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
+}
+
+func (c *CreateEnvironment) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
@@ -1216,6 +1195,12 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 type CleanupOldApplicationVersions struct {
 	Application         string
 	TransformerMetadata `json:"metadata"`
+	TransformerEslID    uint `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
+}
+
+func (c *CleanupOldApplicationVersions) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
@@ -1276,6 +1261,12 @@ type ReleaseTrain struct {
 	CommitHash          string     `json:"commitHash"`
 	WriteCommitData     bool       `json:"writeCommitData"`
 	Repo                Repository `json:"-"`
+	TransformerEslID    uint       `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
+}
+
+func (c *ReleaseTrain) GetEslID() uint {
+	return c.TransformerEslID
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -1293,6 +1284,7 @@ func (c *ReleaseTrain) Transform(
 
 type MigrationTransformer struct {
 	TransformerMetadata `json:"metadata"`
+	TransformerEslID    uint `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
 }
 
 func (c *MigrationTransformer) GetDBEventType() db.EventType {
@@ -1302,11 +1294,21 @@ func (c *MigrationTransformer) Transform(_ context.Context, _ *State, _ Transfor
 	return "Migration Transformer", nil
 }
 
+func (c *MigrationTransformer) GetEslID() uint {
+	return c.TransformerEslID
+}
+
 type DeleteEnvFromApp struct {
 	Authentication      `json:"-"`
 	TransformerMetadata `json:"metadata"`
 	Environment         string `json:"environment"`
 	Application         string `json:"application"`
+	TransformerEslID    uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+
+}
+
+func (u *DeleteEnvFromApp) GetEslID() uint {
+	return u.TransformerEslID
 }
 
 func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
