@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -141,14 +142,15 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			Name: "generates only deployed manifest",
 			Transformers: []Transformer{
 				&DeployApplicationVersion{
-					Authentication:  Authentication{},
-					Environment:     envAcceptance,
-					Application:     appName,
-					Version:         7,
-					LockBehaviour:   0,
-					WriteCommitData: false,
-					SourceTrain:     nil,
-					Author:          "",
+					Authentication:   Authentication{},
+					Environment:      envAcceptance,
+					Application:      appName,
+					Version:          7,
+					LockBehaviour:    0,
+					WriteCommitData:  false,
+					SourceTrain:      nil,
+					Author:           "",
+					TransformerEslID: 1,
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
@@ -236,10 +238,11 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			Name: "create environment lock",
 			Transformers: []Transformer{
 				&CreateEnvironmentLock{
-					Authentication: Authentication{},
-					Environment:    envAcceptance,
-					LockId:         "my-lock",
-					Message:        "My envAcceptance lock",
+					Authentication:   Authentication{},
+					Environment:      envAcceptance,
+					LockId:           "my-lock",
+					Message:          "My envAcceptance lock",
+					TransformerEslID: 1,
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
@@ -254,11 +257,12 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			Name: "create applications lock",
 			Transformers: []Transformer{
 				&CreateEnvironmentApplicationLock{
-					Authentication: Authentication{},
-					Environment:    envAcceptance,
-					LockId:         "my-lock",
-					Application:    "my-app",
-					Message:        "My envAcceptance lock",
+					Authentication:   Authentication{},
+					Environment:      envAcceptance,
+					LockId:           "my-lock",
+					Application:      "my-app",
+					Message:          "My envAcceptance lock",
+					TransformerEslID: 1,
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
@@ -269,99 +273,17 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			Name: "create team lock",
 			Transformers: []Transformer{
 				&CreateEnvironmentTeamLock{
-					Authentication: Authentication{},
-					Environment:    envAcceptance,
-					LockId:         "my-lock",
-					Team:           "my-team",
-					Message:        "My envAcceptance lock",
+					Authentication:   Authentication{},
+					Environment:      envAcceptance,
+					LockId:           "my-lock",
+					Team:             "my-team",
+					Message:          "My envAcceptance lock",
+					TransformerEslID: 1,
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
 				"team 'my-team' does not exist",
 			},
-		},
-		{
-			Name: "CleanupOldApplicationVersions", //ReleaseLimit is 2
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[string]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        2,
-					Application:    appName,
-					Manifests: map[string]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        3,
-					Application:    appName,
-					Manifests: map[string]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CleanupOldApplicationVersions{
-					Application: appName,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-			},
-			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
 			Name: "Create a single environment",
@@ -439,7 +361,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					DisplayVersion:   "",
 					WriteCommitData:  false,
 					PreviousCommit:   "",
-					TransformerEslID: 0,
+					TransformerEslID: 1,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -452,6 +374,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
+					TransformerEslID: 2,
 				},
 				&DeployApplicationVersion{
 					Authentication:   Authentication{},
@@ -462,7 +385,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					WriteCommitData:  true,
 					SourceTrain:      nil,
 					Author:           authorEmail,
-					TransformerEslID: 0,
+					TransformerEslID: 3,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -474,7 +397,8 @@ func TestTransformerWorksWithDb(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					Application: appName,
+					Application:      appName,
+					TransformerEslID: 4,
 				},
 			},
 			ExpectedDeletedFile: "/environments/staging/applications/" + appName + "/deployed_by",
@@ -495,10 +419,19 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
-				if err != nil {
-					return err
+				for idx, t := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					if t.GetDBEventType() == db.EvtDeployApplicationVersion || t.GetDBEventType() == db.EvtDeployApplicationVersion {
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx+1), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
+						if err != nil {
+							return err
+						}
+					}
 				}
+
 				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
@@ -625,7 +558,7 @@ func TestDepoymentEvent(t *testing.T) {
 					Team:             "my-team",
 					WriteCommitData:  true,
 					Version:          1,
-					TransformerEslID: 0,
+					TransformerEslID: 1,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -737,6 +670,192 @@ func TestDepoymentEvent(t *testing.T) {
 					if !cmp.Equal(actualFileData, expectedFile.fileData) {
 						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
 					}
+				}
+			}
+		})
+	}
+}
+
+func TestCleanupOldApplicationVersions(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name                string
+		Transformers        []Transformer
+		ExpectedError       error
+		ExpectedFile        []*FilenameAndData
+		ExpectedAuthor      *map[string]string
+		ExpectedDeletedFile string
+	}{
+		{
+			Name: "CleanupOldApplicationVersions", //ReleaseLimit is 2
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslID: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        2,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslID: 2,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        3,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslID: 3,
+				},
+				&CleanupOldApplicationVersions{
+					Application: appName,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslID: 4,
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					fileData: []byte("123456789abcdef"),
+				},
+				{
+					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					fileData: []byte("abcdef"),
+				},
+			},
+			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := context.Background()
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					EslId:         0,
+					ReleaseNumber: 1,
+					Created:       time.Time{},
+					App:           appName,
+					Manifests:     db.DBReleaseManifests{},
+					Metadata:      db.DBReleaseMetaData{},
+				}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			if tc.ExpectedFile != nil {
+				for i := range tc.ExpectedFile {
+					expectedFile := tc.ExpectedFile[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+					if tc.ExpectedAuthor != nil {
+						if !cmp.Equal(updatedState.Commit.Author().Name, (*tc.ExpectedAuthor)["Name"]) {
+							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Name"], updatedState.Commit.Author().Name)
+						}
+						if !cmp.Equal(updatedState.Commit.Author().Email, (*tc.ExpectedAuthor)["Email"]) {
+							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Email"], updatedState.Commit.Author().Email)
+						}
+					}
+				}
+			}
+			if tc.ExpectedDeletedFile != "" {
+				updatedState := repo.State()
+				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.ExpectedDeletedFile)
+				_, err := util.ReadFile(updatedState.Filesystem, fullPath)
+				if err == nil {
+					t.Fatalf("Expected file to be deleted but it exists: %s", fullPath)
 				}
 			}
 		})
