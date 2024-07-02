@@ -152,26 +152,26 @@ test('CommitInfo component renders commit info when the response is valid', () =
             expectedEventsTable: {
                 head: ['Date:', 'Event Description:', 'Environments:'],
                 body: [
-                    ['2024-02-09T09:46:00', 'received data about this commit for the first time', 'dev, staging'],
-                    ['2024-02-10T09:46:00', 'Single deployment of application app to environment dev', 'dev'],
+                    ['2/9/2024, 09:46:00 AM', 'received data about this commit for the first time', 'dev, staging'],
+                    ['2/10/2024, 09:46:00 AM', 'Single deployment of application app to environment dev', 'dev'],
                     [
-                        '2024-02-11T09:46:00',
+                        '2/11/2024, 09:46:00 AM',
                         'Release train deployment of application app from environment dev to environment staging',
                         'staging',
                     ],
                     [
-                        '2024-02-12T09:46:00',
+                        '2/12/2024, 09:46:00 AM',
                         'Release train deployment of application app on environment group staging-group from environment dev to environment staging',
                         'staging',
                     ],
                     [
-                        '2024-02-13T09:46:00',
+                        '2/13/2024, 09:46:00 AM',
                         'Application app was blocked from deploying due to an environment lock with message "locked"',
                         'dev',
                     ],
-                    ['2024-02-13T09:46:00', 'This commit was replaced by 12345678 on dev.', 'dev'],
+                    ['2/13/2024, 09:46:00 AM', 'This commit was replaced by 12345678 on dev.', 'dev'],
                     [
-                        '2024-02-13T09:46:00',
+                        '2/13/2024, 09:46:00 AM',
                         'Application app was blocked from deploying due to a team lock with message "locked"',
                         'dev',
                     ],
