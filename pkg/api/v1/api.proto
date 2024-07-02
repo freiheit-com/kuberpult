@@ -327,7 +327,11 @@ message GetFrontendConfigResponse {
       string cloud_instance = 4;
       string redirect_url = 5;
     }
+    message DexAuthConfig {
+      bool enabled = 1;
+    }
     AzureAuthConfig azure_auth= 1;
+    DexAuthConfig dex_auth= 2;
   }
   ArgoCD argo_cd = 1;
   Auth auth_config = 2;
