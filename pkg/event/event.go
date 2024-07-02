@@ -222,7 +222,7 @@ func UnMarshallEvent(eventType EventType, eventJson string) (DBEventGo, error) {
 func Write(filesystem billy.Filesystem, eventDir string, event Event) error {
 	_, err := filesystem.Stat(eventDir)
 	if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("event file already exists: %w", err)
+		return fmt.Errorf("event file already exists: %v", err)
 	}
 	if err := write(filesystem, eventDir, eventType{
 		EventType: event.eventType(),
@@ -244,8 +244,8 @@ func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 }
 
 type Metadata struct {
-	AuthorEmail string
-	Uuid        string
+	Uuid      string
+	EventType string
 }
 
 type DBEventGo struct {

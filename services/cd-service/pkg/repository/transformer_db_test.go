@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"testing"
 	gotime "time"
 
@@ -1126,6 +1127,209 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			})
 			if err3 != nil {
 				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestEventGenerationFromTransformers(t *testing.T) {
+	type TestCase struct {
+		Name                      string
+		Transformers              []Transformer
+		expectedEnvironmentConfig map[string]config.EnvironmentConfig
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "create a single environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"development": testutil.MakeEnvConfigLatest(nil),
+			},
+		},
+		{
+			Name: "create a single environment twice",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"staging": testutil.MakeEnvConfigUpstream("development", nil),
+			},
+		},
+		{
+			Name: "create multiple environments",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"development": testutil.MakeEnvConfigLatest(nil),
+				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				result, err2 := state.GetAllEnvironmentConfigs(ctx, transaction)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedEnvironmentConfig, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestEvents(t *testing.T) {
+	type TestCase struct {
+		Name             string
+		Transformers     []Transformer
+		expectedDBEvents []event.Event
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "Create a single application version and deploy it with DB",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Application:      "app",
+					Environment:      "staging",
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 1,
+				},
+			},
+			expectedDBEvents: []event.Event{
+				&event.Deployment{
+					Application: "app",
+					Environment: "staging",
+				},
+			},
+		},
+		{
+			Name: "Create a single application version and get deployment locked with DB",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment: "dev",
+					LockId:      "my-lock",
+					Message:     "my-message",
+				},
+				&CreateApplicationVersion{ //This will create a
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"dev": "doesn't matter",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 1,
+				},
+			},
+			expectedDBEvents: []event.Event{
+				&event.LockPreventedDeployment{
+					Application: "app",
+					Environment: "dev",
+					LockType:    "environment",
+					LockMessage: "my-message",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			var err error = nil
+			repo = SetupRepositoryTestWithDB(t)
+			r := repo.(*repository)
+			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				var batchError *TransformerBatchApplyError = nil
+				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if batchError != nil {
+					// Note that we cannot just `return err2` here,
+					// because it's a "TransformerBatchApplyError", not an "error"
+					return batchError
+				}
+
+				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(rows) != len(tc.expectedDBEvents) {
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+				}
+				dEvents, err := DBParseToEvents(rows)
+				if err != nil {
+					t.Fatalf("encountered error but no error is expected here: %v", err)
+				}
+				if len(dEvents) != len(tc.expectedDBEvents) {
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+				}
+
+				return nil
+
+			})
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: '%v'", err)
 			}
 		})
 	}

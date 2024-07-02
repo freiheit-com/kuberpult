@@ -375,6 +375,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtCreateEnvironment:
 		//exhaustruct:ignore
 		return &repository.CreateEnvironment{}, nil
+	case db.EvtMigrationTransformer:
+		//exhaustruct:ignore
+		return &repository.MigrationTransformer{}, nil
 	case db.EvtDeleteEnvFromApp:
 		//exhaustruct:ignore
 		return &repository.DeleteEnvFromApp{}, nil
