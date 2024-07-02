@@ -759,6 +759,26 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
+	envMap := make(map[string]struct{}, len(environments))
+	for _, env := range environments {
+		envMap[env] = struct{}{}
+	}
+
+	ev := &event.NewRelease{
+		Environments: envMap,
+	}
+	var writeError error
+	if h.ShouldUseEslTable() {
+		gen := getGenerator(ctx)
+		eventUuid := gen.Generate()
+		writeError = state.DBHandler.DBWriteNewReleaseEvent(ctx, transaction, transformerEslID, eventUuid, sourceCommitId, ev)
+	} else {
+		writeError = writeEvent(ctx, eventId, sourceCommitId, fs, ev)
+	}
+
+	if writeError != nil {
+		return fmt.Errorf("error while writing event: %v", writeError)
+	}
 	return nil
 }
 
@@ -2653,6 +2673,7 @@ func (c *DeployApplicationVersion) Transform(
 				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
 
+				fmt.Println("Deployment Event!")
 				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, deploymentEvent)
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)

@@ -842,7 +842,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", fmt.Errorf("No new release event to read from database for application '%s'.\n", c.Application)
 		}
 
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, ev[0].EventMetadata.Uuid, allEnvsOfThisApp, c.PreviousCommit, state)
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, c.PreviousCommit, state)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -892,7 +892,7 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, state *State) error {
+func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, previousCommitId string, state *State) error {
 	fs := state.Filesystem
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
@@ -924,20 +924,6 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 
 	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
-	}
-	envMap := make(map[string]struct{}, len(environments))
-	for _, env := range environments {
-		envMap[env] = struct{}{}
-	}
-
-	ev := &event.NewRelease{
-		Environments: envMap,
-	}
-
-	writeError := writeEvent(ctx, eventId, sourceCommitId, fs, ev)
-
-	if writeError != nil {
-		return fmt.Errorf("error while writing event: %v", writeError)
 	}
 	return nil
 }
