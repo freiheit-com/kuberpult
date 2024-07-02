@@ -243,6 +243,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
 			return nil, err
 		} else {
+
 			result := &repository{
 				writesDone: 0,
 				headLock:   sync.Mutex{},

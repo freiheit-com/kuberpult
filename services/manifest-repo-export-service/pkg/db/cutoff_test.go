@@ -27,6 +27,9 @@ import (
 	"testing"
 )
 
+// For testing purposes only
+type EmptyTransformer struct{}
+
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -35,13 +38,13 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	}{
 		{
 			Name:          "test with one write operation",
-			eslId:         []db.EslId{7},
-			ExpectedEslId: 7,
+			eslId:         []db.EslId{1},
+			ExpectedEslId: 1,
 		},
 		{
 			Name:          "test with multiple write operations",
-			eslId:         []db.EslId{1, 2, 7, 666, 777},
-			ExpectedEslId: 777,
+			eslId:         []db.EslId{1, 2, 3, 4, 5},
+			ExpectedEslId: 5,
 		},
 	}
 
@@ -54,6 +57,17 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				//We need to add transformers for these eslids beforehand (FK)
+				tf := EmptyTransformer{}
+				i := 0
+				for i < len(tc.eslId) {
+					//Write bogus transformer for FK reasons
+					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(tf), db.ESLMetadata{})
+					if err != nil {
+						return err
+					}
+					i++
+				}
 				eslId, err2 := DBReadCutoff(dbHandler, ctx, transaction)
 				if err2 != nil {
 					return err2
