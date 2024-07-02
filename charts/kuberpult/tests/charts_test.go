@@ -358,9 +358,8 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: NO_DB
+db:
+  dbOption: NO_DB
 `,
 			ExpectedEnvs: []core.EnvVar{},
 			ExpectedMissing: []core.EnvVar{
@@ -384,24 +383,23 @@ cd:
 			},
 		},
 		{
-			Name: "Database cloudsql enabled 1",
+			Name: "Database postgreSQL enabled 1",
 			Values: `
 git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: cloudsql
-    location: "127.0.0.1"
-    dbName: dbName
-    dbUser: dbUser
-    dbPassword: dbPassword
+db:
+  dbOption: postgreSQL
+  location: "127.0.0.1"
+  dbName: dbName
+  dbUser: dbUser
+  dbPassword: dbPassword
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "cloudsql",
+					Value: "postgreSQL",
 				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
@@ -423,24 +421,23 @@ cd:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Database cloudsql enabled 2",
+			Name: "Database postgreSQL enabled 2",
 			Values: `
 git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: sqlite
-    location: /kp/database
-    dbName: does
-    dbUser: not
-    dbPassword: matter
+db:
+  dbOption: postgreSQL
+  location: /kp/database
+  dbName: does
+  dbUser: not
+  dbPassword: matter
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "sqlite",
+					Value: "postgreSQL",
 				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
@@ -469,19 +466,18 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: sqlite
-    location: /kp/database
-    dbName: does
-    dbUser: not
-    dbPassword: matter
-    writeEslTableOnly: false
+db:
+  dbOption: postgreSQL
+  location: /kp/database
+  dbName: does
+  dbUser: not
+  dbPassword: matter
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "sqlite",
+					Value: "postgreSQL",
 				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
@@ -514,19 +510,18 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: sqlite
-    location: /kp/database
-    dbName: does
-    dbUser: not
-    dbPassword: matter
-    writeEslTableOnly: true
+db:
+  dbOption: postgreSQL
+  location: /kp/database
+  dbName: does
+  dbUser: not
+  dbPassword: matter
+  writeEslTableOnly: true
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "sqlite",
+					Value: "postgreSQL",
 				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
@@ -659,10 +654,9 @@ git:
   url:  "checkThisValue"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: "sqlite"
-    writeEslTableOnly: false
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -681,10 +675,9 @@ ingress:
   domainName: "kuberpult-example.com"
 argocd:
   generateFiles: false
-cd:
-  db:
-    dbOption: "sqlite"
-    writeEslTableOnly: false
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -707,10 +700,9 @@ ingress:
   domainName: "kuberpult-example.com"
 argocd:
   generateFiles: true
-cd:
-  db:
-    dbOption: "sqlite"
-    writeEslTableOnly: false
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -733,10 +725,9 @@ ingress:
   domainName: "kuberpult-example.com"
 dataDogTracing:
   enabled: false
-cd:
-  db:
-    dbOption: "sqlite"
-    writeEslTableOnly: false
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -780,10 +771,9 @@ ingress:
   domainName: "kuberpult-example.com"
 datadogTracing:
   enabled: true
-cd:
-  db:
-    dbOption: "sqlite"
-    writeEslTableOnly: false
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -820,10 +810,9 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: NO_DB
-    writeEslTableOnly: false
+db:
+  dbOption: NO_DB
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{},
 			ExpectedMissing: []core.EnvVar{
@@ -847,25 +836,24 @@ cd:
 			},
 		},
 		{
-			Name: "Database cloudsql enabled 1",
+			Name: "Database postgreSQL enabled 1",
 			Values: `
 git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: cloudsql
-    location: "127.0.0.1"
-    dbName: dbName
-    dbUser: dbUser
-    dbPassword: dbPassword
-    writeEslTableOnly: false
+db:
+  dbOption: postgreSQL
+  location: "127.0.0.1"
+  dbName: dbName
+  dbUser: dbUser
+  dbPassword: dbPassword
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "cloudsql",
+					Value: "postgreSQL",
 				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
@@ -887,25 +875,24 @@ cd:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Database cloudsql enabled 2",
+			Name: "Database postgreSQL enabled 2",
 			Values: `
 git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: sqlite
-    location: /kp/database
-    dbName: does
-    dbUser: not
-    dbPassword: matter
-    writeEslTableOnly: false
+db:
+  dbOption: postgreSQL
+  location: /kp/database
+  dbName: does
+  dbUser: not
+  dbPassword: matter
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "sqlite",
+					Value: "postgreSQL",
 				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
@@ -934,10 +921,9 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: sqlite
-    writeEslTableOnly: false
+db:
+  dbOption: postgreSQL
+  writeEslTableOnly: false
 
 manifestRepoExport:
   eslProcessingBackoff: 5
@@ -956,10 +942,9 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: sqlite
-    writeEslTableOnly: false
+db:
+  dbOption: postgreSQL
+  writeEslTableOnly: false
 `,
 			ExpectedMissing: []core.EnvVar{
 				{
@@ -976,10 +961,9 @@ git:
   releaseVersionsLimit: 15
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: sqlite
-    writeEslTableOnly: false
+db:
+  dbOption: postgreSQL
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -995,10 +979,9 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-cd:
-  db:
-    dbOption: sqlite
-    writeEslTableOnly: false
+db:
+  dbOption: postgreSQL
+  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
