@@ -58,8 +58,8 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if eq .Values.db.dbOption "postgreSQL" }}
-      serviceAccountName: {{ .Values.db.k8sName }}
+{{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.db.k8sServiceAccountName)) }}
+      serviceAccountName: {{ .Values.db.k8sServiceAccountName }}
 {{- end }}
       containers:
 {{- if .Values.db.cloudSqlProxyEnabled }}
