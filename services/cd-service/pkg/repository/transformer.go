@@ -1841,10 +1841,11 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	for index := range envNamesSorted {
 		envName := envNamesSorted[index]
 		x := CreateEnvironmentLock{
-			Authentication: c.Authentication,
-			Environment:    envName,
-			LockId:         c.LockId, // the IDs should be the same for all. See `useLocksSimilarTo` in store.tsx
-			Message:        c.Message,
+			Authentication:   c.Authentication,
+			Environment:      envName,
+			LockId:           c.LockId, // the IDs should be the same for all. See `useLocksSimilarTo` in store.tsx
+			Message:          c.Message,
+			TransformerEslID: c.TransformerEslID,
 		}
 		if err := t.Execute(&x, transaction); err != nil {
 			return "", err
@@ -1885,9 +1886,10 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 	for index := range envNamesSorted {
 		envName := envNamesSorted[index]
 		x := DeleteEnvironmentLock{
-			Authentication: c.Authentication,
-			Environment:    envName,
-			LockId:         c.LockId,
+			Authentication:   c.Authentication,
+			Environment:      envName,
+			LockId:           c.LockId,
+			TransformerEslID: c.TransformerEslID,
 		}
 		if err := t.Execute(&x, transaction); err != nil {
 			return "", err
@@ -2187,7 +2189,6 @@ type DeleteEnvironmentTeamLock struct {
 	Team             string `json:"team"`
 	LockId           string `json:"lockId"`
 	TransformerEslID uint   `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
-
 }
 
 func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
@@ -2644,7 +2645,8 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 	d := &CleanupOldApplicationVersions{
-		Application: c.Application,
+		Application:      c.Application,
+		TransformerEslID: c.TransformerEslID,
 	}
 
 	if err := t.Execute(d, transaction); err != nil {
@@ -3495,7 +3497,8 @@ func (c *envReleaseTrain) Transform(
 		teamInfo = " for team '" + c.Parent.Team + "'"
 	}
 	if err := t.Execute(&skippedServices{
-		Messages: skipped,
+		Messages:         skipped,
+		TransformerEslID: c.TransformerEslId,
 	}, transaction); err != nil {
 		return "", err
 	}

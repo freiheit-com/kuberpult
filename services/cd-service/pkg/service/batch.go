@@ -119,10 +119,11 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentLock{
-			Environment:    act.Environment,
-			LockId:         act.LockId,
-			Message:        act.Message,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Environment:      act.Environment,
+			LockId:           act.LockId,
+			Message:          act.Message,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentLock:
 		act := action.DeleteEnvironmentLock
@@ -130,9 +131,10 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentLock{
-			Environment:    act.Environment,
-			LockId:         act.LockId,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Environment:      act.Environment,
+			LockId:           act.LockId,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_CreateEnvironmentApplicationLock:
 		act := action.CreateEnvironmentApplicationLock
@@ -140,11 +142,12 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentApplicationLock{
-			Environment:    act.Environment,
-			Application:    act.Application,
-			LockId:         act.LockId,
-			Message:        act.Message,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Environment:      act.Environment,
+			Application:      act.Application,
+			LockId:           act.LockId,
+			Message:          act.Message,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentApplicationLock:
 		act := action.DeleteEnvironmentApplicationLock
@@ -152,10 +155,11 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentApplicationLock{
-			Environment:    act.Environment,
-			Application:    act.Application,
-			LockId:         act.LockId,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Environment:      act.Environment,
+			Application:      act.Application,
+			LockId:           act.LockId,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_CreateEnvironmentTeamLock:
 		act := action.CreateEnvironmentTeamLock
@@ -163,11 +167,12 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentTeamLock{
-			Environment:    act.Environment,
-			Team:           act.Team,
-			LockId:         act.LockId,
-			Message:        act.Message,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Environment:      act.Environment,
+			Team:             act.Team,
+			LockId:           act.LockId,
+			Message:          act.Message,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentTeamLock:
 		act := action.DeleteEnvironmentTeamLock
@@ -175,10 +180,11 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentTeamLock{
-			Environment:    act.Environment,
-			Team:           act.Team,
-			LockId:         act.LockId,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Environment:      act.Environment,
+			Team:             act.Team,
+			LockId:           act.LockId,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_PrepareUndeploy:
 		act := action.PrepareUndeploy
@@ -197,8 +203,9 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.UndeployApplication{
-			Application:    act.Application,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Application:      act.Application,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_Deploy:
 		act := action.Deploy
@@ -225,9 +232,10 @@ func (d *BatchServer) processAction(
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
 		return &repository.DeleteEnvFromApp{
-			Environment:    act.Environment,
-			Application:    act.Application,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Environment:      act.Environment,
+			Application:      act.Application,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_ReleaseTrain:
 		in := action.ReleaseTrain
@@ -304,7 +312,8 @@ func (d *BatchServer) processAction(
 				ArgoCd:           argocd,
 				EnvironmentGroup: conf.EnvironmentGroup,
 			},
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
 		}
 		return transformer, nil, nil
 	case *api.BatchAction_CreateEnvironmentGroupLock:
@@ -314,6 +323,7 @@ func (d *BatchServer) processAction(
 			LockId:           act.LockId,
 			Message:          act.Message,
 			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentGroupLock:
 		act := action.DeleteEnvironmentGroupLock
@@ -321,6 +331,7 @@ func (d *BatchServer) processAction(
 			EnvironmentGroup: act.EnvironmentGroup,
 			LockId:           act.LockId,
 			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslID: 0,
 		}, nil, nil
 	}
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
