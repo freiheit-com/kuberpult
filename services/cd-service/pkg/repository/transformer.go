@@ -3541,7 +3541,7 @@ func (c *skippedServices) Transform(
 		return "", nil
 	}
 	for _, msg := range c.Messages {
-		if err := t.Execute(&skippedService{Message: msg}, transaction); err != nil {
+		if err := t.Execute(&skippedService{Message: msg, TransformerEslID: c.TransformerEslID}, transaction); err != nil {
 			return "", err
 		}
 	}
