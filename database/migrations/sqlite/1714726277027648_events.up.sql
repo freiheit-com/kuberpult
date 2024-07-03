@@ -1,5 +1,5 @@
 -- Requires event_sourcing_light table to be created
-CREATE TABLE IF NOT EXISTS commit_events
+CREATE TABLE IF NOT EXISTS events
 (
     uuid VARCHAR(64),
     timestamp TIMESTAMP,
@@ -11,4 +11,4 @@ CREATE TABLE IF NOT EXISTS commit_events
     FOREIGN KEY (transformerEslId) REFERENCES event_sourcing_light(eslId)
 );
 
-CREATE INDEX IF NOT EXISTS commitHashIdx on commit_events (commitHash);
+CREATE INDEX IF NOT EXISTS commitHashIdx on events (commitHash);
