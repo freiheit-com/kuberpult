@@ -25,10 +25,8 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
-  db:
-    dbOption: sqlite
-    location: /sqlite
-    writeEslTableOnly: false
+db:
+  dbOption: NO_DB
 frontend:
   resources:
     limits:
