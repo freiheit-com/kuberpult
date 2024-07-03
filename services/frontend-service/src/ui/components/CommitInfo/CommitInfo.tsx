@@ -111,30 +111,27 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
 
 const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
     const [timezone, setTimezone] = useState<'UTC' | 'local'>('UTC');
-    const handleTimezoneToggle = (): void => {
-        setTimezone((preve) => (preve === 'local' ? 'UTC' : 'local'));
-    };
+    const handleChangeTimezone = React.useCallback(
+        (event: React.ChangeEvent<HTMLSelectElement>) => {
+            if (event.target.value === 'local' || event.target.value === 'UTC') {
+                setTimezone(event.target.value);
+            }
+        },
+        [setTimezone]
+    );
     const formatDate = (date: Date | undefined): string => {
         if (!date) return '';
         const selectedTimezone = timezone === 'local' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
-        return date.toLocaleString('en-US', {
-            timeZone: selectedTimezone,
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-        });
+        const localizedDate = new Date(
+            date.toLocaleString('en-US', {
+                timeZone: selectedTimezone,
+            })
+        );
+        return localizedDate.toISOString().split('.')[0];
     };
-    const handleToggleClick = handleTimezoneToggle;
     return (
         <div>
-            <select
-                className={'select-timezone'}
-                value={timezone}
-                onChange={handleToggleClick}
-                style={{ marginBottom: 10 }}>
+            <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
                 <option value="local">Local Timezone</option>
                 <option value="UTC">UTC Timezone</option>
             </select>

@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { CommitInfo } from './CommitInfo';
 import { MemoryRouter } from 'react-router-dom';
 import { GetCommitInfoResponse, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
@@ -35,6 +35,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
     };
 
     type TestCase = {
+        selectedTimezone: 'local' | 'UTC';
         commitInfo: GetCommitInfoResponse;
         expectedTitle: string;
         expectedCommitDescriptionTable: Table;
@@ -43,6 +44,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
 
     const testCases: TestCase[] = [
         {
+            selectedTimezone: 'UTC',
             commitInfo: {
                 commitHash: 'potato',
                 commitMessage: `tomato
@@ -152,30 +154,64 @@ test('CommitInfo component renders commit info when the response is valid', () =
             expectedEventsTable: {
                 head: ['Date:', 'Event Description:', 'Environments:'],
                 body: [
-                    ['2/9/2024, 09:46:00 AM', 'received data about this commit for the first time', 'dev, staging'],
-                    ['2/10/2024, 09:46:00 AM', 'Single deployment of application app to environment dev', 'dev'],
+                    ['2024-02-09T09:46:00', 'received data about this commit for the first time', 'dev, staging'],
+                    ['2024-02-10T09:46:00', 'Single deployment of application app to environment dev', 'dev'],
                     [
-                        '2/11/2024, 09:46:00 AM',
+                        '2024-02-11T09:46:00',
                         'Release train deployment of application app from environment dev to environment staging',
                         'staging',
                     ],
                     [
-                        '2/12/2024, 09:46:00 AM',
+                        '2024-02-12T09:46:00',
                         'Release train deployment of application app on environment group staging-group from environment dev to environment staging',
                         'staging',
                     ],
                     [
-                        '2/13/2024, 09:46:00 AM',
+                        '2024-02-13T09:46:00',
                         'Application app was blocked from deploying due to an environment lock with message "locked"',
                         'dev',
                     ],
-                    ['2/13/2024, 09:46:00 AM', 'This commit was replaced by 12345678 on dev.', 'dev'],
+                    ['2024-02-13T09:46:00', 'This commit was replaced by 12345678 on dev.', 'dev'],
                     [
-                        '2/13/2024, 09:46:00 AM',
+                        '2024-02-13T09:46:00',
                         'Application app was blocked from deploying due to a team lock with message "locked"',
                         'dev',
                     ],
                 ],
+            },
+        },
+        {
+            selectedTimezone: 'local',
+            commitInfo: {
+                commitHash: 'potato',
+                commitMessage: `tomato
+                
+        Commit message body line 1
+        Commit message body line 2`,
+                touchedApps: ['google', 'windows'],
+                nextCommitHash: '',
+                previousCommitHash: '',
+                events: [
+                    {
+                        uuid: '00000000-0000-0000-0000-000000000000',
+                        createdAt: new Date('2024-02-09T11:20:00Z'),
+                        eventType: {
+                            $case: 'createReleaseEvent',
+                            createReleaseEvent: {
+                                environmentNames: ['dev', 'staging'],
+                            },
+                        },
+                    },
+                ],
+            },
+            expectedTitle: 'Commit: tomato',
+            expectedCommitDescriptionTable: {
+                head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
+                body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google, windows']],
+            },
+            expectedEventsTable: {
+                head: ['Date:', 'Event Description:', 'Environments:'],
+                body: [['2024-02-09T12:20:00', 'received data about this commit for the first time', 'dev, staging']],
             },
         },
     ];
@@ -213,6 +249,13 @@ test('CommitInfo component renders commit info when the response is valid', () =
     };
 
     for (const testCase of testCases) {
+        jest.spyOn(Intl, 'DateTimeFormat').mockImplementation(
+            () =>
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
+                ({
+                    resolvedOptions: () => ({ timeZone: 'Europe/Berlin' }),
+                }) as Intl.DateTimeFormat
+        );
         const { container } = render(
             <MemoryRouter>
                 <CommitInfo commitInfo={testCase.commitInfo} />
@@ -222,6 +265,8 @@ test('CommitInfo component renders commit info when the response is valid', () =
         // first h1 is "Planned Actions", second h1 is actually our CommitInfo component:
         expect(container.getElementsByTagName('h1').length).toEqual(2);
         expect(container.getElementsByTagName('h1')[1]).toHaveTextContent(testCase.expectedTitle);
+        const selectTimezoneElement = container.getElementsByClassName('select-timezone')[0];
+        fireEvent.change(selectTimezoneElement, { target: { value: testCase.selectedTimezone } });
 
         const tables = container.getElementsByTagName('table');
 
