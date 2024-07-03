@@ -726,7 +726,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, transformerEslID uint, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, state *State) error {
+func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, transformerEslID db.TransformerID, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, state *State) error {
 	fs := state.Filesystem
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
@@ -2672,8 +2672,6 @@ func (c *DeployApplicationVersion) Transform(
 			} else {
 				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
-
-				fmt.Println("Deployment Event!")
 				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, deploymentEvent)
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)

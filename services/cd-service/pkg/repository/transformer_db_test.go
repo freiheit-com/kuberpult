@@ -1321,7 +1321,6 @@ func TestEvents(t *testing.T) {
 				if err != nil {
 					t.Fatalf("encountered error but no error is expected here: %v", err)
 				}
-
 				for _, ev := range dEvents { //Events are not sortable. We need to check each one
 					for idx, expected := range tc.expectedDBEvents {
 						diff := cmp.Diff(expected, ev)

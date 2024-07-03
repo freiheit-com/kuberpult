@@ -582,16 +582,16 @@ func TestDeploymentEvent(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/eventType",
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000000/eventType",
 					fileData: []byte(event.EventTypeNewRelease),
 				},
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000002/application",
-					fileData: []byte(appName),
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
+					fileData: []byte("staging"),
 				},
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000002/environment",
-					fileData: []byte("staging"),
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
+					fileData: []byte(appName),
 				},
 			},
 		},
@@ -612,25 +612,20 @@ func TestDeploymentEvent(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
 				for idx, t := range tc.Transformers {
 					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
 					if err != nil {
 						return err
 					}
-					if t.GetDBEventType() == db.EvtDeployApplicationVersion || t.GetDBEventType() == db.EvtDeployApplicationVersion {
-						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslID(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx+1), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
+					if t.GetDBEventType() == db.EvtDeployApplicationVersion {
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslID(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
 						if err != nil {
 							return err
 						}
 					}
 				}
-				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 2, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &tc.Event)
-
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000002", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &tc.Event)
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, "00000000-0000-0000-0000-000000000000", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
 					return err
 				}
