@@ -72,7 +72,7 @@ type DBHandler struct {
 }
 
 type EslId int64
-
+type TransformerID uint
 type AppStateChange string
 
 const (
@@ -760,7 +760,7 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 	return nil
 }
 
-func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
+func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformerEslId)  VALUES (?, ?, ?, ?, ?, ?);")
@@ -785,7 +785,7 @@ func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transfo
 	return nil
 }
 
-func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
+func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
 	metadata := event.Metadata{
 		Uuid:      uuid,
 		EventType: string(event.EventTypeLockPreventeDeployment),
@@ -801,7 +801,7 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
 }
 
-func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID uint, uuid, sourceCommitHash string, deployment *event.Deployment) error {
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, deployment *event.Deployment) error {
 	metadata := event.Metadata{
 		Uuid:      uuid,
 		EventType: string(event.EventTypeDeployment),
@@ -833,7 +833,7 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 	return h.processSingleEventsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID uint, eventType event.EventType) ([]event.DBEventGo, error) {
+func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventType event.EventType) ([]event.DBEventGo, error) {
 	if h == nil {
 		return nil, nil
 	}
@@ -938,7 +938,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	return processAllCommitEventRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID uint) ([]EventRow, error) {
+func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID TransformerID) ([]EventRow, error) {
 	if h == nil {
 		return nil, nil
 	}
@@ -1614,7 +1614,7 @@ type EventRow struct {
 	CommitHash    string
 	EventType     event.EventType
 	EventJson     string
-	TransformerID uint
+	TransformerID TransformerID
 }
 
 func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLocksFun GetAllEnvLocksFun) error {
@@ -1815,17 +1815,18 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 // For commit_events migrations, we need some transformer to be on the database before we run their migrations.
 func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
+		defer span.Finish()
 		l := logger.FromContext(ctx).Sugar()
 		eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, false)
 		if err != nil {
-			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
 			return err
 		}
 		if eslEvent != nil {
+			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
 			return nil
 		}
-		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
-		defer span.Finish()
+
 		return h.DBWriteMigrationsTransformer(ctx, transaction)
 	})
 }

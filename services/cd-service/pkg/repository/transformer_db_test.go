@@ -1153,7 +1153,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 			},
 		},
 		{
-			Name: "create a single environment twice",
+			Name: "create a single environment twice: second one should overwrite first one",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "staging",
@@ -1305,8 +1305,6 @@ func TestEvents(t *testing.T) {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
-					// Note that we cannot just `return err2` here,
-					// because it's a "TransformerBatchApplyError", not an "error"
 					return batchError
 				}
 

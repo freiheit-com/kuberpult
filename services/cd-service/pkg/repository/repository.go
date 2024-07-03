@@ -1038,11 +1038,11 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 						Index:            i,
 					}
 				}
-				var id uint
+				var id db.TransformerID
 				if ev == nil {
 					id = 1
 				} else {
-					id = uint(ev.EslId) + 1
+					id = db.TransformerID(uint(ev.EslId) + 1)
 				}
 				t.SetEslID(id)
 			}

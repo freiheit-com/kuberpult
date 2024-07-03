@@ -1395,10 +1395,12 @@ type FileWithContent struct {
 
 func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 	for _, contentRequirement := range required {
-		if data, err := util.ReadFile(fs, contentRequirement.Path); err != nil {
+		data, err := util.ReadFile(fs, contentRequirement.Path)
+		if err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.Path, err)
-		} else if string(data) != contentRequirement.Content {
-			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.Path, contentRequirement.Content, string(data))
+		}
+		if string(data) != contentRequirement.Content {
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
 		}
 	}
 	return nil

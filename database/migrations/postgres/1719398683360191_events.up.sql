@@ -1,1 +1,0 @@
-../sqlite/1719398683360191_events.up.sql

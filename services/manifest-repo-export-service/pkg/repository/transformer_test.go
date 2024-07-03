@@ -503,9 +503,11 @@ func TestTransformerWorksWithDb(t *testing.T) {
 }
 func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 	for _, contentRequirement := range required {
-		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
+		data, err := util.ReadFile(fs, contentRequirement.path)
+		if err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
-		} else if string(data) != string(contentRequirement.fileData) {
+		}
+		if string(data) != string(contentRequirement.fileData) {
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
 		}
 	}
@@ -602,7 +604,6 @@ func TestDepoymentEvent(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
-			//ctx := context.Background()
 
 			dbHandler := repo.State().DBHandler
 			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
