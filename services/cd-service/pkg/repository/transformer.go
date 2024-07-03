@@ -1053,29 +1053,72 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if lastRelease == 0 {
 		return "", fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
 	}
+	if state.DBHandler.ShouldUseOtherTables() {
+		anyRelease, err := state.DBHandler.DBSelectAnyRelease(ctx, transaction)
+		if err != nil {
+			return "", err
+		}
+		var v = db.InitialEslId - 1
+		if anyRelease != nil {
+			v = anyRelease.EslId
+		}
+		release := db.DBReleaseWithMetaData{
+			ReleaseNumber: lastRelease + 1,
+			App:           c.Application,
+			Metadata: db.DBReleaseMetaData{
+				UndeployVersion: true,
+			},
+			Created: time.Now(),
+		}
+		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		allReleases, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		if allReleases == nil {
+			allReleases = &db.DBAllReleasesWithMetaData{
+				EslId:   db.InitialEslId - 1,
+				Created: time.Now(),
+				App:     c.Application,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{int64(release.ReleaseNumber)},
+				},
+			}
+		} else {
+			allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(release.ReleaseNumber))
+		}
+		err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslId)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	} else {
+		releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+		if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+			return "", err
+		}
 
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
-	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
-		return "", err
+		// this is a flag to indicate that this is the special "undeploy" version
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
+			return "", err
+		}
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+			return "", err
+		}
 	}
 
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
-		return "", err
-	}
-	// this is a flag to indicate that this is the special "undeploy" version
-	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
-		return "", err
-	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", err
+		return "", fmt.Errorf("error while getting environment configs, error: %w", err)
 	}
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateUndeploy, "", c.RBACConfig)
 		if err != nil {
 			return "", err
 		}
-		envDir := fs.Join(releaseDir, "environments", env)
+		//envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]
 		hasUpstream := false
@@ -1083,16 +1126,16 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			hasUpstream = config.Upstream != nil
 		}
 
-		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", err
-		}
-		// note that the manifest is empty here!
-		// but actually it's not quite empty!
-		// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
-		// We work around this unusual behavior by writing a space into the file
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
-			return "", err
-		}
+		//if err = fs.MkdirAll(envDir, 0777); err != nil {
+		//	return "", err
+		//}
+		//// note that the manifest is empty here!
+		//// but actually it's not quite empty!
+		//// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
+		//// We work around this unusual behavior by writing a space into the file
+		//if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
+		//	return "", err
+		//}
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err

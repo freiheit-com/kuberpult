@@ -409,6 +409,8 @@ type DBReleaseMetaData struct {
 	SourceCommitId string
 	SourceMessage  string
 	DisplayVersion string
+
+	UndeployVersion bool
 }
 
 type DBReleaseManifests struct {
