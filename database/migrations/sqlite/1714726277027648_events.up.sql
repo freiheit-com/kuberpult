@@ -1,4 +1,3 @@
--- Requires event_sourcing_light table to be created
 CREATE TABLE IF NOT EXISTS events
 (
     uuid VARCHAR(64),
