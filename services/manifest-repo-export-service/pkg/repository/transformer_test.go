@@ -1066,38 +1066,6 @@ func TestReplacedByEvents(t *testing.T) {
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
 				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
-
-			if tc.ExpectedFile != nil {
-				for i := range tc.ExpectedFile {
-					expectedFile := tc.ExpectedFile[i]
-					updatedState := repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
-
-					if !cmp.Equal(actualFileData, expectedFile.fileData) {
-						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-					}
-					if tc.ExpectedAuthor != nil {
-						if !cmp.Equal(updatedState.Commit.Author().Name, (*tc.ExpectedAuthor)["Name"]) {
-							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Name"], updatedState.Commit.Author().Name)
-						}
-						if !cmp.Equal(updatedState.Commit.Author().Email, (*tc.ExpectedAuthor)["Email"]) {
-							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Email"], updatedState.Commit.Author().Email)
-						}
-					}
-				}
-			}
-			if tc.ExpectedDeletedFile != "" {
-				updatedState := repo.State()
-				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.ExpectedDeletedFile)
-				_, err := util.ReadFile(updatedState.Filesystem, fullPath)
-				if err == nil {
-					t.Fatalf("Expected file to be deleted but it exists: %s", fullPath)
-				}
-			}
 		})
 	}
 }

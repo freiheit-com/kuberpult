@@ -462,22 +462,6 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 	return processedRows[0], nil
 }
 
-func (h *DBHandler) DBSelect(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
-			" FROM releases " +
-			" WHERE appName=? AND releaseVersion=?" +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT 1;"))
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		app,
-		releaseVersion,
-	)
-	return h.processReleaseRow(ctx, err, rows)
-}
-
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
