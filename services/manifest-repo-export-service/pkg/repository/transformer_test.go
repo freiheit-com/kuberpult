@@ -582,20 +582,16 @@ func TestDeploymentEvent(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/eventType",
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000000/eventType",
 					fileData: []byte(event.EventTypeNewRelease),
 				},
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000002/application",
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
 					fileData: []byte(appName),
 				},
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000002/environment",
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
 					fileData: []byte("staging"),
-				},
-				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000002/application",
-					fileData: []byte(appName),
 				},
 			},
 		},
@@ -907,9 +903,9 @@ func TestReplacedByEvents(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					Team:             "my-team",
-					WriteCommitData:  true,
+					WriteCommitData:  false,
 					Version:          1,
-					TransformerEslID: 0,
+					TransformerEslID: 1,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -922,9 +918,9 @@ func TestReplacedByEvents(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					Team:             "my-team",
-					WriteCommitData:  true,
+					WriteCommitData:  false,
 					Version:          2,
-					TransformerEslID: 0,
+					TransformerEslID: 2,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -936,26 +932,28 @@ func TestReplacedByEvents(t *testing.T) {
 					Environment:     "staging",
 					Application:     appName,
 					Version:         1,
-					LockBehaviour:   0,
+					LockBehaviour:   1,
 					WriteCommitData: true,
 					SourceTrain:     nil,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
+					TransformerEslID: 3,
 				},
 				&DeployApplicationVersion{
 					Authentication:  Authentication{},
 					Environment:     "staging",
 					Application:     appName,
 					Version:         2,
-					LockBehaviour:   0,
+					LockBehaviour:   1,
 					WriteCommitData: true,
 					SourceTrain:     nil,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
+					TransformerEslID: 4,
 				},
 			},
 			Event: event.ReplacedBy{
@@ -998,23 +996,32 @@ func TestReplacedByEvents(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
-				if err != nil {
-					return err
+				for _, t := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
 				}
-				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000002", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
+
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
-					return err
+					return err //bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 				}
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000003", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", &event.NewRelease{})
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, "00000000-0000-0000-0000-000000000002", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", &event.NewRelease{})
 				if err != nil {
-					return err
+					return err //bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 				}
-				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000004", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", &event.Deployment{Application: appName, Environment: "staging"})
+
+				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 3, "00000000-0000-0000-0000-000000000003", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
 				if err != nil {
-					return err
+					return err //bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 				}
-				err = dbHandler.DBWriteReplacedByEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000005", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &tc.Event)
+				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 4, "00000000-0000-0000-0000-000000000004", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", &event.Deployment{Application: appName, Environment: "staging"})
+				if err != nil {
+					return err //bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+				}
+
+				err = dbHandler.DBWriteReplacedByEvent(ctx, transaction, 4, "00000000-0000-0000-0000-000000000005", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &tc.Event)
 				if err != nil {
 					return err
 				}
