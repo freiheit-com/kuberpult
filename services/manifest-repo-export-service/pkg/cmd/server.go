@@ -151,7 +151,7 @@ func Run(ctx context.Context) error {
 	argoCdGenerateFiles := argoCdGenerateFilesString == "true"
 
 	var dbCfg db.DBConfig
-	if dbOption == "cloudsql" {
+	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
 			DbHost:         dbLocation,
 			DbPort:         dbAuthProxyPort,

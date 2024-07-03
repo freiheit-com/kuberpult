@@ -231,7 +231,7 @@ func RunServer() {
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg db.DBConfig
-			if c.DbOption == "cloudsql" {
+			if c.DbOption == "postgreSQL" {
 				dbCfg = db.DBConfig{
 					DbHost:         c.DbLocation,
 					DbPort:         c.DbAuthProxyPort,

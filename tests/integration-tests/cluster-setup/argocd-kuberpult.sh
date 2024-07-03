@@ -129,10 +129,9 @@ kubectl create ns staging
 print 'installing kuberpult helm chart...'
 
 cat <<VALUES > vals.yaml
+db:
+  dbOption: NO_DB
 cd:
-  db:
-    dbOption: sqlite
-    location: /sqlite
   resources:
     limits:
       memory: 200Mi
