@@ -1005,20 +1005,20 @@ func TestReplacedByEvents(t *testing.T) {
 
 				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
-					return err //bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+					return err
 				}
 				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, "00000000-0000-0000-0000-000000000002", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", &event.NewRelease{})
 				if err != nil {
-					return err //bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+					return err
 				}
 
 				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 3, "00000000-0000-0000-0000-000000000003", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
 				if err != nil {
-					return err //bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+					return err
 				}
 				err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 4, "00000000-0000-0000-0000-000000000004", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", &event.Deployment{Application: appName, Environment: "staging"})
 				if err != nil {
-					return err //bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+					return err
 				}
 
 				err = dbHandler.DBWriteReplacedByEvent(ctx, transaction, 4, "00000000-0000-0000-0000-000000000005", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &tc.Event)
