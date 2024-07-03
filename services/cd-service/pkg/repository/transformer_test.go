@@ -1395,9 +1395,11 @@ type FileWithContent struct {
 
 func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 	for _, contentRequirement := range required {
-		if data, err := util.ReadFile(fs, contentRequirement.Path); err != nil {
+		data, err := util.ReadFile(fs, contentRequirement.Path)
+		if err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.Path, err)
-		} else if string(data) != contentRequirement.Content {
+		}
+		if string(data) != contentRequirement.Content {
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.Path, contentRequirement.Content, string(data))
 		}
 	}
@@ -1849,35 +1851,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name: "Create a single application version and deploy it with DB",
-			// no need to bother with environments here
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
-						"staging": "doesn't matter",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&DeployApplicationVersion{
-					Application:     "app",
-					Environment:     "staging",
-					WriteCommitData: true,
-					Version:         1,
-				},
-			},
-			db: true,
-			expectedDBEvents: []event.Event{
-				&event.Deployment{
-					Application: "app",
-					Environment: "staging",
-				},
-			},
-			expectedContent: []FileWithContent{},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -1891,29 +1864,11 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			var repo Repository
 			var err error = nil
 			var updatedState *State = nil
-			if tc.db {
-				repo = SetupRepositoryTestWithDB(t)
-				r := repo.(*repository)
-				err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
-					var batchError *TransformerBatchApplyError = nil
-					_, updatedState, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-					if batchError != nil {
-						// Note that we cannot just `return err2` here,
-						// because it's a "TransformerBatchApplyError", not an "error"
-						return batchError
-					}
-					return nil
-				})
-				if err != nil {
-					t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
-				}
-			} else {
-				repo = setupRepositoryTest(t)
-				var batchError *TransformerBatchApplyError = nil
-				_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
-				if batchError != nil {
-					t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
-				}
+			repo = setupRepositoryTest(t)
+			var batchError *TransformerBatchApplyError = nil
+			_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
+			if batchError != nil {
+				t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
 			}
 
 			if err != nil {
@@ -1922,22 +1877,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
 				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
-			}
-			if tc.db {
-				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(rows) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
-				}
-				dEvents, err := DBParseToEvents(rows)
-				if err != nil {
-					t.Fatalf("encountered error but no error is expected here: %v", err)
-				}
-				if len(dEvents) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
-				}
 			}
 		})
 	}

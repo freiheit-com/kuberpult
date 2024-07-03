@@ -197,6 +197,7 @@ func (o *OverviewServiceServer) getOverview(
 					if err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
+
 						if version == nil {
 							app.Version = 0
 						} else {
@@ -306,6 +307,7 @@ func (o *OverviewServiceServer) getOverview(
 			app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
 			result.Applications[appName] = &app
 		}
+
 	}
 	return &result, nil
 }

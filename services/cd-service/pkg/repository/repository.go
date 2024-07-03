@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"io"
 	"net/http"
 	"os"
@@ -1021,7 +1022,6 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				return nil, nil, nil, &applyErr
 			}
 			logger.FromContext(ctx).Info("writing esl event...")
-
 			user, readUserErr := auth.ReadUserFromContext(ctx)
 
 			if readUserErr != nil {
@@ -1030,6 +1030,23 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					Index:            -1,
 				}
 			}
+			if r.DB.ShouldUseOtherTables() {
+				ev, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: err,
+						Index:            i,
+					}
+				}
+				var id db.TransformerID
+				if ev == nil {
+					id = 1
+				} else {
+					id = db.TransformerID(uint(ev.EslId) + 1)
+				}
+				t.SetEslID(id)
+			}
+
 			eventMetadata := db.ESLMetadata{
 				AuthorName:  user.Name,
 				AuthorEmail: user.Email,
@@ -2421,6 +2438,59 @@ func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersio
 			}
 			result[envName][currentApp] = versionIntPtr
 
+		}
+	}
+	return result, nil
+}
+
+func (s *State) GetAllCommitEvents(ctx context.Context) (db.AllCommitEvents, error) {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllCommitEvents")
+	defer ddSpan.Finish()
+	fs := s.Filesystem
+	allCommitsPath := "commits"
+	commitPrefixes, err := fs.ReadDir(allCommitsPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not read commits dir: %v\n", err)
+	}
+	result := make(db.AllCommitEvents)
+	for _, currentPrefix := range commitPrefixes {
+		currentpath := fs.Join(allCommitsPath, currentPrefix.Name())
+		commitSuffixes, err := fs.ReadDir(currentpath)
+		if err != nil {
+			return nil, fmt.Errorf("could not read commit directory '%s': %v", currentpath, err)
+		}
+		for _, currentSuffix := range commitSuffixes {
+			var currentEvents []event.DBEventGo
+			currentpath := fs.Join(fs.Join(currentpath, currentSuffix.Name(), "events"))
+			potentialEventDirs, err := fs.ReadDir(currentpath)
+			if err != nil {
+				return nil, fmt.Errorf("could not read events directory '%s': %v", currentpath, err)
+			}
+			for i := range potentialEventDirs {
+				oneEventDir := potentialEventDirs[i]
+				if oneEventDir.IsDir() {
+					fileName := oneEventDir.Name()
+
+					eType, err := readFile(fs, fs.Join(fs.Join(currentpath, fileName), "eventType"))
+
+					if err != nil {
+						return nil, fmt.Errorf("could not read event type '%s': %v", fs.Join(currentpath, fileName), err)
+					}
+
+					fsEvent, err := event.Read(fs, fs.Join(currentpath, fileName))
+					if err != nil {
+						return nil, fmt.Errorf("could not read events %v", err)
+					}
+					currentEvents = append(currentEvents, event.DBEventGo{
+						EventData: fsEvent,
+						EventMetadata: event.Metadata{
+							Uuid:      fileName,
+							EventType: string(eType),
+						},
+					})
+				}
+			}
+			result[strings.Join([]string{currentPrefix.Name(), currentSuffix.Name()}, "")] = currentEvents
 		}
 	}
 	return result, nil

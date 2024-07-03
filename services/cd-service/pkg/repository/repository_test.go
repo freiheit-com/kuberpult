@@ -1059,7 +1059,9 @@ type SlowTransformer struct {
 func (s *SlowTransformer) GetDBEventType() db.EventType {
 	return "invalid"
 }
-
+func (p *SlowTransformer) SetEslID(_ db.TransformerID) {
+	//Does nothing
+}
 func (s *SlowTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	s.started <- struct{}{}
 	<-s.finished
@@ -1067,6 +1069,10 @@ func (s *SlowTransformer) Transform(ctx context.Context, state *State, transform
 }
 
 type EmptyTransformer struct{}
+
+func (p *EmptyTransformer) SetEslID(_ db.TransformerID) {
+	//Does nothing
+}
 
 func (p *EmptyTransformer) GetDBEventType() db.EventType {
 	return "invalid"
@@ -1080,6 +1086,10 @@ type PanicTransformer struct{}
 
 func (p *PanicTransformer) GetDBEventType() db.EventType {
 	return "invalid"
+}
+
+func (p *PanicTransformer) SetEslID(_ db.TransformerID) {
+	//Does nothing
 }
 
 func (p *PanicTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
@@ -1098,10 +1108,18 @@ func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transfor
 	return "error", TransformerError
 }
 
+func (p *ErrorTransformer) SetEslID(_ db.TransformerID) {
+	//Does nothing
+}
+
 type InvalidJsonTransformer struct{}
 
 func (p *InvalidJsonTransformer) GetDBEventType() db.EventType {
 	return "invalid"
+}
+
+func (p *InvalidJsonTransformer) SetEslID(_ db.TransformerID) {
+	//Does nothing
 }
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
