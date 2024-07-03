@@ -5,8 +5,7 @@ CREATE TABLE IF NOT EXISTS events
     timestamp TIMESTAMP,
     commitHash VARCHAR(64),
     eventType VARCHAR(32),
-    json VARCHAR,
-    transformerEslId INTEGER
+    json VARCHAR
 );
 
 CREATE INDEX IF NOT EXISTS commitHashIdx on events (commitHash);
