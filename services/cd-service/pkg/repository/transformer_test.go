@@ -1400,7 +1400,7 @@ func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.Path, err)
 		}
 		if string(data) != contentRequirement.Content {
-			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.Path, contentRequirement.Content, string(data))
 		}
 	}
 	return nil
