@@ -1289,6 +1289,49 @@ func TestEvents(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Replaced By test",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"dev": "doesn't matter",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 1,
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					Manifests: map[string]string{
+						"dev": "doesn't matter",
+					},
+					WriteCommitData:  true,
+					Version:          2,
+					TransformerEslID: 1,
+					PreviousCommit:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+			expectedDBEvents: []event.Event{
+				&event.NewRelease{Environments: map[string]struct{}{"dev": {}}},
+				&event.Deployment{
+					Application: "app",
+					Environment: "dev",
+				},
+				&event.ReplacedBy{Application: "app", Environment: "dev", CommitIDtoReplace: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+			},
+		},
 	}
 
 	for _, tc := range tcs {

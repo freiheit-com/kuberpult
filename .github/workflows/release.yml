@@ -57,6 +57,9 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           changelog-generator-opt: "emojis=true"
+          # By default, every release is a "pre-release" from now on.
+          # Setting this flag to true will happen manually (after testing).
+          prerelease: true
       - name: Append helm chart to release
         run: |
           echo $VERSION

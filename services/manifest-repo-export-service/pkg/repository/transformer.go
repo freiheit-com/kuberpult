@@ -461,7 +461,6 @@ func (c *DeployApplicationVersion) Transform(
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
 	}
-
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
