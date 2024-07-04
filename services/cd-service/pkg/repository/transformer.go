@@ -3112,6 +3112,7 @@ func (c *envReleaseTrain) prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainEnvironmentPrognosis {
+	fmt.Printf("Beggining of %s\n", c.Env)
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3169,7 +3170,11 @@ func (c *envReleaseTrain) prognosis(
 
 	if !upstreamLatest {
 		_, ok := c.EnvConfigs[upstreamEnvName]
+		fmt.Printf("Current Environment: %s\n", c.Env)
+		fmt.Printf("CupstreamEnvName: %s\n", upstreamEnvName)
+		fmt.Printf("Configs: %+v\n", c.EnvConfigs[upstreamEnvName])
 		if !ok {
+			fmt.Println("Skipping...")
 			return ReleaseTrainEnvironmentPrognosis{
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
@@ -3180,7 +3185,7 @@ func (c *envReleaseTrain) prognosis(
 			}
 		}
 	}
-
+	fmt.Println("Breakpoint 1")
 	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3236,6 +3241,7 @@ func (c *envReleaseTrain) prognosis(
 	}
 
 	for _, appName := range apps {
+		fmt.Printf("Processing app: %s\n", appName)
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
@@ -3340,20 +3346,53 @@ func (c *envReleaseTrain) prognosis(
 			continue
 		}
 
-		fs := state.Filesystem
-
-		releaseDir := releasesDirectoryWithVersion(fs, appName, versionToDeploy)
-		manifest := fs.Join(releaseDir, "environments", c.Env, "manifests.yaml")
-
-		if _, err := fs.Stat(manifest); err != nil {
-			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
-					SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
-				},
-				FirstLockMessage: "",
-				Version:          0,
+		if state.DBHandler.ShouldUseOtherTables() {
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy)
+			if err != nil {
+				return ReleaseTrainEnvironmentPrognosis{
+					SkipCause:        nil,
+					Error:            err,
+					FirstLockMessage: "",
+					AppsPrognoses:    nil,
+				}
 			}
-			continue
+			if release == nil {
+				return ReleaseTrainEnvironmentPrognosis{
+					SkipCause:        nil,
+					Error:            fmt.Errorf("No release found."),
+					FirstLockMessage: "",
+					AppsPrognoses:    nil,
+				}
+			}
+
+			_, ok := release.Manifests.Manifests[c.Env]
+
+			if !ok {
+				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+					},
+					FirstLockMessage: "",
+					Version:          0,
+				}
+				continue
+			}
+		} else {
+			fs := state.Filesystem
+
+			releaseDir := releasesDirectoryWithVersion(fs, appName, versionToDeploy)
+
+			manifest := fs.Join(releaseDir, "environments", c.Env, "manifests.yaml")
+			if _, err := fs.Stat(manifest); err != nil {
+				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+					},
+					FirstLockMessage: "",
+					Version:          0,
+				}
+				continue
+			}
 		}
 
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
@@ -3390,14 +3429,13 @@ func (c *envReleaseTrain) prognosis(
 				continue
 			}
 		}
-
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 			SkipCause:        nil,
 			FirstLockMessage: "",
 			Version:          versionToDeploy,
 		}
 	}
-
+	fmt.Printf("End of %s\n", c.Env)
 	return ReleaseTrainEnvironmentPrognosis{
 		SkipCause:        nil,
 		Error:            nil,
