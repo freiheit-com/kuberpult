@@ -111,11 +111,11 @@ spec:
             protocol: TCP
         resources:
           limits:
-            cpu: "{{ .Values.cd.resources.limits.cpu }}"
-            memory: "{{ .Values.cd.resources.limits.memory }}"
+            cpu: "{{ .Values.manifestRepoExport.resources.limits.cpu }}"
+            memory: "{{ .Values.manifestRepoExport.resources.limits.memory }}"
           requests:
-            cpu: "{{ .Values.cd.resources.requests.cpu }}"
-            memory: "{{ .Values.cd.resources.requests.memory }}"
+            cpu: "{{ .Values.manifestRepoExport.resources.requests.cpu }}"
+            memory: "{{ .Values.manifestRepoExport.resources.requests.memory }}"
         env:
         - name: KUBERPULT_GIT_URL
           value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
