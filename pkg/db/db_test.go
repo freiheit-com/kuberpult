@@ -541,11 +541,17 @@ func TestReadWriteDeployment(t *testing.T) {
 				if deployment != nil {
 					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *deployment))
 				}
-				err := dbHandler.DBWriteDeployment(ctx, transaction, Deployment{
+
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBWriteDeployment(ctx, transaction, Deployment{
 					App:     tc.App,
 					Env:     tc.Env,
 					Version: tc.VersionToDeploy,
-				}, 1)
+				}, 1, 0)
 				if err != nil {
 					return err
 				}

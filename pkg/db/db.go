@@ -1498,7 +1498,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 }
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
-func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslId) error {
+func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslId, id TransformerID) error {
 	if h == nil {
 		return nil
 	}
@@ -1514,7 +1514,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata) VALUES (?, ?, ?, ?, ?, ?);")
+		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformerEslId) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
@@ -1525,7 +1525,8 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 		nullVersion,
 		deployment.App,
 		deployment.Env,
-		jsonToInsert)
+		jsonToInsert,
+		id)
 
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
@@ -1614,7 +1615,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 
 		for i := range allDeploymentsInRepo {
 			deploymentInRepo := allDeploymentsInRepo[i]
-			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
+			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0, 0)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
 					deploymentInRepo.App, deploymentInRepo.Env, err)

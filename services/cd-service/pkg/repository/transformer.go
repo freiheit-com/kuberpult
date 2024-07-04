@@ -2606,7 +2606,7 @@ func (c *DeployApplicationVersion) Transform(
 		} else {
 			previousVersion = existingDeployment.EslVersion
 		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion, c.TransformerEslID)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
