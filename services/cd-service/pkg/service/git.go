@@ -226,28 +226,6 @@ func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy
 	var result []*api.Event
 	parts := strings.Split(commitPath, "/")
 	commitID := parts[len(parts)-2] + parts[len(parts)-1]
-	allEventsPath := fs.Join(commitPath, "events")
-	potentialEventDirs, err := fs.ReadDir(allEventsPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not read events directory '%s': %v", allEventsPath, err)
-	}
-	for i := range potentialEventDirs {
-		oneEventDir := potentialEventDirs[i]
-		if oneEventDir.IsDir() {
-			fileName := oneEventDir.Name()
-			rawUUID, err := timeuuid.ParseUUID(fileName)
-			if err != nil {
-				return nil, fmt.Errorf("could not read event directory '%s' not a UUID: %v", fs.Join(allEventsPath, fileName), err)
-			}
-
-			var event *api.Event
-			event, err = s.ReadEvent(ctx, fs, fs.Join(allEventsPath, fileName), rawUUID)
-			if err != nil {
-				return nil, fmt.Errorf("could not read events %v", err)
-			}
-			result = append(result, event)
-		}
-	}
 
 	if s.Config.DBHandler.ShouldUseOtherTables() {
 		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID)
@@ -265,6 +243,29 @@ func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy
 			}
 
 			result = append(result, eventmod.ToProto(rawUUID, ev.EventData))
+		}
+	} else {
+		allEventsPath := fs.Join(commitPath, "events")
+		potentialEventDirs, err := fs.ReadDir(allEventsPath)
+		if err != nil {
+			return nil, fmt.Errorf("could not read events directory '%s': %v", allEventsPath, err)
+		}
+		for i := range potentialEventDirs {
+			oneEventDir := potentialEventDirs[i]
+			if oneEventDir.IsDir() {
+				fileName := oneEventDir.Name()
+				rawUUID, err := timeuuid.ParseUUID(fileName)
+				if err != nil {
+					return nil, fmt.Errorf("could not read event directory '%s' not a UUID: %v", fs.Join(allEventsPath, fileName), err)
+				}
+
+				var event *api.Event
+				event, err = s.ReadEvent(ctx, fs, fs.Join(allEventsPath, fileName), rawUUID)
+				if err != nil {
+					return nil, fmt.Errorf("could not read events %v", err)
+				}
+				result = append(result, event)
+			}
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {

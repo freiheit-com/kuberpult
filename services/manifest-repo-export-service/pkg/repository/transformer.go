@@ -39,6 +39,7 @@ import (
 	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"path"
+	"slices"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"os"
@@ -59,6 +60,8 @@ const (
 	fieldMessage          = "message"
 	fieldSourceMessage    = "source_message"
 	fieldSourceAuthor     = "source_author"
+	fieldNextCommidId     = "nextCommit"
+	fieldPreviousCommitId = "previousCommit"
 	keptVersionsOnCleanup = 20
 )
 
@@ -458,7 +461,6 @@ func (c *DeployApplicationVersion) Transform(
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
 	}
-
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
@@ -822,6 +824,29 @@ func (c *CreateApplicationVersion) Transform(
 			}
 		}
 	}
+
+	var allEnvsOfThisApp []string = nil
+
+	for env := range c.Manifests {
+		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
+	}
+	slices.Sort(allEnvsOfThisApp)
+
+	if c.WriteCommitData {
+		ev, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeNewRelease, 1)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		if len(ev) == 0 {
+			return "", fmt.Errorf("No new release event to read from database for application '%s'.\n", c.Application)
+		}
+
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, c.PreviousCommit, state)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return "", err
@@ -864,6 +889,76 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
+}
+
+func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, previousCommitId string, state *State) error {
+	fs := state.Filesystem
+	if !valid.SHA1CommitID(sourceCommitId) {
+		return nil
+	}
+	commitDir := commitDirectory(fs, sourceCommitId)
+	if err := fs.MkdirAll(commitDir, 0777); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+
+	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
+		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {
+			return GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
+	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
+	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+	if err := util.WriteFile(fs, fs.Join(commitDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
+		return err
+	}
+	if err := util.WriteFile(fs, fs.Join(commitDir, "source_message"), []byte(sourceMessage), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+
+	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+	return nil
+}
+
+func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId string, fieldSource string, application string, fs billy.Filesystem) error {
+
+	otherCommitId = strings.ToLower(otherCommitId)
+	sourceCommitDir := commitDirectory(fs, sourceCommitId)
+
+	otherCommitDir := commitDirectory(fs, otherCommitId)
+
+	if _, err := fs.Stat(otherCommitDir); err != nil {
+		logger.FromContext(ctx).Sugar().Warnf(
+			"Could not find the previous commit while trying to create a new release for commit %s and application %s. This is expected when `git.enableWritingCommitData` was just turned on, however it should not happen multiple times.", otherCommitId, application, otherCommitDir)
+		return nil
+	}
+
+	if err := util.WriteFile(fs, fs.Join(sourceCommitDir, fieldSource), []byte(otherCommitId), 0666); err != nil {
+		return err
+	}
+	fieldOther := ""
+	if otherCommitId != "" {
+
+		if fieldSource == fieldPreviousCommitId {
+			fieldOther = fieldNextCommidId
+		} else {
+			fieldOther = fieldPreviousCommitId
+		}
+
+		//This is a workaround. util.WriteFile does NOT truncate file contents, so we simply delete the file before writing.
+		if err := fs.Remove(fs.Join(otherCommitDir, fieldOther)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+
+		if err := util.WriteFile(fs, fs.Join(otherCommitDir, fieldOther), []byte(sourceCommitId), 0666); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {

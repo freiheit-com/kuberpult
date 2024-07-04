@@ -1244,6 +1244,7 @@ func TestEvents(t *testing.T) {
 				},
 			},
 			expectedDBEvents: []event.Event{
+				&event.NewRelease{Environments: map[string]struct{}{"staging": {}}},
 				&event.Deployment{
 					Application: "app",
 					Environment: "staging",
@@ -1267,7 +1268,7 @@ func TestEvents(t *testing.T) {
 					LockId:      "my-lock",
 					Message:     "my-message",
 				},
-				&CreateApplicationVersion{ //This will create a
+				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					Manifests: map[string]string{
@@ -1279,12 +1280,56 @@ func TestEvents(t *testing.T) {
 				},
 			},
 			expectedDBEvents: []event.Event{
+				&event.NewRelease{Environments: map[string]struct{}{"dev": {}}},
 				&event.LockPreventedDeployment{
 					Application: "app",
 					Environment: "dev",
 					LockType:    "environment",
 					LockMessage: "my-message",
 				},
+			},
+		},
+		{
+			Name: "Replaced By test",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"dev": "doesn't matter",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 1,
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					Manifests: map[string]string{
+						"dev": "doesn't matter",
+					},
+					WriteCommitData:  true,
+					Version:          2,
+					TransformerEslID: 1,
+					PreviousCommit:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+			expectedDBEvents: []event.Event{
+				&event.NewRelease{Environments: map[string]struct{}{"dev": {}}},
+				&event.Deployment{
+					Application: "app",
+					Environment: "dev",
+				},
+				&event.ReplacedBy{Application: "app", Environment: "dev", CommitIDtoReplace: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
 			},
 		},
 	}
@@ -1319,8 +1364,16 @@ func TestEvents(t *testing.T) {
 				if err != nil {
 					t.Fatalf("encountered error but no error is expected here: %v", err)
 				}
-				if len(dEvents) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+				for _, ev := range dEvents { //Events are not sortable. We need to check each one
+					for idx, expected := range tc.expectedDBEvents {
+						diff := cmp.Diff(expected, ev)
+						if diff == "" {
+							break
+						}
+						if idx == len(tc.expectedDBEvents)-1 {
+							t.Errorf("error mismatch (-want, +got):\n%s", cmp.Diff(dEvents, tc.expectedDBEvents))
+						}
+					}
 				}
 
 				return nil
