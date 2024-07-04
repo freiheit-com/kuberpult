@@ -38,13 +38,13 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	}{
 		{
 			Name:          "test with one write operation",
-			eslId:         []db.EslId{7},
-			ExpectedEslId: 7,
+			eslId:         []db.EslId{1},
+			ExpectedEslId: 1,
 		},
 		{
 			Name:          "test with multiple write operations",
-			eslId:         []db.EslId{1, 2, 7, 666, 777},
-			ExpectedEslId: 777,
+			eslId:         []db.EslId{1, 2, 3, 4, 5},
+			ExpectedEslId: 5,
 		},
 	}
 

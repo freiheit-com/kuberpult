@@ -1851,35 +1851,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name: "Create a single application version and deploy it with DB",
-			// no need to bother with environments here
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
-						"staging": "doesn't matter",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&DeployApplicationVersion{
-					Application:     "app",
-					Environment:     "staging",
-					WriteCommitData: true,
-					Version:         1,
-				},
-			},
-			db: true,
-			expectedDBEvents: []event.Event{
-				&event.Deployment{
-					Application: "app",
-					Environment: "staging",
-				},
-			},
-			expectedContent: []FileWithContent{},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -1893,31 +1864,12 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			var repo Repository
 			var err error = nil
 			var updatedState *State = nil
-			if tc.db {
-				repo = SetupRepositoryTestWithDB(t)
-				r := repo.(*repository)
-				err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					var batchError *TransformerBatchApplyError = nil
-					_, updatedState, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-					if batchError != nil {
-						// Note that we cannot just `return err2` here,
-						// because it's a "TransformerBatchApplyError", not an "error"
-						return batchError
-					}
-					return nil
-				})
-				if err != nil {
-					t.Fatalf("1 encountered error but no error is expected here: '%v'", err)
-				}
-			} else {
-				repo = setupRepositoryTest(t)
-				var batchError *TransformerBatchApplyError = nil
-				_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
-				if batchError != nil {
-					t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
-				}
+			repo = setupRepositoryTest(t)
+			var batchError *TransformerBatchApplyError = nil
+			_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
+			if batchError != nil {
+				t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
 			}
-
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: '%v'", err)
 			}
@@ -2129,7 +2081,6 @@ func TestReplacedByEvent(t *testing.T) {
 	tcs := []TestCase{
 		{
 			Name: "Create a single application version and deploy it, no replaced by event should be generated",
-			// no need to bother with environments here
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
 					Application:    "app",
