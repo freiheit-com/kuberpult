@@ -1355,7 +1355,15 @@ func (h *DBHandler) DBSelectDeploymentByTransformerID(ctx context.Context, tx *s
 		transformerID,
 		limit,
 	)
-
+	if err != nil {
+		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
 	deployments := make([]Deployment, 0)
 	for rows.Next() {
 		var row = &DBDeployment{
