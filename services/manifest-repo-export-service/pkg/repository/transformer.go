@@ -1433,11 +1433,13 @@ func (u *ReleaseTrain) Transform(
 			trainGroup = conversion.FromString(targetGroupName)
 		}
 		if err := t.Execute(&DeployApplicationVersion{
-			Environment:     currentDeployment.Env,
-			Application:     currentDeployment.App,
-			Version:         uint64(*currentDeployment.Version),
-			LockBehaviour:   api.LockBehavior_RECORD,
-			WriteCommitData: u.WriteCommitData,
+			Authentication:      u.Authentication,
+			TransformerMetadata: u.TransformerMetadata,
+			Environment:         currentDeployment.Env,
+			Application:         currentDeployment.App,
+			Version:             uint64(*currentDeployment.Version),
+			LockBehaviour:       api.LockBehavior_RECORD,
+			WriteCommitData:     u.WriteCommitData,
 			SourceTrain: &DeployApplicationVersionSource{
 				Upstream:    upstreamEnvName,
 				TargetGroup: trainGroup,
