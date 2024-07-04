@@ -31,6 +31,7 @@ import { Button } from '../button';
 import { useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
+import {useAzureAuthSub} from "../../utils/AzureAuthProvider";
 
 export type TableProps = {
     productSummary: ProductSummary[];
@@ -123,6 +124,7 @@ export const ProductVersion: React.FC = () => {
     const [selectedTag, setSelectedTag] = React.useState('');
     const envsList = useEnvironments();
     const tagsResponse = useTags();
+    const { authHeader } = useAzureAuthSub((auth) => auth);
 
     const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -147,7 +149,7 @@ export const ProductVersion: React.FC = () => {
         setSummaryLoading(true);
         useApi
             .gitService()
-            .GetProductSummary({ commitHash: tag, environment: env[0], environmentGroup: env[1] })
+            .GetProductSummary({ commitHash: tag, environment: env[0], environmentGroup: env[1] }, authHeader)
             .then((result: GetProductSummaryResponse) => {
                 setProductSummaries(result.productSummary);
             })
