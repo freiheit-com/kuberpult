@@ -3170,7 +3170,6 @@ func (c *envReleaseTrain) prognosis(
 	if !upstreamLatest {
 		_, ok := c.EnvConfigs[upstreamEnvName]
 		if !ok {
-			fmt.Println("Skipping...")
 			return ReleaseTrainEnvironmentPrognosis{
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
@@ -3181,7 +3180,6 @@ func (c *envReleaseTrain) prognosis(
 			}
 		}
 	}
-	fmt.Println("Breakpoint 1")
 	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
