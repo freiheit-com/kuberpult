@@ -18,8 +18,10 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"os"
 	"sort"
 	"strconv"
@@ -198,8 +200,14 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		touchedApps = append(touchedApps, dir.Name())
 	}
 	sort.Strings(touchedApps)
-
-	events, err := s.GetEvents(ctx, fs, commitPath)
+	var events []*api.Event
+	if s.OverviewService.Repository.State().DBHandler.ShouldUseOtherTables() {
+		events, err = db.WithTransactionMultipleEntriesT(s.OverviewService.Repository.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
+			return s.GetEvents(ctx, transaction, fs, commitPath)
+		})
+	} else {
+		events, err = s.GetEvents(ctx, nil, fs, commitPath)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +222,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}, nil
 }
 
-func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPath string) ([]*api.Event, error) {
+func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string) ([]*api.Event, error) {
 	var result []*api.Event
 	parts := strings.Split(commitPath, "/")
 	commitID := parts[len(parts)-2] + parts[len(parts)-1]
@@ -242,7 +250,7 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 	}
 
 	if s.Config.DBHandler.ShouldUseOtherTables() {
-		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, commitID)
+		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID)
 		if err != nil {
 			return nil, fmt.Errorf("could not read events from DB: %v", err)
 		}

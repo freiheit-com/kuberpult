@@ -72,7 +72,7 @@ type DBHandler struct {
 }
 
 type EslId int64
-
+type TransformerID uint
 type AppStateChange string
 
 const (
@@ -120,7 +120,7 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 		dbPool.SetConnMaxLifetime(5 * time.Minute)
 		return dbPool, nil
 	} else if cfg.DriverName == "sqlite3" {
-		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite"))
+		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite?_foreign_keys=on"))
 	}
 	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
 }
@@ -241,6 +241,7 @@ const (
 	EvtCreateEnvironmentApplicationLock EventType = "CreateEnvironmentApplicationLock"
 	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"
 	EvtReleaseTrain                     EventType = "ReleaseTrain"
+	EvtMigrationTransformer             EventType = "MigrationTransformer"
 )
 
 // ESL EVENTS
@@ -262,6 +263,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	defer span.Finish()
 
 	dataMap, err := convertObjectToMap(data)
+
 	if err != nil {
 		return fmt.Errorf("could not convert object to map: %w", err)
 	}
@@ -315,6 +317,12 @@ type EslEventRow struct {
 
 // DBReadEslEventInternal returns either the first or the last row of the esl table
 func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (*EslEventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBReadEslEventInternal: no transaction provided")
+	}
 	sort := "DESC"
 	if firstRow {
 		sort = "ASC"
@@ -752,10 +760,10 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 	return nil
 }
 
-func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
+func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
-	insertQuery := h.AdaptQuery("INSERT INTO events (uuid, timestamp, commitHash, eventType, json)  VALUES (?, ?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformerEslId)  VALUES (?, ?, ?, ?, ?, ?);")
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
 	if err != nil {
@@ -768,7 +776,8 @@ func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, eventuu
 		uuid2.GetTime(&rawUUID).AsTime(),
 		sourceCommitHash,
 		eventType,
-		eventJson)
+		eventJson,
+		transformerID)
 
 	if err != nil {
 		return fmt.Errorf("Error inserting event information into DB. Error: %w\n", err)
@@ -776,10 +785,42 @@ func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, eventuu
 	return nil
 }
 
-func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
+func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) error {
 	metadata := event.Metadata{
-		AuthorEmail: email,
-		Uuid:        uuid,
+		Uuid:      uuid,
+		EventType: string(event.EventTypeNewRelease),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     newReleaseEvent,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling lock new release event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
+}
+
+func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeLockPreventeDeployment),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     lockPreventedDeploymentEvent,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
+}
+
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, deployment *event.Deployment) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeDeployment),
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     deployment,
@@ -789,60 +830,206 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
 }
 
-func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
+func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (*EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAnyEvent: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEvent")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events ORDER BY timestamp DESC LIMIT 1;")
+	span.SetTag("query", query)
+	rows, err := transaction.QueryContext(ctx, query)
+	return h.processSingleEventsRow(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventType event.EventType, limit uint) ([]event.DBEventGo, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllCommitEventsForTransformer: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllCommitEventsForTransformer")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE eventType = (?) AND transformerEslId = (?) ORDER BY timestamp DESC LIMIT ?;")
 	span.SetTag("query", query)
 
-	rows, err := h.DB.QueryContext(ctx, query, commitHash)
+	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID, limit)
 	if err != nil {
-		return nil, fmt.Errorf("Error querying events. Error: %w\n", err)
+		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("events row could not be closed: %v", err)
+			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
+		}
+	}(rows)
+
+	var result []event.DBEventGo
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row = &EventRow{}
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+		}
+
+		eventGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
+		if err != nil {
+			return nil, fmt.Errorf("Could not unmarshall commit event: %v\n", err)
+		}
+		result = append(result, eventGo)
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+	}
+	return result, nil
+}
+
+func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, err error) (*EventRow, error) {
+	if err != nil {
+		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
+		}
+	}(rows)
+
+	//exhaustruct:ignore
+	var row = &EventRow{}
+	if rows.Next() {
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+		}
+	} else {
+		row = nil
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+	}
+	return row, nil
+}
+
+func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction *sql.Tx, commitHash string) ([]EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := transaction.QueryContext(ctx, query, commitHash)
+	return processAllCommitEventRow(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID TransformerID) ([]EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE transformerEslId = (?) ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := transaction.QueryContext(ctx, query, transformerID)
+	return processAllCommitEventRow(ctx, rows, err)
+}
+
+func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([]EventRow, error) {
+	if err != nil {
+		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
 		}
 	}(rows)
 
 	var result []EventRow
 
 	for rows.Next() {
-		var row = EventRow{
-			Uuid:       "",
-			Timestamp:  time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
-			CommitHash: "",
-			EventType:  "",
-			EventJson:  "",
-		}
-		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson)
+		row, err := processSingleCommitEventRow(rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning events row from DB. Error: %w\n", err)
+			return nil, err
 		}
 
-		result = append(result, row)
+		result = append(result, *row)
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, fmt.Errorf("events: row closing error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("events: row has error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
 	}
 	return result, nil
 }
 
+func processSingleCommitEventRow(rows *sql.Rows) (*EventRow, error) {
+	var row = EventRow{
+		Uuid:          "",
+		Timestamp:     time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
+		CommitHash:    "",
+		EventType:     "",
+		EventJson:     "",
+		TransformerID: 0,
+	}
+	err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+	}
+	return &row, nil
+}
+
 // DBSelectAllApplications returns (nil, nil) if there are no rows
 func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
 	defer span.Finish()
 	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
@@ -956,11 +1143,13 @@ type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
 type AllTeamLocks map[string]map[string][]TeamLock       // EnvName-> Team -> []Locks
 type AllQueuedVersions map[string]map[string]*int64      // EnvName-> AppName -> queuedVersion
+type AllCommitEvents map[string][]event.DBEventGo        // CommitId -> uuid -> Event
 
 type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
 type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
 type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, error)
+type GetAllEventsFun = func(ctx context.Context) (AllCommitEvents, error)
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
@@ -978,10 +1167,15 @@ func (h *DBHandler) RunCustomMigrations(
 	getAllTeamLocksFun GetAllTeamLocksFun,
 	getAllEnvironmentsFun GetAllEnvironmentsFun,
 	getAllQueuedVersionsFun GetAllQueuedVersionsFun,
+	getAllEventsFun GetAllEventsFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
-	err := h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
+	err := h.RunCustomMigrationsEventSourcingLight(ctx)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
@@ -1010,6 +1204,10 @@ func (h *DBHandler) RunCustomMigrations(
 		return err
 	}
 	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationsCommitEvents(ctx, getAllEventsFun)
 	if err != nil {
 		return err
 	}
@@ -1427,11 +1625,12 @@ type AllApplicationsGo struct {
 }
 
 type EventRow struct {
-	Uuid       string
-	Timestamp  time.Time
-	CommitHash string
-	EventType  event.EventType
-	EventJson  string
+	Uuid          string
+	Timestamp     time.Time
+	CommitHash    string
+	EventType     event.EventType
+	EventJson     string
+	TransformerID TransformerID
 }
 
 func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLocksFun GetAllEnvLocksFun) error {
@@ -1565,6 +1764,39 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 	})
 }
 
+func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllEvents GetAllEventsFun) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		l := logger.FromContext(ctx).Sugar()
+		ev, err := h.DBSelectAnyEvent(ctx, transaction)
+		if err != nil {
+			l.Infof("could not get commit events from database - assuming the manifest repo is correct: %v", err)
+			ev = nil
+		}
+		if ev != nil {
+			l.Infof("There are already commit events in the DB - skipping migrations")
+			return nil
+		}
+
+		allEvents, err := getAllEvents(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get current commit events to run custom migrations: %v", err)
+		}
+		for commitID, events := range allEvents {
+			for _, currentEvent := range events {
+				eventJson, err := json.Marshal(currentEvent)
+				if err != nil {
+					return fmt.Errorf("Could not marshal event: %v\n", err)
+				}
+				err = h.writeEvent(ctx, transaction, 0, currentEvent.EventMetadata.Uuid, event.EventType(currentEvent.EventMetadata.EventType), commitID, eventJson)
+				if err != nil {
+					return fmt.Errorf("error writing existing event version: %v", err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
 func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Context, getAllQueuedVersionsFun GetAllQueuedVersionsFun) error {
 	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
@@ -1594,6 +1826,65 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 		}
 		return nil
 	})
+}
+
+// For commit_events migrations, we need some transformer to be on the database before we run their migrations.
+func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
+		defer span.Finish()
+		l := logger.FromContext(ctx).Sugar()
+		eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, false)
+		if err != nil {
+			return err
+		}
+		if eslEvent != nil {
+			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+			return nil
+		}
+
+		return h.DBWriteMigrationsTransformer(ctx, transaction)
+	})
+}
+
+func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transaction *sql.Tx) error {
+	if h == nil {
+		return nil
+	}
+	if transaction == nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer: no transaction provided")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
+	defer span.Finish()
+
+	dataMap := make(map[string]interface{})
+	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
+	metadataMap, err := convertObjectToMap(metadata)
+	if err != nil {
+		return fmt.Errorf("could not convert object to map: %w", err)
+	}
+	dataMap["metadata"] = metadataMap
+	dataMap["eslid"] = 0
+	jsonToInsert, err := json.Marshal(dataMap)
+
+	if err != nil {
+		return fmt.Errorf("could not marshal json transformer: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err = transaction.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		EvtMigrationTransformer,
+		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+	}
+	return nil
 }
 
 func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
