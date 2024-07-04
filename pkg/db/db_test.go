@@ -133,7 +133,7 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-			tx, err := db.DB.BeginTx(ctx, nil)
+			tx, err := db.BeginTransaction(ctx, false)
 			if err != nil {
 				t.Fatalf("Error creating transaction. Error: %v\n", err)
 			}

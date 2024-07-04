@@ -64,17 +64,14 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, readonly bool, f
 func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
 	defer span.Finish()
-	onError := func(e error) {
+	onError := func(e error) ([]T, error) {
 		span.Finish(tracer.WithError(e))
+		return nil, e
 	}
 
-	tx, err := h.DB.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelLinearizable,
-		ReadOnly:  readonly,
-	})
+	tx, err := h.BeginTransaction(ctx, readonly)
 	if err != nil {
-		onError(err)
-		return nil, err
+		return onError(err)
 	}
 	defer func(tx *sql.Tx) {
 		_ = tx.Rollback()
@@ -84,13 +81,18 @@ func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, r
 
 	result, err := f(ctx, tx)
 	if err != nil {
-		onError(err)
-		return nil, err
+		return onError(err)
 	}
 	err = tx.Commit()
 	if err != nil {
-		onError(err)
-		return nil, err
+		return onError(err)
 	}
 	return result, nil
+}
+
+func (h *DBHandler) BeginTransaction(ctx context.Context, readonly bool) (*sql.Tx, error) {
+	return h.DB.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelLinearizable,
+		ReadOnly:  readonly,
+	})
 }
