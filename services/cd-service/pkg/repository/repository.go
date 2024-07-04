@@ -1045,12 +1045,14 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					id = db.TransformerID(uint(ev.EslId) + 1)
 				}
 				t.SetEslID(id)
+				fmt.Printf("ESLID of Transformer: %d\n", id)
 			}
 
 			eventMetadata := db.ESLMetadata{
 				AuthorName:  user.Name,
 				AuthorEmail: user.Email,
 			}
+
 			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
 			if err != nil {
 				return nil, nil, nil, &TransformerBatchApplyError{

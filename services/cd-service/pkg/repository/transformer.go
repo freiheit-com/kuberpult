@@ -772,6 +772,10 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 		gen := getGenerator(ctx)
 		eventUuid := gen.Generate()
 		writeError = state.DBHandler.DBWriteNewReleaseEvent(ctx, transaction, transformerEslID, eventUuid, sourceCommitId, ev)
+		fmt.Printf("Transformer eslID: %d\n", transformerEslID)
+		fmt.Printf("uuid: %s\n", eventUuid)
+		fmt.Printf("source commit id: %s\n", sourceCommitId)
+		fmt.Printf("Atual event: %+v\n", ev)
 	} else {
 		writeError = writeEvent(ctx, eventId, sourceCommitId, fs, ev)
 	}
@@ -2606,7 +2610,7 @@ func (c *DeployApplicationVersion) Transform(
 		} else {
 			previousVersion = existingDeployment.EslVersion
 		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion, c.TransformerEslID)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
