@@ -129,6 +129,10 @@ spec:
           value: "true"
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
+        - name: KUBERPULT_GARBAGE_COLLECTION_FREQUENCY
+          value: {{ .Values.manifestRepoExport.garbageCollectionFrequency | quote }}
+        - name: KUBERPULT_NETWORK_TIMEOUT_SECONDS
+          value: {{ .Values.manifestRepoExport.networkTimeoutSeconds | quote }}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
