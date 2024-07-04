@@ -111,6 +111,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
 
 const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
     const [timezone, setTimezone] = useState<'UTC' | 'local'>('UTC');
+    const localTimezone = Intl.DateTimeFormat()?.resolvedOptions()?.timeZone ?? 'Europe/Berlin';
     const handleChangeTimezone = React.useCallback(
         (event: React.ChangeEvent<HTMLSelectElement>) => {
             if (event.target.value === 'local' || event.target.value === 'UTC') {
@@ -121,7 +122,7 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
     );
     const formatDate = (date: Date | undefined): string => {
         if (!date) return '';
-        const selectedTimezone = timezone === 'local' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+        const selectedTimezone = timezone === 'local' ? localTimezone : 'UTC';
         const localizedDate = new Date(
             date.toLocaleString('en-US', {
                 timeZone: selectedTimezone,
@@ -132,7 +133,7 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
     return (
         <div>
             <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
-                <option value="local">Local Timezone</option>
+                <option value="local">{localTimezone} Timezone</option>
                 <option value="UTC">UTC Timezone</option>
             </select>
             <table className={'events'} border={1}>
