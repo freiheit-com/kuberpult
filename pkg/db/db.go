@@ -1850,12 +1850,12 @@ func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) e
 		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
 		defer span.Finish()
 		l := logger.FromContext(ctx).Sugar()
-		eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, false)
+		eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, true) //true sorts by asc
 		if err != nil {
 			return err
 		}
-		if eslEvent != nil {
-			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+		if eslEvent != nil && eslEvent.EslId == 0 { //Check if there is a 0th transformer already
+			l.Infof("Found Migrations transformer on database.")
 			return nil
 		}
 
