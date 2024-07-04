@@ -2198,8 +2198,9 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 }
 
 func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId, useTimeInLock bool) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLockInternal")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLockInternal")
 	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
@@ -3406,7 +3407,7 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 	}(rows)
 	//Get the latest change to each lock
 	for _, id := range lockIDs {
-		teamLocksTmp, err2 := h.selectTeamLocks(ctx, tx, environment, teamName, rows, id, teamLocks)
+		teamLocksTmp, err2 := h.selectTeamLocks(ctx, tx, environment, teamName, id, teamLocks)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -3419,7 +3420,7 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 	return teamLocks, nil
 }
 
-func (h *DBHandler) selectTeamLocks(ctx context.Context, tx *sql.Tx, environment string, teamName string, rows *sql.Rows, id string, teamLocks []TeamLock) ([]TeamLock, error) {
+func (h *DBHandler) selectTeamLocks(ctx context.Context, tx *sql.Tx, environment string, teamName string, id string, teamLocks []TeamLock) ([]TeamLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "selectTeamLocks")
 	defer span.Finish()
 	var err error
@@ -3429,7 +3430,7 @@ func (h *DBHandler) selectTeamLocks(ctx context.Context, tx *sql.Tx, environment
 			" WHERE envName=? AND lockID=? AND teamName=?" +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;")
-	rows, err = tx.QueryContext(ctx, selectQuery, environment, id, teamName)
+	rows, err := tx.QueryContext(ctx, selectQuery, environment, id, teamName)
 	if err != nil {
 		return nil, fmt.Errorf("could not query team locks table from DB. Error: %w\n", err)
 	}
