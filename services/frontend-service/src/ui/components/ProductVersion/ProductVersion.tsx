@@ -31,7 +31,7 @@ import { Button } from '../button';
 import { useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
-import {useAzureAuthSub} from "../../utils/AzureAuthProvider";
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export type TableProps = {
     productSummary: ProductSummary[];
