@@ -854,12 +854,31 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 	for i := range sortedKeys {
 		env := sortedKeys[i]
+		man := c.Manifests[env]
+
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		envDir := fs.Join(releaseDir, "environments", env)
+
 		config, found := configs[env]
 		hasUpstream := false
 		if found {
 			hasUpstream = config.Upstream != nil
 		}
 
+		if err = fs.MkdirAll(envDir, 0777); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+		if err != nil {
+			return "", err
+		}
+		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
 				SourceTrain:      nil,
