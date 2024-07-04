@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-
+import React, { useState } from 'react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
 
@@ -109,30 +109,58 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     );
 };
 
-const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
-    <table className={'events'} border={1}>
-        <thead>
-            <tr>
-                <th className={'date'}>Date:</th>
-                <th className={'description'}>Event Description:</th>
-                <th className={'environments'}>Environments:</th>
-            </tr>
-        </thead>
-        <tbody>
-            {props.events.map((event, _) => {
-                const createdAt = event.createdAt?.toISOString() || '';
-                const [description, environments] = eventDescription(event);
-                return (
-                    <tr key={event.uuid}>
-                        <td>{createdAt}</td>
-                        <td>{description}</td>
-                        <td>{environments}</td>
+const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
+    const [timezone, setTimezone] = useState<'UTC' | 'local'>('UTC');
+    const localTimezone = Intl.DateTimeFormat()?.resolvedOptions()?.timeZone ?? 'Europe/Berlin';
+    const handleChangeTimezone = React.useCallback(
+        (event: React.ChangeEvent<HTMLSelectElement>) => {
+            if (event.target.value === 'local' || event.target.value === 'UTC') {
+                setTimezone(event.target.value);
+            }
+        },
+        [setTimezone]
+    );
+    const formatDate = (date: Date | undefined): string => {
+        if (!date) return '';
+        const selectedTimezone = timezone === 'local' ? localTimezone : 'UTC';
+        const localizedDate = new Date(
+            date.toLocaleString('en-US', {
+                timeZone: selectedTimezone,
+            })
+        );
+        return localizedDate.toISOString().split('.')[0];
+    };
+    return (
+        <div>
+            <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
+                <option value="local">{localTimezone} Timezone</option>
+                <option value="UTC">UTC Timezone</option>
+            </select>
+            <table className={'events'} border={1}>
+                <thead>
+                    <tr>
+                        <th className={'date'}>Date:</th>
+                        <th className={'description'}>Event Description:</th>
+                        <th className={'environments'}>Environments:</th>
                     </tr>
-                );
-            })}
-        </tbody>
-    </table>
-);
+                </thead>
+                <tbody>
+                    {props.events.map((event, _) => {
+                        const createdAt = formatDate(event.createdAt);
+                        const [description, environments] = eventDescription(event);
+                        return (
+                            <tr key={event.uuid}>
+                                <td>{createdAt}</td>
+                                <td>{description}</td>
+                                <td>{environments}</td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+};
 
 const eventDescription = (event: Event): [JSX.Element, string] => {
     const tp = event.eventType;

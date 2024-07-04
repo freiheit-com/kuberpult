@@ -29,7 +29,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
@@ -62,7 +61,6 @@ type Repository interface {
 	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
-	//Notify() *notify.Notify
 }
 
 type TransformerBatchApplyError struct {
@@ -113,18 +111,11 @@ const (
 )
 
 type repository struct {
-	// Mutex gurading the writer
-	writeLock  sync.Mutex
-	writesDone uint
-	//queue        queue
 	config       *RepositoryConfig
 	credentials  *credentialsStore
 	certificates *certificateStore
 
 	repository *git.Repository
-
-	// Mutex guarding head
-	headLock sync.Mutex
 
 	backOffProvider func() backoff.BackOff
 
@@ -245,10 +236,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		} else {
 
 			result := &repository{
-				writesDone: 0,
-				headLock:   sync.Mutex{},
-				//notify:          notify.Notify{},
-				writeLock:       sync.Mutex{},
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
@@ -256,9 +243,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
 			}
-			result.headLock.Lock()
-
-			defer result.headLock.Unlock()
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 			//exhaustruct:ignore
 			RemoteCallbacks := git.RemoteCallbacks{
@@ -321,9 +305,12 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 }
 
 func (r *repository) applyTransformerBatches(ctx context.Context, transformer Transformer, allowFetchAndReset bool, transaction *sql.Tx) (error, *TransformerResult) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "applyTransformerBatches")
+	defer span.Finish()
+	span.SetTag("allowFetchAndReset", allowFetchAndReset)
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
-	subChanges, applyErr := r.ApplyTransformers(ctx, transaction, transformer)
+	subChanges, applyErr := r.ApplyTransformer(ctx, transaction, transformer)
 	changes.Combine(subChanges)
 	if applyErr != nil {
 		if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
@@ -389,6 +376,9 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
 func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callback PushUpdateFunc, pushAction PushActionCallbackFunc, tx *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
+	defer span.Finish()
+
 	log := logger.FromContext(ctx).Sugar()
 
 	var pushSuccess = true
@@ -457,6 +447,8 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callba
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
+	defer span.Finish()
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
@@ -548,7 +540,10 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 	return r
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformer Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, transformer Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformer")
+	defer span.Finish()
+
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformer)
 	if applyErr != nil {
 		return nil, applyErr
@@ -619,6 +614,8 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "FetchAndReset")
+	defer span.Finish()
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
 	logger := logger.FromContext(ctx)
 	//exhaustruct:ignore
