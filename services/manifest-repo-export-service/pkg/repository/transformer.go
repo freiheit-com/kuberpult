@@ -1389,7 +1389,7 @@ func (c *ReleaseTrain) GetDBEventType() db.EventType {
 	return db.EvtReleaseTrain
 }
 
-func (c *ReleaseTrain) Transform(
+func (u *ReleaseTrain) Transform(
 	_ context.Context,
 	_ *State,
 	_ TransformerContext,
