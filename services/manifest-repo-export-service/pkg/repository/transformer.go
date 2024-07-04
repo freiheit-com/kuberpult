@@ -25,6 +25,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -1389,13 +1390,67 @@ func (c *ReleaseTrain) GetDBEventType() db.EventType {
 	return db.EvtReleaseTrain
 }
 
+func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) (map[string]config.EnvironmentConfig, bool) {
+	envGroupConfigs := make(map[string]config.EnvironmentConfig)
+	isEnvGroup := false
+
+	for env, config := range configs {
+		if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetGroupName {
+			isEnvGroup = true
+			envGroupConfigs[env] = config
+		}
+	}
+	if len(envGroupConfigs) == 0 {
+		envConfig, ok := configs[targetGroupName]
+		if ok {
+			envGroupConfigs[targetGroupName] = envConfig
+		}
+	}
+	return envGroupConfigs, isEnvGroup
+}
+
 func (u *ReleaseTrain) Transform(
-	_ context.Context,
-	_ *State,
-	_ TransformerContext,
-	_ *sql.Tx,
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	tx *sql.Tx,
 ) (string, error) {
-	return "", nil
+
+	deployments, err := state.DBHandler.DBSelectDeploymentByTransformerID(ctx, tx, u.TransformerEslID, 25)
+	if err != nil {
+		return "", err
+	}
+
+	var targetGroupName = u.Target
+	configs, _ := state.GetEnvironmentConfigs()
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+
+	for _, currentDeployment := range deployments {
+		envConfig := envGroupConfigs[currentDeployment.Env]
+		upstreamEnvName := envConfig.Upstream.Environment
+		var trainGroup *string
+		if isEnvGroup {
+			trainGroup = conversion.FromString(targetGroupName)
+		}
+		if err := t.Execute(&DeployApplicationVersion{
+			Environment:     currentDeployment.Env,
+			Application:     currentDeployment.App,
+			Version:         uint64(*currentDeployment.Version),
+			LockBehaviour:   api.LockBehavior_RECORD,
+			WriteCommitData: u.WriteCommitData,
+			SourceTrain: &DeployApplicationVersionSource{
+				Upstream:    upstreamEnvName,
+				TargetGroup: trainGroup,
+			},
+			TransformerEslID: u.TransformerEslID,
+			Author:           "",
+		}, tx); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf(
+		"Release Train to environment/environment group '%s':\n",
+		targetGroupName), nil
 }
 
 type MigrationTransformer struct {
