@@ -1007,6 +1007,9 @@ type ArgoWebhookData struct {
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
+	defer span.Finish()
+
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
@@ -1136,6 +1139,9 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 }
 
 func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
+	defer span.Finish()
+
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
