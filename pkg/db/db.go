@@ -1616,7 +1616,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 }
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
-func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslId, id TransformerID) error {
+func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslId) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
 	if h == nil {
@@ -1644,7 +1644,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 		deployment.App,
 		deployment.Env,
 		jsonToInsert,
-		id)
+		deployment.TransformerID)
 
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
@@ -1739,7 +1739,8 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 
 		for i := range allDeploymentsInRepo {
 			deploymentInRepo := allDeploymentsInRepo[i]
-			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0, 0)
+			deploymentInRepo.TransformerID = 0
+			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
 					deploymentInRepo.App, deploymentInRepo.Env, err)

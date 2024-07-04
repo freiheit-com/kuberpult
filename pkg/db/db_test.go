@@ -550,10 +550,11 @@ func TestReadWriteDeployment(t *testing.T) {
 				}
 
 				err = dbHandler.DBWriteDeployment(ctx, transaction, Deployment{
-					App:     tc.App,
-					Env:     tc.Env,
-					Version: tc.VersionToDeploy,
-				}, 1, 0)
+					App:           tc.App,
+					Env:           tc.Env,
+					Version:       tc.VersionToDeploy,
+					TransformerID: 0,
+				}, 1)
 				if err != nil {
 					return err
 				}

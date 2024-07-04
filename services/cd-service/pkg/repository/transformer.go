@@ -2590,11 +2590,12 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		var v = int64(c.Version)
 		newDeployment := db.Deployment{
-			EslVersion: 0,
-			Created:    time.Time{},
-			App:        c.Application,
-			Env:        c.Environment,
-			Version:    &v,
+			EslVersion:    0,
+			Created:       time.Time{},
+			App:           c.Application,
+			Env:           c.Environment,
+			Version:       &v,
+			TransformerID: c.TransformerEslID,
 			Metadata: db.DeploymentMetadata{
 				DeployedByEmail: user.Email,
 				DeployedByName:  user.Name,
@@ -2606,7 +2607,7 @@ func (c *DeployApplicationVersion) Transform(
 		} else {
 			previousVersion = existingDeployment.EslVersion
 		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion, c.TransformerEslID)
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}

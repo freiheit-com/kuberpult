@@ -2311,11 +2311,12 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 					versionIntPtr = nil
 				}
 				result = append(result, db.Deployment{
-					EslVersion: 0,
-					Created:    time.Time{},
-					App:        appName,
-					Env:        envName,
-					Version:    versionIntPtr,
+					EslVersion:    0,
+					Created:       time.Time{},
+					App:           appName,
+					Env:           envName,
+					Version:       versionIntPtr,
+					TransformerID: 0,
 					Metadata: db.DeploymentMetadata{
 						DeployedByName:  "",
 						DeployedByEmail: "",
