@@ -19,6 +19,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type DBFunction func(ctx context.Context, transaction *sql.Tx) error
@@ -61,8 +62,15 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, f DBFunctionT[T]
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
 func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
+	defer span.Finish()
+	onError := func(e error) {
+		span.Finish(tracer.WithError(e))
+	}
+
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
+		onError(err)
 		return nil, err
 	}
 	defer func(tx *sql.Tx) {
@@ -73,10 +81,12 @@ func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, f
 
 	result, err := f(ctx, tx)
 	if err != nil {
+		onError(err)
 		return nil, err
 	}
 	err = tx.Commit()
 	if err != nil {
+		onError(err)
 		return nil, err
 	}
 	return result, nil
