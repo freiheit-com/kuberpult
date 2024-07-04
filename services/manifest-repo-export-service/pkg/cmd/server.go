@@ -141,7 +141,26 @@ func Run(ctx context.Context) error {
 			return fmt.Errorf("error converting KUBERPULT_ESL_PROCESSING_BACKOFF, error: %w", err)
 		}
 	}
-
+	var networkTimeoutSeconds uint64
+	if val, exists := os.LookupEnv("KUBERPULT_NETWORK_TIMEOUT_SECONDS"); !exists {
+		log.Infof("environment variable KUBERPULT_NETWORK_TIMEOUT_SECONDS is not set, using default timeout of 120 seconds")
+		networkTimeoutSeconds = 120
+	} else {
+		networkTimeoutSeconds, err = strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error converting KUBERPULT_NETWORK_TIMEOUT_SECONDS, error: %w", err)
+		}
+	}
+	var gcFrequency uint64
+	if val, exists := os.LookupEnv("KUBERPULT_GARBAGE_COLLECTION_FREQUENCY"); !exists {
+		log.Infof("environment variable KUBERPULT_GARBAGE_COLLECTION_FREQUENCY is not set, using default value of 20")
+		gcFrequency = 20
+	} else {
+		gcFrequency, err = strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error converting KUBERPULT_GARBAGE_COLLECTION_FREQUENCY, error: %w", err)
+		}
+	}
 	enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
 
 	argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
@@ -200,8 +219,8 @@ func Run(ctx context.Context) error {
 			KnownHostsFile: gitSshKnownHosts,
 		},
 		Branch:                 gitBranch,
-		NetworkTimeout:         120 * time.Second,
-		GcFrequency:            20,
+		NetworkTimeout:         time.Duration(networkTimeoutSeconds) * time.Second,
+		GcFrequency:            uint(gcFrequency),
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "./environment_configs.json",
 		StorageBackend:         storageBackend(enableSqliteStorageBackend),
