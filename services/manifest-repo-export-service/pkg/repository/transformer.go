@@ -900,9 +900,6 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	if err := fs.MkdirAll(commitDir, 0777); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
-	if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
 
 	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
 		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {

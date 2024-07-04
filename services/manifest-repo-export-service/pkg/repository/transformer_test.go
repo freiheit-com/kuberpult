@@ -593,6 +593,10 @@ func TestDeploymentEvent(t *testing.T) {
 					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
 					fileData: []byte("staging"),
 				},
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
+					fileData: []byte(appName),
+				},
 			},
 		},
 	}
