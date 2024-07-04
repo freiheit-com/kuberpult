@@ -1111,7 +1111,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1193,7 +1193,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1346,7 +1346,7 @@ func TestEvents(t *testing.T) {
 			var err error = nil
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
-			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
@@ -1471,7 +1471,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.PrevReleases {
 					repo.State().DBHandler.DBInsertRelease(ctx, transaction, release, 0)
 				}

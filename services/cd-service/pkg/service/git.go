@@ -202,7 +202,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	sort.Strings(touchedApps)
 	var events []*api.Event
 	if s.OverviewService.Repository.State().DBHandler.ShouldUseOtherTables() {
-		events, err = db.WithTransactionMultipleEntriesT(s.OverviewService.Repository.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
+		events, err = db.WithTransactionMultipleEntriesT(s.OverviewService.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
 			return s.GetEvents(ctx, transaction, fs, commitPath)
 		})
 	} else {

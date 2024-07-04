@@ -61,7 +61,7 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, readonly bool, f
 }
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
-func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
+func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
 	defer span.Finish()
 	onError := func(e error) {

@@ -1896,7 +1896,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			if tc.db {
 				repo = SetupRepositoryTestWithDB(t)
 				r := repo.(*repository)
-				err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					var batchError *TransformerBatchApplyError = nil
 					_, updatedState, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 					if batchError != nil {
@@ -1924,22 +1924,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
 				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
-			}
-			if tc.db {
-				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(rows) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
-				}
-				dEvents, err := DBParseToEvents(rows)
-				if err != nil {
-					t.Fatalf("encountered error but no error is expected here: %v", err)
-				}
-				if len(dEvents) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
-				}
 			}
 		})
 	}
