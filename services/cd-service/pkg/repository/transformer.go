@@ -3112,7 +3112,6 @@ func (c *envReleaseTrain) prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainEnvironmentPrognosis {
-	fmt.Printf("Beggining of %s\n", c.Env)
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3170,9 +3169,6 @@ func (c *envReleaseTrain) prognosis(
 
 	if !upstreamLatest {
 		_, ok := c.EnvConfigs[upstreamEnvName]
-		fmt.Printf("Current Environment: %s\n", c.Env)
-		fmt.Printf("CupstreamEnvName: %s\n", upstreamEnvName)
-		fmt.Printf("Configs: %+v\n", c.EnvConfigs[upstreamEnvName])
 		if !ok {
 			fmt.Println("Skipping...")
 			return ReleaseTrainEnvironmentPrognosis{
@@ -3241,7 +3237,6 @@ func (c *envReleaseTrain) prognosis(
 	}
 
 	for _, appName := range apps {
-		fmt.Printf("Processing app: %s\n", appName)
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
@@ -3435,7 +3430,6 @@ func (c *envReleaseTrain) prognosis(
 			Version:          versionToDeploy,
 		}
 	}
-	fmt.Printf("End of %s\n", c.Env)
 	return ReleaseTrainEnvironmentPrognosis{
 		SkipCause:        nil,
 		Error:            nil,
