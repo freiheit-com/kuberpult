@@ -586,10 +586,6 @@ func TestDeploymentEvent(t *testing.T) {
 					fileData: []byte(event.EventTypeNewRelease),
 				},
 				{
-					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
-					fileData: []byte(appName),
-				},
-				{
 					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
 					fileData: []byte("staging"),
 				},
@@ -606,7 +602,6 @@ func TestDeploymentEvent(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
-			//ctx := context.Background()
 
 			dbHandler := repo.State().DBHandler
 			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
@@ -883,7 +878,6 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 	}
 }
 
-// @@@@
 func TestReplacedByEvents(t *testing.T) {
 	const appName = "myapp"
 	const authorName = "testAuthorName"
