@@ -817,6 +817,22 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
 }
 
+func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, replacedBy *event.ReplacedBy) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeReplaceBy),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     replacedBy,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling replacedBys event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeReplaceBy, sourceCommitHash, jsonToInsert)
+}
+
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, deployment *event.Deployment) error {
 	metadata := event.Metadata{
 		Uuid:      uuid,

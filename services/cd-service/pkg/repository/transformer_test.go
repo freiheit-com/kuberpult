@@ -2082,7 +2082,6 @@ func TestReplacedByEvent(t *testing.T) {
 	tcs := []TestCase{
 		{
 			Name: "Create a single application version and deploy it, no replaced by event should be generated",
-			// no need to bother with environments here
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
 					Application:    "app",
