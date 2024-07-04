@@ -505,10 +505,11 @@ func TestReadWriteDeployment(t *testing.T) {
 			Env:             "dev",
 			VersionToDeploy: version(7),
 			ExpectedDeployment: &Deployment{
-				App:        "app-a",
-				Env:        "dev",
-				EslVersion: 2,
-				Version:    version(7),
+				App:           "app-a",
+				Env:           "dev",
+				EslVersion:    2,
+				Version:       version(7),
+				TransformerID: 0,
 			},
 		},
 		{
@@ -517,10 +518,11 @@ func TestReadWriteDeployment(t *testing.T) {
 			Env:             "prod",
 			VersionToDeploy: nil,
 			ExpectedDeployment: &Deployment{
-				App:        "app-b",
-				Env:        "prod",
-				EslVersion: 2,
-				Version:    nil,
+				App:           "app-b",
+				Env:           "prod",
+				EslVersion:    2,
+				Version:       nil,
+				TransformerID: 0,
 			},
 		},
 	}
