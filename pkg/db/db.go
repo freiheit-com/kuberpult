@@ -785,6 +785,22 @@ func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transfo
 	return nil
 }
 
+func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeNewRelease),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     newReleaseEvent,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling lock new release event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
+}
+
 func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
 	metadata := event.Metadata{
 		Uuid:      uuid,
@@ -833,7 +849,7 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 	return h.processSingleEventsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventType event.EventType) ([]event.DBEventGo, error) {
+func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventType event.EventType, limit uint) ([]event.DBEventGo, error) {
 	if h == nil {
 		return nil, nil
 	}
@@ -843,10 +859,10 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllCommitEventsForTransformer")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE eventType = (?) AND transformerEslId = (?) ORDER BY timestamp DESC;")
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE eventType = (?) AND transformerEslId = (?) ORDER BY timestamp DESC LIMIT ?;")
 	span.SetTag("query", query)
 
-	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID)
+	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
 	}

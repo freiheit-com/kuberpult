@@ -601,7 +601,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, transaction, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, fs)
+		err = writeCommitData(ctx, state.DBHandler, transaction, c.TransformerEslID, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, state)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -726,7 +726,8 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, transaction *sql.Tx, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, fs billy.Filesystem) error {
+func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, transformerEslID db.TransformerID, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, state *State) error {
+	fs := state.Filesystem
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
@@ -762,11 +763,21 @@ func writeCommitData(ctx context.Context, transaction *sql.Tx, sourceCommitId st
 	for _, env := range environments {
 		envMap[env] = struct{}{}
 	}
-	err := writeEvent(ctx, eventId, sourceCommitId, fs, &event.NewRelease{
+
+	ev := &event.NewRelease{
 		Environments: envMap,
-	})
-	if err != nil {
-		return fmt.Errorf("error while writing event: %v", err)
+	}
+	var writeError error
+	if h.ShouldUseEslTable() {
+		gen := getGenerator(ctx)
+		eventUuid := gen.Generate()
+		writeError = state.DBHandler.DBWriteNewReleaseEvent(ctx, transaction, transformerEslID, eventUuid, sourceCommitId, ev)
+	} else {
+		writeError = writeEvent(ctx, eventId, sourceCommitId, fs, ev)
+	}
+
+	if writeError != nil {
+		return fmt.Errorf("error while writing event: %v", writeError)
 	}
 	return nil
 }
@@ -2661,7 +2672,6 @@ func (c *DeployApplicationVersion) Transform(
 			} else {
 				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
-
 				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, deploymentEvent)
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)

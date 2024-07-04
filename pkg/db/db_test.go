@@ -263,27 +263,61 @@ func TestCustomMigrationReleases(t *testing.T) {
 	}
 }
 
-func TestDeploymentStorage(t *testing.T) {
+func TestCommitEvents(t *testing.T) {
+
 	tcs := []struct {
 		Name       string
 		commitHash string
 		email      string
-		event      event.Deployment
-		metadata   event.Metadata
+		event      event.DBEventGo
 	}{
 		{
 			Name:       "Simple Deployment event",
 			commitHash: "abcdefabcdef",
 			email:      "test@email.com",
-			event: event.Deployment{
-				Environment:                 "production",
-				Application:                 "test-app",
-				SourceTrainUpstream:         nil,
-				SourceTrainEnvironmentGroup: nil,
+
+			event: event.DBEventGo{
+				EventData: &event.Deployment{
+					Environment:                 "production",
+					Application:                 "test-app",
+					SourceTrainUpstream:         nil,
+					SourceTrainEnvironmentGroup: nil,
+				},
+				EventMetadata: event.Metadata{
+					Uuid:      "00000000-0000-0000-0000-000000000001",
+					EventType: "deployment",
+				},
 			},
-			metadata: event.Metadata{
-				Uuid:      "00000000-0000-0000-0000-000000000001",
-				EventType: "deployment",
+		},
+		{
+			Name:       "Lock prevented deployment event",
+			commitHash: "abcdefabcdef",
+			email:      "test@email.com",
+			event: event.DBEventGo{
+				EventData: &event.LockPreventedDeployment{
+					Environment: "production",
+					Application: "test-app",
+					LockMessage: "message",
+					LockType:    "env",
+				},
+				EventMetadata: event.Metadata{
+					Uuid:      "00000000-0000-0000-0000-000000000001",
+					EventType: "lock-prevented-deployment",
+				},
+			},
+		},
+		{
+			Name:       "Lock prevented deployment event",
+			commitHash: "abcdefabcdef",
+			email:      "test@email.com",
+			event: event.DBEventGo{
+				EventData: &event.NewRelease{
+					Environments: map[string]struct{}{},
+				},
+				EventMetadata: event.Metadata{
+					Uuid:      "00000000-0000-0000-0000-000000000001",
+					EventType: "new-release",
+				},
 			},
 		},
 	}
@@ -314,23 +348,19 @@ func TestDeploymentStorage(t *testing.T) {
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
+
 			err = db.RunCustomMigrationsEventSourcingLight(ctx)
 			if err != nil {
 				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
 
 			}
-
 			err = db.WithTransaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 				if err != nil {
 					t.Fatalf("Error creating transaction. Error: %v\n", err)
 				}
-				writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tx, 0, tc.metadata.Uuid, tc.commitHash, &tc.event)
-				if writeDeploymentError != nil {
-					t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
-				}
-
+				err := writeEventAux(ctx, db, tx, tc.commitHash, tc.event)
 				if err != nil {
-					t.Fatalf("Error commiting transaction. Error: %v\n", err)
+					t.Fatalf("Error writing event to DB. Error: %v\n", err)
 				}
 
 				m, err := db.DBSelectAllEventsForCommit(ctx, tx, tc.commitHash)
@@ -338,17 +368,17 @@ func TestDeploymentStorage(t *testing.T) {
 					t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 				}
 				for _, currEvent := range m {
-					e, err := event.UnMarshallEvent("deployment", currEvent.EventJson)
+					e, err := event.UnMarshallEvent(event.EventType(tc.event.EventMetadata.EventType), currEvent.EventJson)
 
 					if err != nil {
 						t.Fatalf("Error obtaining event from DB. Error: %v\n", err)
 					}
 
-					if diff := cmp.Diff(e.EventData, &tc.event); diff != "" {
+					if diff := cmp.Diff(e.EventData, tc.event.EventData); diff != "" {
 						t.Errorf("response mismatch (-want, +got):\n%s", diff)
 					}
 
-					if diff := cmp.Diff(e.EventMetadata, tc.metadata); diff != "" {
+					if diff := cmp.Diff(e.EventMetadata, tc.event.EventMetadata); diff != "" {
 						t.Errorf("response mismatch (-want, +got):\n%s", diff)
 					}
 				}
@@ -361,102 +391,12 @@ func TestDeploymentStorage(t *testing.T) {
 	}
 }
 
-func TestLockPreventedStorage(t *testing.T) {
-	tcs := []struct {
-		Name       string
-		commitHash string
-		email      string
-		event      event.LockPreventedDeployment
-		metadata   event.Metadata
-	}{
-		{
-			Name:       "Lock prevented deployment event",
-			commitHash: "abcdefabcdef",
-			email:      "test@email.com",
-			event: event.LockPreventedDeployment{
-				Environment: "production",
-				Application: "test-app",
-				LockMessage: "message",
-				LockType:    "env",
-			},
-			metadata: event.Metadata{
-				Uuid:      "00000000-0000-0000-0000-000000000001",
-				EventType: "lock-prevented-deployment",
-			},
-		},
+func writeEventAux(ctx context.Context, db *DBHandler, tx *sql.Tx, sourceCommitHash string, ev event.DBEventGo) error {
+	jsonToInsert, err := json.Marshal(ev)
+	if err != nil {
+		return err
 	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			ctx := context.Background()
-			dbDir := t.TempDir()
-
-			dir, err := testutil.CreateMigrationsPath(2)
-			if err != nil {
-				t.Fatalf("setup error could not detect dir \n%v", err)
-				return
-			}
-
-			cfg := DBConfig{
-				DriverName:     "sqlite3",
-				DbHost:         dbDir,
-				MigrationsPath: dir,
-			}
-			migErr := RunDBMigrations(cfg)
-			if migErr != nil {
-				t.Fatalf("Error running migration script. Error: %v\n", migErr)
-			}
-
-			db, err := Connect(cfg)
-			if err != nil {
-				t.Fatal("Error establishing DB connection: ", zap.Error(err))
-			}
-
-			err = db.RunCustomMigrationsEventSourcingLight(ctx)
-			if err != nil {
-				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
-
-			}
-			err = db.WithTransaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
-				if err != nil {
-					t.Fatalf("Error creating transaction. Error: %v\n", err)
-				}
-				writeDeploymentError := db.DBWriteLockPreventedDeploymentEvent(ctx, tx, 0, tc.metadata.Uuid, tc.commitHash, &tc.event)
-				if writeDeploymentError != nil {
-					t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
-				}
-
-				if err != nil {
-					t.Fatalf("Error commiting transaction. Error: %v\n", err)
-				}
-
-				m, err := db.DBSelectAllEventsForCommit(ctx, tx, tc.commitHash)
-				if err != nil {
-					t.Fatalf("Error querying dabatabse. Error: %v\n", err)
-				}
-				for _, currEvent := range m {
-					e, err := event.UnMarshallEvent("lock-prevented-deployment", currEvent.EventJson)
-
-					if err != nil {
-						t.Fatalf("Error obtaining event from DB. Error: %v\n", err)
-					}
-
-					if diff := cmp.Diff(e.EventData, &tc.event); diff != "" {
-						t.Errorf("response mismatch (-want, +got):\n%s", diff)
-					}
-
-					if diff := cmp.Diff(e.EventMetadata, tc.metadata); diff != "" {
-						t.Errorf("response mismatch (-want, +got):\n%s", diff)
-					}
-				}
-				return nil
-			})
-			if err != nil {
-				t.Fatalf("Tranasction error")
-			}
-		})
-	}
+	return db.writeEvent(ctx, tx, 0, ev.EventMetadata.Uuid, event.EventType(ev.EventMetadata.EventType), sourceCommitHash, jsonToInsert)
 }
 
 func TestSqliteToPostgresQuery(t *testing.T) {
