@@ -296,7 +296,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 }
 
 // Verifies if the user is authenticated.
-func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexServiceURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
+func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexFullNameOverride string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 
@@ -315,6 +315,9 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexSer
 	} else {
 		tokenString = cookie.Value
 	}
+
+	// Get the dex service name
+	dexServiceURL := fmt.Sprintf(dexServiceURLPattern, dexFullNameOverride)
 
 	// Validates token audience and expiring date.
 	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID, dexServiceURL, useClusterInternalCommunication)
