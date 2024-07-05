@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -83,8 +84,23 @@ func (o *OverviewServiceServer) getOverviewDB(
 	if s.DBHandler.ShouldUseOtherTables() {
 		err := s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 			var err2 error
+			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+			if err2 != nil {
+				return err2
+			}
+			if cached_result != nil {
+				return json.Unmarshal([]byte(*&cached_result.Blob), &response)
+			}
+
 			response, err2 = o.getOverview(ctx, s, transaction)
-			return err2
+			if err2 != nil {
+				return err2
+			}
+			resultJson, err2 := json.Marshal(response)
+			if err2 != nil {
+				return err2
+			}
+			return s.DBHandler.WriteOverviewCache(ctx, transaction, string(resultJson))
 		})
 		if err != nil {
 			return nil, err
@@ -309,6 +325,7 @@ func (o *OverviewServiceServer) getOverview(
 		}
 
 	}
+
 	return &result, nil
 }
 
@@ -430,6 +447,7 @@ func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string
 
 func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 	stream api.OverviewService_StreamOverviewServer) error {
+	logger.FromContext(stream.Context()).Sugar().Debug("!!!!!overview stream started")
 	ch, unsubscribe := o.subscribe()
 	defer unsubscribe()
 	done := stream.Context().Done()
@@ -478,6 +496,7 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {
+	logger.FromContext(context.Background()).Debug("overview update")
 	r, err := o.getOverviewDB(context.Background(), s)
 	if err != nil {
 		panic(err)

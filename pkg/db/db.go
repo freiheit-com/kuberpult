@@ -4309,3 +4309,87 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 		return nil
 	})
 }
+
+type OverviewCacheRow struct {
+	EslId     EslId
+	Timestamp time.Time
+	Blob      string
+}
+
+func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sql.Tx) (*OverviewCacheRow, error) {
+	if h == nil {
+		return nil, fmt.Errorf("readLatestOverviewCache: DBHandler is nil")
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("readLatestOverviewCache: no transaction provided")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "readLatestOverviewCache")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		"SELECT eslId, timestamp, blob FROM overview_cache ORDER BY eslId DESC LIMIT 1;",
+	)
+
+	span.SetTag("query", selectQuery)
+	rows, err := transaction.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query overview_cache table from DB. Error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	var row = &OverviewCacheRow{
+		EslId:     0,
+		Timestamp: time.Unix(0, 0),
+		Blob:      "",
+	}
+	if rows.Next() {
+		err := rows.Scan(&row.EslId, &row.Timestamp, &row.Blob)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning overview_cache row from DB. Error: %w", err)
+		}
+	} else {
+		row = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx, blob string) error {
+	if h == nil {
+		return fmt.Errorf("writeOverviewCache: DBHandler is nil")
+	}
+	if transaction == nil {
+		return fmt.Errorf("writeOverviewCache: no transaction provided")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "writeOverviewCache")
+	defer span.Finish()
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO overview_cache (timestamp, blob) VALUES (?, ?);",
+	)
+	span.SetTag("query", insertQuery)
+	_, err := transaction.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		blob,
+	)
+	if err != nil {
+		return fmt.Errorf("could not insert overview_cache row into DB. Error: %w", err)
+	}
+	return nil
+}
