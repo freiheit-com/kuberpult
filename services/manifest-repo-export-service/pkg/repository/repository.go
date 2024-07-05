@@ -17,8 +17,6 @@ Copyright freiheit.com*/
 package repository
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -26,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -105,16 +102,7 @@ func defaultBackOffProvider() backoff.BackOff {
 	return backoff.WithMaxRetries(eb, 6)
 }
 
-type StorageBackend int
-
-const (
-	DefaultBackend StorageBackend = 0
-	GitBackend     StorageBackend = iota
-	SqliteBackend  StorageBackend = iota
-)
-
 type repository struct {
-	writesDone   uint
 	config       *RepositoryConfig
 	credentials  *credentialsStore
 	certificates *certificateStore
@@ -140,9 +128,6 @@ type RepositoryConfig struct {
 	Branch string
 	// network timeout
 	NetworkTimeout time.Duration
-	//
-	GcFrequency    uint
-	StorageBackend StorageBackend
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
@@ -154,7 +139,7 @@ type RepositoryConfig struct {
 	DBHandler           *db.DBHandler
 }
 
-func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
+func openOrCreate(path string) (*git.Repository, error) {
 	repo2, err := git.OpenRepositoryExtended(path, git.RepositoryOpenNoSearch, path)
 	if err != nil {
 		var gerr *git.GitError
@@ -175,21 +160,19 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 			return nil, err
 		}
 	}
-	if storageBackend == SqliteBackend {
-		sqlitePath := filepath.Join(path, "odb.sqlite")
-		be, err := sqlitestore.NewOdbBackend(sqlitePath)
-		if err != nil {
-			return nil, fmt.Errorf("creating odb backend: %w", err)
-		}
-		odb, err := repo2.Odb()
-		if err != nil {
-			return nil, fmt.Errorf("gettting odb: %w", err)
-		}
-		// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
-		err = odb.AddBackend(be, 99)
-		if err != nil {
-			return nil, fmt.Errorf("setting odb backend: %w", err)
-		}
+	sqlitePath := filepath.Join(path, "odb.sqlite")
+	be, err := sqlitestore.NewOdbBackend(sqlitePath)
+	if err != nil {
+		return nil, fmt.Errorf("creating odb backend: %w", err)
+	}
+	odb, err := repo2.Odb()
+	if err != nil {
+		return nil, fmt.Errorf("gettting odb: %w", err)
+	}
+	// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
+	err = odb.AddBackend(be, 99)
+	if err != nil {
+		return nil, fmt.Errorf("setting odb backend: %w", err)
 	}
 	return repo2, err
 }
@@ -205,9 +188,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	}
 	if cfg.CommitterName == "" {
 		cfg.CommitterName = "kuberpult"
-	}
-	if cfg.StorageBackend == DefaultBackend {
-		cfg.StorageBackend = SqliteBackend
 	}
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
@@ -231,7 +211,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		}
 	}
 
-	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
+	if repo2, err := openOrCreate(cfg.Path); err != nil {
 		return nil, err
 	} else {
 		// configure remotes
@@ -240,7 +220,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		} else {
 
 			result := &repository{
-				writesDone:      0,
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
@@ -685,10 +664,6 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 }
 
 func (r *repository) Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error {
-	defer func() {
-		r.writesDone = r.writesDone + uint(len(transformers))
-		r.maybeGc(ctx)
-	}()
 	for i := range transformers {
 		t := transformers[i]
 		err := r.ProcessQueueOnce(ctx, t, defaultPushUpdate, DefaultPushActionCallback, tx)
@@ -852,83 +827,6 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
 		DBHandler:              r.DB,
 	}, nil
-}
-
-func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
-	var stats ObjectCount
-	/*
-		The output of `git count-objects` looks like this:
-			count: 0
-			size: 0
-			in-pack: 635
-			packs: 1
-			size-pack: 2845
-			prune-packable: 0
-			garbage: 0
-			size-garbage: 0
-	*/
-	cmd := exec.CommandContext(ctx, "git", "count-objects", "--verbose")
-	cmd.Dir = r.config.Path
-	out, err := cmd.Output()
-	if err != nil {
-		return stats, err
-	}
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		var (
-			token string
-			value uint64
-		)
-		if _, err := fmt.Sscan(scanner.Text(), &token, &value); err != nil {
-			return stats, err
-		}
-		switch token {
-		case "count:":
-			stats.Count = value
-		case "size:":
-			stats.Size = value
-		case "in-packs:":
-			stats.InPack = value
-		case "packs:":
-			stats.Packs = value
-		case "size-pack:":
-			stats.SizePack = value
-		case "garbage:":
-			stats.Garbage = value
-		case "size-garbage":
-			stats.SizeGarbage = value
-		}
-	}
-	return stats, nil
-}
-
-func (r *repository) maybeGc(ctx context.Context) {
-	if r.config.StorageBackend == SqliteBackend || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
-		return
-	}
-	log := logger.FromContext(ctx)
-	r.writesDone = 0
-	timeBefore := time.Now()
-	statsBefore, _ := r.countObjects(ctx)
-	cmd := exec.CommandContext(ctx, "git", "repack", "-a", "-d")
-	cmd.Dir = r.config.Path
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal("git.repack", zap.Error(err))
-		return
-	}
-	statsAfter, _ := r.countObjects(ctx)
-	log.Info("git.repack", zap.Duration("duration", time.Since(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
-}
-
-type ObjectCount struct {
-	Count       uint64
-	Size        uint64
-	InPack      uint64
-	Packs       uint64
-	SizePack    uint64
-	Garbage     uint64
-	SizeGarbage uint64
 }
 
 type State struct {
