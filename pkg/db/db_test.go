@@ -1823,6 +1823,69 @@ func TestReadReleasesByApp(t *testing.T) {
 	}
 }
 
+func TestReadWriteOverviewCache(t *testing.T) {
+	type TestCase struct {
+		Name           string
+		blobs          []string
+		ExpectedResult OverviewCacheRow
+	}
+
+	tcs := []TestCase{
+		{
+			Name:  "Read and write",
+			blobs: []string{"hello world"},
+			ExpectedResult: OverviewCacheRow{
+				Blob:  "hello world",
+				EslId: 1,
+			},
+		},
+		{
+			Name:  "Read and write multiple",
+			blobs: []string{"hello", "world"},
+			ExpectedResult: OverviewCacheRow{
+				Blob:  "world",
+				EslId: 2,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, blob := range tc.blobs {
+					err := dbHandler.WriteOverviewCache(ctx, transaction, blob)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+
+				result, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedResult.Blob, result.Blob); diff != "" {
+					return fmt.Errorf("overview cache blob mismatch (-want +got):\n%s", diff)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedResult.EslId, result.EslId); diff != "" {
+					return fmt.Errorf("overview cache ESL ID mismatch (-want +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+		})
+	}
+}
+
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
 	dir, err := testutil.CreateMigrationsPath(2)

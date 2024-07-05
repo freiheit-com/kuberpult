@@ -18,6 +18,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"sync"
 	"testing"
@@ -25,6 +27,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
@@ -206,9 +209,11 @@ func TestCalculateWarnings(t *testing.T) {
 func TestOverviewService(t *testing.T) {
 	var dev = "dev"
 	tcs := []struct {
-		Name  string
-		Setup []repository.Transformer
-		Test  func(t *testing.T, svc *OverviewServiceServer)
+		Name         string
+		Setup        []repository.Transformer
+		Test         func(t *testing.T, svc *OverviewServiceServer)
+		DB           bool
+		ExpectedBlob string
 	}{
 		{
 			Name: "A simple overview works",
@@ -583,14 +588,130 @@ func TestOverviewService(t *testing.T) {
 				wg.Wait()
 			},
 		},
+		{
+			Name:         "Test with DB",
+			DB:           true,
+			ExpectedBlob: "{\"applications\":{\"test\":{\"name\":\"test\",\"releases\":[{\"version\":1,\"source_commit_id\":\"deadbeef\",\"source_author\":\"example \\u003cexample@example.com\\u003e\",\"source_message\":\"changed something (#678)\",\"created_at\":{\"seconds\":1,\"nanos\":1},\"pr_number\":\"678\"}],\"team\":\"team-123\"}},\"environment_groups\":[{\"environment_group_name\":\"dev\",\"environments\":[{\"name\":\"development\",\"config\":{\"upstream\":{\"latest\":true},\"argocd\":{},\"environment_group\":\"dev\"},\"applications\":{\"test\":{\"name\":\"test\",\"version\":1,\"deployment_meta_data\":{\"deploy_author\":\"testmail@example.com\",\"deploy_time\":\"1\"},\"team\":\"team-123\"}},\"priority\":5}],\"priority\":5}],\"git_revision\":\"test_git_revision\"}",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:   repository.Authentication{},
+					Version:          1,
+					SourceCommitId:   "deadbeef",
+					SourceAuthor:     "example <example@example.com>",
+					SourceMessage:    "changed something (#678)",
+					Team:             "team-123",
+					DisplayVersion:   "",
+					WriteCommitData:  false,
+					PreviousCommit:   "",
+					TransformerEslID: 1,
+					Application:      "test",
+					Manifests: map[string]string{
+						"development": "v1",
+					},
+				},
+			},
+			Test: func(t *testing.T, svc *OverviewServiceServer) {
+				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+					Email: "test-email@example.com",
+					Name:  "overview tester",
+				})
+				resp, err := svc.GetOverview(ctx, &api.GetOverviewRequest{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if resp.GitRevision == "" {
+					t.Errorf("expected non-empty git revision but was empty")
+				}
+
+				const expectedEnvs = 1
+				if len(resp.EnvironmentGroups) != expectedEnvs {
+					t.Errorf("expected %d environmentGroups, got %q", expectedEnvs, resp.EnvironmentGroups)
+				}
+				devGroup := resp.EnvironmentGroups[0]
+				if devGroup.EnvironmentGroupName != "dev" {
+					t.Errorf("dev environmentGroup has wrong name: %q", devGroup.EnvironmentGroupName)
+				}
+				dev := devGroup.Environments[0]
+				if dev.Name != "development" {
+					t.Errorf("development environment has wrong name: %q", dev.Name)
+				}
+				if dev.Config.Upstream == nil {
+					t.Errorf("development environment has wrong upstream: %#v", dev.Config.Upstream)
+				} else {
+					if !dev.Config.Upstream.GetLatest() {
+						t.Errorf("production environment has wrong upstream: %#v", dev.Config.Upstream)
+					}
+				}
+
+				// Check applications
+				if len(resp.Applications) != 1 {
+					t.Errorf("expected one application, got %#v", resp.Applications)
+				}
+				if test, ok := resp.Applications["test"]; !ok {
+					t.Errorf("test application is missing in %#v", resp.Applications)
+				} else {
+					if test.Name != "test" {
+						t.Errorf("test applications name is not test but %q", test.Name)
+					}
+					if len(test.Releases) != 1 {
+						t.Errorf("expected one release, got %#v", test.Releases)
+					}
+					if test.Releases[0].Version != 1 {
+						t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
+					}
+					if test.Releases[0].SourceAuthor != "example <example@example.com>" {
+						t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
+					}
+					if test.Releases[0].SourceMessage != "changed something (#678)" {
+						t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
+					}
+					if test.Releases[0].SourceCommitId != "deadbeef" {
+						t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
+					}
+				}
+
+				//Check cache
+				if _, err := svc.GetOverview(ctx, &api.GetOverviewRequest{}); err != nil {
+					t.Errorf("expected no error getting overview from cache, got %q", err)
+				}
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			repo, err := setupRepositoryTest(t)
-			if err != nil {
-				t.Fatal(err)
+			var repo repository.Repository
+			if tc.DB {
+				migrationsPath, err := testutil.CreateMigrationsPath(4)
+				if err != nil {
+					t.Fatal(err)
+				}
+				dbConfig := &db.DBConfig{
+					DriverName:     "sqlite3",
+					MigrationsPath: migrationsPath,
+					WriteEslOnly:   false,
+				}
+				repo, err = setupRepositoryTestWithDB(t, dbConfig)
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				var err error
+				repo, err = setupRepositoryTest(t)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 			for _, tr := range tc.Setup {
 				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
@@ -602,6 +723,33 @@ func TestOverviewService(t *testing.T) {
 				Shutdown:   shutdown,
 			}
 			tc.Test(t, svc)
+			if tc.DB {
+				repo.State().DBHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+					latestOverviewCache, err := repo.State().DBHandler.ReadLatestOverviewCache(ctx, transaction)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(1, int(latestOverviewCache.EslId)); diff != "" {
+						t.Errorf("latest overview cache mismatch (-want +got):\n%s", diff)
+					}
+					var cachedResponse *api.GetOverviewResponse
+					if err := json.Unmarshal([]byte(latestOverviewCache.Blob), &cachedResponse); err != nil {
+						return err
+					}
+					cachedResponse.GitRevision = "test_git_revision"
+					cachedResponse.EnvironmentGroups[0].Environments[0].Applications["test"].DeploymentMetaData.DeployTime = "1"
+					cachedResponse.Applications["test"].Releases[0].CreatedAt.Seconds = 1
+					cachedResponse.Applications["test"].Releases[0].CreatedAt.Nanos = 1
+					actualCachedResponse, err := json.Marshal(cachedResponse)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(tc.ExpectedBlob, string(actualCachedResponse)); diff != "" {
+						t.Errorf("latest overview cache mismatch (-want +got):\n%s", diff)
+					}
+					return nil
+				})
+			}
 			close(shutdown)
 		})
 	}
