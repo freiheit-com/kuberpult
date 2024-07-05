@@ -771,7 +771,6 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 	if h.ShouldUseEslTable() {
 		gen := getGenerator(ctx)
 		eventUuid := gen.Generate()
-		state.DBHandler.DBReadEslEventInternal(ctx, transaction, false)
 
 		writeError = state.DBHandler.DBWriteNewReleaseEvent(ctx, transaction, transformerEslID, eventUuid, sourceCommitId, ev)
 		fmt.Printf("Transformer eslID: %d\n", transformerEslID)
