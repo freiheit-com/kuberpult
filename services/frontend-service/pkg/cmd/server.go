@@ -242,7 +242,7 @@ func runServer(ctx context.Context) error {
 	var dexClient *auth.DexAppClient
 	if c.DexEnabled {
 		// Registers Dex handlers.
-		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
+		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, c.DexFullNameOverride, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
 		}
@@ -342,7 +342,7 @@ func runServer(ctx context.Context) error {
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, dexClient.DexServiceURL, policy, c.DexUseClusterInternalCommunication)
 			return
 		}
 		httpHandler.Handle(w, req)
@@ -366,7 +366,7 @@ func runServer(ctx context.Context) error {
 		}
 
 		if c.DexEnabled {
-			interceptors.DexAPIInterceptor(w, req, httpHandler.HandleAPI, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
+			interceptors.DexAPIInterceptor(w, req, httpHandler.HandleAPI, c.DexClientId, c.DexBaseURL, dexClient.DexServiceURL, policy, c.DexUseClusterInternalCommunication)
 			return
 		}
 
@@ -563,7 +563,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if c.DexEnabled {
 			source = "dex"
-			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, p.Policy, c.DexUseClusterInternalCommunication)
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexFullNameOverride, p.Policy, c.DexUseClusterInternalCommunication)
 			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
 			} else {
@@ -597,8 +597,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
-	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy, useClusterInternalCommunication)
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexFullNameOverride string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, dexFullNameOverride, policy, useClusterInternalCommunication)
 	if err != nil {
 		return nil
 	}
