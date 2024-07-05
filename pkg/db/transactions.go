@@ -92,7 +92,7 @@ func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, r
 
 func (h *DBHandler) BeginTransaction(ctx context.Context, readonly bool) (*sql.Tx, error) {
 	return h.DB.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelLinearizable,
+		Isolation: sql.LevelSerializable,
 		ReadOnly:  readonly,
 	})
 }
