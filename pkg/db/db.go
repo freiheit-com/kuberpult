@@ -1339,8 +1339,8 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 }
 
 // Unused for now
-func (h *DBHandler) DBSelectDeploymentByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeployment")
+func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
@@ -1349,6 +1349,8 @@ func (h *DBHandler) DBSelectDeploymentByTransformerID(ctx context.Context, tx *s
 			" WHERE transformerEslId=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT ?;"))
+
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
