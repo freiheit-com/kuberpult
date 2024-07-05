@@ -163,6 +163,7 @@ func TestVersionClientStream(t *testing.T) {
 			{
 
 				EnvironmentGroupName: "staging-group",
+				Priority:             api.Priority_UPSTREAM,
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
@@ -175,7 +176,6 @@ func TestVersionClientStream(t *testing.T) {
 								},
 							},
 						},
-						Priority: api.Priority_UPSTREAM,
 					},
 				},
 			},
@@ -197,6 +197,7 @@ func TestVersionClientStream(t *testing.T) {
 			{
 
 				EnvironmentGroupName: "not-staging-group",
+				Priority:             api.Priority_UPSTREAM,
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
@@ -209,7 +210,6 @@ func TestVersionClientStream(t *testing.T) {
 								},
 							},
 						},
-						Priority: api.Priority_UPSTREAM,
 					},
 				},
 			},
@@ -229,8 +229,8 @@ func TestVersionClientStream(t *testing.T) {
 		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
-
 				EnvironmentGroupName: "production",
+				Priority:             api.Priority_PROD,
 				Environments: []*api.Environment{
 					{
 						Name: "production",
@@ -243,7 +243,24 @@ func TestVersionClientStream(t *testing.T) {
 								},
 							},
 						},
-						Priority: api.Priority_PROD,
+					},
+				},
+			},
+			{
+				EnvironmentGroupName: "canary",
+				Priority:             api.Priority_CANARY,
+				Environments: []*api.Environment{
+					{
+						Name: "canary",
+						Applications: map[string]*api.Environment_Application{
+							"foo": {
+								Name:    "foo",
+								Version: 2,
+								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									DeployTime: "123456789",
+								},
+							},
+						},
 					},
 				},
 			},
@@ -525,6 +542,17 @@ func TestVersionClientStream(t *testing.T) {
 							Environment:      "production",
 							Application:      "foo",
 							EnvironmentGroup: "production",
+							IsProduction:     true,
+							Version: &VersionInfo{
+								Version:        2,
+								SourceCommitId: "00002",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+						{
+							Environment:      "canary",
+							Application:      "foo",
+							EnvironmentGroup: "canary",
 							IsProduction:     true,
 							Version: &VersionInfo{
 								Version:        2,
