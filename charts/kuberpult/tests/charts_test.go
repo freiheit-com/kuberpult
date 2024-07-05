@@ -580,39 +580,6 @@ ingress:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
-		{
-			Name: "Test default garbageCollectionFrequency",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
-					Value: "20",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test overwriting garbageCollectionFrequency",
-			Values: `
-git:
-  url: "testURL"
-  garbageCollectionFrequency: 15
-ingress:
-  domainName: "kuberpult-example.com"
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
-					Value: "15",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -1026,72 +993,6 @@ manifestRepoExport:
 				{
 					Name:  "KUBERPULT_NETWORK_TIMEOUT_SECONDS",
 					Value: "300",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test default garbage collection frequency",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
-					Value: "20",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Change garbage collection frequency",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
-manifestRepoExport:
-  garbageCollectionFrequency: 30
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
-					Value: "30",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Change garbage collection frequency and network timeout",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
-manifestRepoExport:
-  garbageCollectionFrequency: 10
-  networkTimeoutSeconds: 100
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
-					Value: "10",
-				},
-				{
-					Name:  "KUBERPULT_NETWORK_TIMEOUT_SECONDS",
-					Value: "100",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},

@@ -125,8 +125,6 @@ spec:
           value: "/etc/ssh/identity"
         - name: KUBERPULT_GIT_SSH_KNOWN_HOSTS
           value: "/etc/ssh/ssh_known_hosts"
-        - name: KUBERPULT_ENABLE_SQLITE
-          value: "true"
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
         - name: KUBERPULT_NETWORK_TIMEOUT_SECONDS
