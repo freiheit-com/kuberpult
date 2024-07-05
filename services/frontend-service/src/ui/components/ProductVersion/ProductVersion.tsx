@@ -157,7 +157,7 @@ export const ProductVersion: React.FC = () => {
                 showSnackbarError(e.message);
             });
         setSummaryLoading(false);
-    }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams]);
+    }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams, authHeader]);
 
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {

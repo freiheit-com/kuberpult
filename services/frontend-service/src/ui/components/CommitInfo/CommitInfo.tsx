@@ -158,6 +158,10 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
                     })}
                 </tbody>
             </table>
+            <div>
+                As of now, only <a href={'https://github.com/freiheit-com/kuberpult/issues/1738'}> up to 100 events</a>{' '}
+                will be displayed here.
+            </div>
         </div>
     );
 };
