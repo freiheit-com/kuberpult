@@ -192,8 +192,6 @@ type RepositoryConfig struct {
 	Branch string
 	// network timeout
 	NetworkTimeout time.Duration
-	//
-	GcFrequency uint
 	// number of app versions to keep a history of
 	ReleaseVersionsLimit uint
 	StorageBackend       StorageBackend
