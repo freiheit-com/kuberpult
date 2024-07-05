@@ -142,6 +142,24 @@ func Run(ctx context.Context) error {
 		}
 	}
 
+	networkTimeoutSecondsStr, err := readEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
+	if err != nil {
+		return err
+	}
+	networkTimeoutSeconds, err := strconv.ParseUint(networkTimeoutSecondsStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("error parsing KUBERPULT_NETWORK_TIMEOUT_SECONDS, error: %w", err)
+	}
+
+	gcFrequencyStr, err := readEnvVar("KUBERPULT_GARBAGE_COLLECTION_FREQUENCY")
+	if err != nil {
+		return err
+	}
+	gcFrequency, err := strconv.ParseUint(gcFrequencyStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("error parsing KUBERPULT_GARBAGE_COLLECTION_FREQUENCY, error: %w", err)
+	}
+
 	enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
 
 	argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
@@ -200,8 +218,8 @@ func Run(ctx context.Context) error {
 			KnownHostsFile: gitSshKnownHosts,
 		},
 		Branch:                 gitBranch,
-		NetworkTimeout:         120 * time.Second,
-		GcFrequency:            20,
+		NetworkTimeout:         time.Duration(networkTimeoutSeconds) * time.Second,
+		GcFrequency:            uint(gcFrequency),
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "./environment_configs.json",
 		StorageBackend:         storageBackend(enableSqliteStorageBackend),
