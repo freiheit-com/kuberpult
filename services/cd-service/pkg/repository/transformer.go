@@ -601,7 +601,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, state.DBHandler, transaction, c.TransformerEslID, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, state)
+		err = writeCommitData(ctx, transaction, c.TransformerEslID, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, state)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -726,7 +726,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, transformerEslID db.TransformerID, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, state *State) error {
+func writeCommitData(ctx context.Context, transaction *sql.Tx, transformerEslID db.TransformerID, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, state *State) error {
 	fs := state.Filesystem
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
@@ -768,10 +768,14 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 		Environments: envMap,
 	}
 	var writeError error
-	if h.ShouldUseEslTable() {
+	if state.DBHandler.ShouldUseEslTable() {
 		gen := getGenerator(ctx)
 		eventUuid := gen.Generate()
 		writeError = state.DBHandler.DBWriteNewReleaseEvent(ctx, transaction, transformerEslID, eventUuid, sourceCommitId, ev)
+		fmt.Printf("Transformer eslID: %d\n", transformerEslID)
+		fmt.Printf("uuid: %s\n", eventUuid)
+		fmt.Printf("source commit id: %s\n", sourceCommitId)
+		fmt.Printf("Atual event: %+v\n", ev)
 	} else {
 		writeError = writeEvent(ctx, eventId, sourceCommitId, fs, ev)
 	}
