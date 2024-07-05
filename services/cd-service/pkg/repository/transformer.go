@@ -2590,11 +2590,12 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		var v = int64(c.Version)
 		newDeployment := db.Deployment{
-			EslVersion: 0,
-			Created:    time.Time{},
-			App:        c.Application,
-			Env:        c.Environment,
-			Version:    &v,
+			EslVersion:    0,
+			Created:       time.Time{},
+			App:           c.Application,
+			Env:           c.Environment,
+			Version:       &v,
+			TransformerID: c.TransformerEslID,
 			Metadata: db.DeploymentMetadata{
 				DeployedByEmail: user.Email,
 				DeployedByName:  user.Name,

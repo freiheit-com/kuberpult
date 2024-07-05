@@ -1116,16 +1116,18 @@ type DBDeployment struct {
 	ReleaseVersion *int64
 	App            string
 	Env            string
+	TransformerID  TransformerID
 	Metadata       string // json
 }
 
 type Deployment struct {
-	EslVersion EslId
-	Created    time.Time
-	App        string
-	Env        string
-	Version    *int64
-	Metadata   DeploymentMetadata
+	EslVersion    EslId
+	Created       time.Time
+	App           string
+	Env           string
+	Version       *int64
+	Metadata      DeploymentMetadata
+	TransformerID TransformerID
 }
 
 type DeploymentMetadata struct {
@@ -1267,7 +1269,7 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata" +
+		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformerEslId" +
 			" FROM deployments " +
 			" WHERE appName=? AND envName=? " +
 			" ORDER BY eslVersion DESC " +
@@ -1295,12 +1297,13 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 		App:            "",
 		Env:            "",
 		Metadata:       "",
+		TransformerID:  0,
 	}
 	var releaseVersion sql.NullInt64
 	//exhaustruct:ignore
 	var resultJson = DeploymentMetadata{}
 	if rows.Next() {
-		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata)
+		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -1325,13 +1328,90 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
 	}
 	return &Deployment{
-		EslVersion: row.EslVersion,
-		Created:    row.Created,
-		App:        row.App,
-		Env:        row.Env,
-		Version:    row.ReleaseVersion,
-		Metadata:   resultJson,
+		EslVersion:    row.EslVersion,
+		Created:       row.Created,
+		App:           row.App,
+		Env:           row.Env,
+		Version:       row.ReleaseVersion,
+		Metadata:      resultJson,
+		TransformerID: row.TransformerID,
 	}, nil
+}
+
+// Unused for now
+func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformerEslId" +
+			" FROM deployments " +
+			" WHERE transformerEslId=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT ?;"))
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		transformerID,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+	deployments := make([]Deployment, 0)
+	for rows.Next() {
+		var row = &DBDeployment{
+			EslVersion:     0,
+			Created:        time.Time{},
+			ReleaseVersion: nil,
+			App:            "",
+			Env:            "",
+			Metadata:       "",
+			TransformerID:  0,
+		}
+
+		var releaseVersion sql.NullInt64
+		//exhaustruct:ignore
+		var resultJson = DeploymentMetadata{}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+		}
+		if releaseVersion.Valid {
+			row.ReleaseVersion = &releaseVersion.Int64
+		}
+
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		deployments = append(deployments, Deployment{
+			EslVersion:    row.EslVersion,
+			Created:       row.Created,
+			App:           row.App,
+			Env:           row.Env,
+			Version:       row.ReleaseVersion,
+			Metadata:      resultJson,
+			TransformerID: row.TransformerID,
+		})
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return deployments, nil
 }
 
 func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBDeployment, error) {
@@ -1554,7 +1634,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata) VALUES (?, ?, ?, ?, ?, ?);")
+		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformerEslId) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
@@ -1565,7 +1645,8 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 		nullVersion,
 		deployment.App,
 		deployment.Env,
-		jsonToInsert)
+		jsonToInsert,
+		deployment.TransformerID)
 
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
@@ -1660,6 +1741,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 
 		for i := range allDeploymentsInRepo {
 			deploymentInRepo := allDeploymentsInRepo[i]
+			deploymentInRepo.TransformerID = 0
 			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
