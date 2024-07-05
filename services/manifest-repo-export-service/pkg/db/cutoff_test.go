@@ -56,7 +56,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 
 			dbHandler := setupDB(t)
 
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				//We need to add transformers for these eslids beforehand (FK)
 				tf := EmptyTransformer{}
 				i := 0

@@ -412,7 +412,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			ctx := context.Background()
 
 			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				// setup:
 				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
@@ -604,7 +604,7 @@ func TestDeploymentEvent(t *testing.T) {
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				// setup:
 				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
@@ -794,7 +794,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				// setup:
 				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
@@ -987,7 +987,7 @@ func TestReplacedByEvents(t *testing.T) {
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				// setup:
 				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
