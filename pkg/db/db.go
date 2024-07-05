@@ -3477,16 +3477,6 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 	}
 
 	var teamLocks []TeamLock
-	var rows *sql.Rows
-	defer func(rows *sql.Rows) {
-		if rows == nil {
-			return
-		}
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
 	//Get the latest change to each lock
 	for _, id := range lockIDs {
 		teamLocksTmp, err2 := h.selectTeamLocks(ctx, tx, environment, teamName, id, teamLocks)
@@ -3494,10 +3484,6 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 			return nil, err2
 		}
 		teamLocks = teamLocksTmp
-	}
-	err := closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return teamLocks, nil
 }
