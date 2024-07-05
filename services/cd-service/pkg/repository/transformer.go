@@ -260,7 +260,7 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 	s := repo.State()
 	if s.DBHandler.ShouldUseOtherTables() {
-		err := s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 			if err := UpdateDatadogMetrics(ctx, transaction, s, repo, nil, time.Now()); err != nil {
 				return err
 			}
@@ -2594,11 +2594,12 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		var v = int64(c.Version)
 		newDeployment := db.Deployment{
-			EslVersion: 0,
-			Created:    time.Time{},
-			App:        c.Application,
-			Env:        c.Environment,
-			Version:    &v,
+			EslVersion:    0,
+			Created:       time.Time{},
+			App:           c.Application,
+			Env:           c.Environment,
+			Version:       &v,
+			TransformerID: c.TransformerEslID,
 			Metadata: db.DeploymentMetadata{
 				DeployedByEmail: user.Email,
 				DeployedByName:  user.Name,
@@ -2986,6 +2987,7 @@ func (c *ReleaseTrain) Prognosis(
 	transaction *sql.Tx,
 ) ReleaseTrainPrognosis {
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.InternalError(ctx, err),
@@ -3010,7 +3012,6 @@ func (c *ReleaseTrain) Prognosis(
 	sort.Strings(envGroups)
 
 	envPrognoses := make(map[string]ReleaseTrainEnvironmentPrognosis)
-
 	for _, envName := range envGroups {
 		var trainGroup *string
 		if isEnvGroup {
@@ -3183,7 +3184,6 @@ func (c *envReleaseTrain) prognosis(
 			}
 		}
 	}
-
 	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3343,20 +3343,53 @@ func (c *envReleaseTrain) prognosis(
 			continue
 		}
 
-		fs := state.Filesystem
-
-		releaseDir := releasesDirectoryWithVersion(fs, appName, versionToDeploy)
-		manifest := fs.Join(releaseDir, "environments", c.Env, "manifests.yaml")
-
-		if _, err := fs.Stat(manifest); err != nil {
-			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
-					SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
-				},
-				FirstLockMessage: "",
-				Version:          0,
+		if state.DBHandler.ShouldUseOtherTables() {
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy)
+			if err != nil {
+				return ReleaseTrainEnvironmentPrognosis{
+					SkipCause:        nil,
+					Error:            err,
+					FirstLockMessage: "",
+					AppsPrognoses:    nil,
+				}
 			}
-			continue
+			if release == nil {
+				return ReleaseTrainEnvironmentPrognosis{
+					SkipCause:        nil,
+					Error:            fmt.Errorf("No release found."),
+					FirstLockMessage: "",
+					AppsPrognoses:    nil,
+				}
+			}
+
+			_, ok := release.Manifests.Manifests[c.Env]
+
+			if !ok {
+				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+					},
+					FirstLockMessage: "",
+					Version:          0,
+				}
+				continue
+			}
+		} else {
+			fs := state.Filesystem
+
+			releaseDir := releasesDirectoryWithVersion(fs, appName, versionToDeploy)
+
+			manifest := fs.Join(releaseDir, "environments", c.Env, "manifests.yaml")
+			if _, err := fs.Stat(manifest); err != nil {
+				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+					},
+					FirstLockMessage: "",
+					Version:          0,
+				}
+				continue
+			}
 		}
 
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
@@ -3393,14 +3426,12 @@ func (c *envReleaseTrain) prognosis(
 				continue
 			}
 		}
-
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 			SkipCause:        nil,
 			FirstLockMessage: "",
 			Version:          versionToDeploy,
 		}
 	}
-
 	return ReleaseTrainEnvironmentPrognosis{
 		SkipCause:        nil,
 		Error:            nil,

@@ -40,11 +40,11 @@ services:
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_SSH_KEY=/etc/ssh/identity
       - KUBERPULT_GIT_SSH_KNOWN_HOSTS=/etc/ssh/ssh_known_hosts
-      - KUBERPULT_ENABLE_SQLITE=true
       - KUBERPULT_ENABLE_METRICS=false
       - KUBERPULT_DOGSTATSD_ADDR=127.0.0.1:8125
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
+      - KUBERPULT_NETWORK_TIMEOUT_SECONDS=120
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database

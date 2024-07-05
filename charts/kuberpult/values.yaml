@@ -66,8 +66,6 @@ git:
   # The maximum number of application release versions to keep a history of. The value must be within the limit: 5 <= n <= 30.
   # Values outside of the range will fail the service during startup.
   releaseVersionsLimit: 20
-  # garbageCollectionFrequency determines how often cd-service cleans up git objects. Set to 0 to turn it off.
-  garbageCollectionFrequency: 20
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
@@ -144,6 +142,8 @@ manifestRepoExport:
       cpu: 2
       memory: 3Gi
   eslProcessingBackoff: 5
+  # Timeout in seconds used for network operations
+  networkTimeoutSeconds: 120
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.

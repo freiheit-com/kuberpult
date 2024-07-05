@@ -29,7 +29,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
@@ -62,7 +61,6 @@ type Repository interface {
 	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
-	//Notify() *notify.Notify
 }
 
 type TransformerBatchApplyError struct {
@@ -104,27 +102,12 @@ func defaultBackOffProvider() backoff.BackOff {
 	return backoff.WithMaxRetries(eb, 6)
 }
 
-type StorageBackend int
-
-const (
-	DefaultBackend StorageBackend = 0
-	GitBackend     StorageBackend = iota
-	SqliteBackend  StorageBackend = iota
-)
-
 type repository struct {
-	// Mutex gurading the writer
-	writeLock  sync.Mutex
-	writesDone uint
-	//queue        queue
 	config       *RepositoryConfig
 	credentials  *credentialsStore
 	certificates *certificateStore
 
 	repository *git.Repository
-
-	// Mutex guarding head
-	headLock sync.Mutex
 
 	backOffProvider func() backoff.BackOff
 
@@ -145,9 +128,6 @@ type RepositoryConfig struct {
 	Branch string
 	// network timeout
 	NetworkTimeout time.Duration
-	//
-	GcFrequency    uint
-	StorageBackend StorageBackend
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
@@ -159,7 +139,7 @@ type RepositoryConfig struct {
 	DBHandler           *db.DBHandler
 }
 
-func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
+func openOrCreate(path string) (*git.Repository, error) {
 	repo2, err := git.OpenRepositoryExtended(path, git.RepositoryOpenNoSearch, path)
 	if err != nil {
 		var gerr *git.GitError
@@ -180,21 +160,19 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 			return nil, err
 		}
 	}
-	if storageBackend == SqliteBackend {
-		sqlitePath := filepath.Join(path, "odb.sqlite")
-		be, err := sqlitestore.NewOdbBackend(sqlitePath)
-		if err != nil {
-			return nil, fmt.Errorf("creating odb backend: %w", err)
-		}
-		odb, err := repo2.Odb()
-		if err != nil {
-			return nil, fmt.Errorf("gettting odb: %w", err)
-		}
-		// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
-		err = odb.AddBackend(be, 99)
-		if err != nil {
-			return nil, fmt.Errorf("setting odb backend: %w", err)
-		}
+	sqlitePath := filepath.Join(path, "odb.sqlite")
+	be, err := sqlitestore.NewOdbBackend(sqlitePath)
+	if err != nil {
+		return nil, fmt.Errorf("creating odb backend: %w", err)
+	}
+	odb, err := repo2.Odb()
+	if err != nil {
+		return nil, fmt.Errorf("gettting odb: %w", err)
+	}
+	// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
+	err = odb.AddBackend(be, 99)
+	if err != nil {
+		return nil, fmt.Errorf("setting odb backend: %w", err)
 	}
 	return repo2, err
 }
@@ -210,9 +188,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	}
 	if cfg.CommitterName == "" {
 		cfg.CommitterName = "kuberpult"
-	}
-	if cfg.StorageBackend == DefaultBackend {
-		cfg.StorageBackend = SqliteBackend
 	}
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
@@ -236,7 +211,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		}
 	}
 
-	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
+	if repo2, err := openOrCreate(cfg.Path); err != nil {
 		return nil, err
 	} else {
 		// configure remotes
@@ -245,10 +220,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		} else {
 
 			result := &repository{
-				writesDone: 0,
-				headLock:   sync.Mutex{},
-				//notify:          notify.Notify{},
-				writeLock:       sync.Mutex{},
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
@@ -256,9 +227,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
 			}
-			result.headLock.Lock()
-
-			defer result.headLock.Unlock()
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 			//exhaustruct:ignore
 			RemoteCallbacks := git.RemoteCallbacks{
@@ -321,9 +289,12 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 }
 
 func (r *repository) applyTransformerBatches(ctx context.Context, transformer Transformer, allowFetchAndReset bool, transaction *sql.Tx) (error, *TransformerResult) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "applyTransformerBatches")
+	defer span.Finish()
+	span.SetTag("allowFetchAndReset", allowFetchAndReset)
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
-	subChanges, applyErr := r.ApplyTransformers(ctx, transaction, transformer)
+	subChanges, applyErr := r.ApplyTransformer(ctx, transaction, transformer)
 	changes.Combine(subChanges)
 	if applyErr != nil {
 		if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
@@ -389,6 +360,9 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
 func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callback PushUpdateFunc, pushAction PushActionCallbackFunc, tx *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
+	defer span.Finish()
+
 	log := logger.FromContext(ctx).Sugar()
 
 	var pushSuccess = true
@@ -457,6 +431,8 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callba
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
+	defer span.Finish()
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
@@ -548,7 +524,10 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 	return r
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformer Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, transformer Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformer")
+	defer span.Finish()
+
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformer)
 	if applyErr != nil {
 		return nil, applyErr
@@ -619,6 +598,8 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "FetchAndReset")
+	defer span.Finish()
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
 	logger := logger.FromContext(ctx)
 	//exhaustruct:ignore
@@ -846,16 +827,6 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
 		DBHandler:              r.DB,
 	}, nil
-}
-
-type ObjectCount struct {
-	Count       uint64
-	Size        uint64
-	InPack      uint64
-	Packs       uint64
-	SizePack    uint64
-	Garbage     uint64
-	SizeGarbage uint64
 }
 
 type State struct {

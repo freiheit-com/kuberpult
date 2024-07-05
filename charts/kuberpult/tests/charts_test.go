@@ -580,39 +580,6 @@ ingress:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
-		{
-			Name: "Test default garbageCollectionFrequency",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
-					Value: "20",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test overwriting garbageCollectionFrequency",
-			Values: `
-git:
-  url: "testURL"
-  garbageCollectionFrequency: 15
-ingress:
-  domainName: "kuberpult-example.com"
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GARBAGE_COLLECTION_FREQUENCY",
-					Value: "15",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -989,6 +956,46 @@ db:
 					Value: "20",
 				},
 			},
+		},
+		{
+			Name: "Test default network timeout",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_NETWORK_TIMEOUT_SECONDS",
+					Value: "120",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Change Network Timeout",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+manifestRepoExport:
+  networkTimeoutSeconds: 300
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_NETWORK_TIMEOUT_SECONDS",
+					Value: "300",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
 		},
 	}
 

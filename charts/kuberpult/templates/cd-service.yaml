@@ -263,8 +263,6 @@ spec:
           value: "{{ .Values.cd.allowLongAppNames }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
-        - name: KUBERPULT_GARBAGE_COLLECTION_FREQUENCY
-          value: "{{ .Values.git.garbageCollectionFrequency }}"
         volumeMounts:
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: migrations

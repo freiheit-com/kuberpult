@@ -17,7 +17,6 @@ Copyright freiheit.com*/
 package repository
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -25,11 +24,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/event"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -37,6 +34,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/event"
 
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -140,7 +139,6 @@ const (
 type repository struct {
 	// Mutex gurading the writer
 	writeLock    sync.Mutex
-	writesDone   uint
 	queue        queue
 	config       *RepositoryConfig
 	credentials  *credentialsStore
@@ -194,8 +192,6 @@ type RepositoryConfig struct {
 	Branch string
 	// network timeout
 	NetworkTimeout time.Duration
-	//
-	GcFrequency uint
 	// number of app versions to keep a history of
 	ReleaseVersionsLimit uint
 	StorageBackend       StorageBackend
@@ -416,7 +412,6 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return nil, nil, err
 		} else {
 			result := &repository{
-				writesDone:      0,
 				headLock:        sync.Mutex{},
 				notify:          notify.Notify{},
 				writeLock:       sync.Mutex{},
@@ -483,7 +478,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			// Check configuration for errors and abort early if any:
 			if state.DBHandler.ShouldUseOtherTables() {
-				_, err = db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				_, err = db.WithTransactionT(state.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
 					return &ret, err
 				})
@@ -541,7 +536,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 		var txErr error
 		e := transformerBatches[i]
 		if r.DB.ShouldUseEslTable() {
-			transaction, txErr = r.DB.DB.BeginTx(e.ctx, nil)
+			transaction, txErr = r.DB.BeginTransaction(e.ctx, false)
 			if txErr != nil {
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
@@ -781,23 +776,14 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 }
 
 func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
-	var transaction *sql.Tx
-	var txErr error
 	repo := r.(*repository)
-	transaction, txErr = repo.DB.DB.BeginTx(ctx, nil)
-	if txErr != nil {
-		return txErr
-	}
-	defer func(tx *sql.Tx) {
-		_ = tx.Rollback()
-	}(transaction)
-
-	ddError := UpdateDatadogMetrics(ctx, transaction, state, r, changes, now)
-	if ddError != nil {
-		return ddError
-	}
-
-	err := transaction.Commit()
+	err := repo.DB.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		ddError := UpdateDatadogMetrics(ctx, transaction, state, r, changes, now)
+		if ddError != nil {
+			return ddError
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -1007,6 +993,9 @@ type ArgoWebhookData struct {
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
+	defer span.Finish()
+
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
@@ -1138,6 +1127,9 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 }
 
 func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
+	defer span.Finish()
+
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
@@ -1268,10 +1260,6 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 }
 
 func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
-	defer func() {
-		r.writesDone = r.writesDone + uint(len(transformers))
-		r.maybeGc(ctx)
-	}()
 	eCh := r.applyDeferred(ctx, transformers...)
 	select {
 	case err := <-eCh:
@@ -1443,83 +1431,6 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 
 func (r *repository) Notify() *notify.Notify {
 	return &r.notify
-}
-
-type ObjectCount struct {
-	Count       uint64
-	Size        uint64
-	InPack      uint64
-	Packs       uint64
-	SizePack    uint64
-	Garbage     uint64
-	SizeGarbage uint64
-}
-
-func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
-	var stats ObjectCount
-	/*
-		The output of `git count-objects` looks like this:
-			count: 0
-			size: 0
-			in-pack: 635
-			packs: 1
-			size-pack: 2845
-			prune-packable: 0
-			garbage: 0
-			size-garbage: 0
-	*/
-	cmd := exec.CommandContext(ctx, "git", "count-objects", "--verbose")
-	cmd.Dir = r.config.Path
-	out, err := cmd.Output()
-	if err != nil {
-		return stats, err
-	}
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		var (
-			token string
-			value uint64
-		)
-		if _, err := fmt.Sscan(scanner.Text(), &token, &value); err != nil {
-			return stats, err
-		}
-		switch token {
-		case "count:":
-			stats.Count = value
-		case "size:":
-			stats.Size = value
-		case "in-packs:":
-			stats.InPack = value
-		case "packs:":
-			stats.Packs = value
-		case "size-pack:":
-			stats.SizePack = value
-		case "garbage:":
-			stats.Garbage = value
-		case "size-garbage":
-			stats.SizeGarbage = value
-		}
-	}
-	return stats, nil
-}
-
-func (r *repository) maybeGc(ctx context.Context) {
-	if r.config.StorageBackend == SqliteBackend || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
-		return
-	}
-	log := logger.FromContext(ctx)
-	r.writesDone = 0
-	timeBefore := time.Now()
-	statsBefore, _ := r.countObjects(ctx)
-	cmd := exec.CommandContext(ctx, "git", "repack", "-a", "-d")
-	cmd.Dir = r.config.Path
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal("git.repack", zap.Error(err))
-		return
-	}
-	statsAfter, _ := r.countObjects(ctx)
-	log.Info("git.repack", zap.Duration("duration", time.Since(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
 }
 
 type State struct {
@@ -2307,11 +2218,12 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 					versionIntPtr = nil
 				}
 				result = append(result, db.Deployment{
-					EslVersion: 0,
-					Created:    time.Time{},
-					App:        appName,
-					Env:        envName,
-					Version:    versionIntPtr,
+					EslVersion:    0,
+					Created:       time.Time{},
+					App:           appName,
+					Env:           envName,
+					Version:       versionIntPtr,
+					TransformerID: 0,
 					Metadata: db.DeploymentMetadata{
 						DeployedByName:  "",
 						DeployedByEmail: "",
