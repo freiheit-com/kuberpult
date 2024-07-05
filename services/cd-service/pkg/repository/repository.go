@@ -1040,8 +1040,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					id = db.TransformerID(uint(ev.EslId))
 				}
 				t.SetEslID(id)
-				fmt.Printf("Tranformer type: %s\n", string(t.GetDBEventType()))
-				fmt.Printf("ESLID of Transformer: %d\n", id)
+				fmt.Printf("Tranformer type: %s, id: %d\n", string(t.GetDBEventType()), id)
 			}
 			if err != nil {
 				return nil, nil, nil, &TransformerBatchApplyError{
