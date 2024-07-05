@@ -231,7 +231,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							Environment:      env.Name,
 							EnvironmentGroup: envGroup.EnvironmentGroupName,
 							Team:             tm,
-							IsProduction:     env.Priority == api.Priority_PROD,
+							IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
 							Version: &VersionInfo{
 								Version:        app.Version,
 								SourceCommitId: sc,

@@ -81,7 +81,7 @@ func (o *OverviewServiceServer) getOverviewDB(
 
 	var response *api.GetOverviewResponse
 	if s.DBHandler.ShouldUseOtherTables() {
-		err := s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		err := s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 			var err2 error
 			response, err2 = o.getOverview(ctx, s, transaction)
 			return err2

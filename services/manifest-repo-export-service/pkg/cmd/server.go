@@ -238,7 +238,9 @@ func Run(ctx context.Context) error {
 		eslTableEmpty := false
 		eslEventSkipped := false
 
-		err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
+		const readonly = false
+		err = dbHandler.WithTransaction(ctx, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("error in DBReadCutoff %v", err)

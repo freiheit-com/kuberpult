@@ -1870,7 +1870,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			if batchError != nil {
 				t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
 			}
-
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: '%v'", err)
 			}

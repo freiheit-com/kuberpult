@@ -483,7 +483,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			// Check configuration for errors and abort early if any:
 			if state.DBHandler.ShouldUseOtherTables() {
-				_, err = db.WithTransactionT(state.DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				_, err = db.WithTransactionT(state.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
 					return &ret, err
 				})
@@ -541,7 +541,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 		var txErr error
 		e := transformerBatches[i]
 		if r.DB.ShouldUseEslTable() {
-			transaction, txErr = r.DB.DB.BeginTx(e.ctx, nil)
+			transaction, txErr = r.DB.BeginTransaction(e.ctx, false)
 			if txErr != nil {
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
@@ -781,23 +781,14 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 }
 
 func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
-	var transaction *sql.Tx
-	var txErr error
 	repo := r.(*repository)
-	transaction, txErr = repo.DB.DB.BeginTx(ctx, nil)
-	if txErr != nil {
-		return txErr
-	}
-	defer func(tx *sql.Tx) {
-		_ = tx.Rollback()
-	}(transaction)
-
-	ddError := UpdateDatadogMetrics(ctx, transaction, state, r, changes, now)
-	if ddError != nil {
-		return ddError
-	}
-
-	err := transaction.Commit()
+	err := repo.DB.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		ddError := UpdateDatadogMetrics(ctx, transaction, state, r, changes, now)
+		if ddError != nil {
+			return ddError
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -1007,6 +998,9 @@ type ArgoWebhookData struct {
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
+	defer span.Finish()
+
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
@@ -1136,6 +1130,9 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 }
 
 func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
+	defer span.Finish()
+
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
