@@ -88,6 +88,7 @@ func NewDexAppClient(clientID, clientSecret, baseURL, nameOverride string, scope
 		RedirectURI:                     baseURL + callbackPATH,
 		IssuerURL:                       baseURL + issuerPATH,
 		UseClusterInternalCommunication: useClusterInternalCommunication,
+		DexServiceURL:                   fmt.Sprintf(dexServiceURLPattern, nameOverride),
 	}
 	//exhaustruct:ignore
 	transport := &http.Transport{
@@ -104,7 +105,6 @@ func NewDexAppClient(clientID, clientSecret, baseURL, nameOverride string, scope
 		DexURL: dexURL,
 		T:      a.Client.Transport,
 	}
-	a.DexServiceURL = fmt.Sprintf(dexServiceURLPattern, nameOverride)
 
 	// Register Dex handlers.
 	a.registerDexHandlers()
