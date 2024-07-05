@@ -1338,7 +1338,6 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 	}, nil
 }
 
-// Unused for now
 func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
 	defer span.Finish()

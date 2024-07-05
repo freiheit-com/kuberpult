@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/go-git/go-billy/v5"
 	"os/exec"
@@ -653,6 +654,235 @@ func TestDeploymentEvent(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if tc.ExpectedFile != nil {
+				for i := range tc.ExpectedFile {
+					expectedFile := tc.ExpectedFile[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestReleaseTrain(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name                string
+		Transformers        []Transformer
+		ExpectedError       error
+		Event               event.Deployment
+		ExpectedApp         *db.DBAppWithMetaData
+		ExpectedAllReleases *db.DBReleaseWithMetaData
+		ExpectedFile        []*FilenameAndData
+	}{
+		{
+			Name: "Trigger a deployment via a relase train with environment target",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+					},
+					TransformerEslID: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+					TransformerEslID: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"production": "some production manifest 2",
+						"staging":    "some staging manifest 2",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 3,
+					Team:             "team-123",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:      "staging",
+					Application:      appName,
+					Version:          1,
+					WriteCommitData:  true,
+					TransformerEslID: 4,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&ReleaseTrain{
+					Target:           "production",
+					WriteCommitData:  true,
+					TransformerEslID: 5,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000004/application",
+					fileData: []byte(appName),
+				},
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000004/environment",
+					fileData: []byte("production"),
+				},
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000004/eventType",
+					fileData: []byte("deployment"),
+				},
+				{
+					path:     "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000004/source_train_upstream",
+					fileData: []byte("staging"),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for idx, t := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					if t.GetDBEventType() == db.EvtDeployApplicationVersion {
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslID(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
+						if err != nil {
+							return err
+						}
+					}
+
+					if t.GetDBEventType() == db.EvtReleaseTrain {
+						var sourceTrainUpstream string
+						sourceTrainUpstream = "staging"
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslID(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: &sourceTrainUpstream})
+						if err != nil {
+							return err
+						}
+					}
+				}
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 3, "00000000-0000-0000-0000-000000000000", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					EslId:         0,
+					ReleaseNumber: 1,
+					Created:       time.Time{},
+					App:           appName,
+					Manifests:     db.DBReleaseManifests{},
+					Metadata:      db.DBReleaseMetaData{},
+				}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: "staging",
+						Latest:      true,
+					},
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: "staging",
+					},
+				})
+				if err != nil {
+					return err
+				}
+				var v int64
+				v = 1
+				err = dbHandler.DBWriteDeployment(ctx, transaction, db.Deployment{
+					App:           appName,
+					Env:           "production",
+					Version:       &v,
+					TransformerID: 5,
+				}, 10)
+				if err != nil {
+					return err
+				}
+
 				// actual transformer to be tested:
 				err = repo.Apply(ctx, transaction, tc.Transformers...)
 				if err != nil {

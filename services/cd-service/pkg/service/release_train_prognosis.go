@@ -18,8 +18,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -42,8 +42,16 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 		Repo:             s.Repository,
 		TransformerEslID: 0,
 	}
-
-	prognosis := t.Prognosis(ctx, s.Repository.State(), nil)
+	dbHandler := t.Repo.State().DBHandler
+	var prognosis rp.ReleaseTrainPrognosis
+	if dbHandler.ShouldUseOtherTables() {
+		_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+			prognosis = t.Prognosis(ctx, s.Repository.State(), transaction)
+			return nil
+		})
+	} else {
+		prognosis = t.Prognosis(ctx, s.Repository.State(), nil)
+	}
 
 	if prognosis.Error != nil {
 		return nil, prognosis.Error
