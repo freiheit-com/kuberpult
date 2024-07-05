@@ -141,26 +141,25 @@ func Run(ctx context.Context) error {
 			return fmt.Errorf("error converting KUBERPULT_ESL_PROCESSING_BACKOFF, error: %w", err)
 		}
 	}
-	var networkTimeoutSeconds uint64
-	if val, exists := os.LookupEnv("KUBERPULT_NETWORK_TIMEOUT_SECONDS"); !exists {
-		log.Infof("environment variable KUBERPULT_NETWORK_TIMEOUT_SECONDS is not set, using default timeout of 120 seconds")
-		networkTimeoutSeconds = 120
-	} else {
-		networkTimeoutSeconds, err = strconv.ParseUint(val, 10, 64)
-		if err != nil {
-			return fmt.Errorf("error converting KUBERPULT_NETWORK_TIMEOUT_SECONDS, error: %w", err)
-		}
+
+	networkTimeoutSecondsStr, err := readEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
+	if err != nil {
+		return err
 	}
-	var gcFrequency uint64
-	if val, exists := os.LookupEnv("KUBERPULT_GARBAGE_COLLECTION_FREQUENCY"); !exists {
-		log.Infof("environment variable KUBERPULT_GARBAGE_COLLECTION_FREQUENCY is not set, using default value of 20")
-		gcFrequency = 20
-	} else {
-		gcFrequency, err = strconv.ParseUint(val, 10, 64)
-		if err != nil {
-			return fmt.Errorf("error converting KUBERPULT_GARBAGE_COLLECTION_FREQUENCY, error: %w", err)
-		}
+	networkTimeoutSeconds, err := strconv.ParseUint(networkTimeoutSecondsStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("error parsing KUBERPULT_NETWORK_TIMEOUT_SECONDS, error: %w", err)
 	}
+
+	gcFrequencyStr, err := readEnvVar("KUBERPULT_GARBAGE_COLLECTION_FREQUENCY")
+	if err != nil {
+		return err
+	}
+	gcFrequency, err := strconv.ParseUint(gcFrequencyStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("error parsing KUBERPULT_GARBAGE_COLLECTION_FREQUENCY, error: %w", err)
+	}
+
 	enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
 
 	argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
