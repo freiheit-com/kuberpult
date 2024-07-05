@@ -45,7 +45,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 	dbHandler := t.Repo.State().DBHandler
 	var prognosis rp.ReleaseTrainPrognosis
 	if dbHandler.ShouldUseOtherTables() {
-		_ = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 			prognosis = t.Prognosis(ctx, s.Repository.State(), transaction)
 			return nil
 		})
