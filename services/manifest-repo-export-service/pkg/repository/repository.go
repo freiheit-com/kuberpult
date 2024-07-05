@@ -102,14 +102,6 @@ func defaultBackOffProvider() backoff.BackOff {
 	return backoff.WithMaxRetries(eb, 6)
 }
 
-type StorageBackend int
-
-const (
-	DefaultBackend StorageBackend = 0
-	GitBackend     StorageBackend = iota
-	SqliteBackend  StorageBackend = iota
-)
-
 type repository struct {
 	config       *RepositoryConfig
 	credentials  *credentialsStore
@@ -136,7 +128,6 @@ type RepositoryConfig struct {
 	Branch string
 	// network timeout
 	NetworkTimeout time.Duration
-	StorageBackend StorageBackend
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
@@ -148,7 +139,7 @@ type RepositoryConfig struct {
 	DBHandler           *db.DBHandler
 }
 
-func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
+func openOrCreate(path string) (*git.Repository, error) {
 	repo2, err := git.OpenRepositoryExtended(path, git.RepositoryOpenNoSearch, path)
 	if err != nil {
 		var gerr *git.GitError
@@ -169,21 +160,19 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 			return nil, err
 		}
 	}
-	if storageBackend == SqliteBackend {
-		sqlitePath := filepath.Join(path, "odb.sqlite")
-		be, err := sqlitestore.NewOdbBackend(sqlitePath)
-		if err != nil {
-			return nil, fmt.Errorf("creating odb backend: %w", err)
-		}
-		odb, err := repo2.Odb()
-		if err != nil {
-			return nil, fmt.Errorf("gettting odb: %w", err)
-		}
-		// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
-		err = odb.AddBackend(be, 99)
-		if err != nil {
-			return nil, fmt.Errorf("setting odb backend: %w", err)
-		}
+	sqlitePath := filepath.Join(path, "odb.sqlite")
+	be, err := sqlitestore.NewOdbBackend(sqlitePath)
+	if err != nil {
+		return nil, fmt.Errorf("creating odb backend: %w", err)
+	}
+	odb, err := repo2.Odb()
+	if err != nil {
+		return nil, fmt.Errorf("gettting odb: %w", err)
+	}
+	// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
+	err = odb.AddBackend(be, 99)
+	if err != nil {
+		return nil, fmt.Errorf("setting odb backend: %w", err)
 	}
 	return repo2, err
 }
@@ -199,9 +188,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	}
 	if cfg.CommitterName == "" {
 		cfg.CommitterName = "kuberpult"
-	}
-	if cfg.StorageBackend == DefaultBackend {
-		cfg.StorageBackend = SqliteBackend
 	}
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
@@ -225,7 +211,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		}
 	}
 
-	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
+	if repo2, err := openOrCreate(cfg.Path); err != nil {
 		return nil, err
 	} else {
 		// configure remotes

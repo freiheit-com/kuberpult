@@ -34,14 +34,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func storageBackend(enableSqlite bool) repository.StorageBackend {
-	if enableSqlite {
-		return repository.SqliteBackend
-	} else {
-		return repository.GitBackend
-	}
-}
-
 const (
 	minReleaseVersionsLimit = 5
 	maxReleaseVersionsLimit = 30
@@ -102,11 +94,6 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// not that this is for the git storage backand, not our database:
-	enableSqliteStorageBackendString, err := readEnvVar("KUBERPULT_ENABLE_SQLITE")
-	if err != nil {
-		return err
-	}
 	enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
 	if err != nil {
 		return err
@@ -150,8 +137,6 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_NETWORK_TIMEOUT_SECONDS, error: %w", err)
 	}
-
-	enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
 
 	argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
 	if err != nil {
@@ -212,7 +197,6 @@ func Run(ctx context.Context) error {
 		NetworkTimeout:         time.Duration(networkTimeoutSeconds) * time.Second,
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "./environment_configs.json",
-		StorageBackend:         storageBackend(enableSqliteStorageBackend),
 		ReleaseVersionLimit:    uint(releaseVersionLimit),
 		ArgoCdGenerateFiles:    argoCdGenerateFiles,
 		DBHandler:              dbHandler,
