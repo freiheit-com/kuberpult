@@ -46,7 +46,6 @@ services:
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
       - KUBERPULT_NETWORK_TIMEOUT_SECONDS=120
-      - KUBERPULT_GARBAGE_COLLECTION_FREQUENCY=20
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database

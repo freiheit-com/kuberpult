@@ -17,8 +17,6 @@ Copyright freiheit.com*/
 package repository
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -26,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -114,7 +111,6 @@ const (
 )
 
 type repository struct {
-	writesDone   uint
 	config       *RepositoryConfig
 	credentials  *credentialsStore
 	certificates *certificateStore
@@ -140,8 +136,6 @@ type RepositoryConfig struct {
 	Branch string
 	// network timeout
 	NetworkTimeout time.Duration
-	//
-	GcFrequency    uint
 	StorageBackend StorageBackend
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
@@ -240,7 +234,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		} else {
 
 			result := &repository{
-				writesDone:      0,
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
@@ -685,10 +678,6 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 }
 
 func (r *repository) Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error {
-	defer func() {
-		r.writesDone = r.writesDone + uint(len(transformers))
-		r.maybeGc(ctx)
-	}()
 	for i := range transformers {
 		t := transformers[i]
 		err := r.ProcessQueueOnce(ctx, t, defaultPushUpdate, DefaultPushActionCallback, tx)
@@ -852,83 +841,6 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
 		DBHandler:              r.DB,
 	}, nil
-}
-
-func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
-	var stats ObjectCount
-	/*
-		The output of `git count-objects` looks like this:
-			count: 0
-			size: 0
-			in-pack: 635
-			packs: 1
-			size-pack: 2845
-			prune-packable: 0
-			garbage: 0
-			size-garbage: 0
-	*/
-	cmd := exec.CommandContext(ctx, "git", "count-objects", "--verbose")
-	cmd.Dir = r.config.Path
-	out, err := cmd.Output()
-	if err != nil {
-		return stats, err
-	}
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		var (
-			token string
-			value uint64
-		)
-		if _, err := fmt.Sscan(scanner.Text(), &token, &value); err != nil {
-			return stats, err
-		}
-		switch token {
-		case "count:":
-			stats.Count = value
-		case "size:":
-			stats.Size = value
-		case "in-packs:":
-			stats.InPack = value
-		case "packs:":
-			stats.Packs = value
-		case "size-pack:":
-			stats.SizePack = value
-		case "garbage:":
-			stats.Garbage = value
-		case "size-garbage":
-			stats.SizeGarbage = value
-		}
-	}
-	return stats, nil
-}
-
-func (r *repository) maybeGc(ctx context.Context) {
-	if r.config.StorageBackend == SqliteBackend || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
-		return
-	}
-	log := logger.FromContext(ctx)
-	r.writesDone = 0
-	timeBefore := time.Now()
-	statsBefore, _ := r.countObjects(ctx)
-	cmd := exec.CommandContext(ctx, "git", "repack", "-a", "-d")
-	cmd.Dir = r.config.Path
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal("git.repack", zap.Error(err))
-		return
-	}
-	statsAfter, _ := r.countObjects(ctx)
-	log.Info("git.repack", zap.Duration("duration", time.Since(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
-}
-
-type ObjectCount struct {
-	Count       uint64
-	Size        uint64
-	InPack      uint64
-	Packs       uint64
-	SizePack    uint64
-	Garbage     uint64
-	SizeGarbage uint64
 }
 
 type State struct {
