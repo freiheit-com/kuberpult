@@ -114,6 +114,7 @@ const (
 )
 
 type repository struct {
+	writesDone   uint
 	config       *RepositoryConfig
 	credentials  *credentialsStore
 	certificates *certificateStore
@@ -239,6 +240,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		} else {
 
 			result := &repository{
+				writesDone:      0,
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
