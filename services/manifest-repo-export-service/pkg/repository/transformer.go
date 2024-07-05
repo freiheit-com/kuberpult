@@ -1431,8 +1431,6 @@ func (u *ReleaseTrain) Transform(
 		if isEnvGroup {
 			trainGroup = conversion.FromString(targetGroupName)
 		}
-		fmt.Println("Here")
-		fmt.Println(upstreamEnvName)
 		if err := t.Execute(&DeployApplicationVersion{
 			Authentication:      u.Authentication,
 			TransformerMetadata: u.TransformerMetadata,

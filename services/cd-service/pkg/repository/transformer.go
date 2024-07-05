@@ -3235,9 +3235,6 @@ func (c *envReleaseTrain) prognosis(
 	}
 
 	for _, appName := range apps {
-		if appName == "test-my-app" {
-			fmt.Println("Here")
-		}
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
