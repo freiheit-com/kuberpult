@@ -1502,6 +1502,227 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 	}
 }
 
+func TestReleaseTrain(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		ReleaseVersionsLimit uint
+		Transformers         []Transformer
+		BootstrapMode        bool
+		ExpectedVersion      uint
+		TargetEnv            string
+		TargetApp            string
+	}{
+		{
+			Name:            "Release train",
+			ExpectedVersion: 2,
+			TargetEnv:       envProduction,
+			TargetApp:       "test",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: "test",
+					Version:     1,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         2,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     1,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     2,
+				},
+				&ReleaseTrain{
+					Target: envProduction,
+				},
+			},
+		},
+		{
+			Name:            "Release train from Latest",
+			ExpectedVersion: 2,
+			TargetEnv:       envAcceptance,
+			TargetApp:       "test",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData:  true,
+					Version:          2,
+					TransformerEslID: 0,
+				},
+				&ReleaseTrain{
+					Target:           envAcceptance,
+					TransformerEslID: 0,
+				},
+			},
+		},
+		{
+			Name:            "Release train for a Team",
+			ExpectedVersion: 2,
+			TargetApp:       "test-my-app",
+			TargetEnv:       envProduction,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+					TransformerEslID: 0,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test-my-app",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					Team:             "test",
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&DeployApplicationVersion{
+					Environment:      envProduction,
+					Application:      "test-my-app",
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test-my-app",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData:  true,
+					Version:          2,
+					TransformerEslID: 0,
+					Team:             "test",
+				},
+				&DeployApplicationVersion{
+					Environment:      envAcceptance,
+					Application:      "test-my-app",
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&DeployApplicationVersion{
+					Environment:      envAcceptance,
+					Application:      "test-my-app",
+					Version:          2,
+					TransformerEslID: 0,
+				},
+				&ReleaseTrain{
+					Target:           envProduction,
+					Team:             "test",
+					TransformerEslID: 0,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			//check deployments
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if err2 != nil {
+					return err2
+				}
+
+				deployment, dplError := state.DBHandler.DBSelectDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
+				if dplError != nil {
+					return dplError
+				}
+
+				if deployment == nil {
+					t.Fatalf("Expected deployment but none was found.")
+				}
+				if deployment.Version == nil {
+					t.Fatalf("Expected deployment version, but got nil.")
+
+				}
+				if diff := cmp.Diff(uint(*deployment.Version), tc.ExpectedVersion); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Err: %v\n", err)
+			}
+		})
+	}
+}
+
 func version(v int) *int64 {
 	var result = int64(v)
 	return &result
