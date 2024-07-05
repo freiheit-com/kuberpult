@@ -145,6 +145,8 @@ spec:
         - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.auth.dexAuth.enabled }}"
 {{- if .Values.auth.dexAuth.enabled }}
+        - name: KUBERPULT_DEX_FULL_NAME_OVERRIDE
+          value: "{{ .Values.auth.dexAuth.fullNameOverride }}"
         - name: KUBERPULT_DEX_CLIENT_ID
           value: "{{ .Values.auth.dexAuth.clientId }}"
         - name: KUBERPULT_DEX_CLIENT_SECRET
