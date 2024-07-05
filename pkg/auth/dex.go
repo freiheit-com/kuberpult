@@ -42,6 +42,8 @@ type DexAuthContext struct {
 
 // Dex App Client.
 type DexAppClient struct {
+	// Dex service internal URL. Used to connect to dex internally in the cluster.
+	DexServiceURL string
 	// The Dex issuer URL. Needs to be match the dex issuer helm config.
 	IssuerURL string
 	// The host Kuberpult is running on.
@@ -62,7 +64,7 @@ type DexAppClient struct {
 
 const (
 	// Dex service internal URL. Used to connect to dex internally in the cluster.
-	dexServiceURL = "http://kuberpult-dex:5556"
+	dexServiceURLPattern = "http://%s:5556"
 	// Dex issuer path. Needs to be match the dex issuer helm config.
 	issuerPATH = "/dex"
 	// Dex callback path. Needs to be match the dex staticClients.redirectURIs helm config.
@@ -76,7 +78,7 @@ const (
 )
 
 // NewDexAppClient a Dex Client.
-func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string, useClusterInternalCommunication bool) (*DexAppClient, error) {
+func NewDexAppClient(clientID, clientSecret, baseURL, nameOverride string, scopes []string, useClusterInternalCommunication bool) (*DexAppClient, error) {
 	a := DexAppClient{
 		Client:                          nil,
 		ClientID:                        clientID,
@@ -97,11 +99,12 @@ func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string, us
 	}
 
 	// Creates a transport layer to map all requests to dex internally
-	dexURL, _ := url.Parse(dexServiceURL)
+	dexURL, _ := url.Parse(fmt.Sprintf(dexServiceURLPattern, nameOverride))
 	a.Client.Transport = DexRewriteURLRoundTripper{
 		DexURL: dexURL,
 		T:      a.Client.Transport,
 	}
+	a.DexServiceURL = fmt.Sprintf(dexServiceURLPattern, nameOverride)
 
 	// Register Dex handlers.
 	a.registerDexHandlers()
@@ -126,7 +129,7 @@ func (s DexRewriteURLRoundTripper) RoundTrip(r *http.Request) (*http.Response, e
 // Registers dex handlers for login
 func (a *DexAppClient) registerDexHandlers() {
 	// Handles calls to the Dex server. Calls are redirected internally using a reverse proxy.
-	http.HandleFunc(issuerPATH+"/", NewDexReverseProxy(dexServiceURL))
+	http.HandleFunc(issuerPATH+"/", NewDexReverseProxy(a.DexServiceURL))
 	// Handles the login callback to redirect to dex page.
 	http.HandleFunc(LoginPATH, a.handleDexLogin)
 	// Call back to the current app once the login is finished
@@ -212,7 +215,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID, a.UseClusterInternalCommunication)
+	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID, a.DexServiceURL, a.UseClusterInternalCommunication)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to verify the token: %v", err), http.StatusInternalServerError)
 		return
@@ -240,7 +243,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.BaseURL, http.StatusSeeOther)
 }
 
-func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedAudience string, useClusterInternalCommunication bool) (token *oidc.IDToken, err error) {
+func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken, allowedAudience, dexServiceURL string, useClusterInternalCommunication bool) (token *oidc.IDToken, err error) {
 	var p *oidc.Provider
 	// Token must be verified against an allowed audience.
 	//exhaustruct:ignore
@@ -258,7 +261,7 @@ func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedA
 			Algorithms:    []string{"RS256"},
 		}
 		p = pc.NewProvider(ctx)
-		// As the issuer is e.g. https://kuberpult.com/dex and the providerBaseUrl is http://kuberpult-dex:5556/dex we need to SkipIssuerChecks
+		// As the issuer is e.g. https://kuberpult.com/dex and the providerBaseUrl is http://kuberpult-dex:5556/dex (default) we need to SkipIssuerChecks
 		config.SkipIssuerCheck = true
 	} else {
 		p, err = oidc.NewProvider(ctx, issuerURL)
@@ -293,7 +296,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 }
 
 // Verifies if the user is authenticated.
-func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
+func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexServiceURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 
@@ -314,7 +317,7 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string,
 	}
 
 	// Validates token audience and expiring date.
-	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID, useClusterInternalCommunication)
+	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID, dexServiceURL, useClusterInternalCommunication)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify token: %s", err)
 	}

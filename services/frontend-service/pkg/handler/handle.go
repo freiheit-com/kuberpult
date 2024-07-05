@@ -20,11 +20,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/ProtonMail/go-crypto/openpgp"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
@@ -114,7 +115,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 	httpClient := &http.Client{}
 	dexContactUrl := ""
 	if client.UseClusterInternalCommunication {
-		dexContactUrl = "http://kuberpult-dex:5556"
+		dexContactUrl = client.DexServiceURL
 	} else {
 		dexContactUrl = client.BaseURL
 	}

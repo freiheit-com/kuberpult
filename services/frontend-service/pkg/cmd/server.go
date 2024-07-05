@@ -242,7 +242,7 @@ func runServer(ctx context.Context) error {
 	var dexClient *auth.DexAppClient
 	if c.DexEnabled {
 		// Registers Dex handlers.
-		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
+		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, c.DexFullNameOverride, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
 		}
