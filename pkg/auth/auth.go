@@ -158,11 +158,11 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 			userRole = append(userRole, strings.Split(newRole, ",")...)
 		}
 
-		if len(userRole) == 0 {
+		fmt.Printf("Role to attribute: (%d)<'%s'>\n", len(userRole), userRole)
+		if len(userRole) == 0 || userRole[0] == "" {
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
 
-		fmt.Printf("Role to attribute: <'%s'>\n", userRole)
 		u.DexAuthContext = &DexAuthContext{
 			Role: userRole,
 		}
