@@ -1660,7 +1660,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allReleasesDb, err := h.DBSelectAnyRelease(ctx, transaction)
 		if err != nil {
@@ -1722,7 +1722,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
 		if err != nil {
@@ -1781,7 +1781,7 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvLocks")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allEnvLocksDb, err := h.DBSelectAnyActiveEnvLocks(ctx, transaction)
 		if err != nil {
@@ -1828,7 +1828,7 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLoc
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppLocks")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
 		if err != nil {
@@ -1875,7 +1875,7 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationTeamLocks")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allTeamLocksDb, err := h.DBSelectAnyActiveTeamLock(ctx, transaction)
 		if err != nil {
@@ -1918,7 +1918,7 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 }
 
 func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllEvents GetAllEventsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		ev, err := h.DBSelectAnyEvent(ctx, transaction)
 		if err != nil {
@@ -1954,7 +1954,7 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationQueuedApplicationVersions")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allTeamLocksDb, err := h.DBSelectAnyDeploymentAttempt(ctx, transaction)
 		if err != nil {
@@ -1986,7 +1986,7 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 
 // For commit_events migrations, we need some transformer to be on the database before we run their migrations.
 func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
 		defer span.Finish()
 		l := logger.FromContext(ctx).Sugar()
@@ -2047,7 +2047,7 @@ func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAp
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAllAppsTable")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
@@ -2083,7 +2083,7 @@ func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun Ge
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationApps")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		dbApp, err := h.DBSelectAnyApp(ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("could not get dbApp from database - assuming the manifest repo is correct: %v", err)
@@ -4232,7 +4232,7 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironments")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		log := logger.FromContext(ctx).Sugar()
 
 		arbitraryAllEnvsRow, err := h.DBSelectAnyEnvironment(ctx, transaction)

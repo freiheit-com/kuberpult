@@ -133,7 +133,7 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-			tx, err := db.DB.BeginTx(ctx, nil)
+			tx, err := db.BeginTransaction(ctx, false)
 			if err != nil {
 				t.Fatalf("Error creating transaction. Error: %v\n", err)
 			}
@@ -238,7 +238,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 			ctx := context.Background()
 
 			dbHandler := SetupRepositoryTestWithDB(t)
-			err3 := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, getAllReleases)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
@@ -354,7 +354,7 @@ func TestCommitEvents(t *testing.T) {
 				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
 
 			}
-			err = db.WithTransaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			err = db.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
 				if err != nil {
 					t.Fatalf("Error creating transaction. Error: %v\n", err)
 				}
@@ -535,7 +535,7 @@ func TestReadWriteDeployment(t *testing.T) {
 
 			dbHandler := setupDB(t)
 
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				deployment, err2 := dbHandler.DBSelectAnyDeployment(ctx, transaction)
 				if err2 != nil {
 					return err2
@@ -627,7 +627,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -704,7 +704,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -779,7 +779,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectAppLock(ctx, transaction, tc.Env, tc.AppName, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -869,7 +869,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -976,7 +976,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
 					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
 					if err != nil {
@@ -1039,7 +1039,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version)
 				if err != nil {
 					return err
@@ -1107,7 +1107,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -1197,7 +1197,7 @@ func TestDeleteTeamLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -1286,7 +1286,7 @@ func TestDeleteRelease(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.DBInsertRelease(ctx, transaction, tc.toInsert, tc.toInsert.EslId-1)
 				if err2 != nil {
 					return err2
@@ -1462,7 +1462,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			for _, envToWrite := range tc.EnvsToWrite {
-				err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
@@ -1474,7 +1474,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 				}
 			}
 
-			envEntry, err := WithTransactionT(dbHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
+			envEntry, err := WithTransactionT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
 				envEntry, err := dbHandler.DBSelectEnvironment(ctx, transaction, tc.EnvToQuery)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
@@ -1566,7 +1566,7 @@ func TestReadWriteEslEvent(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteEslEventInternal(ctx, tc.EventType, transaction, tc.EventData, tc.EventMetadata)
 				if err != nil {
 					return err
@@ -1630,7 +1630,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			for _, allEnvs := range tc.AllEnvsToWrite {
-				err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					err := dbHandler.DBWriteAllEnvironments(ctx, transaction, allEnvs)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
@@ -1642,7 +1642,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 				}
 			}
 
-			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
 				allEnvsEntry, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
@@ -1799,7 +1799,7 @@ func TestReadReleasesByApp(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
 
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.Releases {
 					err := dbHandler.DBInsertRelease(ctx, transaction, release, release.EslId-1)
 					if err != nil {

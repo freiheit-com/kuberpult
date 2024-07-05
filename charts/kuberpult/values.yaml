@@ -144,6 +144,10 @@ manifestRepoExport:
       cpu: 2
       memory: 3Gi
   eslProcessingBackoff: 5
+  # garbageCollectionFrequency determines how often export-service cleans up git objects. Set to 0 to turn it off.
+  garbageCollectionFrequency: 20
+  # Timeout in seconds used for network operations
+  networkTimeoutSeconds: 120
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.
