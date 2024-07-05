@@ -1503,8 +1503,6 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 }
 
 func TestReleaseTrain(t *testing.T) {
-	//c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
-
 	tcs := []struct {
 		Name                 string
 		ReleaseVersionsLimit uint
