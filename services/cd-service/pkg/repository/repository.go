@@ -1034,6 +1034,8 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					id = db.TransformerID(uint(ev.EslId) + 1)
 				}
 				t.SetEslID(id)
+				fmt.Printf("Tranformer type: %s\n", string(t.GetDBEventType()))
+				fmt.Printf("ESLID of Transformer: %d\n", id)
 			}
 
 			eventMetadata := db.ESLMetadata{
