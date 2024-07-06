@@ -322,7 +322,7 @@ func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*i
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBDiscoverNextAvailableEsldID: no transaction provided")
+		return nil, fmt.Errorf("DBDiscoverCurrentEsldID: no transaction provided")
 	}
 	var selectQuery string
 	if h.DriverName == "postgres" {
@@ -338,7 +338,7 @@ func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*i
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not get current eslid. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -355,7 +355,7 @@ func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*i
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error table for next eslID. Error: %w\n", err)
 		}
 	} else {
 		value = nil
