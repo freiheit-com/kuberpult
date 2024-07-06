@@ -2013,7 +2013,7 @@ func TestApplyTransformerBatch(t *testing.T) {
 			}
 
 			if tc.failingBatchIndexes == nil {
-				if diff := cmp.Diff(tc.Batches, resultingBatches, cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
+				if diff := cmp.Diff(resultingBatches, tc.Batches, cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 			} else {
