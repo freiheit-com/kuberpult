@@ -538,8 +538,9 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			Name: "Create three team locks and delete one ",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Environment:      envAcceptance,
+					Config:           config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerEslID: 0,
 				},
 				&CreateApplicationVersion{
 					Application: "foo",
