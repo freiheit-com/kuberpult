@@ -2002,7 +2002,7 @@ func TestApplyTransformerBatch(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 
 			repo := SetupRepositoryTestWithDB(t)
 
@@ -2013,9 +2013,11 @@ func TestApplyTransformerBatch(t *testing.T) {
 			}
 
 			if tc.failingBatchIndexes == nil {
-				if diff := cmp.Diff(tc.Batches, resultingBatches, cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
+				if diff := cmp.Diff(resultingBatches, tc.Batches, cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
+					fmt.Printf("Err: %+v\n", tc.Batches[0].result)
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
+
 			} else {
 				if diff := cmp.Diff(len(tc.Batches)-len(tc.failingBatchIndexes), len(resultingBatches), cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
 					t.Errorf("Number of resulting transformers mismatch (-want, +got):\n%s", diff)

@@ -546,8 +546,9 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: envAcceptance,
 					},
-					Team:    team,
-					Version: 1,
+					Team:             team,
+					Version:          1,
+					TransformerEslID: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: envAcceptance,
@@ -600,6 +601,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				return nil
 			})
 			if err != nil {
+				fmt.Println(err)
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
