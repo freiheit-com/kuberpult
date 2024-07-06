@@ -40,6 +40,7 @@ type ServerConfig struct {
 	DexClientSecret                    string        `default:"" split_words:"true"`
 	DexRbacPolicyPath                  string        `split_words:"true"`
 	DexBaseURL                         string        `default:"" split_words:"true"`
+	DexFullNameOverride                string        `default:"kuberpult-dex" split_words:"true"`
 	DexScopes                          string        `default:"" split_words:"true"`
 	DexUseClusterInternalCommunication bool          `default:"false" split_words:"true"`
 	Version                            string        `default:""`

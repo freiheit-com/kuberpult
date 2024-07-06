@@ -147,9 +147,9 @@ func DexLoginInterceptor(
 	w http.ResponseWriter,
 	req *http.Request,
 	httpHandler http.HandlerFunc,
-	clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool,
+	clientID, baseURL, dexServiceURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool,
 ) {
-	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicy, useClusterInternalCommunication)
+	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
@@ -168,9 +168,9 @@ func DexAPIInterceptor(
 	w http.ResponseWriter,
 	req *http.Request,
 	httpHandler http.HandlerFunc,
-	clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool,
+	clientID, baseURL, dexServiceURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool,
 ) {
-	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicy, useClusterInternalCommunication)
+	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated respond with unauthorized
@@ -181,8 +181,8 @@ func DexAPIInterceptor(
 	httpHandler(w, req)
 }
 
-func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
-	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, useClusterInternalCommunication)
+func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexFullNameOverride string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, dexFullNameOverride, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		return req.Context(), err
