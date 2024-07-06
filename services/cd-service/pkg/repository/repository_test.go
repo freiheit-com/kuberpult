@@ -2016,7 +2016,6 @@ func TestApplyTransformerBatch(t *testing.T) {
 				if diff := cmp.Diff(tc.Batches, resultingBatches, cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
-
 			} else {
 				if diff := cmp.Diff(len(tc.Batches)-len(tc.failingBatchIndexes), len(resultingBatches), cmpopts.IgnoreUnexported(transformerBatch{})); diff != "" {
 					t.Errorf("Number of resulting transformers mismatch (-want, +got):\n%s", diff)
