@@ -328,10 +328,10 @@ func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*i
 	if h.DriverName == "postgres" {
 		selectQuery = h.AdaptQuery("SELECT last_value from event_sourcing_light_eslid_seq;")
 
-	} else if h.DriverName == "sqlite" {
+	} else if h.DriverName == "sqlite3" {
 		selectQuery = h.AdaptQuery("SELECT seq FROM SQLITE_SEQUENCE WHERE name='event_sourcing_light';")
 	} else {
-
+		return nil, fmt.Errorf("Driver: '%s' not supported.\n", h.DriverName)
 	}
 	rows, err := tx.QueryContext(
 		ctx,
