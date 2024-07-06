@@ -538,18 +538,16 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			Name: "Create three team locks and delete one ",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment:      envAcceptance,
-					Config:           config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-					TransformerEslID: 0,
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
 						envAcceptance: envAcceptance,
 					},
-					Team:             team,
-					Version:          1,
-					TransformerEslID: 1,
+					Team:    team,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: envAcceptance,
@@ -602,7 +600,6 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				fmt.Println(err)
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
