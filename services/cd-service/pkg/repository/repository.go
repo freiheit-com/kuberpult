@@ -1019,8 +1019,16 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					Index:            -1,
 				}
 			}
+
+			eventMetadata := db.ESLMetadata{
+				AuthorName:  user.Name,
+				AuthorEmail: user.Email,
+			}
+
+			//The ID of the transformer needs to be inserted into the json blob of the event_sourcing_light table,
+			// SO we can't read it after writing it
 			if r.DB.ShouldUseOtherTables() {
-				ev, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
+				value, err := r.DB.DBDiscoverCurrentEsldID(ctx, transaction)
 				if err != nil {
 					return nil, nil, nil, &TransformerBatchApplyError{
 						TransformerError: err,
@@ -1028,18 +1036,15 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					}
 				}
 				var id db.TransformerID
-				if ev == nil {
+				if value == nil {
 					id = 1
 				} else {
-					id = db.TransformerID(uint(ev.EslId) + 1)
+					//This is now guaranteed to be the next index
+					id = db.TransformerID(uint(*value) + 1)
 				}
 				t.SetEslID(id)
 			}
 
-			eventMetadata := db.ESLMetadata{
-				AuthorName:  user.Name,
-				AuthorEmail: user.Email,
-			}
 			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
 			if err != nil {
 				return nil, nil, nil, &TransformerBatchApplyError{
@@ -1047,6 +1052,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					Index:            i,
 				}
 			}
+
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
 					TransformerError: err,
