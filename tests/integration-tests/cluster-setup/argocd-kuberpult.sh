@@ -129,17 +129,13 @@ kubectl create ns staging
 print 'installing kuberpult helm chart...'
 
 cat <<VALUES > vals.yaml
-datadogTracing:
-  enabled: true
-dogstatsdMetrics:
-  enabled: true
 db:
   location: postgres
   authProxyPort: 5432
   dbName: kuberpult
   dbUser: postgres
   dbPassword: mypassword
-  dbOption: NO_DB # Set to "postgreSQL" when tests are adapted to the database
+  dbOption: postgreSQL
   writeEslTableOnly: false
   k8sServiceAccountName: default
 cd:
