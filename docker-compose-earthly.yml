@@ -21,7 +21,7 @@ services:
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
       - KUBERPULT_DB_USER_PASSWORD=mypassword
-      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/sqlite/
+      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
       - KUBERPULT_DB_OPTION=postgreSQL
       - KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false
       - KUBERPULT_GIT_BRANCH=master
@@ -49,7 +49,7 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_DB_LOCATION=postgres
-      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/sqlite/
+      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
       - KUBERPULT_DB_OPTION=postgreSQL
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
