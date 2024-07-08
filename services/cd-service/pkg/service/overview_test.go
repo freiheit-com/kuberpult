@@ -190,7 +190,7 @@ func TestCalculateWarnings(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			actualWarnings := CalculateWarnings(testutil.MakeTestContext(), tc.AppName, tc.Groups)
+			actualWarnings := repository.CalculateWarnings(testutil.MakeTestContext(), tc.AppName, tc.Groups)
 			if len(actualWarnings) != len(tc.ExpectedWarnings) {
 				t.Errorf("Different number of warnings. got: %s\nwant: %s", actualWarnings, tc.ExpectedWarnings)
 			}
@@ -1065,7 +1065,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			actualResult := deriveUndeploySummary(tc.AppName, tc.groups)
+			actualResult := repository.DeriveUndeploySummary(tc.AppName, tc.groups)
 			if !cmp.Equal(tc.ExpectedResult, actualResult) {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult, actualResult))
 			}
