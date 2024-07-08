@@ -1,0 +1,1 @@
+../sqlite/1720455590920137_resize_environments_json.up.sql
