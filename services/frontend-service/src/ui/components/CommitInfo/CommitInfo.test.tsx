@@ -263,8 +263,8 @@ test('CommitInfo component renders commit info when the response is valid', () =
         );
 
         // first h1 is "Planned Actions", second h1 is actually our CommitInfo component:
-        expect(container.getElementsByTagName('h1').length).toEqual(2);
-        expect(container.getElementsByTagName('h1')[1]).toHaveTextContent(testCase.expectedTitle);
+        expect(container.getElementsByTagName('h1').length).toEqual(1);
+        expect(container.getElementsByTagName('h1')[0]).toHaveTextContent(testCase.expectedTitle);
         const selectTimezoneElement = container.getElementsByClassName('select-timezone')[0];
         fireEvent.change(selectTimezoneElement, { target: { value: testCase.selectedTimezone } });
 

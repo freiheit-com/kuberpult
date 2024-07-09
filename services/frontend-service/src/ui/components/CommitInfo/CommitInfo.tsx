@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import React, { useState } from 'react';
-import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
 
 type CommitInfoProps = {
@@ -27,7 +26,6 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     if (commitInfo === undefined) {
         return (
             <div>
-                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
                 <main className="main-content commit-page">Backend returned empty response</main>
             </div>
         );
@@ -62,7 +60,6 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
         );
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content commit-page">
                 <h1> Commit: {commitInfo.commitMessage.split('\n')[0]} </h1>
                 <div>
@@ -158,6 +155,10 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
                     })}
                 </tbody>
             </table>
+            <div>
+                As of now, only <a href={'https://github.com/freiheit-com/kuberpult/issues/1738'}> up to 100 events</a>{' '}
+                will be displayed here.
+            </div>
         </div>
     );
 };
