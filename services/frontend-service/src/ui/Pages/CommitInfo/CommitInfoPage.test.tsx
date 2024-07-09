@@ -93,7 +93,7 @@ describe('Commit info page tests', () => {
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
             expectedText:
-                'The provided commit ID was not found in the manifest repository. This is because either the commit "potato" is incorrect, is not tracked by Kuberpult yet, or it refers to an old commit whose release has been cleaned up by now.',
+                'The provided commit ID was not found in the manifest repository or database. This is because either the commit "potato" is incorrect, is not tracked by Kuberpult yet, or it refers to an old commit whose release has been cleaned up by now.',
             commitInfoStoreData: {
                 response: undefined,
                 commitInfoReady: CommitInfoState.NOTFOUND,
@@ -138,7 +138,10 @@ Commit message body line 2`,
             );
 
             expect(container.getElementsByClassName('spinner')).toHaveLength(tc.expectedSpinnerCount);
-            expect(container.getElementsByClassName('main-content')).toHaveLength(tc.expectedMainContentCount);
+            expect(container.getElementsByClassName('main-content commit-page')).toHaveLength(
+                tc.expectedMainContentCount
+            );
+            console.info('SU DEBUG: ', container);
 
             expect(container.textContent).toContain(tc.expectedText);
         });

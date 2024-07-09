@@ -61,7 +61,7 @@ export const CommitInfoPage: React.FC = () => {
         case CommitInfoState.NOTFOUND:
             return (
                 <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    {/*<TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />*/}
                     <main className="main-content commit-page">
                         The provided commit ID was not found in the manifest repository or database. This is because
                         either the commit "{commitHash}" is incorrect, is not tracked by Kuberpult yet, or it refers to
