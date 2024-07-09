@@ -120,12 +120,20 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
     const formatDate = (date: Date | undefined): string => {
         if (!date) return '';
         const selectedTimezone = timezone === 'local' ? localTimezone : 'UTC';
-        const localizedDate = new Date(
-            date.toLocaleString('en-US', {
-                timeZone: selectedTimezone,
-            })
-        );
-        return localizedDate.toISOString().split('.')[0];
+        const localizedDate = date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            timeZone: selectedTimezone,
+        });
+        const padToTwoDigits = (num: number): string => num.toString().padStart(2, '0');
+        const [day, month, year, hour, minute, second] = (localizedDate.match(/\d+/g) ?? []).map(String);
+        const formattedDate = `${year}-${padToTwoDigits(parseInt(day))}-${padToTwoDigits(parseInt(month))}T${padToTwoDigits(parseInt(hour))}:${padToTwoDigits(parseInt(minute))}:${padToTwoDigits(parseInt(second))}`;
+        return formattedDate;
     };
     return (
         <div>
