@@ -922,6 +922,12 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 		EventData:     deployment,
 		EventMetadata: metadata,
 	})
+	if sourceCommitHash == "" {
+		return fmt.Errorf("refusing to write deployment event without commit hash for transformer %v with uuid %s",
+			transformerID,
+			uuid,
+		)
+	}
 
 	if err != nil {
 		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
