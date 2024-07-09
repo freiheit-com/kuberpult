@@ -2685,7 +2685,7 @@ func (c *DeployApplicationVersion) Transform(
 			if err != nil {
 				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 			} else {
-				if newReleaseCommitId == "" {
+				if !valid.SHA1CommitID(newReleaseCommitId) {
 					logger.FromContext(ctx).Sugar().Warnf("skipping event because commit id was not found")
 				} else {
 					gen := getGenerator(ctx)

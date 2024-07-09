@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"path"
 	"reflect"
 	"slices"
@@ -922,7 +923,7 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 		EventData:     deployment,
 		EventMetadata: metadata,
 	})
-	if sourceCommitHash == "" {
+	if !valid.SHA1CommitID(sourceCommitHash) {
 		return fmt.Errorf("refusing to write deployment event without commit hash for transformer %v with uuid %s",
 			transformerID,
 			uuid,
