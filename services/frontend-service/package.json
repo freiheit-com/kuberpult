@@ -34,7 +34,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
-    "test": "react-scripts test --color",
+    "test": "TC=Europe/Berlin react-scripts test --color",
     "start": "WATCHPACK_POLLING=true CHOKIDAR_USEPOLLING=true react-scripts start",
     "eslint": "eslint --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
     "eslint-fix": "eslint --fix --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
