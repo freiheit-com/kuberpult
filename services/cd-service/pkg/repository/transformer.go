@@ -344,7 +344,7 @@ func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
 	}
 	r.Stack = r.Stack[:idx]
 	if r.State.DBHandler.ShouldUseOtherTables() {
-		if err = UpdateOverviewDB(r.Context, r.State, transaction, true, true); err != nil {
+		if err = UpdateOverviewDB(r.Context, r.State, transaction); err != nil {
 			return err
 		}
 	}

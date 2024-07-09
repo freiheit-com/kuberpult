@@ -1,3 +1,18 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MIT License for more details.
+
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+Copyright freiheit.com*/
 /*
 This file is part of kuberpult.
 
@@ -35,39 +50,36 @@ func UpdateOverviewDB(
 	ctx context.Context,
 	state *State,
 	transaction *sql.Tx,
-	updateApplications bool,
-	updateEnvGroups bool,
 ) error {
+	var rev string
+	if state.Commit != nil {
+		rev = state.Commit.Id().String()
+	}
 	result := &api.GetOverviewResponse{
 		Branch:            "",
 		ManifestRepoUrl:   "",
 		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
-		GitRevision:       state.Commit.Id().String(),
+		GitRevision:       rev,
 	}
 	latestOverviewRow, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
 	if err != nil {
 		return err
 	}
-	if latestOverviewRow == nil {
-		return nil
-	}
 
-	err = json.Unmarshal([]byte(latestOverviewRow.Blob), result)
+	if latestOverviewRow != nil {
+		err = json.Unmarshal([]byte(latestOverviewRow.Blob), result)
+		if err != nil {
+			return err
+		}
+	}
+	result, err = UpdateOverviewEnvironmentGroups(ctx, state, transaction, result)
 	if err != nil {
 		return err
 	}
-	if updateEnvGroups {
-		result, err = UpdateOverviewEnvironmentGroups(ctx, state, transaction, result)
-		if err != nil {
-			return err
-		}
-	}
-	if updateApplications {
-		result, err = UpdateOverviewApplications(ctx, state, transaction, result)
-		if err != nil {
-			return err
-		}
+	result, err = UpdateOverviewApplications(ctx, state, transaction, result)
+	if err != nil {
+		return err
 	}
 	resultBlob, err := json.Marshal(result)
 	if err != nil {
@@ -84,7 +96,7 @@ func UpdateOverviewApplications(
 	transaction *sql.Tx,
 	previousOverview *api.GetOverviewResponse,
 ) (*api.GetOverviewResponse, error) {
-
+	previousOverview.Applications = map[string]*api.Application{}
 	if apps, err := state.GetApplications(ctx, transaction); err != nil {
 		return nil, err
 	} else {
