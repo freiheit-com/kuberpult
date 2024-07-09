@@ -1,1 +1,1 @@
-ALTER TABLE environments ALTER COLUMN json TYPE varchar(1000000);
+ALTER TABLE environments ALTER COLUMN json TYPE varchar();

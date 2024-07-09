@@ -316,7 +316,7 @@ func RunServer() {
 				Repository: repo,
 			}
 		if dbHandler.ShouldUseOtherTables() {
-			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=true")
+			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 			migErr := dbHandler.RunCustomMigrations(
 				ctx,
 				repo.State().GetAppsAndTeams,
