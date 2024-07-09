@@ -141,7 +141,6 @@ Commit message body line 2`,
             expect(container.getElementsByClassName('main-content commit-page')).toHaveLength(
                 tc.expectedMainContentCount
             );
-            console.info('SU DEBUG: ', container);
 
             expect(container.textContent).toContain(tc.expectedText);
         });
