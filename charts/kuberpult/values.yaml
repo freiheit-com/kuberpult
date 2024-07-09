@@ -307,7 +307,7 @@ auth:
     # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
     installDex: false
     # Overrides the name of the dex resources. Allows creating multiple Dex instances on the same cluster. 
-    fullNameOverride: ""
+    fullNameOverride: "kuberpult-dex"
     # If kuberpult cannot find a role in the dex response, it will use the role "default".
     # This is only recommended for when you want the simplest possible setup, or for testing purposes.
     defaultRoleEnabled: false
