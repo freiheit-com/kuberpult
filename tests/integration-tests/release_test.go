@@ -157,7 +157,6 @@ func CalcSignature(t *testing.T, manifest string) string {
 		t.Errorf("output: %s", string(theSignature))
 		t.Fail()
 	}
-	t.Logf("signature: " + string(theSignature))
 	return string(theSignature)
 }
 
