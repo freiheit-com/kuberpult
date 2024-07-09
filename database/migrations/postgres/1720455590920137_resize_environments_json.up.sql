@@ -1,1 +1,1 @@
-../sqlite/1720455590920137_resize_environments_json.up.sql
+ALTER TABLE environments ALTER COLUMN json TYPE varchar(1000000);
