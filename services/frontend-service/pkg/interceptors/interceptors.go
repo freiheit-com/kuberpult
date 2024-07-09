@@ -151,7 +151,7 @@ func DexLoginInterceptor(
 ) {
 	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
-		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
+		logger.FromContext(req.Context()).Warn(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 		return
