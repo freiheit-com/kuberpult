@@ -5,6 +5,8 @@ services:
     environment:
       - POSTGRES_PASSWORD=mypassword
       - POSTGRES_DB=kuberpult
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 1s
