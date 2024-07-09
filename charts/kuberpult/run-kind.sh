@@ -133,17 +133,8 @@ export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kub
 
 if "$LOCAL_EXECUTION"
 then
-  print 'building cd service...'
-  make -C ../../services/cd-service/ docker
-
-  print 'building manifest-repo-export service...'
-  make -C ../../services/manifest-repo-export-service/ docker
-
-  print 'building frontend service...'
-  make -C ../../services/frontend-service/ docker
-
-  print 'building rollout service...'
-  make -C ../../services/rollout-service/ docker
+  print 'building services...'
+  make -C ../.. all-services
 else
   print 'not building services...'
 fi

@@ -78,14 +78,11 @@ kuberpult: builder
 	docker compose up --build
 
 kuberpult-earthly:
-	earthly +all-services --UID=$(USER_UID) --target docker
-	docker compose -f docker-compose-earthly.yml up 
+	earthly +all-services --UID=$(USER_UID)
+	docker compose up 
 
-cache:
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:cache --push +frontend-service --target release --UID=$(USER_UID)
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-cd-service:cache --push +cd-service --UID=$(USER_UID) --target release
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache --push +rollout-service --UID=$(USER_UID) --target release
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache --push +manifest-repo-export-service --UID=$(USER_UID) --target release
+all-services:
+	earthly +all-services --tag=$(VERSION)
 
 integration-test:
 	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)
