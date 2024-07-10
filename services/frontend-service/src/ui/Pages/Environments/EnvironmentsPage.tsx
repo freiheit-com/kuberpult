@@ -15,7 +15,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { useEnvironmentGroups, useEnvironments, useGlobalLoadingState } from '../../utils/store';
 import { EnvironmentCard, EnvironmentGroupCard } from '../../components/EnvironmentCard/EnvironmentCard';
-import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import React from 'react';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
@@ -26,9 +25,9 @@ export const EnvironmentsPage: React.FC = () => {
     // if they are equal (envsGroups.length === envs.length), then there are effectively no groups, but the cd-server still returns each env wrapped in a group
     const useGroups = envsGroups.length !== envs.length;
 
-    const [everythingLoaded, loadingState] = useGlobalLoadingState();
-    if (!everythingLoaded) {
-        return <LoadingStateSpinner loadingState={loadingState} />;
+    const element = useGlobalLoadingState();
+    if (element) {
+        return element;
     }
 
     const mainContent: JSX.Element = useGroups ? (

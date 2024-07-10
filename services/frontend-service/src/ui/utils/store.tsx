@@ -38,6 +38,8 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useIsAuthenticated } from '@azure/msal-react';
 import { useApi } from './GrpcApi';
 import { AuthHeader } from './AzureAuthProvider';
+import { LoginPage, isTokenValid } from '../utils/DexAuthProvider';
+import { LoadingStateSpinner } from '../utils/LoadingStateSpinner';
 
 // see maxBatchActions in batch.go
 export const maxBatchActions = 100;
@@ -966,25 +968,37 @@ export type GlobalLoadingState = {
     configReady: boolean;
     isAuthenticated: boolean;
     azureAuthEnabled: boolean;
+    dexAuthEnabled: boolean;
     overviewLoaded: boolean;
 };
 
 // returns one loading state for all the calls done on startup, in order to render a spinner with details
-export const useGlobalLoadingState = (): [boolean, GlobalLoadingState] => {
+export const useGlobalLoadingState = (): React.ReactElement | undefined => {
     const { configs, configReady } = useFrontendConfig((c) => c);
     const isAuthenticated = useIsAuthenticated();
     const azureAuthEnabled = configs.authConfig?.azureAuth?.enabled || false;
+    const dexAuthEnabled = configs.authConfig?.dexAuth?.enabled || false;
     const overviewLoaded = useOverviewLoaded();
     const everythingLoaded = overviewLoaded && configReady && (isAuthenticated || !azureAuthEnabled);
-    return [
-        everythingLoaded,
-        {
-            configReady,
-            isAuthenticated,
-            azureAuthEnabled,
-            overviewLoaded,
-        },
-    ];
+    if (!everythingLoaded) {
+        return (
+            <LoadingStateSpinner
+                loadingState={{
+                    configReady,
+                    isAuthenticated,
+                    azureAuthEnabled,
+                    dexAuthEnabled,
+                    overviewLoaded,
+                }}
+            />
+        );
+    }
+
+    const validToken = isTokenValid();
+    if (dexAuthEnabled && !validToken) {
+        return <LoginPage />;
+    }
+    return undefined;
 };
 
 export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);

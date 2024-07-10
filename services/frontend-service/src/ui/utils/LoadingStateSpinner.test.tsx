@@ -25,6 +25,7 @@ const cases: { name: string; inputState: GlobalLoadingState; expectedMessage: st
         inputState: {
             configReady: true,
             azureAuthEnabled: true,
+            dexAuthEnabled: true,
             isAuthenticated: true,
             overviewLoaded: true,
         },
@@ -35,6 +36,7 @@ const cases: { name: string; inputState: GlobalLoadingState; expectedMessage: st
         inputState: {
             configReady: false,
             azureAuthEnabled: true,
+            dexAuthEnabled: true,
             isAuthenticated: true,
             overviewLoaded: true,
         },
@@ -45,6 +47,7 @@ const cases: { name: string; inputState: GlobalLoadingState; expectedMessage: st
         inputState: {
             configReady: true,
             azureAuthEnabled: true,
+            dexAuthEnabled: true,
             isAuthenticated: false,
             overviewLoaded: true,
         },
@@ -55,6 +58,7 @@ const cases: { name: string; inputState: GlobalLoadingState; expectedMessage: st
         inputState: {
             configReady: true,
             azureAuthEnabled: false,
+            dexAuthEnabled: true,
             isAuthenticated: false,
             overviewLoaded: true,
         },
@@ -65,6 +69,7 @@ const cases: { name: string; inputState: GlobalLoadingState; expectedMessage: st
         inputState: {
             configReady: true,
             azureAuthEnabled: true,
+            dexAuthEnabled: true,
             isAuthenticated: true,
             overviewLoaded: false,
         },
