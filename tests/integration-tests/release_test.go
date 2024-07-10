@@ -126,8 +126,6 @@ func callCreateGroupLock(t *testing.T, envGroup, lockId string, requestBody *put
 	buf.Write(jsonBytes)
 
 	url := fmt.Sprintf("http://localhost:%s/environment-groups/%s/locks/%s", frontendPort, envGroup, lockId)
-	t.Logf("GroupLock url: %s", url)
-	t.Logf("GroupLock body: %s", buf.String())
 	req, err := http.NewRequest(http.MethodPut, url, &buf)
 	if err != nil {
 		return 0, "", err
@@ -157,7 +155,6 @@ func CalcSignature(t *testing.T, manifest string) string {
 		t.Errorf("output: %s", string(theSignature))
 		t.Fail()
 	}
-	t.Logf("signature: " + string(theSignature))
 	return string(theSignature)
 }
 

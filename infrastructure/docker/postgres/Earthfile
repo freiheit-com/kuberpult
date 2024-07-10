@@ -1,0 +1,9 @@
+VERSION 0.8
+
+image:
+    ARG postgres_version=13.15
+    FROM DOCKERFILE --build-arg POSTGRES_VERSION=${postgres_version} .
+
+docker:
+    FROM +image
+    SAVE IMAGE postgres:local

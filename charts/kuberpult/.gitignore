@@ -3,4 +3,8 @@ Chart.yaml
 ci/test-values.yaml
 tmp.tmpl
 vals.yaml
-argocd-values.yaml
+argocd-values.yml
+argocd_adminpw.txt
+Chart.lock
+emptyfile
+charts/*

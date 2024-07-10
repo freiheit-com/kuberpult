@@ -130,15 +130,22 @@ print 'installing kuberpult helm chart...'
 
 cat <<VALUES > vals.yaml
 db:
-  dbOption: NO_DB
+  location: postgres
+  authProxyPort: 5432
+  dbName: kuberpult
+  dbUser: postgres
+  dbPassword: mypassword
+  dbOption: postgreSQL
+  writeEslTableOnly: false
+  k8sServiceAccountName: default
 cd:
   resources:
     limits:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.5
     requests:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.5
 frontend:
   resources:
     limits:

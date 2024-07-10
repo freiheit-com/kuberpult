@@ -94,14 +94,20 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
 	if err != nil {
-		return err
+		log.Info("datadog metrics are disabled")
 	}
 	enableMetrics := enableMetricsString == "true"
-	DatatDogStatsAddr, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
-	if err != nil {
-		return err
+	dataDogStatsAddr := "127.0.0.1:8125"
+	if enableMetrics {
+		dataDogStatsAddrEnv, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
+		if err != nil {
+			log.Infof("using default dogStatsAddr: %s", dataDogStatsAddr)
+		} else {
+			dataDogStatsAddr = dataDogStatsAddrEnv
+		}
 	}
 
 	releaseVersionLimitStr, err := readEnvVar("KUBERPULT_RELEASE_VERSIONS_LIMIT")
@@ -176,7 +182,7 @@ func Run(ctx context.Context) error {
 	}
 	var ddMetrics statsd.ClientInterface
 	if enableMetrics {
-		ddMetrics, err = statsd.New(DatatDogStatsAddr, statsd.WithNamespace("Kuberpult"))
+		ddMetrics, err = statsd.New(dataDogStatsAddr, statsd.WithNamespace("Kuberpult"))
 		if err != nil {
 			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 		}

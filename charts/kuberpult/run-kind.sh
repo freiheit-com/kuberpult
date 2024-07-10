@@ -44,6 +44,9 @@ make all
 print installing ssh...
 ./setup-cluster-ssh.sh
 
+print installing postgres...
+./setup-postgres.sh
+
 function waitForDeployment() {
   ns="$1"
   label="$2"
@@ -111,6 +114,7 @@ waitForDeployment "git" "app.kubernetes.io/name=server"
 portForwardAndWait "git" "deployment/server" "2222" "22"
 
 rm -f emptyfile
+rm -rf manifests
 print "cloning..."
 GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../services/cd-service/client' git clone ssh://git@localhost:2222/git/repos/manifests
 
@@ -129,17 +133,8 @@ export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kub
 
 if "$LOCAL_EXECUTION"
 then
-  print 'building cd service...'
-  make -C ../../services/cd-service/ docker
-
-  print 'building manifest-repo-export service...'
-  make -C ../../services/manifest-repo-export-service/ docker
-
-  print 'building frontend service...'
-  make -C ../../services/frontend-service/ docker
-
-  print 'building rollout service...'
-  make -C ../../services/rollout-service/ docker
+  print 'building services...'
+  make -C ../.. all-services
 else
   print 'not building services...'
 fi
@@ -172,6 +167,23 @@ else
   print 'not pulling cd or frontend service...'
 fi
 
+ARGOCD_IMAGE_URI="quay.io/argoproj/argocd:v2.7.4"
+DEX_IMAGE_URI="ghcr.io/dexidp/dex:v2.36.0"
+CLOUDSQL_PROXY_IMAGE_URI="gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0"
+REDIS_IMAGE_URI="public.ecr.aws/docker/library/redis:7.0.11-alpine"
+
+print 'pulling argocd image...'
+docker pull "$ARGOCD_IMAGE_URI"
+
+print 'pulling dex image...'
+docker pull "$DEX_IMAGE_URI"
+
+print 'pulling cloudsql proxy image...'
+docker pull "$CLOUDSQL_PROXY_IMAGE_URI"
+
+print 'pulling redis image...'
+docker pull "$REDIS_IMAGE_URI"
+
 print 'loading docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
@@ -179,10 +191,10 @@ kind load docker-image "$cd_imagename"
 kind load docker-image "$manifest_repo_export_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
-kind load docker-image quay.io/argoproj/argocd:v2.7.4
-kind load docker-image ghcr.io/dexidp/dex:v2.36.0
-kind load docker-image gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-kind load docker-image public.ecr.aws/docker/library/redis:7.0.11-alpine
+kind load docker-image "$ARGOCD_IMAGE_URI"
+kind load docker-image "$DEX_IMAGE_URI"
+kind load docker-image "$CLOUDSQL_PROXY_IMAGE_URI"
+kind load docker-image "$REDIS_IMAGE_URI"
 
 ## argoCd
 
