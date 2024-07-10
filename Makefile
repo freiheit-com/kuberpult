@@ -72,10 +72,7 @@ cleanup-main:
 builder:
 	IMAGE_TAG=latest make -C infrastructure/docker/builder build
 
-kuberpult: builder
-	make -C services/frontend-service src/api/api.ts
-	make -C pkg/ all
-	docker compose up --build
+kuberpult: kuberpult-earthly
 
 kuberpult-earthly:
 	earthly +all-services --UID=$(USER_UID)
