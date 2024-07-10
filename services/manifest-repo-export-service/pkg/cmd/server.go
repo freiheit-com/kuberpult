@@ -43,7 +43,7 @@ func RunServer() {
 	_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
 		err := Run(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Errorf("error in startup: %v %#v", err, err)
+			logger.FromContext(ctx).Sugar().Errorf("error in startup: %#v", err)
 		}
 		return nil
 	})

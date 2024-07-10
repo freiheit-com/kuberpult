@@ -212,7 +212,7 @@ func Remove(s []string, r string) []string {
 	return s
 }
 
-func closeRows(rows *sql.Rows) error {
+func CloseRows(rows *sql.Rows) error {
 	err := rows.Close()
 	if err != nil {
 		return fmt.Errorf("row closing error: %v\n", err)
@@ -361,7 +361,7 @@ func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*i
 	} else {
 		value = nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +411,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	} else {
 		row = nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +457,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 			return nil, fmt.Errorf("event_sourcing_light: Error scanning row from DB. Error: %w\n", err)
 		}
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -622,7 +622,7 @@ func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *
 	} else {
 		row = nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -685,7 +685,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		row.Manifests = manifestData
 		result = append(result, row)
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -1465,7 +1465,7 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 			TransformerID: row.TransformerID,
 		})
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -1511,7 +1511,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 	} else {
 		row = nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -1615,7 +1615,7 @@ func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithM
 	} else {
 		row = nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -1668,7 +1668,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	} else {
 		row = nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -2201,7 +2201,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 			}
 			return nil, fmt.Errorf("Error scanning environment lock row from DB. Error: %w\n", err)
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -2217,7 +2217,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 			Environment:     row.Environment,
 			AllEnvLocksJson: AllEnvLocksJson{EnvLocks: dataJson.EnvLocks}}, nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -2276,7 +2276,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -2290,7 +2290,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		}, nil
 	}
 
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -2408,6 +2408,13 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
 	envLocks := make([]EnvironmentLock, 0)
 	for rows.Next() {
 		var row = DBEnvironmentLock{
@@ -2442,7 +2449,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 			Metadata:   resultJson,
 		})
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -2502,13 +2509,13 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 			Environment:     row.Environment,
 			AllEnvLocksJson: AllEnvLocksJson{EnvLocks: resultJson.EnvLocks},
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
 		return &resultGo, nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -2586,12 +2593,12 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 				Metadata:   resultJson,
 			})
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
 	}
-	err := closeRows(rows)
+	err := CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -2800,13 +2807,13 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 			AppName:         row.AppName,
 			AllAppLocksJson: AllAppLocksJson{AppLocks: resultJson.AppLocks},
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
 		return &resultGo, nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -2867,7 +2874,7 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -2882,7 +2889,7 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 		}, nil
 	}
 
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -2963,12 +2970,12 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 				Metadata:   resultJson,
 			})
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
 	}
-	err := closeRows(rows)
+	err := CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3127,7 +3134,7 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 			}
 			return nil, fmt.Errorf("Error scanning application lock row from DB. Error: %w\n", err)
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -3144,7 +3151,7 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 			AppName:         row.AppName,
 			AllAppLocksJson: AllAppLocksJson{AppLocks: dataJson.AppLocks}}, nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3183,6 +3190,12 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 	if err != nil {
 		return nil, fmt.Errorf("could not read application lock from DB. Error: %w\n", err)
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
 	envLocks := make([]ApplicationLock, 0)
 	for rows.Next() {
 		var row = DBApplicationLock{
@@ -3219,7 +3232,7 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 			Metadata:   resultJson,
 		})
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3444,7 +3457,7 @@ func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environmen
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -3459,7 +3472,7 @@ func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environmen
 		}, nil
 	}
 
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3604,7 +3617,7 @@ func (h *DBHandler) selectTeamLocks(ctx context.Context, tx *sql.Tx, environment
 			Metadata:   resultJson,
 		})
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3685,7 +3698,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 			Metadata:   resultJson,
 		})
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3735,7 +3748,7 @@ func (h *DBHandler) processAllTeamLocksRow(ctx context.Context, err error, rows 
 		row = nil
 		result = nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3816,7 +3829,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 			Version:    row.Version,
 		})
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3945,7 +3958,7 @@ func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.
 			return nil, err
 		}
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -4053,7 +4066,7 @@ LIMIT 1;
 		if err != nil {
 			return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Config, err)
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, fmt.Errorf("error while closing database rows, error: %w", err)
 		}
@@ -4065,7 +4078,7 @@ LIMIT 1;
 			Config:  parsedConfig,
 		}, nil
 	}
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, fmt.Errorf("errpr while closing database rows, error: %w", err)
 	}
@@ -4163,7 +4176,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 			return nil, fmt.Errorf("error occured during JSON unmarshalling, JSON: %s, error: %w", row.Environments, err)
 		}
 
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, fmt.Errorf("error while closing rows, error: %w", err)
 		}
@@ -4175,7 +4188,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 		}, nil
 	}
 
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, fmt.Errorf("error while closing rows, error: %w", err)
 	}
@@ -4245,7 +4258,7 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DB
 			}
 			return nil, fmt.Errorf("error scanning the results of the query for selecting any row in all_environments, error: %w", err)
 		}
-		err = closeRows(rows)
+		err = CloseRows(rows)
 		if err != nil {
 			return nil, fmt.Errorf("error while closing the rows of the query for selecting any row in all_environments, error: %w", err)
 		}
@@ -4264,7 +4277,7 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DB
 		}, nil
 	}
 
-	err = closeRows(rows)
+	err = CloseRows(rows)
 	if err != nil {
 		return nil, fmt.Errorf("error while closing the rows of the query for selecting any row in all_environments (where no rows were returned), error: %w", err)
 	}
