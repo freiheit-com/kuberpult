@@ -13,7 +13,7 @@ host_pub="$(cat "${scratch}/host.pub")"
 
 cp "${scratch}/client" ./client
 cat <<EOF > known_hosts
-server.${GIT_NAMESPACE}.svc.cluster.local ${host_pub}
+server.${GIT_NAMESPACE}.svc ${host_pub}
 localhost ${host_pub}
 EOF
 

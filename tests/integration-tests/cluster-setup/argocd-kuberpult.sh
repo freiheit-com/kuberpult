@@ -108,7 +108,7 @@ spec:
   project: test-env
   source:
     path: argocd/v1alpha1
-    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
+    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc/git/repos/manifests
     targetRevision: HEAD
   syncPolicy:
     automated: {}
@@ -168,7 +168,7 @@ ingress:
 log:
   level: INFO
 git:
-  url: "ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests"
+  url: "ssh://git@server.${GIT_NAMESPACE}.svc/git/repos/manifests"
   sourceRepoUrl: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
 ssh:
   identity: |
@@ -177,7 +177,7 @@ $(sed -e "s/^/    /" </kp/client)
 $(sed -e "s/^/    /" </kp/known_hosts)
 argocd:
   token: "$token"
-  server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local:443"
+  server: "https://argocd-server.${ARGO_NAMESPACE}.svc:443"
   insecure: true
   refresh:
     enabled: true
