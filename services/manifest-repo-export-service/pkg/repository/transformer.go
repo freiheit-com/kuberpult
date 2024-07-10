@@ -468,6 +468,13 @@ func (c *DeployApplicationVersion) Transform(
 func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
+	if !valid.SHA1CommitID(sourceCommitId) {
+		return fmt.Errorf(
+			"no source commit id found - could not write an event for commit '%s' for uuid '%s'",
+			sourceCommitId,
+			eventId,
+		)
+	}
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
 		return fmt.Errorf(

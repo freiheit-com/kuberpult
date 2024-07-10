@@ -2685,11 +2685,15 @@ func (c *DeployApplicationVersion) Transform(
 			if err != nil {
 				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 			} else {
-				gen := getGenerator(ctx)
-				eventUuid := gen.Generate()
-				err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, deploymentEvent)
-				if err != nil {
-					return "", GetCreateReleaseGeneralFailure(err)
+				if !valid.SHA1CommitID(newReleaseCommitId) {
+					logger.FromContext(ctx).Sugar().Warnf("skipping event because commit id was not found")
+				} else {
+					gen := getGenerator(ctx)
+					eventUuid := gen.Generate()
+					err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, c.TransformerEslID, eventUuid, newReleaseCommitId, deploymentEvent)
+					if err != nil {
+						return "", GetCreateReleaseGeneralFailure(err)
+					}
 				}
 			}
 		} else {
