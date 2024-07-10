@@ -72,9 +72,12 @@ cleanup-main:
 builder:
 	IMAGE_TAG=latest make -C infrastructure/docker/builder build
 
-kuberpult: kuberpult-earthly
+compose-down:
+	docker compose down
 
-kuberpult-earthly:
+kuberpult: compose-down kuberpult-earthly
+
+kuberpult-earthly: compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose up 
 
