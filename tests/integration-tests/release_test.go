@@ -126,8 +126,6 @@ func callCreateGroupLock(t *testing.T, envGroup, lockId string, requestBody *put
 	buf.Write(jsonBytes)
 
 	url := fmt.Sprintf("http://localhost:%s/environment-groups/%s/locks/%s", frontendPort, envGroup, lockId)
-	t.Logf("GroupLock url: %s", url)
-	t.Logf("GroupLock body: %s", buf.String())
 	req, err := http.NewRequest(http.MethodPut, url, &buf)
 	if err != nil {
 		return 0, "", err
@@ -181,7 +179,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "1",
-			expectedStatusCode: 200,
+			expectedStatusCode: 201,
 		},
 		{
 			// Note that this test is not repeatable. Once the version exists, it cannot be overridden.
@@ -193,10 +191,10 @@ func TestReleaseCalls(t *testing.T) {
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "99",
-			expectedStatusCode: 200,
+			expectedStatusCode: 201,
 		},
 		{
-			// this is the same test, but this time we expect 201, because the release already exists:
+			// this is the same test, but this time we expect 200, because the release already exists:
 			name:               "Simple invocation of /release endpoint with valid version",
 			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
@@ -204,7 +202,7 @@ func TestReleaseCalls(t *testing.T) {
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "99",
-			expectedStatusCode: 201,
+			expectedStatusCode: 200,
 		},
 		{
 			name:               "Simple invocation of /release endpoint with invalid version",
@@ -329,7 +327,7 @@ func TestAppParameter(t *testing.T) {
 			name:                "1 app name",
 			inputNumberAppParam: 1,
 			inputVersion:        99,
-			expectedStatusCode:  200,
+			expectedStatusCode:  201,
 			expectedBody:        "{\"Success\":{}}\n",
 		},
 		// having multiple app names would be a bit harder to test
