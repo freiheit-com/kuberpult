@@ -130,9 +130,9 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
             hour12: false,
             timeZone: selectedTimezone,
         });
-        const padToTwoDigits = (num: number): string => num.toString().padStart(2, '0');
+        const padToTwoDigits = (num: string): string => num.padStart(2, '0');
         const [day, month, year, hour, minute, second] = (localizedDate.match(/\d+/g) ?? []).map(String);
-        const formattedDate = `${year}-${padToTwoDigits(parseInt(day))}-${padToTwoDigits(parseInt(month))}T${padToTwoDigits(parseInt(hour))}:${padToTwoDigits(parseInt(minute))}:${padToTwoDigits(parseInt(second))}`;
+        const formattedDate = `${year}-${padToTwoDigits(day)}-${padToTwoDigits(month)}T${padToTwoDigits(hour)}:${padToTwoDigits(minute)}:${padToTwoDigits(second)}`;
         return formattedDate;
     };
     return (
