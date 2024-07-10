@@ -59,13 +59,10 @@ func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslId, 
 		}
 		eslIdPtr = &eslId
 	}
-	err = rows.Close()
+
+	err = db.CloseRows(rows)
 	if err != nil {
 		return nil, fmt.Errorf("row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("row has error: %v\n", err)
 	}
 	return eslIdPtr, nil
 }
@@ -77,13 +74,14 @@ func DBWriteCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, eslId db.Es
 	insertQuery := h.AdaptQuery("INSERT INTO cutoff (eslId, processedTime) VALUES (?, ?);")
 	span.SetTag("query", insertQuery)
 
-	_, err := tx.Exec(
+	_, err := tx.ExecContext(
+		ctx,
 		insertQuery,
 		eslId,
 		time.Now().UTC(),
 	)
 	if err != nil {
-		return fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err)
+		return fmt.Errorf("could not write to cutoff table from DB: %w", err)
 	}
 	return nil
 }
