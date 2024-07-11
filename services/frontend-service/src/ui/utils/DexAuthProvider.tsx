@@ -14,16 +14,13 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import { jwtDecode } from 'jwt-decode';
-//import Cookies from 'js-cookie';
 import { TopAppBar } from '../components/TopAppBar/TopAppBar';
 import { Button } from '../components/button';
 import React from 'react';
 
 export const LoginPage: React.FC = () => {
-    // Define the navigation function using useCallback
+    // Redirect the user to the Dex Login
     const handleRedirect = React.useCallback(() => {
-        // Hard reload to invalidate cache and make the Dex call work.
-        window.location.reload();
         window.location.href = '/login';
     }, []);
 
@@ -32,10 +29,13 @@ export const LoginPage: React.FC = () => {
             <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content">
                 <h1 className="environment_name">{'Log in to Dex'}</h1>
+                <h3 className="page_description">
+                    {'It seems that you are not loged in... Please login into dex to get your user role!'}
+                </h3>
                 <div className="space_apart_row">
                     <Button
                         label={'Login'}
-                        className="release_train_button"
+                        className={'button-main env-card-deploy-btn mdc-button--unelevated'}
                         onClick={handleRedirect}
                         highlightEffect={false}
                     />
@@ -47,7 +47,6 @@ export const LoginPage: React.FC = () => {
 
 // Validates the token expiring date
 export function isTokenValid(): boolean {
-    //const token = Cookies.get('kuberpult.oauth');
     const cookieValue = document.cookie
         .split('; ')
         .find((row) => row.startsWith('kuberpult.oauth='))

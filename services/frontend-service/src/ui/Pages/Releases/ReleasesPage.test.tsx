@@ -84,7 +84,7 @@ describe('LocksPage', () => {
             const { container } = getWrapper();
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedNumMainContent);
             expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.expectedNumSpinner);
-            expect(container.getElementsByClassName('release_train_button')).toHaveLength(
+            expect(container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')).toHaveLength(
                 testcase.expectedNumLoginPage
             );
         });

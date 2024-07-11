@@ -980,6 +980,11 @@ export const useGlobalLoadingState = (): React.ReactElement | undefined => {
     const dexAuthEnabled = configs.authConfig?.dexAuth?.enabled || false;
     const overviewLoaded = useOverviewLoaded();
     const everythingLoaded = overviewLoaded && configReady && (isAuthenticated || !azureAuthEnabled);
+    const validToken = isTokenValid();
+    if (dexAuthEnabled && !validToken) {
+        return <LoginPage />;
+    }
+
     if (!everythingLoaded) {
         return (
             <LoadingStateSpinner
@@ -992,11 +997,6 @@ export const useGlobalLoadingState = (): React.ReactElement | undefined => {
                 }}
             />
         );
-    }
-
-    const validToken = isTokenValid();
-    if (dexAuthEnabled && !validToken) {
-        return <LoginPage />;
     }
     return undefined;
 };

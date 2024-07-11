@@ -65,6 +65,6 @@ describe('LoginPage', () => {
         fakeLoadEverything(true);
         const { container } = getWrapper();
         expect(container.getElementsByClassName('environment_name')[0]).toHaveTextContent('Log in to Dex');
-        expect(container.getElementsByClassName('release_train_button')[0]).toHaveTextContent('Login');
+        expect(container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')[0]).toHaveTextContent('Login');
     });
 });

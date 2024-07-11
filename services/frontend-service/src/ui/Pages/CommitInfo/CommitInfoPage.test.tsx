@@ -169,7 +169,7 @@ Commit message body line 2`,
                 commitInfoReady: CommitInfoState.READY,
                 response: {
                     commitHash: 'potato',
-                    touchedApps: ['google', 'windows'],
+                    touchedApps: ['firstApp', 'secondApp'],
                     commitMessage: `Add google to windows
 Commit message body line 1
 Commit message body line 2`,
@@ -204,7 +204,7 @@ Commit message body line 2`,
             expect(container.getElementsByClassName('main-content commit-page')).toHaveLength(
                 tc.expectedMainContentCount
             );
-            expect(container.getElementsByClassName('release_train_button')).toHaveLength(tc.expectedNumLoginPage);
+            expect(container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')).toHaveLength(tc.expectedNumLoginPage);
             expect(container.textContent).toContain(tc.expectedText);
         });
     });

@@ -203,7 +203,7 @@ describe('Commit info page tests', () => {
             expect(container.getElementsByClassName('main-content')).toHaveLength(tc.expectedMainContentCount);
 
             expect(container.textContent).toContain(tc.expectedText);
-            expect(container.getElementsByClassName('release_train_button')).toHaveLength(tc.expectedNumLoginPage);
+            expect(container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')).toHaveLength(tc.expectedNumLoginPage);
         });
     });
 });
