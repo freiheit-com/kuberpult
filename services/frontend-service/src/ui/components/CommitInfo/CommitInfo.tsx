@@ -117,15 +117,44 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
         },
         [setTimezone]
     );
+    const convertTimeZone = (
+        date: Date,
+        timeZoneFrom?: string | null, // default timezone is Local
+        timeZoneTo?: string | null // default timezone is Local
+    ): Date => {
+        const dateFrom = !timeZoneFrom
+            ? date
+            : new Date(
+                  date.toLocaleString('en-US', {
+                      timeZone: timeZoneFrom,
+                  })
+              );
+        const dateTo = !timeZoneTo
+            ? date
+            : new Date(
+                  date.toLocaleString('en-US', {
+                      timeZone: timeZoneTo,
+                  })
+              );
+        return new Date(date.getTime() + dateTo.getTime() - dateFrom.getTime());
+    };
+    const dateToString = (date: Date, timeZone: string | null): string => {
+        date = convertTimeZone(date, 'UTC', timeZone);
+        const year = date.getUTCFullYear().toString().padStart(4, '0');
+        const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+        const day = date.getUTCDate().toString().padStart(2, '0');
+        const hours = date.getUTCHours().toString().padStart(2, '0');
+        const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+        const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+    };
     const formatDate = (date: Date | undefined): string => {
         if (!date) return '';
-        const selectedTimezone = timezone === 'local' ? localTimezone : 'UTC';
-        const localizedDate = new Date(
-            date.toLocaleString('en-US', {
-                timeZone: selectedTimezone,
-            })
-        );
-        return localizedDate.toISOString().split('.')[0];
+        if (timezone === 'local') {
+            const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            return dateToString(date, zone);
+        }
+        return dateToString(date, 'UTC');
     };
     return (
         <div>
