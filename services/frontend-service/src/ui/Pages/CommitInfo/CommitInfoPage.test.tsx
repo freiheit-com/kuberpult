@@ -149,7 +149,7 @@ Commit message body line 2`,
             commitHash: 'potato',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: 'Login Into Dex',
+            expectedText: 'Log in to Dex',
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.LOADING,
                 response: undefined,
@@ -204,7 +204,7 @@ Commit message body line 2`,
             expect(container.getElementsByClassName('main-content commit-page')).toHaveLength(
                 tc.expectedMainContentCount
             );
-            expect(container.getElementsByClassName('login-page')).toHaveLength(tc.expectedNumLoginPage);
+            expect(container.getElementsByClassName('release_train_button')).toHaveLength(tc.expectedNumLoginPage);
             expect(container.textContent).toContain(tc.expectedText);
         });
     });

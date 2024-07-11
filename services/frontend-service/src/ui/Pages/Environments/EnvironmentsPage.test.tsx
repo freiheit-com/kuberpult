@@ -255,7 +255,7 @@ describe('Environment Lane', () => {
             expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.spinnerExpected);
             expect(container.getElementsByClassName('environment-group-lane')).toHaveLength(testcase.expected);
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedMainContent);
-            expect(container.getElementsByClassName('login-page')).toHaveLength(testcase.expectedNumLoginPage);
+            expect(container.getElementsByClassName('release_train_button')).toHaveLength(testcase.expectedNumLoginPage);
             expect(container.getElementsByClassName('environment-lane__header')).toHaveLength(
                 testcase.expectedEnvHeaderWrapper
             );

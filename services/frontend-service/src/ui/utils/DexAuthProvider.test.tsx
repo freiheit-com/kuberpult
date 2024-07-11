@@ -48,8 +48,8 @@ describe('LoginPage', () => {
     it('Renders full app', () => {
         fakeLoadEverything(true);
         const { container } = getWrapper();
-        expect(container.getElementsByClassName('login-name')[0]).toHaveTextContent('Login Into Dex');
-        expect(container.getElementsByClassName('login_button')[0]).toHaveTextContent('Login');
+        expect(container.getElementsByClassName('environment_name')[0]).toHaveTextContent('Log in to Dex');
+        expect(container.getElementsByClassName('release_train_button')[0]).toHaveTextContent('Login');
     });
 });
 

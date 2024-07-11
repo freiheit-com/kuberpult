@@ -44,7 +44,7 @@ describe('LocksPage', () => {
         fakeLoadEverything(true);
         enableDexAuth(false);
         const { container } = getWrapper();
-        expect(container.getElementsByClassName('login-name')[0]).toHaveTextContent('Login Into Dex');
+        expect(container.getElementsByClassName('environment_name')[0]).toHaveTextContent('Log in to Dex');
     });
     it('Renders page page if Dex enabled and valid token', () => {
         fakeLoadEverything(true);

@@ -148,7 +148,7 @@ describe('Commit info page tests', () => {
             envName: 'development',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: 'Login Into Dex',
+            expectedText: 'Log in to Dex',
             releaseTrainPrognosisStoreData: {
                 releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
                 response: undefined,
@@ -203,7 +203,7 @@ describe('Commit info page tests', () => {
             expect(container.getElementsByClassName('main-content')).toHaveLength(tc.expectedMainContentCount);
 
             expect(container.textContent).toContain(tc.expectedText);
-            expect(container.getElementsByClassName('login-page')).toHaveLength(tc.expectedNumLoginPage);
+            expect(container.getElementsByClassName('release_train_button')).toHaveLength(tc.expectedNumLoginPage);
         });
     });
 });

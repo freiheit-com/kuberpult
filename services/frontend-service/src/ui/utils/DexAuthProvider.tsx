@@ -31,16 +31,14 @@ export const LoginPage: React.FC = () => {
         <div>
             <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content">
-                <div className="login-page">
-                    <h1 className="login-name">{'Login Into Dex'}</h1>
-                    <div className="space_apart_row">
-                        <Button
-                            label={'Login'}
-                            className="login_button"
-                            onClick={handleRedirect}
-                            highlightEffect={false}
-                        />
-                    </div>
+                <h1 className="environment_name">{'Log in to Dex'}</h1>
+                <div className="space_apart_row">
+                    <Button
+                        label={'Login'}
+                        className="release_train_button"
+                        onClick={handleRedirect}
+                        highlightEffect={false}
+                    />
                 </div>
             </main>
         </div>
