@@ -19,6 +19,8 @@ package auth
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"html"
 	"io"
@@ -174,6 +176,15 @@ func decorateDirector(director func(req *http.Request), target *url.URL) func(re
 	}
 }
 
+func generateState() (string, error) {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
+}
+
 // Redirects to the Dex login page with the pre configured connector.
 func (a *DexAppClient) handleDexLogin(w http.ResponseWriter, r *http.Request) {
 	oauthConfig, err := a.oauth2Config(a.Scopes)
@@ -182,8 +193,13 @@ func (a *DexAppClient) handleDexLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO(BB) Set an app state to make the connection more secure
-	authCodeURL := oauthConfig.AuthCodeURL("APP_STATE")
+	// TODO(BB) Set an app state to make the connection more secure.
+	// Currently a random string is generated but a session state should be built.
+	state, err := generateState()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	authCodeURL := oauthConfig.AuthCodeURL(state)
 	http.Redirect(w, r, authCodeURL, http.StatusSeeOther)
 }
 
