@@ -148,7 +148,7 @@ Commit message body line 2`,
             enableDexValidToken: false,
             commitHash: 'potato',
             expectedSpinnerCount: 0,
-            expectedMainContentCount: 1,
+            expectedMainContentCount: 0,
             expectedText: 'Log in to Dex',
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.LOADING,
