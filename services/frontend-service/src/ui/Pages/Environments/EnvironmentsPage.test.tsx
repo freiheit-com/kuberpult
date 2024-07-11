@@ -68,13 +68,13 @@ describe('Environment Lane', () => {
         environmentGroups: EnvironmentGroup[];
         loaded: boolean;
         enableDex: boolean;
-        enableDexValidToken: boolean,
+        enableDexValidToken: boolean;
         expected: number;
         expectedEnvHeaderWrapper: number;
         expectedMainContent: number;
         spinnerExpected: number;
         expectedCardStyles: { className: string; count: number }[];
-        expectedNumLoginPage: number, 
+        expectedNumLoginPage: number;
     }
     const cases: dataT[] = [
         {
@@ -88,8 +88,8 @@ describe('Environment Lane', () => {
                 },
             ],
             loaded: true,
-            enableDex: false, 
-            enableDexValidToken: false, 
+            enableDex: false,
+            enableDexValidToken: false,
             expected: 1,
             expectedEnvHeaderWrapper: 1,
             expectedMainContent: 1,
@@ -100,7 +100,7 @@ describe('Environment Lane', () => {
                     count: 1,
                 },
             ],
-            expectedNumLoginPage: 0, 
+            expectedNumLoginPage: 0,
         },
         {
             name: '2 group 1 env each',
@@ -119,8 +119,8 @@ describe('Environment Lane', () => {
                 },
             ],
             loaded: true,
-            enableDex: false, 
-            enableDexValidToken: false, 
+            enableDex: false,
+            enableDexValidToken: false,
             expected: 1,
             expectedEnvHeaderWrapper: 2,
             expectedMainContent: 1,
@@ -131,7 +131,7 @@ describe('Environment Lane', () => {
                     count: 2,
                 },
             ],
-            expectedNumLoginPage: 0, 
+            expectedNumLoginPage: 0,
         },
         {
             name: '1 group 2 env',
@@ -144,8 +144,8 @@ describe('Environment Lane', () => {
                 },
             ],
             loaded: true,
-            enableDex: false, 
-            enableDexValidToken: false, 
+            enableDex: false,
+            enableDexValidToken: false,
             expected: 1,
             expectedEnvHeaderWrapper: 2,
             expectedMainContent: 1,
@@ -156,7 +156,7 @@ describe('Environment Lane', () => {
                     count: 3,
                 },
             ],
-            expectedNumLoginPage: 0, 
+            expectedNumLoginPage: 0,
         },
         {
             name: 'card colors are decided by group priority not environment priority',
@@ -169,8 +169,8 @@ describe('Environment Lane', () => {
                 },
             ],
             loaded: true,
-            enableDex: false, 
-            enableDexValidToken: false, 
+            enableDex: false,
+            enableDexValidToken: false,
             expected: 1,
             expectedEnvHeaderWrapper: 2,
             expectedMainContent: 1,
@@ -185,14 +185,14 @@ describe('Environment Lane', () => {
                     count: 3,
                 },
             ],
-            expectedNumLoginPage: 0, 
+            expectedNumLoginPage: 0,
         },
         {
             name: 'just the spinner',
             environmentGroups: [],
             loaded: false,
-            enableDex: false, 
-            enableDexValidToken: false, 
+            enableDex: false,
+            enableDexValidToken: false,
             expected: 0,
             expectedEnvHeaderWrapper: 0,
             expectedMainContent: 0,
@@ -204,8 +204,8 @@ describe('Environment Lane', () => {
             name: 'A login page renders when Dex is enabled',
             environmentGroups: [],
             loaded: true,
-            enableDex: true, 
-            enableDexValidToken: false, 
+            enableDex: true,
+            enableDexValidToken: false,
             expected: 0,
             expectedEnvHeaderWrapper: 0,
             expectedMainContent: 1,
@@ -224,8 +224,8 @@ describe('Environment Lane', () => {
                 },
             ],
             loaded: true,
-            enableDex: true, 
-            enableDexValidToken: true, 
+            enableDex: true,
+            enableDexValidToken: true,
             expected: 1,
             expectedEnvHeaderWrapper: 1,
             expectedMainContent: 1,
@@ -236,7 +236,7 @@ describe('Environment Lane', () => {
                     count: 1,
                 },
             ],
-            expectedNumLoginPage: 0, 
+            expectedNumLoginPage: 0,
         },
     ];
     describe.each(cases)('Renders a row of environments', (testcase) => {
@@ -247,7 +247,7 @@ describe('Environment Lane', () => {
             });
             fakeLoadEverything(testcase.loaded);
             if (testcase.enableDex == true) {
-                enableDexAuth(testcase.enableDexValidToken)
+                enableDexAuth(testcase.enableDexValidToken);
             }
             // when
             const { container } = getWrapper();
@@ -255,7 +255,9 @@ describe('Environment Lane', () => {
             expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.spinnerExpected);
             expect(container.getElementsByClassName('environment-group-lane')).toHaveLength(testcase.expected);
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedMainContent);
-            expect(container.getElementsByClassName('release_train_button')).toHaveLength(testcase.expectedNumLoginPage);
+            expect(container.getElementsByClassName('release_train_button')).toHaveLength(
+                testcase.expectedNumLoginPage
+            );
             expect(container.getElementsByClassName('environment-lane__header')).toHaveLength(
                 testcase.expectedEnvHeaderWrapper
             );

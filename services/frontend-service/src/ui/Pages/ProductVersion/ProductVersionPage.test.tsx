@@ -30,26 +30,26 @@ describe('ProductVersionPage', () => {
         name: string;
         loaded: boolean;
         enableDex: boolean;
-        enableDexValidToken: boolean,
+        enableDexValidToken: boolean;
         expectedNumMainContent: number;
         expectedNumSpinner: number;
-        expectedNumLoginPage: number, 
+        expectedNumLoginPage: number;
     }
     const sampleEnvData: dataEnvT[] = [
         {
             name: 'renders main',
             loaded: true,
-            enableDex: false, 
-            enableDexValidToken: false, 
+            enableDex: false,
+            enableDexValidToken: false,
             expectedNumMainContent: 1,
             expectedNumSpinner: 0,
-            expectedNumLoginPage: 0, 
+            expectedNumLoginPage: 0,
         },
         {
             name: 'renders spinner',
             loaded: false,
-            enableDex: false, 
-            enableDexValidToken: false, 
+            enableDex: false,
+            enableDexValidToken: false,
             expectedNumMainContent: 0,
             expectedNumSpinner: 1,
             expectedNumLoginPage: 0,
@@ -57,8 +57,8 @@ describe('ProductVersionPage', () => {
         {
             name: 'renders Login Page with Dex enabled',
             loaded: true,
-            enableDex: true, 
-            enableDexValidToken: false, 
+            enableDex: true,
+            enableDexValidToken: false,
             expectedNumMainContent: 1,
             expectedNumSpinner: 0,
             expectedNumLoginPage: 1,
@@ -66,8 +66,8 @@ describe('ProductVersionPage', () => {
         {
             name: 'renders page with Dex enabled and valid token',
             loaded: true,
-            enableDex: true, 
-            enableDexValidToken: true, 
+            enableDex: true,
+            enableDexValidToken: true,
             expectedNumMainContent: 1,
             expectedNumSpinner: 0,
             expectedNumLoginPage: 0,
@@ -78,11 +78,13 @@ describe('ProductVersionPage', () => {
             fakeLoadEverything(testcase.loaded);
             const { container } = getWrapper();
             if (testcase.enableDex == true) {
-                enableDexAuth(testcase.enableDexValidToken)
+                enableDexAuth(testcase.enableDexValidToken);
             }
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedNumMainContent);
             expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.expectedNumSpinner);
-            expect(container.getElementsByClassName('release_train_button')).toHaveLength(testcase.expectedNumLoginPage);
+            expect(container.getElementsByClassName('release_train_button')).toHaveLength(
+                testcase.expectedNumLoginPage
+            );
         });
     });
 });

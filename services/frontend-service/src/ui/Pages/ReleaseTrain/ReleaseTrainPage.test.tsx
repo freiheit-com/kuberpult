@@ -186,7 +186,7 @@ describe('Commit info page tests', () => {
             if (tc.releaseTrainPrognosisStoreData !== undefined)
                 updateReleaseTrainPrognosis.set(tc.releaseTrainPrognosisStoreData);
             if (tc.enableDex == true) {
-                enableDexAuth(tc.enableDexValidToken)
+                enableDexAuth(tc.enableDexValidToken);
             }
 
             const { container } = render(
