@@ -995,7 +995,7 @@ export const useGlobalLoadingState = (): React.ReactElement | undefined => {
     }
 
     const validToken = isTokenValid();
-    if (!dexAuthEnabled && !validToken) {
+    if (dexAuthEnabled && !validToken) {
         return <LoginPage />;
     }
     return undefined;
