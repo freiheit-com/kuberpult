@@ -980,6 +980,20 @@ export const useGlobalLoadingState = (): React.ReactElement | undefined => {
     const dexAuthEnabled = configs.authConfig?.dexAuth?.enabled || false;
     const overviewLoaded = useOverviewLoaded();
     const everythingLoaded = overviewLoaded && configReady && (isAuthenticated || !azureAuthEnabled);
+    if (!configReady) {
+        return (
+            <LoadingStateSpinner
+                loadingState={{
+                    configReady,
+                    isAuthenticated,
+                    azureAuthEnabled,
+                    dexAuthEnabled,
+                    overviewLoaded,
+                }}
+            />
+        );
+    }
+
     const validToken = isTokenValid();
     if (dexAuthEnabled && !validToken) {
         return <LoginPage />;
