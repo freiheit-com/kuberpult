@@ -442,7 +442,6 @@ func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string
 
 func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 	stream api.OverviewService_StreamOverviewServer) error {
-	logger.FromContext(stream.Context()).Sugar().Debug("!!!!!overview stream started")
 	ch, unsubscribe := o.subscribe()
 	defer unsubscribe()
 	done := stream.Context().Done()
@@ -491,7 +490,6 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {
-	logger.FromContext(context.Background()).Debug("overview update")
 	r, err := o.getOverviewDB(context.Background(), s)
 	if err != nil {
 		panic(err)
