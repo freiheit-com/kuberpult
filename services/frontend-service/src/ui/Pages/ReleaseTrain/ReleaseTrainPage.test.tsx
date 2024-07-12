@@ -185,7 +185,7 @@ describe('Commit info page tests', () => {
             fakeLoadEverything(tc.fakeLoadEverything);
             if (tc.releaseTrainPrognosisStoreData !== undefined)
                 updateReleaseTrainPrognosis.set(tc.releaseTrainPrognosisStoreData);
-            if (tc.enableDex == true) {
+            if (tc.enableDex) {
                 enableDexAuth(tc.enableDexValidToken);
             }
 

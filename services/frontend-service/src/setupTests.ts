@@ -111,7 +111,7 @@ export const fakeLoadEverything = (load: boolean): void => {
     });
 };
 
-export const enableDexAuth = (setValidToken: boolean) => {
+export const enableDexAuth = (setValidToken: boolean): void => {
     if (setValidToken) {
         // Dummy token with expiring date on year 56494
         document.cookie =

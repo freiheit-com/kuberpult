@@ -185,7 +185,7 @@ Commit message body line 2`,
         test(tc.name, () => {
             fakeLoadEverything(tc.fakeLoadEverything);
             if (tc.commitInfoStoreData !== undefined) updateCommitInfo.set(tc.commitInfoStoreData);
-            if (tc.enableDex == true) {
+            if (tc.enableDex) {
                 enableDexAuth(tc.enableDexValidToken);
             }
 
