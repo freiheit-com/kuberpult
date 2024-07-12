@@ -204,7 +204,9 @@ Commit message body line 2`,
             expect(container.getElementsByClassName('main-content commit-page')).toHaveLength(
                 tc.expectedMainContentCount
             );
-            expect(container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')).toHaveLength(tc.expectedNumLoginPage);
+            expect(
+                container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')
+            ).toHaveLength(tc.expectedNumLoginPage);
             expect(container.textContent).toContain(tc.expectedText);
         });
     });

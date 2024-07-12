@@ -15,9 +15,8 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { LoginPage, isTokenValid } from './DexAuthProvider';
 import { MemoryRouter } from 'react-router-dom';
-import { render, renderHook } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { fakeLoadEverything } from '../../setupTests';
-import { UpdateOverview } from '../utils/store';
 
 // Mocking document.cookie
 Object.defineProperty(document, 'cookie', {
@@ -65,6 +64,8 @@ describe('LoginPage', () => {
         fakeLoadEverything(true);
         const { container } = getWrapper();
         expect(container.getElementsByClassName('environment_name')[0]).toHaveTextContent('Log in to Dex');
-        expect(container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')[0]).toHaveTextContent('Login');
+        expect(
+            container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')[0]
+        ).toHaveTextContent('Login');
     });
 });

@@ -255,9 +255,9 @@ describe('Environment Lane', () => {
             expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.spinnerExpected);
             expect(container.getElementsByClassName('environment-group-lane')).toHaveLength(testcase.expected);
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedMainContent);
-            expect(container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')).toHaveLength(
-                testcase.expectedNumLoginPage
-            );
+            expect(
+                container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')
+            ).toHaveLength(testcase.expectedNumLoginPage);
             expect(container.getElementsByClassName('environment-lane__header')).toHaveLength(
                 testcase.expectedEnvHeaderWrapper
             );
