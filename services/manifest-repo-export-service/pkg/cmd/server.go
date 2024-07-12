@@ -264,7 +264,11 @@ func Run(ctx context.Context) error {
 			}
 			transformer, err := processEslEvent(ctx, repo, esl, transaction)
 			if err != nil {
-				return fmt.Errorf("error in processEslEvent %v", err)
+				err2 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
+				if err2 != nil {
+					return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
+				}
+				transformer = nil
 			}
 			if transformer == nil {
 				log.Warn("event processing skipped")

@@ -4443,3 +4443,28 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 	}
 	return nil
 }
+func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context,  tx *sql.Tx, eslEvent *EslEventRow) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteFailedEslEvent: no transaction provided")
+	}
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type , json)  VALUES (?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err := tx.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		eslEvent.EventType,
+		eslEvent.EventJson)
+
+	if err != nil {
+		return fmt.Errorf("could not write failed esl event into DB. Error: %w\n", err)
+	}
+	return nil
+}
