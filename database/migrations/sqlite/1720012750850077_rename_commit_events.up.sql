@@ -1,2 +1,2 @@
-ALTER TABLE IF EXISTS events
+ALTER TABLE events
     RENAME TO commit_events;
