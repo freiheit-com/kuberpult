@@ -58,7 +58,7 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
+	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 }
@@ -430,7 +430,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callba
 	return nil
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
 	defer span.Finish()
 	if state, err := r.StateAt(nil); err != nil {
@@ -439,24 +439,22 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
 		ctxWithTime := time2.WithTimeNow(ctx, time.Now())
-		for i, t := range transformers {
-			if r.DB != nil && transaction == nil {
-				applyErr := TransformerBatchApplyError{
-					TransformerError: errors.New("no transaction provided, but DB enabled"),
-					Index:            i,
-				}
-				return nil, nil, nil, &applyErr
+		if r.DB != nil && transaction == nil {
+			applyErr := TransformerBatchApplyError{
+				TransformerError: errors.New("no transaction provided, but DB enabled"),
+				Index:            0,
 			}
-			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
-				applyErr := TransformerBatchApplyError{
-					TransformerError: err,
-					Index:            i,
-				}
-				return nil, nil, nil, &applyErr
-			} else {
-				commitMsg = append(commitMsg, msg)
-				changes = append(changes, subChanges)
+			return nil, nil, nil, &applyErr
+		}
+		if msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction); err != nil {
+			applyErr := TransformerBatchApplyError{
+				TransformerError: err,
+				Index:            0,
 			}
+			return nil, nil, nil, &applyErr
+		} else {
+			commitMsg = append(commitMsg, msg)
+			changes = append(changes, subChanges)
 		}
 		return commitMsg, state, changes, nil
 	}
