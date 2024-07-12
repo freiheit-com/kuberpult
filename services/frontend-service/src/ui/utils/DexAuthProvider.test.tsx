@@ -30,25 +30,35 @@ describe('isTokenValid', () => {
         document.cookie = '';
     });
 
-    test('returns false with expired cookie', () => {
-        // Dummy token with expiring date on 10, July 2024
-        document.cookie =
-            'kuberpult.oauth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE3MjA2MjE5OTd9.6-QS6fw-tEdcmWJP2HNCPzRZaPQgZYwwi5HVoiIX3bo';
-        expect(isTokenValid()).toBe(false);
-    });
+    interface dataEnvT {
+        name: string;
+        cookie: string;
+        expectedTokenValidation: boolean;
+    }
 
-    test('returns false with cookie with no expiring date', () => {
-        // Dummy token with no expiring date
-        document.cookie =
-            'kuberpult.oauth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
-        expect(isTokenValid()).toBe(false);
-    });
+    const sampleEnvData: dataEnvT[] = [
+        {
+            name: 'returns false with expired cookie',
+            cookie: 'kuberpult.oauth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE3MjA2MjE5OTd9.6-QS6fw-tEdcmWJP2HNCPzRZaPQgZYwwi5HVoiIX3bo',
+            expectedTokenValidation: false,
+        },
+        {
+            name: 'returns false with cookie with no expiring date',
+            cookie: 'kuberpult.oauth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+            expectedTokenValidation: false,
+        },
+        {
+            name: 'returns true with valid cooki',
+            cookie: 'kuberpult.oauth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE3MjA2MjE5OTc3Nzd9.p3ApN5elnhhRhrh7DCOF-9suPIXYC36Nycf0nHfxuf8',
+            expectedTokenValidation: true,
+        },
+    ];
 
-    test('returns true with valid cookie', () => {
-        // Dummy token with expiring date on year 56494
-        document.cookie =
-            'kuberpult.oauth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE3MjA2MjE5OTc3Nzd9.p3ApN5elnhhRhrh7DCOF-9suPIXYC36Nycf0nHfxuf8';
-        expect(isTokenValid()).toBe(true);
+    describe.each(sampleEnvData)(`isTokenValid`, (tc) => {
+        it(tc.name, () => {
+            document.cookie = tc.cookie;
+            expect(isTokenValid()).toBe(tc.expectedTokenValidation);
+        });
     });
 });
 
