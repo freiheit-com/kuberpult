@@ -1025,27 +1025,6 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				AuthorEmail: user.Email,
 			}
 
-			//The ID of the transformer needs to be inserted into the json blob of the event_sourcing_light table,
-			// SO we can't read it after writing it
-			if r.DB.ShouldUseOtherTables() {
-				value, err := r.DB.DBDiscoverCurrentEsldID(ctx, transaction)
-				if err != nil {
-					fmt.Println(err)
-					return nil, nil, nil, &TransformerBatchApplyError{
-						TransformerError: err,
-						Index:            i,
-					}
-				}
-				var id db.TransformerID
-				if value == nil {
-					id = 1
-				} else {
-					//This is now guaranteed to be the next index
-					id = db.TransformerID(uint(*value) + 1)
-				}
-				t.SetEslID(id)
-			}
-
 			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
 			if err != nil {
 				return nil, nil, nil, &TransformerBatchApplyError{
@@ -1053,6 +1032,21 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					Index:            i,
 				}
 			}
+			// read the last written event, so we can get the primary key (eslId):
+			internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
+			if err != nil {
+				return nil, nil, nil, &TransformerBatchApplyError{
+					TransformerError: err,
+					Index:            i,
+				}
+			}
+			if internal == nil {
+				return nil, nil, nil, &TransformerBatchApplyError{
+					TransformerError: fmt.Errorf("could not find esl even that was just inserted with event type %v", t.GetDBEventType()),
+					Index:            i,
+				}
+			}
+			t.SetEslID(db.TransformerID(internal.EslId))
 
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{

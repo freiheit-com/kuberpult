@@ -114,6 +114,7 @@ type Transformer interface {
 	GetDBEventType() db.EventType
 	GetMetadata() *TransformerMetadata
 	GetEslID() db.TransformerID
+	SetEslID(id db.TransformerID)
 }
 
 type TransformerContext interface {
@@ -252,11 +253,15 @@ type QueueApplicationVersion struct {
 	Environment      string
 	Application      string
 	Version          uint64
-	TransformerEslID db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 }
 
 func (c *QueueApplicationVersion) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *QueueApplicationVersion) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *QueueApplicationVersion) Transform(
@@ -293,7 +298,7 @@ type DeployApplicationVersion struct {
 	WriteCommitData     bool                            `json:"writeCommitData"`
 	SourceTrain         *DeployApplicationVersionSource `json:"sourceTrain"`
 	Author              string                          `json:"author"`
-	TransformerEslID    db.TransformerID                `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslid
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
@@ -302,6 +307,10 @@ func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
 
 func (c *DeployApplicationVersion) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *DeployApplicationVersion) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 type DeployApplicationVersionSource struct {
@@ -491,12 +500,16 @@ type CreateEnvironmentLock struct {
 	Environment         string           `json:"env"`
 	LockId              string           `json:"lockId"`
 	Message             string           `json:"message"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
 func (c *CreateEnvironmentLock) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *CreateEnvironmentLock) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
@@ -573,13 +586,18 @@ type DeleteEnvironmentLock struct {
 	TransformerMetadata `json:"metadata"`
 	Environment         string           `json:"env"`
 	LockId              string           `json:"lockId"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
 func (c *DeleteEnvironmentLock) GetEslID() db.TransformerID {
 	return c.TransformerEslID
 }
+
+func (c *DeleteEnvironmentLock) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
+}
+
 func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentLock
 }
@@ -623,12 +641,16 @@ type CreateEnvironmentApplicationLock struct {
 	Application         string           `json:"app"`
 	LockId              string           `json:"lockId"`
 	Message             string           `json:"message"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
 func (c *CreateEnvironmentApplicationLock) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *CreateEnvironmentApplicationLock) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -681,7 +703,7 @@ type DeleteEnvironmentApplicationLock struct {
 	Environment         string           `json:"env"`
 	Application         string           `json:"app"`
 	LockId              string           `json:"lockId"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
@@ -691,6 +713,10 @@ func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
 
 func (c *DeleteEnvironmentApplicationLock) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *DeleteEnvironmentApplicationLock) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(
@@ -735,11 +761,15 @@ type CreateApplicationVersion struct {
 	DisplayVersion      string            `json:"displayVersion"`
 	WriteCommitData     bool              `json:"writeCommitData"`
 	PreviousCommit      string            `json:"previousCommit"`
-	TransformerEslID    db.TransformerID  `json:"eslID"`
+	TransformerEslID    db.TransformerID  `json:"-"`
 }
 
 func (c *CreateApplicationVersion) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *CreateApplicationVersion) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -1073,13 +1103,18 @@ type CreateEnvironmentTeamLock struct {
 	Team                string           `json:"team"`
 	LockId              string           `json:"lockId"`
 	Message             string           `json:"message"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
 func (c *CreateEnvironmentTeamLock) GetEslID() db.TransformerID {
 	return c.TransformerEslID
 }
+
+func (c *CreateEnvironmentTeamLock) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
+}
+
 func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
 	return db.EvtCreateEnvironmentTeamLock
 }
@@ -1158,12 +1193,16 @@ type DeleteEnvironmentTeamLock struct {
 	Environment         string           `json:"env"`
 	Team                string           `json:"team"`
 	LockId              string           `json:"lockId"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
 func (c *DeleteEnvironmentTeamLock) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *DeleteEnvironmentTeamLock) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
@@ -1210,12 +1249,16 @@ type CreateEnvironment struct {
 	TransformerMetadata `json:"metadata"`
 	Environment         string                   `json:"env"`
 	Config              config.EnvironmentConfig `json:"config"`
-	TransformerEslID    db.TransformerID         `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
 func (c *CreateEnvironment) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *CreateEnvironment) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
@@ -1319,12 +1362,16 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 type CleanupOldApplicationVersions struct {
 	Application         string
 	TransformerMetadata `json:"metadata"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
 func (c *CleanupOldApplicationVersions) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *CleanupOldApplicationVersions) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
@@ -1385,12 +1432,16 @@ type ReleaseTrain struct {
 	CommitHash          string           `json:"commitHash"`
 	WriteCommitData     bool             `json:"writeCommitData"`
 	Repo                Repository       `json:"-"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 
 }
 
 func (c *ReleaseTrain) GetEslID() db.TransformerID {
 	return c.TransformerEslID
+}
+
+func (c *ReleaseTrain) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -1463,7 +1514,7 @@ func (u *ReleaseTrain) Transform(
 
 type MigrationTransformer struct {
 	TransformerMetadata `json:"metadata"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 }
 
 func (c *MigrationTransformer) GetDBEventType() db.EventType {
@@ -1477,16 +1528,24 @@ func (c *MigrationTransformer) GetEslID() db.TransformerID {
 	return c.TransformerEslID
 }
 
+func (c *MigrationTransformer) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
+}
+
 type DeleteEnvFromApp struct {
 	Authentication      `json:"-"`
 	TransformerMetadata `json:"metadata"`
 	Environment         string           `json:"environment"`
 	Application         string           `json:"application"`
-	TransformerEslID    db.TransformerID `json:"eslid"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
 }
 
 func (u *DeleteEnvFromApp) GetEslID() db.TransformerID {
 	return u.TransformerEslID
+}
+
+func (c *DeleteEnvFromApp) SetEslID(eslId db.TransformerID) {
+	c.TransformerEslID = eslId
 }
 
 func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
