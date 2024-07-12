@@ -1042,7 +1042,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 			}
 			if internal == nil {
 				return nil, nil, nil, &TransformerBatchApplyError{
-					TransformerError: fmt.Errorf("could not find esl even that was just inserted with event type %v", t.GetDBEventType()),
+					TransformerError: fmt.Errorf("could not find esl event that was just inserted with event type %v", t.GetDBEventType()),
 					Index:            i,
 				}
 			}
