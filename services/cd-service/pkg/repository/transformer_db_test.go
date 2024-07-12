@@ -320,7 +320,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("marshal error: %v\njson: \n%s\n", err, row.EventJson)
 			}
-
+			tc.Transformer.SetEslID(0) // the eslId is not part of the json blob anymore
 			if diff := cmp.Diff(tc.Transformer, jsonInterface, protocmp.Transform()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
