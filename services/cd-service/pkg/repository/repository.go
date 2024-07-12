@@ -1024,29 +1024,30 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				AuthorName:  user.Name,
 				AuthorEmail: user.Email,
 			}
-
-			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
-			if err != nil {
-				return nil, nil, nil, &TransformerBatchApplyError{
-					TransformerError: err,
-					Index:            i,
+			if r.DB.ShouldUseEslTable() {
+				err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
+				if err != nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: err,
+						Index:            i,
+					}
 				}
-			}
-			// read the last written event, so we can get the primary key (eslId):
-			internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
-			if err != nil {
-				return nil, nil, nil, &TransformerBatchApplyError{
-					TransformerError: err,
-					Index:            i,
+				// read the last written event, so we can get the primary key (eslId):
+				internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: err,
+						Index:            i,
+					}
 				}
-			}
-			if internal == nil {
-				return nil, nil, nil, &TransformerBatchApplyError{
-					TransformerError: fmt.Errorf("could not find esl event that was just inserted with event type %v", t.GetDBEventType()),
-					Index:            i,
+				if internal == nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: fmt.Errorf("could not find esl event that was just inserted with event type %v", t.GetDBEventType()),
+						Index:            i,
+					}
 				}
+				t.SetEslID(db.TransformerID(internal.EslId))
 			}
-			t.SetEslID(db.TransformerID(internal.EslId))
 
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
