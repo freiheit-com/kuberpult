@@ -246,7 +246,7 @@ describe('Environment Lane', () => {
                 environmentGroups: testcase.environmentGroups,
             });
             fakeLoadEverything(testcase.loaded);
-            if (testcase.enableDex == true) {
+            if (testcase.enableDex) {
                 enableDexAuth(testcase.enableDexValidToken);
             }
             // when

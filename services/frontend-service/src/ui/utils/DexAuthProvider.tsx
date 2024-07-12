@@ -30,7 +30,7 @@ export const LoginPage: React.FC = () => {
             <main className="main-content">
                 <h1 className="environment_name">{'Log in to Dex'}</h1>
                 <h3 className="page_description">
-                    {'It seems that you are not loged in... Please login into dex to get your user role!'}
+                    {'It seems that you are not logged in... Please login in to dex to get your user role!'}
                 </h3>
                 <div className="space_apart_row">
                     <Button

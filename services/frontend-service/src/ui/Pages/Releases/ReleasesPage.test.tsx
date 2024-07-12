@@ -78,7 +78,7 @@ describe('LocksPage', () => {
     describe.each(sampleEnvData)(`Renders ReleasesPage`, (testcase) => {
         it(testcase.name, () => {
             fakeLoadEverything(testcase.loaded);
-            if (testcase.enableDex == true) {
+            if (testcase.enableDex) {
                 enableDexAuth(testcase.enableDexValidToken);
             }
             const { container } = getWrapper();

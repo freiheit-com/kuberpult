@@ -77,7 +77,7 @@ describe('ProductVersionPage', () => {
         it(testcase.name, () => {
             fakeLoadEverything(testcase.loaded);
             const { container } = getWrapper();
-            if (testcase.enableDex == true) {
+            if (testcase.enableDex) {
                 enableDexAuth(testcase.enableDexValidToken);
             }
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedNumMainContent);
