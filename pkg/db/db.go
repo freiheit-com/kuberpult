@@ -73,7 +73,7 @@ type DBHandler struct {
 }
 
 type EslId int64
-type TransformerID uint
+type TransformerID EslId
 type AppStateChange string
 
 const (
@@ -314,58 +314,6 @@ type EslEventRow struct {
 	Created   time.Time
 	EventType EventType
 	EventJson string
-}
-
-// DBDiscoverCurrentEsldID: Returns the current sequence number of event_sourcing_light table.
-// Next value should be the returned on + 1
-func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*int, error) {
-	if h == nil {
-		return nil, nil
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("DBDiscoverCurrentEsldID: no transaction provided")
-	}
-	var selectQuery string
-	if h.DriverName == "postgres" {
-		selectQuery = h.AdaptQuery("SELECT last_value from event_sourcing_light_eslid_seq;")
-
-	} else if h.DriverName == "sqlite3" {
-		selectQuery = h.AdaptQuery("SELECT seq FROM SQLITE_SEQUENCE WHERE name='event_sourcing_light';")
-	} else {
-		return nil, fmt.Errorf("Driver: '%s' not supported.\n", h.DriverName)
-	}
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not get current eslid. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
-	var value *int
-	value = new(int)
-	if rows.Next() {
-		err := rows.Scan(value)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error table for next eslID. Error: %w\n", err)
-		}
-	} else {
-		value = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
 }
 
 // DBReadEslEventInternal returns either the first or the last row of the esl table
