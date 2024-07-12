@@ -181,8 +181,8 @@ func DexAPIInterceptor(
 	httpHandler(w, req)
 }
 
-func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexFullNameOverride string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
-	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, dexFullNameOverride, useClusterInternalCommunication)
+func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexServiceURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, dexServiceURL, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		return req.Context(), err
