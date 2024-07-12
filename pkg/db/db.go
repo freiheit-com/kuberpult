@@ -25,10 +25,12 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"path"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -43,6 +45,7 @@ import (
 	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type DBConfig struct {
@@ -725,6 +728,10 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 			release.ReleaseNumber,
 			previousEslVersion+1,
 			err)
+	}
+	err = h.UpdateOverviewRelease(ctx, transaction, release)
+	if err != nil {
+		return err
 	}
 	logger.FromContext(ctx).Sugar().Infof(
 		"inserted release: app '%s' and version '%v' and eslVersion %v",
@@ -1556,6 +1563,10 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	if err != nil {
 		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
 	}
+	err = h.ForceOverviewRecalculation(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("could not update overview table. Error: %w\n", err)
+	}
 	return nil
 }
 
@@ -1708,6 +1719,10 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
+	}
+	err = h.UpdateOverviewDeployment(ctx, tx, deployment)
+	if err != nil {
+		return fmt.Errorf("could not update overview table. Error: %w\n", err)
 	}
 	return nil
 }
@@ -2374,6 +2389,10 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 
 	if err != nil {
 		return fmt.Errorf("could not write environment lock into DB. Error: %w\n", err)
+	}
+	err = h.UpdateOverviewEnvironmentLock(ctx, tx, envLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview environment lock. Error: %w\n", err)
 	}
 	return nil
 }
@@ -3055,6 +3074,10 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
+	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview application lock. Error: %w\n", err)
+	}
 	return nil
 }
 
@@ -3361,6 +3384,10 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 
 	if err != nil {
 		return fmt.Errorf("could not write team lock into DB. Error: %w\n", err)
+	}
+	err = h.UpdateOverviewTeamLock(ctx, tx, teamLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview team lock. Error: %w\n", err)
 	}
 	return nil
 }
@@ -3922,6 +3949,10 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	if err != nil {
 		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
 	}
+	err = h.UpdateOverviewDeploymentAttempt(ctx, tx, deployment)
+	if err != nil {
+		return fmt.Errorf("could not update overview table in DB. Error: %w\n", err)
+	}
 	return nil
 }
 
@@ -4114,6 +4145,10 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	)
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
+	}
+	err = h.ForceOverviewRecalculation(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("error while forcing overview recalculation, error: %w", err)
 	}
 	return nil
 }
@@ -4313,10 +4348,12 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 type OverviewCacheRow struct {
 	EslId     EslId
 	Timestamp time.Time
-	Blob      string
+	Json      string
 }
 
-func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sql.Tx) (*OverviewCacheRow, error) {
+func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "readLatestOverviewCache")
+	defer span.Finish()
 	if h == nil {
 		return nil, fmt.Errorf("readLatestOverviewCache: DBHandler is nil")
 	}
@@ -4324,11 +4361,8 @@ func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sq
 		return nil, fmt.Errorf("readLatestOverviewCache: no transaction provided")
 	}
 
-	span, _ := tracer.StartSpanFromContext(ctx, "readLatestOverviewCache")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(
-		"SELECT eslId, timestamp, blob FROM overview_cache ORDER BY eslId DESC LIMIT 1;",
+		"SELECT eslId, timestamp, json FROM overview_cache ORDER BY eslId DESC LIMIT 1;",
 	)
 
 	span.SetTag("query", selectQuery)
@@ -4348,10 +4382,10 @@ func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sq
 	var row = &OverviewCacheRow{
 		EslId:     0,
 		Timestamp: time.Unix(0, 0),
-		Blob:      "",
+		Json:      "",
 	}
 	if rows.Next() {
-		err := rows.Scan(&row.EslId, &row.Timestamp, &row.Blob)
+		err := rows.Scan(&row.EslId, &row.Timestamp, &row.Json)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -4365,10 +4399,26 @@ func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sq
 	if err != nil {
 		return nil, err
 	}
-	return row, nil
+	if row != nil {
+		result := &api.GetOverviewResponse{
+			Branch:            "",
+			ManifestRepoUrl:   "",
+			Applications:      map[string]*api.Application{},
+			EnvironmentGroups: []*api.EnvironmentGroup{},
+			GitRevision:       "",
+		}
+		err = json.Unmarshal([]byte(row.Json), result)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+	return nil, nil
 }
 
-func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx, blob string) error {
+func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx, overviewResponse *api.GetOverviewResponse) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "writeOverviewCache")
+	defer span.Finish()
 	if h == nil {
 		return fmt.Errorf("writeOverviewCache: DBHandler is nil")
 	}
@@ -4376,20 +4426,361 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 		return fmt.Errorf("writeOverviewCache: no transaction provided")
 	}
 
-	span, _ := tracer.StartSpanFromContext(ctx, "writeOverviewCache")
-	defer span.Finish()
-
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO overview_cache (timestamp, blob) VALUES (?, ?);",
+		"INSERT INTO overview_cache (timestamp, Json) VALUES (?, ?);",
 	)
+	jsonResponse, err := json.Marshal(overviewResponse)
+	if err != nil {
+		return fmt.Errorf("could not marshal overview json data: %w", err)
+	}
 	span.SetTag("query", insertQuery)
-	_, err := transaction.Exec(
+	_, err = transaction.Exec(
 		insertQuery,
 		time.Now().UTC(),
-		blob,
+		jsonResponse,
 	)
 	if err != nil {
 		return fmt.Errorf("could not insert overview_cache row into DB. Error: %w", err)
 	}
 	return nil
+}
+
+func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql.Tx, teamLock TeamLock) error {
+	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if h.CheckOverviewIsEmpty(latestOverview) {
+		return nil
+	}
+	env := getEnvironmentByName(latestOverview.EnvironmentGroups, teamLock.Env)
+	if env == nil {
+		return fmt.Errorf("could not find environment %s in overview", teamLock.Env)
+	}
+	apps := getEnvironmentApplicationsByTeam(env.Applications, teamLock.Team)
+	for _, app := range apps {
+		if app.Locks == nil {
+			app.Locks = map[string]*api.Lock{}
+		}
+		app.Locks[teamLock.LockID] = &api.Lock{
+			Message:   teamLock.Metadata.Message,
+			LockId:    teamLock.LockID,
+			CreatedAt: timestamppb.New(teamLock.Created),
+			CreatedBy: &api.Actor{
+				Name:  teamLock.Metadata.CreatedByName,
+				Email: teamLock.Metadata.CreatedByEmail,
+			},
+		}
+		if teamLock.Deleted {
+			delete(app.Locks, teamLock.LockID)
+		}
+	}
+	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) UpdateOverviewEnvironmentLock(ctx context.Context, transaction *sql.Tx, environmentLock EnvironmentLock) error {
+	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if h.CheckOverviewIsEmpty(latestOverview) {
+		return nil
+	}
+	env := getEnvironmentByName(latestOverview.EnvironmentGroups, environmentLock.Env)
+	if env == nil {
+		return fmt.Errorf("could not find environment %s in overview", environmentLock.Env)
+	}
+	if env.Locks == nil {
+		env.Locks = map[string]*api.Lock{}
+	}
+	env.Locks[environmentLock.LockID] = &api.Lock{
+		Message:   environmentLock.Metadata.Message,
+		LockId:    environmentLock.LockID,
+		CreatedAt: timestamppb.New(environmentLock.Created),
+		CreatedBy: &api.Actor{
+			Name:  environmentLock.Metadata.CreatedByName,
+			Email: environmentLock.Metadata.CreatedByEmail,
+		},
+	}
+	if environmentLock.Deleted {
+		delete(env.Locks, environmentLock.LockID)
+	}
+	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *sql.Tx, deployment Deployment) error {
+	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if h.CheckOverviewIsEmpty(latestOverview) {
+		return nil
+	}
+	env := getEnvironmentByName(latestOverview.EnvironmentGroups, deployment.Env)
+	if env == nil {
+		return fmt.Errorf("could not find environment %s in overview", deployment.Env)
+	}
+	appInEnv := getEnvironmentApplicationByName(env.Applications, deployment.App)
+	if appInEnv == nil {
+		return fmt.Errorf("could not find application %s in environment %s in overview", deployment.App, deployment.Env)
+	}
+	if deployment.Version == nil {
+		appInEnv.Version = 0
+	} else {
+		appInEnv.Version = uint64(*deployment.Version)
+	}
+	appInEnv.DeploymentMetaData.DeployAuthor = deployment.Metadata.DeployedByEmail
+	if !deployment.Created.IsZero() {
+		appInEnv.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployment.Created.Unix())
+	} else {
+		appInEnv.DeploymentMetaData.DeployTime = ""
+	}
+	app := getApplicationByName(latestOverview.Applications, deployment.App)
+	app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
+
+	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) UpdateOverviewDeploymentAttempt(ctx context.Context, transaction *sql.Tx, queuedDeployment *QueuedDeployment) error {
+	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if h.CheckOverviewIsEmpty(latestOverview) {
+		return nil
+	}
+	env := getEnvironmentByName(latestOverview.EnvironmentGroups, queuedDeployment.Env)
+	app := getEnvironmentApplicationByName(env.Applications, queuedDeployment.App)
+	app.QueuedVersion = uint64(*queuedDeployment.Version)
+	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transaction *sql.Tx, applicationLock ApplicationLock) error {
+	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if h.CheckOverviewIsEmpty(latestOverview) {
+		return nil
+	}
+	env := getEnvironmentByName(latestOverview.EnvironmentGroups, applicationLock.Env)
+	if env == nil {
+		return fmt.Errorf("could not find environment %s in overview", applicationLock.Env)
+	}
+	app := getEnvironmentApplicationByName(env.Applications, applicationLock.App)
+	if app == nil {
+		return fmt.Errorf("could not find application %s in environment %s in overview", applicationLock.App, applicationLock.Env)
+	}
+	if app.Locks == nil {
+		app.Locks = map[string]*api.Lock{}
+	}
+	app.Locks[applicationLock.LockID] = &api.Lock{
+		Message:   applicationLock.Metadata.Message,
+		LockId:    applicationLock.LockID,
+		CreatedAt: timestamppb.New(applicationLock.Created),
+		CreatedBy: &api.Actor{
+			Name:  applicationLock.Metadata.CreatedByName,
+			Email: applicationLock.Metadata.CreatedByEmail,
+		},
+	}
+	if applicationLock.Deleted {
+		delete(app.Locks, applicationLock.LockID)
+	}
+	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
+	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if h.CheckOverviewIsEmpty(latestOverview) {
+		return nil
+	}
+	app := getApplicationByName(latestOverview.Applications, release.App)
+	if app == nil {
+		return fmt.Errorf("could not find application %s in overview", release.App)
+	}
+	apiRelease := &api.Release{
+		PrNumber:        extractPrNumber(release.Metadata.SourceMessage),
+		Version:         release.ReleaseNumber,
+		UndeployVersion: false,
+		SourceAuthor:    release.Metadata.SourceAuthor,
+		SourceCommitId:  release.Metadata.SourceCommitId,
+		SourceMessage:   release.Metadata.SourceMessage,
+		CreatedAt:       timestamppb.New(release.Created),
+		DisplayVersion:  release.Metadata.DisplayVersion,
+	}
+	foundRelease := false
+	for relIndex, currentRelease := range app.Releases {
+		if currentRelease.Version == release.ReleaseNumber {
+			if release.Deleted {
+				app.Releases = append(app.Releases[:relIndex], app.Releases[relIndex+1:]...)
+			} else {
+				app.Releases[relIndex] = apiRelease
+			}
+			foundRelease = true
+		}
+	}
+	if !foundRelease && !release.Deleted {
+		app.Releases = append(app.Releases, apiRelease)
+	}
+	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) ForceOverviewRecalculation(ctx context.Context, transaction *sql.Tx) error {
+	emptyOverview := &api.GetOverviewResponse{
+		Applications:      map[string]*api.Application{},
+		EnvironmentGroups: []*api.EnvironmentGroup{},
+		GitRevision:       "",
+		Branch:            "",
+		ManifestRepoUrl:   "",
+	}
+	err := h.WriteOverviewCache(ctx, transaction, emptyOverview)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) CheckOverviewIsEmpty(overviewResp *api.GetOverviewResponse) bool {
+	if overviewResp == nil {
+		return true
+	}
+	if len(overviewResp.Applications) == 0 && len(overviewResp.EnvironmentGroups) == 0 && overviewResp.GitRevision == "" {
+		return true
+	}
+	return false
+}
+
+func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {
+	for _, currentGroup := range groups {
+		for _, currentEnv := range currentGroup.Environments {
+			if currentEnv.Name == envNameToReturn {
+				return currentEnv
+			}
+		}
+	}
+	return nil
+}
+
+func getEnvironmentApplicationsByTeam(apps map[string]*api.Environment_Application, team string) []*api.Environment_Application {
+	foundApps := []*api.Environment_Application{}
+	for _, app := range apps {
+		if app.Team == team {
+			foundApps = append(foundApps, app)
+		}
+	}
+	return foundApps
+}
+
+func getEnvironmentApplicationByName(apps map[string]*api.Environment_Application, appNameToReturn string) *api.Environment_Application {
+	for _, app := range apps {
+		if app.Name == appNameToReturn {
+			return app
+		}
+	}
+	return nil
+}
+
+func getApplicationByName(apps map[string]*api.Application, appNameToReturn string) *api.Application {
+	for _, app := range apps {
+		if app.Name == appNameToReturn {
+			return app
+		}
+	}
+	return nil
+}
+
+func extractPrNumber(sourceMessage string) string {
+	re := regexp.MustCompile(`\(#(\d+)\)`)
+	res := re.FindAllStringSubmatch(sourceMessage, -1)
+
+	if len(res) == 0 {
+		return ""
+	} else {
+		return res[len(res)-1][1]
+	}
+}
+
+func CalculateWarnings(ctx context.Context, appName string, groups []*api.EnvironmentGroup) []*api.Warning {
+	result := make([]*api.Warning, 0)
+	for e := 0; e < len(groups); e++ {
+		group := groups[e]
+		for i := 0; i < len(groups[e].Environments); i++ {
+			env := group.Environments[i]
+			if env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
+				// if the env has no upstream, there's nothing to warn about
+				continue
+			}
+			upstreamEnvName := env.Config.GetUpstream().Environment
+			upstreamEnv := getEnvironmentByName(groups, *upstreamEnvName)
+			if upstreamEnv == nil {
+				// this is already checked on startup and therefore shouldn't happen here
+				continue
+			}
+
+			appInEnv := env.Applications[appName]
+			if appInEnv == nil {
+				// appName is not deployed here, ignore it
+				continue
+			}
+			versionInEnv := appInEnv.Version
+			appInUpstreamEnv := upstreamEnv.Applications[appName]
+			if appInUpstreamEnv == nil {
+				// appName is not deployed upstream... that's unusual!
+				var warning = api.Warning{
+					WarningType: &api.Warning_UpstreamNotDeployed{
+						UpstreamNotDeployed: &api.UpstreamNotDeployed{
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+				continue
+			}
+			versionInUpstreamEnv := appInUpstreamEnv.Version
+
+			if versionInEnv > versionInUpstreamEnv && len(appInEnv.Locks) == 0 {
+				var warning = api.Warning{
+					WarningType: &api.Warning_UnusualDeploymentOrder{
+						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+							UpstreamVersion:     versionInUpstreamEnv,
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+			}
+		}
+	}
+	return result
 }

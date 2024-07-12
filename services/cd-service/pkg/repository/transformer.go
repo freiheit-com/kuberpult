@@ -343,11 +343,6 @@ func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
 		r.Stack[idx-1] = append(r.Stack[idx-1], msg)
 	}
 	r.Stack = r.Stack[:idx]
-	if r.State.DBHandler.ShouldUseOtherTables() {
-		if err = UpdateOverviewDB(r.Context, r.State, transaction); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
