@@ -331,6 +331,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	if err != nil {
 		return nil, err
 	}
+	t.SetEslID(db.TransformerID(esl.EslId))
 	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
 
 	err = repo.Apply(ctx, tx, t)
