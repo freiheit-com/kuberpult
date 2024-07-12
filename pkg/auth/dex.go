@@ -176,6 +176,7 @@ func decorateDirector(director func(req *http.Request), target *url.URL) func(re
 	}
 }
 
+// Helper function to generate a random string to avoid cashing.
 func generateState() (string, error) {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
@@ -193,11 +194,11 @@ func (a *DexAppClient) handleDexLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO(BB) Set an app state to make the connection more secure.
 	// Currently a random string is generated but a session state should be built.
+	// This is used to avoid caching of the auth URL when making calls to Dex for requesting a token.
 	state, err := generateState()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "could not generate dex state: "+err.Error(), http.StatusInternalServerError)
 	}
 	authCodeURL := oauthConfig.AuthCodeURL(state)
 	http.Redirect(w, r, authCodeURL, http.StatusSeeOther)
