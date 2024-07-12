@@ -15,7 +15,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import { getCommitInfo, useCommitInfo, useGlobalLoadingState, CommitInfoState } from '../../utils/store';
-import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { Spinner } from '../../components/Spinner/Spinner';
 import { useParams } from 'react-router-dom';
@@ -24,7 +23,6 @@ import { CommitInfo } from '../../components/CommitInfo/CommitInfo';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export const CommitInfoPage: React.FC = () => {
-    const [everythingLoaded, loadingState] = useGlobalLoadingState();
     const { commit: commitHash } = useParams();
     const { authHeader } = useAzureAuthSub((auth) => auth);
 
@@ -36,8 +34,9 @@ export const CommitInfoPage: React.FC = () => {
 
     const commitInfo = useCommitInfo((res) => res);
 
-    if (!everythingLoaded) {
-        return <LoadingStateSpinner loadingState={loadingState} />;
+    const element = useGlobalLoadingState();
+    if (element) {
+        return element;
     }
 
     if (commitHash === undefined) {

@@ -24,7 +24,7 @@ import {
 } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment, Priority } from '../../../api/api';
-import { fakeLoadEverything } from '../../../setupTests';
+import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 
 describe('LocksPage', () => {
     const getNode = (): JSX.Element | any => (
@@ -36,6 +36,19 @@ describe('LocksPage', () => {
 
     it('Renders full app', () => {
         fakeLoadEverything(true);
+        const { container } = getWrapper();
+        expect(container.getElementsByClassName('mdc-data-table')[0]).toHaveTextContent('Environment Locks');
+        expect(container.getElementsByClassName('mdc-data-table')[1]).toHaveTextContent('Application Locks');
+    });
+    it('Renders login page if Dex enabled', () => {
+        fakeLoadEverything(true);
+        enableDexAuth(false);
+        const { container } = getWrapper();
+        expect(container.getElementsByClassName('environment_name')[0]).toHaveTextContent('Log in to Dex');
+    });
+    it('Renders page page if Dex enabled and valid token', () => {
+        fakeLoadEverything(true);
+        enableDexAuth(true);
         const { container } = getWrapper();
         expect(container.getElementsByClassName('mdc-data-table')[0]).toHaveTextContent('Environment Locks');
         expect(container.getElementsByClassName('mdc-data-table')[1]).toHaveTextContent('Application Locks');

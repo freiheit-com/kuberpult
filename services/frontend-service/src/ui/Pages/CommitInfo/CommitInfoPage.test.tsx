@@ -17,7 +17,7 @@ Copyright freiheit.com*/
 import { render } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CommitInfoPage } from './CommitInfoPage';
-import { fakeLoadEverything } from '../../../setupTests';
+import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 import { updateCommitInfo, CommitInfoState } from '../../utils/store';
 import { GetCommitInfoResponse } from '../../../api/api';
 
@@ -26,6 +26,8 @@ describe('Commit info page tests', () => {
         name: string;
         commitHash: string;
         fakeLoadEverything: boolean;
+        enableDex: boolean;
+        enableDexValidToken: boolean;
         commitInfoStoreData:
             | {
                   commitInfoReady: CommitInfoState;
@@ -35,12 +37,15 @@ describe('Commit info page tests', () => {
         expectedSpinnerCount: number;
         expectedMainContentCount: number;
         expectedText: string;
+        expectedNumLoginPage: number;
     };
 
     const testCases: TestCase[] = [
         {
             name: 'A loading spinner renders when the page is still loading',
             fakeLoadEverything: false,
+            enableDex: false,
+            enableDexValidToken: false,
             commitHash: 'potato',
             expectedSpinnerCount: 1,
             expectedMainContentCount: 0,
@@ -49,10 +54,13 @@ describe('Commit info page tests', () => {
                 commitInfoReady: CommitInfoState.LOADING,
                 response: undefined,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'An Error is shown when the commit ID is not provided in the URL',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             commitHash: '',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
@@ -61,10 +69,13 @@ describe('Commit info page tests', () => {
                 commitInfoReady: CommitInfoState.LOADING,
                 response: undefined,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'A spinner is shown when waiting for the server to respond',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             commitHash: 'potato',
             expectedSpinnerCount: 1,
             expectedMainContentCount: 0,
@@ -73,10 +84,13 @@ describe('Commit info page tests', () => {
                 commitInfoReady: CommitInfoState.LOADING,
                 response: undefined,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'An error message is shown when the backend returns an error',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             commitHash: 'potato',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
@@ -85,10 +99,13 @@ describe('Commit info page tests', () => {
                 response: undefined,
                 commitInfoReady: CommitInfoState.ERROR,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'An error message is shown when the backend returns a not found status',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             commitHash: 'potato',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
@@ -98,10 +115,13 @@ describe('Commit info page tests', () => {
                 response: undefined,
                 commitInfoReady: CommitInfoState.NOTFOUND,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'Some main content exists when the page is done loading',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             commitHash: 'potato',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
@@ -119,12 +139,55 @@ Commit message body line 2`,
                     nextCommitHash: '',
                 },
             },
+            expectedNumLoginPage: 0,
+        },
+        {
+            name: 'A login page renders when Dex is enabled',
+            fakeLoadEverything: true,
+            enableDex: true,
+            enableDexValidToken: false,
+            commitHash: 'potato',
+            expectedSpinnerCount: 0,
+            expectedMainContentCount: 0,
+            expectedText: 'Log in to Dex',
+            commitInfoStoreData: {
+                commitInfoReady: CommitInfoState.LOADING,
+                response: undefined,
+            },
+            expectedNumLoginPage: 1,
+        },
+        {
+            name: 'Some main content exists when Dex is enabled and the token is valid',
+            fakeLoadEverything: true,
+            enableDex: true,
+            enableDexValidToken: true,
+            commitHash: 'potato',
+            expectedSpinnerCount: 0,
+            expectedMainContentCount: 1,
+            expectedText: 'Add google to windows', // this "Commit + commit_message_first_line" string comes from the CommitInfo component logic (so we know that it actually rendered without having some mocking magic)
+            commitInfoStoreData: {
+                commitInfoReady: CommitInfoState.READY,
+                response: {
+                    commitHash: 'potato',
+                    touchedApps: ['firstApp', 'secondApp'],
+                    commitMessage: `Add google to windows
+Commit message body line 1
+Commit message body line 2`,
+                    events: [],
+                    previousCommitHash: '',
+                    nextCommitHash: '',
+                },
+            },
+            expectedNumLoginPage: 0,
         },
     ];
     describe.each(testCases)('', (tc) => {
         test(tc.name, () => {
             fakeLoadEverything(tc.fakeLoadEverything);
             if (tc.commitInfoStoreData !== undefined) updateCommitInfo.set(tc.commitInfoStoreData);
+            if (tc.enableDex) {
+                enableDexAuth(tc.enableDexValidToken);
+            }
 
             const { container } = render(
                 <MemoryRouter initialEntries={['/ui/commits/' + tc.commitHash]}>
@@ -141,7 +204,9 @@ Commit message body line 2`,
             expect(container.getElementsByClassName('main-content commit-page')).toHaveLength(
                 tc.expectedMainContentCount
             );
-
+            expect(
+                container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')
+            ).toHaveLength(tc.expectedNumLoginPage);
             expect(container.textContent).toContain(tc.expectedText);
         });
     });

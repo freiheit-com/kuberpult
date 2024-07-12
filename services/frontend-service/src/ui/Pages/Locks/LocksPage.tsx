@@ -17,7 +17,6 @@ import React, { useMemo } from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
 import { searchCustomFilter, sortLocks, useEnvironments, useGlobalLoadingState, useTeamLocks } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
-import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
 const applicationFieldHeaders = [
@@ -86,9 +85,9 @@ export const LocksPage: React.FC = () => {
             ),
         [appNameParam, envs]
     );
-    const [everythingLoaded, loadingState] = useGlobalLoadingState();
-    if (!everythingLoaded) {
-        return <LoadingStateSpinner loadingState={loadingState} />;
+    const element = useGlobalLoadingState();
+    if (element) {
+        return element;
     }
     return (
         <div>
