@@ -32,6 +32,7 @@ import (
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -108,6 +109,16 @@ func Run(ctx context.Context) error {
 		} else {
 			dataDogStatsAddr = dataDogStatsAddrEnv
 		}
+	}
+
+	enableTracesString, err := readEnvVar("KUBERPULT_ENABLE_TRACING")
+	if err != nil {
+		log.Info("datadog traces are disabled")
+	}
+	enableTraces := enableTracesString == "true"
+	if enableTraces {
+		tracer.Start()
+		defer tracer.Stop()
 	}
 
 	releaseVersionLimitStr, err := readEnvVar("KUBERPULT_RELEASE_VERSIONS_LIMIT")
