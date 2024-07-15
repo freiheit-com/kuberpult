@@ -21,7 +21,9 @@ import React from 'react';
 export const LoginPage: React.FC = () => {
     // Redirect the user to the Dex Login
     const handleRedirect = React.useCallback(() => {
-        window.location.href = '/login';
+        // A random value is added to avoid browser cashing when redirecting to DEX. 
+        const id = window.crypto.randomUUID()
+        window.location.href = `/login?random_value=${id}`;
     }, []);
 
     return (
@@ -30,7 +32,7 @@ export const LoginPage: React.FC = () => {
             <main className="main-content">
                 <h1 className="environment_name">{'Log in to Dex'}</h1>
                 <h3 className="page_description">
-                    {'It looks like you are not logged in. Please log in to DEX to access your user role!'}
+                    {'You are currently not logged in. Please log in to continue.'}
                 </h3>
                 <div className="space_apart_row">
                     <Button
