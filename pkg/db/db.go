@@ -4468,3 +4468,41 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context,  tx *sql.Tx, eslE
 	}
 	return nil
 }
+
+func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslEventRow, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
+	}
+
+	query := h.AdaptQuery("SELECT created, event_type, json FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	failedEsls := make([]*EslEventRow, 0)
+
+	for rows.Next() {
+		row := &EslEventRow{}
+		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson)
+		if err != nil {
+			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+		}
+		failedEsls = append(failedEsls, row)
+	}
+
+	return failedEsls, nil
+}

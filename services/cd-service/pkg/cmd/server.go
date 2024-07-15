@@ -392,6 +392,7 @@ func RunServer() {
 							Policy:     dexRbacPolicy,
 						},
 					})
+					api.RegisterEslServiceServer(srv, &service.EslServiceServer{Repository: repo})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 
