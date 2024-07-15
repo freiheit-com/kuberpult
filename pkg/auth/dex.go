@@ -79,6 +79,11 @@ const (
 	expirationDays = 1
 )
 
+// GetDexServiceURL returns the Dex service URL from the fullNameOverride.
+func GetDexServiceURL(fullNameOverride string) string {
+	return fmt.Sprintf(dexServiceURLPattern, fullNameOverride)
+}
+
 // NewDexAppClient a Dex Client.
 func NewDexAppClient(clientID, clientSecret, baseURL, nameOverride string, scopes []string, useClusterInternalCommunication bool) (*DexAppClient, error) {
 	a := DexAppClient{
@@ -90,7 +95,7 @@ func NewDexAppClient(clientID, clientSecret, baseURL, nameOverride string, scope
 		RedirectURI:                     baseURL + callbackPATH,
 		IssuerURL:                       baseURL + issuerPATH,
 		UseClusterInternalCommunication: useClusterInternalCommunication,
-		DexServiceURL:                   fmt.Sprintf(dexServiceURLPattern, nameOverride),
+		DexServiceURL:                   GetDexServiceURL(nameOverride),
 	}
 	//exhaustruct:ignore
 	transport := &http.Transport{
