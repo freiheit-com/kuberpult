@@ -73,7 +73,7 @@ type DBHandler struct {
 }
 
 type EslId int64
-type TransformerID uint
+type TransformerID EslId
 type AppStateChange string
 
 const (

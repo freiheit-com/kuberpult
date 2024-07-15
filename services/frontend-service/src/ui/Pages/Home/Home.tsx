@@ -17,7 +17,6 @@ import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
 import { useSearchParams } from 'react-router-dom';
 import { useApplicationsFilteredAndSorted, useGlobalLoadingState } from '../../utils/store';
 import React from 'react';
-import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { hideWithoutWarnings } from '../../utils/Links';
 
@@ -30,9 +29,9 @@ export const Home: React.FC = () => {
 
     const apps = Object.values(searchedApp);
 
-    const [everythingLoaded, loadingState] = useGlobalLoadingState();
-    if (!everythingLoaded) {
-        return <LoadingStateSpinner loadingState={loadingState} />;
+    const element = useGlobalLoadingState();
+    if (element) {
+        return element;
     }
 
     return (

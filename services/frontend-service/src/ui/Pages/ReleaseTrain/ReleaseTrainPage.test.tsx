@@ -16,7 +16,7 @@ Copyright freiheit.com*/
 
 import { render } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { fakeLoadEverything } from '../../../setupTests';
+import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 import { ReleaseTrainPrognosisState, updateReleaseTrainPrognosis } from '../../utils/store';
 import { GetReleaseTrainPrognosisResponse, ReleaseTrainEnvSkipCause } from '../../../api/api';
 import { ReleaseTrainPage } from './ReleaseTrainPage';
@@ -26,6 +26,8 @@ describe('Commit info page tests', () => {
         name: string;
         envName: string;
         fakeLoadEverything: boolean;
+        enableDex: boolean;
+        enableDexValidToken: boolean;
         releaseTrainPrognosisStoreData:
             | {
                   releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
@@ -35,12 +37,15 @@ describe('Commit info page tests', () => {
         expectedSpinnerCount: number;
         expectedMainContentCount: number;
         expectedText: string;
+        expectedNumLoginPage: number;
     };
 
     const testCases: TestCase[] = [
         {
             name: 'A loading spinner renders when the page is still loading',
             fakeLoadEverything: false,
+            enableDex: false,
+            enableDexValidToken: false,
             envName: 'development',
             expectedSpinnerCount: 1,
             expectedMainContentCount: 0,
@@ -49,10 +54,13 @@ describe('Commit info page tests', () => {
                 releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
                 response: undefined,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'An Error is shown when the environemnt name is not provided in the URL',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             envName: '',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
@@ -61,10 +69,13 @@ describe('Commit info page tests', () => {
                 releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
                 response: undefined,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'A spinner is shown when waiting for the server to respond',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             envName: 'development',
             expectedSpinnerCount: 1,
             expectedMainContentCount: 0,
@@ -73,10 +84,13 @@ describe('Commit info page tests', () => {
                 releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
                 response: undefined,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'An error message is shown when the backend returns an error',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             envName: 'development',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
@@ -85,10 +99,13 @@ describe('Commit info page tests', () => {
                 releaseTrainPrognosisReady: ReleaseTrainPrognosisState.ERROR,
                 response: undefined,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'An error message is shown when the backend returns a not found status',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             envName: 'development',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
@@ -97,10 +114,13 @@ describe('Commit info page tests', () => {
                 releaseTrainPrognosisReady: ReleaseTrainPrognosisState.NOTFOUND,
                 response: undefined,
             },
+            expectedNumLoginPage: 0,
         },
         {
             name: 'Some main content exists when the page is done loading',
             fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
             envName: 'development',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
@@ -118,6 +138,46 @@ describe('Commit info page tests', () => {
                     },
                 },
             },
+            expectedNumLoginPage: 0,
+        },
+        {
+            name: 'A login page renders when Dex is enabled',
+            fakeLoadEverything: true,
+            enableDex: true,
+            enableDexValidToken: false,
+            envName: 'development',
+            expectedSpinnerCount: 0,
+            expectedMainContentCount: 1,
+            expectedText: 'Log in to Dex',
+            releaseTrainPrognosisStoreData: {
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.LOADING,
+                response: undefined,
+            },
+            expectedNumLoginPage: 1,
+        },
+        {
+            name: 'Some main content exists when Dex is enabled with a valid token',
+            fakeLoadEverything: true,
+            enableDex: true,
+            enableDexValidToken: true,
+            envName: 'development',
+            expectedSpinnerCount: 0,
+            expectedMainContentCount: 1,
+            expectedText: 'Prognosis for release train on environment development',
+            releaseTrainPrognosisStoreData: {
+                releaseTrainPrognosisReady: ReleaseTrainPrognosisState.READY,
+                response: {
+                    envsPrognoses: {
+                        development: {
+                            outcome: {
+                                $case: 'skipCause',
+                                skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+                            },
+                        },
+                    },
+                },
+            },
+            expectedNumLoginPage: 0,
         },
     ];
     describe.each(testCases)('', (tc) => {
@@ -125,6 +185,9 @@ describe('Commit info page tests', () => {
             fakeLoadEverything(tc.fakeLoadEverything);
             if (tc.releaseTrainPrognosisStoreData !== undefined)
                 updateReleaseTrainPrognosis.set(tc.releaseTrainPrognosisStoreData);
+            if (tc.enableDex) {
+                enableDexAuth(tc.enableDexValidToken);
+            }
 
             const { container } = render(
                 <MemoryRouter initialEntries={['/ui/environments/' + tc.envName + '/releaseTrain']}>
@@ -140,6 +203,9 @@ describe('Commit info page tests', () => {
             expect(container.getElementsByClassName('main-content')).toHaveLength(tc.expectedMainContentCount);
 
             expect(container.textContent).toContain(tc.expectedText);
+            expect(
+                container.getElementsByClassName('button-main env-card-deploy-btn mdc-button--unelevated')
+            ).toHaveLength(tc.expectedNumLoginPage);
         });
     });
 });
