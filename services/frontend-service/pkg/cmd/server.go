@@ -563,7 +563,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if c.DexEnabled {
 			source = "dex"
-			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexFullNameOverride, p.Policy, c.DexUseClusterInternalCommunication)
+			dexServiceURL := auth.GetDexServiceURL(c.DexFullNameOverride)
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, dexServiceURL, p.Policy, c.DexUseClusterInternalCommunication)
 			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
 			} else {
@@ -597,8 +598,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexFullNameOverride string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
-	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, dexFullNameOverride, policy, useClusterInternalCommunication)
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
 	if err != nil {
 		return nil
 	}
