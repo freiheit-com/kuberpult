@@ -563,7 +563,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if c.DexEnabled {
 			source = "dex"
-			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexFullNameOverride, p.Policy, c.DexUseClusterInternalCommunication)
+			dexServiceURL := auth.GetDexServiceURL(c.DexFullNameOverride)
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, dexServiceURL, p.Policy, c.DexUseClusterInternalCommunication)
 			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
 			} else {
