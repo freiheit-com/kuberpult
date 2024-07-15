@@ -79,7 +79,7 @@ const (
 	expirationDays = 1
 )
 
-// GetDexServiceURL returns the Dex service URL from the fullNameOverride,.
+// GetDexServiceURL returns the Dex service URL from the fullNameOverride.
 func GetDexServiceURL(fullNameOverride string) string {
 	return fmt.Sprintf(dexServiceURLPattern, fullNameOverride)
 }
