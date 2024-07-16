@@ -17,6 +17,15 @@ set -eu
 set -o pipefail
 
 cat <<VALUES > vals.yaml
+db:
+  location: postgres
+  authProxyPort: 5432
+  dbName: kuberpult
+  dbUser: postgres
+  dbPassword: mypassword
+  dbOption: postgreSQL
+  writeEslTableOnly: false
+  k8sServiceAccountName: default
 cd:
   resources:
     limits:
@@ -25,10 +34,6 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
-  db:
-    dbOption: sqlite
-    location: /sqlite
-    writeEslTableOnly: false
 frontend:
   resources:
     limits:

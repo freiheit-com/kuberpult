@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -36,7 +37,20 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func createMigrationFolder(dbLocation string) (string, error) {
 	loc := path.Join(dbLocation, "migrations")
@@ -133,7 +147,7 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-			tx, err := db.DB.BeginTx(ctx, nil)
+			tx, err := db.BeginTransaction(ctx, false)
 			if err != nil {
 				t.Fatalf("Error creating transaction. Error: %v\n", err)
 			}
@@ -238,7 +252,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 			ctx := context.Background()
 
 			dbHandler := SetupRepositoryTestWithDB(t)
-			err3 := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, getAllReleases)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
@@ -263,27 +277,61 @@ func TestCustomMigrationReleases(t *testing.T) {
 	}
 }
 
-func TestDeploymentStorage(t *testing.T) {
+func TestCommitEvents(t *testing.T) {
+
 	tcs := []struct {
 		Name       string
 		commitHash string
 		email      string
-		event      event.Deployment
-		metadata   event.Metadata
+		event      event.DBEventGo
 	}{
 		{
 			Name:       "Simple Deployment event",
 			commitHash: "abcdefabcdef",
 			email:      "test@email.com",
-			event: event.Deployment{
-				Environment:                 "production",
-				Application:                 "test-app",
-				SourceTrainUpstream:         nil,
-				SourceTrainEnvironmentGroup: nil,
+
+			event: event.DBEventGo{
+				EventData: &event.Deployment{
+					Environment:                 "production",
+					Application:                 "test-app",
+					SourceTrainUpstream:         nil,
+					SourceTrainEnvironmentGroup: nil,
+				},
+				EventMetadata: event.Metadata{
+					Uuid:      "00000000-0000-0000-0000-000000000001",
+					EventType: "deployment",
+				},
 			},
-			metadata: event.Metadata{
-				AuthorEmail: "test@email.com",
-				Uuid:        "00000000-0000-0000-0000-000000000001",
+		},
+		{
+			Name:       "Lock prevented deployment event",
+			commitHash: "abcdefabcdef",
+			email:      "test@email.com",
+			event: event.DBEventGo{
+				EventData: &event.LockPreventedDeployment{
+					Environment: "production",
+					Application: "test-app",
+					LockMessage: "message",
+					LockType:    "env",
+				},
+				EventMetadata: event.Metadata{
+					Uuid:      "00000000-0000-0000-0000-000000000001",
+					EventType: "lock-prevented-deployment",
+				},
+			},
+		},
+		{
+			Name:       "Lock prevented deployment event",
+			commitHash: "abcdefabcdef",
+			email:      "test@email.com",
+			event: event.DBEventGo{
+				EventData: &event.NewRelease{
+					Environments: map[string]struct{}{},
+				},
+				EventMetadata: event.Metadata{
+					Uuid:      "00000000-0000-0000-0000-000000000001",
+					EventType: "new-release",
+				},
 			},
 		},
 	}
@@ -315,42 +363,54 @@ func TestDeploymentStorage(t *testing.T) {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
 
-			tx, err := db.DB.BeginTx(ctx, nil)
+			err = db.RunCustomMigrationsEventSourcingLight(ctx)
 			if err != nil {
-				t.Fatalf("Error creating transaction. Error: %v\n", err)
-			}
-			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tx, tc.metadata.Uuid, tc.commitHash, tc.email, &tc.event)
-			if writeDeploymentError != nil {
-				t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
-			}
-			err = tx.Commit()
-			if err != nil {
-				t.Fatalf("Error commiting transaction. Error: %v\n", err)
-			}
+				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
 
-			m, err := db.DBSelectAllEventsForCommit(ctx, tc.commitHash)
-			if err != nil {
-				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 			}
-
-			for _, currEvent := range m {
-				e, err := event.UnMarshallEvent("deployment", currEvent.EventJson)
-
+			err = db.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
 				if err != nil {
-					t.Fatalf("Error obtaining event from DB. Error: %v\n", err)
+					t.Fatalf("Error creating transaction. Error: %v\n", err)
+				}
+				err := writeEventAux(ctx, db, tx, tc.commitHash, tc.event)
+				if err != nil {
+					t.Fatalf("Error writing event to DB. Error: %v\n", err)
 				}
 
-				if diff := cmp.Diff(e.EventData, &tc.event); diff != "" {
-					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				m, err := db.DBSelectAllEventsForCommit(ctx, tx, tc.commitHash)
+				if err != nil {
+					t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 				}
+				for _, currEvent := range m {
+					e, err := event.UnMarshallEvent(event.EventType(tc.event.EventMetadata.EventType), currEvent.EventJson)
 
-				if diff := cmp.Diff(e.EventMetadata, tc.metadata); diff != "" {
-					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+					if err != nil {
+						t.Fatalf("Error obtaining event from DB. Error: %v\n", err)
+					}
+
+					if diff := cmp.Diff(e.EventData, tc.event.EventData); diff != "" {
+						t.Errorf("response mismatch (-want, +got):\n%s", diff)
+					}
+
+					if diff := cmp.Diff(e.EventMetadata, tc.event.EventMetadata); diff != "" {
+						t.Errorf("response mismatch (-want, +got):\n%s", diff)
+					}
 				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Tranasction error")
 			}
-
 		})
 	}
+}
+
+func writeEventAux(ctx context.Context, db *DBHandler, tx *sql.Tx, sourceCommitHash string, ev event.DBEventGo) error {
+	jsonToInsert, err := json.Marshal(ev)
+	if err != nil {
+		return err
+	}
+	return db.writeEvent(ctx, tx, 0, ev.EventMetadata.Uuid, event.EventType(ev.EventMetadata.EventType), sourceCommitHash, jsonToInsert)
 }
 
 func TestSqliteToPostgresQuery(t *testing.T) {
@@ -459,10 +519,11 @@ func TestReadWriteDeployment(t *testing.T) {
 			Env:             "dev",
 			VersionToDeploy: version(7),
 			ExpectedDeployment: &Deployment{
-				App:        "app-a",
-				Env:        "dev",
-				EslVersion: 2,
-				Version:    version(7),
+				App:           "app-a",
+				Env:           "dev",
+				EslVersion:    2,
+				Version:       version(7),
+				TransformerID: 0,
 			},
 		},
 		{
@@ -471,10 +532,11 @@ func TestReadWriteDeployment(t *testing.T) {
 			Env:             "prod",
 			VersionToDeploy: nil,
 			ExpectedDeployment: &Deployment{
-				App:        "app-b",
-				Env:        "prod",
-				EslVersion: 2,
-				Version:    nil,
+				App:           "app-b",
+				Env:           "prod",
+				EslVersion:    2,
+				Version:       nil,
+				TransformerID: 0,
 			},
 		},
 	}
@@ -487,7 +549,7 @@ func TestReadWriteDeployment(t *testing.T) {
 
 			dbHandler := setupDB(t)
 
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				deployment, err2 := dbHandler.DBSelectAnyDeployment(ctx, transaction)
 				if err2 != nil {
 					return err2
@@ -495,10 +557,17 @@ func TestReadWriteDeployment(t *testing.T) {
 				if deployment != nil {
 					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *deployment))
 				}
-				err := dbHandler.DBWriteDeployment(ctx, transaction, Deployment{
-					App:     tc.App,
-					Env:     tc.Env,
-					Version: tc.VersionToDeploy,
+
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBWriteDeployment(ctx, transaction, Deployment{
+					App:           tc.App,
+					Env:           tc.Env,
+					Version:       tc.VersionToDeploy,
+					TransformerID: 0,
 				}, 1)
 				if err != nil {
 					return err
@@ -572,7 +641,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -649,7 +718,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -724,7 +793,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectAppLock(ctx, transaction, tc.Env, tc.AppName, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -814,7 +883,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -921,7 +990,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
 					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
 					if err != nil {
@@ -984,7 +1053,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version)
 				if err != nil {
 					return err
@@ -1052,7 +1121,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -1142,7 +1211,7 @@ func TestDeleteTeamLock(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				envLock, err2 := dbHandler.DBSelectTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID)
 				if err2 != nil {
 					return err2
@@ -1231,7 +1300,7 @@ func TestDeleteRelease(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.DBInsertRelease(ctx, transaction, tc.toInsert, tc.toInsert.EslId-1)
 				if err2 != nil {
 					return err2
@@ -1407,7 +1476,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			for _, envToWrite := range tc.EnvsToWrite {
-				err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
@@ -1419,7 +1488,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 				}
 			}
 
-			envEntry, err := WithTransactionT(dbHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
+			envEntry, err := WithTransactionT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
 				envEntry, err := dbHandler.DBSelectEnvironment(ctx, transaction, tc.EnvToQuery)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
@@ -1511,7 +1580,7 @@ func TestReadWriteEslEvent(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteEslEventInternal(ctx, tc.EventType, transaction, tc.EventData, tc.EventMetadata)
 				if err != nil {
 					return err
@@ -1528,6 +1597,138 @@ func TestReadWriteEslEvent(t *testing.T) {
 				if diff := cmp.Diff(tc.ExpectedEsl.EventJson, actual.EventJson); diff != "" {
 					t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
 				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestReadWriteFailedEslEvent(t *testing.T) {
+	const envName = "dev"
+	const appName = "my-app"
+	const lockId = "ui-v2-ke1up"
+	const message = "test"
+	const authorName = "testauthor"
+	const authorEmail = "testemail@example.com"
+
+	tcs := []struct {
+		Name   string
+		Events []EslEventRow
+		Limit  int
+	}{
+		{
+			Name: "Write and read once",
+			Events: []EslEventRow{
+				{
+					EventType: EvtCreateApplicationVersion,
+					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     1,
+				},
+			},
+			Limit: 1,
+		},
+		{
+			Name: "Write and read multiple",
+			Events: []EslEventRow{
+				{
+					EventType: EvtCreateApplicationVersion,
+					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     1,
+				},
+				{
+					EventType: EvtCreateEnvironmentApplicationLock,
+					EventJson: string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     2,
+				},
+				{
+					EventType: EvtCreateEnvironment,
+					EventJson: string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     3,
+				},
+			},
+			Limit: 3,
+		},
+		{
+			Name: "More than limit",
+			Events: []EslEventRow{
+				{
+					EventType: EvtCreateApplicationVersion,
+					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     1,
+				},
+				{
+					EventType: EvtCreateEnvironmentGroupLock,
+					EventJson: string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     2,
+				},
+				{
+					EventType: EvtCreateEnvironment,
+					EventJson: string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     3,
+				},
+			},
+			Limit: 2,
+		},
+		{
+			Name: "Less than limit",
+			Events: []EslEventRow{
+				{
+					EventType: EvtCreateApplicationVersion,
+					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     1,
+				},
+			},
+			Limit: 3,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, event := range tc.Events {
+					err := dbHandler.DBWriteFailedEslEvent(ctx, transaction, &event)
+					if err != nil {
+						return err
+					}
+				}
+
+				actualEvents, err := dbHandler.DBReadLastFailedEslEvents(ctx, transaction, tc.Limit)
+				if err != nil {
+					return err
+				}
+
+				if len(actualEvents) > tc.Limit {
+					t.Fatalf("expected %d events, got %d", tc.Limit, len(actualEvents))
+				}
+
+				for i, actualEvent := range actualEvents {
+					reverse_index := len(tc.Events) - 1 - i // The order of the results should be descending
+					if diff := cmp.Diff(tc.Events[reverse_index].EslId, actualEvent.EslId); diff != "" {
+						t.Fatalf("event id mismatch (-want, +got):\n%s", diff)
+					}
+					if diff := cmp.Diff(tc.Events[reverse_index].EventType, actualEvent.EventType); diff != "" {
+						t.Fatalf("event type mismatch (-want, +got):\n%s", diff)
+					}
+					if diff := cmp.Diff(tc.Events[reverse_index].EventJson, actualEvent.EventJson); diff != "" {
+						t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
+					}
+				}
+
 				return nil
 			})
 			if err != nil {
@@ -1575,7 +1776,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			for _, allEnvs := range tc.AllEnvsToWrite {
-				err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					err := dbHandler.DBWriteAllEnvironments(ctx, transaction, allEnvs)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
@@ -1587,7 +1788,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 				}
 			}
 
-			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
 				allEnvsEntry, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
@@ -1744,7 +1945,7 @@ func TestReadReleasesByApp(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
 
-			err := dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.Releases {
 					err := dbHandler.DBInsertRelease(ctx, transaction, release, release.EslId-1)
 					if err != nil {
@@ -1764,6 +1965,208 @@ func TestReadReleasesByApp(t *testing.T) {
 				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
 			}
 
+		})
+	}
+}
+
+func TestReadWriteOverviewCache(t *testing.T) {
+	var upstreamLatest = true
+	var dev = "dev"
+	type TestCase struct {
+		Name      string
+		Overviews []*api.GetOverviewResponse
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "Read and write",
+			Overviews: []*api.GetOverviewResponse{
+				&api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "dev",
+							Environments: []*api.Environment{
+								{
+									Name: "development",
+									Config: &api.EnvironmentConfig{
+										Upstream: &api.EnvironmentConfig_Upstream{
+											Latest: &upstreamLatest,
+										},
+										Argocd:           &api.EnvironmentConfig_ArgoCD{},
+										EnvironmentGroup: &dev,
+									},
+									Applications: map[string]*api.Environment_Application{
+										"test": {
+											Name:    "test",
+											Version: 1,
+											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+												DeployAuthor: "testmail@example.com",
+												DeployTime:   "1",
+											},
+											Team: "team-123",
+										},
+									},
+									Priority: api.Priority_YOLO,
+								},
+							},
+							Priority: api.Priority_YOLO,
+						},
+					},
+					Applications: map[string]*api.Application{
+						"test": {
+							Name: "test",
+							Releases: []*api.Release{
+								{
+									Version:        1,
+									SourceCommitId: "deadbeef",
+									SourceAuthor:   "example <example@example.com>",
+									SourceMessage:  "changed something (#678)",
+									PrNumber:       "678",
+									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+								},
+							},
+							Team: "team-123",
+						},
+					},
+					GitRevision: "0",
+				},
+			},
+		},
+		{
+			Name: "Read and write multiple",
+			Overviews: []*api.GetOverviewResponse{
+				&api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "dev",
+							Environments: []*api.Environment{
+								{
+									Name: "development",
+									Config: &api.EnvironmentConfig{
+										Upstream: &api.EnvironmentConfig_Upstream{
+											Latest: &upstreamLatest,
+										},
+										Argocd:           &api.EnvironmentConfig_ArgoCD{},
+										EnvironmentGroup: &dev,
+									},
+									Applications: map[string]*api.Environment_Application{
+										"test": {
+											Name:    "test",
+											Version: 1,
+											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+												DeployAuthor: "testmail@example.com",
+												DeployTime:   "1",
+											},
+											Team: "team-123",
+										},
+									},
+									Priority: api.Priority_YOLO,
+								},
+							},
+							Priority: api.Priority_YOLO,
+						},
+					},
+					Applications: map[string]*api.Application{
+						"test": {
+							Name: "test",
+							Releases: []*api.Release{
+								{
+									Version:        1,
+									SourceCommitId: "deadbeef",
+									SourceAuthor:   "example <example@example.com>",
+									SourceMessage:  "changed something (#678)",
+									PrNumber:       "678",
+									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+								},
+							},
+							Team: "team-123",
+						},
+					},
+					GitRevision: "0",
+				},
+				&api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "test",
+							Environments: []*api.Environment{
+								{
+									Name: "testing",
+									Config: &api.EnvironmentConfig{
+										Upstream: &api.EnvironmentConfig_Upstream{
+											Latest: &upstreamLatest,
+										},
+										Argocd:           &api.EnvironmentConfig_ArgoCD{},
+										EnvironmentGroup: &dev,
+									},
+									Applications: map[string]*api.Environment_Application{
+										"test2": {
+											Name:    "test2",
+											Version: 1,
+											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+												DeployAuthor: "testmail2@example.com",
+												DeployTime:   "1",
+											},
+											Team: "team-123",
+										},
+									},
+									Priority: api.Priority_CANARY,
+								},
+							},
+							Priority: api.Priority_CANARY,
+						},
+					},
+					Applications: map[string]*api.Application{
+						"test2": {
+							Name: "test2",
+							Releases: []*api.Release{
+								{
+									Version:        1,
+									SourceCommitId: "deadbeef",
+									SourceAuthor:   "example <example@example.com>",
+									SourceMessage:  "changed something (#678)",
+									PrNumber:       "678",
+									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+								},
+							},
+							Team: "team-123",
+						},
+					},
+					GitRevision: "0",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, overview := range tc.Overviews {
+					err := dbHandler.WriteOverviewCache(ctx, transaction, overview)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+
+				result, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+
+				opts := getOverviewIgnoredTypes()
+				if diff := cmp.Diff(tc.Overviews[len(tc.Overviews)-1], result, opts); diff != "" {
+					return fmt.Errorf("overview cache ESL ID mismatch (-want +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
 		})
 	}
 }

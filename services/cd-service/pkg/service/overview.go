@@ -37,6 +37,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
@@ -79,12 +80,26 @@ func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
 
-	var response *api.GetOverviewResponse
 	if s.DBHandler.ShouldUseOtherTables() {
-		err := s.DBHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
 			var err2 error
-			response, err2 = o.getOverview(ctx, s, transaction)
-			return err2
+			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+			if err2 != nil {
+				return nil, err2
+			}
+			if !s.DBHandler.IsOverviewEmpty(cached_result) {
+				return cached_result, nil
+			}
+
+			response, err2 := o.getOverview(ctx, s, transaction)
+			if err2 != nil {
+				return nil, err2
+			}
+			err2 = s.DBHandler.WriteOverviewCache(ctx, transaction, response)
+			if err2 != nil {
+				return nil, err2
+			}
+			return response, nil
 		})
 		if err != nil {
 			return nil, err
@@ -100,8 +115,12 @@ func (o *OverviewServiceServer) getOverview(
 	transaction *sql.Tx,
 ) (*api.GetOverviewResponse, error) {
 	var rev string
-	if s.Commit != nil {
-		rev = s.Commit.Id().String()
+	if s.DBHandler.ShouldUseOtherTables() {
+		rev = "0000000000000000000000000000000000000000"
+	} else {
+		if s.Commit != nil {
+			rev = s.Commit.Id().String()
+		}
 	}
 	result := api.GetOverviewResponse{
 		Branch:            "",
@@ -197,6 +216,7 @@ func (o *OverviewServiceServer) getOverview(
 					if err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
+
 						if version == nil {
 							app.Version = 0
 						} else {
@@ -297,16 +317,13 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 				app.Team = team
 			}
-			if url, err := s.GetApplicationSourceRepoUrl(appName); err != nil {
-				return nil, err
-			} else {
-				app.SourceRepoUrl = url
-			}
 			app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
 			app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
 			result.Applications[appName] = &app
 		}
+
 	}
+
 	return &result, nil
 }
 

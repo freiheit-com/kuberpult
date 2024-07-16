@@ -145,7 +145,6 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	// RBAC Role of the user. only mandatory if DEX is enabled.
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
-
 		if len(rolesInHeader) == 0 {
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
@@ -155,12 +154,16 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 			if err != nil {
 				return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-role in grpc context %s", userRole))
 			}
+			if newRole == "" {
+				continue //skip empty roles
+			}
 			userRole = append(userRole, strings.Split(newRole, ",")...)
 		}
 
 		if len(userRole) == 0 {
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
+
 		u.DexAuthContext = &DexAuthContext{
 			Role: userRole,
 		}

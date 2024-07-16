@@ -66,8 +66,6 @@ git:
   # The maximum number of application release versions to keep a history of. The value must be within the limit: 5 <= n <= 30.
   # Values outside of the range will fail the service during startup.
   releaseVersionsLimit: 20
-  # garbageCollectionFrequency determines how often cd-service cleans up git objects. Set to 0 to turn it off.
-  garbageCollectionFrequency: 20
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
@@ -95,30 +93,6 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
-# The Database is not ready for use on production and the helm options might change in the near future.
-  db:
-    location: "127.0.0.1"
-    authProxyPort: 5432
-# As the Database feature is still work in progress, for now we recommend to set:
-# dbOption: "NO_DB"
-# Other valid values are "cloudsql" and "sqlite".
-# If you do want to try out the database, for now use
-# writeEslTableOnly: true
-    dbOption: "NO_DB"
-# k8sName is required if `dbOption = "cloudsql"`, otherwise it's ignored.
-# k8sName is the name of the kubernetes service account.
-    k8sName: "k8sname"
-    dbConnectionName: "connectioname"
-    dbName: "databaseName"
-    dbUser: "username"
-    dbPassword: "password"
-    migrations: /migrations
-    # If set to true, kuberpult will write only the ESL table.
-    # This is useful to already collect historical data in the database, while waiting for the full database implementation.
-    writeEslTableOnly: false
-    requests:
-      cpu: "100m"
-      memory: "200Mi"
   probes:
     liveness:
       periodSeconds: 10
@@ -132,6 +106,32 @@ cd:
       timeoutSeconds: 5
       failureThreshold: 10
       initialDelaySeconds: 5
+# The Database is not ready for use on production and the helm options might change in the near future.
+db:
+  location: "127.0.0.1"
+  authProxyPort: 5432
+# As the Database feature is still work in progress, for now we recommend to set:
+# dbOption: "NO_DB"
+# Other valid values are "postgreSQL".
+# If you do want to try out the database, for now use
+# writeEslTableOnly: true
+  dbOption: "NO_DB"
+# k8sServiceAccountName is required if `dbOption = "postgreSQL"`, otherwise it's ignored.
+# k8sServiceAccountName is the name of the kubernetes service account.
+  k8sServiceAccountName: "k8sServiceAccountName"
+# cloudSqlProxyEnabled enables the cloudsql proxy. Not possible with `dbOption = "NO_DB"`.
+  cloudSqlProxyEnabled: false
+  dbConnectionName: "connectioname"
+  dbName: "databaseName"
+  dbUser: "username"
+  dbPassword: "password"
+  migrations: /migrations
+  # If set to true, kuberpult will write only the ESL table.
+  # This is useful to already collect historical data in the database, while waiting for the full database implementation.
+  writeEslTableOnly: false
+  requests:
+    cpu: "100m"
+    memory: "200Mi"
 manifestRepoExport:
   image: kuberpult-manifest-repo-export-service
   resources:
@@ -142,6 +142,8 @@ manifestRepoExport:
       cpu: 2
       memory: 3Gi
   eslProcessingBackoff: 5
+  # Timeout in seconds used for network operations
+  networkTimeoutSeconds: 120
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.
@@ -304,6 +306,8 @@ auth:
     enabled: false
     # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
     installDex: false
+    # Overrides the name of the dex resources. Allows creating multiple Dex instances on the same cluster.
+    fullNameOverride: "kuberpult-dex"
     # If kuberpult cannot find a role in the dex response, it will use the role "default".
     # This is only recommended for when you want the simplest possible setup, or for testing purposes.
     defaultRoleEnabled: false

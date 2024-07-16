@@ -40,12 +40,17 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
+const (
+	dexServiceURL = "http://dex-instance:5556"
+)
+
 func TestNewDexAppClient(t *testing.T) {
 	DEX_URL, _ := url.Parse(dexServiceURL)
 	testCases := []struct {
 		Name                            string
 		clientID                        string
 		clientSecret                    string
+		DexFullNameOverride             string
 		baseURL                         string
 		scopes                          []string
 		useClusterInternalCommunication bool
@@ -56,6 +61,7 @@ func TestNewDexAppClient(t *testing.T) {
 			Name:                            "Creates the a new Dex App Client as expected",
 			clientID:                        "test-client",
 			clientSecret:                    "test-secret",
+			DexFullNameOverride:             "dex-instance",
 			baseURL:                         "www.test-url.com",
 			scopes:                          []string{"scope1", "scope2"},
 			useClusterInternalCommunication: false,
@@ -64,6 +70,7 @@ func TestNewDexAppClient(t *testing.T) {
 				ClientID:                        "test-client",
 				ClientSecret:                    "test-secret",
 				RedirectURI:                     "www.test-url.com/callback",
+				DexServiceURL:                   "http://dex-instance:5556",
 				IssuerURL:                       "www.test-url.com/dex",
 				BaseURL:                         "www.test-url.com",
 				UseClusterInternalCommunication: false,
@@ -80,12 +87,14 @@ func TestNewDexAppClient(t *testing.T) {
 			Name:                            "Creates the a new Dex App Client as expected with internal communication",
 			clientID:                        "test-client",
 			clientSecret:                    "test-secret",
+			DexFullNameOverride:             "dex-instance",
 			baseURL:                         "www.test-url.com",
 			scopes:                          []string{"scope1", "scope2"},
 			useClusterInternalCommunication: true,
 			wantErr:                         false,
 			wantClientApp: &DexAppClient{
 				ClientID:                        "test-client",
+				DexServiceURL:                   "http://dex-instance:5556",
 				ClientSecret:                    "test-secret",
 				RedirectURI:                     "www.test-url.com/callback",
 				IssuerURL:                       "www.test-url.com/dex",
@@ -104,7 +113,7 @@ func TestNewDexAppClient(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			http.DefaultServeMux = http.NewServeMux()
-			a, err := NewDexAppClient(tc.clientID, tc.clientSecret, tc.baseURL, tc.scopes, tc.useClusterInternalCommunication)
+			a, err := NewDexAppClient(tc.clientID, tc.clientSecret, tc.baseURL, tc.DexFullNameOverride, tc.scopes, tc.useClusterInternalCommunication)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
 			}
@@ -191,9 +200,10 @@ func TestValidateToken(t *testing.T) {
 	clientID := "test-client"
 	clientSecret := "test-client"
 	hostURL := "https://www.test.com"
+	DexFullNameOverride := "dex-instance"
 	scopes := []string{"scope1", "scope2"}
 	useClusterInternalCommunication := false
-	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes, useClusterInternalCommunication)
+	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, DexFullNameOverride, scopes, useClusterInternalCommunication)
 
 	testCases := []struct {
 		Name            string
@@ -236,7 +246,7 @@ func TestValidateToken(t *testing.T) {
 			token, _ := GetSignedJwt(jwkPrivateKey, claims)
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
-			_, err := ValidateOIDCToken(ctx, appDex.IssuerURL, string(token), tc.allowedAudience, useClusterInternalCommunication)
+			_, err := ValidateOIDCToken(ctx, appDex.IssuerURL, string(token), tc.allowedAudience, appDex.DexServiceURL, useClusterInternalCommunication)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
 			}
@@ -252,8 +262,9 @@ func TestVerifyToken(t *testing.T) {
 	clientSecret := "test-client"
 	hostURL := "https://www.test.com"
 	scopes := []string{"scope1", "scope2"}
+	DexFullNameOverride := "dex-instance"
 	useClusterInternalCommunication := false
-	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes, useClusterInternalCommunication)
+	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, DexFullNameOverride, scopes, useClusterInternalCommunication)
 
 	testCases := []struct {
 		Name      string
@@ -313,7 +324,7 @@ func TestVerifyToken(t *testing.T) {
 			req.AddCookie(cookie)
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
-			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, useClusterInternalCommunication)
+			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, appDex.DexServiceURL, useClusterInternalCommunication)
 			if err != nil {
 				if diff := cmp.Diff(tc.wantErr, err.Error()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)

@@ -242,7 +242,7 @@ func runServer(ctx context.Context) error {
 	var dexClient *auth.DexAppClient
 	if c.DexEnabled {
 		// Registers Dex handlers.
-		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
+		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, c.DexFullNameOverride, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
 		}
@@ -294,6 +294,7 @@ func runServer(ctx context.Context) error {
 		GitClient:                   api.NewGitServiceClient(cdCon),
 		EnvironmentServiceClient:    api.NewEnvironmentServiceClient(cdCon),
 		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+		EslServiceClient:            api.NewEslServiceClient(cdCon),
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
@@ -301,6 +302,7 @@ func runServer(ctx context.Context) error {
 	api.RegisterGitServiceServer(gsrv, gproxy)
 	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
 	api.RegisterReleaseTrainPrognosisServiceServer(gsrv, gproxy)
+	api.RegisterEslServiceServer(gsrv, gproxy)
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
@@ -342,7 +344,7 @@ func runServer(ctx context.Context) error {
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, dexClient.DexServiceURL, policy, c.DexUseClusterInternalCommunication)
 			return
 		}
 		httpHandler.Handle(w, req)
@@ -366,7 +368,7 @@ func runServer(ctx context.Context) error {
 		}
 
 		if c.DexEnabled {
-			interceptors.DexAPIInterceptor(w, req, httpHandler.HandleAPI, c.DexClientId, c.DexBaseURL, policy, c.DexUseClusterInternalCommunication)
+			interceptors.DexAPIInterceptor(w, req, httpHandler.HandleAPI, c.DexClientId, c.DexBaseURL, dexClient.DexServiceURL, policy, c.DexUseClusterInternalCommunication)
 			return
 		}
 
@@ -563,7 +565,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if c.DexEnabled {
 			source = "dex"
-			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, p.Policy, c.DexUseClusterInternalCommunication)
+			dexServiceURL := auth.GetDexServiceURL(c.DexFullNameOverride)
+			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, dexServiceURL, p.Policy, c.DexUseClusterInternalCommunication)
 			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
 			} else {
@@ -597,8 +600,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
-	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, policy, useClusterInternalCommunication)
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
 	if err != nil {
 		return nil
 	}
@@ -623,6 +626,7 @@ type GrpcProxy struct {
 	GitClient                   api.GitServiceClient
 	EnvironmentServiceClient    api.EnvironmentServiceClient
 	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
+	EslServiceClient            api.EslServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -637,6 +641,12 @@ func (p *GrpcProxy) ProcessBatch(
 	}
 
 	return p.BatchClient.ProcessBatch(ctx, in)
+}
+
+func (p *GrpcProxy) GetFailedEsls(
+	ctx context.Context,
+	in *api.GetFailedEslsRequest) (*api.GetFailedEslsResponse, error) {
+	return p.EslServiceClient.GetFailedEsls(ctx, in)
 }
 
 func (p *GrpcProxy) GetOverview(

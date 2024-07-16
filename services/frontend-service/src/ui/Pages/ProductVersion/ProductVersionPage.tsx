@@ -15,14 +15,13 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import { useGlobalLoadingState } from '../../utils/store';
-import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { ProductVersion } from '../../components/ProductVersion/ProductVersion';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
 export const ProductVersionPage: React.FC = () => {
-    const [everythingLoaded, loadingState] = useGlobalLoadingState();
-    if (!everythingLoaded) {
-        return <LoadingStateSpinner loadingState={loadingState} />;
+    const element = useGlobalLoadingState();
+    if (element) {
+        return element;
     }
     return (
         <div>

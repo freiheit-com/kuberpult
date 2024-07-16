@@ -32,15 +32,8 @@ import (
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
-
-func storageBackend(enableSqlite bool) repository.StorageBackend {
-	if enableSqlite {
-		return repository.SqliteBackend
-	} else {
-		return repository.GitBackend
-	}
-}
 
 const (
 	minReleaseVersionsLimit = 5
@@ -102,19 +95,30 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// not that this is for the git storage backand, not our database:
-	enableSqliteStorageBackendString, err := readEnvVar("KUBERPULT_ENABLE_SQLITE")
-	if err != nil {
-		return err
-	}
+
 	enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
 	if err != nil {
-		return err
+		log.Info("datadog metrics are disabled")
 	}
 	enableMetrics := enableMetricsString == "true"
-	DatatDogStatsAddr, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
+	dataDogStatsAddr := "127.0.0.1:8125"
+	if enableMetrics {
+		dataDogStatsAddrEnv, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
+		if err != nil {
+			log.Infof("using default dogStatsAddr: %s", dataDogStatsAddr)
+		} else {
+			dataDogStatsAddr = dataDogStatsAddrEnv
+		}
+	}
+
+	enableTracesString, err := readEnvVar("KUBERPULT_ENABLE_TRACING")
 	if err != nil {
-		return err
+		log.Info("datadog traces are disabled")
+	}
+	enableTraces := enableTracesString == "true"
+	if enableTraces {
+		tracer.Start()
+		defer tracer.Stop()
 	}
 
 	releaseVersionLimitStr, err := readEnvVar("KUBERPULT_RELEASE_VERSIONS_LIMIT")
@@ -142,7 +146,14 @@ func Run(ctx context.Context) error {
 		}
 	}
 
-	enableSqliteStorageBackend := enableSqliteStorageBackendString == "true"
+	networkTimeoutSecondsStr, err := readEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
+	if err != nil {
+		return err
+	}
+	networkTimeoutSeconds, err := strconv.ParseUint(networkTimeoutSecondsStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("error parsing KUBERPULT_NETWORK_TIMEOUT_SECONDS, error: %w", err)
+	}
 
 	argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
 	if err != nil {
@@ -151,7 +162,7 @@ func Run(ctx context.Context) error {
 	argoCdGenerateFiles := argoCdGenerateFilesString == "true"
 
 	var dbCfg db.DBConfig
-	if dbOption == "cloudsql" {
+	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
 			DbHost:         dbLocation,
 			DbPort:         dbAuthProxyPort,
@@ -182,7 +193,7 @@ func Run(ctx context.Context) error {
 	}
 	var ddMetrics statsd.ClientInterface
 	if enableMetrics {
-		ddMetrics, err = statsd.New(DatatDogStatsAddr, statsd.WithNamespace("Kuberpult"))
+		ddMetrics, err = statsd.New(dataDogStatsAddr, statsd.WithNamespace("Kuberpult"))
 		if err != nil {
 			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 		}
@@ -200,11 +211,9 @@ func Run(ctx context.Context) error {
 			KnownHostsFile: gitSshKnownHosts,
 		},
 		Branch:                 gitBranch,
-		NetworkTimeout:         120 * time.Second,
-		GcFrequency:            20,
+		NetworkTimeout:         time.Duration(networkTimeoutSeconds) * time.Second,
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "./environment_configs.json",
-		StorageBackend:         storageBackend(enableSqliteStorageBackend),
 		ReleaseVersionLimit:    uint(releaseVersionLimit),
 		ArgoCdGenerateFiles:    argoCdGenerateFiles,
 		DBHandler:              dbHandler,
@@ -219,7 +228,9 @@ func Run(ctx context.Context) error {
 		eslTableEmpty := false
 		eslEventSkipped := false
 
-		err = dbHandler.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
+		const readonly = false
+		err = dbHandler.WithTransaction(ctx, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("error in DBReadCutoff %v", err)
@@ -253,7 +264,11 @@ func Run(ctx context.Context) error {
 			}
 			transformer, err := processEslEvent(ctx, repo, esl, transaction)
 			if err != nil {
-				return fmt.Errorf("error in processEslEvent %v", err)
+				err2 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
+				if err2 != nil {
+					return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
+				}
+				transformer = nil
 			}
 			if transformer == nil {
 				log.Warn("event processing skipped")
@@ -331,6 +346,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	if err != nil {
 		return nil, err
 	}
+	t.SetEslID(db.TransformerID(esl.EslId))
 	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
 
 	err = repo.Apply(ctx, tx, t)
@@ -375,6 +391,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtCreateEnvironment:
 		//exhaustruct:ignore
 		return &repository.CreateEnvironment{}, nil
+	case db.EvtMigrationTransformer:
+		//exhaustruct:ignore
+		return &repository.MigrationTransformer{}, nil
 	case db.EvtDeleteEnvFromApp:
 		//exhaustruct:ignore
 		return &repository.DeleteEnvFromApp{}, nil

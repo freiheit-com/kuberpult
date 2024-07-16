@@ -19,7 +19,7 @@ import { searchCustomFilter, UpdateOverview, useApplicationsFilteredAndSorted, u
 import { Spy } from 'spy4js';
 import { MemoryRouter } from 'react-router-dom';
 import { Application, UndeploySummary } from '../../../api/api';
-import { fakeLoadEverything } from '../../../setupTests';
+import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 
 const mock_ServiceLane = Spy.mockReactComponents('../../components/ServiceLane/ServiceLane', 'ServiceLane');
 
@@ -65,6 +65,39 @@ describe('App', () => {
         const { container } = getWrapper();
         // then
         expect(container.getElementsByClassName('spinner')).toHaveLength(1);
+    });
+    it('Renders login page if Dex enabled', () => {
+        fakeLoadEverything(true);
+        enableDexAuth(false);
+        const { container } = getWrapper();
+        expect(container.getElementsByClassName('environment_name')[0]).toHaveTextContent('Log in to Dex');
+    });
+    it('Renders page if Dex enabled and valid token', () => {
+        const buildTestApp = (suffix: string): Application => ({
+            name: `test${suffix}`,
+            releases: [],
+            sourceRepoUrl: `http://test${suffix}.com`,
+            team: `team${suffix}`,
+            undeploySummary: UndeploySummary.NORMAL,
+            warnings: [],
+        });
+        // when
+        const sampleApps = {
+            app1: buildTestApp('1'),
+            app2: buildTestApp('2'),
+            app3: buildTestApp('3'),
+        };
+        UpdateOverview.set({
+            applications: sampleApps,
+        });
+        fakeLoadEverything(true);
+        enableDexAuth(true);
+        getWrapper();
+
+        // then apps are sorted and Service Lane is called
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({ application: sampleApps.app1 });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({ application: sampleApps.app2 });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({ application: sampleApps.app3 });
     });
 });
 

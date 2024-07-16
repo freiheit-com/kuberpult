@@ -110,3 +110,25 @@ export const fakeLoadEverything = (load: boolean): void => {
         tagsReady: load,
     });
 };
+
+export const enableDexAuth = (setValidToken: boolean): void => {
+    if (setValidToken) {
+        // Dummy token with expiring date on year 56494
+        document.cookie =
+            'kuberpult.oauth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE3MjA2MjE5OTc3Nzd9.p3ApN5elnhhRhrh7DCOF-9suPIXYC36Nycf0nHfxuf8';
+    }
+    UpdateFrontendConfig.set({
+        configs: {
+            argoCd: undefined,
+            authConfig: {
+                dexAuth: {
+                    enabled: true,
+                },
+            },
+            kuberpultVersion: 'dontcare',
+            manifestRepoUrl: 'dontcare',
+            sourceRepoUrl: 'dontcare',
+            branch: 'dontcare',
+        },
+    });
+};

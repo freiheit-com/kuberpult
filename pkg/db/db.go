@@ -28,6 +28,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/valid"
+
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -72,7 +75,7 @@ type DBHandler struct {
 }
 
 type EslId int64
-
+type TransformerID EslId
 type AppStateChange string
 
 const (
@@ -120,7 +123,7 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 		dbPool.SetConnMaxLifetime(5 * time.Minute)
 		return dbPool, nil
 	} else if cfg.DriverName == "sqlite3" {
-		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite"))
+		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite?_foreign_keys=on"))
 	}
 	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
 }
@@ -241,6 +244,7 @@ const (
 	EvtCreateEnvironmentApplicationLock EventType = "CreateEnvironmentApplicationLock"
 	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"
 	EvtReleaseTrain                     EventType = "ReleaseTrain"
+	EvtMigrationTransformer             EventType = "MigrationTransformer"
 )
 
 // ESL EVENTS
@@ -262,6 +266,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	defer span.Finish()
 
 	dataMap, err := convertObjectToMap(data)
+
 	if err != nil {
 		return fmt.Errorf("could not convert object to map: %w", err)
 	}
@@ -313,8 +318,66 @@ type EslEventRow struct {
 	EventJson string
 }
 
+// DBDiscoverCurrentEsldID: Returns the current sequence number of event_sourcing_light table.
+// Next value should be the returned on + 1
+func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*int, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBDiscoverCurrentEsldID: no transaction provided")
+	}
+	var selectQuery string
+	if h.DriverName == "postgres" {
+		selectQuery = h.AdaptQuery("SELECT last_value from event_sourcing_light_eslid_seq;")
+
+	} else if h.DriverName == "sqlite3" {
+		selectQuery = h.AdaptQuery("SELECT seq FROM SQLITE_SEQUENCE WHERE name='event_sourcing_light';")
+	} else {
+		return nil, fmt.Errorf("Driver: '%s' not supported.\n", h.DriverName)
+	}
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not get current eslid. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	var value *int
+	value = new(int)
+	if rows.Next() {
+		err := rows.Scan(value)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error table for next eslID. Error: %w\n", err)
+		}
+	} else {
+		value = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
 // DBReadEslEventInternal returns either the first or the last row of the esl table
 func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (*EslEventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBReadEslEventInternal: no transaction provided")
+	}
 	sort := "DESC"
 	if firstRow {
 		sort = "ASC"
@@ -359,8 +422,12 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 
 // DBReadEslEventLaterThan returns the first row of the esl table that has an eslId > the given eslId
 func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslId EslId) (*EslEventRow, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBReadEslEventLaterThan")
+	defer span.Finish()
+
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslId, created, event_type, json FROM event_sourcing_light WHERE eslId > (?) ORDER BY created %s LIMIT 1;", sort))
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -442,6 +509,10 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
 			" LIMIT 1;"))
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyRelease")
+	defer span.Finish()
+	span.SetTag("query", selectQuery)
+
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -463,6 +534,9 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 			" WHERE appName=? AND releaseVersion=?" +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
+	defer span.Finish()
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -481,11 +555,14 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 }
 
 func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool) ([]*DBReleaseWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
+	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
 			" WHERE appName=? AND deleted=?" +
 			" ORDER BY releaseVersion DESC, eslVersion DESC, created DESC;"))
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -497,12 +574,15 @@ func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app s
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
+	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata " +
 			" FROM all_releases " +
 			" WHERE appName=?" +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -512,6 +592,9 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 }
 
 func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesRow")
+	defer span.Finish()
+
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -550,6 +633,9 @@ func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *
 	return row, nil
 }
 func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows) ([]*DBReleaseWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseRows")
+	defer span.Finish()
+
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -644,6 +730,10 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 			previousEslVersion+1,
 			err)
 	}
+	err = h.UpdateOverviewRelease(ctx, transaction, release)
+	if err != nil {
+		return err
+	}
 	logger.FromContext(ctx).Sugar().Infof(
 		"inserted release: app '%s' and version '%v' and eslVersion %v",
 		release.App,
@@ -700,7 +790,7 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 }
 
 func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx, app string, allVersions []int64, previousEslVersion EslId) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertAllReleases")
 	defer span.Finish()
 	slices.Sort(allVersions)
 	metadataJson, err := json.Marshal(DBAllReleaseMetaData{
@@ -754,23 +844,25 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 	return nil
 }
 
-func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
+func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
-	insertQuery := h.AdaptQuery("INSERT INTO events (uuid, timestamp, commitHash, eventType, json)  VALUES (?, ?, ?, ?, ?);")
+
+	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformerEslId)  VALUES (?, ?, ?, ?, ?, ?);")
+	span.SetTag("query", insertQuery)
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
 	if err != nil {
 		return fmt.Errorf("error parsing UUID. Error: %w", err)
 	}
-	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		rawUUID.String(),
 		uuid2.GetTime(&rawUUID).AsTime(),
 		sourceCommitHash,
 		eventType,
-		eventJson)
+		eventJson,
+		transformerID)
 
 	if err != nil {
 		return fmt.Errorf("Error inserting event information into DB. Error: %w\n", err)
@@ -778,73 +870,277 @@ func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, eventuu
 	return nil
 }
 
-func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
+func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) error {
+	//func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentEvent")
+	defer span.Finish()
+
 	metadata := event.Metadata{
-		AuthorEmail: email,
-		Uuid:        uuid,
+		Uuid:      uuid,
+		EventType: string(event.EventTypeNewRelease),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     newReleaseEvent,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling lock new release event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
+}
+
+func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeLockPreventeDeployment),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     lockPreventedDeploymentEvent,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
+}
+
+func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, replacedBy *event.ReplacedBy) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeReplaceBy),
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     replacedBy,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling replacedBys event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeReplaceBy, sourceCommitHash, jsonToInsert)
+}
+
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, deployment *event.Deployment) error {
+	metadata := event.Metadata{
+		Uuid:      uuid,
+		EventType: string(event.EventTypeDeployment),
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     deployment,
 		EventMetadata: metadata,
 	})
+	if !valid.SHA1CommitID(sourceCommitHash) {
+		return fmt.Errorf("refusing to write deployment event without commit hash for transformer %v with uuid %s",
+			transformerID,
+			uuid,
+		)
+	}
 
 	if err != nil {
 		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
+	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
 }
 
-func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
+func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (*EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAnyEvent: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEvent")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events ORDER BY timestamp DESC LIMIT 1;")
+	span.SetTag("query", query)
+	rows, err := transaction.QueryContext(ctx, query)
+	return h.processSingleEventsRow(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventType event.EventType, limit uint) ([]event.DBEventGo, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllCommitEventsForTransformer: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllCommitEventsForTransformer")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE eventType = (?) AND transformerEslId = (?) ORDER BY timestamp DESC LIMIT ?;")
 	span.SetTag("query", query)
 
-	rows, err := h.DB.QueryContext(ctx, query, commitHash)
+	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID, limit)
 	if err != nil {
-		return nil, fmt.Errorf("Error querying events. Error: %w\n", err)
+		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("events row could not be closed: %v", err)
+			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
+		}
+	}(rows)
+
+	var result []event.DBEventGo
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row = &EventRow{}
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+		}
+
+		eventGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
+		if err != nil {
+			return nil, fmt.Errorf("Could not unmarshall commit event: %v\n", err)
+		}
+		result = append(result, eventGo)
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+	}
+	return result, nil
+}
+
+func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, err error) (*EventRow, error) {
+	if err != nil {
+		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
+		}
+	}(rows)
+
+	//exhaustruct:ignore
+	var row = &EventRow{}
+	if rows.Next() {
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+		}
+	} else {
+		row = nil
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+	}
+	return row, nil
+}
+
+func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction *sql.Tx, commitHash string) ([]EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := transaction.QueryContext(ctx, query, commitHash)
+	return processAllCommitEventRow(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID TransformerID) ([]EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformerEslId FROM commit_events WHERE transformerEslId = (?) ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := transaction.QueryContext(ctx, query, transformerID)
+	return processAllCommitEventRow(ctx, rows, err)
+}
+
+func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([]EventRow, error) {
+	if err != nil {
+		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
 		}
 	}(rows)
 
 	var result []EventRow
 
 	for rows.Next() {
-		var row = EventRow{
-			Uuid:       "",
-			Timestamp:  time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
-			CommitHash: "",
-			EventType:  "",
-			EventJson:  "",
-		}
-		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson)
+		row, err := processSingleCommitEventRow(rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning events row from DB. Error: %w\n", err)
+			return nil, err
 		}
 
-		result = append(result, row)
+		result = append(result, *row)
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, fmt.Errorf("events: row closing error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("events: row has error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
 	}
 	return result, nil
 }
 
+func processSingleCommitEventRow(rows *sql.Rows) (*EventRow, error) {
+	var row = EventRow{
+		Uuid:          "",
+		Timestamp:     time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
+		CommitHash:    "",
+		EventType:     "",
+		EventJson:     "",
+		TransformerID: 0,
+	}
+	err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson, &row.TransformerID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+	}
+	return &row, nil
+}
+
 // DBSelectAllApplications returns (nil, nil) if there are no rows
 func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
 	defer span.Finish()
 	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
@@ -887,16 +1183,18 @@ type DBDeployment struct {
 	ReleaseVersion *int64
 	App            string
 	Env            string
+	TransformerID  TransformerID
 	Metadata       string // json
 }
 
 type Deployment struct {
-	EslVersion EslId
-	Created    time.Time
-	App        string
-	Env        string
-	Version    *int64
-	Metadata   DeploymentMetadata
+	EslVersion    EslId
+	Created       time.Time
+	App           string
+	Env           string
+	Version       *int64
+	Metadata      DeploymentMetadata
+	TransformerID TransformerID
 }
 
 type DeploymentMetadata struct {
@@ -958,11 +1256,13 @@ type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
 type AllTeamLocks map[string]map[string][]TeamLock       // EnvName-> Team -> []Locks
 type AllQueuedVersions map[string]map[string]*int64      // EnvName-> AppName -> queuedVersion
+type AllCommitEvents map[string][]event.DBEventGo        // CommitId -> uuid -> Event
 
 type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
 type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
 type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, error)
+type GetAllEventsFun = func(ctx context.Context) (AllCommitEvents, error)
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
@@ -980,10 +1280,15 @@ func (h *DBHandler) RunCustomMigrations(
 	getAllTeamLocksFun GetAllTeamLocksFun,
 	getAllEnvironmentsFun GetAllEnvironmentsFun,
 	getAllQueuedVersionsFun GetAllQueuedVersionsFun,
+	getAllEventsFun GetAllEventsFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
-	err := h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
+	err := h.RunCustomMigrationsEventSourcingLight(ctx)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
@@ -1015,6 +1320,10 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
+	err = h.RunCustomMigrationsCommitEvents(ctx, getAllEventsFun)
+	if err != nil {
+		return err
+	}
 	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
 	if err != nil {
 		return err // better wrap the error in a descriptive message?
@@ -1027,11 +1336,12 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata" +
+		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformerEslId" +
 			" FROM deployments " +
 			" WHERE appName=? AND envName=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1054,12 +1364,13 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 		App:            "",
 		Env:            "",
 		Metadata:       "",
+		TransformerID:  0,
 	}
 	var releaseVersion sql.NullInt64
 	//exhaustruct:ignore
 	var resultJson = DeploymentMetadata{}
 	if rows.Next() {
-		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata)
+		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -1084,20 +1395,100 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
 	}
 	return &Deployment{
-		EslVersion: row.EslVersion,
-		Created:    row.Created,
-		App:        row.App,
-		Env:        row.Env,
-		Version:    row.ReleaseVersion,
-		Metadata:   resultJson,
+		EslVersion:    row.EslVersion,
+		Created:       row.Created,
+		App:           row.App,
+		Env:           row.Env,
+		Version:       row.ReleaseVersion,
+		Metadata:      resultJson,
+		TransformerID: row.TransformerID,
 	}, nil
 }
 
+func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformerEslId" +
+			" FROM deployments " +
+			" WHERE transformerEslId=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT ?;"))
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		transformerID,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+	deployments := make([]Deployment, 0)
+	for rows.Next() {
+		var row = &DBDeployment{
+			EslVersion:     0,
+			Created:        time.Time{},
+			ReleaseVersion: nil,
+			App:            "",
+			Env:            "",
+			Metadata:       "",
+			TransformerID:  0,
+		}
+
+		var releaseVersion sql.NullInt64
+		//exhaustruct:ignore
+		var resultJson = DeploymentMetadata{}
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+		}
+		if releaseVersion.Valid {
+			row.ReleaseVersion = &releaseVersion.Int64
+		}
+
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		deployments = append(deployments, Deployment{
+			EslVersion:    row.EslVersion,
+			Created:       row.Created,
+			App:           row.App,
+			Env:           row.Env,
+			Version:       row.ReleaseVersion,
+			Metadata:      resultJson,
+			TransformerID: row.TransformerID,
+		})
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return deployments, nil
+}
+
 func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBDeployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyDeployment")
+	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, releaseVersion, appName, envName" +
 			" FROM deployments " +
 			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
+
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1173,6 +1564,10 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	if err != nil {
 		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
 	}
+	err = h.ForceOverviewRecalculation(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("could not update overview table. Error: %w\n", err)
+	}
 	return nil
 }
 
@@ -1190,10 +1585,13 @@ func NewNullInt(s *int64) sql.NullInt64 {
 }
 
 func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyApp")
+	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, appName, metadata " +
 			" FROM apps " +
 			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1237,12 +1635,16 @@ func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithM
 }
 
 func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
+	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, appName, stateChange, metadata" +
 			" FROM apps " +
 			" WHERE appName=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
+
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1287,14 +1689,14 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
 func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslId) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
-	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(deployment.Metadata)
 	if err != nil {
@@ -1302,7 +1704,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata) VALUES (?, ?, ?, ?, ?, ?);")
+		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformerEslId) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
@@ -1313,10 +1715,15 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 		nullVersion,
 		deployment.App,
 		deployment.Env,
-		jsonToInsert)
+		jsonToInsert,
+		deployment.TransformerID)
 
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
+	}
+	err = h.UpdateOverviewDeployment(ctx, tx, deployment)
+	if err != nil {
+		return fmt.Errorf("could not update overview table. Error: %w\n", err)
 	}
 	return nil
 }
@@ -1324,7 +1731,10 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 // CUSTOM MIGRATIONS
 
 func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, getAllReleasesFun GetAllReleasesFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allReleasesDb, err := h.DBSelectAnyRelease(ctx, transaction)
 		if err != nil {
@@ -1383,7 +1793,10 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 }
 
 func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun GetAllDeploymentsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
 		if err != nil {
@@ -1402,6 +1815,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 
 		for i := range allDeploymentsInRepo {
 			deploymentInRepo := allDeploymentsInRepo[i]
+			deploymentInRepo.TransformerID = 0
 			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
@@ -1429,15 +1843,19 @@ type AllApplicationsGo struct {
 }
 
 type EventRow struct {
-	Uuid       string
-	Timestamp  time.Time
-	CommitHash string
-	EventType  event.EventType
-	EventJson  string
+	Uuid          string
+	Timestamp     time.Time
+	CommitHash    string
+	EventType     event.EventType
+	EventJson     string
+	TransformerID TransformerID
 }
 
 func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLocksFun GetAllEnvLocksFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvLocks")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allEnvLocksDb, err := h.DBSelectAnyActiveEnvLocks(ctx, transaction)
 		if err != nil {
@@ -1481,7 +1899,10 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLoc
 }
 
 func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLocksFun GetAllAppLocksFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppLocks")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
 		if err != nil {
@@ -1525,7 +1946,10 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, getAllAppLoc
 }
 
 func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamLocksFun GetAllTeamLocksFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationTeamLocks")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allTeamLocksDb, err := h.DBSelectAnyActiveTeamLock(ctx, transaction)
 		if err != nil {
@@ -1567,8 +1991,44 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, getAllTeamL
 	})
 }
 
+func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllEvents GetAllEventsFun) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		l := logger.FromContext(ctx).Sugar()
+		ev, err := h.DBSelectAnyEvent(ctx, transaction)
+		if err != nil {
+			l.Infof("could not get commit events from database - assuming the manifest repo is correct: %v", err)
+			ev = nil
+		}
+		if ev != nil {
+			l.Infof("There are already commit events in the DB - skipping migrations")
+			return nil
+		}
+
+		allEvents, err := getAllEvents(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get current commit events to run custom migrations: %v", err)
+		}
+		for commitID, events := range allEvents {
+			for _, currentEvent := range events {
+				eventJson, err := json.Marshal(currentEvent)
+				if err != nil {
+					return fmt.Errorf("Could not marshal event: %v\n", err)
+				}
+				err = h.writeEvent(ctx, transaction, 0, currentEvent.EventMetadata.Uuid, event.EventType(currentEvent.EventMetadata.EventType), commitID, eventJson)
+				if err != nil {
+					return fmt.Errorf("error writing existing event version: %v", err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
 func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Context, getAllQueuedVersionsFun GetAllQueuedVersionsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationQueuedApplicationVersions")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allTeamLocksDb, err := h.DBSelectAnyDeploymentAttempt(ctx, transaction)
 		if err != nil {
@@ -1598,8 +2058,70 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 	})
 }
 
+// For commit_events migrations, we need some transformer to be on the database before we run their migrations.
+func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
+		defer span.Finish()
+		l := logger.FromContext(ctx).Sugar()
+		eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, true) //true sorts by asc
+		if err != nil {
+			return err
+		}
+		if eslEvent != nil && eslEvent.EslId == 0 { //Check if there is a 0th transformer already
+			l.Infof("Found Migrations transformer on database.")
+			return nil
+		}
+
+		return h.DBWriteMigrationsTransformer(ctx, transaction)
+	})
+}
+
+func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transaction *sql.Tx) error {
+	if h == nil {
+		return nil
+	}
+	if transaction == nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer: no transaction provided")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
+	defer span.Finish()
+
+	dataMap := make(map[string]interface{})
+	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
+	metadataMap, err := convertObjectToMap(metadata)
+	if err != nil {
+		return fmt.Errorf("could not convert object to map: %w", err)
+	}
+	dataMap["metadata"] = metadataMap
+	dataMap["eslid"] = 0
+	jsonToInsert, err := json.Marshal(dataMap)
+
+	if err != nil {
+		return fmt.Errorf("could not marshal json transformer: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err = transaction.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		EvtMigrationTransformer,
+		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
 func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAllAppsTable")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
 		allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
@@ -1632,7 +2154,10 @@ func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAp
 }
 
 func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationApps")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		dbApp, err := h.DBSelectAnyApp(ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("could not get dbApp from database - assuming the manifest repo is correct: %v", err)
@@ -1662,8 +2187,12 @@ func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun Ge
 // ENV LOCKS
 
 func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (*AllEnvLocksGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveEnvLocks")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(
 		"SELECT version, created, environment, json FROM all_env_locks ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1712,12 +2241,16 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 }
 
 func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) (*EnvironmentLock, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslEventLaterThan")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, metadata, deleted" +
 			" FROM environment_locks " +
 			" WHERE envName=? AND lockID=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -1782,14 +2315,14 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 }
 
 func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID, environment, message, authorName, authorEmail string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
+	defer span.Finish()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteEnvironmentLock: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
-	defer span.Finish()
 
 	var previousVersion EslId
 
@@ -1821,14 +2354,15 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 }
 
 func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslId, useTimeInLock bool) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLockInternal")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteEnvironmentLockInternal: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLockInternal")
-	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(envLock.Metadata)
 	if err != nil {
@@ -1857,19 +2391,23 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write environment lock into DB. Error: %w\n", err)
 	}
+	err = h.UpdateOverviewEnvironmentLock(ctx, tx, envLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview environment lock. Error: %w\n", err)
+	}
 	return nil
 }
 
 // DBSelectEnvLockHistory returns the last N events associated with some lock on some environment. Currently only used in testing.
 func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, environmentName, lockID string, limit int) ([]EnvironmentLock, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvLocks")
+	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectEnvLocks: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvLocks")
-	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
@@ -1932,16 +2470,17 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 }
 
 func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx, environment string) (*AllEnvLocksGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentLocks")
+	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectAllEnvironmentLocks: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentLocks")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(
 		"SELECT version, created, environment, json FROM all_env_locks WHERE environment = ? ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment)
 	if err != nil {
@@ -1997,6 +2536,9 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 }
 
 func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, environment string, lockIDs []string) ([]EnvironmentLock, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentLockSet")
+	defer span.Finish()
+
 	if len(lockIDs) == 0 {
 		return nil, nil
 	}
@@ -2006,8 +2548,6 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectEnvironmentLockSet: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentLockSet")
-	defer span.Finish()
 
 	var envLocks []EnvironmentLock
 	var rows *sql.Rows
@@ -2103,14 +2643,14 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 }
 
 func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
+	defer span.Finish()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBDeleteEnvironmentLock: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
-	defer span.Finish()
 	var previousVersion EslId
 
 	//See if there is an existing lock with the same lock id in this environment. If it exists, just add a +1 to the eslversion
@@ -2226,16 +2766,17 @@ func (h *DBHandler) DBWriteAllAppLocks(ctx context.Context, transaction *sql.Tx,
 }
 
 func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environment, appName string) (*AllAppLocksGo, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocks")
+	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectAllAppLocks: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocks")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(
 		"SELECT version, created, environment, appName, json FROM all_app_locks WHERE environment = ? AND appName = ? ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment, appName)
 	if err != nil {
@@ -2293,12 +2834,16 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 }
 
 func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment, appName, lockID string) (*ApplicationLock, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppLock")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, appName, metadata, deleted" +
 			" FROM application_locks " +
 			" WHERE envName=? AND appName=? AND lockID=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -2366,6 +2911,9 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 }
 
 func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environment, appName string, lockIDs []string) ([]ApplicationLock, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAppLockSet")
+	defer span.Finish()
+
 	if len(lockIDs) == 0 {
 		return nil, nil
 	}
@@ -2375,8 +2923,6 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectAppLockSet: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAppLockSet")
-	defer span.Finish()
 
 	var appLocks []ApplicationLock
 	var rows *sql.Rows
@@ -2450,14 +2996,15 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 }
 
 func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lockID, environment, appName, message, authorName, authorEmail string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLock")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteApplicationLock: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLock")
-	defer span.Finish()
 
 	var previousVersion EslId
 
@@ -2490,14 +3037,15 @@ func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lock
 }
 
 func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.Tx, appLock ApplicationLock, previousEslVersion EslId, useTimeInLock bool) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLockInternal")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteApplicationLockInternal: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLockInternal")
-	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(appLock.Metadata)
 	if err != nil {
@@ -2527,18 +3075,23 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
+	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview application lock. Error: %w\n", err)
+	}
 	return nil
 }
 
 func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, environment, appName, lockID string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBDeleteApplicationLock: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
-	defer span.Finish()
 	var previousVersion EslId
 
 	existingAppLock, err := h.DBSelectAppLock(ctx, tx, environment, appName, lockID)
@@ -2568,8 +3121,12 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 }
 
 func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*AllAppLocksGo, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(
 		"SELECT version, created, environment, appName, json FROM all_app_locks ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -2620,14 +3177,15 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 
 // DBSelectAppLockHistory returns the last N events associated with some lock on some environment for some app. Currently only used in testing.
 func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, environmentName, appName, lockID string, limit int) ([]ApplicationLock, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAppLockHistory")
+	defer span.Finish()
+
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectAppLockHistory: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAppLockHistory")
-	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
@@ -2734,8 +3292,13 @@ type DBTeamLock struct {
 }
 
 func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (*AllTeamLocksGo, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveTeamLock")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(
 		"SELECT version, created, environment, teamName, json FROM all_team_locks ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
+
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -2744,14 +3307,14 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 }
 
 func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, environment, teamName, message, authorName, authorEmail string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLock")
+	defer span.Finish()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteTeamLock: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLock")
-	defer span.Finish()
 
 	var previousVersion EslId
 
@@ -2784,14 +3347,15 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, env
 }
 
 func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, teamLock TeamLock, previousEslVersion EslId, useTimeInLock bool) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLockInternal")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteTeamLockInternal: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLockInternal")
-	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(teamLock.Metadata)
 	if err != nil {
@@ -2800,6 +3364,7 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO team_locks (eslVersion, created, lockID, envName, teamName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
+	span.SetTag("query", insertQuery)
 
 	var timetoInsert time.Time
 	if useTimeInLock {
@@ -2820,6 +3385,10 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 
 	if err != nil {
 		return fmt.Errorf("could not write team lock into DB. Error: %w\n", err)
+	}
+	err = h.UpdateOverviewTeamLock(ctx, tx, teamLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview team lock. Error: %w\n", err)
 	}
 	return nil
 }
@@ -2850,12 +3419,16 @@ func (h *DBHandler) DBWriteAllTeamLocks(ctx context.Context, transaction *sql.Tx
 }
 
 func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) (*TeamLock, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLock")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, teamName, metadata, deleted" +
 			" FROM team_locks " +
 			" WHERE envName=? AND teamName=? AND lockID=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -2921,30 +3494,32 @@ func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	return nil, nil // no rows, but also no error
 }
 func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, environment, teamName string) (*AllTeamLocksGo, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocks")
+	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectAllTeamLocks: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocks")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(
 		"SELECT version, created, environment, teamName, json FROM all_team_locks WHERE environment = ? AND teamName = ? ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment, teamName)
 	return h.processAllTeamLocksRow(ctx, err, rows)
 }
 
 func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteTeamLock")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBDeleteTeamLock: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteTeamLock")
-	defer span.Finish()
 	var previousVersion EslId
 
 	existingTeamLock, err := h.DBSelectTeamLock(ctx, tx, environment, teamName, lockID)
@@ -2974,6 +3549,9 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 }
 
 func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environment, teamName string, lockIDs []string) ([]TeamLock, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockSet")
+	defer span.Finish()
+
 	if len(lockIDs) == 0 {
 		return nil, nil
 	}
@@ -2983,11 +3561,33 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectTeamLockSet: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockSet")
-	defer span.Finish()
 
 	var teamLocks []TeamLock
-	var rows *sql.Rows
+	//Get the latest change to each lock
+	for _, id := range lockIDs {
+		teamLocksTmp, err2 := h.selectTeamLocks(ctx, tx, environment, teamName, id, teamLocks)
+		if err2 != nil {
+			return nil, err2
+		}
+		teamLocks = teamLocksTmp
+	}
+	return teamLocks, nil
+}
+
+func (h *DBHandler) selectTeamLocks(ctx context.Context, tx *sql.Tx, environment string, teamName string, id string, teamLocks []TeamLock) ([]TeamLock, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "selectTeamLocks")
+	defer span.Finish()
+	var err error
+	selectQuery := h.AdaptQuery(
+		"SELECT eslVersion, created, lockID, envName, teamName, metadata, deleted" +
+			" FROM team_locks " +
+			" WHERE envName=? AND lockID=? AND teamName=?" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;")
+	rows, err := tx.QueryContext(ctx, selectQuery, environment, id, teamName)
+	if err != nil {
+		return nil, fmt.Errorf("could not query team locks table from DB. Error: %w\n", err)
+	}
 	defer func(rows *sql.Rows) {
 		if rows == nil {
 			return
@@ -2997,60 +3597,42 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
 		}
 	}(rows)
-	//Get the latest change to each lock
-	for _, id := range lockIDs {
-		var err error
-		selectQuery := h.AdaptQuery(
-			"SELECT eslVersion, created, lockID, envName, teamName, metadata, deleted" +
-				" FROM team_locks " +
-				" WHERE envName=? AND lockID=? AND teamName=?" +
-				" ORDER BY eslVersion DESC " +
-				" LIMIT 1;")
-		rows, err = tx.QueryContext(ctx, selectQuery, environment, id, teamName)
-		if err != nil {
-			return nil, fmt.Errorf("could not query team locks table from DB. Error: %w\n", err)
-		}
 
-		var row = DBTeamLock{
-			EslVersion: 0,
-			Created:    time.Time{},
-			LockID:     "",
-			Env:        "",
-			TeamName:   "",
-			Deleted:    false,
-			Metadata:   "",
-		}
-		if rows.Next() {
-			err = rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.TeamName, &row.Metadata, &row.Deleted)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return nil, nil
-				}
-				return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
-			}
-
-			//exhaustruct:ignore
-			var resultJson = LockMetadata{}
-			err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
-			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
-			}
-			teamLocks = append(teamLocks, TeamLock{
-				EslVersion: row.EslVersion,
-				Created:    row.Created,
-				LockID:     row.LockID,
-				Env:        row.Env,
-				Team:       row.TeamName,
-				Deleted:    row.Deleted,
-				Metadata:   resultJson,
-			})
-		}
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
+	var row = DBTeamLock{
+		EslVersion: 0,
+		Created:    time.Time{},
+		LockID:     "",
+		Env:        "",
+		TeamName:   "",
+		Deleted:    false,
+		Metadata:   "",
 	}
-	err := closeRows(rows)
+	if rows.Next() {
+		err = rows.Scan(&row.EslVersion, &row.Created, &row.LockID, &row.Env, &row.TeamName, &row.Metadata, &row.Deleted)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
+		}
+
+		//exhaustruct:ignore
+		var resultJson = LockMetadata{}
+		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+		teamLocks = append(teamLocks, TeamLock{
+			EslVersion: row.EslVersion,
+			Created:    row.Created,
+			LockID:     row.LockID,
+			Env:        row.Env,
+			Team:       row.TeamName,
+			Deleted:    row.Deleted,
+			Metadata:   resultJson,
+		})
+	}
+	err = closeRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -3059,14 +3641,15 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 
 // DBSelectTeamLockHistory returns the last N events associated with some lock on some environment for some team. Currently only used in testing.
 func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, environmentName, teamName, lockID string, limit int) ([]TeamLock, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockHistory")
+	defer span.Finish()
+
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectTeamLockHistory: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockHistory")
-	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
@@ -3138,6 +3721,9 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 }
 
 func (h *DBHandler) processAllTeamLocksRow(ctx context.Context, err error, rows *sql.Rows) (*AllTeamLocksGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processAllTeamLocksRow")
+	defer span.Finish()
+
 	if err != nil {
 		return nil, fmt.Errorf("could not query all_team_locks table from DB. Error: %w\n", err)
 	}
@@ -3193,14 +3779,15 @@ type QueuedDeployment struct {
 }
 
 func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx) (*QueuedDeployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyDeploymentAttempt")
+	defer span.Finish()
+
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectAnyDeploymentAttempt: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyDeploymentAttempt")
-	defer span.Finish()
 
 	insertQuery := h.AdaptQuery(
 		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts ORDER BY eslVersion DESC LIMIT 1;")
@@ -3213,14 +3800,15 @@ func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx
 }
 
 func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sql.Tx, environmentName, appName string, limit int) ([]QueuedDeployment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentAttemptHistory")
+	defer span.Finish()
+
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectDeploymentAttemptHistory: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentAttemptHistory")
-	defer span.Finish()
 
 	insertQuery := h.AdaptQuery(
 		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT ?;")
@@ -3244,7 +3832,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 
 	queuedDeployments := make([]QueuedDeployment, 0)
 	for rows.Next() {
-		row, err := h.processSingleDeploymentAttemptsRow(rows)
+		row, err := h.processSingleDeploymentAttemptsRow(ctx, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -3264,15 +3852,15 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 }
 
 func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName, appName string) (*QueuedDeployment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
+	defer span.Finish()
+
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectLatestDeploymentAttempt: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
-	defer span.Finish()
-
 	insertQuery := h.AdaptQuery(
 		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT 1;")
 
@@ -3286,14 +3874,15 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 }
 
 func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteDeploymentAttempt: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
-	defer span.Finish()
 	return h.dbWriteDeploymentAttemptInternal(ctx, tx, &QueuedDeployment{
 		EslVersion: 0,
 		Created:    time.Time{},
@@ -3304,15 +3893,15 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 }
 
 func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("DBDeleteDeploymentAttempt: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
-	defer span.Finish()
-
 	return h.dbWriteDeploymentAttemptInternal(ctx, tx, &QueuedDeployment{
 		EslVersion: 0,
 		Created:    time.Time{},
@@ -3323,15 +3912,15 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 }
 
 func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("dbWriteDeploymentAttemptInternal: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
-	defer span.Finish()
-
 	latestDeployment, err := h.DBSelectLatestDeploymentAttempt(ctx, tx, deployment.Env, deployment.App)
 
 	if err != nil {
@@ -3361,13 +3950,19 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	if err != nil {
 		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
 	}
+	err = h.UpdateOverviewDeploymentAttempt(ctx, tx, deployment)
+	if err != nil {
+		return fmt.Errorf("could not update overview table in DB. Error: %w\n", err)
+	}
 	return nil
 }
 
 func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows, err error) (*QueuedDeployment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "processDeploymentAttemptsRow")
+	defer span.Finish()
+
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
-
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -3377,7 +3972,7 @@ func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.
 	}(rows)
 	var row *QueuedDeployment
 	if rows.Next() {
-		row, err = h.processSingleDeploymentAttemptsRow(rows)
+		row, err = h.processSingleDeploymentAttemptsRow(ctx, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -3390,9 +3985,11 @@ func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.
 }
 
 // processSingleDeploymentAttemptsRow only processes the row. It assumes that there is an element ready to be processed in rows.
-func (h *DBHandler) processSingleDeploymentAttemptsRow(rows *sql.Rows) (*QueuedDeployment, error) {
-	//exhaustruct:ignore
+func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows) (*QueuedDeployment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "processSingleDeploymentAttemptsRow")
+	defer span.Finish()
 
+	//exhaustruct:ignore
 	var row = QueuedDeployment{}
 	var releaseVersion sql.NullInt64
 
@@ -3440,6 +4037,9 @@ type DBEnvironmentRow struct {
 }
 
 func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(
 		`
 SELECT created, version, name, json
@@ -3449,6 +4049,7 @@ ORDER BY version DESC
 LIMIT 1;
 `,
 	)
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -3504,15 +4105,15 @@ LIMIT 1;
 }
 
 func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
+	defer span.Finish()
+
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
 		return fmt.Errorf("attempting to write to the environmets table without a transaction")
 	}
-
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
-	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(environmentConfig)
 	if err != nil {
@@ -3546,19 +4147,23 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
 	}
+	err = h.ForceOverviewRecalculation(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("error while forcing overview recalculation, error: %w", err)
+	}
 	return nil
 }
 
 func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
+	defer span.Finish()
+
 	if h == nil {
 		return nil, nil
 	}
 	if transaction == nil {
 		return nil, fmt.Errorf("no transaction provided when selecting all environments from all_environments table")
 	}
-
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
-	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
 		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
@@ -3648,9 +4253,13 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 }
 
 func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DBAllEnvironments, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyEnvironment")
+	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(
 		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
 	)
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery)
 	if err != nil {
 		return nil, fmt.Errorf("could not query the all_environments table, error: %w", err)
@@ -3700,7 +4309,10 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DB
 }
 
 func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEnvironmentsFun GetAllEnvironmentsFun) error {
-	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironments")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		log := logger.FromContext(ctx).Sugar()
 
 		arbitraryAllEnvsRow, err := h.DBSelectAnyEnvironment(ctx, transaction)
@@ -3732,4 +4344,175 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 		}
 		return nil
 	})
+}
+
+type OverviewCacheRow struct {
+	EslId     EslId
+	Timestamp time.Time
+	Json      string
+}
+
+func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "readLatestOverviewCache")
+	defer span.Finish()
+	if h == nil {
+		return nil, fmt.Errorf("readLatestOverviewCache: DBHandler is nil")
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("readLatestOverviewCache: no transaction provided")
+	}
+
+	selectQuery := h.AdaptQuery(
+		"SELECT eslId, timestamp, json FROM overview_cache ORDER BY eslId DESC LIMIT 1;",
+	)
+
+	span.SetTag("query", selectQuery)
+	rows, err := transaction.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query overview_cache table from DB. Error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	var row = &OverviewCacheRow{
+		EslId:     0,
+		Timestamp: time.Unix(0, 0),
+		Json:      "",
+	}
+	if rows.Next() {
+		err := rows.Scan(&row.EslId, &row.Timestamp, &row.Json)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning overview_cache row from DB. Error: %w", err)
+		}
+	} else {
+		row = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	if row != nil {
+		result := &api.GetOverviewResponse{
+			Branch:            "",
+			ManifestRepoUrl:   "",
+			Applications:      map[string]*api.Application{},
+			EnvironmentGroups: []*api.EnvironmentGroup{},
+			GitRevision:       "",
+		}
+		err = json.Unmarshal([]byte(row.Json), result)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+	return nil, nil
+}
+
+func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx, overviewResponse *api.GetOverviewResponse) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "writeOverviewCache")
+	defer span.Finish()
+	if h == nil {
+		return fmt.Errorf("writeOverviewCache: DBHandler is nil")
+	}
+	if transaction == nil {
+		return fmt.Errorf("writeOverviewCache: no transaction provided")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO overview_cache (timestamp, Json) VALUES (?, ?);",
+	)
+	span.SetTag("query", insertQuery)
+	jsonResponse, err := json.Marshal(overviewResponse)
+	if err != nil {
+		return fmt.Errorf("could not marshal overview json data: %w", err)
+	}
+	_, err = transaction.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		jsonResponse,
+	)
+	if err != nil {
+		return fmt.Errorf("could not insert overview_cache row into DB. Error: %w", err)
+	}
+	return nil
+}
+func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslEventRow) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteFailedEslEvent: no transaction provided")
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type , json)  VALUES (?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err := tx.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		eslEvent.EventType,
+		eslEvent.EventJson)
+
+	if err != nil {
+		return fmt.Errorf("could not write failed esl event into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslEventRow, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
+	}
+
+	query := h.AdaptQuery("SELECT eslId, created, event_type, json FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	failedEsls := make([]*EslEventRow, 0)
+
+	for rows.Next() {
+		row := &EslEventRow{
+			EslId:     0,
+			Created:   time.Unix(0, 0),
+			EventType: "",
+			EventJson: "",
+		}
+		err := rows.Scan(&row.EslId, &row.Created, &row.EventType, &row.EventJson)
+		if err != nil {
+			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+		}
+		failedEsls = append(failedEsls, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+	}
+
+	return failedEsls, nil
 }

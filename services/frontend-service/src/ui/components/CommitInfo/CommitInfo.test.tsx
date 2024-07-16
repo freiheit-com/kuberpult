@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { CommitInfo } from './CommitInfo';
 import { MemoryRouter } from 'react-router-dom';
 import { GetCommitInfoResponse, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
@@ -35,6 +35,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
     };
 
     type TestCase = {
+        selectedTimezone: 'local' | 'UTC';
         commitInfo: GetCommitInfoResponse;
         expectedTitle: string;
         expectedCommitDescriptionTable: Table;
@@ -43,6 +44,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
 
     const testCases: TestCase[] = [
         {
+            selectedTimezone: 'UTC',
             commitInfo: {
                 commitHash: 'potato',
                 commitMessage: `tomato
@@ -178,6 +180,40 @@ test('CommitInfo component renders commit info when the response is valid', () =
                 ],
             },
         },
+        {
+            selectedTimezone: 'local',
+            commitInfo: {
+                commitHash: 'potato',
+                commitMessage: `tomato
+                
+        Commit message body line 1
+        Commit message body line 2`,
+                touchedApps: ['google', 'windows'],
+                nextCommitHash: '',
+                previousCommitHash: '',
+                events: [
+                    {
+                        uuid: '00000000-0000-0000-0000-000000000000',
+                        createdAt: new Date('2024-02-09T11:20:00Z'),
+                        eventType: {
+                            $case: 'createReleaseEvent',
+                            createReleaseEvent: {
+                                environmentNames: ['dev', 'staging'],
+                            },
+                        },
+                    },
+                ],
+            },
+            expectedTitle: 'Commit: tomato',
+            expectedCommitDescriptionTable: {
+                head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
+                body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google, windows']],
+            },
+            expectedEventsTable: {
+                head: ['Date:', 'Event Description:', 'Environments:'],
+                body: [['2024-02-09T12:20:00', 'received data about this commit for the first time', 'dev, staging']],
+            },
+        },
     ];
 
     const verifyTable = (actualTable: HTMLTableElement, expectedTable: Table) => {
@@ -213,6 +249,13 @@ test('CommitInfo component renders commit info when the response is valid', () =
     };
 
     for (const testCase of testCases) {
+        jest.spyOn(Intl, 'DateTimeFormat').mockImplementation(
+            () =>
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
+                ({
+                    resolvedOptions: () => ({ timeZone: 'Europe/Berlin' }),
+                }) as Intl.DateTimeFormat
+        );
         const { container } = render(
             <MemoryRouter>
                 <CommitInfo commitInfo={testCase.commitInfo} />
@@ -220,8 +263,10 @@ test('CommitInfo component renders commit info when the response is valid', () =
         );
 
         // first h1 is "Planned Actions", second h1 is actually our CommitInfo component:
-        expect(container.getElementsByTagName('h1').length).toEqual(2);
-        expect(container.getElementsByTagName('h1')[1]).toHaveTextContent(testCase.expectedTitle);
+        expect(container.getElementsByTagName('h1').length).toEqual(1);
+        expect(container.getElementsByTagName('h1')[0]).toHaveTextContent(testCase.expectedTitle);
+        const selectTimezoneElement = container.getElementsByClassName('select-timezone')[0];
+        fireEvent.change(selectTimezoneElement, { target: { value: testCase.selectedTimezone } });
 
         const tables = container.getElementsByTagName('table');
 

@@ -58,49 +58,48 @@ const (
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl                     string        `required:"true" split_words:"true"`
-	GitBranch                  string        `default:"master" split_words:"true"`
-	BootstrapMode              bool          `default:"false" split_words:"true"`
-	GitCommitterEmail          string        `default:"kuberpult@freiheit.com" split_words:"true"`
-	GitCommitterName           string        `default:"kuberpult" split_words:"true"`
-	GitSshKey                  string        `default:"/etc/ssh/identity" split_words:"true"`
-	GitSshKnownHosts           string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
-	GitNetworkTimeout          time.Duration `default:"1m" split_words:"true"`
-	GitWriteCommitData         bool          `default:"false" split_words:"true"`
-	PgpKeyRingPath             string        `split_words:"true"`
-	AzureEnableAuth            bool          `default:"false" split_words:"true"`
-	DexEnabled                 bool          `default:"false" split_words:"true"`
-	DexRbacPolicyPath          string        `split_words:"true"`
-	EnableTracing              bool          `default:"false" split_words:"true"`
-	EnableMetrics              bool          `default:"false" split_words:"true"`
-	EnableEvents               bool          `default:"false" split_words:"true"`
-	DogstatsdAddr              string        `default:"127.0.0.1:8125" split_words:"true"`
-	EnableProfiling            bool          `default:"false" split_words:"true"`
-	DatadogApiKeyLocation      string        `default:"" split_words:"true"`
-	EnableSqlite               bool          `default:"true" split_words:"true"`
-	DexMock                    bool          `default:"false" split_words:"true"`
-	DexMockRole                string        `default:"Developer" split_words:"true"`
-	ArgoCdServer               string        `default:"" split_words:"true"`
-	ArgoCdInsecure             bool          `default:"false" split_words:"true"`
-	GitWebUrl                  string        `default:"" split_words:"true"`
-	GitMaximumCommitsPerPush   uint          `default:"1" split_words:"true"`
-	MaximumQueueSize           uint          `default:"5" split_words:"true"`
-	AllowLongAppNames          bool          `default:"false" split_words:"true"`
-	ArgoCdGenerateFiles        bool          `default:"true" split_words:"true"`
-	DbOption                   string        `default:"NO_DB" split_words:"true"`
-	DbLocation                 string        `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance         string        `default:"" split_words:"true"`
-	DbName                     string        `default:"" split_words:"true"`
-	DbUserName                 string        `default:"" split_words:"true"`
-	DbUserPassword             string        `default:"" split_words:"true"`
-	DbAuthProxyPort            string        `default:"5432" split_words:"true"`
-	DbMigrationsLocation       string        `default:"" split_words:"true"`
-	DexDefaultRoleEnabled      bool          `default:"false" split_words:"true"`
-	DbWriteEslTableOnly        bool          `default:"false" split_words:"true"`
-	ReleaseVersionsLimit       uint          `default:"20" split_words:"true"`
-	GarbageCollectionFrequency uint          `default:"20" split_words:"true"`
-	DeploymentType             string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
-	CloudRunServer             string        `default:"" split_words:"true"`
+	GitUrl                   string        `required:"true" split_words:"true"`
+	GitBranch                string        `default:"master" split_words:"true"`
+	BootstrapMode            bool          `default:"false" split_words:"true"`
+	GitCommitterEmail        string        `default:"kuberpult@freiheit.com" split_words:"true"`
+	GitCommitterName         string        `default:"kuberpult" split_words:"true"`
+	GitSshKey                string        `default:"/etc/ssh/identity" split_words:"true"`
+	GitSshKnownHosts         string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
+	GitNetworkTimeout        time.Duration `default:"1m" split_words:"true"`
+	GitWriteCommitData       bool          `default:"false" split_words:"true"`
+	PgpKeyRingPath           string        `split_words:"true"`
+	AzureEnableAuth          bool          `default:"false" split_words:"true"`
+	DexEnabled               bool          `default:"false" split_words:"true"`
+	DexRbacPolicyPath        string        `split_words:"true"`
+	EnableTracing            bool          `default:"false" split_words:"true"`
+	EnableMetrics            bool          `default:"false" split_words:"true"`
+	EnableEvents             bool          `default:"false" split_words:"true"`
+	DogstatsdAddr            string        `default:"127.0.0.1:8125" split_words:"true"`
+	EnableProfiling          bool          `default:"false" split_words:"true"`
+	DatadogApiKeyLocation    string        `default:"" split_words:"true"`
+	EnableSqlite             bool          `default:"true" split_words:"true"`
+	DexMock                  bool          `default:"false" split_words:"true"`
+	DexMockRole              string        `default:"Developer" split_words:"true"`
+	ArgoCdServer             string        `default:"" split_words:"true"`
+	ArgoCdInsecure           bool          `default:"false" split_words:"true"`
+	GitWebUrl                string        `default:"" split_words:"true"`
+	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
+	MaximumQueueSize         uint          `default:"5" split_words:"true"`
+	AllowLongAppNames        bool          `default:"false" split_words:"true"`
+	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
+	DbOption                 string        `default:"NO_DB" split_words:"true"`
+	DbLocation               string        `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance       string        `default:"" split_words:"true"`
+	DbName                   string        `default:"" split_words:"true"`
+	DbUserName               string        `default:"" split_words:"true"`
+	DbUserPassword           string        `default:"" split_words:"true"`
+	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
+	DbMigrationsLocation     string        `default:"" split_words:"true"`
+	DexDefaultRoleEnabled    bool          `default:"false" split_words:"true"`
+	DbWriteEslTableOnly      bool          `default:"false" split_words:"true"`
+	ReleaseVersionsLimit     uint          `default:"20" split_words:"true"`
+	DeploymentType           string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
+	CloudRunServer           string        `default:"" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -231,7 +230,7 @@ func RunServer() {
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg db.DBConfig
-			if c.DbOption == "cloudsql" {
+			if c.DbOption == "postgreSQL" {
 				dbCfg = db.DBConfig{
 					DbHost:         c.DbLocation,
 					DbPort:         c.DbAuthProxyPort,
@@ -285,7 +284,6 @@ func RunServer() {
 				KnownHostsFile: c.GitSshKnownHosts,
 			},
 			Branch:                 c.GitBranch,
-			GcFrequency:            c.GarbageCollectionFrequency,
 			ReleaseVersionsLimit:   c.ReleaseVersionsLimit,
 			BootstrapMode:          c.BootstrapMode,
 			EnvironmentConfigsPath: "./environment_configs.json",
@@ -318,7 +316,7 @@ func RunServer() {
 				Repository: repo,
 			}
 		if dbHandler.ShouldUseOtherTables() {
-			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=true")
+			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 			migErr := dbHandler.RunCustomMigrations(
 				ctx,
 				repo.State().GetAppsAndTeams,
@@ -329,6 +327,7 @@ func RunServer() {
 				repo.State().GetCurrentTeamLocks,
 				repo.State().GetAllEnvironments,
 				repo.State().GetAllQueuedAppVersions,
+				repo.State().GetAllCommitEvents,
 			)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
@@ -393,6 +392,7 @@ func RunServer() {
 							Policy:     dexRbacPolicy,
 						},
 					})
+					api.RegisterEslServiceServer(srv, &service.EslServiceServer{Repository: repo})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 

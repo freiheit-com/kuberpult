@@ -1,4 +1,4 @@
-VERSION 0.8
+VERSION --wildcard-builds 0.8
 FROM busybox
 ARG --global UID=1000
 ARG --global target=docker
@@ -67,18 +67,10 @@ ui:
     BUILD ./services/frontend-service+$target-ui
 
 all-services:
+    ARG tag="local"
     BUILD ./pkg+deps
-    BUILD ./services/cd-service+docker --service=cd-service --UID=$UID
-    BUILD ./services/manifest-repo-export-service+docker --service=manifest-repo-export-service --UID=$UID
-    BUILD ./services/frontend-service+docker --service=frontend-service
+    BUILD ./services/*+docker --tag=$tag --UID=$UID
     BUILD ./services/frontend-service+docker-ui
-
-cache:
-    BUILD ./services/cd-service+release --service=cd-service --UID=$UID
-    BUILD ./services/manifest-repo-export-service+release --service=manifest-repo-export-service --UID=$UID
-    BUILD ./services/rollout-service+release --service=rollout-service --UID=$UID
-    BUILD ./services/frontend-service+release --service=frontend-service
-    BUILD ./services/frontend-service+release-ui
 
 commitlint:
     FROM node:18-bookworm
@@ -153,7 +145,8 @@ integration-test:
         RUN --no-cache \
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
-            ./integration-tests/cluster-setup/setup-cluster-ssh.sh; sleep 3; \
+            ./integration-tests/cluster-setup/setup-cluster-ssh.sh& \
+            ./integration-tests/cluster-setup/setup-postgres.sh& \
             ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
             cd integration-tests && go test $GO_TEST_ARGS ./... && \
             echo ============ SUCCESS ============

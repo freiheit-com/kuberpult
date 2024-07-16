@@ -16,7 +16,6 @@ Copyright freiheit.com*/
 
 import { useParams } from 'react-router-dom';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
-import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import {
     ReleaseTrainPrognosisState,
     getReleaseTrainPrognosis,
@@ -29,7 +28,6 @@ import { Spinner } from '../../components/Spinner/Spinner';
 import { ReleaseTrainPrognosis } from '../../components/ReleaseTrainPrognosis/ReleaseTrainPrognosis';
 
 export const ReleaseTrainPage: React.FC = () => {
-    const [everythingLoaded, loadingState] = useGlobalLoadingState();
     const { targetEnv: envName } = useParams();
     const { authHeader } = useAzureAuthSub((auth) => auth);
 
@@ -41,8 +39,9 @@ export const ReleaseTrainPage: React.FC = () => {
 
     const releaseTrainPrognosis = useReleaseTrainPrognosis((res) => res);
 
-    if (!everythingLoaded) {
-        return <LoadingStateSpinner loadingState={loadingState} />;
+    const element = useGlobalLoadingState();
+    if (element) {
+        return element;
     }
 
     if (envName === undefined) {

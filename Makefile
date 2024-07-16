@@ -72,20 +72,17 @@ cleanup-main:
 builder:
 	IMAGE_TAG=latest make -C infrastructure/docker/builder build
 
-kuberpult: builder
-	make -C services/frontend-service src/api/api.ts
-	make -C pkg/ all
-	docker compose up --build
+compose-down:
+	docker compose down
 
-kuberpult-earthly:
-	earthly +all-services --UID=$(USER_UID) --target docker
-	docker compose -f docker-compose-earthly.yml up 
+kuberpult: compose-down kuberpult-earthly
 
-cache:
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:cache --push +frontend-service --target release --UID=$(USER_UID)
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-cd-service:cache --push +cd-service --UID=$(USER_UID) --target release
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache --push +rollout-service --UID=$(USER_UID) --target release
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache --push +manifest-repo-export-service --UID=$(USER_UID) --target release
+kuberpult-earthly: compose-down
+	earthly +all-services --UID=$(USER_UID)
+	docker compose up 
+
+all-services:
+	earthly +all-services --tag=$(VERSION)
 
 integration-test:
 	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)

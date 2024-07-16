@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"testing"
 	gotime "time"
 
@@ -296,7 +297,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				t.Errorf("setup error could not set up transformers \n%v", err)
 			}
 
-			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformer)
 				if err2 != nil {
 					return err2
@@ -319,7 +320,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("marshal error: %v\njson: \n%s\n", err, row.EventJson)
 			}
-
+			tc.Transformer.SetEslID(0) // the eslId is not part of the json blob anymore
 			if diff := cmp.Diff(tc.Transformer, jsonInterface, protocmp.Transform()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -430,7 +431,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			var err error = nil
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
-			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
@@ -447,7 +448,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
 			})
 
@@ -590,7 +591,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			var err error = nil
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
-			err = r.DB.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError = nil
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
@@ -607,7 +608,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
 			})
 
@@ -752,7 +753,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -830,7 +831,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -898,7 +899,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1028,7 +1029,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1110,7 +1111,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1126,6 +1127,260 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			})
 			if err3 != nil {
 				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestEventGenerationFromTransformers(t *testing.T) {
+	type TestCase struct {
+		Name                      string
+		Transformers              []Transformer
+		expectedEnvironmentConfig map[string]config.EnvironmentConfig
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "create a single environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"development": testutil.MakeEnvConfigLatest(nil),
+			},
+		},
+		{
+			Name: "create a single environment twice: second one should overwrite first one",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"staging": testutil.MakeEnvConfigUpstream("development", nil),
+			},
+		},
+		{
+			Name: "create multiple environments",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigUpstream("development", nil),
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"development": testutil.MakeEnvConfigLatest(nil),
+				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				result, err2 := state.GetAllEnvironmentConfigs(ctx, transaction)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedEnvironmentConfig, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestEvents(t *testing.T) {
+	type TestCase struct {
+		Name             string
+		Transformers     []Transformer
+		expectedDBEvents []event.Event
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "Create a single application version and deploy it with DB",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Application:      "app",
+					Environment:      "staging",
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 1,
+				},
+			},
+			expectedDBEvents: []event.Event{
+				&event.NewRelease{Environments: map[string]struct{}{"staging": {}}},
+				&event.Deployment{
+					Application: "app",
+					Environment: "staging",
+				},
+			},
+		},
+		{
+			Name: "Create a single application version and get deployment locked with DB",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment: "dev",
+					LockId:      "my-lock",
+					Message:     "my-message",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"dev": "doesn't matter",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 1,
+				},
+			},
+			expectedDBEvents: []event.Event{
+				&event.NewRelease{Environments: map[string]struct{}{"dev": {}}},
+				&event.LockPreventedDeployment{
+					Application: "app",
+					Environment: "dev",
+					LockType:    "environment",
+					LockMessage: "my-message",
+				},
+			},
+		},
+		{
+			Name: "Replaced By test",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"dev": "doesn't matter",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 1,
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					Manifests: map[string]string{
+						"dev": "doesn't matter",
+					},
+					WriteCommitData:  true,
+					Version:          2,
+					TransformerEslID: 1,
+					PreviousCommit:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+			expectedDBEvents: []event.Event{
+				&event.NewRelease{Environments: map[string]struct{}{"dev": {}}},
+				&event.Deployment{
+					Application: "app",
+					Environment: "dev",
+				},
+				&event.ReplacedBy{Application: "app", Environment: "dev", CommitIDtoReplace: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			var err error = nil
+			repo = SetupRepositoryTestWithDB(t)
+			r := repo.(*repository)
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				var batchError *TransformerBatchApplyError = nil
+				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if batchError != nil {
+					return batchError
+				}
+
+				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(rows) != len(tc.expectedDBEvents) {
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+				}
+				dEvents, err := DBParseToEvents(rows)
+				if err != nil {
+					t.Fatalf("encountered error but no error is expected here: %v", err)
+				}
+				for _, ev := range dEvents { //Events are not sortable. We need to check each one
+					for idx, expected := range tc.expectedDBEvents {
+						diff := cmp.Diff(expected, ev)
+						if diff == "" {
+							break
+						}
+						if idx == len(tc.expectedDBEvents)-1 {
+							t.Errorf("error mismatch (-want, +got):\n%s", cmp.Diff(dEvents, tc.expectedDBEvents))
+						}
+					}
+				}
+
+				return nil
+
+			})
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: '%v'", err)
 			}
 		})
 	}
@@ -1216,7 +1471,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err := repo.State().DBHandler.WithTransaction(ctxWithTime, func(ctx context.Context, transaction *sql.Tx) error {
+			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.PrevReleases {
 					repo.State().DBHandler.DBInsertRelease(ctx, transaction, release, 0)
 				}
@@ -1242,6 +1497,227 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestReleaseTrain(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		ReleaseVersionsLimit uint
+		Transformers         []Transformer
+		BootstrapMode        bool
+		ExpectedVersion      uint
+		TargetEnv            string
+		TargetApp            string
+	}{
+		{
+			Name:            "Release train",
+			ExpectedVersion: 2,
+			TargetEnv:       envProduction,
+			TargetApp:       "test",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: "test",
+					Version:     1,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         2,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     1,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     2,
+				},
+				&ReleaseTrain{
+					Target: envProduction,
+				},
+			},
+		},
+		{
+			Name:            "Release train from Latest",
+			ExpectedVersion: 2,
+			TargetEnv:       envAcceptance,
+			TargetApp:       "test",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData:  true,
+					Version:          2,
+					TransformerEslID: 0,
+				},
+				&ReleaseTrain{
+					Target:           envAcceptance,
+					TransformerEslID: 0,
+				},
+			},
+		},
+		{
+			Name:            "Release train for a Team",
+			ExpectedVersion: 2,
+			TargetApp:       "test-my-app",
+			TargetEnv:       envProduction,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+					TransformerEslID: 0,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test-my-app",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					Team:             "test",
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&DeployApplicationVersion{
+					Environment:      envProduction,
+					Application:      "test-my-app",
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test-my-app",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData:  true,
+					Version:          2,
+					TransformerEslID: 0,
+					Team:             "test",
+				},
+				&DeployApplicationVersion{
+					Environment:      envAcceptance,
+					Application:      "test-my-app",
+					Version:          1,
+					TransformerEslID: 0,
+				},
+				&DeployApplicationVersion{
+					Environment:      envAcceptance,
+					Application:      "test-my-app",
+					Version:          2,
+					TransformerEslID: 0,
+				},
+				&ReleaseTrain{
+					Target:           envProduction,
+					Team:             "test",
+					TransformerEslID: 0,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			//check deployments
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if err2 != nil {
+					return err2
+				}
+
+				deployment, dplError := state.DBHandler.DBSelectDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
+				if dplError != nil {
+					return dplError
+				}
+
+				if deployment == nil {
+					t.Fatalf("Expected deployment but none was found.")
+				}
+				if deployment.Version == nil {
+					t.Fatalf("Expected deployment version, but got nil.")
+
+				}
+				if diff := cmp.Diff(uint(*deployment.Version), tc.ExpectedVersion); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Err: %v\n", err)
 			}
 		})
 	}

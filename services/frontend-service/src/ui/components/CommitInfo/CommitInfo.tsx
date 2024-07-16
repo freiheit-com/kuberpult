@@ -13,8 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-
-import { TopAppBar } from '../TopAppBar/TopAppBar';
+import React, { useState } from 'react';
 import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
 
 type CommitInfoProps = {
@@ -27,7 +26,6 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     if (commitInfo === undefined) {
         return (
             <div>
-                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
                 <main className="main-content commit-page">Backend returned empty response</main>
             </div>
         );
@@ -62,7 +60,6 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
         );
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content commit-page">
                 <h1> Commit: {commitInfo.commitMessage.split('\n')[0]} </h1>
                 <div>
@@ -109,30 +106,91 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     );
 };
 
-const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
-    <table className={'events'} border={1}>
-        <thead>
-            <tr>
-                <th className={'date'}>Date:</th>
-                <th className={'description'}>Event Description:</th>
-                <th className={'environments'}>Environments:</th>
-            </tr>
-        </thead>
-        <tbody>
-            {props.events.map((event, _) => {
-                const createdAt = event.createdAt?.toISOString() || '';
-                const [description, environments] = eventDescription(event);
-                return (
-                    <tr key={event.uuid}>
-                        <td>{createdAt}</td>
-                        <td>{description}</td>
-                        <td>{environments}</td>
+const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
+    const [timezone, setTimezone] = useState<'UTC' | 'local'>('UTC');
+    const localTimezone = Intl.DateTimeFormat()?.resolvedOptions()?.timeZone ?? 'Europe/Berlin';
+    const handleChangeTimezone = React.useCallback(
+        (event: React.ChangeEvent<HTMLSelectElement>) => {
+            if (event.target.value === 'local' || event.target.value === 'UTC') {
+                setTimezone(event.target.value);
+            }
+        },
+        [setTimezone]
+    );
+    const convertTimeZone = (
+        date: Date,
+        timeZoneFrom?: string | null, // default timezone is Local
+        timeZoneTo?: string | null // default timezone is Local
+    ): Date => {
+        const dateFrom = !timeZoneFrom
+            ? date
+            : new Date(
+                  date.toLocaleString('en-US', {
+                      timeZone: timeZoneFrom,
+                  })
+              );
+        const dateTo = !timeZoneTo
+            ? date
+            : new Date(
+                  date.toLocaleString('en-US', {
+                      timeZone: timeZoneTo,
+                  })
+              );
+        return new Date(date.getTime() + dateTo.getTime() - dateFrom.getTime());
+    };
+    const dateToString = (date: Date, timeZone: string | null): string => {
+        date = convertTimeZone(date, 'UTC', timeZone);
+        const year = date.getUTCFullYear().toString().padStart(4, '0');
+        const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+        const day = date.getUTCDate().toString().padStart(2, '0');
+        const hours = date.getUTCHours().toString().padStart(2, '0');
+        const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+        const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+    };
+    const formatDate = (date: Date | undefined): string => {
+        if (!date) return '';
+        if (timezone === 'local') {
+            const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            return dateToString(date, zone);
+        }
+        return dateToString(date, 'UTC');
+    };
+    return (
+        <div>
+            <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
+                <option value="local">{localTimezone} Timezone</option>
+                <option value="UTC">UTC Timezone</option>
+            </select>
+            <table className={'events'} border={1}>
+                <thead>
+                    <tr>
+                        <th className={'date'}>Date:</th>
+                        <th className={'description'}>Event Description:</th>
+                        <th className={'environments'}>Environments:</th>
                     </tr>
-                );
-            })}
-        </tbody>
-    </table>
-);
+                </thead>
+                <tbody>
+                    {props.events.map((event, _) => {
+                        const createdAt = formatDate(event.createdAt);
+                        const [description, environments] = eventDescription(event);
+                        return (
+                            <tr key={event.uuid}>
+                                <td>{createdAt}</td>
+                                <td>{description}</td>
+                                <td>{environments}</td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+            <div>
+                As of now, only <a href={'https://github.com/freiheit-com/kuberpult/issues/1738'}> up to 100 events</a>{' '}
+                will be displayed here.
+            </div>
+        </div>
+    );
+};
 
 const eventDescription = (event: Event): [JSX.Element, string] => {
     const tp = event.eventType;
