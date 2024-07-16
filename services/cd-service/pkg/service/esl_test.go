@@ -41,7 +41,7 @@ func TestGetFailedEslsService(t *testing.T) {
 			FailedEsls: []*db.EslEventRow{
 				{
 					EslId:     1,
-					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					EventJson: `{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					EventType: db.EvtCreateApplicationVersion,
 					Created:   time.Now(),
 				},
@@ -52,7 +52,7 @@ func TestGetFailedEslsService(t *testing.T) {
 						EslId:     1,
 						CreatedAt: timestamppb.New(time.Now()),
 						EventType: string(db.EvtCreateApplicationVersion),
-						Json:      string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+						Json:      `{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					},
 				},
 			},
@@ -62,13 +62,13 @@ func TestGetFailedEslsService(t *testing.T) {
 			FailedEsls: []*db.EslEventRow{
 				{
 					EslId:     1,
-					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					EventJson: `{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					EventType: db.EvtCreateApplicationVersion,
 					Created:   time.Now(),
 				},
 				{
 					EslId:     2,
-					EventJson: string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					EventJson: `{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					EventType: db.EvtCreateEnvironment,
 					Created:   time.Now(),
 				},
@@ -79,13 +79,13 @@ func TestGetFailedEslsService(t *testing.T) {
 						EslId:     2,
 						CreatedAt: timestamppb.New(time.Now()),
 						EventType: string(db.EvtCreateEnvironment),
-						Json:      string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+						Json:      `{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					},
 					{
 						EslId:     1,
 						CreatedAt: timestamppb.New(time.Now()),
 						EventType: string(db.EvtCreateApplicationVersion),
-						Json:      string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+						Json:      `{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					},
 				},
 			},

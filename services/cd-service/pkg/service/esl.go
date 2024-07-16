@@ -19,6 +19,8 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -57,6 +59,8 @@ func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailed
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		return nil, fmt.Errorf("GetFailedEsls is only implemented for the database")
 	}
 	return response, nil
 }
