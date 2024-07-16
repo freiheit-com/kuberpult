@@ -20,9 +20,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"regexp"
 )
 
 func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql.Tx, teamLock TeamLock) error {
@@ -96,7 +98,7 @@ func (h *DBHandler) UpdateOverviewEnvironmentLock(ctx context.Context, transacti
 	return nil
 }
 
-func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *sql.Tx, deployment Deployment) error {
+func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *sql.Tx, deployment Deployment, createdTime time.Time) error {
 	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
 	if err != nil {
 		return err
@@ -118,7 +120,7 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 		appInEnv.Version = uint64(*deployment.Version)
 	}
 	appInEnv.DeploymentMetaData.DeployAuthor = deployment.Metadata.DeployedByEmail
-	appInEnv.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployment.Created.Unix())
+	appInEnv.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", createdTime.Unix())
 	app := getApplicationByName(latestOverview.Applications, deployment.App)
 	app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
 
@@ -235,6 +237,13 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 }
 
 func (h *DBHandler) ForceOverviewRecalculation(ctx context.Context, transaction *sql.Tx) error {
+	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if h.IsOverviewEmpty(latestOverview) {
+		return nil
+	}
 	emptyOverview := &api.GetOverviewResponse{
 		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
@@ -242,7 +251,7 @@ func (h *DBHandler) ForceOverviewRecalculation(ctx context.Context, transaction 
 		Branch:            "",
 		ManifestRepoUrl:   "",
 	}
-	err := h.WriteOverviewCache(ctx, transaction, emptyOverview)
+	err = h.WriteOverviewCache(ctx, transaction, emptyOverview)
 	if err != nil {
 		return err
 	}
