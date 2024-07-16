@@ -1606,6 +1606,137 @@ func TestReadWriteEslEvent(t *testing.T) {
 	}
 }
 
+func TestReadWriteFailedEslEvent(t *testing.T) {
+	const envName = "dev"
+	const appName = "my-app"
+	const lockId = "ui-v2-ke1up"
+	const message = "test"
+	const authorName = "testauthor"
+	const authorEmail = "testemail@example.com"
+
+	tcs := []struct {
+		Name   string
+		Events []EslEventRow
+		Limit  int
+	}{
+		{
+			Name: "Write and read once",
+			Events: []EslEventRow{
+				{
+					EventType: EvtCreateApplicationVersion,
+					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     1,
+				},
+			},
+			Limit: 1,
+		},
+		{
+			Name: "Write and read multiple",
+			Events: []EslEventRow{
+				{
+					EventType: EvtCreateApplicationVersion,
+					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     1,
+				},
+				{
+					EventType: EvtCreateEnvironmentApplicationLock,
+					EventJson: string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     2,
+				},
+				{
+					EventType: EvtCreateEnvironment,
+					EventJson: string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     3,
+				},
+			},
+			Limit: 3,
+		},
+		{
+			Name: "More than limit",
+			Events: []EslEventRow{
+				{
+					EventType: EvtCreateApplicationVersion,
+					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     1,
+				},
+				{
+					EventType: EvtCreateEnvironmentGroupLock,
+					EventJson: string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     2,
+				},
+				{
+					EventType: EvtCreateEnvironment,
+					EventJson: string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     3,
+				},
+			},
+			Limit: 2,
+		},
+		{
+			Name: "Less than limit",
+			Events: []EslEventRow{
+				{
+					EventType: EvtCreateApplicationVersion,
+					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:   time.Now(),
+					EslId:     1,
+				},
+			},
+			Limit: 3,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, event := range tc.Events {
+					err := dbHandler.DBWriteFailedEslEvent(ctx, transaction, &event)
+					if err != nil {
+						return err
+					}
+				}
+
+				actualEvents, err := dbHandler.DBReadLastFailedEslEvents(ctx, transaction, tc.Limit)
+				if err != nil {
+					return err
+				}
+
+				if len(actualEvents) > tc.Limit {
+					t.Fatalf("expected %d events, got %d", tc.Limit, len(actualEvents))
+				}
+
+				for i, actualEvent := range actualEvents {
+					if diff := cmp.Diff(tc.Events[len(tc.Events)-1-i].EslId, actualEvent.EslId); diff != "" {
+						t.Fatalf("event id mismatch (-want, +got):\n%s", diff)
+					}
+					if diff := cmp.Diff(tc.Events[len(tc.Events)-1-i].EventType, actualEvent.EventType); diff != "" {
+						t.Fatalf("event type mismatch (-want, +got):\n%s", diff)
+					}
+					if diff := cmp.Diff(tc.Events[len(tc.Events)-1-i].EventJson, actualEvent.EventJson); diff != "" {
+						t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestReadWriteAllEnvironments(t *testing.T) {
 	type TestCase struct {
 		Name           string

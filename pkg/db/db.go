@@ -4453,7 +4453,6 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context,  tx *sql.Tx, eslE
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
 
-
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type , json)  VALUES (?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
@@ -4479,7 +4478,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT created, event_type, json FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT eslId, created, event_type, json FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
@@ -4497,7 +4496,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 
 	for rows.Next() {
 		row := &EslEventRow{}
-		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslId, &row.Created, &row.EventType, &row.EventJson)
 		if err != nil {
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
 		}
