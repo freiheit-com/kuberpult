@@ -37,6 +37,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
@@ -79,24 +80,26 @@ func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
 
-	var response *api.GetOverviewResponse
 	if s.DBHandler.ShouldUseOtherTables() {
-		err := s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
 			var err2 error
 			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
 			if err2 != nil {
-				return err2
+				return nil, err2
 			}
-			if !s.DBHandler.CheckOverviewIsEmpty(cached_result) {
-				response = cached_result
-				return nil
+			if !s.DBHandler.IsOverviewEmpty(cached_result) {
+				return cached_result, nil
 			}
 
-			response, err2 = o.getOverview(ctx, s, transaction)
+			response, err2 := o.getOverview(ctx, s, transaction)
 			if err2 != nil {
-				return err2
+				return nil, err2
 			}
-			return s.DBHandler.WriteOverviewCache(ctx, transaction, response)
+			err2 = s.DBHandler.WriteOverviewCache(ctx, transaction, response)
+			if err2 != nil {
+				return nil, err2
+			}
+			return response, nil
 		})
 		if err != nil {
 			return nil, err
