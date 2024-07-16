@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -36,7 +37,20 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func createMigrationFolder(dbLocation string) (string, error) {
 	loc := path.Join(dbLocation, "migrations")
@@ -1819,6 +1833,208 @@ func TestReadReleasesByApp(t *testing.T) {
 				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
 			}
 
+		})
+	}
+}
+
+func TestReadWriteOverviewCache(t *testing.T) {
+	var upstreamLatest = true
+	var dev = "dev"
+	type TestCase struct {
+		Name      string
+		Overviews []*api.GetOverviewResponse
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "Read and write",
+			Overviews: []*api.GetOverviewResponse{
+				&api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "dev",
+							Environments: []*api.Environment{
+								{
+									Name: "development",
+									Config: &api.EnvironmentConfig{
+										Upstream: &api.EnvironmentConfig_Upstream{
+											Latest: &upstreamLatest,
+										},
+										Argocd:           &api.EnvironmentConfig_ArgoCD{},
+										EnvironmentGroup: &dev,
+									},
+									Applications: map[string]*api.Environment_Application{
+										"test": {
+											Name:    "test",
+											Version: 1,
+											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+												DeployAuthor: "testmail@example.com",
+												DeployTime:   "1",
+											},
+											Team: "team-123",
+										},
+									},
+									Priority: api.Priority_YOLO,
+								},
+							},
+							Priority: api.Priority_YOLO,
+						},
+					},
+					Applications: map[string]*api.Application{
+						"test": {
+							Name: "test",
+							Releases: []*api.Release{
+								{
+									Version:        1,
+									SourceCommitId: "deadbeef",
+									SourceAuthor:   "example <example@example.com>",
+									SourceMessage:  "changed something (#678)",
+									PrNumber:       "678",
+									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+								},
+							},
+							Team: "team-123",
+						},
+					},
+					GitRevision: "0",
+				},
+			},
+		},
+		{
+			Name: "Read and write multiple",
+			Overviews: []*api.GetOverviewResponse{
+				&api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "dev",
+							Environments: []*api.Environment{
+								{
+									Name: "development",
+									Config: &api.EnvironmentConfig{
+										Upstream: &api.EnvironmentConfig_Upstream{
+											Latest: &upstreamLatest,
+										},
+										Argocd:           &api.EnvironmentConfig_ArgoCD{},
+										EnvironmentGroup: &dev,
+									},
+									Applications: map[string]*api.Environment_Application{
+										"test": {
+											Name:    "test",
+											Version: 1,
+											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+												DeployAuthor: "testmail@example.com",
+												DeployTime:   "1",
+											},
+											Team: "team-123",
+										},
+									},
+									Priority: api.Priority_YOLO,
+								},
+							},
+							Priority: api.Priority_YOLO,
+						},
+					},
+					Applications: map[string]*api.Application{
+						"test": {
+							Name: "test",
+							Releases: []*api.Release{
+								{
+									Version:        1,
+									SourceCommitId: "deadbeef",
+									SourceAuthor:   "example <example@example.com>",
+									SourceMessage:  "changed something (#678)",
+									PrNumber:       "678",
+									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+								},
+							},
+							Team: "team-123",
+						},
+					},
+					GitRevision: "0",
+				},
+				&api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "test",
+							Environments: []*api.Environment{
+								{
+									Name: "testing",
+									Config: &api.EnvironmentConfig{
+										Upstream: &api.EnvironmentConfig_Upstream{
+											Latest: &upstreamLatest,
+										},
+										Argocd:           &api.EnvironmentConfig_ArgoCD{},
+										EnvironmentGroup: &dev,
+									},
+									Applications: map[string]*api.Environment_Application{
+										"test2": {
+											Name:    "test2",
+											Version: 1,
+											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+												DeployAuthor: "testmail2@example.com",
+												DeployTime:   "1",
+											},
+											Team: "team-123",
+										},
+									},
+									Priority: api.Priority_CANARY,
+								},
+							},
+							Priority: api.Priority_CANARY,
+						},
+					},
+					Applications: map[string]*api.Application{
+						"test2": {
+							Name: "test2",
+							Releases: []*api.Release{
+								{
+									Version:        1,
+									SourceCommitId: "deadbeef",
+									SourceAuthor:   "example <example@example.com>",
+									SourceMessage:  "changed something (#678)",
+									PrNumber:       "678",
+									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+								},
+							},
+							Team: "team-123",
+						},
+					},
+					GitRevision: "0",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, overview := range tc.Overviews {
+					err := dbHandler.WriteOverviewCache(ctx, transaction, overview)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+
+				result, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+
+				opts := getOverviewIgnoredTypes()
+				if diff := cmp.Diff(tc.Overviews[len(tc.Overviews)-1], result, opts); diff != "" {
+					return fmt.Errorf("overview cache ESL ID mismatch (-want +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
 		})
 	}
 }

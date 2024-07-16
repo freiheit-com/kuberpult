@@ -22,13 +22,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"path"
 	"reflect"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/valid"
+
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -725,6 +727,10 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 			release.ReleaseNumber,
 			previousEslVersion+1,
 			err)
+	}
+	err = h.UpdateOverviewRelease(ctx, transaction, release)
+	if err != nil {
+		return err
 	}
 	logger.FromContext(ctx).Sugar().Infof(
 		"inserted release: app '%s' and version '%v' and eslVersion %v",
@@ -1556,6 +1562,10 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	if err != nil {
 		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
 	}
+	err = h.ForceOverviewRecalculation(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("could not update overview table. Error: %w\n", err)
+	}
 	return nil
 }
 
@@ -1708,6 +1718,10 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
+	}
+	err = h.UpdateOverviewDeployment(ctx, tx, deployment)
+	if err != nil {
+		return fmt.Errorf("could not update overview table. Error: %w\n", err)
 	}
 	return nil
 }
@@ -2374,6 +2388,10 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 
 	if err != nil {
 		return fmt.Errorf("could not write environment lock into DB. Error: %w\n", err)
+	}
+	err = h.UpdateOverviewEnvironmentLock(ctx, tx, envLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview environment lock. Error: %w\n", err)
 	}
 	return nil
 }
@@ -3055,6 +3073,10 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
+	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview application lock. Error: %w\n", err)
+	}
 	return nil
 }
 
@@ -3361,6 +3383,10 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 
 	if err != nil {
 		return fmt.Errorf("could not write team lock into DB. Error: %w\n", err)
+	}
+	err = h.UpdateOverviewTeamLock(ctx, tx, teamLock)
+	if err != nil {
+		return fmt.Errorf("could not update overview team lock. Error: %w\n", err)
 	}
 	return nil
 }
@@ -3922,6 +3948,10 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	if err != nil {
 		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
 	}
+	err = h.UpdateOverviewDeploymentAttempt(ctx, tx, deployment)
+	if err != nil {
+		return fmt.Errorf("could not update overview table in DB. Error: %w\n", err)
+	}
 	return nil
 }
 
@@ -4114,6 +4144,10 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	)
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
+	}
+	err = h.ForceOverviewRecalculation(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("error while forcing overview recalculation, error: %w", err)
 	}
 	return nil
 }
@@ -4308,4 +4342,104 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 		}
 		return nil
 	})
+}
+
+type OverviewCacheRow struct {
+	EslId     EslId
+	Timestamp time.Time
+	Json      string
+}
+
+func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "readLatestOverviewCache")
+	defer span.Finish()
+	if h == nil {
+		return nil, fmt.Errorf("readLatestOverviewCache: DBHandler is nil")
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("readLatestOverviewCache: no transaction provided")
+	}
+
+	selectQuery := h.AdaptQuery(
+		"SELECT eslId, timestamp, json FROM overview_cache ORDER BY eslId DESC LIMIT 1;",
+	)
+
+	span.SetTag("query", selectQuery)
+	rows, err := transaction.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query overview_cache table from DB. Error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	var row = &OverviewCacheRow{
+		EslId:     0,
+		Timestamp: time.Unix(0, 0),
+		Json:      "",
+	}
+	if rows.Next() {
+		err := rows.Scan(&row.EslId, &row.Timestamp, &row.Json)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning overview_cache row from DB. Error: %w", err)
+		}
+	} else {
+		row = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	if row != nil {
+		result := &api.GetOverviewResponse{
+			Branch:            "",
+			ManifestRepoUrl:   "",
+			Applications:      map[string]*api.Application{},
+			EnvironmentGroups: []*api.EnvironmentGroup{},
+			GitRevision:       "",
+		}
+		err = json.Unmarshal([]byte(row.Json), result)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+	return nil, nil
+}
+
+func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx, overviewResponse *api.GetOverviewResponse) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "writeOverviewCache")
+	defer span.Finish()
+	if h == nil {
+		return fmt.Errorf("writeOverviewCache: DBHandler is nil")
+	}
+	if transaction == nil {
+		return fmt.Errorf("writeOverviewCache: no transaction provided")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO overview_cache (timestamp, Json) VALUES (?, ?);",
+	)
+	span.SetTag("query", insertQuery)
+	jsonResponse, err := json.Marshal(overviewResponse)
+	if err != nil {
+		return fmt.Errorf("could not marshal overview json data: %w", err)
+	}
+	_, err = transaction.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		jsonResponse,
+	)
+	if err != nil {
+		return fmt.Errorf("could not insert overview_cache row into DB. Error: %w", err)
+	}
+	return nil
 }
