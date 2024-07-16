@@ -1717,13 +1717,14 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 				}
 
 				for i, actualEvent := range actualEvents {
-					if diff := cmp.Diff(tc.Events[len(tc.Events)-1-i].EslId, actualEvent.EslId); diff != "" {
+					reverse_index := len(tc.Events) - 1 - i // The order of the results should be descending
+					if diff := cmp.Diff(tc.Events[reverse_index].EslId, actualEvent.EslId); diff != "" {
 						t.Fatalf("event id mismatch (-want, +got):\n%s", diff)
 					}
-					if diff := cmp.Diff(tc.Events[len(tc.Events)-1-i].EventType, actualEvent.EventType); diff != "" {
+					if diff := cmp.Diff(tc.Events[reverse_index].EventType, actualEvent.EventType); diff != "" {
 						t.Fatalf("event type mismatch (-want, +got):\n%s", diff)
 					}
-					if diff := cmp.Diff(tc.Events[len(tc.Events)-1-i].EventJson, actualEvent.EventJson); diff != "" {
+					if diff := cmp.Diff(tc.Events[reverse_index].EventJson, actualEvent.EventJson); diff != "" {
 						t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
 					}
 				}
