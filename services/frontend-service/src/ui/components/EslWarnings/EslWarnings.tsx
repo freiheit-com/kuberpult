@@ -35,7 +35,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
     if (failedEslsResponse === undefined) {
         return (
             <div>
-                <main className="main-content commit-page">Backend returned empty response</main>
+                <main className="main-content">Backend returned empty response</main>
             </div>
         );
     }
@@ -81,33 +81,38 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
 
     return (
         <div>
-            <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
-                <option value="local">{localTimezone} Timezone</option>
-                <option value="UTC">UTC Timezone</option>
-            </select>
-            <table className={'events'} border={1}>
-                <thead>
-                    <tr>
-                        <th className={'EslId'}>EslId:</th>
-                        <th className={'date'}>Date:</th>
-                        <th className={'Event Type'}>EventType:</th>
-                        <th className={'Json'}>Json:</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {failedEslsResponse.failedEsls.map((eslItem, _) => {
-                        const createdAt = formatDate(eslItem.createdAt);
-                        return (
-                            <tr key={eslItem.eslId}>
-                                <td>{eslItem.eslId}</td>
-                                <td>{createdAt}</td>
-                                <td>{eslItem.eventType}</td>
-                                <td>{eslItem.json}</td>
+            <main className="main-content esl-warnings">
+                <h1> Failed Esls List: </h1>
+                <div>
+                    <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
+                        <option value="local">{localTimezone} Timezone</option>
+                        <option value="UTC">UTC Timezone</option>
+                    </select>
+                    <table className={'esls'} border={1}>
+                        <thead>
+                            <tr>
+                                <th className={'EslId'}>EslId:</th>
+                                <th className={'date'}>Date:</th>
+                                <th className={'Event Type'}>EventType:</th>
+                                <th className={'Json'}>Json:</th>
                             </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
+                        </thead>
+                        <tbody>
+                            {failedEslsResponse.failedEsls.map((eslItem, _) => {
+                                const createdAt = formatDate(eslItem.createdAt);
+                                return (
+                                    <tr key={eslItem.eslId}>
+                                        <td>{eslItem.eslId}</td>
+                                        <td>{createdAt}</td>
+                                        <td>{eslItem.eventType}</td>
+                                        <td>{eslItem.json}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </main>
         </div>
     );
 };

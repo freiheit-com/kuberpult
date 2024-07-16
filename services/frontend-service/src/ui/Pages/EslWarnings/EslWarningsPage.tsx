@@ -37,19 +37,19 @@ export const EslWarningsPage: React.FC = () => {
 
     switch (failedEsls.failedEslsReady) {
         case FailedEslsState.LOADING:
-            return <Spinner message="Loading commit info" />;
+            return <Spinner message="Loading Failed Esls info" />;
         case FailedEslsState.ERROR:
             return (
                 <div>
                     <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
-                    <main className="main-content commit-page">Backend error</main>
+                    <main className="main-content esl-warnings-page">Backend error</main>
                 </div>
             );
         case FailedEslsState.NOTFOUND:
             return (
                 <div>
                     {/*<TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />*/}
-                    <main className="main-content commit-page">
+                    <main className="main-content esl-warnings-page">
                         <p>No failed ESLs found</p>
                     </main>
                 </div>
