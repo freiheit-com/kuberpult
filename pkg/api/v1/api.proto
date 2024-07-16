@@ -688,7 +688,7 @@ service EslService {
 message GetFailedEslsRequest {}
 
 message EslItem {
-  int64 EslId = 1;
+  int64 esl_id = 1;
   google.protobuf.Timestamp created_at = 2;
   string event_type = 3;
   string json = 4;

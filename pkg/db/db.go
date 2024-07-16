@@ -4495,7 +4495,12 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 	failedEsls := make([]*EslEventRow, 0)
 
 	for rows.Next() {
-		row := &EslEventRow{}
+		row := &EslEventRow{
+			EslId:     0,
+			Created:   time.Unix(0, 0),
+			EventType: "",
+			EventJson: "",
+		}
 		err := rows.Scan(&row.EslId, &row.Created, &row.EventType, &row.EventJson)
 		if err != nil {
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
