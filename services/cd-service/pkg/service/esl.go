@@ -1,0 +1,66 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MIT License for more details.
+
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+Copyright freiheit.com*/
+
+package service
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+type EslServiceServer struct {
+	Repository repository.Repository
+}
+
+func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailedEslsRequest) (*api.GetFailedEslsResponse, error) {
+	state := s.Repository.State()
+	var response *api.GetFailedEslsResponse = &api.GetFailedEslsResponse{
+		FailedEsls: make([]*api.EslItem, 0),
+	}
+	if state.DBHandler.ShouldUseOtherTables() {
+		err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			failedEslRows, err := s.Repository.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 20)
+			if err != nil {
+				return err
+			}
+			failedEslItems := make([]*api.EslItem, len(failedEslRows))
+			for i, failedEslRow := range failedEslRows {
+				failedEslItems[i] = &api.EslItem{
+					EslId:     int64(failedEslRow.EslId),
+					CreatedAt: timestamppb.New(failedEslRow.Created),
+					EventType: string(failedEslRow.EventType),
+					Json:      failedEslRow.EventJson,
+				}
+			}
+			response = &api.GetFailedEslsResponse{
+				FailedEsls: failedEslItems,
+			}
+
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("GetFailedEsls is only implemented for the database")
+	}
+	return response, nil
+}

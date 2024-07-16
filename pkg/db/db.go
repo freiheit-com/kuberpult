@@ -4443,3 +4443,74 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 	}
 	return nil
 }
+func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslEventRow) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteFailedEslEvent: no transaction provided")
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type , json)  VALUES (?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err := tx.Exec(
+		insertQuery,
+		time.Now().UTC(),
+		eslEvent.EventType,
+		eslEvent.EventJson)
+
+	if err != nil {
+		return fmt.Errorf("could not write failed esl event into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslEventRow, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
+	}
+
+	query := h.AdaptQuery("SELECT eslId, created, event_type, json FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	failedEsls := make([]*EslEventRow, 0)
+
+	for rows.Next() {
+		row := &EslEventRow{
+			EslId:     0,
+			Created:   time.Unix(0, 0),
+			EventType: "",
+			EventJson: "",
+		}
+		err := rows.Scan(&row.EslId, &row.Created, &row.EventType, &row.EventJson)
+		if err != nil {
+			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+		}
+		failedEsls = append(failedEsls, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+	}
+
+	return failedEsls, nil
+}

@@ -294,6 +294,7 @@ func runServer(ctx context.Context) error {
 		GitClient:                   api.NewGitServiceClient(cdCon),
 		EnvironmentServiceClient:    api.NewEnvironmentServiceClient(cdCon),
 		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+		EslServiceClient:            api.NewEslServiceClient(cdCon),
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
@@ -301,6 +302,7 @@ func runServer(ctx context.Context) error {
 	api.RegisterGitServiceServer(gsrv, gproxy)
 	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
 	api.RegisterReleaseTrainPrognosisServiceServer(gsrv, gproxy)
+	api.RegisterEslServiceServer(gsrv, gproxy)
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
@@ -624,6 +626,7 @@ type GrpcProxy struct {
 	GitClient                   api.GitServiceClient
 	EnvironmentServiceClient    api.EnvironmentServiceClient
 	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
+	EslServiceClient            api.EslServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -638,6 +641,12 @@ func (p *GrpcProxy) ProcessBatch(
 	}
 
 	return p.BatchClient.ProcessBatch(ctx, in)
+}
+
+func (p *GrpcProxy) GetFailedEsls(
+	ctx context.Context,
+	in *api.GetFailedEslsRequest) (*api.GetFailedEslsResponse, error) {
+	return p.EslServiceClient.GetFailedEsls(ctx, in)
 }
 
 func (p *GrpcProxy) GetOverview(
