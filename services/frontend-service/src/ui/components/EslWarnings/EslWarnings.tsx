@@ -35,7 +35,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
     if (failedEslsResponse === undefined) {
         return (
             <div>
-                <main className="main-content">Backend returned empty response</main>
+                <main className="main-content esl-warnings-page">Backend returned empty response</main>
             </div>
         );
     }
@@ -81,8 +81,8 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
 
     return (
         <div>
-            <main className="main-content esl-warnings">
-                <h1> Failed Esls List: </h1>
+            <main className="main-content esl-warnings-page">
+                <h1>Failed Esls List: </h1>
                 <div>
                     <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
                         <option value="local">{localTimezone} Timezone</option>
@@ -93,7 +93,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                             <tr>
                                 <th className={'EslId'}>EslId:</th>
                                 <th className={'date'}>Date:</th>
-                                <th className={'Event Type'}>EventType:</th>
+                                <th className={'Event Type'}>Event Type:</th>
                                 <th className={'Json'}>Json:</th>
                             </tr>
                         </thead>

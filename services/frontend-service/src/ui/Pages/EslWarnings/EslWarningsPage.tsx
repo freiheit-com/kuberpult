@@ -48,7 +48,6 @@ export const EslWarningsPage: React.FC = () => {
         case FailedEslsState.NOTFOUND:
             return (
                 <div>
-                    {/*<TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />*/}
                     <main className="main-content esl-warnings-page">
                         <p>No failed ESLs found</p>
                     </main>
