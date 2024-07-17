@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errors2 "github.com/freiheit-com/kuberpult/pkg/errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -37,7 +38,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	backoff "github.com/cenkalti/backoff/v4"
@@ -61,6 +61,7 @@ type Repository interface {
 	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
+	FetchAndReset(ctx context.Context) error
 }
 
 type TransformerBatchApplyError struct {
@@ -399,27 +400,16 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callba
 		gerr, ok := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
 		if ok && gerr.Code == git.ErrorCodeNonFastForward {
-			err = r.FetchAndReset(ctx)
-			if err != nil {
-				return err
-			}
-			// Apply the items
-			err, _ = apply()
-			if err != nil {
-				return fmt.Errorf("apply after fetch failed, aborting: %v", err)
-			}
-			if pushErr := r.Push(ctx, pushAction(pushOptions, r)); pushErr != nil {
-				return pushErr
-			}
+			return errors2.RetryGitRepo(gerr)
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return grpc.CanceledError(ctx, err)
+			return errors2.RetryGitRepo(err)
 		} else {
 			log.Error(fmt.Sprintf("error while pushing: %s", err))
-			return grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
+			return errors2.RetryGitRepo(fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
 		}
 	} else {
 		if !pushSuccess {
-			return fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
+			return errors2.RetryGitRepo(fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch))
 		}
 	}
 	return nil

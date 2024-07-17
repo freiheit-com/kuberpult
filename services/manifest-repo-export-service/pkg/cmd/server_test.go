@@ -17,6 +17,10 @@ Copyright freiheit.com*/
 package cmd
 
 import (
+	"fmt"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/errors"
+	"github.com/google/go-cmp/cmp"
 	"testing"
 	"time"
 
@@ -70,6 +74,105 @@ func TestCalculateProcessDelay(t *testing.T) {
 			}
 			if delay != tc.ExpectedDelay {
 				t.Errorf("expected %f, got %f", tc.ExpectedDelay, delay)
+			}
+		})
+	}
+}
+
+func TestCalcSleep(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		inputError        error
+		inputBackOff      backoff.BackOff
+		eslEventSkipped   bool
+		eslTableEmpty     bool
+		expectedSleepData *SleepData
+	}{
+		{
+			Name:              "Should return 0 if there is no error and eslEventSkipped=false",
+			inputError:        nil,
+			inputBackOff:      backoff.NewConstantBackOff(0),
+			eslEventSkipped:   true,
+			eslTableEmpty:     false,
+			expectedSleepData: nil,
+		},
+		{
+			Name:            "Should return resetTimer/500 if there is no error and eslEventSkipped=true",
+			inputError:      nil,
+			inputBackOff:    backoff.NewExponentialBackOff(backoff.WithRandomizationFactor(0)),
+			eslEventSkipped: false,
+			eslTableEmpty:   true,
+			expectedSleepData: &SleepData{
+				WarnMessage:   "",
+				InfoMessage:   "sleeping for 500ms before looking for the first event again",
+				SleepDuration: time.Millisecond * 500,
+				FetchRepo:     false,
+				ResetTimer:    false,
+			},
+		},
+		{
+			Name:            "Should return 'reset' if there is no error everything's false",
+			inputError:      nil,
+			inputBackOff:    backoff.NewConstantBackOff(0),
+			eslEventSkipped: false,
+			eslTableEmpty:   false,
+			expectedSleepData: &SleepData{
+				WarnMessage:   "",
+				InfoMessage:   "",
+				SleepDuration: 0,
+				FetchRepo:     false,
+				ResetTimer:    true,
+			},
+		},
+		{
+			Name:            "transaction error",
+			inputError:      errors.RetryTransaction(fmt.Errorf("hello")),
+			inputBackOff:    backoff.NewConstantBackOff(time.Millisecond * 250),
+			eslEventSkipped: false,
+			eslTableEmpty:   false,
+			expectedSleepData: &SleepData{
+				WarnMessage:   "transactional error: retry error for kind 'transaction': hello",
+				InfoMessage:   "",
+				SleepDuration: time.Millisecond * 250,
+				FetchRepo:     false,
+				ResetTimer:    false,
+			},
+		},
+		{
+			Name:            "git error",
+			inputError:      errors.RetryGitRepo(fmt.Errorf("holla")),
+			inputBackOff:    backoff.NewConstantBackOff(time.Millisecond * 123),
+			eslEventSkipped: false,
+			eslTableEmpty:   false,
+			expectedSleepData: &SleepData{
+				WarnMessage:   "could not update git repo",
+				InfoMessage:   "",
+				SleepDuration: time.Millisecond * 123,
+				FetchRepo:     true,
+				ResetTimer:    false,
+			},
+		},
+		{
+			Name:            "else",
+			inputError:      nil,
+			inputBackOff:    backoff.NewConstantBackOff(0),
+			eslEventSkipped: false,
+			eslTableEmpty:   false,
+			expectedSleepData: &SleepData{
+				WarnMessage:   "",
+				InfoMessage:   "",
+				SleepDuration: 0,
+				FetchRepo:     false,
+				ResetTimer:    true,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			actualSleepData := calcSleep(tc.inputError, tc.inputBackOff, tc.eslEventSkipped, tc.eslTableEmpty)
+			if diff := cmp.Diff(actualSleepData, tc.expectedSleepData); diff != "" {
+				t.Errorf("expected %v, got %v, diff:\n%s", tc.expectedSleepData, actualSleepData, diff)
 			}
 		})
 	}

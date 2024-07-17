@@ -141,6 +141,9 @@ manifestRepoExport:
     requests:
       cpu: 2
       memory: 3Gi
+  # The initial time in seconds that this service waits when it does not find esl events to process, before trying again.
+  # Time increases exponentially if errors occur.
+  # Maximum time to wait is 600sec (cannot be changed).
   eslProcessingIdleTimeSeconds: 5
   # Timeout in seconds used for network operations
   networkTimeoutSeconds: 120
