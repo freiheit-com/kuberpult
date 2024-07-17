@@ -145,17 +145,12 @@ ingress:
   domainName: "kuberpult-example.com"
 
 environment_configs:
-  bootstrap_mode: true
   environment_configs_json: "{}"
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_GIT_URL",
 					Value: "testURL",
-				},
-				{
-					Name:  "KUBERPULT_BOOTSTRAP_MODE",
-					Value: "true",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{
@@ -321,10 +316,6 @@ argocd:
 					Name:  "KUBERPULT_GIT_URL",
 					Value: "testURL",
 				},
-				{
-					Name:  "KUBERPULT_ARGO_CD_SERVER",
-					Value: "",
-				},
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
@@ -336,17 +327,13 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 argocd:
-  sendWebhooks: true
+  sendWebHooks: false 
   server: testServer
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_GIT_URL",
 					Value: "testURL",
-				},
-				{
-					Name:  "KUBERPULT_ARGO_CD_SERVER",
-					Value: "testServer",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -893,7 +880,7 @@ db:
   writeEslTableOnly: false
 
 manifestRepoExport:
-  eslProcessingBackoff: 5
+  eslProcessingIdleTimeSeconds: 5
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{

@@ -1755,13 +1755,11 @@ func (c *DeleteEnvironmentLock) Transform(
 	}
 	fs := state.Filesystem
 	s := State{
-		Commit:                 nil,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "",
-		Filesystem:             fs,
-		DBHandler:              state.DBHandler,
-		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
-		CloudRunClient:         state.CloudRunClient,
+		Commit:               nil,
+		Filesystem:           fs,
+		DBHandler:            state.DBHandler,
+		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
+		CloudRunClient:       state.CloudRunClient,
 	}
 	if s.DBHandler.ShouldUseOtherTables() {
 		err := s.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
@@ -2298,13 +2296,6 @@ func (c *CreateEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	// Creation of environment is possible, but configuring it is not if running in bootstrap mode.
-	// Configuration needs to be done by modifying config map in source repo
-	//exhaustruct:ignore
-	defaultConfig := config.EnvironmentConfig{}
-	if state.BootstrapMode && c.Config != defaultConfig {
-		return "", fmt.Errorf("Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead.")
-	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		// write to environments table
 		err := state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config)
@@ -2658,13 +2649,11 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	s := State{
-		Commit:                 nil,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "",
-		Filesystem:             fs,
-		DBHandler:              state.DBHandler,
-		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
-		CloudRunClient:         state.CloudRunClient,
+		Commit:               nil,
+		Filesystem:           fs,
+		DBHandler:            state.DBHandler,
+		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
+		CloudRunClient:       state.CloudRunClient,
 	}
 	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application)
 	if err != nil {
