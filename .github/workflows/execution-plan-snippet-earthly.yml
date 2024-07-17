@@ -209,7 +209,7 @@ jobs:
         if: matrix.data.artifacts != ''
         with:
           name: ${{ matrix.data.artifactName }}
-          path: ${{ matrix.data.artifacts }}
+          path: ${{ matrix.data.directory }}/${{ matrix.data.artifacts }}
   cleanup:
     needs: [stageB_build, execution_plan]
     name: Cleanup
