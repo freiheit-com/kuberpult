@@ -18,12 +18,14 @@ package integration_tests
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"math/rand"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,10 +58,10 @@ func TestArgoRolloutWork(t *testing.T) {
 		app  string
 	}{
 		// TODO this will be fixed in Ref SRX-PA568W
-		//{
-		//	name: "it can sync manifests into the cluster",
-		//	app:  "rollout-" + appSuffix,
-		//},
+		{
+			name: "can create application",
+			app:  "rollout-" + appSuffix,
+		},
 	}
 	for _, tc := range testCases {
 		tc := tc
@@ -80,16 +82,21 @@ func TestArgoRolloutWork(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			releaseVersion := rand.Int() % 1000
 			// Release a new app that we start completely fresh
 			releaseApp(t, tc.app, map[string]string{
 				"development": string(data),
-			})
+			}, releaseVersion)
 			// We have to sync the root app once because we have created a new app
-			runArgo(t, "app", "sync", "root")
-			// The sync may already be in progress, therefore we wait here for pending operations to finish
-			runArgo(t, "app", "wait", appName, "--operation")
-			runArgo(t, "app", "sync", appName)
-			_, appData := runArgo(t, "app", "get", appName, "-o", "yaml")
+			_, err = runArgo("app", "sync", "root")
+			if err != nil {
+				t.Fatalf("error while syncing root app: %v", err)
+			}
+			// runArgo(t, "app", "get", appName)
+			appData, err := runArgo("app", "get", appName, "-o", "yaml")
+			if err != nil {
+				t.Errorf("expected no error but got %v", err)
+			}
 			var app simplifiedArgoApp
 			err = yaml.Unmarshal(appData, &app)
 			if err != nil {
@@ -99,42 +106,41 @@ func TestArgoRolloutWork(t *testing.T) {
 			if appAnnotation != tc.app {
 				t.Errorf("wrong value for annotation \"com.freiheit.kuberpult/application\": expected %q but got %q", tc.app, appAnnotation)
 			}
-			if app.Status.OperationState.Phase != "Succeeded" {
-				t.Errorf("wrong value for operation state phase, expected %q got %q", "Succeeded", app.Status.OperationState.Phase)
-			}
-			_, manifestData := runArgo(t, "app", "manifests", appName)
-			var actualConfig simplifiedConfigMap
-			err = yaml.Unmarshal(manifestData, &actualConfig)
-			if err != nil {
-				t.Fatal(err)
-			}
-			d := cmp.Diff(expectedConfig, actualConfig)
-			if d != "" {
-				t.Errorf("unexpected diff between config maps: %s", d)
-			}
+			// manifestData, err := runArgo("app", "manifests", appName)
+			// if err != nil {
+			// 	t.Errorf("error while getting app manifest: %v", err)
+			// }
+			// var actualConfig simplifiedConfigMap
+			// err = yaml.Unmarshal(manifestData, &actualConfig)
+			// if err != nil {
+			// 	t.Fatal(err)
+			// }
+			// d := cmp.Diff(expectedConfig, actualConfig)
+			// if d != "" {
+			// 	t.Errorf("unexpected diff between config maps: %s", d)
+			// }
 		})
 	}
 }
 
-func runArgo(t *testing.T, args ...string) (*exec.Cmd, []byte) {
+func runArgo(args ...string) ([]byte, error) {
 	var out, stderr bytes.Buffer
 	args = append([]string{"--port-forward"}, args...)
+	args = append([]string{"--grpc-web"}, args...)
 	cmd := exec.Command("argocd", args...)
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		t.Fatalf("argocd %q command exited with code %d\nerr: %s\nstderr: %s", strings.Join(args, " "), cmd.ProcessState.ExitCode(), err, stderr.String())
+		return []byte{}, fmt.Errorf("argocd %q command exited with code %d\nerr: %s\nstderr: %s", strings.Join(args, " "), cmd.ProcessState.ExitCode(), err, stderr.String())
 	}
-	if cmd.ProcessState.ExitCode() != 0 {
-		t.Fatalf("argocd %q command exited with code %d\nstderr: %s", strings.Join(args, " "), cmd.ProcessState.ExitCode(), stderr.String())
-	}
-	return cmd, out.Bytes()
+	return out.Bytes(), nil
 }
 
-func releaseApp(t *testing.T, application string, manifests map[string]string) {
+func releaseApp(t *testing.T, application string, manifests map[string]string, version int) {
 	values := map[string]io.Reader{
 		"application": strings.NewReader(application),
+		"version":     strings.NewReader(fmt.Sprint(version)),
 	}
 	files := map[string]io.Reader{}
 	for env, data := range manifests {

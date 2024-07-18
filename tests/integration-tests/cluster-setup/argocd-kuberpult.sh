@@ -73,7 +73,12 @@ $(sed -e "s/^/        /" </kp/known_hosts)
     repo.server: kuberpult-cd-service:8443
   rbac:
     policy.csv: |
+      p, role:kuberpult, applications, refresh, */*, allow
+      p, role:kuberpult, applications, sync, */*, allow
       p, role:kuberpult, applications, get, */*, allow
+      p, role:kuberpult, applications, create, */*, allow
+      p, role:kuberpult, applications, update, */*, allow
+      p, role:kuberpult, applications, delete, */*, allow
       g, kuberpult, role:kuberpult
 
 YAML

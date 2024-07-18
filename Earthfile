@@ -143,6 +143,7 @@ integration-test:
 
     WITH DOCKER --compose docker-compose-k3s.yml
         RUN --no-cache \
+            set -e; \
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
             ./integration-tests/cluster-setup/setup-cluster-ssh.sh& \

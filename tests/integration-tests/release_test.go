@@ -36,6 +36,7 @@ const (
 	devEnv       = "dev"
 	stageEnv     = "staging"
 	frontendPort = "8081"
+	testAppName  = "test-app"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -160,7 +161,7 @@ func CalcSignature(t *testing.T, manifest string) string {
 
 func TestReleaseCalls(t *testing.T) {
 	theManifest := "I am a manifest\n- foo\nfoo"
-
+	signature := CalcSignature(t, theManifest)
 	testCases := []struct {
 		name               string
 		inputApp           string
@@ -172,10 +173,10 @@ func TestReleaseCalls(t *testing.T) {
 		expectedStatusCode int
 	}{
 		{
-			name:               "Simple invocation of /release endpoint",
-			inputApp:           "my-app",
+			name:               "Simple invocation of release endpoint",
+			inputApp:           testAppName,
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
+			inputSignature:     signature,
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "1",
@@ -184,10 +185,10 @@ func TestReleaseCalls(t *testing.T) {
 		{
 			// Note that this test is not repeatable. Once the version exists, it cannot be overridden.
 			// To repeat the test, we would have to reset the manifest repo.
-			name:               "Simple invocation of /release endpoint with valid version",
-			inputApp:           "my-app-" + appSuffix,
+			name:               "Simple invocation of release endpoint with valid version",
+			inputApp:           testAppName + "-" + appSuffix,
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
+			inputSignature:     signature,
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "99",
@@ -195,20 +196,20 @@ func TestReleaseCalls(t *testing.T) {
 		},
 		{
 			// this is the same test, but this time we expect 200, because the release already exists:
-			name:               "Simple invocation of /release endpoint with valid version",
-			inputApp:           "my-app-" + appSuffix,
+			name:               "Test release call with existing manifest",
+			inputApp:           testAppName + "-" + appSuffix,
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
+			inputSignature:     signature,
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "99",
 			expectedStatusCode: 200,
 		},
 		{
-			name:               "Simple invocation of /release endpoint with invalid version",
-			inputApp:           "my-app",
+			name:               "Simple invocation of release endpoint with invalid version",
+			inputApp:           testAppName,
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
+			inputSignature:     signature,
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "notanumber",
@@ -218,7 +219,7 @@ func TestReleaseCalls(t *testing.T) {
 			name:               "too long app name",
 			inputApp:           "my-app-is-way-too-long-dont-you-think-so-too",
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
+			inputSignature:     signature,
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "2",
@@ -236,9 +237,9 @@ func TestReleaseCalls(t *testing.T) {
 		},
 		{
 			name:               "Valid signature, but at the wrong place",
-			inputApp:           "my-app",
+			inputApp:           testAppName,
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
+			inputSignature:     signature,
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  stageEnv, // !!
 			inputVersion:       "4",
@@ -262,16 +263,8 @@ func TestReleaseCalls(t *testing.T) {
 			if err != nil {
 				t.Fatalf("callRelease failed: %s", err.Error())
 			}
-			if tc.expectedStatusCode == 200 || tc.expectedStatusCode == 201 {
-				// There is currently an issue where the status code can toggle between 200 and 201
-				// This will be fixed in Ref SRX-8D1YX3
-				if actualStatusCode != 200 && actualStatusCode != 201 {
-					t.Errorf("expected code 200 or 201 but got %v. Body: %s", actualStatusCode, body)
-				}
-			} else {
-				if actualStatusCode != tc.expectedStatusCode {
-					t.Errorf("expected code %v but got %v. Body: %s", tc.expectedStatusCode, actualStatusCode, body)
-				}
+			if actualStatusCode != tc.expectedStatusCode {
+				t.Errorf("expected code %v but got %v. Body: %s", tc.expectedStatusCode, actualStatusCode, body)
 			}
 		})
 	}
