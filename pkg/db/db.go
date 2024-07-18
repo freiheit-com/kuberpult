@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -1733,10 +1734,11 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 
 	span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
+	createdTime := time.Now().UTC()
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		createdTime,
 		nullVersion,
 		deployment.App,
 		deployment.Env,
@@ -1746,7 +1748,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewDeployment(ctx, tx, deployment)
+	err = h.UpdateOverviewDeployment(ctx, tx, deployment, createdTime)
 	if err != nil {
 		return fmt.Errorf("could not update overview table. Error: %w\n", err)
 	}
@@ -4460,7 +4462,7 @@ func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sq
 			EnvironmentGroups: []*api.EnvironmentGroup{},
 			GitRevision:       "",
 		}
-		err = json.Unmarshal([]byte(row.Json), result)
+		err = protojson.Unmarshal([]byte(row.Json), result)
 		if err != nil {
 			return nil, err
 		}
@@ -4483,7 +4485,7 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 		"INSERT INTO overview_cache (timestamp, Json) VALUES (?, ?);",
 	)
 	span.SetTag("query", insertQuery)
-	jsonResponse, err := json.Marshal(overviewResponse)
+	jsonResponse, err := protojson.Marshal(overviewResponse)
 	if err != nil {
 		return fmt.Errorf("could not marshal overview json data: %w", err)
 	}

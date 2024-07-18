@@ -93,6 +93,17 @@ func makeTestStartingOverview() *api.GetOverviewResponse {
 					},
 				},
 				Team: "team-123",
+				Warnings: []*api.Warning{
+					{
+						WarningType: &api.Warning_UnusualDeploymentOrder{
+							UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+								UpstreamEnvironment: "staging",
+								ThisVersion:         12,
+								ThisEnvironment:     "development",
+							},
+						},
+					},
+				},
 			},
 		},
 		GitRevision: "0",
@@ -515,7 +526,7 @@ func TestUpdateOverviewDeployment(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.UpdateOverviewDeployment(ctx, transaction, tc.NewDeployment)
+				err = dbHandler.UpdateOverviewDeployment(ctx, transaction, tc.NewDeployment, tc.NewDeployment.Created)
 				if err != nil {
 					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
@@ -532,7 +543,6 @@ func TestUpdateOverviewDeployment(t *testing.T) {
 				}
 				return nil
 			})
-
 			if err != nil {
 				t.Fatal(err)
 			}

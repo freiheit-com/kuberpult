@@ -25,7 +25,7 @@
     "jwt-decode": "4.0.0", 
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-router-dom": "6.24.1",
+    "react-router-dom": "6.25.0",
     "react-scripts": "5.0.1",
     "react-spinners": "0.13.8",
     "react-tooltip": "5.26.0",
@@ -44,7 +44,7 @@
     "format-scss": "prettier --write --parser scss 'src/**/*.scss'"
   },
   "devDependencies": {
-    "@babel/core": "7.24.7",
+    "@babel/core": "7.24.9",
     "@babel/plugin-syntax-flow": "7.24.7",
     "@babel/plugin-transform-react-jsx": "7.24.7",
     "@testing-library/jest-dom": "6.4.0",
@@ -53,7 +53,7 @@
     "@types/node": "20.11.10",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
-    "@typescript-eslint/parser": "7.16.0",
+    "@typescript-eslint/parser": "7.16.1",
     "browser-headers": "0.4.1",
     "eslint": "8.56.0",
     "eslint-config-prettier": "9.1.0",
