@@ -139,6 +139,9 @@ func (h *DBHandler) UpdateOverviewDeploymentAttempt(ctx context.Context, transac
 	if h.IsOverviewEmpty(latestOverview) {
 		return nil
 	}
+	if queuedDeployment == nil {
+		return nil
+	}
 	env := getEnvironmentByName(latestOverview.EnvironmentGroups, queuedDeployment.Env)
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", queuedDeployment.Env)
