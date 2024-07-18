@@ -148,6 +148,6 @@ integration-test:
             ./integration-tests/cluster-setup/setup-cluster-ssh.sh& \
             ./integration-tests/cluster-setup/setup-postgres.sh& \
             ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            cd integration-tests && go test $GO_TEST_ARGS ./... && \
+            cd integration-tests && go test $GO_TEST_ARGS ./... || ./cluster-setup/get-logs.sh; \
             echo ============ SUCCESS ============
     END

@@ -163,6 +163,17 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
+manifestRepoExport:
+  eslProcessingBackoff: 15
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+manageArgoApplications:
+  enabled: true
 ingress:
   domainName: kuberpult.example.com
 log:
@@ -199,11 +210,13 @@ kubectl get pods
 
 print "port forwarding to cd service..."
 waitForDeployment "default" "app=kuberpult-cd-service"
-portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 
 waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
+
+waitForDeployment "default" "app=kuberpult-rollout-service"
+waitForDeployment "default" "app=kuberpult-manifest-repo-export-service"
 
 kubectl get deployment
 kubectl get pods
