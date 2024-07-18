@@ -120,6 +120,20 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     }, [application.name, application.undeploySummary]);
     const releases = getReleasesToDisplay(deployedReleases, allReleases);
 
+    if (application.name === 'abc') {
+        // eslint-disable-next-line no-console
+        console.log('AllReleases:');
+        // eslint-disable-next-line no-console
+        console.log(releases);
+        // eslint-disable-next-line no-console
+        console.log('deployedReleases:');
+        // eslint-disable-next-line no-console
+        console.log(deployedReleases);
+        // eslint-disable-next-line no-console
+        console.log('releases:');
+        // eslint-disable-next-line no-console
+        console.log(releases);
+    }
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {

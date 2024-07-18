@@ -531,7 +531,7 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
-			" WHERE appName=? AND releaseVersion=?" +
+			" WHERE appName=? AND releaseVersion=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
@@ -667,10 +667,11 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		}
 		// handle meta data
 		var metaData = DBReleaseMetaData{
-			SourceAuthor:   "",
-			SourceCommitId: "",
-			SourceMessage:  "",
-			DisplayVersion: "",
+			SourceAuthor:    "",
+			SourceCommitId:  "",
+			SourceMessage:   "",
+			DisplayVersion:  "",
+			UndeployVersion: false,
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
@@ -765,6 +766,30 @@ func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transact
 		return err
 	}
 	return nil
+}
+
+// DBClearReleases : Sets all_releases for app to empty list and marks every release as deleted
+func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, application string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBClearReleases")
+	defer span.Finish()
+
+	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
+	if allReleases == nil {
+		logger.FromContext(ctx).Sugar().Infof("App %s does not contain any releases. No action taken", application)
+		return nil
+	}
+	for _, releaseToDelete := range allReleases.Metadata.Releases {
+		err = h.DBDeleteFromReleases(ctx, transaction, application, uint64(releaseToDelete))
+		if err != nil {
+			return err
+		}
+	}
+
+	err = h.DBInsertAllReleases(ctx, transaction, application, []int64{}, allReleases.EslId)
+	if err != nil {
+		return err
+	}
+	return h.ForceOverviewRecalculation(ctx, transaction)
 }
 
 func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
@@ -3909,6 +3934,33 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		App:        appName,
 		Version:    nil,
 	})
+}
+
+func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, envName, appName string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBDeleteDeploymentAttempt: no transaction provided")
+	}
+
+	deployment, err := h.DBSelectDeployment(ctx, tx, appName, envName)
+	if err != nil {
+		return err
+	}
+	if deployment == nil {
+		return nil
+	}
+	return h.DBWriteDeployment(ctx, tx, Deployment{
+		EslVersion: 0,
+		Created:    time.Time{},
+		Env:        envName,
+		App:        appName,
+		Version:    nil,
+	}, deployment.EslVersion)
 }
 
 func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment) error {

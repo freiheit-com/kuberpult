@@ -1723,6 +1723,373 @@ func TestReleaseTrain(t *testing.T) {
 	}
 }
 
+func TestUndeployApplicationErrorsDB(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedError     *TransformerBatchApplyError
+		expectedCommitMsg string
+	}{
+		{
+			Name: "Delete non-existent application",
+			Transformers: []Transformer{
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            0,
+				TransformerError: errMatcher{"UndeployApplication: error cannot undeploy non-existing application 'app1'"},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Success",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+		},
+		{
+			Name: "Create un-deploy Version for un-deployed application should not work",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            3,
+				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Undeploy application where there is an application lock should not work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+					WriteCommitData: true,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "acceptance",
+					Application: "app1",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+		},
+		{
+			Name: "Undeploy application where there is an application lock created after the un-deploy version creation should",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+					WriteCommitData: true,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "acceptance",
+					Application: "app1",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+		},
+		{
+			Name: "Undeploy application where there current releases are not undeploy shouldn't work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+					WriteCommitData: true,
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            4,
+				TransformerError: errMatcher{"UndeployApplication(repo): error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Undeploy application where the app does not have a release in all envs must work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+					WriteCommitData: true,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+		},
+		{
+			Name: "Undeploy application where there is an environment lock should work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+					WriteCommitData: true,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+		},
+		{
+			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateApplicationVersion{
+					Application:     "app1",
+					Manifests:       nil,
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					WriteCommitData: true,
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            3,
+				TransformerError: errMatcher{"UndeployApplication: error last release is not un-deployed application version of 'app1'"},
+			},
+			expectedCommitMsg: "",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			repo := setupRepositoryTest(t)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			actualMsg := ""
+			if len(commitMsg) > 0 {
+				actualMsg = commitMsg[len(commitMsg)-1]
+			}
+			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
+				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestUndeployErrorsDB(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedError     *TransformerBatchApplyError
+		expectedCommitMsg string
+	}{
+		{
+			Name: "Access non-existent application",
+			Transformers: []Transformer{
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            0,
+				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Success",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedCommitMsg: "created undeploy-version 2 of 'app1'",
+		},
+		{
+			Name: "Deploy after Undeploy should work",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateApplicationVersion{
+					Application:     "app1",
+					Manifests:       nil,
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					WriteCommitData: true,
+				},
+			},
+			expectedCommitMsg: "created version 3 of \"app1\"",
+		},
+		{
+			Name: "Undeploy twice should succeed",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedCommitMsg: "created undeploy-version 3 of 'app1'",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			actualMsg := ""
+			if len(commitMsg) > 0 {
+				actualMsg = commitMsg[len(commitMsg)-1]
+			}
+			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
+				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func version(v int) *int64 {
 	var result = int64(v)
 	return &result

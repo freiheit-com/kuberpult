@@ -83,13 +83,13 @@ func (o *OverviewServiceServer) getOverviewDB(
 	if s.DBHandler.ShouldUseOtherTables() {
 		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
 			var err2 error
-			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-			if err2 != nil {
-				return nil, err2
-			}
-			if !s.DBHandler.IsOverviewEmpty(cached_result) {
-				return cached_result, nil
-			}
+			//cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+			//if err2 != nil {
+			//	return nil, err2
+			//}
+			//if !s.DBHandler.IsOverviewEmpty(cached_result) {
+			//	return cached_result, nil
+			//}
 
 			response, err2 := o.getOverview(ctx, s, transaction)
 			if err2 != nil {
@@ -114,6 +114,7 @@ func (o *OverviewServiceServer) getOverview(
 	s *repository.State,
 	transaction *sql.Tx,
 ) (*api.GetOverviewResponse, error) {
+	fmt.Println("CALCULATE OVERVIEW")
 	var rev string
 	if s.DBHandler.ShouldUseOtherTables() {
 		rev = "0000000000000000000000000000000000000000"
@@ -176,7 +177,6 @@ func (o *OverviewServiceServer) getOverview(
 			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
 				return nil, err
 			} else {
-
 				for _, appName := range apps {
 					teamName, err := s.GetTeamName(ctx, transaction, appName)
 					app := api.Environment_Application{
@@ -286,6 +286,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, err
 	} else {
 		for _, appName := range apps {
+			fmt.Println("recalculating apps")
 			app := api.Application{
 				UndeploySummary: 0,
 				Warnings:        nil,
@@ -297,6 +298,7 @@ func (o *OverviewServiceServer) getOverview(
 			if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
 				return nil, err
 			} else {
+				fmt.Printf("All Releases for '%s': %+v\n", appName, rels)
 				for _, id := range rels {
 					if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
 						return nil, err
@@ -306,7 +308,8 @@ func (o *OverviewServiceServer) getOverview(
 						} else {
 							release := rel.ToProto()
 							release.Version = id
-
+							release.UndeployVersion = rel.UndeployVersion
+							//release.UndeployVersion = true
 							app.Releases = append(app.Releases, release)
 						}
 					}
@@ -402,6 +405,7 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 				// if the app exists but nothing is deployed, we ignore this
 				continue
 			}
+
 			if app.UndeployVersion {
 				allNormal = false
 			} else {

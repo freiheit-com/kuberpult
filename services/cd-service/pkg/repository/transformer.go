@@ -466,11 +466,26 @@ func (c *CreateApplicationVersion) Transform(
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write all apps"))
 			}
+
+			//We need to check that this is not an app that has been previously deleted
+			app, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not read apps: %v", err))
+			}
+			var eslID db.EslId
+			if app == nil {
+				eslID = db.InitialEslId
+			} else {
+				if app.StateChange != db.AppStateChangeDelete {
+					return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app, app already exists: %v", err)) //Should never happen
+				}
+				eslID = app.EslId + 1
+			}
 			err = state.DBHandler.DBInsertApplication(
 				ctx,
 				transaction,
 				c.Application,
-				db.InitialEslId,
+				eslID,
 				db.AppStateChangeCreate,
 				db.DBAppMetaData{Team: c.Team},
 			)
@@ -574,7 +589,7 @@ func (c *CreateApplicationVersion) Transform(
 	} else {
 		logger.FromContext(ctx).Sugar().Warnf("skipping team file for team %s and should=%v", c.Team, state.DBHandler.ShouldUseOtherTables())
 	}
-	isLatest, err := isLatestsVersion(state, c.Application, version)
+	isLatest, err := isLatestsVersion(ctx, transaction, state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
@@ -609,13 +624,13 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		anyRelease, err := state.DBHandler.DBSelectAnyRelease(ctx, transaction)
+		anyRelease, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, c.Application, false)
 		if err != nil {
 			return "", err
 		}
 		var v = db.InitialEslId - 1
-		if anyRelease != nil {
-			v = anyRelease.EslId
+		if anyRelease != nil && len(anyRelease) > 0 {
+			v = anyRelease[0].EslId
 		}
 		release := db.DBReleaseWithMetaData{
 			EslId:         0,
@@ -1033,11 +1048,27 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
-func isLatestsVersion(state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetAllApplicationReleasesFromManifest(application)
+func isLatestsVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
+	var rels []uint64
+	var err error
+	if state.DBHandler.ShouldUseOtherTables() {
+		all, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+		if err != nil {
+			return false, err
+		}
+		//Convert
+		rels = make([]uint64, len(all.Metadata.Releases))
+		for idx, rel := range all.Metadata.Releases {
+			rels[idx] = uint64(rel)
+		}
+	} else {
+		rels, err = state.GetAllApplicationReleasesFromManifest(application)
+
+	}
 	if err != nil {
 		return false, err
 	}
+
 	for _, r := range rels {
 		if r > version {
 			return false, nil
@@ -1077,6 +1108,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if lastRelease == 0 {
 		return "", fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
 	}
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	if state.DBHandler.ShouldUseOtherTables() {
 		anyRelease, err := state.DBHandler.DBSelectAnyRelease(ctx, transaction)
 		if err != nil {
@@ -1119,7 +1151,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	} else {
-		releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+
 		if err = fs.MkdirAll(releaseDir, 0777); err != nil {
 			return "", err
 		}
@@ -1142,24 +1174,26 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-		//envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]
 		hasUpstream := false
 		if found {
 			hasUpstream = config.Upstream != nil
 		}
+		if !state.DBHandler.ShouldUseOtherTables() {
+			envDir := fs.Join(releaseDir, "environments", env)
 
-		//if err = fs.MkdirAll(envDir, 0777); err != nil {
-		//	return "", err
-		//}
-		//// note that the manifest is empty here!
-		//// but actually it's not quite empty!
-		//// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
-		//// We work around this unusual behavior by writing a space into the file
-		//if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
-		//	return "", err
-		//}
+			if err = fs.MkdirAll(envDir, 0777); err != nil {
+				return "", err
+			}
+			// note that the manifest is empty here!
+			// but actually it's not quite empty!
+			// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
+			// We work around this unusual behavior by writing a space into the file
+			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
+				return "", err
+			}
+		}
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
@@ -1277,101 +1311,104 @@ func (u *UndeployApplication) Transform(
 	if lastRelease == 0 {
 		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
 	}
-	isUndeploy, err := state.IsUndeployVersion(u.Application, lastRelease)
+
+	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, lastRelease)
+	//MC-DB: Checks if last release is an undeploy
 	if err != nil {
 		return "", err
 	}
 	if !isUndeploy {
 		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
-	appDir := applicationDirectory(fs, u.Application)
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
+	//MC-DB: For each environment, remove application data
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, transaction, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig)
 		if err != nil {
 			return "", err
 		}
-		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
-		entries, err := fs.ReadDir(envAppDir)
-		if err != nil {
-			return "", wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
-		}
-		if entries == nil {
-			// app was never deployed on this env, so we must ignore it!
-			continue
-		}
-
-		appLocksDir := fs.Join(envAppDir, "locks")
-		err = fs.Remove(appLocksDir)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: cannot delete app locks '%v'", appLocksDir)
-		}
-
-		versionDir := fs.Join(envAppDir, "version")
+		//MC-DB: Goes to the application on that env
 		if state.DBHandler.ShouldUseOtherTables() {
 			deployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, u.Application, env)
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' cannot be found", u.Application, env)
 			}
-			if deployment == nil || deployment.Version == nil {
-				// if the app was never deployed here, that's not a reason to stop
+
+			var isUndeploy bool
+			if deployment != nil && deployment.Version != nil {
+				release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, uint64(*deployment.Version))
+				if err != nil {
+					return "", err
+				}
+				isUndeploy = release.Metadata.UndeployVersion
+
+				//Delete deployment (register a new deployment byr
+				user, err := auth.ReadUserFromContext(ctx)
+				if err != nil {
+					return "", err
+				}
+				deployment.Version = nil
+				deployment.Metadata.DeployedByName = user.Name
+				deployment.Metadata.DeployedByEmail = user.Email
+				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion)
+				if err != nil {
+					return "", err
+				}
+			}
+			if deployment == nil || deployment.Version == nil || isUndeploy {
+				locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
+				fmt.Println(locks)
+				if err != nil {
+					return "", err
+				}
+				if locks == nil {
+					continue
+				}
+				for _, currentLockID := range locks.AppLocks {
+					err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, env, u.Application, currentLockID)
+					if err != nil {
+						return "", err
+					}
+				}
 				continue
 			}
 			return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
 		} else {
+			envAppDir := environmentApplicationDirectory(fs, env, u.Application)
+
+			entries, err := fs.ReadDir(envAppDir)
+			if err != nil {
+				return "", wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
+			}
+			if entries == nil {
+				// app was never deployed on this env, so we must ignore it!
+				continue
+			}
+			appLocksDir := fs.Join(envAppDir, "locks")
+			err = fs.Remove(appLocksDir)
+			//MC-DB: Deletes all app locks on that env
+			if err != nil {
+				return "", fmt.Errorf("UndeployApplication: cannot delete app locks '%v'", appLocksDir)
+			}
+
+			versionDir := fs.Join(envAppDir, "version")
+			//MC-DB: Checks that there is no deployment (nil in DB)
+
 			_, err = fs.Stat(versionDir)
 			if err != nil && errors.Is(err, os.ErrNotExist) {
 				// if the app was never deployed here, that's not a reason to stop
 				continue
 			}
-		}
-		undeployFile := fs.Join(versionDir, "undeploy")
-		_, err = fs.Stat(undeployFile)
-		if err != nil && errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
-		}
 
-	}
-	// remove application
-	releasesDir := fs.Join(appDir, "releases")
-	files, err := fs.ReadDir(releasesDir)
-	if err != nil {
-		return "", fmt.Errorf("could not read the releases directory %s %w", releasesDir, err)
-	}
-	for _, file := range files {
-		if file.IsDir() {
-			releaseDir := fs.Join(releasesDir, file.Name())
-			commitIDFile := fs.Join(releaseDir, "source_commit_id")
-			var commitID string
-			dat, err := util.ReadFile(fs, commitIDFile)
-			if err != nil {
-				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
-				continue
+			undeployFile := fs.Join(versionDir, "undeploy")
+			_, err = fs.Stat(undeployFile)
+			//MC-DB: Removes the undeploy file
+			if err != nil && errors.Is(err, os.ErrNotExist) {
+				return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
 			}
-			commitID = string(dat)
-			if valid.SHA1CommitID(commitID) {
-				if err := removeCommit(fs, commitID, u.Application); err != nil {
-					return "", fmt.Errorf("could not remove the commit: %w", err)
-				}
-			}
-		}
-	}
-	if err = fs.Remove(appDir); err != nil {
-		return "", err
-	}
-	for env := range configs {
-		appDir := environmentApplicationDirectory(fs, env, u.Application)
-		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, u.Application)
-		if err != nil {
-			return "", err
-		}
-		t.AddAppEnv(u.Application, env, teamOwner)
-		// remove environment application
-		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
 		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
@@ -1392,7 +1429,58 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 		}
+
+		err = state.DBHandler.DBClearReleases(ctx, transaction, u.Application)
+
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not clear releases for app '%s': %v", u.Application, err)
+		}
+
+	} else {
+		// remove application
+		appDir := applicationDirectory(fs, u.Application)
+
+		releasesDir := fs.Join(appDir, "releases")
+		files, err := fs.ReadDir(releasesDir)
+		if err != nil {
+			return "", fmt.Errorf("could not read the releases directory %s %w", releasesDir, err)
+		}
+		for _, file := range files {
+			//For each release, deletes it
+			if file.IsDir() {
+				releaseDir := fs.Join(releasesDir, file.Name())
+				commitIDFile := fs.Join(releaseDir, "source_commit_id")
+				var commitID string
+				dat, err := util.ReadFile(fs, commitIDFile)
+				if err != nil {
+					// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
+					continue
+				}
+				commitID = string(dat)
+				if valid.SHA1CommitID(commitID) {
+					if err := removeCommit(fs, commitID, u.Application); err != nil {
+						return "", fmt.Errorf("could not remove the commit: %w", err)
+					}
+				}
+			}
+		}
+		if err = fs.Remove(appDir); err != nil {
+			return "", err
+		}
+		for env := range configs {
+			appDir := environmentApplicationDirectory(fs, env, u.Application)
+			teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, u.Application)
+			if err != nil {
+				return "", err
+			}
+			t.AddAppEnv(u.Application, env, teamOwner)
+			// remove environment application
+			if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
+			}
+		}
 	}
+
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 
