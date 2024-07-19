@@ -1723,7 +1723,7 @@ func TestReleaseTrain(t *testing.T) {
 	}
 }
 
-func TestUndeployApplicationErrorsDB(t *testing.T) {
+func TestUndeployApplicationDB(t *testing.T) {
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -1752,6 +1752,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1771,6 +1772,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1801,6 +1803,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1830,6 +1833,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1859,6 +1863,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
@@ -1874,7 +1879,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"UndeployApplication(repo): error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
+				TransformerError: errMatcher{"UndeployApplication(db): error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed"},
 			},
 			expectedCommitMsg: "",
 		},
@@ -1895,6 +1900,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1918,6 +1924,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1942,6 +1949,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1953,6 +1961,7 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 					SourceAuthor:    "",
 					SourceMessage:   "",
 					WriteCommitData: true,
+					Version:         3,
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -1969,25 +1978,39 @@ func TestUndeployApplicationErrorsDB(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 
-			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
-			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-			}
+				if err != nil {
+					return err
+				}
 
-			actualMsg := ""
-			if len(commitMsg) > 0 {
-				actualMsg = commitMsg[len(commitMsg)-1]
+				actualMsg := ""
+				if len(commitMsg) > 0 {
+					actualMsg = commitMsg[len(commitMsg)-1]
+				}
+				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
+					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+					return nil
+				}
+				return nil
+			})
+			if tc.expectedError == nil && err != nil {
+				t.Fatalf("Did no expect error but got):\n%+v", err)
 			}
-			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+			if err != nil {
+				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
 			}
 		})
 	}
 }
 
-func TestUndeployErrorsDB(t *testing.T) {
+func TestUndeployTransformerDB(t *testing.T) {
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -2016,6 +2039,7 @@ func TestUndeployErrorsDB(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2073,18 +2097,227 @@ func TestUndeployErrorsDB(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
-			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-			}
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 
-			actualMsg := ""
-			if len(commitMsg) > 0 {
-				actualMsg = commitMsg[len(commitMsg)-1]
+				if err != nil {
+					return nil
+				}
+				actualMsg := ""
+				if len(commitMsg) > 0 {
+					actualMsg = commitMsg[len(commitMsg)-1]
+				}
+				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
+					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if tc.expectedError == nil && err != nil {
+				t.Fatalf("Did no expect error but got):\n%+v", err)
 			}
-			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+			if err != nil {
+				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateUndeployDBState(t *testing.T) {
+	const appName = "my-app"
+	tcs := []struct {
+		Name                   string
+		TargetApp              string
+		Transformers           []Transformer
+		expectedError          *TransformerBatchApplyError
+		expectedCommitMsg      string
+		expectedReleaseNumbers []int64
+	}{
+		{
+			Name: "Success",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: appName,
+				},
+			},
+			expectedReleaseNumbers: []int64{1, 2},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, s, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+
+				if err != nil {
+					return err
+				}
+
+				allReleases, err2 := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err2 != nil {
+					t.Fatal(err)
+				}
+				if allReleases == nil || len(allReleases.Metadata.Releases) == 0 {
+					t.Fatal("Expected some releases, but got none")
+				}
+				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases.Metadata.Releases); diff != "" {
+					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+				}
+				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uint64(allReleases.Metadata.Releases[len(allReleases.Metadata.Releases)-1]))
+				if err2 != nil {
+					t.Fatal(err)
+				}
+
+				if !release.Metadata.UndeployVersion {
+					t.Fatal("Expected last version to be un-deployed")
+				}
+				return nil
+			})
+			if tc.expectedError == nil && err != nil {
+				t.Fatalf("Did no expect error but got):\n%+v", err)
+			}
+			if err != nil {
+				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestUndeployDBState(t *testing.T) {
+	const appName = "my-app"
+
+	tcs := []struct {
+		Name                string
+		TargetApp           string
+		Transformers        []Transformer
+		expectedError       *TransformerBatchApplyError
+		expectedCommitMsg   string
+		expectedAllReleases []int64
+		expectedDeployments []db.Deployment
+	}{
+		{
+			Name: "Success",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:      envProduction,
+					Config:           config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envProduction, Latest: true}},
+					TransformerEslID: 0,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData:  true,
+					Version:          1,
+					TransformerEslID: 1,
+				},
+				&CreateUndeployApplicationVersion{
+					Application:      appName,
+					TransformerEslID: 2,
+				},
+				&UndeployApplication{
+					Application:      appName,
+					TransformerEslID: 3,
+				},
+			},
+			expectedAllReleases: []int64{},
+			expectedDeployments: []db.Deployment{
+				{
+					EslVersion: 3,
+					App:        appName,
+					Env:        envProduction,
+					Version:    nil,
+					Metadata: db.DeploymentMetadata{
+						DeployedByEmail: "testmail@example.com",
+						DeployedByName:  "test tester",
+					},
+					TransformerID: 3,
+				},
+				{
+					EslVersion: 2,
+					App:        appName,
+					Env:        envProduction,
+					Version:    version(2),
+					Metadata: db.DeploymentMetadata{
+						DeployedByEmail: "testmail@example.com",
+						DeployedByName:  "test tester",
+					},
+					TransformerID: 3,
+				},
+				{
+					EslVersion: 1,
+					App:        appName,
+					Env:        envProduction,
+					Version:    version(1),
+					Metadata: db.DeploymentMetadata{
+						DeployedByEmail: "testmail@example.com",
+						DeployedByName:  "test tester",
+					},
+					TransformerID: 2,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, s, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+
+				if err != nil {
+					return err
+				}
+
+				allReleases, err2 := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err2 != nil {
+					t.Fatal(err)
+				}
+
+				if diff := cmp.Diff(tc.expectedAllReleases, allReleases.Metadata.Releases); diff != "" {
+					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+				}
+
+				target, err2 := s.DBHandler.DBSelectDeploymentHistory(ctx, transaction, appName, envProduction, 10)
+
+				if err2 != nil {
+					t.Fatal(err2)
+				}
+				if diff := cmp.Diff(tc.expectedDeployments, target, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if tc.expectedError == nil && err != nil {
+				t.Fatalf("Did no expect error but got):\n%+v", err)
+			}
+			if err != nil {
+				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
 			}
 		})
 	}

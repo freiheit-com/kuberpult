@@ -423,6 +423,9 @@ func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, fs bill
 		if err != nil {
 			return 0, fmt.Errorf("could not get releases of app %s: %v", application, err)
 		}
+		if releases == nil || len(releases.Metadata.Releases) == 0 {
+			return 0, nil
+		}
 		l := len(releases.Metadata.Releases)
 		return uint64(releases.Metadata.Releases[l-1]), nil
 	} else {
@@ -1057,10 +1060,15 @@ func isLatestsVersion(ctx context.Context, transaction *sql.Tx, state *State, ap
 			return false, err
 		}
 		//Convert
-		rels = make([]uint64, len(all.Metadata.Releases))
-		for idx, rel := range all.Metadata.Releases {
-			rels[idx] = uint64(rel)
+		if all == nil {
+			rels = make([]uint64, 0)
+		} else {
+			rels = make([]uint64, len(all.Metadata.Releases))
+			for idx, rel := range all.Metadata.Releases {
+				rels[idx] = uint64(rel)
+			}
 		}
+
 	} else {
 		rels, err = state.GetAllApplicationReleasesFromManifest(application)
 
@@ -1100,7 +1108,6 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-
 	lastRelease, err := state.GetLastRelease(ctx, transaction, fs, c.Application)
 	if err != nil {
 		return "", err
@@ -1344,8 +1351,10 @@ func (u *UndeployApplication) Transform(
 					return "", err
 				}
 				isUndeploy = release.Metadata.UndeployVersion
-
-				//Delete deployment (register a new deployment byr
+				if !isUndeploy {
+					return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
+				}
+				//Delete deployment (register a new deployment by deleting version)
 				user, err := auth.ReadUserFromContext(ctx)
 				if err != nil {
 					return "", err
@@ -1360,7 +1369,6 @@ func (u *UndeployApplication) Transform(
 			}
 			if deployment == nil || deployment.Version == nil || isUndeploy {
 				locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
-				fmt.Println(locks)
 				if err != nil {
 					return "", err
 				}

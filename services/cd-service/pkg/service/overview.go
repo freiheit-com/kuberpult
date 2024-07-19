@@ -114,7 +114,6 @@ func (o *OverviewServiceServer) getOverview(
 	s *repository.State,
 	transaction *sql.Tx,
 ) (*api.GetOverviewResponse, error) {
-	fmt.Println("CALCULATE OVERVIEW")
 	var rev string
 	if s.DBHandler.ShouldUseOtherTables() {
 		rev = "0000000000000000000000000000000000000000"
@@ -286,7 +285,6 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, err
 	} else {
 		for _, appName := range apps {
-			fmt.Println("recalculating apps")
 			app := api.Application{
 				UndeploySummary: 0,
 				Warnings:        nil,
@@ -298,7 +296,6 @@ func (o *OverviewServiceServer) getOverview(
 			if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
 				return nil, err
 			} else {
-				fmt.Printf("All Releases for '%s': %+v\n", appName, rels)
 				for _, id := range rels {
 					if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
 						return nil, err

@@ -2621,6 +2621,21 @@ func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, appl
 	}
 }
 
+func (s *State) IsUndeployVersionFromManifest(application string, version uint64) (bool, error) {
+	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
+	_, err := s.Filesystem.Stat(base)
+	if err != nil {
+		return false, wrapFileError(err, base, "could not call stat")
+	}
+	if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "undeploy")); err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
@@ -2688,7 +2703,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 	} else {
 		release.DisplayVersion = string(displayVersion)
 	}
-	isUndeploy, err := s.IsUndeployVersion(nil, nil, application, version)
+	isUndeploy, err := s.IsUndeployVersionFromManifest(application, version)
 	if err != nil {
 		return nil, err
 	}
