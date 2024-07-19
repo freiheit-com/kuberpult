@@ -2602,7 +2602,7 @@ func extractPrNumber(sourceMessage string) string {
 }
 
 func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version uint64) (bool, error) {
-	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
+	if s.DBHandler.ShouldUseOtherTables() {
 		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
 		return release.Metadata.UndeployVersion, err
 	} else {
