@@ -2606,18 +2606,7 @@ func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, appl
 		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
 		return release.Metadata.UndeployVersion, err
 	} else {
-		base := releasesDirectoryWithVersion(s.Filesystem, application, version)
-		_, err := s.Filesystem.Stat(base)
-		if err != nil {
-			return false, wrapFileError(err, base, "could not call stat")
-		}
-		if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "undeploy")); err != nil {
-			if !os.IsNotExist(err) {
-				return false, err
-			}
-			return false, nil
-		}
-		return true, nil
+		return s.IsUndeployVersionFromManifest(application, version)
 	}
 }
 
