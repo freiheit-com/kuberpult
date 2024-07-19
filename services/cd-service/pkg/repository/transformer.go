@@ -1361,7 +1361,7 @@ func (u *UndeployApplication) Transform(
 				}
 				isUndeploy = release.Metadata.UndeployVersion
 				if !isUndeploy {
-					return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
+					return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the current release '%v' is not un-deployed", u.Application, env)
 				}
 				//Delete deployment (register a new deployment by deleting version)
 				user, err := auth.ReadUserFromContext(ctx)
