@@ -426,56 +426,54 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			result.headLock.Lock()
 
 			defer result.headLock.Unlock()
+			//We need fetch when not using the database
+			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+			//exhaustruct:ignore
+			RemoteCallbacks := git.RemoteCallbacks{
+				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+					logger.Debug("git.fetched",
+						zap.String("refname", refname),
+						zap.String("revision.new", b.String()),
+					)
+					return nil
+				},
+				CredentialsCallback:      credentials.CredentialsCallback(ctx),
+				CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+			}
+			fetchOptions := git.FetchOptions{
+				Prune:           git.FetchPruneUnspecified,
+				UpdateFetchhead: false,
+				DownloadTags:    git.DownloadTagsUnspecified,
+				Headers:         nil,
+				ProxyOptions: git.ProxyOptions{
+					Type: git.ProxyTypeNone,
+					Url:  "",
+				},
+				RemoteCallbacks: RemoteCallbacks,
+			}
+			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+			if err != nil {
+				return nil, nil, err
+			}
+			var rev *git.Oid
+			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
+				var gerr *git.GitError
+				if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
+					// not found
+					// nothing to do
+				} else {
+					return nil, nil, err
+				}
+			} else {
+				rev = remoteRef.Target()
+				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+					return nil, nil, err
+				}
+			}
 			// check that we can build the current state
 			state, err := result.StateAt(nil)
 			if err != nil {
 				return nil, nil, err
-			}
-
-			if !state.DBHandler.ShouldUseOtherTables() { //Only fetch when not using the database
-				fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-				//exhaustruct:ignore
-				RemoteCallbacks := git.RemoteCallbacks{
-					UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-						logger.Debug("git.fetched",
-							zap.String("refname", refname),
-							zap.String("revision.new", b.String()),
-						)
-						return nil
-					},
-					CredentialsCallback:      credentials.CredentialsCallback(ctx),
-					CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
-				}
-				fetchOptions := git.FetchOptions{
-					Prune:           git.FetchPruneUnspecified,
-					UpdateFetchhead: false,
-					DownloadTags:    git.DownloadTagsUnspecified,
-					Headers:         nil,
-					ProxyOptions: git.ProxyOptions{
-						Type: git.ProxyTypeNone,
-						Url:  "",
-					},
-					RemoteCallbacks: RemoteCallbacks,
-				}
-				err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
-				if err != nil {
-					return nil, nil, err
-				}
-				var rev *git.Oid
-				if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
-					var gerr *git.GitError
-					if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
-						// not found
-						// nothing to do
-					} else {
-						return nil, nil, err
-					}
-				} else {
-					rev = remoteRef.Target()
-					if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
-						return nil, nil, err
-					}
-				}
 			}
 
 			// Check configuration for errors and abort early if any:
