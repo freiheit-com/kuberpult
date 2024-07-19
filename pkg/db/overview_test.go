@@ -34,6 +34,11 @@ func getOverviewIgnoredTypes() cmp.Option {
 		api.EnvironmentGroup{},
 		api.Environment{},
 		api.Application{},
+		api.Warning{},
+		api.Warning_UnusualDeploymentOrder{},
+		api.UnusualDeploymentOrder{},
+		api.UpstreamNotDeployed{},
+		api.Warning_UpstreamNotDeployed{},
 		api.Release{},
 		timestamppb.Timestamp{},
 		api.EnvironmentConfig{},
@@ -539,6 +544,150 @@ func TestUpdateOverviewDeployment(t *testing.T) {
 				}
 				opts := getOverviewIgnoredTypes()
 				if diff := cmp.Diff(tc.ExcpectedOverview, latestOverview, opts); diff != "" {
+					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestUpdateOverviewDeploymentAttempt(t *testing.T) {
+	var dev = "dev"
+	var upstreamLatest = true
+	var version int64 = 12
+	startingOverview := makeTestStartingOverview()
+	tcs := []struct {
+		Name             string
+		NewDeployment    *QueuedDeployment
+		ExpectedError    error
+		ExpectedOverview *api.GetOverviewResponse
+	}{
+		{
+			Name: "Update overview Deployment Attempt",
+			NewDeployment: &QueuedDeployment{
+				EslVersion: 1,
+				Env:        "development",
+				App:        "test",
+				Version:    &version,
+				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+			},
+			ExpectedOverview: &api.GetOverviewResponse{
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "dev",
+						Environments: []*api.Environment{
+							{
+								Name: "development",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									EnvironmentGroup: &dev,
+								},
+								Applications: map[string]*api.Environment_Application{
+									"test": {
+										Name:    "test",
+										Version: 1,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployAuthor: "testmail@example.com",
+											DeployTime:   "1",
+										},
+										Team:          "team-123",
+										QueuedVersion: 12,
+									},
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+				Applications: map[string]*api.Application{
+					"test": {
+						Name: "test",
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								SourceCommitId: "deadbeef",
+								SourceAuthor:   "example <example@example.com>",
+								SourceMessage:  "changed something (#678)",
+								PrNumber:       "678",
+								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							},
+						},
+						Team: "team-123",
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UnusualDeploymentOrder{
+									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         12,
+										ThisEnvironment:     "development",
+									},
+								},
+							},
+						},
+					},
+				},
+				GitRevision: "0",
+			},
+		},
+		{
+			Name: "app does not exists",
+			NewDeployment: &QueuedDeployment{
+				EslVersion: 1,
+				Env:        "development",
+				App:        "does-not-exists",
+				Version:    &version,
+				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+			},
+			ExpectedError: errMatcher{"could not find application does-not-exists in environment development in overview"},
+		},
+		{
+			Name: "env does not exists",
+			NewDeployment: &QueuedDeployment{
+				EslVersion: 1,
+				Env:        "does-not-exists",
+				App:        "test",
+				Version:    &version,
+				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+			},
+			ExpectedError: errMatcher{"could not find environment does-not-exists in overview"},
+		},
+		{
+			Name:             "nil queued deployment",
+			ExpectedOverview: startingOverview,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.UpdateOverviewDeploymentAttempt(ctx, transaction, tc.NewDeployment)
+				if err != nil {
+					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
+					}
+					return nil
+				}
+				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				opts := getOverviewIgnoredTypes()
+				if diff := cmp.Diff(tc.ExpectedOverview, latestOverview, opts); diff != "" {
 					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
 				}
 				return nil
