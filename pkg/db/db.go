@@ -2839,7 +2839,7 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, lockID, envName, appName, metadata, deleted" +
-			" FROM application_locks " +
+			" FROM app_locks " +
 			" WHERE envName=? AND appName=? AND lockID=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
@@ -2940,7 +2940,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 		var err error
 		selectQuery := h.AdaptQuery(
 			"SELECT eslVersion, created, lockID, envName, appName, metadata, deleted" +
-				" FROM application_locks " +
+				" FROM app_locks " +
 				" WHERE envName=? AND lockID=? AND appName=?" +
 				" ORDER BY eslVersion DESC " +
 				" LIMIT 1;")
@@ -3053,7 +3053,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO application_locks (eslVersion, created, lockID, envName, appName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
+		"INSERT INTO app_locks (eslVersion, created, lockID, envName, appName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
 	var timetoInsert time.Time
 	if useTimeInLock {
@@ -3190,7 +3190,7 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
 			"SELECT eslVersion, created, lockID, envName, appName, metadata, deleted" +
-				" FROM application_locks " +
+				" FROM app_locks " +
 				" WHERE envName=? AND lockID=? AND appName=?" +
 				" ORDER BY eslVersion DESC " +
 				" LIMIT ?;"))
