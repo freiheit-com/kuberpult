@@ -155,10 +155,10 @@ frontend:
   resources:
     limits:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.5
     requests:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.5
 rollout:
   enabled: true
   resources:
@@ -169,7 +169,7 @@ rollout:
       memory: 200Mi
       cpu: 0.05
 manifestRepoExport:
-  eslProcessingBackoff: 15
+  eslProcessingBackoff: 300
   resources:
     limits:
       memory: 200Mi

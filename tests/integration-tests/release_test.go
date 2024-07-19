@@ -39,19 +39,6 @@ const (
 	testAppName  = "test-app"
 )
 
-// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
-type errMatcher struct {
-	msg string
-}
-
-func (e errMatcher) Error() string {
-	return e.msg
-}
-
-func (e errMatcher) Is(err error) bool {
-	return e.Error() == err.Error()
-}
-
 func postWithForm(client *http.Client, url string, values map[string]io.Reader, files map[string]io.Reader) (*http.Response, error) {
 	// Prepare a form that you will submit to that URL.
 	var b bytes.Buffer

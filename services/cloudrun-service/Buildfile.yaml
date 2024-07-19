@@ -5,3 +5,5 @@ spec:
   buildWith: infrastructure/docker/builder
   dependsOn:
   - ../../
+additional_artifacts:
+  - coverage.out

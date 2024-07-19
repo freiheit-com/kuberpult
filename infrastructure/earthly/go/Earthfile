@@ -38,7 +38,8 @@ UNIT_TEST:
     ARG GO_TEST_ARGS
     CACHE --sharing locked --id go-cache $(go env GOCACHE)
     COPY pkg pkg
-    RUN go test $GO_TEST_ARGS ./...
+    RUN go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
+    SAVE ARTIFACT coverage.out AS LOCAL coverage.out
 
 LINT:
     FUNCTION

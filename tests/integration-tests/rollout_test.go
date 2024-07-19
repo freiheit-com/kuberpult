@@ -57,7 +57,6 @@ func TestArgoRolloutWork(t *testing.T) {
 		name string
 		app  string
 	}{
-		// TODO this will be fixed in Ref SRX-PA568W
 		{
 			name: "can create application",
 			app:  "rollout-" + appSuffix,
@@ -92,7 +91,6 @@ func TestArgoRolloutWork(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error while syncing root app: %v", err)
 			}
-			// runArgo(t, "app", "get", appName)
 			appData, err := runArgo("app", "get", appName, "-o", "yaml")
 			if err != nil {
 				t.Errorf("expected no error but got %v", err)
@@ -106,19 +104,6 @@ func TestArgoRolloutWork(t *testing.T) {
 			if appAnnotation != tc.app {
 				t.Errorf("wrong value for annotation \"com.freiheit.kuberpult/application\": expected %q but got %q", tc.app, appAnnotation)
 			}
-			// manifestData, err := runArgo("app", "manifests", appName)
-			// if err != nil {
-			// 	t.Errorf("error while getting app manifest: %v", err)
-			// }
-			// var actualConfig simplifiedConfigMap
-			// err = yaml.Unmarshal(manifestData, &actualConfig)
-			// if err != nil {
-			// 	t.Fatal(err)
-			// }
-			// d := cmp.Diff(expectedConfig, actualConfig)
-			// if d != "" {
-			// 	t.Errorf("unexpected diff between config maps: %s", d)
-			// }
 		})
 	}
 }
