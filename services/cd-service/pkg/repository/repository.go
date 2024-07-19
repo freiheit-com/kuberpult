@@ -554,7 +554,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 					continue
 				}
 			}
-			if !r.DB.ShouldUseEslTable() && errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
+			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
