@@ -473,11 +473,10 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 // but technically it's not required here.
 
 type DBReleaseMetaData struct {
-	SourceAuthor   string
-	SourceCommitId string
-	SourceMessage  string
-	DisplayVersion string
-
+	SourceAuthor    string
+	SourceCommitId  string
+	SourceMessage   string
+	DisplayVersion  string
 	UndeployVersion bool
 }
 
@@ -532,7 +531,7 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
-			" WHERE appName=? AND releaseVersion=? " +
+			" WHERE appName=? AND releaseVersion=?" +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
@@ -1432,7 +1431,7 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 }
 
 func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, limit int) ([]Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeployment")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistory")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
@@ -1508,44 +1507,11 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 	}(rows)
 	deployments := make([]Deployment, 0)
 	for rows.Next() {
-		var row = &DBDeployment{
-			EslVersion:     0,
-			Created:        time.Time{},
-			ReleaseVersion: nil,
-			App:            "",
-			Env:            "",
-			Metadata:       "",
-			TransformerID:  0,
-		}
-
-		var releaseVersion sql.NullInt64
-		//exhaustruct:ignore
-		var resultJson = DeploymentMetadata{}
-
-		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
+		row, err := h.processSingleDeploymentRow(ctx, rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+			return nil, err
 		}
-		if releaseVersion.Valid {
-			row.ReleaseVersion = &releaseVersion.Int64
-		}
-
-		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
-		}
-		deployments = append(deployments, Deployment{
-			EslVersion:    row.EslVersion,
-			Created:       row.Created,
-			App:           row.App,
-			Env:           row.Env,
-			Version:       row.ReleaseVersion,
-			Metadata:      resultJson,
-			TransformerID: row.TransformerID,
-		})
+		deployments = append(deployments, *row)
 	}
 	err = closeRows(rows)
 	if err != nil {
