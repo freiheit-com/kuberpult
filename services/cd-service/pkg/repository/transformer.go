@@ -643,10 +643,11 @@ func (c *CreateApplicationVersion) Transform(
 				Manifests: c.Manifests,
 			},
 			Metadata: db.DBReleaseMetaData{
-				SourceAuthor:   c.SourceAuthor,
-				SourceCommitId: c.SourceCommitId,
-				SourceMessage:  c.SourceMessage,
-				DisplayVersion: c.DisplayVersion,
+				SourceAuthor:    c.SourceAuthor,
+				SourceCommitId:  c.SourceCommitId,
+				SourceMessage:   c.SourceMessage,
+				DisplayVersion:  c.DisplayVersion,
+				UndeployVersion: false,
 			},
 			Created: time.Now(),
 			Deleted: false,
@@ -1117,21 +1118,32 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	if state.DBHandler.ShouldUseOtherTables() {
-		anyRelease, err := state.DBHandler.DBSelectAnyRelease(ctx, transaction)
+		prevRelease, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, c.Application, false)
 		if err != nil {
 			return "", err
 		}
 		var v = db.InitialEslId - 1
-		if anyRelease != nil {
-			v = anyRelease.EslId
+		if len(prevRelease) > 0 {
+			v = prevRelease[0].EslId
 		}
 		release := db.DBReleaseWithMetaData{
+			EslId:         0,
 			ReleaseNumber: lastRelease + 1,
 			App:           c.Application,
+			Manifests: db.DBReleaseManifests{
+				Manifests: map[string]string{ //empty manifest
+					"": "",
+				},
+			},
 			Metadata: db.DBReleaseMetaData{
+				SourceAuthor:    "",
+				SourceCommitId:  "",
+				SourceMessage:   "",
+				DisplayVersion:  "",
 				UndeployVersion: true,
 			},
 			Created: time.Now(),
+			Deleted: false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
 		if err != nil {
