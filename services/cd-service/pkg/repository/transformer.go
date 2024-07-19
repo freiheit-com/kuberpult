@@ -592,7 +592,7 @@ func (c *CreateApplicationVersion) Transform(
 	} else {
 		logger.FromContext(ctx).Sugar().Warnf("skipping team file for team %s and should=%v", c.Team, state.DBHandler.ShouldUseOtherTables())
 	}
-	isLatest, err := isLatestsVersion(ctx, transaction, state, c.Application, version)
+	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
@@ -1051,7 +1051,7 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
-func isLatestsVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
+func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
 	var rels []uint64
 	var err error
 	if state.DBHandler.ShouldUseOtherTables() {
@@ -1320,7 +1320,6 @@ func (u *UndeployApplication) Transform(
 	}
 
 	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, lastRelease)
-	//MC-DB: Checks if last release is an undeploy
 	if err != nil {
 		return "", err
 	}
@@ -1331,13 +1330,11 @@ func (u *UndeployApplication) Transform(
 	if err != nil {
 		return "", err
 	}
-	//MC-DB: For each environment, remove application data
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, transaction, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig)
 		if err != nil {
 			return "", err
 		}
-		//MC-DB: Goes to the application on that env
 		if state.DBHandler.ShouldUseOtherTables() {
 			deployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, u.Application, env)
 			if err != nil {
@@ -1397,13 +1394,11 @@ func (u *UndeployApplication) Transform(
 			}
 			appLocksDir := fs.Join(envAppDir, "locks")
 			err = fs.Remove(appLocksDir)
-			//MC-DB: Deletes all app locks on that env
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication: cannot delete app locks '%v'", appLocksDir)
 			}
 
 			versionDir := fs.Join(envAppDir, "version")
-			//MC-DB: Checks that there is no deployment (nil in DB)
 
 			_, err = fs.Stat(versionDir)
 			if err != nil && errors.Is(err, os.ErrNotExist) {
@@ -1413,7 +1408,6 @@ func (u *UndeployApplication) Transform(
 
 			undeployFile := fs.Join(versionDir, "undeploy")
 			_, err = fs.Stat(undeployFile)
-			//MC-DB: Removes the undeploy file
 			if err != nil && errors.Is(err, os.ErrNotExist) {
 				return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
 			}

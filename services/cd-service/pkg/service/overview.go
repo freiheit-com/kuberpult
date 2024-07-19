@@ -83,13 +83,13 @@ func (o *OverviewServiceServer) getOverviewDB(
 	if s.DBHandler.ShouldUseOtherTables() {
 		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
 			var err2 error
-			//cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-			//if err2 != nil {
-			//	return nil, err2
-			//}
-			//if !s.DBHandler.IsOverviewEmpty(cached_result) {
-			//	return cached_result, nil
-			//}
+			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+			if err2 != nil {
+				return nil, err2
+			}
+			if !s.DBHandler.IsOverviewEmpty(cached_result) {
+				return cached_result, nil
+			}
 
 			response, err2 := o.getOverview(ctx, s, transaction)
 			if err2 != nil {
@@ -306,7 +306,6 @@ func (o *OverviewServiceServer) getOverview(
 							release := rel.ToProto()
 							release.Version = id
 							release.UndeployVersion = rel.UndeployVersion
-							//release.UndeployVersion = true
 							app.Releases = append(app.Releases, release)
 						}
 					}
@@ -402,7 +401,6 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 				// if the app exists but nothing is deployed, we ignore this
 				continue
 			}
-
 			if app.UndeployVersion {
 				allNormal = false
 			} else {
