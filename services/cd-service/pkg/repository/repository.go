@@ -721,38 +721,39 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 		return
 	}
 
-	logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
-	// Try pushing once
-	err = r.Push(e.ctx, pushAction(pushOptions, r))
-	if err != nil {
-		gerr, ok := err.(*git.GitError)
-		// If it doesn't work because the branch diverged, try reset and apply again.
-		if ok && gerr.Code == git.ErrorCodeNonFastForward {
-			err = r.FetchAndReset(e.ctx)
-			if err != nil {
-				return
+	if !r.DB.ShouldUseOtherTables() {
+		logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
+		// Try pushing once
+		err = r.Push(e.ctx, pushAction(pushOptions, r))
+		if err != nil {
+			gerr, ok := err.(*git.GitError)
+			// If it doesn't work because the branch diverged, try reset and apply again.
+			if ok && gerr.Code == git.ErrorCodeNonFastForward {
+				err = r.FetchAndReset(e.ctx)
+				if err != nil {
+					return
+				}
+				transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
+				if err != nil || len(transformerBatches) == 0 {
+					return
+				}
+				if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
+					err = pushErr
+				}
+			} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				err = grpc.CanceledError(ctx, err)
+			} else {
+				logger.Error(fmt.Sprintf("error while pushing: %s", err))
+				err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
 			}
-			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
-			if err != nil || len(transformerBatches) == 0 {
-				return
-			}
-			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
-				err = pushErr
-			}
-		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			err = grpc.CanceledError(ctx, err)
 		} else {
-			logger.Error(fmt.Sprintf("error while pushing: %s", err))
-			err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
+			if !pushSuccess {
+				err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
+			}
 		}
-	} else {
-		if !pushSuccess {
-			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
-		}
+		span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
+		defer span.Finish()
 	}
-	span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
-	defer span.Finish()
-
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 
 	if r.config.DogstatsdEvents {
