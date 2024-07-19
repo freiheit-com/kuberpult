@@ -13,6 +13,7 @@ database/db.sqlite
 .pnpm-store
 build/
 .tmp-earthly-out
+services/**/coverage.out
 
 # used by envrc https://direnv.net/
 .envrc
