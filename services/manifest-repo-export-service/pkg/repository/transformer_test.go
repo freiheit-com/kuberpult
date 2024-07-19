@@ -1304,3 +1304,137 @@ func TestReplacedByEvents(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateUndeployApplicationVersion(t *testing.T) {
+	const appName = "app1"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		expectedError error
+		expectedData  []*FilenameAndData
+	}{
+		{
+			Name: "successfully create undeploy version - should work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslID: 1,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+					WriteCommitData: true,
+					Version:         1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					SourceCommitId:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					TransformerEslID: 2,
+					Team:             "team-123",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: appName,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslID: 3,
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{
+					path:     "applications/app1/releases/2/environments/acceptance/manifests.yaml",
+					fileData: []byte(" "),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, t := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+				}
+
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					EslId:         0,
+					ReleaseNumber: 1,
+					Created:       time.Time{},
+					App:           appName,
+					Manifests:     db.DBReleaseManifests{},
+					Metadata:      db.DBReleaseMetaData{},
+				}, 0)
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					EslId:         0,
+					ReleaseNumber: 2,
+					Created:       time.Time{},
+					App:           appName,
+					Manifests:     db.DBReleaseManifests{},
+					Metadata:      db.DBReleaseMetaData{},
+				}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1, 2}, db.InitialEslId)
+				if err != nil {
+					return err
+				}
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}

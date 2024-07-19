@@ -150,7 +150,9 @@ func (h *DBHandler) UpdateOverviewDeploymentAttempt(ctx context.Context, transac
 	if app == nil {
 		return fmt.Errorf("could not find application %s in environment %s in overview", queuedDeployment.App, queuedDeployment.Env)
 	}
-	app.QueuedVersion = uint64(*queuedDeployment.Version)
+	if queuedDeployment.Version != nil {
+		app.QueuedVersion = uint64(*queuedDeployment.Version)
+	}
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
@@ -211,7 +213,7 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 	apiRelease := &api.Release{
 		PrNumber:        extractPrNumber(release.Metadata.SourceMessage),
 		Version:         release.ReleaseNumber,
-		UndeployVersion: false,
+		UndeployVersion: release.Metadata.UndeployVersion,
 		SourceAuthor:    release.Metadata.SourceAuthor,
 		SourceCommitId:  release.Metadata.SourceCommitId,
 		SourceMessage:   release.Metadata.SourceMessage,
@@ -232,7 +234,13 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 	if !foundRelease && !release.Deleted {
 		app.Releases = append(app.Releases, apiRelease)
 	}
-	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+
+	if release.Metadata.UndeployVersion { //We need to force recalculation as we need to determine undeploySummary
+		err = h.ForceOverviewRecalculation(ctx, transaction)
+	} else {
+		err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	}
+
 	if err != nil {
 		return err
 	}
