@@ -774,6 +774,9 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 	defer span.Finish()
 
 	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
+	if err != nil {
+		return err
+	}
 	if allReleases == nil {
 		logger.FromContext(ctx).Sugar().Infof("App %s does not contain any releases. No action taken", application)
 		return nil
