@@ -57,7 +57,7 @@ const routes = [
         element: <CommitInfoPage />,
     },
     {
-        path: `/ui/eslWarnings`,
+        path: `/ui/failedEvents`,
         element: <EslWarningsPage />,
     },
     {

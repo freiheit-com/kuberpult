@@ -49,7 +49,7 @@ export const EslWarningsPage: React.FC = () => {
             return (
                 <div>
                     <main className="main-content esl-warnings-page">
-                        <p>No failed ESLs found</p>
+                        <p>All events were processed successfully</p>
                     </main>
                 </div>
             );
