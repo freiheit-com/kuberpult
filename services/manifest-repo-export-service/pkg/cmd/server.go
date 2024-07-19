@@ -404,10 +404,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtUndeployApplication:
 		//exhaustruct:ignore
 		return &repository.UndeployApplication{}, nil
-	default:
-		logger.FromContext(ctx).Sugar().Warnf("Found an unknown event %s. No further events will be processed.", eslEventType)
-		return nil, nil
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Found an unknown event %s. No further events will be processed.", eslEventType)
+	return nil, nil
 }
 
 func readEnvVar(envName string) (string, error) {

@@ -1465,13 +1465,9 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 		}
 		result = append(result, *row)
 	}
-	err = rows.Close()
+	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
+		return nil, err
 	}
 	return result, nil
 }

@@ -1879,7 +1879,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"UndeployApplication(db): error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed"},
+				TransformerError: errMatcher{"UndeployApplication(db): error cannot un-deploy application 'app1' the current release 'acceptance' is not un-deployed"},
 			},
 			expectedCommitMsg: "",
 		},

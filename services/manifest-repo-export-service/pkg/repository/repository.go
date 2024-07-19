@@ -974,7 +974,7 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	return result, nil
 }
 
-func (s *State) GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
+func (s *State) GetLastRelease(ctx context.Context, fs billy.Filesystem, application string) (uint64, error) {
 	var err error
 	releasesDir := releasesDirectory(fs, application)
 	err = fs.MkdirAll(releasesDir, 0777)
@@ -987,7 +987,7 @@ func (s *State) GetLastRelease(fs billy.Filesystem, application string) (uint64,
 		var lastRelease uint64 = 0
 		for _, e := range entries {
 			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
-				//TODO(HVG): decide what to do with bad named releases
+				logger.FromContext(ctx).Sugar().Warnf("Bad name for release: '%s'\n", e.Name())
 			} else {
 				if i > lastRelease {
 					lastRelease = i

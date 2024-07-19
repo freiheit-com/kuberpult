@@ -1118,13 +1118,13 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, c.Application, false)
+		prevRelease, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, lastRelease)
 		if err != nil {
 			return "", err
 		}
 		var v = db.InitialEslId - 1
-		if len(prevRelease) > 0 {
-			v = prevRelease[0].EslId
+		if prevRelease != nil {
+			v = prevRelease.EslId
 		}
 		release := db.DBReleaseWithMetaData{
 			EslId:         0,

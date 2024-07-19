@@ -1619,7 +1619,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := state.GetLastRelease(fs, c.Application)
+	lastRelease, err := state.GetLastRelease(ctx, fs, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("Could not get last reelase for app '%v': %v\n", c.Application, err)
 	}
@@ -1727,7 +1727,7 @@ func (u *UndeployApplication) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := state.GetLastRelease(fs, u.Application)
+	lastRelease, err := state.GetLastRelease(ctx, fs, u.Application)
 	if err != nil {
 		return "", err
 	}
