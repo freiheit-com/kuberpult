@@ -3951,33 +3951,6 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 	})
 }
 
-func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, envName, appName string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
-	defer span.Finish()
-
-	if h == nil {
-		return nil
-	}
-	if tx == nil {
-		return fmt.Errorf("DBDeleteDeploymentAttempt: no transaction provided")
-	}
-
-	deployment, err := h.DBSelectDeployment(ctx, tx, appName, envName)
-	if err != nil {
-		return err
-	}
-	if deployment == nil {
-		return nil
-	}
-	return h.DBWriteDeployment(ctx, tx, Deployment{
-		EslVersion: 0,
-		Created:    time.Time{},
-		Env:        envName,
-		App:        appName,
-		Version:    nil,
-	}, deployment.EslVersion)
-}
-
 func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
 	defer span.Finish()
