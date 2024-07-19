@@ -785,11 +785,7 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 		}
 	}
 
-	err = h.DBInsertAllReleases(ctx, transaction, application, []int64{}, allReleases.EslId)
-	if err != nil {
-		return err
-	}
-	return h.ForceOverviewRecalculation(ctx, transaction)
+	return h.DBInsertAllReleases(ctx, transaction, application, []int64{}, allReleases.EslId)
 }
 
 func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
@@ -810,7 +806,6 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	if err := h.DBInsertRelease(ctx, transaction, *targetRelease, targetRelease.EslId); err != nil {
 		return err
 	}
-
 	return nil
 }
 

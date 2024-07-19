@@ -1682,6 +1682,10 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				WriteCommitData:  c.WriteCommitData,
 				Author:           "",
 				TransformerEslID: c.TransformerEslID,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  "",
+					AuthorEmail: "",
+				},
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
