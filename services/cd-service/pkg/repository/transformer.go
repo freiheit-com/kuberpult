@@ -627,13 +627,13 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		anyRelease, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, c.Application, false)
+		prevRelease, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, c.Application, false)
 		if err != nil {
 			return "", err
 		}
 		var v = db.InitialEslId - 1
-		if anyRelease != nil && len(anyRelease) > 0 {
-			v = anyRelease[0].EslId
+		if len(prevRelease) > 0 {
+			v = prevRelease[0].EslId
 		}
 		release := db.DBReleaseWithMetaData{
 			EslId:         0,
