@@ -83,7 +83,11 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
         <div>
             <main className="main-content esl-warnings-page">
                 <h1>Failed ESL Event List: </h1>
-                <div>This page shows all events that could not be processed, and therefore were never written to the manifest repo. Any operation in kuberpult is an event, like creating a lock or running a release train.</div>
+                <div>
+                    This page shows all events that could not be processed, and therefore were never written to the
+                    manifest repo. Any operation in kuberpult is an event, like creating a lock or running a release
+                    train.
+                </div>
                 <div>
                     <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
                         <option value="local">{localTimezone} Timezone</option>
