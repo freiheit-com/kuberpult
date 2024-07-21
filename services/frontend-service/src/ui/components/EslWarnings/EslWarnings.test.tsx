@@ -149,7 +149,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
         );
 
         expect(container.getElementsByTagName('h1').length).toEqual(1);
-        expect(container.getElementsByTagName('h1')[0]).toHaveTextContent('Failed Esls List:');
+        expect(container.getElementsByTagName('h1')[0]).toHaveTextContent('Failed ESL Event List:');
         const selectTimezoneElement = container.getElementsByClassName('select-timezone')[0];
         fireEvent.change(selectTimezoneElement, { target: { value: testCase.selectedTimezone } });
 

@@ -89,7 +89,7 @@ describe('Esl Warnings page tests', () => {
             enableDexValidToken: false,
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: 'No failed ESLs found',
+            expectedText: 'All events were processed successfully',
             failedEslsStoreData: {
                 response: undefined,
                 failedEslsReady: FailedEslsState.NOTFOUND,
@@ -103,7 +103,8 @@ describe('Esl Warnings page tests', () => {
             enableDexValidToken: false,
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: 'Failed Esls List:',
+            expectedText:
+                'Failed ESL Event List: This page shows all events that could not be processed, and therefore were never written to the manifest repo. Any operation in kuberpult is an event, like creating a lock or running a release',
             failedEslsStoreData: {
                 failedEslsReady: FailedEslsState.READY,
                 response: {
@@ -140,7 +141,8 @@ describe('Esl Warnings page tests', () => {
             enableDexValidToken: true,
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: 'Failed Esls List:',
+            expectedText:
+                'Failed ESL Event List: This page shows all events that could not be processed, and therefore were never written to the manifest repo. Any operation in kuberpult is an event, like creating a lock or running a release',
             failedEslsStoreData: {
                 failedEslsReady: FailedEslsState.READY,
                 response: {
