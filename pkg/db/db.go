@@ -2111,12 +2111,12 @@ func (h *DBHandler) needsQueuedDeploymentsMigrations(ctx context.Context, transa
 }
 
 // NeedsMigrations: Checks if we need migrations for any table.
-func (h *DBHandler) NeedsMigrations(ctx context.Context) bool {
+func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "NeedsMigrations")
 	defer span.Finish()
-	var needs bool
-	_ = h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-		needs = h.NeedsEventSourcingLightMigrations(ctx, transaction) ||
+	var needsMigration bool
+	txError := h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		needsMigration = h.NeedsEventSourcingLightMigrations(ctx, transaction) ||
 			h.needsAllAppsMigrations(ctx, transaction) ||
 			h.needsAppsMigrations(ctx, transaction) ||
 			h.needsDeploymentsMigrations(ctx, transaction) ||
@@ -2129,7 +2129,7 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) bool {
 			h.needsEnvironmentsMigrations(ctx, transaction)
 		return nil
 	})
-	return needs
+	return needsMigration, txError
 }
 
 // For commit_events migrations, we need some transformer to be on the database before we run their migrations.

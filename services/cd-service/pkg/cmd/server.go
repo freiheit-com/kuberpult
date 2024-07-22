@@ -317,7 +317,7 @@ func RunServer() {
 			}
 		if dbHandler.ShouldUseOtherTables() {
 			//Check for migrations -> for pulling
-			if dbHandler.NeedsMigrations(ctx) {
+			if needsMigration, err := dbHandler.NeedsMigrations(ctx); err == nil && needsMigration {
 				err := repo.Pull(ctx)
 				if err != nil {
 					logger.FromContext(ctx).Fatal("Could not pull repository to perform custom migrations", zap.Error(err))
@@ -340,9 +340,10 @@ func RunServer() {
 				} else {
 					logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
 				}
-			} else {
-				logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because all tables contain data.")
+			} else if err != nil {
+				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(err))
 			}
+			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because all tables contain data.")
 		} else {
 			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 		}
