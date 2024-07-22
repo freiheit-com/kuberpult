@@ -341,9 +341,8 @@ func RunServer() {
 					logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
 				}
 			} else {
-
+				logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because all tables contain data.")
 			}
-
 		} else {
 			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 		}
