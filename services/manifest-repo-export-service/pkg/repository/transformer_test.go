@@ -20,15 +20,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/go-git/go-billy/v5"
 	"os/exec"
 	"path"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/go-git/go-billy/v5"
 
 	"time"
 
@@ -143,15 +144,15 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			Name: "generates only deployed manifest",
 			Transformers: []Transformer{
 				&DeployApplicationVersion{
-					Authentication:   Authentication{},
-					Environment:      envAcceptance,
-					Application:      appName,
-					Version:          7,
-					LockBehaviour:    0,
-					WriteCommitData:  false,
-					SourceTrain:      nil,
-					Author:           "",
-					TransformerEslID: 1,
+					Authentication:        Authentication{},
+					Environment:           envAcceptance,
+					Application:           appName,
+					Version:               7,
+					LockBehaviour:         0,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 1,
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
@@ -196,8 +197,8 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 			ExpectedApp: &db.DBAppWithMetaData{
-				EslId: 0,
-				App:   appName,
+				EslVersion: 0,
+				App:        appName,
 				Metadata: db.DBAppMetaData{
 					Team: "team-123",
 				},
@@ -239,11 +240,11 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			Name: "create environment lock",
 			Transformers: []Transformer{
 				&CreateEnvironmentLock{
-					Authentication:   Authentication{},
-					Environment:      envAcceptance,
-					LockId:           "my-lock",
-					Message:          "My envAcceptance lock",
-					TransformerEslID: 1,
+					Authentication:        Authentication{},
+					Environment:           envAcceptance,
+					LockId:                "my-lock",
+					Message:               "My envAcceptance lock",
+					TransformerEslVersion: 1,
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
@@ -258,12 +259,12 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			Name: "create applications lock",
 			Transformers: []Transformer{
 				&CreateEnvironmentApplicationLock{
-					Authentication:   Authentication{},
-					Environment:      envAcceptance,
-					LockId:           "my-lock",
-					Application:      "my-app",
-					Message:          "My envAcceptance lock",
-					TransformerEslID: 1,
+					Authentication:        Authentication{},
+					Environment:           envAcceptance,
+					LockId:                "my-lock",
+					Application:           "my-app",
+					Message:               "My envAcceptance lock",
+					TransformerEslVersion: 1,
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
@@ -274,12 +275,12 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			Name: "create team lock",
 			Transformers: []Transformer{
 				&CreateEnvironmentTeamLock{
-					Authentication:   Authentication{},
-					Environment:      envAcceptance,
-					LockId:           "my-lock",
-					Team:             "my-team",
-					Message:          "My envAcceptance lock",
-					TransformerEslID: 1,
+					Authentication:        Authentication{},
+					Environment:           envAcceptance,
+					LockId:                "my-lock",
+					Team:                  "my-team",
+					Message:               "My envAcceptance lock",
+					TransformerEslVersion: 1,
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
@@ -355,14 +356,14 @@ func TestTransformerWorksWithDb(t *testing.T) {
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
-					SourceCommitId:   "abcdef",
-					SourceAuthor:     "",
-					SourceMessage:    "",
-					Team:             "team-123",
-					DisplayVersion:   "",
-					WriteCommitData:  false,
-					PreviousCommit:   "",
-					TransformerEslID: 1,
+					SourceCommitId:        "abcdef",
+					SourceAuthor:          "",
+					SourceMessage:         "",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       false,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -375,18 +376,18 @@ func TestTransformerWorksWithDb(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					TransformerEslID: 2,
+					TransformerEslVersion: 2,
 				},
 				&DeployApplicationVersion{
-					Authentication:   Authentication{},
-					Environment:      "staging",
-					Application:      appName,
-					Version:          1,
-					LockBehaviour:    0,
-					WriteCommitData:  true,
-					SourceTrain:      nil,
-					Author:           authorEmail,
-					TransformerEslID: 3,
+					Authentication:        Authentication{},
+					Environment:           "staging",
+					Application:           appName,
+					Version:               1,
+					LockBehaviour:         0,
+					WriteCommitData:       true,
+					SourceTrain:           nil,
+					Author:                authorEmail,
+					TransformerEslVersion: 3,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -398,8 +399,8 @@ func TestTransformerWorksWithDb(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					Application:      appName,
-					TransformerEslID: 4,
+					Application:           appName,
+					TransformerEslVersion: 4,
 				},
 			},
 			ExpectedDeletedFile: "/environments/staging/applications/" + appName + "/deployed_by",
@@ -433,28 +434,28 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					}
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslId:         0,
+					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslId)
+				}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslId)
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
@@ -556,21 +557,21 @@ func TestDeploymentEvent(t *testing.T) {
 					Manifests: map[string]string{
 						"staging": "doesn't matter",
 					},
-					Team:             "my-team",
-					WriteCommitData:  true,
-					Version:          1,
-					TransformerEslID: 1,
+					Team:                  "my-team",
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
 				},
 				&DeployApplicationVersion{
-					Application:      appName,
-					Environment:      "staging",
-					WriteCommitData:  true,
-					Version:          1,
-					TransformerEslID: 2,
+					Application:           appName,
+					Environment:           "staging",
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 2,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -618,7 +619,7 @@ func TestDeploymentEvent(t *testing.T) {
 						return err
 					}
 					if t.GetDBEventType() == db.EvtDeployApplicationVersion {
-						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslID(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
 						if err != nil {
 							return err
 						}
@@ -629,28 +630,28 @@ func TestDeploymentEvent(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslId:         0,
+					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslId)
+				}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslId)
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
@@ -710,7 +711,7 @@ func TestReleaseTrain(t *testing.T) {
 							Environment: "staging",
 						},
 					},
-					TransformerEslID: 1,
+					TransformerEslVersion: 1,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -724,7 +725,7 @@ func TestReleaseTrain(t *testing.T) {
 							Latest:      true,
 						},
 					},
-					TransformerEslID: 2,
+					TransformerEslVersion: 2,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -737,30 +738,30 @@ func TestReleaseTrain(t *testing.T) {
 						"production": "some production manifest 2",
 						"staging":    "some staging manifest 2",
 					},
-					WriteCommitData:  true,
-					Version:          1,
-					TransformerEslID: 3,
-					Team:             "team-123",
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 3,
+					Team:                  "team-123",
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
 				},
 				&DeployApplicationVersion{
-					Environment:      "staging",
-					Application:      appName,
-					Version:          1,
-					WriteCommitData:  true,
-					TransformerEslID: 4,
+					Environment:           "staging",
+					Application:           appName,
+					Version:               1,
+					WriteCommitData:       true,
+					TransformerEslVersion: 4,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
 				},
 				&ReleaseTrain{
-					Target:           "production",
-					WriteCommitData:  true,
-					TransformerEslID: 5,
+					Target:                "production",
+					WriteCommitData:       true,
+					TransformerEslVersion: 5,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -808,7 +809,7 @@ func TestReleaseTrain(t *testing.T) {
 						return err
 					}
 					if t.GetDBEventType() == db.EvtDeployApplicationVersion {
-						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslID(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
 						if err != nil {
 							return err
 						}
@@ -817,7 +818,7 @@ func TestReleaseTrain(t *testing.T) {
 					if t.GetDBEventType() == db.EvtReleaseTrain {
 						var sourceTrainUpstream string
 						sourceTrainUpstream = "staging"
-						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslID(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: &sourceTrainUpstream})
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: &sourceTrainUpstream})
 						if err != nil {
 							return err
 						}
@@ -828,28 +829,28 @@ func TestReleaseTrain(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslId:         0,
+					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslId)
+				}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslId)
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
@@ -950,7 +951,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					TransformerEslID: 1,
+					TransformerEslVersion: 1,
 				},
 				&CreateApplicationVersion{
 					Authentication: Authentication{},
@@ -971,7 +972,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					TransformerEslID: 2,
+					TransformerEslVersion: 2,
 				},
 				&CreateApplicationVersion{
 					Authentication: Authentication{},
@@ -992,7 +993,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					TransformerEslID: 3,
+					TransformerEslVersion: 3,
 				},
 				&CleanupOldApplicationVersions{
 					Application: appName,
@@ -1000,7 +1001,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					TransformerEslID: 4,
+					TransformerEslVersion: 4,
 				},
 			},
 			ExpectedFile: []*FilenameAndData{
@@ -1032,29 +1033,29 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslId:         0,
+					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslId)
+				}, db.InitialEslVersion)
 
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslId)
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
@@ -1130,10 +1131,10 @@ func TestReplacedByEvents(t *testing.T) {
 					Manifests: map[string]string{
 						"staging": "doesn't matter",
 					},
-					Team:             "my-team",
-					WriteCommitData:  false,
-					Version:          1,
-					TransformerEslID: 1,
+					Team:                  "my-team",
+					WriteCommitData:       false,
+					Version:               1,
+					TransformerEslVersion: 1,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -1145,10 +1146,10 @@ func TestReplacedByEvents(t *testing.T) {
 					Manifests: map[string]string{
 						"staging": "doesn't matter",
 					},
-					Team:             "my-team",
-					WriteCommitData:  false,
-					Version:          2,
-					TransformerEslID: 2,
+					Team:                  "my-team",
+					WriteCommitData:       false,
+					Version:               2,
+					TransformerEslVersion: 2,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -1167,7 +1168,7 @@ func TestReplacedByEvents(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					TransformerEslID: 3,
+					TransformerEslVersion: 3,
 				},
 				&DeployApplicationVersion{
 					Authentication:  Authentication{},
@@ -1181,7 +1182,7 @@ func TestReplacedByEvents(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
-					TransformerEslID: 4,
+					TransformerEslVersion: 4,
 				},
 			},
 			Event: event.ReplacedBy{
@@ -1254,36 +1255,36 @@ func TestReplacedByEvents(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslId:         0,
+					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslId)
+				}, db.InitialEslVersion)
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 2,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslId)
+				}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1, 2}, db.InitialEslId)
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1, 2}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}

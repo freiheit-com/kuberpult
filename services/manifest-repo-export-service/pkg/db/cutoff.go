@@ -21,17 +21,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"time"
 )
 
-func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslId, error) {
+func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslVersion, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBReadCutoff")
 	defer span.Finish()
 
-	selectQuery := h.AdaptQuery("SELECT eslId FROM cutoff ORDER BY eslId DESC LIMIT 1;")
+	selectQuery := h.AdaptQuery("SELECT eslVersion FROM cutoff ORDER BY eslVersion DESC LIMIT 1;")
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
@@ -47,17 +48,17 @@ func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslId, 
 		}
 	}(rows)
 
-	var eslId db.EslId
-	var eslIdPtr *db.EslId = nil
+	var eslVersion db.EslVersion
+	var eslVersionPtr *db.EslVersion = nil
 	if rows.Next() {
-		err := rows.Scan(&eslId)
+		err := rows.Scan(&eslVersion)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
 			return nil, fmt.Errorf("cutoff: Error scanning row from DB. Error: %w\n", err)
 		}
-		eslIdPtr = &eslId
+		eslVersionPtr = &eslVersion
 	}
 	err = rows.Close()
 	if err != nil {
@@ -67,19 +68,19 @@ func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslId, 
 	if err != nil {
 		return nil, fmt.Errorf("row has error: %v\n", err)
 	}
-	return eslIdPtr, nil
+	return eslVersionPtr, nil
 }
 
-func DBWriteCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, eslId db.EslId) error {
+func DBWriteCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, eslVersion db.EslVersion) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCutoff")
 	defer span.Finish()
 
-	insertQuery := h.AdaptQuery("INSERT INTO cutoff (eslId, processedTime) VALUES (?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO cutoff (eslVersion, processedTime) VALUES (?, ?);")
 	span.SetTag("query", insertQuery)
 
 	_, err := tx.Exec(
 		insertQuery,
-		eslId,
+		eslVersion,
 		time.Now().UTC(),
 	)
 	if err != nil {

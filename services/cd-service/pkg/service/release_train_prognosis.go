@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -35,12 +36,12 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 		Authentication: rp.Authentication{
 			RBACConfig: s.RBACConfig,
 		},
-		Target:           in.Target,
-		Team:             in.Team,
-		CommitHash:       in.CommitHash,
-		WriteCommitData:  false,
-		Repo:             s.Repository,
-		TransformerEslID: 0,
+		Target:                in.Target,
+		Team:                  in.Team,
+		CommitHash:            in.CommitHash,
+		WriteCommitData:       false,
+		Repo:                  s.Repository,
+		TransformerEslVersion: 0,
 	}
 	dbHandler := t.Repo.State().DBHandler
 	var prognosis rp.ReleaseTrainPrognosis
