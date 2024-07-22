@@ -189,7 +189,6 @@ type RepositoryConfig struct {
 	// number of app versions to keep a history of
 	ReleaseVersionsLimit uint
 	StorageBackend       StorageBackend
-	ArgoInsecure         bool
 	// the url to the git repo, like the browser requires it (https protocol)
 	WebURL                string
 	DogstatsdEvents       bool
