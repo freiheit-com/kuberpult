@@ -79,6 +79,7 @@ type Repository interface {
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
+	Pull(ctx context.Context) error
 }
 
 type TransformerBatchApplyError struct {
@@ -427,49 +428,12 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			defer result.headLock.Unlock()
 			//We need fetch when not using the database
-			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-			//exhaustruct:ignore
-			RemoteCallbacks := git.RemoteCallbacks{
-				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-					logger.Debug("git.fetched",
-						zap.String("refname", refname),
-						zap.String("revision.new", b.String()),
-					)
-					return nil
-				},
-				CredentialsCallback:      credentials.CredentialsCallback(ctx),
-				CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
-			}
-			fetchOptions := git.FetchOptions{
-				Prune:           git.FetchPruneUnspecified,
-				UpdateFetchhead: false,
-				DownloadTags:    git.DownloadTagsUnspecified,
-				Headers:         nil,
-				ProxyOptions: git.ProxyOptions{
-					Type: git.ProxyTypeNone,
-					Url:  "",
-				},
-				RemoteCallbacks: RemoteCallbacks,
-			}
-			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
-			if err != nil {
-				return nil, nil, err
-			}
-			var rev *git.Oid
-			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
-				var gerr *git.GitError
-				if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
-					// not found
-					// nothing to do
-				} else {
-					return nil, nil, err
-				}
-			} else {
-				rev = remoteRef.Target()
-				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+			if !cfg.DBHandler.ShouldUseOtherTables() {
+				if err := ConfigureAndPull(ctx, cfg, remote, repo2, credentials, certificates); err != nil {
 					return nil, nil, err
 				}
 			}
+
 			// check that we can build the current state
 			state, err := result.StateAt(nil)
 			if err != nil {
@@ -493,6 +457,58 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return result, result.ProcessQueue, nil
 		}
 	}
+}
+
+func ConfigureAndPull(ctx context.Context, cfg RepositoryConfig, remote *git.Remote, repo2 *git.Repository, credentials *credentialsStore, certificates *certificateStore) error {
+	logger := logger.FromContext(ctx)
+	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+			logger.Debug("git.fetched",
+				zap.String("refname", refname),
+				zap.String("revision.new", b.String()),
+			)
+			return nil
+		},
+		CredentialsCallback:      credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+	}
+	fetchOptions := git.FetchOptions{
+		Prune:           git.FetchPruneUnspecified,
+		UpdateFetchhead: false,
+		DownloadTags:    git.DownloadTagsUnspecified,
+		Headers:         nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+		RemoteCallbacks: RemoteCallbacks,
+	}
+	err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	if err != nil {
+		return err
+	}
+	var rev *git.Oid
+	if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
+		var gerr *git.GitError
+		if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
+			// not found
+			// nothing to do
+		} else {
+			return err
+		}
+	} else {
+		rev = remoteRef.Target()
+		if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) Pull(ctx context.Context) error {
+	return r.FetchAndReset(ctx)
 }
 
 func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
@@ -2413,7 +2429,7 @@ func (s *State) GetAllCommitEvents(ctx context.Context) (db.AllCommitEvents, err
 func (s *State) GetAppsAndTeams() (map[string]string, error) {
 	result, err := s.GetApplicationsFromFile()
 	if err != nil {
-		return nil, fmt.Errorf("could not get apps from file: %v", err)
+		return nil, fmt.Errorf("could n∂ot get apps from file: %v", err)
 	}
 	var teamByAppName = map[string]string{} // key: app, value: team
 	for i := range result {
