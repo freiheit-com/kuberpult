@@ -135,12 +135,12 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
 
-	var eslProcessingBackoff uint64
+	var eslProcessingIdleTimeSeconds uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
 		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
-		eslProcessingBackoff = 10
+		eslProcessingIdleTimeSeconds = 10
 	} else {
-		eslProcessingBackoff, err = strconv.ParseUint(val, 10, 64)
+		eslProcessingIdleTimeSeconds, err = strconv.ParseUint(val, 10, 64)
 		if err != nil {
 			return fmt.Errorf("error converting KUBERPULT_ESL_PROCESSING_BACKOFF, error: %w", err)
 		}
@@ -210,13 +210,11 @@ func Run(ctx context.Context) error {
 		Certificates: repository.Certificates{
 			KnownHostsFile: gitSshKnownHosts,
 		},
-		Branch:                 gitBranch,
-		NetworkTimeout:         time.Duration(networkTimeoutSeconds) * time.Second,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "./environment_configs.json",
-		ReleaseVersionLimit:    uint(releaseVersionLimit),
-		ArgoCdGenerateFiles:    argoCdGenerateFiles,
-		DBHandler:              dbHandler,
+		Branch:              gitBranch,
+		NetworkTimeout:      time.Duration(networkTimeoutSeconds) * time.Second,
+		ReleaseVersionLimit: uint(releaseVersionLimit),
+		ArgoCdGenerateFiles: argoCdGenerateFiles,
+		DBHandler:           dbHandler,
 	}
 
 	repo, err := repository.New(ctx, cfg)
@@ -287,7 +285,7 @@ func Run(ctx context.Context) error {
 			return fmt.Errorf("error in transaction %v", err)
 		}
 		if eslEventSkipped || eslTableEmpty {
-			d := time.Second * time.Duration(eslProcessingBackoff)
+			d := time.Second * time.Duration(eslProcessingIdleTimeSeconds)
 			log.Infof("sleeping for %v before processing the next event", d)
 			time.Sleep(d)
 		}

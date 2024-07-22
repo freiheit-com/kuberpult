@@ -1508,7 +1508,6 @@ func TestReleaseTrain(t *testing.T) {
 		Name                 string
 		ReleaseVersionsLimit uint
 		Transformers         []Transformer
-		BootstrapMode        bool
 		ExpectedVersion      uint
 		TargetEnv            string
 		TargetApp            string

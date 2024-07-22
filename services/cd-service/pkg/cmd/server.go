@@ -60,7 +60,6 @@ type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
 	GitUrl                   string        `required:"true" split_words:"true"`
 	GitBranch                string        `default:"master" split_words:"true"`
-	BootstrapMode            bool          `default:"false" split_words:"true"`
 	GitCommitterEmail        string        `default:"kuberpult@freiheit.com" split_words:"true"`
 	GitCommitterName         string        `default:"kuberpult" split_words:"true"`
 	GitSshKey                string        `default:"/etc/ssh/identity" split_words:"true"`
@@ -80,8 +79,6 @@ type Config struct {
 	EnableSqlite             bool          `default:"true" split_words:"true"`
 	DexMock                  bool          `default:"false" split_words:"true"`
 	DexMockRole              string        `default:"Developer" split_words:"true"`
-	ArgoCdServer             string        `default:"" split_words:"true"`
-	ArgoCdInsecure           bool          `default:"false" split_words:"true"`
 	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
@@ -283,27 +280,19 @@ func RunServer() {
 			Certificates: repository.Certificates{
 				KnownHostsFile: c.GitSshKnownHosts,
 			},
-			Branch:                 c.GitBranch,
-			ReleaseVersionsLimit:   c.ReleaseVersionsLimit,
-			BootstrapMode:          c.BootstrapMode,
-			EnvironmentConfigsPath: "./environment_configs.json",
-			StorageBackend:         c.storageBackend(),
-			ArgoInsecure:           c.ArgoCdInsecure,
-			ArgoWebhookUrl:         c.ArgoCdServer,
-			WebURL:                 c.GitWebUrl,
-			NetworkTimeout:         c.GitNetworkTimeout,
-			DogstatsdEvents:        c.EnableMetrics,
-			WriteCommitData:        c.GitWriteCommitData,
-			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
-			MaximumQueueSize:       c.MaximumQueueSize,
-			AllowLongAppNames:      c.AllowLongAppNames,
-			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
-			DBHandler:              dbHandler,
-			CloudRunClient:         cloudRunClient,
-		}
-
-		if cfg.DBHandler.ShouldUseOtherTables() && cfg.BootstrapMode {
-			logger.FromContext(ctx).Fatal("bootstrap mode cannot be used with the database")
+			Branch:                c.GitBranch,
+			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
+			StorageBackend:        c.storageBackend(),
+			WebURL:                c.GitWebUrl,
+			NetworkTimeout:        c.GitNetworkTimeout,
+			DogstatsdEvents:       c.EnableMetrics,
+			WriteCommitData:       c.GitWriteCommitData,
+			MaximumCommitsPerPush: c.GitMaximumCommitsPerPush,
+			MaximumQueueSize:      c.MaximumQueueSize,
+			AllowLongAppNames:     c.AllowLongAppNames,
+			ArgoCdGenerateFiles:   c.ArgoCdGenerateFiles,
+			DBHandler:             dbHandler,
+			CloudRunClient:        cloudRunClient,
 		}
 
 		repo, repoQueue, err := repository.New2(ctx, cfg)

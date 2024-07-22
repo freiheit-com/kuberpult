@@ -47,7 +47,6 @@ frontend:
     limits:
       cpu: 250m
 environment_configs:
-  bootstrap_mode: true
   environment_configs_json: |
     {
       "production": {

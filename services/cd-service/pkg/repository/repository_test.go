@@ -19,11 +19,8 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -38,7 +35,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/freiheit-com/kuberpult/pkg/setup"
@@ -461,181 +457,6 @@ func TestGetTags(t *testing.T) {
 					t.Fatalf("expected [%v] for TagList tag but got [%v] with tagList %v", tc.expectedTags[iter].Tag, tagData.Tag, tags)
 				}
 				iter += 1
-			}
-		})
-	}
-}
-
-func TestBootstrapModeNew(t *testing.T) {
-	tcs := []struct {
-		Name          string
-		PreInitialize bool
-	}{
-		{
-			Name:          "New in empty repo",
-			PreInitialize: false,
-		},
-		{
-			Name:          "New in existing repo",
-			PreInitialize: true,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-
-			if tc.PreInitialize {
-				_, err := New(
-					testutil.MakeTestContext(),
-					RepositoryConfig{
-						URL:                 "file://" + remoteDir,
-						Path:                localDir,
-						ArgoCdGenerateFiles: true,
-					},
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-
-			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
-
-			repo, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                    "file://" + remoteDir,
-					Path:                   localDir,
-					BootstrapMode:          true,
-					EnvironmentConfigsPath: environmentConfigsPath,
-					ArgoCdGenerateFiles:    true,
-				},
-			)
-			if err != nil {
-				t.Fatalf("New: Expected no error, error %e was thrown", err)
-			}
-
-			state := repo.State()
-			if !state.BootstrapMode {
-				t.Fatalf("Bootstrap mode not preserved")
-			}
-		})
-	}
-}
-
-func TestBootstrapModeReadConfig(t *testing.T) {
-	tcs := []struct {
-		Name string
-	}{
-		{
-			Name: "Config read correctly",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-
-			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
-			if err := os.WriteFile(environmentConfigsPath, []byte(`{"uniqueEnv": {"environmentGroup": "testgroup321", "upstream": {"latest": true}}}`), fs.FileMode(0644)); err != nil {
-				t.Fatal(err)
-			}
-
-			repo, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                    "file://" + remoteDir,
-					Path:                   localDir,
-					BootstrapMode:          true,
-					EnvironmentConfigsPath: environmentConfigsPath,
-					ArgoCdGenerateFiles:    true,
-				},
-			)
-			if err != nil {
-				t.Fatalf("New: Expected no error, error %e was thrown", err)
-			}
-
-			state := repo.State()
-			if !state.BootstrapMode {
-				t.Fatalf("Bootstrap mode not preserved")
-			}
-			ctx := testutil.MakeTestContext()
-			configs, err := state.GetAllEnvironmentConfigs(ctx, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(configs) != 1 {
-				t.Fatal("Configuration not read properly")
-			}
-			if configs["uniqueEnv"].Upstream.Latest != true {
-				t.Fatal("Configuration not read properly")
-			}
-			if configs["uniqueEnv"].EnvironmentGroup == nil {
-				t.Fatalf("EnvironmentGroup not read, found nil")
-			}
-			if *configs["uniqueEnv"].EnvironmentGroup != "testgroup321" {
-				t.Fatalf("EnvironmentGroup not read, found '%s' instead", *configs["uniqueEnv"].EnvironmentGroup)
-			}
-		})
-	}
-}
-
-func TestBootstrapError(t *testing.T) {
-	tcs := []struct {
-		Name          string
-		ConfigContent string
-	}{
-		{
-			Name:          "Invalid json in bootstrap configuration",
-			ConfigContent: `{"development": "upstream": {"latest": true}}}`,
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-
-			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
-			if err := os.WriteFile(environmentConfigsPath, []byte(tc.ConfigContent), fs.FileMode(0644)); err != nil {
-				t.Fatal(err)
-			}
-
-			_, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                    "file://" + remoteDir,
-					Path:                   localDir,
-					BootstrapMode:          true,
-					EnvironmentConfigsPath: environmentConfigsPath,
-					ArgoCdGenerateFiles:    true,
-				},
-			)
-			if err == nil {
-				t.Fatalf("New: Expected error but no error was thrown")
 			}
 		})
 	}
@@ -2122,96 +1943,6 @@ func (resolver TestWebhookResolver) Resolve(insecure bool, req *http.Request) (*
 	return response, nil
 }
 
-func TestSendWebhookToArgoCd(t *testing.T) {
-	tcs := []struct {
-		Name    string
-		Changes TransformerResult
-		webUrl  string
-		branch  string
-	}{
-		{
-			Name: "webhook",
-			Changes: TransformerResult{
-
-				Commits: &CommitIds{
-					Current:  git.NewOidFromBytes([]byte{'C', 'U', 'R', 'R', 'E', 'N', 'T', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
-					Previous: git.NewOidFromBytes([]byte{'P', 'R', 'E', 'V', 'I', 'O', 'U', 'S', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
-				},
-			},
-			webUrl: "http://example.com",
-			branch: "examplebranch",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-
-			// given
-			logger, err := zap.NewDevelopment()
-			if err != nil {
-				t.Fatalf("error creating logger: %v", err)
-			}
-			dir := t.TempDir()
-			path := path.Join(dir, "repo")
-			repo, _, err := New2(
-				ctx,
-				RepositoryConfig{
-					URL:                 fmt.Sprintf("file://%s", path),
-					Path:                path,
-					ArgoCdGenerateFiles: true,
-				},
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%v'", err)
-			}
-			repoInternal := repo.(*repository)
-			repoInternal.config.ArgoWebhookUrl = "http://argo.example.com"
-			rec := httptest.NewRecorder()
-			resolver := TestWebhookResolver{
-				t:        t,
-				rec:      rec,
-				requests: make(chan *http.Request, 1),
-			}
-			repoInternal.config.WebhookResolver = resolver
-
-			// when
-			repoInternal.config.WebURL = tc.webUrl
-			repoInternal.config.Branch = tc.branch
-			repoInternal.sendWebhookToArgoCd(ctx, logger, &tc.Changes)
-
-			// then
-			req := <-resolver.requests
-			buf := make([]byte, req.ContentLength)
-			if _, err = io.ReadFull(req.Body, buf); err != nil {
-				t.Errorf("error reading request body: %v", err)
-			}
-			var jsonRequest map[string]any
-			if err = json.Unmarshal(buf, &jsonRequest); err != nil {
-				t.Errorf("Error parsing request body '%s' as json: %v", string(buf), err)
-			}
-			after := jsonRequest["after"].(string)
-			if after != tc.Changes.Commits.Current.String() {
-				t.Fatalf("after '%s' does not match current '%s'", after, tc.Changes.Commits.Current)
-			}
-			before := jsonRequest["before"].(string)
-			if before != tc.Changes.Commits.Previous.String() {
-				t.Fatalf("before '%s' does not match previous '%s'", before, tc.Changes.Commits.Previous)
-			}
-			ref := jsonRequest["ref"].(string)
-			if ref != fmt.Sprintf("refs/heads/%s", tc.branch) {
-				t.Fatalf("refs '%s' does not match expected for branch given as '%s'", ref, tc.branch)
-			}
-			repository := jsonRequest["repository"].(map[string]any)
-			htmlUrl := repository["html_url"].(string)
-			if htmlUrl != tc.webUrl {
-				t.Fatalf("repository/html_url '%s' does not match expected for webUrl given as '%s'", htmlUrl, tc.webUrl)
-			}
-		})
-	}
-}
 func TestLimit(t *testing.T) {
 	transformers := []Transformer{
 		&CreateEnvironment{
@@ -2397,7 +2128,6 @@ func setupRepository(t *testing.T, config RepositoryConfig) (Repository, error) 
 	config.Path = localDir
 	config.CommitterEmail = "kuberpult@freiheit.com"
 	config.CommitterName = "kuberpult"
-	config.EnvironmentConfigsPath = filepath.Join(remoteDir, "..", "environment_configs.json")
 	t.Logf("test created dir: %s", localDir)
 	repo, _, err := New2(
 		testutil.MakeTestContext(),
@@ -2421,13 +2151,12 @@ func setupRepositoryTestAux(t *testing.T, commits uint) (Repository, error) {
 	repo, _, err := New2(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
-			URL:                    remoteDir,
-			Path:                   localDir,
-			CommitterEmail:         "kuberpult@freiheit.com",
-			CommitterName:          "kuberpult",
-			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-			MaximumCommitsPerPush:  commits,
-			ArgoCdGenerateFiles:    true,
+			URL:                   remoteDir,
+			Path:                  localDir,
+			CommitterEmail:        "kuberpult@freiheit.com",
+			CommitterName:         "kuberpult",
+			MaximumCommitsPerPush: commits,
+			ArgoCdGenerateFiles:   true,
 		},
 	)
 	if err != nil {

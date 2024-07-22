@@ -128,11 +128,6 @@ type RepositoryConfig struct {
 	Branch string
 	// network timeout
 	NetworkTimeout time.Duration
-	// Bootstrap mode controls where configurations are read from
-	// true: read from json file at EnvironmentConfigsPath
-	// false: read from config files in manifest repo
-	BootstrapMode          bool
-	EnvironmentConfigsPath string
 
 	ArgoCdGenerateFiles bool
 	ReleaseVersionLimit uint
@@ -794,12 +789,10 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 			if errors.As(err, &gerr) {
 				if gerr.Code == git.ErrorCodeNotFound {
 					return &State{
-						Commit:                 nil,
-						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
-						BootstrapMode:          r.config.BootstrapMode,
-						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-						DBHandler:              r.DB,
-						ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
+						Commit:               nil,
+						Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
+						DBHandler:            r.DB,
+						ReleaseVersionsLimit: r.config.ReleaseVersionLimit,
 					}, nil
 				}
 			}
@@ -818,21 +811,17 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		}
 	}
 	return &State{
-		Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-		Commit:                 commit,
-		BootstrapMode:          r.config.BootstrapMode,
-		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-		ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
-		DBHandler:              r.DB,
+		Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
+		Commit:               commit,
+		ReleaseVersionsLimit: r.config.ReleaseVersionLimit,
+		DBHandler:            r.DB,
 	}, nil
 }
 
 type State struct {
-	Filesystem             billy.Filesystem
-	Commit                 *git.Commit
-	BootstrapMode          bool
-	EnvironmentConfigsPath string
-	ReleaseVersionsLimit   uint
+	Filesystem           billy.Filesystem
+	Commit               *git.Commit
+	ReleaseVersionsLimit uint
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }
@@ -1215,36 +1204,20 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 }
 
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
-	if s.BootstrapMode {
-		result := map[string]config.EnvironmentConfig{}
-		buf, err := os.ReadFile(s.EnvironmentConfigsPath)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return result, nil
-			}
-			return nil, err
-		}
-		err = json.Unmarshal(buf, &result)
-		if err != nil {
-			return nil, err
-		}
-		return result, nil
-	} else {
-		envs, err := s.Filesystem.ReadDir("environments")
-		if err != nil {
-			return nil, err
-		}
-		result := map[string]config.EnvironmentConfig{}
-		for _, env := range envs {
-			c, err := s.GetEnvironmentConfig(env.Name())
-			if err != nil {
-				return nil, err
-
-			}
-			result[env.Name()] = *c
-		}
-		return result, nil
+	envs, err := s.Filesystem.ReadDir("environments")
+	if err != nil {
+		return nil, err
 	}
+	result := map[string]config.EnvironmentConfig{}
+	for _, env := range envs {
+		c, err := s.GetEnvironmentConfig(env.Name())
+		if err != nil {
+			return nil, err
+
+		}
+		result[env.Name()] = *c
+	}
+	return result, nil
 }
 
 func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {

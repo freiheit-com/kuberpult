@@ -612,12 +612,10 @@ func (c *DeleteEnvironmentLock) Transform(
 ) (string, error) {
 	fs := state.Filesystem
 	s := State{
-		Commit:                 nil,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "",
-		Filesystem:             fs,
-		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
-		DBHandler:              state.DBHandler,
+		Commit:               nil,
+		Filesystem:           fs,
+		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
+		DBHandler:            state.DBHandler,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err := fs.Stat(lockDir)
