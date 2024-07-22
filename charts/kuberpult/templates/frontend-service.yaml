@@ -92,6 +92,8 @@ spec:
           value: {{ .Values.git.author.email | quote }}
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
+        - name: KUBERPULT_MANIFESTSERVER
+          value: kuberpult-manifest-repo-export-service:8444
         - name: KUBERPULT_ARGOCD_BASE_URL
           value: {{ .Values.argocd.baseUrl | quote }}
         - name: KUBERPULT_ARGOCD_NAMESPACE
