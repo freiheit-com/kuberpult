@@ -1,15 +1,3 @@
-CREATE TABLE IF NOT EXISTS cutoff_new
-(
-    processedTime TIMESTAMP,
-    eslVersion INTEGER,
-    FOREIGN KEY (eslversion) REFERENCES event_sourcing_light(eslId)
-);
-INSERT INTO cutoff_new (processedTime, eslVersion)
-SELECT processedTime, eslId
-FROM cutoff;
-DROP TABLE IF EXISTS cutoff;
-ALTER TABLE cutoff_new RENAME TO cutoff;
-
 CREATE TABLE IF NOT EXISTS event_sourcing_light_new 
 (
     eslVersion INTEGER PRIMARY KEY autoincrement,
@@ -22,6 +10,19 @@ SELECT eslId, created, event_type, json
 FROM event_sourcing_light;
 DROP TABLE IF EXISTS event_sourcing_light;
 ALTER TABLE event_sourcing_light_new RENAME TO event_sourcing_light;
+
+CREATE TABLE IF NOT EXISTS cutoff_new
+(
+    processedTime TIMESTAMP,
+    eslVersion INTEGER,
+    FOREIGN KEY (eslversion) REFERENCES event_sourcing_light(eslversion)
+);
+INSERT INTO cutoff_new (processedTime, eslVersion)
+SELECT processedTime, eslId
+FROM cutoff;
+DROP TABLE IF EXISTS cutoff;
+ALTER TABLE cutoff_new RENAME TO cutoff;
+
 
 CREATE TABLE IF NOT EXISTS event_sourcing_light_failed_new
 (
