@@ -554,16 +554,21 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 					continue
 				}
 			}
-			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
-				// Invalid state. fetch and reset and redo
-				err := r.FetchAndReset(e.ctx)
-				if err != nil {
-					return transformerBatches, err, nil
-				}
-				return r.applyTransformerBatches(transformerBatches, false)
-			} else {
+			if r.DB.ShouldUseEslTable() {
 				e.finish(applyErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+			} else {
+				if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
+					// Invalid state. fetch and reset and redo
+					err := r.FetchAndReset(e.ctx)
+					if err != nil {
+						return transformerBatches, err, nil
+					}
+					return r.applyTransformerBatches(transformerBatches, false)
+				} else {
+					e.finish(applyErr)
+					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+				}
 			}
 		} else {
 			if r.DB.ShouldUseEslTable() {
