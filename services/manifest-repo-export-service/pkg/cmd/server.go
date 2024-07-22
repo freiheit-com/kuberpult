@@ -229,16 +229,16 @@ func Run(ctx context.Context) error {
 		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
 		const readonly = false
 		err = dbHandler.WithTransaction(ctx, readonly, func(ctx context.Context, transaction *sql.Tx) error {
-			eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
+			eslVersion, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("error in DBReadCutoff %v", err)
 			}
-			if eslId == nil {
+			if eslVersion == nil {
 				log.Infof("did not find cutoff")
 			} else {
-				log.Infof("found cutoff: %d", *eslId)
+				log.Infof("found cutoff: %d", *eslVersion)
 			}
-			esl, err := readEslEvent(ctx, transaction, eslId, log, dbHandler)
+			esl, err := readEslEvent(ctx, transaction, eslVersion, log, dbHandler)
 			if err != nil {
 				return fmt.Errorf("error in readEslEvent %v", err)
 			}
@@ -262,6 +262,7 @@ func Run(ctx context.Context) error {
 			}
 			transformer, err := processEslEvent(ctx, repo, esl, transaction)
 			if err != nil {
+				log.Warnf("Error happend during processEslEvent: %v, skipping the event and writing to the failed table", err)
 				err2 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
 				if err2 != nil {
 					return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
@@ -274,7 +275,7 @@ func Run(ctx context.Context) error {
 				return nil
 			}
 			log.Infof("event processed successfully, now writing to cutoff...")
-			err = cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslId)
+			err = cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 			if err != nil {
 				return fmt.Errorf("error in DBWriteCutoff %v", err)
 			}
@@ -302,8 +303,8 @@ func calculateProcessDelay(ctx context.Context, nextEslToProcess *db.EslEventRow
 	return diff, nil
 }
 
-func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log *zap.SugaredLogger, dbHandler *db.DBHandler) (*db.EslEventRow, error) {
-	if eslId == nil {
+func readEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *db.EslVersion, log *zap.SugaredLogger, dbHandler *db.DBHandler) (*db.EslEventRow, error) {
+	if eslVersion == nil {
 		log.Warnf("no cutoff found, starting at the beginning of time.")
 		// no read cutoff yet, we have to start from the beginning
 		esl, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
@@ -317,8 +318,8 @@ func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log
 		return esl, nil
 		//log.Warnf("found esl event %v of type %s", esl, esl.EventType)
 	} else {
-		log.Warnf("cutoff found, starting at t>cutoff: %d", *eslId)
-		esl, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, *eslId)
+		log.Warnf("cutoff found, starting at t>cutoff: %d", *eslVersion)
+		esl, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, *eslVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -344,7 +345,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	if err != nil {
 		return nil, err
 	}
-	t.SetEslID(db.TransformerID(esl.EslId))
+	t.SetEslVersion(db.TransformerID(esl.EslVersion))
 	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
 
 	err = repo.Apply(ctx, tx, t)

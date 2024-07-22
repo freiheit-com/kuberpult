@@ -22,9 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/event"
 	"testing"
 	gotime "time"
+
+	"github.com/freiheit-com/kuberpult/pkg/event"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -320,7 +321,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("marshal error: %v\njson: \n%s\n", err, row.EventJson)
 			}
-			tc.Transformer.SetEslID(0) // the eslId is not part of the json blob anymore
+			tc.Transformer.SetEslVersion(0) // the eslVersion is not part of the json blob anymore
 			if diff := cmp.Diff(tc.Transformer, jsonInterface, protocmp.Transform()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -647,7 +648,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslId:       2,
+				EslVersion:  2,
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
@@ -655,9 +656,9 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslId:   1,
-				Created: gotime.Time{},
-				App:     appName,
+				EslVersion: 1,
+				Created:    gotime.Time{},
+				App:        appName,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{10000},
 				},
@@ -688,7 +689,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslId:       2, // even when CreateApplicationVersion is called twice, we still write the app only once
+				EslVersion:  2, // even when CreateApplicationVersion is called twice, we still write the app only once
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
@@ -696,9 +697,9 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslId:   2,
-				Created: gotime.Time{},
-				App:     appName,
+				EslVersion: 2,
+				Created:    gotime.Time{},
+				App:        appName,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{10, 11},
 				},
@@ -729,7 +730,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslId:       3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
+				EslVersion:  3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
 				App:         appName,
 				StateChange: db.AppStateChangeUpdate,
 				Metadata: db.DBAppMetaData{
@@ -737,9 +738,9 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslId:   2,
-				Created: gotime.Time{},
-				App:     appName,
+				EslVersion: 2,
+				Created:    gotime.Time{},
+				App:        appName,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{10, 11},
 				},
@@ -1236,11 +1237,11 @@ func TestEvents(t *testing.T) {
 					Version:         1,
 				},
 				&DeployApplicationVersion{
-					Application:      "app",
-					Environment:      "staging",
-					WriteCommitData:  true,
-					Version:          1,
-					TransformerEslID: 1,
+					Application:           "app",
+					Environment:           "staging",
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
 				},
 			},
 			expectedDBEvents: []event.Event{
@@ -1274,9 +1275,9 @@ func TestEvents(t *testing.T) {
 					Manifests: map[string]string{
 						"dev": "doesn't matter",
 					},
-					WriteCommitData:  true,
-					Version:          1,
-					TransformerEslID: 1,
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
 				},
 			},
 			expectedDBEvents: []event.Event{
@@ -1307,9 +1308,9 @@ func TestEvents(t *testing.T) {
 					Manifests: map[string]string{
 						"dev": "doesn't matter",
 					},
-					WriteCommitData:  true,
-					Version:          1,
-					TransformerEslID: 1,
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
 				},
 				&CreateApplicationVersion{
 					Application:    "app",
@@ -1317,10 +1318,10 @@ func TestEvents(t *testing.T) {
 					Manifests: map[string]string{
 						"dev": "doesn't matter",
 					},
-					WriteCommitData:  true,
-					Version:          2,
-					TransformerEslID: 1,
-					PreviousCommit:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					WriteCommitData:       true,
+					Version:               2,
+					TransformerEslVersion: 1,
+					PreviousCommit:        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
 			expectedDBEvents: []event.Event{
@@ -1388,7 +1389,7 @@ func TestEvents(t *testing.T) {
 
 func TestDeleteEnvFromAppWithDB(t *testing.T) {
 	firstRelease := db.DBReleaseWithMetaData{
-		EslId:         1,
+		EslVersion:    1,
 		ReleaseNumber: 10,
 		App:           "app",
 		Manifests: db.DBReleaseManifests{
@@ -1405,7 +1406,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 		},
 	}
 	secondRelease := db.DBReleaseWithMetaData{
-		EslId:         1,
+		EslVersion:    1,
 		ReleaseNumber: 11,
 		App:           "app",
 		Manifests: db.DBReleaseManifests{
@@ -1484,7 +1485,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}
 				for _, release := range releases {
-					if diff := cmp.Diff(firstRelease.EslId+1, release.EslId); diff != "" {
+					if diff := cmp.Diff(firstRelease.EslVersion+1, release.EslVersion); diff != "" {
 						return fmt.Errorf("error mismatch ReleaseNumber - want, +got:\n%s", diff)
 					}
 					for env, manifest := range tc.ExpectedManifests {
@@ -1585,29 +1586,29 @@ func TestReleaseTrain(t *testing.T) {
 							Latest: true,
 						},
 					},
-					TransformerEslID: 0,
+					TransformerEslVersion: 0,
 				},
 				&CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						envAcceptance: "acceptancenmanifest",
 					},
-					WriteCommitData:  true,
-					Version:          1,
-					TransformerEslID: 0,
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 0,
 				},
 				&CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						envAcceptance: "acceptancenmanifest",
 					},
-					WriteCommitData:  true,
-					Version:          2,
-					TransformerEslID: 0,
+					WriteCommitData:       true,
+					Version:               2,
+					TransformerEslVersion: 0,
 				},
 				&ReleaseTrain{
-					Target:           envAcceptance,
-					TransformerEslID: 0,
+					Target:                envAcceptance,
+					TransformerEslVersion: 0,
 				},
 			},
 		},
@@ -1624,7 +1625,7 @@ func TestReleaseTrain(t *testing.T) {
 							Environment: envAcceptance, // train drives from acceptance to production
 						},
 					},
-					TransformerEslID: 0,
+					TransformerEslVersion: 0,
 				},
 				&CreateEnvironment{
 					Environment: envAcceptance,
@@ -1634,7 +1635,7 @@ func TestReleaseTrain(t *testing.T) {
 							Latest:      true,
 						},
 					},
-					TransformerEslID: 0,
+					TransformerEslVersion: 0,
 				},
 				&CreateApplicationVersion{
 					Application: "test-my-app",
@@ -1642,16 +1643,16 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team:             "test",
-					WriteCommitData:  true,
-					Version:          1,
-					TransformerEslID: 0,
+					Team:                  "test",
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 0,
 				},
 				&DeployApplicationVersion{
-					Environment:      envProduction,
-					Application:      "test-my-app",
-					Version:          1,
-					TransformerEslID: 0,
+					Environment:           envProduction,
+					Application:           "test-my-app",
+					Version:               1,
+					TransformerEslVersion: 0,
 				},
 				&CreateApplicationVersion{
 					Application: "test-my-app",
@@ -1659,27 +1660,27 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					WriteCommitData:  true,
-					Version:          2,
-					TransformerEslID: 0,
-					Team:             "test",
+					WriteCommitData:       true,
+					Version:               2,
+					TransformerEslVersion: 0,
+					Team:                  "test",
 				},
 				&DeployApplicationVersion{
-					Environment:      envAcceptance,
-					Application:      "test-my-app",
-					Version:          1,
-					TransformerEslID: 0,
+					Environment:           envAcceptance,
+					Application:           "test-my-app",
+					Version:               1,
+					TransformerEslVersion: 0,
 				},
 				&DeployApplicationVersion{
-					Environment:      envAcceptance,
-					Application:      "test-my-app",
-					Version:          2,
-					TransformerEslID: 0,
+					Environment:           envAcceptance,
+					Application:           "test-my-app",
+					Version:               2,
+					TransformerEslVersion: 0,
 				},
 				&ReleaseTrain{
-					Target:           envProduction,
-					Team:             "test",
-					TransformerEslID: 0,
+					Target:                envProduction,
+					Team:                  "test",
+					TransformerEslVersion: 0,
 				},
 			},
 		},

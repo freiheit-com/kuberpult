@@ -812,7 +812,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 						Index:            i,
 					}
 				}
-				// read the last written event, so we can get the primary key (eslId):
+				// read the last written event, so we can get the primary key (eslVersion):
 				internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
 				if err != nil {
 					return nil, nil, nil, &TransformerBatchApplyError{
@@ -826,7 +826,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 						Index:            i,
 					}
 				}
-				t.SetEslID(db.TransformerID(internal.EslId))
+				t.SetEslVersion(db.TransformerID(internal.EslVersion))
 			}
 
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {

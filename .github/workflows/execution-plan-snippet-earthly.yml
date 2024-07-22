@@ -48,7 +48,7 @@ jobs:
         run: |
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" >> $GITHUB_OUTPUT
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" >> $GITHUB_OUTPUT
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         name: Upload execution plan
         with:
           name: execution-plan.json
@@ -129,7 +129,7 @@ jobs:
         if: matrix.data.artifacts != ''
         with:
             name: ${{ matrix.data.artifactName }}
-            path: ${{ matrix.data.artifacts }}
+            path: ${{ matrix.data.directory }}/${{ matrix.data.artifacts }}
   stageB_build:
     needs: [execution_plan, stageA_build]
     # Workaround to run stageB in case stageA was skipped
@@ -208,8 +208,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
-          name: ${{ matrix.data.artifactName }}
-          path: ${{ matrix.data.artifacts }}
+            name: ${{ matrix.data.artifactName }}
+            path: ${{ matrix.data.directory }}/${{ matrix.data.artifacts }}
   cleanup:
     needs: [stageB_build, execution_plan]
     name: Cleanup

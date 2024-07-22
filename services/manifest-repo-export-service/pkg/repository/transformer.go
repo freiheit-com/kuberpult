@@ -22,6 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"path"
+	"slices"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -38,15 +42,13 @@ import (
 	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
-	"io"
-	"path"
-	"slices"
 
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"time"
 )
@@ -113,8 +115,8 @@ type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
 	GetMetadata() *TransformerMetadata
-	GetEslID() db.TransformerID
-	SetEslID(id db.TransformerID)
+	GetEslVersion() db.TransformerID
+	SetEslVersion(id db.TransformerID)
 }
 
 type TransformerContext interface {
@@ -145,12 +147,12 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		return "", nil, err
 	}
 
-	rows, err := s.DBHandler.DBSelectAllCommitEventsForTransformerID(ctx, transaction, t.GetEslID())
+	rows, err := s.DBHandler.DBSelectAllCommitEventsForTransformerID(ctx, transaction, t.GetEslVersion())
 
 	if err != nil {
 		return "", nil, err
 	}
-	if len(rows) != 0 && t.GetEslID() != 0 { //Guard against migration transformer
+	if len(rows) != 0 && t.GetEslVersion() != 0 { //Guard against migration transformer
 		for _, r := range rows {
 			err := processCommitEvent(ctx, s, r)
 			if err != nil {
@@ -250,18 +252,18 @@ type Authentication struct {
 }
 
 type QueueApplicationVersion struct {
-	Environment      string
-	Application      string
-	Version          uint64
-	TransformerEslID db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Environment           string
+	Application           string
+	Version               uint64
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
-func (c *QueueApplicationVersion) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *QueueApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *QueueApplicationVersion) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *QueueApplicationVersion) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *QueueApplicationVersion) Transform(
@@ -289,28 +291,28 @@ func (c *QueueApplicationVersion) Transform(
 }
 
 type DeployApplicationVersion struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string                          `json:"env"`
-	Application         string                          `json:"app"`
-	Version             uint64                          `json:"version"`
-	LockBehaviour       api.LockBehavior                `json:"lockBehaviour"`
-	WriteCommitData     bool                            `json:"writeCommitData"`
-	SourceTrain         *DeployApplicationVersionSource `json:"sourceTrain"`
-	Author              string                          `json:"author"`
-	TransformerEslID    db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string                          `json:"env"`
+	Application           string                          `json:"app"`
+	Version               uint64                          `json:"version"`
+	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
+	WriteCommitData       bool                            `json:"writeCommitData"`
+	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
+	Author                string                          `json:"author"`
+	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
 	return db.EvtDeployApplicationVersion
 }
 
-func (c *DeployApplicationVersion) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *DeployApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *DeployApplicationVersion) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *DeployApplicationVersion) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 type DeployApplicationVersionSource struct {
@@ -384,10 +386,10 @@ func (c *DeployApplicationVersion) Transform(
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
-					Environment:      c.Environment,
-					Application:      c.Application,
-					Version:          c.Version,
-					TransformerEslID: c.TransformerEslID,
+					Environment:           c.Environment,
+					Application:           c.Application,
+					Version:               c.Version,
+					TransformerEslVersion: c.TransformerEslVersion,
 				}
 				return q.Transform(ctx, state, t, nil)
 			case api.LockBehavior_FAIL:
@@ -466,7 +468,7 @@ func (c *DeployApplicationVersion) Transform(
 			AuthorName:  existingDeployment.Metadata.DeployedByName,
 			AuthorEmail: existingDeployment.Metadata.DeployedByEmail,
 		},
-		TransformerEslID: c.TransformerEslID,
+		TransformerEslVersion: c.TransformerEslVersion,
 	}
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
@@ -495,21 +497,21 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 }
 
 type CreateEnvironmentLock struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string           `json:"env"`
-	LockId              string           `json:"lockId"`
-	Message             string           `json:"message"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string           `json:"env"`
+	LockId                string           `json:"lockId"`
+	Message               string           `json:"message"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
-func (c *CreateEnvironmentLock) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *CreateEnvironmentLock) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *CreateEnvironmentLock) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
@@ -582,20 +584,20 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, autho
 }
 
 type DeleteEnvironmentLock struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string           `json:"env"`
-	LockId              string           `json:"lockId"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string           `json:"env"`
+	LockId                string           `json:"lockId"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
-func (c *DeleteEnvironmentLock) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *DeleteEnvironmentLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *DeleteEnvironmentLock) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *DeleteEnvironmentLock) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
@@ -633,22 +635,22 @@ func (c *DeleteEnvironmentLock) Transform(
 }
 
 type CreateEnvironmentApplicationLock struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string           `json:"env"`
-	Application         string           `json:"app"`
-	LockId              string           `json:"lockId"`
-	Message             string           `json:"message"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string           `json:"env"`
+	Application           string           `json:"app"`
+	LockId                string           `json:"lockId"`
+	Message               string           `json:"message"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
-func (c *CreateEnvironmentApplicationLock) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *CreateEnvironmentApplicationLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *CreateEnvironmentApplicationLock) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *CreateEnvironmentApplicationLock) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -696,12 +698,12 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 }
 
 type DeleteEnvironmentApplicationLock struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string           `json:"env"`
-	Application         string           `json:"app"`
-	LockId              string           `json:"lockId"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string           `json:"env"`
+	Application           string           `json:"app"`
+	LockId                string           `json:"lockId"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
@@ -709,12 +711,12 @@ func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentApplicationLock
 }
 
-func (c *DeleteEnvironmentApplicationLock) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *DeleteEnvironmentApplicationLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *DeleteEnvironmentApplicationLock) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *DeleteEnvironmentApplicationLock) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(
@@ -747,27 +749,27 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 }
 
 type CreateApplicationVersion struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Version             uint64            `json:"version"`
-	Application         string            `json:"app"`
-	Manifests           map[string]string `json:"manifests"`
-	SourceCommitId      string            `json:"sourceCommitId"`
-	SourceAuthor        string            `json:"sourceCommitAuthor"`
-	SourceMessage       string            `json:"sourceCommitMessage"`
-	Team                string            `json:"team"`
-	DisplayVersion      string            `json:"displayVersion"`
-	WriteCommitData     bool              `json:"writeCommitData"`
-	PreviousCommit      string            `json:"previousCommit"`
-	TransformerEslID    db.TransformerID  `json:"-"`
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Version               uint64            `json:"version"`
+	Application           string            `json:"app"`
+	Manifests             map[string]string `json:"manifests"`
+	SourceCommitId        string            `json:"sourceCommitId"`
+	SourceAuthor          string            `json:"sourceCommitAuthor"`
+	SourceMessage         string            `json:"sourceCommitMessage"`
+	Team                  string            `json:"team"`
+	DisplayVersion        string            `json:"displayVersion"`
+	WriteCommitData       bool              `json:"writeCommitData"`
+	PreviousCommit        string            `json:"previousCommit"`
+	TransformerEslVersion db.TransformerID  `json:"-"`
 }
 
-func (c *CreateApplicationVersion) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *CreateApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *CreateApplicationVersion) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *CreateApplicationVersion) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -869,7 +871,7 @@ func (c *CreateApplicationVersion) Transform(
 	slices.Sort(allEnvsOfThisApp)
 
 	if c.WriteCommitData {
-		ev, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslID, event.EventTypeNewRelease, 1)
+		ev, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslVersion, event.EventTypeNewRelease, 1)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -917,15 +919,15 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
-				SourceTrain:      nil,
-				Environment:      env,
-				Application:      c.Application,
-				Version:          version,
-				LockBehaviour:    api.LockBehavior_RECORD,
-				Authentication:   c.Authentication,
-				WriteCommitData:  c.WriteCommitData,
-				Author:           c.SourceAuthor,
-				TransformerEslID: c.TransformerEslID,
+				SourceTrain:           nil,
+				Environment:           env,
+				Application:           c.Application,
+				Version:               version,
+				LockBehaviour:         api.LockBehavior_RECORD,
+				Authentication:        c.Authentication,
+				WriteCommitData:       c.WriteCommitData,
+				Author:                c.SourceAuthor,
+				TransformerEslVersion: c.TransformerEslVersion,
 				TransformerMetadata: TransformerMetadata{
 					AuthorName:  c.SourceAuthor,
 					AuthorEmail: "",
@@ -1095,22 +1097,22 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 }
 
 type CreateEnvironmentTeamLock struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string           `json:"env"`
-	Team                string           `json:"team"`
-	LockId              string           `json:"lockId"`
-	Message             string           `json:"message"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string           `json:"env"`
+	Team                  string           `json:"team"`
+	LockId                string           `json:"lockId"`
+	Message               string           `json:"message"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
-func (c *CreateEnvironmentTeamLock) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *CreateEnvironmentTeamLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *CreateEnvironmentTeamLock) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *CreateEnvironmentTeamLock) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
@@ -1186,21 +1188,21 @@ func (c *CreateEnvironmentTeamLock) Transform(
 }
 
 type DeleteEnvironmentTeamLock struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string           `json:"env"`
-	Team                string           `json:"team"`
-	LockId              string           `json:"lockId"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string           `json:"env"`
+	Team                  string           `json:"team"`
+	LockId                string           `json:"lockId"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
-func (c *DeleteEnvironmentTeamLock) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *DeleteEnvironmentTeamLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *DeleteEnvironmentTeamLock) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *DeleteEnvironmentTeamLock) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
@@ -1243,20 +1245,20 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 }
 
 type CreateEnvironment struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string                   `json:"env"`
-	Config              config.EnvironmentConfig `json:"config"`
-	TransformerEslID    db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string                   `json:"env"`
+	Config                config.EnvironmentConfig `json:"config"`
+	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
-func (c *CreateEnvironment) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *CreateEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *CreateEnvironment) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *CreateEnvironment) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
@@ -1358,18 +1360,18 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 }
 
 type CleanupOldApplicationVersions struct {
-	Application         string
-	TransformerMetadata `json:"metadata"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Application           string
+	TransformerMetadata   `json:"metadata"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
-func (c *CleanupOldApplicationVersions) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *CleanupOldApplicationVersions) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *CleanupOldApplicationVersions) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
@@ -1423,23 +1425,23 @@ func (c *CleanupOldApplicationVersions) Transform(
 }
 
 type ReleaseTrain struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Target              string           `json:"target"`
-	Team                string           `json:"team,omitempty"`
-	CommitHash          string           `json:"commitHash"`
-	WriteCommitData     bool             `json:"writeCommitData"`
-	Repo                Repository       `json:"-"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Target                string           `json:"target"`
+	Team                  string           `json:"team,omitempty"`
+	CommitHash            string           `json:"commitHash"`
+	WriteCommitData       bool             `json:"writeCommitData"`
+	Repo                  Repository       `json:"-"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
-func (c *ReleaseTrain) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *ReleaseTrain) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *ReleaseTrain) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *ReleaseTrain) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -1471,8 +1473,8 @@ func (u *ReleaseTrain) Transform(
 	t TransformerContext,
 	tx *sql.Tx,
 ) (string, error) {
-	//Gets deployments generated by the releasetrain with elsVersion u.TransformerEslID from the database and simply deploys them
-	deployments, err := state.DBHandler.DBSelectDeploymentsByTransformerID(ctx, tx, u.TransformerEslID, 100)
+	//Gets deployments generated by the releasetrain with elsVersion u.TransformerEslVersion from the database and simply deploys them
+	deployments, err := state.DBHandler.DBSelectDeploymentsByTransformerID(ctx, tx, u.TransformerEslVersion, 100)
 	if err != nil {
 		return "", err
 	}
@@ -1499,8 +1501,8 @@ func (u *ReleaseTrain) Transform(
 				Upstream:    upstreamEnvName,
 				TargetGroup: trainGroup,
 			},
-			TransformerEslID: u.TransformerEslID,
-			Author:           "",
+			TransformerEslVersion: u.TransformerEslVersion,
+			Author:                "",
 		}, tx); err != nil {
 			return "", err
 		}
@@ -1511,8 +1513,8 @@ func (u *ReleaseTrain) Transform(
 }
 
 type MigrationTransformer struct {
-	TransformerMetadata `json:"metadata"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	TransformerMetadata   `json:"metadata"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
 func (c *MigrationTransformer) GetDBEventType() db.EventType {
@@ -1522,28 +1524,28 @@ func (c *MigrationTransformer) Transform(_ context.Context, _ *State, _ Transfor
 	return "Migration Transformer", nil
 }
 
-func (c *MigrationTransformer) GetEslID() db.TransformerID {
-	return c.TransformerEslID
+func (c *MigrationTransformer) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
-func (c *MigrationTransformer) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *MigrationTransformer) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 type DeleteEnvFromApp struct {
-	Authentication      `json:"-"`
-	TransformerMetadata `json:"metadata"`
-	Environment         string           `json:"environment"`
-	Application         string           `json:"application"`
-	TransformerEslID    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           string           `json:"environment"`
+	Application           string           `json:"application"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
-func (u *DeleteEnvFromApp) GetEslID() db.TransformerID {
-	return u.TransformerEslID
+func (u *DeleteEnvFromApp) GetEslVersion() db.TransformerID {
+	return u.TransformerEslVersion
 }
 
-func (c *DeleteEnvFromApp) SetEslID(eslId db.TransformerID) {
-	c.TransformerEslID = eslId
+func (c *DeleteEnvFromApp) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
