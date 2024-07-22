@@ -110,7 +110,7 @@ describe('Esl Warnings page tests', () => {
                 response: {
                     failedEsls: [
                         {
-                            eslId: 1,
+                            eslVersion: 1,
                             createdAt: new Date('2024-02-09T11:20:00Z'),
                             eventType: 'EvtCreateApplicationVersion',
                             json: '{"version": 1, "app": "test-app-name"}',
@@ -148,7 +148,7 @@ describe('Esl Warnings page tests', () => {
                 response: {
                     failedEsls: [
                         {
-                            eslId: 1,
+                            eslVersion: 1,
                             createdAt: new Date('2024-02-09T11:20:00Z'),
                             eventType: 'EvtCreateApplicationVersion',
                             json: '{"version": 1, "app": "test-app-name"}',

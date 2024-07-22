@@ -96,7 +96,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                     <table className={'esls'} border={1}>
                         <thead>
                             <tr>
-                                <th className={'EslId'}>EslId:</th>
+                                <th className={'EslVersion'}>EslVersion:</th>
                                 <th className={'date'}>Date:</th>
                                 <th className={'Event Type'}>Event Type:</th>
                                 <th className={'Json'}>Json:</th>
@@ -106,8 +106,8 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                             {failedEslsResponse.failedEsls.map((eslItem, _) => {
                                 const createdAt = formatDate(eslItem.createdAt);
                                 return (
-                                    <tr key={eslItem.eslId}>
-                                        <td>{eslItem.eslId}</td>
+                                    <tr key={eslItem.eslVersion}>
+                                        <td>{eslItem.eslVersion}</td>
                                         <td>{createdAt}</td>
                                         <td>{eslItem.eventType}</td>
                                         <td>{eslItem.json}</td>

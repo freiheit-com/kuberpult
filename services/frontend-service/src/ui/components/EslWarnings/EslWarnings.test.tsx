@@ -45,13 +45,13 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
             failedEslsResponse: {
                 failedEsls: [
                     {
-                        eslId: 1,
+                        eslVersion: 1,
                         createdAt: new Date('2024-02-09T09:46:00.000Z'),
                         eventType: 'EvtCreateApplicationVersion',
                         json: '{"version": 1, "app": "test-app-name"}',
                     },
                     {
-                        eslId: 2,
+                        eslVersion: 2,
                         createdAt: new Date('2024-02-10T09:46:00.000Z'),
                         eventType: 'EvtDeployApplication',
                         json: '{"app": "test-app-name", "environment": "dev"}',
@@ -59,7 +59,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 ],
             },
             expectedEslsTable: {
-                head: ['EslId:', 'Date:', 'Event Type:', 'Json:'],
+                head: ['EslVersion:', 'Date:', 'Event Type:', 'Json:'],
                 body: [
                     [
                         '1',
@@ -81,7 +81,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
             failedEslsResponse: {
                 failedEsls: [
                     {
-                        eslId: 1,
+                        eslVersion: 1,
                         createdAt: new Date('2024-02-09T11:20:00Z'),
                         eventType: 'EvtCreateApplicationVersion',
                         json: '{"version": 1, "app": "test-app-name"}',
@@ -89,7 +89,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 ],
             },
             expectedEslsTable: {
-                head: ['EslId:', 'Date:', 'Event Type:', 'Json:'],
+                head: ['EslVersion:', 'Date:', 'Event Type:', 'Json:'],
                 body: [
                     [
                         '1',
