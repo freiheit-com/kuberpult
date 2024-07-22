@@ -2429,7 +2429,7 @@ func (s *State) GetAllCommitEvents(ctx context.Context) (db.AllCommitEvents, err
 func (s *State) GetAppsAndTeams() (map[string]string, error) {
 	result, err := s.GetApplicationsFromFile()
 	if err != nil {
-		return nil, fmt.Errorf("could n∂ot get apps from file: %v", err)
+		return nil, fmt.Errorf("could not get apps from file: %v", err)
 	}
 	var teamByAppName = map[string]string{} // key: app, value: team
 	for i := range result {
