@@ -1515,8 +1515,8 @@ func (u *ReleaseTrain) Transform(
 }
 
 type MigrationTransformer struct {
-	TransformerMetadata `json:"metadata"`
-	TransformerEslVersion    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	TransformerMetadata   `json:"metadata"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
 func (c *MigrationTransformer) GetDBEventType() db.EventType {

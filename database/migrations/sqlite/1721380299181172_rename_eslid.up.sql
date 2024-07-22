@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS overview_cache_new
     timestamp TIMESTAMP,
     json VARCHAR
 );
-INSERT INTO overview_cache_new(eslId, timestamp, json)
-SELECT eslVersion, timestamp, json
+INSERT INTO overview_cache_new(eslVersion, timestamp, json)
+SELECT eslId, timestamp, json
 FROM overview_cache;
 DROP TABLE IF EXISTS overview_cache;
 ALTER TABLE overview_cache_new RENAME TO overview_cache;
@@ -55,8 +55,8 @@ CREATE TABLE IF NOT EXISTS commit_events_new
     commitHash VARCHAR(64),
     eventType VARCHAR(32),
     json VARCHAR,
-    transformereslVersion INTEGER,
-    FOREIGN KEY (transformereslVersion) REFERENCES event_sourcing_light(eslVersion) DEFAULT 0,
+    transformereslVersion INTEGER DEFAULT 0,
+    FOREIGN KEY (transformereslVersion) REFERENCES event_sourcing_light(eslVersion),
     PRIMARY KEY(uuid)
 );
 CREATE INDEX IF NOT EXISTS commitHashIdx on commit_events_new (commitHash);
@@ -74,8 +74,8 @@ CREATE TABLE IF NOT EXISTS deployments_new
     appName VARCHAR,
     envName VARCHAR,
     metadata VARCHAR,
-    transformereslVersion INTEGER,
-    FOREIGN KEY(transformereslVersion) REFERENCES event_sourcing_light(eslVersion) DEFAULT 0,
+    transformereslVersion INTEGER DEFAULT 0,
+    FOREIGN KEY(transformereslVersion) REFERENCES event_sourcing_light(eslVersion),
     PRIMARY KEY(eslVersion, appName, envName)
 );
 INSERT INTO deployments_new(eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion)
