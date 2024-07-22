@@ -15,7 +15,7 @@ jobs:
       IMAGE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
     steps: 
     - name: Checkout repository
-      uses: actions/checkout@v3.1.0
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Install earthly
