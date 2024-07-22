@@ -133,9 +133,9 @@ integration-test:
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
     COPY infrastructure/scripts/create-testdata/create-release.sh .
-    COPY tests/integration-tests integration-tests
+    COPY tests/integration-tests tests/integration-tests
     COPY go.mod go.sum .
-    COPY pkg/conversion  pkg/conversion
+    COPY pkg  pkg
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version
@@ -146,9 +146,9 @@ integration-test:
             set -e; \
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
-            ./integration-tests/cluster-setup/setup-cluster-ssh.sh& \
-            ./integration-tests/cluster-setup/setup-postgres.sh& \
-            ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            cd integration-tests && go test $GO_TEST_ARGS ./... || ./cluster-setup/get-logs.sh; \
+            ./tests/integration-tests/cluster-setup/setup-cluster-ssh.sh& \
+            ./tests/integration-tests/cluster-setup/setup-postgres.sh& \
+            ./tests/integration-tests/cluster-setup/argocd-kuberpult.sh && \
+            cd tests/integration-tests && go test $GO_TEST_ARGS ./... || ./cluster-setup/get-logs.sh; \
             echo ============ SUCCESS ============
     END
