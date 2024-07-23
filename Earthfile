@@ -98,10 +98,7 @@ integration-test-deps:
     SAVE ARTIFACT /usr/bin/argocd
 
 integration-test:
-# We pick ubuntu here because it seems to have the least amount of issues.
-# With alpine:3.18, we get occasional issues with gpg that says there's a process running already, even though there shouldn't be.
-# Ubuntu:22.04 seems to solve this issue.
-    FROM ubuntu:22.04
+    FROM golang:1.21-bookworm
     RUN apt update && apt install --auto-remove -y curl gpg gpg-agent gettext bash git golang netcat-openbsd docker.io
     ARG GO_TEST_ARGS
     # K3S environment variables
@@ -122,6 +119,9 @@ integration-test:
     COPY +integration-test-deps/* /usr/bin/
     COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
 
+    COPY go.mod go.sum .
+    RUN go mod download
+
     RUN --no-cache echo GPG gen starting...
     RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
     RUN --no-cache echo GPG export starting...
@@ -129,13 +129,12 @@ integration-test:
     # Note that multiple commands here are writing to "." which is slightly dangerous, because
     # if there are files with the same name, old ones will be overridden.
     COPY charts/kuberpult .
-    COPY database/migrations migrations
+    COPY database/migrations database/migrations
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
     COPY infrastructure/scripts/create-testdata/create-release.sh .
     COPY tests/integration-tests tests/integration-tests
-    COPY go.mod go.sum .
-    COPY pkg  pkg
+    COPY ./pkg+artifacts/pkg pkg
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version
