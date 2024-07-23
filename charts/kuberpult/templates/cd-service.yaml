@@ -164,11 +164,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
 {{- if .Values.argocd.sendWebhooks }}
-        - name: KUBERPULT_ARGO_CD_SERVER
-          value: {{ .Values.argocd.server | quote }}
-{{- else }}
-        - name: KUBERPULT_ARGO_CD_SERVER
-          value: ""
+      {{ fail "Values.cd.webhooks cannot be used anymore. To inform Argo CD immediately about changes, see the option `manageArgoApplications.enabled`, or configure your git provider to send a webhook to Argo CD"}}
 {{- end }}
         - name: KUBERPULT_ARGO_CD_INSECURE
           value: {{ .Values.argocd.insecure | quote }}
@@ -228,8 +224,7 @@ spec:
         - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.auth.dexAuth.enabled }}"
 {{- if .Values.environment_configs.bootstrap_mode }}
-        - name: KUBERPULT_BOOTSTRAP_MODE
-          value: "{{ .Values.environment_configs.bootstrap_mode }}"
+        {{ fail "Values.environment_configs.bootstrap_mode cannot be used anymore. For more information [See environment.md/Environment Creation for how to create and edit environments](https://github.com/freiheit-com/kuberpult/blob/main/docs/environment.md) "}} 
 {{- end }}
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
@@ -290,11 +285,6 @@ spec:
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
           readOnly: true
 {{- end }}
-{{- if .Values.environment_configs.bootstrap_mode }}
-        - name: environment-configs
-          mountPath: /environment_configs.json
-          subPath: environment_configs.json
-{{- end }}
       volumes:
       - name: repository
         # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
@@ -319,14 +309,6 @@ spec:
       - name: migrations
         configMap:
           name: kuberpult-migrations-cloudsql
-{{- end }}
-{{- if .Values.environment_configs.bootstrap_mode }}
-      - name: environment-configs
-        configMap:
-          items:
-          - key: environment_configs.json
-            path: environment_configs.json
-          name: environment-configs
 {{- end }}
 {{- if .Values.auth.dexAuth.enabled }}
       - name: kuberpult-rbac
@@ -400,15 +382,6 @@ spec:
     type: HTTP
     requestPath: /healthz
   timeoutSec: {{ .Values.cd.backendConfig.timeoutSec }}
-{{- end }}
-{{- if .Values.environment_configs.bootstrap_mode }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: environment-configs
-data:
-  environment_configs.json: {{ required ".Values.environment_configs.environment_configs_json is required when .Values.environment_configs.bootstrap is true" .Values.environment_configs.environment_configs_json | quote }}
 {{- end }}
 {{- if .Values.auth.dexAuth.enabled }}
 ---

@@ -21,10 +21,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"testing"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
-	"testing"
 )
 
 // For testing purposes only
@@ -32,19 +33,19 @@ type EmptyTransformer struct{}
 
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		eslId         []db.EslId
-		ExpectedEslId db.EslId
+		Name               string
+		eslVersion         []db.EslVersion
+		ExpectedEslVersion db.EslVersion
 	}{
 		{
-			Name:          "test with one write operation",
-			eslId:         []db.EslId{1},
-			ExpectedEslId: 1,
+			Name:               "test with one write operation",
+			eslVersion:         []db.EslVersion{1},
+			ExpectedEslVersion: 1,
 		},
 		{
-			Name:          "test with multiple write operations",
-			eslId:         []db.EslId{1, 2, 3, 4, 5},
-			ExpectedEslId: 5,
+			Name:               "test with multiple write operations",
+			eslVersion:         []db.EslVersion{1, 2, 3, 4, 5},
+			ExpectedEslVersion: 5,
 		},
 	}
 
@@ -57,10 +58,10 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				//We need to add transformers for these eslids beforehand (FK)
+				//We need to add transformers for these eslVersions beforehand (FK)
 				tf := EmptyTransformer{}
 				i := 0
-				for i < len(tc.eslId) {
+				for i < len(tc.eslVersion) {
 					//Write bogus transformer for FK reasons
 					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(tf), db.ESLMetadata{})
 					if err != nil {
@@ -68,16 +69,16 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 					}
 					i++
 				}
-				eslId, err2 := DBReadCutoff(dbHandler, ctx, transaction)
+				eslVersion, err2 := DBReadCutoff(dbHandler, ctx, transaction)
 				if err2 != nil {
 					return err2
 				}
-				if eslId != nil {
-					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *eslId))
+				if eslVersion != nil {
+					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *eslVersion))
 				}
 
-				for _, eslId := range tc.eslId {
-					err := DBWriteCutoff(dbHandler, ctx, transaction, eslId)
+				for _, eslVersion := range tc.eslVersion {
+					err := DBWriteCutoff(dbHandler, ctx, transaction, eslVersion)
 					if err != nil {
 						return err
 					}
@@ -88,7 +89,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 					return err
 				}
 
-				if diff := cmp.Diff(tc.ExpectedEslId, *actual); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedEslVersion, *actual); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil

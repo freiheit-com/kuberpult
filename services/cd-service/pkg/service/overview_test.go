@@ -19,9 +19,10 @@ package service
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"sync"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -650,17 +651,17 @@ func TestOverviewService(t *testing.T) {
 					},
 				},
 				&repository.CreateApplicationVersion{
-					Authentication:   repository.Authentication{},
-					Version:          1,
-					SourceCommitId:   "deadbeef",
-					SourceAuthor:     "example <example@example.com>",
-					SourceMessage:    "changed something (#678)",
-					Team:             "team-123",
-					DisplayVersion:   "",
-					WriteCommitData:  false,
-					PreviousCommit:   "",
-					TransformerEslID: 1,
-					Application:      "test",
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       false,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "test",
 					Manifests: map[string]string{
 						"development": "v1",
 					},

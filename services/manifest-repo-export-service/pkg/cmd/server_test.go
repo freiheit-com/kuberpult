@@ -51,10 +51,10 @@ func TestCalculateProcessDelay(t *testing.T) {
 		{
 			Name: "With one Event",
 			eslEvent: &db.EslEventRow{
-				EslId:     1,
-				Created:   exampleTime10SecondsBefore,
-				EventType: "CreateApplicationVersion",
-				EventJson: "{}",
+				EslVersion: 1,
+				Created:    exampleTime10SecondsBefore,
+				EventType:  "CreateApplicationVersion",
+				EventJson:  "{}",
 			},
 			currentTime:   exampleTime,
 			ExpectedDelay: 10,

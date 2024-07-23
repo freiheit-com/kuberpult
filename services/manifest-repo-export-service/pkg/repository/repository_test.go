@@ -19,11 +19,9 @@ package repository
 import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"testing"
 
 	"github.com/cenkalti/backoff/v4"
@@ -31,180 +29,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	git "github.com/libgit2/git2go/v34"
 )
-
-func TestBootstrapModeNew(t *testing.T) {
-	tcs := []struct {
-		Name          string
-		PreInitialize bool
-	}{
-		{
-			Name:          "New in empty repo",
-			PreInitialize: false,
-		},
-		{
-			Name:          "New in existing repo",
-			PreInitialize: true,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-
-			if tc.PreInitialize {
-				_, err := New(
-					testutil.MakeTestContext(),
-					RepositoryConfig{
-						URL:                 "file://" + remoteDir,
-						Path:                localDir,
-						ArgoCdGenerateFiles: true,
-					},
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-
-			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
-
-			repo, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                    "file://" + remoteDir,
-					Path:                   localDir,
-					BootstrapMode:          true,
-					EnvironmentConfigsPath: environmentConfigsPath,
-					ArgoCdGenerateFiles:    true,
-				},
-			)
-			if err != nil {
-				t.Fatalf("New: Expected no error, error %e was thrown", err)
-			}
-
-			state := repo.State()
-			if !state.BootstrapMode {
-				t.Fatalf("Bootstrap mode not preserved")
-			}
-		})
-	}
-}
-
-func TestBootstrapModeReadConfig(t *testing.T) {
-	tcs := []struct {
-		Name string
-	}{
-		{
-			Name: "Config read correctly",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-
-			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
-			if err := os.WriteFile(environmentConfigsPath, []byte(`{"uniqueEnv": {"environmentGroup": "testgroup321", "upstream": {"latest": true}}}`), fs.FileMode(0644)); err != nil {
-				t.Fatal(err)
-			}
-
-			repo, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                    "file://" + remoteDir,
-					Path:                   localDir,
-					BootstrapMode:          true,
-					EnvironmentConfigsPath: environmentConfigsPath,
-					ArgoCdGenerateFiles:    true,
-				},
-			)
-			if err != nil {
-				t.Fatalf("New: Expected no error, error %e was thrown", err)
-			}
-
-			state := repo.State()
-			if !state.BootstrapMode {
-				t.Fatalf("Bootstrap mode not preserved")
-			}
-			configs, err := state.GetEnvironmentConfigs()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(configs) != 1 {
-				t.Fatal("Configuration not read properly")
-			}
-			if configs["uniqueEnv"].Upstream.Latest != true {
-				t.Fatal("Configuration not read properly")
-			}
-			if configs["uniqueEnv"].EnvironmentGroup == nil {
-				t.Fatalf("EnvironmentGroup not read, found nil")
-			}
-			if *configs["uniqueEnv"].EnvironmentGroup != "testgroup321" {
-				t.Fatalf("EnvironmentGroup not read, found '%s' instead", *configs["uniqueEnv"].EnvironmentGroup)
-			}
-		})
-	}
-}
-
-func TestBootstrapError(t *testing.T) {
-	tcs := []struct {
-		Name          string
-		ConfigContent string
-	}{
-		{
-			Name:          "Invalid json in bootstrap configuration",
-			ConfigContent: `{"development": "upstream": {"latest": true}}}`,
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-
-			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
-			if err := os.WriteFile(environmentConfigsPath, []byte(tc.ConfigContent), fs.FileMode(0644)); err != nil {
-				t.Fatal(err)
-			}
-
-			_, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                    "file://" + remoteDir,
-					Path:                   localDir,
-					BootstrapMode:          true,
-					EnvironmentConfigsPath: environmentConfigsPath,
-					ArgoCdGenerateFiles:    true,
-				},
-			)
-			if err == nil {
-				t.Fatalf("New: Expected error but no error was thrown")
-			}
-		})
-	}
-}
 
 func TestConfigValidity(t *testing.T) {
 	tcs := []struct {
@@ -493,12 +317,11 @@ func setupRepositoryTest(t *testing.T) Repository {
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
-			URL:                    remoteDir,
-			Path:                   localDir,
-			CommitterEmail:         "kuberpult@freiheit.com",
-			CommitterName:          "kuberpult",
-			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-			ArgoCdGenerateFiles:    true,
+			URL:                 remoteDir,
+			Path:                localDir,
+			CommitterEmail:      "kuberpult@freiheit.com",
+			CommitterName:       "kuberpult",
+			ArgoCdGenerateFiles: true,
 		},
 	)
 	if err != nil {
