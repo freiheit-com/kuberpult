@@ -66,10 +66,10 @@ github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be/go.mod h1:ySMOLuW
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
-github.com/argoproj/argo-cd/v2 v2.9.15 h1:ckBImgFqBCDyGWQZeJazHqfK3XP8IxEy3qNrTn9+4ic=
-github.com/argoproj/argo-cd/v2 v2.9.15/go.mod h1:PFG0qlpogLbD4CVFHADpE2+T5lLpu0FqiHzgobLsMeU=
-github.com/argoproj/gitops-engine v0.7.1-0.20230906152414-b0fffe419a0f h1:cb2j6HxYJutMBvvQc/Y3EOSL7pcr5pcnP/4MNmYi4xc=
-github.com/argoproj/gitops-engine v0.7.1-0.20230906152414-b0fffe419a0f/go.mod h1:/GMN0JuoJUUpnKlNLp2Wn/mfK8sglFsdPn+eoxSddmg=
+github.com/argoproj/argo-cd/v2 v2.9.20 h1:3VO6lrl8fE7tBxv3kli+hF83amMtbq+6uJkREMjxzsE=
+github.com/argoproj/argo-cd/v2 v2.9.20/go.mod h1:V9EKQR1U5kJV/aLVRgUV46muOStnP6C5c4wTeT6nkoY=
+github.com/argoproj/gitops-engine v0.7.1-0.20240715141028-c68bce0f979c h1:kkHx4mvqnUCLruADf1t/aO6yXnLcrl6rhsINaJomukc=
+github.com/argoproj/gitops-engine v0.7.1-0.20240715141028-c68bce0f979c/go.mod h1:/GMN0JuoJUUpnKlNLp2Wn/mfK8sglFsdPn+eoxSddmg=
 github.com/argoproj/pkg v0.13.7-0.20230627120311-a4dd357b057e h1:kuLQvJqwwRMQTheT4MFyKVM8Txncu21CHT4yBWUl1Mk=
 github.com/argoproj/pkg v0.13.7-0.20230627120311-a4dd357b057e/go.mod h1:xBN5PLx2MoK63dmPfMo/PGBvd77K1Y0m/rzZOe4cs1s=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
