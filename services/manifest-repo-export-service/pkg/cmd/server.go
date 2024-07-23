@@ -403,7 +403,7 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 		//exhaustruct:ignore
 		return &repository.UndeployApplication{}, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }
 
 func readEnvVar(envName string) (string, error) {
