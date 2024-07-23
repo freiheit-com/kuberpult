@@ -1387,18 +1387,18 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslId, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslId), []string{appName})
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslId:         0,
+					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
@@ -1406,17 +1406,17 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					Metadata:      db.DBReleaseMetaData{},
 				}, 0)
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslId:         0,
+					EslVersion:    0,
 					ReleaseNumber: 2,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslId)
+				}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1, 2}, db.InitialEslId)
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{1, 2}, db.InitialEslVersion)
 				if err != nil {
 					return err
 				}

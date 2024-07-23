@@ -1597,15 +1597,15 @@ type CreateUndeployApplicationVersion struct {
 	TransformerMetadata   `json:"metadata"`
 	Application           string           `json:"app"`
 	WriteCommitData       bool             `json:"writeCommitData"`
-	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
 func (u *CreateUndeployApplicationVersion) GetEslVersion() db.TransformerID {
 	return u.TransformerEslVersion
 }
 
-func (c *CreateUndeployApplicationVersion) SetEslVersion(eslId db.TransformerID) {
-	c.TransformerEslVersion = eslId
+func (c *CreateUndeployApplicationVersion) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
 }
 
 func (u *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
@@ -1705,7 +1705,7 @@ type UndeployApplication struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	Application           string           `json:"app"`
-	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslid
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
 
