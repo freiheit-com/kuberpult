@@ -2354,7 +2354,16 @@ func extractPrNumber(sourceMessage string) string {
 	}
 }
 
-func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
+func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version uint64) (bool, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		return release.Metadata.UndeployVersion, err
+	} else {
+		return s.IsUndeployVersionFromManifest(application, version)
+	}
+}
+
+func (s *State) IsUndeployVersionFromManifest(application string, version uint64) (bool, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
 	if err != nil {
@@ -2380,7 +2389,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		}
 		return &Release{
 			Version:         env.ReleaseNumber,
-			UndeployVersion: false,
+			UndeployVersion: env.Metadata.UndeployVersion,
 			SourceAuthor:    env.Metadata.SourceAuthor,
 			SourceCommitId:  env.Metadata.SourceCommitId,
 			SourceMessage:   env.Metadata.SourceMessage,
@@ -2436,7 +2445,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 	} else {
 		release.DisplayVersion = string(displayVersion)
 	}
-	isUndeploy, err := s.IsUndeployVersion(application, version)
+	isUndeploy, err := s.IsUndeployVersionFromManifest(application, version)
 	if err != nil {
 		return nil, err
 	}

@@ -176,7 +176,6 @@ func (o *OverviewServiceServer) getOverview(
 			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
 				return nil, err
 			} else {
-
 				for _, appName := range apps {
 					teamName, err := s.GetTeamName(ctx, transaction, appName)
 					app := api.Environment_Application{
@@ -306,7 +305,7 @@ func (o *OverviewServiceServer) getOverview(
 						} else {
 							release := rel.ToProto()
 							release.Version = id
-
+							release.UndeployVersion = rel.UndeployVersion
 							app.Releases = append(app.Releases, release)
 						}
 					}

@@ -396,10 +396,14 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtDeleteEnvFromApp:
 		//exhaustruct:ignore
 		return &repository.DeleteEnvFromApp{}, nil
-	default:
-		logger.FromContext(ctx).Sugar().Warnf("Found an unknown event %s. No further events will be processed.", eslEventType)
-		return nil, nil
+	case db.EvtCreateUndeployApplicationVersion:
+		//exhaustruct:ignore
+		return &repository.CreateUndeployApplicationVersion{}, nil
+	case db.EvtUndeployApplication:
+		//exhaustruct:ignore
+		return &repository.UndeployApplication{}, nil
 	}
+	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }
 
 func readEnvVar(envName string) (string, error) {

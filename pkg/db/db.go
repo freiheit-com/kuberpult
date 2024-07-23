@@ -473,10 +473,11 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 // but technically it's not required here.
 
 type DBReleaseMetaData struct {
-	SourceAuthor   string
-	SourceCommitId string
-	SourceMessage  string
-	DisplayVersion string
+	SourceAuthor    string
+	SourceCommitId  string
+	SourceMessage   string
+	DisplayVersion  string
+	UndeployVersion bool
 }
 
 type DBReleaseManifests struct {
@@ -666,10 +667,11 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		}
 		// handle meta data
 		var metaData = DBReleaseMetaData{
-			SourceAuthor:   "",
-			SourceCommitId: "",
-			SourceMessage:  "",
-			DisplayVersion: "",
+			SourceAuthor:    "",
+			SourceCommitId:  "",
+			SourceMessage:   "",
+			DisplayVersion:  "",
+			UndeployVersion: false,
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
@@ -766,6 +768,29 @@ func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transact
 	return nil
 }
 
+// DBClearReleases : Sets all_releases for app to empty list and marks every release as deleted
+func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, application string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBClearReleases")
+	defer span.Finish()
+
+	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
+	if err != nil {
+		return err
+	}
+	if allReleases == nil {
+		logger.FromContext(ctx).Sugar().Infof("App %s does not contain any releases. No action taken", application)
+		return nil
+	}
+	for _, releaseToDelete := range allReleases.Metadata.Releases {
+		err = h.DBDeleteFromReleases(ctx, transaction, application, uint64(releaseToDelete))
+		if err != nil {
+			return err
+		}
+	}
+
+	return h.DBInsertAllReleases(ctx, transaction, application, []int64{}, allReleases.EslVersion)
+}
+
 func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
 	defer span.Finish()
@@ -784,7 +809,6 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	if err := h.DBInsertRelease(ctx, transaction, *targetRelease, targetRelease.EslVersion); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -1404,6 +1428,50 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 	}, nil
 }
 
+func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, limit int) ([]Deployment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistory")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
+			" FROM deployments " +
+			" WHERE appName=? AND envName=? " +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT ?;"))
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appSelector,
+		envSelector,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+
+	result := make([]Deployment, 0)
+
+	for rows.Next() {
+		row, err := h.processSingleDeploymentRow(ctx, rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
 	defer span.Finish()
@@ -1433,44 +1501,11 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 	}(rows)
 	deployments := make([]Deployment, 0)
 	for rows.Next() {
-		var row = &DBDeployment{
-			EslVersion:     0,
-			Created:        time.Time{},
-			ReleaseVersion: nil,
-			App:            "",
-			Env:            "",
-			Metadata:       "",
-			TransformerID:  0,
-		}
-
-		var releaseVersion sql.NullInt64
-		//exhaustruct:ignore
-		var resultJson = DeploymentMetadata{}
-
-		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
+		row, err := h.processSingleDeploymentRow(ctx, rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+			return nil, err
 		}
-		if releaseVersion.Valid {
-			row.ReleaseVersion = &releaseVersion.Int64
-		}
-
-		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
-		}
-		deployments = append(deployments, Deployment{
-			EslVersion:    row.EslVersion,
-			Created:       row.Created,
-			App:           row.App,
-			Env:           row.Env,
-			Version:       row.ReleaseVersion,
-			Metadata:      resultJson,
-			TransformerID: row.TransformerID,
-		})
+		deployments = append(deployments, *row)
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -1769,10 +1804,11 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 						Manifests: repoRelease.Manifests,
 					},
 					Metadata: DBReleaseMetaData{
-						SourceAuthor:   repoRelease.SourceAuthor,
-						SourceCommitId: repoRelease.SourceCommitId,
-						SourceMessage:  repoRelease.SourceMessage,
-						DisplayVersion: repoRelease.DisplayVersion,
+						UndeployVersion: repoRelease.UndeployVersion,
+						SourceAuthor:    repoRelease.SourceAuthor,
+						SourceCommitId:  repoRelease.SourceCommitId,
+						SourceMessage:   repoRelease.SourceMessage,
+						DisplayVersion:  repoRelease.DisplayVersion,
 					},
 					Deleted: false,
 				}
@@ -4006,6 +4042,50 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 	}
 	return &row, nil
 
+}
+
+// processSingleDeploymentRow only processes the row. It assumes that there is an element ready to be processed in rows.
+func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Rows) (*Deployment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "processSingleDeploymentRow")
+	defer span.Finish()
+	var row = &DBDeployment{
+		EslVersion:     0,
+		Created:        time.Time{},
+		ReleaseVersion: nil,
+		App:            "",
+		Env:            "",
+		Metadata:       "",
+		TransformerID:  0,
+	}
+	var releaseVersion sql.NullInt64
+	//exhaustruct:ignore
+	var resultJson = DeploymentMetadata{}
+
+	err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+	}
+	if releaseVersion.Valid {
+		row.ReleaseVersion = &releaseVersion.Int64
+	}
+
+	err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
+	if err != nil {
+		return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
+	}
+
+	return &Deployment{
+		EslVersion:    row.EslVersion,
+		Created:       row.Created,
+		App:           row.App,
+		Env:           row.Env,
+		Version:       row.ReleaseVersion,
+		Metadata:      resultJson,
+		TransformerID: row.TransformerID,
+	}, nil
 }
 
 // Environments
