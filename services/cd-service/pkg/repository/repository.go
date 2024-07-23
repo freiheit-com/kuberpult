@@ -1098,6 +1098,11 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
+	if state.DBHandler.ShouldUseOtherTables() {
+		// if the DB is enabled fully, the manifest-export service takes care to update the argo apps
+		return nil
+	}
+
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return err

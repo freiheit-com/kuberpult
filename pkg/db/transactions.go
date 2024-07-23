@@ -46,6 +46,7 @@ func (h *DBHandler) WithTransaction(ctx context.Context, readonly bool, f DBFunc
 	}
 	return nil
 }
+
 func (h *DBHandler) WithTransactionR(ctx context.Context, maxRetries uint, readonly bool, f DBFunction) error {
 	_, err := WithTransactionT(h, ctx, maxRetries, readonly, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
 		err2 := f(ctx, transaction)
@@ -80,7 +81,7 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint,
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
 func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	return WithTransactionMultipleEntriesRetryT(h, ctx, 1, readonly, f)
+	return WithTransactionMultipleEntriesRetryT(h, ctx, DefaultNumRetries, readonly, f)
 }
 
 // WithTransactionMultipleEntriesRetryT also supports retries
