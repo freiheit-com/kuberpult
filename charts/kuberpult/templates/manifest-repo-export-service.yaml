@@ -104,7 +104,7 @@ spec:
         image: "{{ .Values.hub }}/{{ .Values.manifestRepoExport.image }}:{{ $.Chart.AppVersion }}"
         ports:
           - name: http
-            containerPort: 8090
+            containerPort: 8080
             protocol: TCP
           - name: grpc
             containerPort: 8443
