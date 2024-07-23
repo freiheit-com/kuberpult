@@ -21,6 +21,7 @@ import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
 import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
 import { CommitInfoPage } from '../Pages/CommitInfo/CommitInfoPage';
 import { ReleaseTrainPage } from '../Pages/ReleaseTrain/ReleaseTrainPage';
+import { EslWarningsPage } from '../Pages/EslWarnings/EslWarningsPage';
 
 const routes = [
     {
@@ -54,6 +55,10 @@ const routes = [
     {
         path: `/ui/commits/`,
         element: <CommitInfoPage />,
+    },
+    {
+        path: `/ui/failedEvents`,
+        element: <EslWarningsPage />,
     },
     {
         path: `/*`,

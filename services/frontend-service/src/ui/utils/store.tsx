@@ -31,6 +31,7 @@ import {
     GetCommitInfoResponse,
     GetEnvironmentConfigResponse,
     GetReleaseTrainPrognosisResponse,
+    GetFailedEslsResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -88,6 +89,18 @@ export type CommitInfoResponse = {
     commitInfoReady: CommitInfoState;
 };
 
+export enum FailedEslsState {
+    LOADING,
+    READY,
+    ERROR,
+    NOTFOUND,
+}
+
+export type FailedEslsResponse = {
+    response: GetFailedEslsResponse | undefined;
+    failedEslsReady: FailedEslsState;
+};
+
 export enum ReleaseTrainPrognosisState {
     LOADING,
     READY,
@@ -135,6 +148,28 @@ export const getCommitInfo = (commitHash: string, authHeader: AuthHeader): void 
 export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>({
     response: undefined,
     commitInfoReady: CommitInfoState.LOADING,
+});
+
+export const getFailedEsls = (authHeader: AuthHeader): void => {
+    useApi
+        .eslService()
+        .GetFailedEsls({}, authHeader)
+        .then((result: GetFailedEslsResponse) => {
+            updateFailedEsls.set({ response: result, failedEslsReady: FailedEslsState.READY });
+        })
+        .catch((e) => {
+            const GrpcErrorNotFound = 3;
+            if (e.code === GrpcErrorNotFound) {
+                updateFailedEsls.set({ response: undefined, failedEslsReady: FailedEslsState.NOTFOUND });
+            } else {
+                showSnackbarError(e.message);
+                updateFailedEsls.set({ response: undefined, failedEslsReady: FailedEslsState.ERROR });
+            }
+        });
+};
+export const [useFailedEsls, updateFailedEsls] = createStore<FailedEslsResponse>({
+    response: undefined,
+    failedEslsReady: FailedEslsState.LOADING,
 });
 
 export const getReleaseTrainPrognosis = (envName: string, authHeader: AuthHeader): void => {
