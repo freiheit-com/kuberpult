@@ -232,28 +232,13 @@ func Run(ctx context.Context) error {
 			Repository: repo,
 		}
 	httpServerLogger := logger.FromContext(ctx).Named("http_server")
-	// grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
-	// unaryUserContextInterceptor := func(ctx context.Context,
-	// 	req interface{},
-	// 	info *grpc.UnaryServerInfo,
-	// 	handler grpc.UnaryHandler) (interface{}, error) {
-	// 	return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, reader)
-	// }
-
-	// grpcStreamInterceptors := []grpc.StreamServerInterceptor{
-	// 	grpc_zap.StreamServerInterceptor(grpcServerLogger),
-	// }
-	// grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
-	// 	grpc_zap.UnaryServerInterceptor(grpcServerLogger),
-	// 	unaryUserContextInterceptor,
-	// }
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
 			{
 				BasicAuth: nil,
 				Shutdown:  nil,
-				Port:      "8090",
+				Port:      "8080",
 				Register: func(mux *http.ServeMux) {
 					handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
 					mux.Handle("/", handler)
@@ -262,7 +247,7 @@ func Run(ctx context.Context) error {
 		},
 		GRPC: &setup.GRPCConfig{
 			Shutdown: nil,
-			Port:     "8444",
+			Port:     "8443",
 			Opts:     []grpc.ServerOption{},
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
@@ -272,7 +257,7 @@ func Run(ctx context.Context) error {
 		Background: []setup.BackgroundTaskConfig{
 			{
 				Shutdown: nil,
-				Name: "processEsls",
+				Name:     "processEsls",
 				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 					reporter.ReportReady("Processing Esls")
 					return processEsls(ctx, repo, dbHandler, ddMetrics, eslProcessingBackoff)

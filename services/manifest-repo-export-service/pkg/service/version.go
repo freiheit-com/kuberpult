@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -28,6 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	git "github.com/libgit2/git2go/v34"
 )
@@ -55,32 +57,34 @@ func (o *VersionServiceServer) GetVersion(
 		}
 		return nil, err
 	}
-	//exhaustruct:ignore
-	res := api.GetVersionResponse{}
-	if state.DBHandler.ShouldUseOtherTables() {
-		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: not supported yet for Database mode"))
-	}
-	version, err := state.GetEnvironmentApplicationVersion(ctx, nil, in.Environment, in.Application)
+	res, err := db.WithTransactionT[api.GetVersionResponse](state.DBHandler, ctx, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
+		//exhaustruct:ignore
+		res := &api.GetVersionResponse{}
+		version, err := state.GetEnvironmentApplicationVersion(ctx, tx, in.Environment, in.Application)
+		if err != nil {
+			return nil, err
+		}
+		if version != nil {
+			res.Version = *version
+			_, deployedAt, err := state.GetDeploymentMetaData(in.Environment, in.Application)
+			if err != nil {
+				return nil, err
+			}
+			res.DeployedAt = timestamppb.New(deployedAt)
+			release, err := state.GetApplicationRelease(in.Application, *version)
+			if err != nil {
+				return nil, err
+			}
+			res.SourceCommitId = release.SourceCommitId
+		}
+		return res, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	if version != nil {
-		res.Version = *version
-		_, deployedAt, err := state.GetDeploymentMetaData(in.Environment, in.Application)
-		if err != nil {
-			return nil, err
-		}
-		res.DeployedAt = timestamppb.New(deployedAt)
-		release, err := state.GetApplicationRelease(in.Application, *version)
-		if err != nil {
-			return nil, err
-		}
-		res.SourceCommitId = release.SourceCommitId
-	}
-	return &res, nil
+	return res, nil
 }
 
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "unimplemented")
 }
-

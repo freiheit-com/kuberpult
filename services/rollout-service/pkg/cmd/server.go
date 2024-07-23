@@ -52,7 +52,7 @@ import (
 type Config struct {
 	CdServer       string `default:"kuberpult-cd-service:8443"`
 	CdServerSecure bool   `default:"false" split_words:"true"`
-	ManifestServer string `default:"kuberpult-manifest-repo-export-service:8444"`
+	VersionServer  string `default:"kuberpult-manifest-repo-export-service:8443"`
 	EnableTracing  bool   `default:"false" split_words:"true"`
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
@@ -155,9 +155,9 @@ func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClie
 		return nil, nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
 	}
 
-	manifestServiceCon, err := grpc.Dial(config.ManifestServer, grpcClientOpts...)
+	manifestServiceCon, err := grpc.Dial(config.VersionServer, grpcClientOpts...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error dialing %s: %w", config.ManifestServer, err)
+		return nil, nil, fmt.Errorf("error dialing %s: %w", config.VersionServer, err)
 	}
 
 	return api.NewOverviewServiceClient(con), api.NewVersionServiceClient(manifestServiceCon), nil

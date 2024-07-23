@@ -19,11 +19,10 @@ package service
 import (
 	"context"
 	"database/sql"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"path"
-	"path/filepath"
 	"os/exec"
-	"github.com/freiheit-com/kuberpult/pkg/time"
+	"path"
 	"testing"
 	gotime "time"
 
@@ -34,23 +33,40 @@ import (
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
-func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.Repository, error) {
+func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
+	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &db.DBConfig{
+		MigrationsPath: migrationsPath,
+		DriverName:     "sqlite3",
+	}
+
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
-	t.Logf("test created dir: %s", localDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Errorf("could not start git init")
+		return nil, ""
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Errorf("could not wait for git init to finish")
+		return nil, ""
+	}
 
 	repoCfg := repository.RepositoryConfig{
-		URL:                    remoteDir,
-		Path:                   localDir,
-		CommitterEmail:         "kuberpult@freiheit.com",
-		CommitterName:          "kuberpult",
-		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-		ArgoCdGenerateFiles:    true,
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
+		ReleaseVersionLimit: 2,
 	}
+
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
 
@@ -59,11 +75,11 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 			t.Fatal(migErr)
 		}
 
-		db, err := db.Connect(*dbConfig)
+		dbHandler, err := db.Connect(*dbConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
-		repoCfg.DBHandler = db
+		repoCfg.DBHandler = dbHandler
 	}
 
 	repo, err := repository.New(
@@ -73,11 +89,7 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repo, nil
-}
-
-func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
-	return setupRepositoryTestWithDB(t, nil)
+	return repo, remoteDir
 }
 
 func TestVersion(t *testing.T) {
@@ -103,6 +115,7 @@ func TestVersion(t *testing.T) {
 							Latest: true,
 						},
 					},
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 				&repository.CreateEnvironment{
 					Environment: "staging",
@@ -111,6 +124,7 @@ func TestVersion(t *testing.T) {
 							Latest: true,
 						},
 					},
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
@@ -118,14 +132,16 @@ func TestVersion(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
+					Team:                "team-123",
+					WriteCommitData:     false,
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 			},
 			ExpectedVersions: []expectedVersion{
 				{
-					Environment:        "development",
-					Application:        "test",
-					ExpectedVersion:    1,
-					ExpectedDeployedAt: gotime.Unix(2, 0),
+					Environment:     "development",
+					Application:     "test",
+					ExpectedVersion: 1,
 				},
 				{
 					Environment:     "staging",
@@ -144,6 +160,7 @@ func TestVersion(t *testing.T) {
 							Latest: true,
 						},
 					},
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 				&repository.CreateEnvironment{
 					Environment: "staging",
@@ -152,14 +169,17 @@ func TestVersion(t *testing.T) {
 							Latest: true,
 						},
 					},
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
+					Team:        "team-123",
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					SourceCommitId: "deadbeef",
+					SourceCommitId:      "deadbeef",
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 			},
 			ExpectedVersions: []expectedVersion{
@@ -176,51 +196,82 @@ func TestVersion(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
-			ctx := testutil.MakeTestContext()
-			if err != nil {
-				t.Fatalf("error setting up repository test: %v", err)
-			}
-			sv := &VersionServiceServer{Repository: repo}
-			err = repo.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-				for i, transformer := range tc.Setup {
-					now := gotime.Unix(int64(i), 0)
-					ctx := time.WithTimeNow(testutil.MakeTestContext(), now)
-					err := repo.Apply(ctx, tx, transformer)
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := context.Background()
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, t := range tc.Setup {
+					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
 					if err != nil {
-						t.Fatal(err)
+						return err
 					}
 				}
-				cid := repo.State().Commit.Id().String()
-				for _, ev := range tc.ExpectedVersions {
-					res, err := sv.GetVersion(context.Background(), &api.GetVersionRequest{
-						GitRevision: cid,
-						Application: ev.Application,
-						Environment: ev.Environment,
-					})
-					if err != nil {
-						t.Fatal(err)
-					}
-					if res.Version != ev.ExpectedVersion {
-						t.Errorf("got wrong version for %s/%s: expected %d but got %d", ev.Application, ev.Environment, ev.ExpectedVersion, res.Version)
-					}
-					if ev.ExpectedDeployedAt.IsZero() {
-						if res.DeployedAt != nil {
-							t.Errorf("got wrong deployed at for %s/%s: expected <nil> but got %q", ev.Application, ev.Environment, res.DeployedAt)
-						}
-					} else {
-						if !res.DeployedAt.AsTime().Equal(ev.ExpectedDeployedAt) {
-							t.Errorf("got wrong deployed at for %s/%s: expected %q but got %q", ev.Application, ev.Environment, ev.ExpectedDeployedAt, res.DeployedAt.AsTime())
-						}
-					}
-					if ev.ExpectedSourceCommitId != res.SourceCommitId {
-						t.Errorf("go wrong source commit id, expected %q, got %q", ev.ExpectedSourceCommitId, res.SourceCommitId)
-					}
+				err = dbHandler.DBInsertApplication(ctx, transaction, "test", db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{"test"})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					EslVersion:    0,
+					ReleaseNumber: 1,
+					Created:       gotime.Time{},
+					App:           "test",
+					Manifests:     db.DBReleaseManifests{},
+					Metadata:      db.DBReleaseMetaData{},
+				}, db.InitialEslVersion)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, "00000000-0000-0000-0000-000000000003", "deadbeef", &event.NewRelease{Environments: map[string]struct{}{"development": {}}})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBInsertAllReleases(ctx, transaction, "test", []int64{1}, db.InitialEslVersion)
+				if err != nil {
+					return err
+				}
+				var version int64 = 1
+				err = dbHandler.DBWriteDeployment(ctx, transaction, db.Deployment{
+					App:     "test",
+					Env:     "development",
+					Version: &version,
+				}, 0)
+				err = repo.Apply(ctx, transaction, tc.Setup...)
+				if err != nil {
+					return err
 				}
 				return nil
 			})
 			if err != nil {
 				t.Fatal(err)
+			}
+			sv := &VersionServiceServer{Repository: repo}
+			cid := repo.State().Commit.Id().String()
+			for _, ev := range tc.ExpectedVersions {
+				res, err := sv.GetVersion(context.Background(), &api.GetVersionRequest{
+					GitRevision: cid,
+					Application: ev.Application,
+					Environment: ev.Environment,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if res.Version != ev.ExpectedVersion {
+					t.Errorf("got wrong version for %s/%s: expected %d but got %d", ev.Application, ev.Environment, ev.ExpectedVersion, res.Version)
+				}
+				if ev.ExpectedSourceCommitId != res.SourceCommitId {
+					t.Errorf("go wrong source commit id, expected %q, got %q", ev.ExpectedSourceCommitId, res.SourceCommitId)
+				}
 			}
 		})
 	}

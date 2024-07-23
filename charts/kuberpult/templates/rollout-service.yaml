@@ -89,8 +89,8 @@ spec:
         env:
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
-        - name: KUBERPULT_MANIFESTSERVER
-          value: kuberpult-manifest-repo-export-service:8444
+        - name: KUBERPULT_VERSIONSERVER
+          value: kuberpult-manifest-repo-export-service:8443
         - name: KUBERPULT_ARGOCD_SERVER
           value: {{ .Values.argocd.server | quote }}
         - name: KUBERPULT_ARGOCD_INSECURE
