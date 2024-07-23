@@ -428,7 +428,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			// Check configuration for errors and abort early if any:
 			if state.DBHandler.ShouldUseOtherTables() {
-				_, err = db.WithTransactionT(state.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
 					return &ret, err
 				})
@@ -537,6 +537,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 		var transaction *sql.Tx
 		var txErr error
 		e := transformerBatches[i]
+
 		if r.DB.ShouldUseEslTable() {
 			transaction, txErr = r.DB.BeginTransaction(e.ctx, false)
 			if txErr != nil {

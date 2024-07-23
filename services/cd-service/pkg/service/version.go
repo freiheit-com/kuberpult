@@ -100,7 +100,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 	}
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		result, err := db.WithTransactionT(state.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
+		result, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
 			var (
 				err     error
 				release uint64

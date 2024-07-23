@@ -19,7 +19,12 @@ package db
 import (
 	"context"
 	"database/sql"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+)
+
+const (
+	DefaultNumRetries = 3
 )
 
 type DBFunction func(ctx context.Context, transaction *sql.Tx) error
@@ -29,7 +34,20 @@ type DBFunctionMultipleEntriesT[T any] func(ctx context.Context, transaction *sq
 // WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback.
 // Use this if the only thing to return from `f` is an error.
 func (h *DBHandler) WithTransaction(ctx context.Context, readonly bool, f DBFunction) error {
-	_, err := WithTransactionT(h, ctx, readonly, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
+	_, err := WithTransactionT(h, ctx, DefaultNumRetries, readonly, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
+		err2 := f(ctx, transaction)
+		if err2 != nil {
+			return nil, err2
+		}
+		return nil, nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (h *DBHandler) WithTransactionR(ctx context.Context, maxRetries uint, readonly bool, f DBFunction) error {
+	_, err := WithTransactionT(h, ctx, maxRetries, readonly, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
 		err2 := f(ctx, transaction)
 		if err2 != nil {
 			return nil, err2
@@ -43,8 +61,8 @@ func (h *DBHandler) WithTransaction(ctx context.Context, readonly bool, f DBFunc
 }
 
 // WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
-func WithTransactionT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionT[T]) (*T, error) {
-	res, err := WithTransactionMultipleEntriesT(h, ctx, readonly, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
+func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint, readonly bool, f DBFunctionT[T]) (*T, error) {
+	res, err := WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries, readonly, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
 		fRes, err2 := f(ctx, transaction)
 		if err2 != nil {
 			return nil, err2
@@ -62,6 +80,11 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, readonly bool, f
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
 func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
+	return WithTransactionMultipleEntriesRetryT(h, ctx, 1, readonly, f)
+}
+
+// WithTransactionMultipleEntriesRetryT also supports retries
+func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Context, maxRetries uint, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
 	defer span.Finish()
 	onError := func(e error) ([]T, error) {
@@ -85,7 +108,11 @@ func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, r
 	}
 	err = tx.Commit()
 	if err != nil {
-		return onError(err)
+		if maxRetries == 0 {
+			return onError(err)
+		}
+		logger.FromContext(ctx).Sugar().Warnf("db transaction failed, will retry: %v", err)
+		return WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries-1, readonly, f)
 	}
 	return result, nil
 }
