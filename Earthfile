@@ -143,11 +143,12 @@ integration-test:
 
     WITH DOCKER --compose docker-compose-k3s.yml
         RUN --no-cache \
+            set -e; \
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
             ./integration-tests/cluster-setup/setup-cluster-ssh.sh& \
             ./integration-tests/cluster-setup/setup-postgres.sh& \
             ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            cd integration-tests && go test $GO_TEST_ARGS ./... && \
+            cd integration-tests && go test $GO_TEST_ARGS ./... || ./cluster-setup/get-logs.sh; \
             echo ============ SUCCESS ============
     END

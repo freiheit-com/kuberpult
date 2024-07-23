@@ -34,7 +34,7 @@ EOF
 export GIT_NAMESPACE=git
 export ARGO_NAMESPACE=default
 
-LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
+LOCAL_EXECUTION=${LOCAL_EXECUTION:-true}
 print "LOCAL_EXECUTION: $LOCAL_EXECUTION"
 
 print 'ensuring that the helm chart is build...'
