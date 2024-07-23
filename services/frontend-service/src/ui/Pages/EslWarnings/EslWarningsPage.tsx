@@ -48,12 +48,18 @@ export const EslWarningsPage: React.FC = () => {
         case FailedEslsState.NOTFOUND:
             return (
                 <div>
+                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
                     <main className="main-content esl-warnings-page">
                         <p>All events were processed successfully</p>
                     </main>
                 </div>
             );
         case FailedEslsState.READY:
-            return <EslWarnings failedEsls={failedEsls.response} />;
+            return (
+                <div>
+                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <EslWarnings failedEsls={failedEsls.response} />;
+                </div>
+            );
     }
 };
