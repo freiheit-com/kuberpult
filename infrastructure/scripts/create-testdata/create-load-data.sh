@@ -1,0 +1,12 @@
+#!/bin/bash
+set -eu
+set -o pipefail
+
+# Authenticate over IAP
+BASE_ENV_NAME=${1:-loadTesting}
+NUMBER_ENVS=${2:-50}
+BASE_APP_NAME=${3}
+NUMBER_RELEASES=${4:-100}
+
+/bin/bash ./create-load-env-data.sh "$BASE_ENV_NAME" "$NUMBER_ENVS"
+/bin/bash ./create-load-releases.sh "$BASE_APP_NAME" "sre-team" "$BASE_ENV_NAME" "$NUMBER_ENVS" "$NUMBER_RELEASES"
