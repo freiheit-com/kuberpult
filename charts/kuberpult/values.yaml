@@ -257,6 +257,16 @@ dogstatsdMetrics:
   address: unix:///var/run/datadog/dsd.socket
   # datadog.dogstatsd.hostSocketPath -- Host path to the DogStatsD socket
   hostSocketPath: /var/run/datadog
+datadogDora:
+  enabled: false
+  # The url of the datadog api
+  url: ""
+  # The datadog api key
+  apiKey: ""
+  # Maximum number of requests send in parallel.
+  concurrency: 20
+  # the url of the repository the commits are from
+  repositoryUrl: ""
 
 imagePullSecrets: []
 

@@ -31,6 +31,7 @@ import (
 	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/datadogdora"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/notifier"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/revolution"
@@ -68,6 +69,13 @@ type Config struct {
 	RevolutionDoraConcurrency int           `default:"10" split_words:"true"`
 	RevolutionDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
 
+	DatadogDoraEnabled       bool          `split_words:"true" default:"false"`
+	DatadogAPIURL            string        `split_words:"true" default:""`
+	DatadogAPIKey            string        `split_words:"true" default:""`
+	DatadogDoraMaxEventAge   time.Duration `default:"0" split_words:"true"`
+	DatadogDoraConcurrency   int           `default:"10" split_words:"true"`
+	DatadogDoraRepositoryURL string        `default:"" split_words:"true"`
+
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
 
@@ -102,6 +110,22 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 		Token:       []byte(config.RevolutionDoraToken),
 		Concurrency: config.RevolutionDoraConcurrency,
 		MaxEventAge: config.RevolutionDoraMaxEventAge,
+	}, nil
+}
+
+func (config *Config) DatadogDoraConfig() (datadogdora.Config, error) {
+	if config.DatadogAPIURL == "" {
+		return datadogdora.Config{}, fmt.Errorf("KUBERPULT_DATADOGAPI_URL must be a valid url")
+	}
+	if config.DatadogAPIKey == "" {
+		return datadogdora.Config{}, fmt.Errorf("KUBERPULT_DATADOG_APIKEY  must not be empty")
+	}
+	return datadogdora.Config{
+		URL:           config.DatadogAPIURL,
+		APIKey:        config.DatadogAPIKey,
+		MaxEventAge:   config.DatadogDoraMaxEventAge,
+		Concurrency:   config.DatadogDoraConcurrency,
+		RepositoryUrl: config.DatadogDoraRepositoryURL,
 	}, nil
 }
 
@@ -271,6 +295,22 @@ func runServer(ctx context.Context, config Config) error {
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				health.ReportReady("pushing")
 				return revolutionDora.Subscribe(ctx, broadcast)
+			},
+		})
+	}
+
+	if config.DatadogDoraEnabled {
+		datadogDoraConfig, err := config.DatadogDoraConfig()
+		if err != nil {
+			return err
+		}
+		datadogDora := datadogdora.New(datadogDoraConfig)
+		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
+			Shutdown: nil,
+			Name:     "datadog dora",
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				health.ReportReady("pushing")
+				return datadogDora.Subscribe(ctx, broadcast)
 			},
 		})
 	}
