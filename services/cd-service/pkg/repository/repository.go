@@ -113,6 +113,20 @@ func (err *TransformerBatchApplyError) Is(target error) bool {
 	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
+func UnwrapUntilTransformerBatchApplyError(err error) *TransformerBatchApplyError {
+	for {
+		var applyErr *TransformerBatchApplyError
+		if errors.As(err, &applyErr) {
+			return applyErr
+		}
+		err2 := errors.Unwrap(err)
+		if err2 == nil {
+			// cannot unwrap any further
+			return nil
+		}
+	}
+}
+
 func defaultBackOffProvider() backoff.BackOff {
 	eb := backoff.NewExponentialBackOff()
 	eb.MaxElapsedTime = 7 * time.Second

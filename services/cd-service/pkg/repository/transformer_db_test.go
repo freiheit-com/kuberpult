@@ -2002,7 +2002,8 @@ func TestUndeployApplicationDB(t *testing.T) {
 				t.Fatalf("Did no expect error but got):\n%+v", err)
 			}
 			if err != nil {
-				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+				applyErr := UnwrapUntilTransformerBatchApplyError(err)
+				if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 			}
