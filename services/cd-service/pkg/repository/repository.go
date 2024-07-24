@@ -552,6 +552,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 		var txErr error
 		e := transformerBatches[i]
 		if r.DB.ShouldUseEslTable() {
+			fmt.Println("Begin transaction")
 			transaction, txErr = r.DB.BeginTransaction(e.ctx, false)
 			if txErr != nil {
 				e.finish(txErr)
@@ -559,7 +560,9 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 				continue //Skip this batch
 			}
 		}
+		fmt.Println("Before ApplyTransformers")
 		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
+		fmt.Println("After ApplyTransformers")
 		if applyErr != nil {
 			//Some transformer on this batch failed. Rollback the transaction
 			if r.DB.ShouldUseEslTable() {
@@ -582,13 +585,16 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 		} else {
 			if r.DB.ShouldUseEslTable() {
+				fmt.Println("Commiting...")
 				err := transaction.Commit()
+
 				if err != nil {
 					e.finish(err)
 					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 					continue
 				}
 			}
+			fmt.Println("Transaction commited")
 			changes.Combine(subChanges)
 			i++
 		}
@@ -787,7 +793,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	if r.config.ArgoWebhookUrl != "" {
 		r.sendWebhookToArgoCd(ctx, logger, changes)
 	}
-
+	fmt.Println("Notify")
 	r.notify.Notify()
 }
 
@@ -1064,7 +1070,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				t.SetEslVersion(db.TransformerID(internal.EslVersion))
 			}
-
+			fmt.Println("Before RunTransformer")
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
 					TransformerError: err,
@@ -1075,6 +1081,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				commitMsg = append(commitMsg, msg)
 				changes = append(changes, subChanges)
 			}
+			fmt.Println("After RunTransformer")
 		}
 		return commitMsg, state, changes, nil
 	}
@@ -1145,69 +1152,78 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
 	defer span.Finish()
-
+	fmt.Println("Before ApplyTransformersInternal")
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
+	fmt.Println("After ApplyTransformersInternal")
 	if applyErr != nil {
 		return nil, applyErr
 	}
+	fmt.Println("before afterTransform")
 	if err := r.afterTransform(ctx, *state, transaction); err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
+	fmt.Println("after afterTransform")
 
-	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-	if insertError != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
-	}
-	committer := &git.Signature{
-		Name:  r.config.CommitterName,
-		Email: r.config.CommitterEmail,
-		When:  time.Now(),
-	}
-
-	user, readUserErr := auth.ReadUserFromContext(ctx)
-
-	if readUserErr != nil {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: readUserErr,
-			Index:            -1,
-		}
-	}
-
-	author := &git.Signature{
-		Name:  user.Name,
-		Email: user.Email,
-		When:  time.Now(),
-	}
-
-	var rev *git.Oid
-	// the commit can be nil, if it's the first commit in the repo
-	if state.Commit != nil {
-		rev = state.Commit.Id()
-	}
-	oldCommitId := rev
-
-	newCommitId, createErr := r.repository.CreateCommitFromIds(
-		fmt.Sprintf("refs/heads/%s", r.config.Branch),
-		author,
-		committer,
-		strings.Join(commitMsg, "\n"),
-		treeId,
-		rev,
-	)
-	if createErr != nil {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
-			Index:            -1,
-		}
-	}
 	result := CombineArray(changes)
-	result.Commits = &CommitIds{
-		Current:  newCommitId,
-		Previous: nil,
+
+	if !r.DB.ShouldUseOtherTables() {
+		fmt.Println("This should not be running")
+		treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+		if insertError != nil {
+			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
+		}
+
+		user, readUserErr := auth.ReadUserFromContext(ctx)
+
+		if readUserErr != nil {
+			return nil, &TransformerBatchApplyError{
+				TransformerError: readUserErr,
+				Index:            -1,
+			}
+		}
+
+		committer := &git.Signature{
+			Name:  r.config.CommitterName,
+			Email: r.config.CommitterEmail,
+			When:  time.Now(),
+		}
+		author := &git.Signature{
+			Name:  user.Name,
+			Email: user.Email,
+			When:  time.Now(),
+		}
+
+		var rev *git.Oid
+		// the commit can be nil, if it's the first commit in the repo
+		if state.Commit != nil {
+			rev = state.Commit.Id()
+		}
+		oldCommitId := rev
+
+		newCommitId, createErr := r.repository.CreateCommitFromIds(
+			fmt.Sprintf("refs/heads/%s", r.config.Branch),
+			author,
+			committer,
+			strings.Join(commitMsg, "\n"),
+			treeId,
+			rev,
+		)
+		if createErr != nil {
+			return nil, &TransformerBatchApplyError{
+				TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
+				Index:            -1,
+			}
+		}
+
+		result.Commits = &CommitIds{
+			Current:  newCommitId,
+			Previous: nil,
+		}
+		if oldCommitId != nil {
+			result.Commits.Previous = oldCommitId
+		}
 	}
-	if oldCommitId != nil {
-		result.Commits.Previous = oldCommitId
-	}
+	fmt.Println("Leavig Apply transformers")
 	return result, nil
 }
 
@@ -1316,8 +1332,11 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 func (r *repository) afterTransform(ctx context.Context, state State, transaction *sql.Tx) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
-
+	if r.DB.ShouldUseOtherTables() {
+		return nil
+	}
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+	fmt.Println(len(configs))
 	if err != nil {
 		return err
 	}
@@ -1347,6 +1366,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 			if err != nil {
 				return err
 			}
+			fmt.Println(appName)
 			team, err := state.GetApplicationTeamOwner(ctx, transaction, appName)
 			if err != nil {
 				return err
