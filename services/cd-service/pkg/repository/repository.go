@@ -77,6 +77,7 @@ type Repository interface {
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
+	Pull(ctx context.Context) error
 }
 
 type TransformerBatchApplyError struct {
@@ -412,46 +413,9 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			result.headLock.Lock()
 
 			defer result.headLock.Unlock()
-			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-			//exhaustruct:ignore
-			RemoteCallbacks := git.RemoteCallbacks{
-				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-					logger.Debug("git.fetched",
-						zap.String("refname", refname),
-						zap.String("revision.new", b.String()),
-					)
-					return nil
-				},
-				CredentialsCallback:      credentials.CredentialsCallback(ctx),
-				CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
-			}
-			fetchOptions := git.FetchOptions{
-				Prune:           git.FetchPruneUnspecified,
-				UpdateFetchhead: false,
-				DownloadTags:    git.DownloadTagsUnspecified,
-				Headers:         nil,
-				ProxyOptions: git.ProxyOptions{
-					Type: git.ProxyTypeNone,
-					Url:  "",
-				},
-				RemoteCallbacks: RemoteCallbacks,
-			}
-			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
-			if err != nil {
-				return nil, nil, err
-			}
-			var rev *git.Oid
-			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
-				var gerr *git.GitError
-				if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
-					// not found
-					// nothing to do
-				} else {
-					return nil, nil, err
-				}
-			} else {
-				rev = remoteRef.Target()
-				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+			//We need fetch when not using the database
+			if !cfg.DBHandler.ShouldUseOtherTables() {
+				if err := ConfigureAndPull(ctx, cfg, remote, repo2, credentials, certificates); err != nil {
 					return nil, nil, err
 				}
 			}
@@ -479,6 +443,58 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return result, result.ProcessQueue, nil
 		}
 	}
+}
+
+func ConfigureAndPull(ctx context.Context, cfg RepositoryConfig, remote *git.Remote, repo2 *git.Repository, credentials *credentialsStore, certificates *certificateStore) error {
+	logger := logger.FromContext(ctx)
+	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+			logger.Debug("git.fetched",
+				zap.String("refname", refname),
+				zap.String("revision.new", b.String()),
+			)
+			return nil
+		},
+		CredentialsCallback:      credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+	}
+	fetchOptions := git.FetchOptions{
+		Prune:           git.FetchPruneUnspecified,
+		UpdateFetchhead: false,
+		DownloadTags:    git.DownloadTagsUnspecified,
+		Headers:         nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+		RemoteCallbacks: RemoteCallbacks,
+	}
+	err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	if err != nil {
+		return err
+	}
+	var rev *git.Oid
+	if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
+		var gerr *git.GitError
+		if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
+			// not found
+			// nothing to do
+		} else {
+			return err
+		}
+	} else {
+		rev = remoteRef.Target()
+		if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) Pull(ctx context.Context) error {
+	return r.FetchAndReset(ctx)
 }
 
 func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
@@ -540,17 +556,16 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 					continue
 				}
 			}
-			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
+			if !r.DB.ShouldUseEslTable() && errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
 					return transformerBatches, err, nil
 				}
 				return r.applyTransformerBatches(transformerBatches, false)
-			} else {
-				e.finish(applyErr)
-				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 			}
+			e.finish(applyErr)
+			transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 		} else {
 			if r.DB.ShouldUseEslTable() {
 				err := transaction.Commit()
@@ -707,38 +722,39 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 		return
 	}
 
-	logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
-	// Try pushing once
-	err = r.Push(e.ctx, pushAction(pushOptions, r))
-	if err != nil {
-		gerr, ok := err.(*git.GitError)
-		// If it doesn't work because the branch diverged, try reset and apply again.
-		if ok && gerr.Code == git.ErrorCodeNonFastForward {
-			err = r.FetchAndReset(e.ctx)
-			if err != nil {
-				return
+	if !r.DB.ShouldUseOtherTables() {
+		logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
+		// Try pushing once
+		err = r.Push(e.ctx, pushAction(pushOptions, r))
+		if err != nil {
+			gerr, ok := err.(*git.GitError)
+			// If it doesn't work because the branch diverged, try reset and apply again.
+			if ok && gerr.Code == git.ErrorCodeNonFastForward {
+				err = r.FetchAndReset(e.ctx)
+				if err != nil {
+					return
+				}
+				transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
+				if err != nil || len(transformerBatches) == 0 {
+					return
+				}
+				if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
+					err = pushErr
+				}
+			} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				err = grpc.CanceledError(ctx, err)
+			} else {
+				logger.Error(fmt.Sprintf("error while pushing: %s", err))
+				err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
 			}
-			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
-			if err != nil || len(transformerBatches) == 0 {
-				return
-			}
-			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
-				err = pushErr
-			}
-		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			err = grpc.CanceledError(ctx, err)
 		} else {
-			logger.Error(fmt.Sprintf("error while pushing: %s", err))
-			err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
+			if !pushSuccess {
+				err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
+			}
 		}
-	} else {
-		if !pushSuccess {
-			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
-		}
+		span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
+		defer span.Finish()
 	}
-	span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
-	defer span.Finish()
-
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 
 	if r.config.DogstatsdEvents {

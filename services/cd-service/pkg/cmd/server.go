@@ -305,24 +305,34 @@ func RunServer() {
 				Repository: repo,
 			}
 		if dbHandler.ShouldUseOtherTables() {
-			logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
-			migErr := dbHandler.RunCustomMigrations(
-				ctx,
-				repo.State().GetAppsAndTeams,
-				repo.State().GetCurrentlyDeployed,
-				repo.State().GetAllReleases,
-				repo.State().GetCurrentEnvironmentLocks,
-				repo.State().GetCurrentApplicationLocks,
-				repo.State().GetCurrentTeamLocks,
-				repo.State().GetAllEnvironments,
-				repo.State().GetAllQueuedAppVersions,
-				repo.State().GetAllCommitEvents,
-			)
-			if migErr != nil {
-				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
-			} else {
-				logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
+			//Check for migrations -> for pulling
+			if needsMigration, err := dbHandler.NeedsMigrations(ctx); err == nil && needsMigration {
+				err := repo.Pull(ctx)
+				if err != nil {
+					logger.FromContext(ctx).Fatal("Could not pull repository to perform custom migrations", zap.Error(err))
+				}
+				logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
+				migErr := dbHandler.RunCustomMigrations(
+					ctx,
+					repo.State().GetAppsAndTeams,
+					repo.State().GetCurrentlyDeployed,
+					repo.State().GetAllReleases,
+					repo.State().GetCurrentEnvironmentLocks,
+					repo.State().GetCurrentApplicationLocks,
+					repo.State().GetCurrentTeamLocks,
+					repo.State().GetAllEnvironments,
+					repo.State().GetAllQueuedAppVersions,
+					repo.State().GetAllCommitEvents,
+				)
+				if migErr != nil {
+					logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
+				} else {
+					logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
+				}
+			} else if err != nil {
+				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(err))
 			}
+			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because all tables contain data.")
 		} else {
 			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 		}
