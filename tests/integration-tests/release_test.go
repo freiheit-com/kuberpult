@@ -184,7 +184,7 @@ func TestReleaseCalls(t *testing.T) {
 		{
 			// Note that this test is not repeatable. Once the version exists, it cannot be overridden.
 			// To repeat the test, we would have to reset the manifest repo.
-			name:               "Simple invocation of /release endpoint with valid version",
+			name:               "Simple invocation of /release endpoint with valid version should be new",
 			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
 			inputSignature:     CalcSignature(t, theManifest),
@@ -195,7 +195,7 @@ func TestReleaseCalls(t *testing.T) {
 		},
 		{
 			// this is the same test, but this time we expect 200, because the release already exists:
-			name:               "Simple invocation of /release endpoint with valid version",
+			name:               "Simple invocation of /release endpoint with valid version should already exist",
 			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
 			inputSignature:     CalcSignature(t, theManifest),
