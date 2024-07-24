@@ -1336,7 +1336,6 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 		return nil
 	}
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	fmt.Println(len(configs))
 	if err != nil {
 		return err
 	}
