@@ -19,7 +19,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path"
 	"sort"
@@ -510,6 +512,20 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 		} else if string(data) != string(contentRequirement.fileData) {
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
 		}
+	}
+	return nil
+}
+
+func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
+	for _, contentRequirement := range required {
+		if _, err := fs.Stat(contentRequirement.path); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				fmt.Printf("%s does not exists but is expected \n", contentRequirement.path)
+				return nil
+			}
+			return fmt.Errorf("Error on Stat for file %s: %v\n", contentRequirement.path, err)
+		}
+		return fmt.Errorf("File exists %s\n", contentRequirement.path)
 	}
 	return nil
 }
@@ -1435,6 +1451,480 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 			}
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestLocks(t *testing.T) {
+	const appName = "app1"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name            string
+		Transformers    []Transformer
+		expectedData    []*FilenameAndData
+		expectedMissing []*FilenameAndData
+		expectedMessage string
+	}{
+		{
+			Name: "Create environment lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironmentLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{
+					path:     "/environments/acceptance/locks/l123/created_by_email",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/environments/acceptance/locks/l123/created_by_name",
+					fileData: []byte(authorName),
+				},
+				{
+					path:     "/environments/acceptance/locks/l123/message",
+					fileData: []byte("none"),
+				},
+			},
+		},
+		{
+			Name: "Delete environment lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironmentLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteEnvironmentLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path: "/environments/acceptance/locks/l123/created_by_email",
+				},
+				{
+					path: "/environments/acceptance/locks/l123/created_by_name",
+				},
+				{
+					path: "/environments/acceptance/locks/l123/message",
+				},
+			},
+		},
+		{
+			Name: "Create App lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Application:           appName,
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{
+
+					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_email",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_name",
+					fileData: []byte(authorName),
+				},
+				{
+					path:     "/environments/acceptance/applications/app1/locks/l123/message",
+					fileData: []byte("none"),
+				},
+			},
+		},
+		{
+			Name: "Delete App lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Application:           appName,
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteEnvironmentApplicationLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Application:           appName,
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedMissing: []*FilenameAndData{
+				{
+
+					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_email",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_name",
+					fileData: []byte(authorName),
+				},
+				{
+					path:     "/environments/acceptance/applications/app1/locks/l123/message",
+					fileData: []byte("none"),
+				},
+			},
+		},
+		{
+			Name: "Create Team lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironmentTeamLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Team:                  "team-123",
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{
+
+					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_name",
+					fileData: []byte(authorName),
+				},
+				{
+					path:     "/environments/acceptance/teams/team-123/locks/l123/message",
+					fileData: []byte("none"),
+				},
+			},
+		},
+		{
+			Name: "Delete App lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Application:           appName,
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteEnvironmentApplicationLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Application:           appName,
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedMissing: []*FilenameAndData{
+				{
+
+					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_name",
+					fileData: []byte(authorName),
+				},
+				{
+					path:     "/environments/acceptance/teams/team-123/locks/l123/message",
+					fileData: []byte("none"),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err2 != nil {
+					t.Fatal(err2)
+
+				}
+				//populate the database
+				for _, tr := range tc.Transformers {
+					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err2 != nil {
+						t.Fatal(err2)
+					}
+					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
+						concreteTransformer := tr.(*CreateEnvironmentLock)
+						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Message, concreteTransformer.AuthorName, concreteTransformer.AuthorEmail)
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+					}
+					if tr.GetDBEventType() == db.EvtDeleteEnvironmentLock {
+						concreteTransformer := tr.(*DeleteEnvironmentLock)
+						err2 = dbHandler.DBDeleteEnvironmentLock(ctx, transaction, concreteTransformer.Environment, concreteTransformer.LockId)
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+					}
+					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
+						concreteTransformer := tr.(*CreateApplicationVersion)
+						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, 0, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBWriteAllApplications(ctx, transaction, 0, []string{appName})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{int64(concreteTransformer.Version)}, 0)
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+							EslVersion:    0,
+							ReleaseNumber: concreteTransformer.Version,
+							App:           concreteTransformer.Application,
+							Manifests: db.DBReleaseManifests{
+								Manifests: concreteTransformer.Manifests,
+							},
+							Deleted: false,
+						}, 0)
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+					}
+					if tr.GetDBEventType() == db.EvtCreateEnvironmentApplicationLock {
+						concreteTransformer := tr.(*CreateEnvironmentApplicationLock)
+						err2 = dbHandler.DBWriteApplicationLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Application, concreteTransformer.Message, concreteTransformer.AuthorName, concreteTransformer.AuthorEmail)
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+					}
+					if tr.GetDBEventType() == db.EvtDeleteEnvironmentApplicationLock {
+						concreteTransformer := tr.(*DeleteEnvironmentApplicationLock)
+						err2 = dbHandler.DBDeleteApplicationLock(ctx, transaction, concreteTransformer.Environment, concreteTransformer.Application, concreteTransformer.LockId)
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+					}
+					if tr.GetDBEventType() == db.EvtCreateEnvironmentTeamLock {
+						concreteTransformer := tr.(*CreateEnvironmentTeamLock)
+						err2 = dbHandler.DBWriteTeamLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Team, concreteTransformer.Message, concreteTransformer.AuthorName, concreteTransformer.AuthorEmail)
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+					}
+					if tr.GetDBEventType() == db.EvtDeleteEnvironmentTeamLock {
+						concreteTransformer := tr.(*DeleteEnvironmentTeamLock)
+						err2 = dbHandler.DBDeleteTeamLock(ctx, transaction, concreteTransformer.Environment, concreteTransformer.Team, concreteTransformer.LockId)
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+					}
+				}
+				var commitMsg []string
+				err := repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				actualMsg := ""
+				// note that we only check the LAST error here:
+				if len(commitMsg) > 0 {
+					actualMsg = commitMsg[len(commitMsg)-1]
+				}
+				if diff := cmp.Diff(tc.expectedMessage, actualMsg); diff != "" {
+					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+			updatedState := repo.State()
+
+			if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
+				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
 		})
 	}
