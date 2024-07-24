@@ -223,9 +223,6 @@ spec:
         hostPath:
           path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
 {{- end }}
-
-{{- end }}
-{{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -239,3 +236,6 @@ spec:
   selector:
     app: kuberpult-manifest-repo-export-service
   type: NodePort
+
+{{- end }}
+{{- end }}

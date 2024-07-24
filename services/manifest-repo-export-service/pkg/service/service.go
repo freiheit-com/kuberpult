@@ -33,9 +33,9 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch head {
 	case "health":
 		s.ServeHTTPHealth(w, r)
-	case "release":
+	default:
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "release endpoint is now only provided in the frontend-service")
+		fmt.Fprintf(w, "Endpoint not found")
 	}
 }
 
