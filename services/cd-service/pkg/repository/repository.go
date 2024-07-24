@@ -935,7 +935,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 	}
 
 	result := CombineArray(changes)
-	if r.DB.ShouldUseOtherTables() {
+	if !r.DB.ShouldUseOtherTables() {
 		treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 		if insertError != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
