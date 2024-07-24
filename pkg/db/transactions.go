@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	DefaultNumRetries = 3
+	DefaultNumRetries uint8 = 3
 )
 
 type DBFunction func(ctx context.Context, transaction *sql.Tx) error
@@ -47,7 +47,7 @@ func (h *DBHandler) WithTransaction(ctx context.Context, readonly bool, f DBFunc
 	return nil
 }
 
-func (h *DBHandler) WithTransactionR(ctx context.Context, maxRetries uint, readonly bool, f DBFunction) error {
+func (h *DBHandler) WithTransactionR(ctx context.Context, maxRetries uint8, readonly bool, f DBFunction) error {
 	_, err := WithTransactionT(h, ctx, maxRetries, readonly, func(ctx context.Context, transaction *sql.Tx) (*interface{}, error) {
 		err2 := f(ctx, transaction)
 		if err2 != nil {
@@ -62,7 +62,7 @@ func (h *DBHandler) WithTransactionR(ctx context.Context, maxRetries uint, reado
 }
 
 // WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
-func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint, readonly bool, f DBFunctionT[T]) (*T, error) {
+func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionT[T]) (*T, error) {
 	res, err := WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries, readonly, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
 		fRes, err2 := f(ctx, transaction)
 		if err2 != nil {
@@ -85,9 +85,10 @@ func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, r
 }
 
 // WithTransactionMultipleEntriesRetryT also supports retries
-func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Context, maxRetries uint, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
+func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
 	defer span.Finish()
+	span.SetTag("readonly", readonly)
 	onError := func(e error) ([]T, error) {
 		span.Finish(tracer.WithError(e))
 		return nil, e
@@ -113,6 +114,7 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 			return onError(err)
 		}
 		logger.FromContext(ctx).Sugar().Warnf("db transaction failed, will retry: %v", err)
+		span.Finish()
 		return WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries-1, readonly, f)
 	}
 	return result, nil
