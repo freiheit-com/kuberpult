@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -363,6 +364,7 @@ func (d *BatchServer) ProcessBatch(
 	}
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("error in repo apply: %v", err)
 		var applyErr *repository.TransformerBatchApplyError
 		if errors.Is(err, repository.ErrQueueFull) {
 			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
