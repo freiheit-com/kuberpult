@@ -81,7 +81,7 @@ func (o *OverviewServiceServer) getOverviewDB(
 	s *repository.State) (*api.GetOverviewResponse, error) {
 
 	if s.DBHandler.ShouldUseOtherTables() {
-		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
+		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
 			var err2 error
 			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
 			if err2 != nil {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -363,36 +364,41 @@ func (d *BatchServer) ProcessBatch(
 	}
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		var applyErr *repository.TransformerBatchApplyError
+		logger.FromContext(ctx).Sugar().Warnf("error in Repository.Apply: %v", err)
 		if errors.Is(err, repository.ErrQueueFull) {
 			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
 		}
-		if !errors.As(err, &applyErr) {
-			return nil, err
+		var applyErr *repository.TransformerBatchApplyError = repository.UnwrapUntilTransformerBatchApplyError(err)
+		if applyErr != nil {
+			return d.handleError(applyErr, err)
 		}
-		switch transformerError := applyErr.TransformerError.(type) {
-		case *repository.CreateReleaseError:
-			{
-				errorResults := make([]*api.BatchResult, 1)
-				errorResults[0] = &api.BatchResult{
-					Result: &api.BatchResult_CreateReleaseResponse{
-						CreateReleaseResponse: transformerError.Response(),
-					},
-				}
-				return &api.BatchResponse{Results: errorResults}, nil
-			}
-		case *repository.TeamNotFoundErr:
-			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", applyErr.TransformerError.Error()))
-		default:
-			tmp, ok := status.FromError(applyErr.TransformerError)
-			if tmp != nil && ok {
-				// in order to pass the right status code, we need to return the inner error:
-				return nil, applyErr.TransformerError
-			}
-			return nil, err
-		}
+		return nil, err
 	}
 	return &api.BatchResponse{Results: results}, nil
+}
+
+func (d *BatchServer) handleError(applyErr *repository.TransformerBatchApplyError, err error) (*api.BatchResponse, error) {
+	switch transformerError := applyErr.TransformerError.(type) {
+	case *repository.CreateReleaseError:
+		{
+			errorResults := make([]*api.BatchResult, 1)
+			errorResults[0] = &api.BatchResult{
+				Result: &api.BatchResult_CreateReleaseResponse{
+					CreateReleaseResponse: transformerError.Response(),
+				},
+			}
+			return &api.BatchResponse{Results: errorResults}, nil
+		}
+	case *repository.TeamNotFoundErr:
+		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", applyErr.TransformerError.Error()))
+	default:
+		tmp, ok := status.FromError(applyErr.TransformerError)
+		if tmp != nil && ok {
+			// in order to pass the right status code, we need to return the inner error:
+			return nil, applyErr.TransformerError
+		}
+		return nil, err
+	}
 }
 
 var _ api.BatchServiceServer = (*BatchServer)(nil)
