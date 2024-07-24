@@ -605,7 +605,7 @@ func TestHelmChartsKuberpultDeprecatedParameters(t *testing.T) {
 		ExpectedMissing []core.EnvVar
 	}{
 		{
-			Name: "Change Git URL",
+			Name: "Test Argocd.sendWebhooks being set to true",
 			Values: `
 git:
   url:  "checkThisValue"
@@ -615,7 +615,7 @@ argocd:
   sendWebhooks: true
 `,		},
 		{
-			Name: "Change Git URL",
+			Name: "Test Bootstrap_mode being set to true",
 			Values: `
 git:
   url:  "checkThisValue"

@@ -14,6 +14,7 @@
 
 # Copyright freiheit.com
 
+
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
