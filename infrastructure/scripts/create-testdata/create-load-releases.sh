@@ -27,10 +27,7 @@ echo ${authors[$index]}
 author="${authors[$index]}"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
-displayVersion=
-if ((RANDOM % 2)); then
-  displayVersion=$(( $RANDOM % 100)).$(( $RANDOM % 100)).$(( $RANDOM % 100))
-fi
+
 
 msgs[0]="Added new eslint rule"
 msgs[1]="Fix annotations in helm templates"
@@ -58,14 +55,13 @@ case "${RELEASE_VERSION:-}" in
 	*) release_version='--form-string '"version=${RELEASE_VERSION:-}";;
 esac
 
-echo "release version:" "${release_version}"
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 
-for (( c=1; c<=NUMBER_RELEASES; c++ ))
+for (( c=251; c<=NUMBER_RELEASES; c++ ))
 do
   deployments=$(($RANDOM % $sizeAuthors))
   n_deployments=$(($deployments +1))
@@ -99,9 +95,10 @@ EOF
       gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
       manifests+=("--form" "signatures[${env}]=@${signatureFile}")
     done
-
+    echo "Writing files..."
     for (( env_n=1; env_n<=NUMBER_TEMPLATED_ENVS; env_n++ ))
     do
+
       env="${TEMPLATED_ENV_NAME}-${env_n}"
       file=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
       signatureFile=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
@@ -131,17 +128,23 @@ EOF
       EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
       AUTHOR=$(echo -n "script-user" | base64 -w 0)
     fi
-      curl http://localhost:${FRONTEND_PORT}/release \
+    commit_message=$(head -c 8192 /dev/urandom | base64 | awk '{print $1}' | head -c 128)
+    displayVersion=
+    if ((RANDOM % 2)); then
+      displayVersion=$(( $RANDOM % 100)).$(( $RANDOM % 100)).$(( $RANDOM % 100))
+    fi
+    index=$(($RANDOM % $sizeAuthors))
+    author="${authors[$index]}"
+      time curl http://localhost:${FRONTEND_PORT}/release \
         -H "author-email:${EMAIL}" \
         -H "author-name:${AUTHOR}=" \
         "${inputs[@]}" \
         --form-string "version=$d" \
         --form-string "display_version=${displayVersion}" \
         --form-string "application=$BASE_APP_NAME-$c" \
-        --form "source_message=<${commit_message_file}" \
+        --form "source_message=${commit_message}" \
         "${configuration[@]}" \
         "${manifests[@]}"
-        echo # curl sometimes does not print a trailing \n
         echo Created Version "$d" of "$BASE_APP_NAME-$c"
   done
 done
