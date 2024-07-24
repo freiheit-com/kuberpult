@@ -1099,7 +1099,7 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 func (r *repository) afterTransform(ctx context.Context, state State, transaction *sql.Tx) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
-	if !r.DB.ShouldUseOtherTables() {
+	if r.DB.ShouldUseOtherTables() {
 		return nil
 	}
 
