@@ -260,7 +260,7 @@ func Run(ctx context.Context) error {
 				Name:     "processEsls",
 				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 					reporter.ReportReady("Processing Esls")
-					return processEsls(ctx, repo, dbHandler, ddMetrics, eslProcessingBackoff)
+					return processEsls(ctx, repo, dbHandler, ddMetrics, eslProcessingIdleTimeSeconds)
 				},
 			},
 		},
@@ -273,7 +273,7 @@ func Run(ctx context.Context) error {
 	return nil
 }
 
-func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingBackoff uint64) error {
+func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {
 	log := logger.FromContext(ctx).Sugar()
 	for {
 		eslTableEmpty := false
