@@ -57,7 +57,7 @@ func (o *VersionServiceServer) GetVersion(
 		}
 		return nil, err
 	}
-	res, err := db.WithTransactionT[api.GetVersionResponse](state.DBHandler, ctx, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
+	res, err := db.WithTransactionT[api.GetVersionResponse](state.DBHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
 		//exhaustruct:ignore
 		res := &api.GetVersionResponse{}
 		version, err := state.GetEnvironmentApplicationVersion(ctx, tx, in.Environment, in.Application)

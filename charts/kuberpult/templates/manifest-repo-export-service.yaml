@@ -109,6 +109,24 @@ spec:
           - name: grpc
             containerPort: 8443
             protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: {{ .Values.manifestRepoExport.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.manifestRepoExport.probes.readiness.periodSeconds }}
+          successThreshold: {{ .Values.manifestRepoExport.probes.readiness.successThreshold }}
+          timeoutSeconds: {{ .Values.manifestRepoExport.probes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.manifestRepoExport.probes.readiness.failureThreshold }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: {{ .Values.manifestRepoExport.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.manifestRepoExport.probes.liveness.periodSeconds }}
+          successThreshold: {{ .Values.manifestRepoExport.probes.liveness.successThreshold }}
+          timeoutSeconds: {{ .Values.manifestRepoExport.probes.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.manifestRepoExport.probes.liveness.failureThreshold }}
         resources:
           limits:
             cpu: "{{ .Values.manifestRepoExport.resources.limits.cpu }}"
