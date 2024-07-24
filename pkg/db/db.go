@@ -2313,11 +2313,12 @@ func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun Ge
 	defer span.Finish()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needMigrating, err := h.needsAllAppsMigrations(ctx, transaction)
+		needMigrating, err := h.needsAppsMigrations(ctx, transaction)
 		if err != nil {
 			return err
 		}
 		if !needMigrating {
+			logger.FromContext(ctx).Sugar().Warnf("no need to migrate apps")
 			return nil
 		}
 
