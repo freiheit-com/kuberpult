@@ -449,7 +449,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
 			})
 
@@ -609,7 +609,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
 			})
 
@@ -2002,7 +2002,8 @@ func TestUndeployApplicationDB(t *testing.T) {
 				t.Fatalf("Did no expect error but got):\n%+v", err)
 			}
 			if err != nil {
-				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+				applyErr := UnwrapUntilTransformerBatchApplyError(err)
+				if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 			}

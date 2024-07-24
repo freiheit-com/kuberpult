@@ -157,7 +157,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					TransformerEslVersion: 1,
 				},
 			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
+			ExpectedError: errMatcher{"error within transaction: first apply failed, aborting: error at index 0 of transformer batch: " +
 				"release of app myapp with version 7 not found",
 			},
 			ExpectedApp:  nil,
@@ -230,7 +230,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					PreviousCommit:  "",
 				},
 			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error not specific to one transformer of this batch: " +
+			ExpectedError: errMatcher{"error within transaction: first apply failed, aborting: error not specific to one transformer of this batch: " +
 				"transformer metadata is empty",
 			},
 		},
@@ -249,7 +249,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					TransformerEslVersion: 1,
 				},
 			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
+			ExpectedError: errMatcher{"error within transaction: first apply failed, aborting: error at index 0 of transformer batch: " +
 				"error accessing dir \"environments/acceptance\": file does not exist",
 			},
 		},
@@ -269,7 +269,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					TransformerEslVersion: 1,
 				},
 			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
+			ExpectedError: errMatcher{"error within transaction: first apply failed, aborting: error at index 0 of transformer batch: " +
 				"error accessing dir \"environments/acceptance\": file does not exist",
 			},
 		},
@@ -285,7 +285,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					TransformerEslVersion: 1,
 				},
 			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
+			ExpectedError: errMatcher{"error within transaction: first apply failed, aborting: error at index 0 of transformer batch: " +
 				"team 'my-team' does not exist",
 			},
 		},
