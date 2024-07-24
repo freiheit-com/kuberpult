@@ -1371,7 +1371,7 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 		envSelector,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -1446,7 +1446,7 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 		limit,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select deployment history from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -1490,7 +1490,7 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 		limit,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select deployments by transformer id from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -1527,7 +1527,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select any deployments from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
