@@ -533,53 +533,49 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
 
-	for i := 0; i < len(transformerBatches); {
-		var transaction *sql.Tx
-		var txErr error
-		e := transformerBatches[i]
+	if r.DB.ShouldUseEslTable() {
+		for i := 0; i < len(transformerBatches); {
+			e := transformerBatches[i]
 
-		if r.DB.ShouldUseEslTable() {
-			transaction, txErr = r.DB.BeginTransaction(e.ctx, false)
+			subChanges, txErr := db.WithTransactionT(r.DB, e.ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
+				subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
+				if applyErr != nil {
+					return nil, applyErr
+				}
+				return subChanges, nil
+			})
+
 			if txErr != nil {
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 				continue //Skip this batch
 			}
-		}
-		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
-		if applyErr != nil {
-			//Some transformer on this batch failed. Rollback the transaction
-			if r.DB.ShouldUseEslTable() {
-				rollBackError := transaction.Rollback()
-				if rollBackError != nil {
-					e.finish(rollBackError)
-					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-					continue
-				}
-			}
-			if !r.DB.ShouldUseEslTable() && errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
-				// Invalid state. fetch and reset and redo
-				err := r.FetchAndReset(e.ctx)
-				if err != nil {
-					return transformerBatches, err, nil
-				}
-				return r.applyTransformerBatches(transformerBatches, false)
-			}
-			e.finish(applyErr)
-			transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-		} else {
-			if r.DB.ShouldUseEslTable() {
-				err := transaction.Commit()
-				if err != nil {
-					e.finish(err)
-					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-					continue
-				}
-			}
 			changes.Combine(subChanges)
 			i++
 		}
+	} else {
+		for i := 0; i < len(transformerBatches); {
+			e := transformerBatches[i]
+
+			subChanges, applyErr := r.ApplyTransformers(e.ctx, nil, e.transformers...)
+			if applyErr != nil {
+				if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
+					// Invalid state. fetch and reset and redo
+					err := r.FetchAndReset(e.ctx)
+					if err != nil {
+						return transformerBatches, err, nil
+					}
+					return r.applyTransformerBatches(transformerBatches, false)
+				}
+				e.finish(applyErr)
+				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+			} else {
+				changes.Combine(subChanges)
+				i++
+			}
+		}
 	}
+
 	return transformerBatches, nil, changes
 }
 
