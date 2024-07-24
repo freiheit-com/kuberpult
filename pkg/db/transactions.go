@@ -99,10 +99,9 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 	tx, err := h.BeginTransaction(ctx, readonly)
 	if err != nil {
 		if maxRetries == 0 {
-			return onError(fmt.Errorf("error beginning transaction: %v", err))
+			return onError(fmt.Errorf("error beginning transaction: %w", err))
 		}
-		logger.FromContext(ctx).Sugar().Warnf("db transaction failed [1], will retry: %v", err)
-		_ = tx.Rollback()
+		logger.FromContext(ctx).Sugar().Warnf("beginning transaction failed, will retry: %v", err)
 		span.Finish()
 		return WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries-1, readonly, f)
 	}
@@ -115,21 +114,21 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 	result, err := f(ctx, tx)
 	if err != nil {
 		if maxRetries == 0 {
-			return onError(fmt.Errorf("error within transaction: %v", err))
+			return onError(fmt.Errorf("error within transaction: %w", err))
 		}
-		logger.FromContext(ctx).Sugar().Warnf("db transaction failed [2], will retry: %v", err)
-		span.Finish()
+		logger.FromContext(ctx).Sugar().Warnf("transaction failed within, will retry: %v", err)
 		_ = tx.Rollback()
+		span.Finish()
 		return WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries-1, readonly, f)
 	}
 	err = tx.Commit()
 	if err != nil {
 		if maxRetries == 0 {
-			return onError(fmt.Errorf("error committing transaction: %v", err))
+			return onError(fmt.Errorf("error committing transaction: %w", err))
 		}
-		logger.FromContext(ctx).Sugar().Warnf("db transaction failed [3], will retry: %v", err)
-		span.Finish()
+		logger.FromContext(ctx).Sugar().Warnf("committing transaction failed, will retry: %v", err)
 		_ = tx.Rollback()
+		span.Finish()
 		return WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries-1, readonly, f)
 	}
 	return result, nil
