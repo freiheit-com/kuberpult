@@ -19,6 +19,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -96,7 +97,7 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 
 	tx, err := h.BeginTransaction(ctx, readonly)
 	if err != nil {
-		return onError(err)
+		return onError(fmt.Errorf("error beginning transaction: %v", err))
 	}
 	defer func(tx *sql.Tx) {
 		_ = tx.Rollback()
@@ -106,12 +107,12 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 
 	result, err := f(ctx, tx)
 	if err != nil {
-		return onError(err)
+		return onError(fmt.Errorf("error within transaction: %v", err))
 	}
 	err = tx.Commit()
 	if err != nil {
 		if maxRetries == 0 {
-			return onError(err)
+			return onError(fmt.Errorf("error committing transaction: %v", err))
 		}
 		logger.FromContext(ctx).Sugar().Warnf("db transaction failed, will retry: %v", err)
 		span.Finish()
