@@ -239,25 +239,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			// so we can test only this error case.
 			// As soon as we have the other transformers (especially CreateEnvironment)
 			// we need to add more tests here.
-			Name: "create environment lock",
-			Transformers: []Transformer{
-				&CreateEnvironmentLock{
-					Authentication:        Authentication{},
-					Environment:           envAcceptance,
-					LockId:                "my-lock",
-					Message:               "My envAcceptance lock",
-					TransformerEslVersion: 1,
-				},
-			},
-			ExpectedError: errMatcher{"error within transaction: first apply failed, aborting: error at index 0 of transformer batch: " +
-				"error accessing dir \"environments/acceptance\": file does not exist",
-			},
-		},
-		{
-			// as of now we only have the DeployApplicationVersion and CreateEnvironmentLock transformer,
-			// so we can test only this error case.
-			// As soon as we have the other transformers (especially CreateEnvironment)
-			// we need to add more tests here.
 			Name: "create applications lock",
 			Transformers: []Transformer{
 				&CreateEnvironmentApplicationLock{
@@ -1466,6 +1447,7 @@ func TestLocks(t *testing.T) {
 		expectedData    []*FilenameAndData
 		expectedMissing []*FilenameAndData
 		expectedMessage string
+		expectedError   error
 	}{
 		{
 			Name: "Create environment lock",
@@ -1491,6 +1473,45 @@ func TestLocks(t *testing.T) {
 				},
 			},
 			expectedData: []*FilenameAndData{
+				{
+					path:     "/environments/acceptance/locks/l123/created_by_email",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/environments/acceptance/locks/l123/created_by_name",
+					fileData: []byte(authorName),
+				},
+				{
+					path:     "/environments/acceptance/locks/l123/message",
+					fileData: []byte("none"),
+				},
+			},
+		},
+		{
+			Name: "Create environment lock - env does not exist",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironmentLock{
+					Environment:           "non-existent-env",
+					LockId:                "l123",
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedError: errMatcher{msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: could not access environment information on: 'environments/non-existent-env': file does not exist"},
+			expectedMissing: []*FilenameAndData{
 				{
 					path:     "/environments/acceptance/locks/l123/created_by_email",
 					fileData: []byte(authorEmail),
@@ -1737,7 +1758,7 @@ func TestLocks(t *testing.T) {
 			},
 		},
 		{
-			Name: "Delete App lock",
+			Name: "Delete Team lock - team does not exist",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
@@ -1767,10 +1788,10 @@ func TestLocks(t *testing.T) {
 						AuthorEmail: authorEmail,
 					},
 				},
-				&CreateEnvironmentApplicationLock{
+				&CreateEnvironmentTeamLock{
 					Environment:           envAcceptance,
 					LockId:                "l123",
-					Application:           appName,
+					Team:                  "team-123",
 					Message:               "none",
 					TransformerEslVersion: 2,
 					TransformerMetadata: TransformerMetadata{
@@ -1778,10 +1799,10 @@ func TestLocks(t *testing.T) {
 						AuthorEmail: authorEmail,
 					},
 				},
-				&DeleteEnvironmentApplicationLock{
+				&DeleteEnvironmentTeamLock{
 					Environment:           envAcceptance,
 					LockId:                "l123",
-					Application:           appName,
+					Team:                  "team-123",
 					TransformerEslVersion: 3,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
@@ -1789,7 +1810,81 @@ func TestLocks(t *testing.T) {
 					},
 				},
 			},
+			expectedError: errMatcher{
+				msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
+			},
 			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_name",
+					fileData: []byte(authorName),
+				},
+				{
+					path:     "/environments/acceptance/teams/team-123/locks/l123/message",
+					fileData: []byte("none"),
+				},
+			},
+		},
+		{
+			Name: "Delete Team lock - team does not exist",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironmentTeamLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Team:                  "team-123",
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment:           envAcceptance,
+					LockId:                "l123",
+					Team:                  "team-",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedError: errMatcher{
+				msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
+			},
+			expectedData: []*FilenameAndData{
 				{
 
 					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
@@ -1916,7 +2011,9 @@ func TestLocks(t *testing.T) {
 			})
 
 			if err != nil {
-				t.Fatal(err)
+				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
 			}
 			updatedState := repo.State()
 
