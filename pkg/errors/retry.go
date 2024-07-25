@@ -74,3 +74,17 @@ func RetryTransaction(originalError error) *RetryError {
 		errorType:     errorTypeTransaction,
 	}
 }
+
+func UnwrapUntilRetryError(err error) *RetryError {
+	for {
+		var applyErr *RetryError
+		if errors.As(err, &applyErr) {
+			return applyErr
+		}
+		err2 := errors.Unwrap(err)
+		if err2 == nil {
+			// cannot unwrap any further
+			return nil
+		}
+	}
+}

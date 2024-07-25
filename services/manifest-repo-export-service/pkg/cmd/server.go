@@ -231,7 +231,7 @@ func Run(ctx context.Context) error {
 
 		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
 		const readonly = false
-		err = dbHandler.WithTransaction(ctx, readonly, func(ctx context.Context, transaction *sql.Tx) error {
+		err = dbHandler.WithTransactionR(ctx, 100, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			eslVersion, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("error in DBReadCutoff %v", err)
@@ -318,6 +318,7 @@ type SleepData struct {
 
 func calcSleep(err error, backOffTimer backoff.BackOff, eslEventSkipped bool, eslTableEmpty bool) *SleepData {
 	if err != nil {
+		err = errors.UnwrapUntilRetryError(err)
 		if ok, re := errors.IsRetryError(err); ok {
 			if re.IsTransaction() {
 				// transactions are generally fast to retry, no exponential backoff:
