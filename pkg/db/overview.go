@@ -124,8 +124,8 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 
 	app := getApplicationByName(latestOverview.Applications, deployment.App)
 
-	if deployment.Version != nil {
-		//Check if the release we are trying to deploy is an undeploy version
+	if deployment.Version != nil { //Check if not trying to deploy an undeploy version
+		//Get the undeploy information from the release
 		release, err := h.DBSelectReleaseByVersion(ctx, transaction, appInEnv.Name, appInEnv.Version)
 		if err != nil {
 			return fmt.Errorf("error getting release %d for app %s", appInEnv.Version, appInEnv.Name)
