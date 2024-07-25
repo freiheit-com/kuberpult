@@ -128,11 +128,6 @@ type RepositoryConfig struct {
 	Branch string
 	// network timeout
 	NetworkTimeout time.Duration
-	// Bootstrap mode controls where configurations are read from
-	// true: read from json file at EnvironmentConfigsPath
-	// false: read from config files in manifest repo
-	BootstrapMode          bool
-	EnvironmentConfigsPath string
 
 	ArgoCdGenerateFiles bool
 	ReleaseVersionLimit uint
@@ -735,6 +730,9 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			if err != nil {
 				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
 			}
+			if oneAppData == nil {
+				return fmt.Errorf("skipping app %s because it was not found in the database", appName)
+			}
 			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
@@ -794,12 +792,10 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 			if errors.As(err, &gerr) {
 				if gerr.Code == git.ErrorCodeNotFound {
 					return &State{
-						Commit:                 nil,
-						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
-						BootstrapMode:          r.config.BootstrapMode,
-						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-						DBHandler:              r.DB,
-						ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
+						Commit:               nil,
+						Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
+						DBHandler:            r.DB,
+						ReleaseVersionsLimit: r.config.ReleaseVersionLimit,
 					}, nil
 				}
 			}
@@ -818,21 +814,17 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		}
 	}
 	return &State{
-		Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-		Commit:                 commit,
-		BootstrapMode:          r.config.BootstrapMode,
-		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-		ReleaseVersionsLimit:   r.config.ReleaseVersionLimit,
-		DBHandler:              r.DB,
+		Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
+		Commit:               commit,
+		ReleaseVersionsLimit: r.config.ReleaseVersionLimit,
+		DBHandler:            r.DB,
 	}, nil
 }
 
 type State struct {
-	Filesystem             billy.Filesystem
-	Commit                 *git.Commit
-	BootstrapMode          bool
-	EnvironmentConfigsPath string
-	ReleaseVersionsLimit   uint
+	Filesystem           billy.Filesystem
+	Commit               *git.Commit
+	ReleaseVersionsLimit uint
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }
@@ -972,6 +964,30 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 		result[lock.LockID] = genericLock
 	}
 	return result, nil
+}
+
+func (s *State) GetLastRelease(ctx context.Context, fs billy.Filesystem, application string) (uint64, error) {
+	var err error
+	releasesDir := releasesDirectory(fs, application)
+	err = fs.MkdirAll(releasesDir, 0777)
+	if err != nil {
+		return 0, err
+	}
+	if entries, err := fs.ReadDir(releasesDir); err != nil {
+		return 0, err
+	} else {
+		var lastRelease uint64 = 0
+		for _, e := range entries {
+			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("Bad name for release: '%s'\n", e.Name())
+			} else {
+				if i > lastRelease {
+					lastRelease = i
+				}
+			}
+		}
+		return lastRelease, nil
+	}
 }
 
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
@@ -1215,36 +1231,20 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 }
 
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
-	if s.BootstrapMode {
-		result := map[string]config.EnvironmentConfig{}
-		buf, err := os.ReadFile(s.EnvironmentConfigsPath)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return result, nil
-			}
-			return nil, err
-		}
-		err = json.Unmarshal(buf, &result)
-		if err != nil {
-			return nil, err
-		}
-		return result, nil
-	} else {
-		envs, err := s.Filesystem.ReadDir("environments")
-		if err != nil {
-			return nil, err
-		}
-		result := map[string]config.EnvironmentConfig{}
-		for _, env := range envs {
-			c, err := s.GetEnvironmentConfig(env.Name())
-			if err != nil {
-				return nil, err
-
-			}
-			result[env.Name()] = *c
-		}
-		return result, nil
+	envs, err := s.Filesystem.ReadDir("environments")
+	if err != nil {
+		return nil, err
 	}
+	result := map[string]config.EnvironmentConfig{}
+	for _, env := range envs {
+		c, err := s.GetEnvironmentConfig(env.Name())
+		if err != nil {
+			return nil, err
+
+		}
+		result[env.Name()] = *c
+	}
+	return result, nil
 }
 
 func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {

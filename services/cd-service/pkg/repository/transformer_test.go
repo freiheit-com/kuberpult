@@ -32,7 +32,6 @@ import (
 	"math/rand"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
@@ -4421,7 +4420,6 @@ func TestRbacTransformerTest(t *testing.T) {
 					Path:                localDir,
 					CommitterEmail:      "kuberpult@freiheit.com",
 					CommitterName:       "kuberpult",
-					BootstrapMode:       false,
 					ArgoCdGenerateFiles: true,
 				},
 			)
@@ -4502,7 +4500,6 @@ func TestTransformer(t *testing.T) {
 		Transformers         []Transformer
 		Test                 func(t *testing.T, s *State)
 		ErrorTest            func(t *testing.T, err error)
-		BootstrapMode        bool
 	}{
 		{
 			Name:                 "Create Versions and do not clean up because not enough versions",
@@ -6042,29 +6039,6 @@ spec:
 				}
 			},
 		},
-		{
-			Name:          "CreateEnvironment errors in bootstrap mode",
-			BootstrapMode: true,
-			Transformers: []Transformer{
-				&CreateEnvironment{Environment: "production", Config: c1},
-			},
-			ErrorTest: func(t *testing.T, err error) {
-				expectedError := "error at index 0 of transformer batch: Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead."
-				if err.Error() != expectedError {
-					t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
-				}
-			},
-		},
-		{
-			Name:          "CreateEnvironment does not error in bootstrap mode without configuration",
-			BootstrapMode: true,
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "production",
-				},
-			},
-			Test: func(t *testing.T, s *State) {},
-		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -6081,7 +6055,6 @@ spec:
 				Path:                 localDir,
 				CommitterEmail:       "kuberpult@freiheit.com",
 				CommitterName:        "kuberpult",
-				BootstrapMode:        tc.BootstrapMode,
 				ArgoCdGenerateFiles:  true,
 				ReleaseVersionsLimit: tc.ReleaseVersionsLimit,
 			}
@@ -6291,12 +6264,11 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repositor
 	t.Logf("test created dir: %s", localDir)
 
 	repoCfg := RepositoryConfig{
-		URL:                    remoteDir,
-		Path:                   localDir,
-		CommitterEmail:         "kuberpult@freiheit.com",
-		CommitterName:          "kuberpult",
-		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-		ArgoCdGenerateFiles:    true,
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
 	}
 	dbConfig.DbHost = dir
 
@@ -6341,7 +6313,6 @@ func SetupRepositoryTestWithoutDB(t *testing.T, repositoryConfig *RepositoryConf
 	repositoryConfig.Path = localDir
 	repositoryConfig.CommitterName = "kuberpult"
 	repositoryConfig.CommitterEmail = "kuberpult@freiheit.com"
-	repositoryConfig.EnvironmentConfigsPath = filepath.Join(remoteDir, "..", "environment_configs.json")
 	repositoryConfig.ArgoCdGenerateFiles = true
 	repositoryConfig.DBHandler = nil
 

@@ -326,6 +326,7 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
 	var manifestContent []byte
@@ -401,7 +402,6 @@ func (c *DeployApplicationVersion) Transform(
 			}
 		}
 	}
-
 	applicationDir := fsys.Join("environments", c.Environment, "applications", c.Application)
 	versionFile := fsys.Join(applicationDir, "version")
 
@@ -612,12 +612,10 @@ func (c *DeleteEnvironmentLock) Transform(
 ) (string, error) {
 	fs := state.Filesystem
 	s := State{
-		Commit:                 nil,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "",
-		Filesystem:             fs,
-		ReleaseVersionsLimit:   state.ReleaseVersionsLimit,
-		DBHandler:              state.DBHandler,
+		Commit:               nil,
+		Filesystem:           fs,
+		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
+		DBHandler:            state.DBHandler,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err := fs.Stat(lockDir)
@@ -1592,4 +1590,235 @@ func (u *DeleteEnvFromApp) Transform(
 
 	t.DeleteEnvFromApp(u.Application, u.Environment)
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
+}
+
+type CreateUndeployApplicationVersion struct {
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Application           string           `json:"app"`
+	WriteCommitData       bool             `json:"writeCommitData"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+func (u *CreateUndeployApplicationVersion) GetEslVersion() db.TransformerID {
+	return u.TransformerEslVersion
+}
+
+func (c *CreateUndeployApplicationVersion) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
+}
+
+func (u *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvFromApp
+}
+
+func (c *CreateUndeployApplicationVersion) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+	lastRelease, err := state.GetLastRelease(ctx, fs, c.Application)
+	if err != nil {
+		return "", fmt.Errorf("Could not get last reelase for app '%v': %v\n", c.Application, err)
+	}
+	if lastRelease == 0 {
+		return "", fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
+	}
+
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+		return "", err
+	}
+
+	configs, err := state.GetEnvironmentConfigs()
+	if err != nil {
+		return "", err
+	}
+	// this is a flag to indicate that this is the special "undeploy" version
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
+		return "", err
+	}
+	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+		return "", err
+	}
+	for env := range configs {
+		if err != nil {
+			return "", err
+		}
+		envDir := fs.Join(releaseDir, "environments", env)
+
+		config, found := configs[env]
+		hasUpstream := false
+		if found {
+			hasUpstream = config.Upstream != nil
+		}
+
+		if err = fs.MkdirAll(envDir, 0777); err != nil {
+			return "", err
+		}
+		// note that the manifest is empty here!
+		// but actually it's not quite empty!
+		// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
+		// We work around this unusual behavior by writing a space into the file
+		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
+			return "", err
+		}
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+		if err != nil {
+			return "", err
+		}
+		t.AddAppEnv(c.Application, env, teamOwner)
+		if hasUpstream && config.Upstream.Latest {
+			d := &DeployApplicationVersion{
+				SourceTrain: nil,
+				Environment: env,
+				Application: c.Application,
+				Version:     lastRelease + 1,
+				// the train should queue deployments, instead of giving up:
+				LockBehaviour:         api.LockBehavior_RECORD,
+				Authentication:        c.Authentication,
+				WriteCommitData:       c.WriteCommitData,
+				Author:                "",
+				TransformerEslVersion: c.TransformerEslVersion,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  "",
+					AuthorEmail: "",
+				},
+			}
+			err := t.Execute(d, transaction)
+			if err != nil {
+				_, ok := err.(*LockedError)
+				if ok {
+					continue // locked error are expected
+				} else {
+					return "", err
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("created undeploy-version %d of '%v'", lastRelease+1, c.Application), nil
+}
+
+type UndeployApplication struct {
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Application           string           `json:"app"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+
+}
+
+func (u *UndeployApplication) GetEslVersion() db.TransformerID {
+	return u.TransformerEslVersion
+}
+func (u *UndeployApplication) GetDBEventType() db.EventType {
+	return db.EvtUndeployApplication
+}
+
+func (c *UndeployApplication) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (u *UndeployApplication) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+	lastRelease, err := state.GetLastRelease(ctx, fs, u.Application)
+	if err != nil {
+		return "", err
+	}
+	if lastRelease == 0 {
+		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
+	}
+	isUndeploy, err := state.IsUndeployVersion(u.Application, lastRelease)
+	if err != nil {
+		return "", err
+	}
+	if !isUndeploy {
+		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
+	}
+	appDir := applicationDirectory(fs, u.Application)
+	configs, err := state.GetEnvironmentConfigs()
+	if err != nil {
+		return "", err
+	}
+	for env := range configs {
+		if err != nil {
+			return "", err
+		}
+		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
+		entries, err := fs.ReadDir(envAppDir)
+		if err != nil {
+			return "", wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
+		}
+		if entries == nil {
+			// app was never deployed on this env, so we must ignore it!
+			continue
+		}
+
+		appLocksDir := fs.Join(envAppDir, "locks")
+		err = fs.Remove(appLocksDir)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: cannot delete app locks '%v'", appLocksDir)
+		}
+
+		versionDir := fs.Join(envAppDir, "version")
+
+		_, err = fs.Stat(versionDir)
+		if err != nil && errors.Is(err, os.ErrNotExist) {
+			// if the app was never deployed here, that's not a reason to stop
+			continue
+		}
+
+		undeployFile := fs.Join(versionDir, "undeploy")
+		_, err = fs.Stat(undeployFile)
+		if err != nil && errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
+		}
+
+	}
+	// remove application
+	releasesDir := fs.Join(appDir, "releases")
+	files, err := fs.ReadDir(releasesDir)
+	if err != nil {
+		return "", fmt.Errorf("could not read the releases directory %s %w", releasesDir, err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			releaseDir := fs.Join(releasesDir, file.Name())
+			commitIDFile := fs.Join(releaseDir, "source_commit_id")
+			var commitID string
+			dat, err := util.ReadFile(fs, commitIDFile)
+			if err != nil {
+				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
+				continue
+			}
+			commitID = string(dat)
+			if valid.SHA1CommitID(commitID) {
+				if err := removeCommit(fs, commitID, u.Application); err != nil {
+					return "", fmt.Errorf("could not remove the commit: %w", err)
+				}
+			}
+		}
+	}
+	if err = fs.Remove(appDir); err != nil {
+		return "", err
+	}
+	for env := range configs {
+		appDir := environmentApplicationDirectory(fs, env, u.Application)
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, u.Application)
+		if err != nil {
+			return "", err
+		}
+		t.AddAppEnv(u.Application, env, teamOwner)
+		// remove environment application
+		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
+		}
+	}
+	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }

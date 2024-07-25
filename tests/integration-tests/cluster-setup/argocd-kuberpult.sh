@@ -73,7 +73,12 @@ $(sed -e "s/^/        /" </kp/known_hosts)
     repo.server: kuberpult-cd-service:8443
   rbac:
     policy.csv: |
+      p, role:kuberpult, applications, refresh, */*, allow
+      p, role:kuberpult, applications, sync, */*, allow
       p, role:kuberpult, applications, get, */*, allow
+      p, role:kuberpult, applications, create, */*, allow
+      p, role:kuberpult, applications, update, */*, allow
+      p, role:kuberpult, applications, delete, */*, allow
       g, kuberpult, role:kuberpult
 
 YAML
@@ -150,10 +155,10 @@ frontend:
   resources:
     limits:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.5
     requests:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.5
 rollout:
   enabled: true
   resources:
@@ -163,6 +168,17 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
+manifestRepoExport:
+  eslProcessingIdleTimeSeconds: 15
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+manageArgoApplications:
+  enabled: true
 ingress:
   domainName: kuberpult.example.com
 log:
@@ -187,6 +203,7 @@ $(sed -e "s/^/    /" </kp/kuberpult-keyring.gpg)
 VALUES
 
 # Get helm dependency charts and unzip them
+cp -r database/migrations migrations
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
 helm template -s templates/migrations.yaml ./ -f values.yaml --set git.url=test --set ingress.domainName=kuberpult.example.com > templates/generated-migrations.yaml
 rm -rf migrations
@@ -199,11 +216,13 @@ kubectl get pods
 
 print "port forwarding to cd service..."
 waitForDeployment "default" "app=kuberpult-cd-service"
-portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 
 waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
+
+waitForDeployment "default" "app=kuberpult-rollout-service"
+waitForDeployment "default" "app=kuberpult-manifest-repo-export-service"
 
 kubectl get deployment
 kubectl get pods

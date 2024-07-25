@@ -135,12 +135,12 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
 
-	var eslProcessingBackoff uint64
+	var eslProcessingIdleTimeSeconds uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
 		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
-		eslProcessingBackoff = 10
+		eslProcessingIdleTimeSeconds = 10
 	} else {
-		eslProcessingBackoff, err = strconv.ParseUint(val, 10, 64)
+		eslProcessingIdleTimeSeconds, err = strconv.ParseUint(val, 10, 64)
 		if err != nil {
 			return fmt.Errorf("error converting KUBERPULT_ESL_PROCESSING_BACKOFF, error: %w", err)
 		}
@@ -210,13 +210,11 @@ func Run(ctx context.Context) error {
 		Certificates: repository.Certificates{
 			KnownHostsFile: gitSshKnownHosts,
 		},
-		Branch:                 gitBranch,
-		NetworkTimeout:         time.Duration(networkTimeoutSeconds) * time.Second,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "./environment_configs.json",
-		ReleaseVersionLimit:    uint(releaseVersionLimit),
-		ArgoCdGenerateFiles:    argoCdGenerateFiles,
-		DBHandler:              dbHandler,
+		Branch:              gitBranch,
+		NetworkTimeout:      time.Duration(networkTimeoutSeconds) * time.Second,
+		ReleaseVersionLimit: uint(releaseVersionLimit),
+		ArgoCdGenerateFiles: argoCdGenerateFiles,
+		DBHandler:           dbHandler,
 	}
 
 	repo, err := repository.New(ctx, cfg)
@@ -287,7 +285,7 @@ func Run(ctx context.Context) error {
 			return fmt.Errorf("error in transaction %v", err)
 		}
 		if eslEventSkipped || eslTableEmpty {
-			d := time.Second * time.Duration(eslProcessingBackoff)
+			d := time.Second * time.Duration(eslProcessingIdleTimeSeconds)
 			log.Infof("sleeping for %v before processing the next event", d)
 			time.Sleep(d)
 		}
@@ -398,10 +396,14 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtDeleteEnvFromApp:
 		//exhaustruct:ignore
 		return &repository.DeleteEnvFromApp{}, nil
-	default:
-		logger.FromContext(ctx).Sugar().Warnf("Found an unknown event %s. No further events will be processed.", eslEventType)
-		return nil, nil
+	case db.EvtCreateUndeployApplicationVersion:
+		//exhaustruct:ignore
+		return &repository.CreateUndeployApplicationVersion{}, nil
+	case db.EvtUndeployApplication:
+		//exhaustruct:ignore
+		return &repository.UndeployApplication{}, nil
 	}
+	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }
 
 func readEnvVar(envName string) (string, error) {
