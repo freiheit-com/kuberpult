@@ -52,7 +52,7 @@ rollout:
       memory: 200Mi
       cpu: 0.05
 manifestRepoExport:
-  eslProcessingBackoff: 15
+  eslProcessingIdleTimeSeconds: 15
   resources:
     limits:
       memory: 200Mi
