@@ -391,24 +391,19 @@ func CalculateWarnings(ctx context.Context, appName string, groups []*api.Enviro
 func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
 	var allNormal = true
 	var allUndeploy = true
-	fmt.Printf("deriveUndeploySummary for app: %s\n", appName)
 	for _, group := range groups {
 		for _, environment := range group.Environments {
-			fmt.Printf("Env: %s", environment)
 			var app, exists = environment.Applications[appName]
 			if !exists {
 				continue
 			}
 			if app.Version == 0 {
-				fmt.Println(" app.Version=0")
 				// if the app exists but nothing is deployed, we ignore this
 				continue
 			}
 			if app.UndeployVersion {
-				fmt.Println(" app.UndeployVersion")
 				allNormal = false
 			} else {
-				fmt.Println(" app.UndeployVersion")
 				allUndeploy = false
 			}
 		}
