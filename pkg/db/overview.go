@@ -121,9 +121,22 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 	}
 	appInEnv.DeploymentMetaData.DeployAuthor = deployment.Metadata.DeployedByEmail
 	appInEnv.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", createdTime.Unix())
-	app := getApplicationByName(latestOverview.Applications, deployment.App)
-	app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
 
+	app := getApplicationByName(latestOverview.Applications, deployment.App)
+
+	if deployment.Version != nil {
+		//Check if the release we are trying to deploy is an undeploy version
+		release, err := h.DBSelectReleaseByVersion(ctx, transaction, appInEnv.Name, appInEnv.Version)
+		if err != nil {
+			return fmt.Errorf("error getting release %d for app %s", appInEnv.Version, appInEnv.Name)
+		}
+		if release == nil {
+			return fmt.Errorf("could not find release %d for app %s", appInEnv.Version, appInEnv.Name)
+		}
+		appInEnv.UndeployVersion = release.Metadata.UndeployVersion
+	}
+	app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
+	app.UndeploySummary = deriveUndeploySummary(app.Name, latestOverview.EnvironmentGroups)
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
@@ -158,6 +171,40 @@ func (h *DBHandler) UpdateOverviewDeploymentAttempt(ctx context.Context, transac
 		return err
 	}
 	return nil
+}
+
+func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
+	var allNormal = true
+	var allUndeploy = true
+	fmt.Printf("deriveUndeploySummary for app: %s\n", appName)
+	for _, group := range groups {
+		for _, environment := range group.Environments {
+			fmt.Printf("Env: %s", environment)
+			var app, exists = environment.Applications[appName]
+			if !exists {
+				continue
+			}
+			if app.Version == 0 {
+				fmt.Println(" app.Version=0")
+				// if the app exists but nothing is deployed, we ignore this
+				continue
+			}
+			if app.UndeployVersion {
+				fmt.Println(" app.UndeployVersion=true")
+				allNormal = false
+			} else {
+				fmt.Println(" else")
+				allUndeploy = false
+			}
+		}
+	}
+	if allUndeploy {
+		return api.UndeploySummary_UNDEPLOY
+	}
+	if allNormal {
+		return api.UndeploySummary_NORMAL
+	}
+	return api.UndeploySummary_MIXED
 }
 
 func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transaction *sql.Tx, applicationLock ApplicationLock) error {
