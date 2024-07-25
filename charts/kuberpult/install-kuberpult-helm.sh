@@ -51,6 +51,15 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
+manifestRepoExport:
+  eslProcessingIdleTimeSeconds: 15
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
 ingress:
   domainName: kuberpult.example.com
 log:

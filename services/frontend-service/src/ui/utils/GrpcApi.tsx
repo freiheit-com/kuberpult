@@ -38,6 +38,7 @@ class GrpcApi implements Api {
     _gitService: api.GitService;
     _environmentService: api.EnvironmentService;
     _releaseTrainPrognosisService: api.ReleaseTrainPrognosisService;
+    _eslService: api.EslService;
     constructor() {
         // eslint-disable-next-line no-restricted-globals
         const gcli = new api.GrpcWebImpl(location.protocol + '//' + location.host, {});
@@ -48,6 +49,7 @@ class GrpcApi implements Api {
         this._gitService = new api.GitServiceClientImpl(gcli);
         this._environmentService = new api.EnvironmentServiceClientImpl(gcli);
         this._releaseTrainPrognosisService = new api.ReleaseTrainPrognosisServiceClientImpl(gcli);
+        this._eslService = new api.EslServiceClientImpl(gcli);
     }
     overviewService(): api.OverviewService {
         return this._overviewService;
@@ -69,6 +71,9 @@ class GrpcApi implements Api {
     }
     releaseTrainPrognosisService(): api.ReleaseTrainPrognosisService {
         return this._releaseTrainPrognosisService;
+    }
+    eslService(): api.EslService {
+        return this._eslService;
     }
 }
 

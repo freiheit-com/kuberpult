@@ -116,6 +116,6 @@ curl http://localhost:${FRONTEND_PORT}/release \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
-  "${manifests[@]}" -v
+  "${manifests[@]}"
 
 echo # curl sometimes does not print a trailing \n

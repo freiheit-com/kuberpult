@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/DataDog/datadog-go/v5 v5.5.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
-	github.com/argoproj/argo-cd/v2 v2.9.15
+	github.com/argoproj/argo-cd/v2 v2.9.20
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coreos/go-oidc/v3 v3.10.0
@@ -48,7 +48,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c
-	github.com/argoproj/gitops-engine v0.7.1-0.20230906152414-b0fffe419a0f
+	github.com/argoproj/gitops-engine v0.7.1-0.20240715141028-c68bce0f979c
 	github.com/argoproj/pkg v0.13.7-0.20230627120311-a4dd357b057e // indirect
 	github.com/bombsimon/logrusr/v2 v2.0.1 // indirect
 	github.com/bradleyfalzon/ghinstallation/v2 v2.6.0 // indirect

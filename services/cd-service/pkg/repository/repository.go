@@ -17,7 +17,6 @@ Copyright freiheit.com*/
 package repository
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"database/sql"
@@ -41,7 +40,6 @@ import (
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 
@@ -79,6 +77,7 @@ type Repository interface {
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
+	Pull(ctx context.Context) error
 }
 
 type TransformerBatchApplyError struct {
@@ -114,6 +113,20 @@ func (err *TransformerBatchApplyError) Is(target error) bool {
 	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
+func UnwrapUntilTransformerBatchApplyError(err error) *TransformerBatchApplyError {
+	for {
+		var applyErr *TransformerBatchApplyError
+		if errors.As(err, &applyErr) {
+			return applyErr
+		}
+		err2 := errors.Unwrap(err)
+		if err2 == nil {
+			// cannot unwrap any further
+			return nil
+		}
+	}
+}
+
 func defaultBackOffProvider() backoff.BackOff {
 	eb := backoff.NewExponentialBackOff()
 	eb.MaxElapsedTime = 7 * time.Second
@@ -130,10 +143,6 @@ const (
 	DefaultBackend StorageBackend = 0
 	GitBackend     StorageBackend = iota
 	SqliteBackend  StorageBackend = iota
-)
-
-const (
-	maxArgoRequests = 3 // note that this happens inside a request, we cannot retry too much!
 )
 
 type repository struct {
@@ -195,14 +204,6 @@ type RepositoryConfig struct {
 	// number of app versions to keep a history of
 	ReleaseVersionsLimit uint
 	StorageBackend       StorageBackend
-	// Bootstrap mode controls where configurations are read from
-	// true: read from json file at EnvironmentConfigsPath
-	// false: read from config files in manifest repo
-	BootstrapMode          bool
-	EnvironmentConfigsPath string
-	ArgoInsecure           bool
-	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
-	ArgoWebhookUrl string
 	// the url to the git repo, like the browser requires it (https protocol)
 	WebURL                string
 	DogstatsdEvents       bool
@@ -426,46 +427,9 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			result.headLock.Lock()
 
 			defer result.headLock.Unlock()
-			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-			//exhaustruct:ignore
-			RemoteCallbacks := git.RemoteCallbacks{
-				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-					logger.Debug("git.fetched",
-						zap.String("refname", refname),
-						zap.String("revision.new", b.String()),
-					)
-					return nil
-				},
-				CredentialsCallback:      credentials.CredentialsCallback(ctx),
-				CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
-			}
-			fetchOptions := git.FetchOptions{
-				Prune:           git.FetchPruneUnspecified,
-				UpdateFetchhead: false,
-				DownloadTags:    git.DownloadTagsUnspecified,
-				Headers:         nil,
-				ProxyOptions: git.ProxyOptions{
-					Type: git.ProxyTypeNone,
-					Url:  "",
-				},
-				RemoteCallbacks: RemoteCallbacks,
-			}
-			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
-			if err != nil {
-				return nil, nil, err
-			}
-			var rev *git.Oid
-			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
-				var gerr *git.GitError
-				if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
-					// not found
-					// nothing to do
-				} else {
-					return nil, nil, err
-				}
-			} else {
-				rev = remoteRef.Target()
-				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+			//We need fetch when not using the database
+			if !cfg.DBHandler.ShouldUseOtherTables() {
+				if err := ConfigureAndPull(ctx, cfg, remote, repo2, credentials, certificates); err != nil {
 					return nil, nil, err
 				}
 			}
@@ -478,7 +442,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			// Check configuration for errors and abort early if any:
 			if state.DBHandler.ShouldUseOtherTables() {
-				_, err = db.WithTransactionT(state.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
 					return &ret, err
 				})
@@ -493,6 +457,58 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return result, result.ProcessQueue, nil
 		}
 	}
+}
+
+func ConfigureAndPull(ctx context.Context, cfg RepositoryConfig, remote *git.Remote, repo2 *git.Repository, credentials *credentialsStore, certificates *certificateStore) error {
+	logger := logger.FromContext(ctx)
+	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+			logger.Debug("git.fetched",
+				zap.String("refname", refname),
+				zap.String("revision.new", b.String()),
+			)
+			return nil
+		},
+		CredentialsCallback:      credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+	}
+	fetchOptions := git.FetchOptions{
+		Prune:           git.FetchPruneUnspecified,
+		UpdateFetchhead: false,
+		DownloadTags:    git.DownloadTagsUnspecified,
+		Headers:         nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+		RemoteCallbacks: RemoteCallbacks,
+	}
+	err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	if err != nil {
+		return err
+	}
+	var rev *git.Oid
+	if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
+		var gerr *git.GitError
+		if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
+			// not found
+			// nothing to do
+		} else {
+			return err
+		}
+	} else {
+		rev = remoteRef.Target()
+		if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) Pull(ctx context.Context) error {
+	return r.FetchAndReset(ctx)
 }
 
 func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
@@ -531,53 +547,49 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
 
-	for i := 0; i < len(transformerBatches); {
-		var transaction *sql.Tx
-		var txErr error
-		e := transformerBatches[i]
-		if r.DB.ShouldUseEslTable() {
-			transaction, txErr = r.DB.BeginTransaction(e.ctx, false)
+	if r.DB.ShouldUseEslTable() {
+		for i := 0; i < len(transformerBatches); {
+			e := transformerBatches[i]
+
+			subChanges, txErr := db.WithTransactionT(r.DB, e.ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
+				subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
+				if applyErr != nil {
+					return nil, applyErr
+				}
+				return subChanges, nil
+			})
+
 			if txErr != nil {
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 				continue //Skip this batch
 			}
-		}
-		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
-		if applyErr != nil {
-			//Some transformer on this batch failed. Rollback the transaction
-			if r.DB.ShouldUseEslTable() {
-				rollBackError := transaction.Rollback()
-				if rollBackError != nil {
-					e.finish(rollBackError)
-					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-					continue
-				}
-			}
-			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
-				// Invalid state. fetch and reset and redo
-				err := r.FetchAndReset(e.ctx)
-				if err != nil {
-					return transformerBatches, err, nil
-				}
-				return r.applyTransformerBatches(transformerBatches, false)
-			} else {
-				e.finish(applyErr)
-				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-			}
-		} else {
-			if r.DB.ShouldUseEslTable() {
-				err := transaction.Commit()
-				if err != nil {
-					e.finish(err)
-					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-					continue
-				}
-			}
 			changes.Combine(subChanges)
 			i++
 		}
+	} else {
+		for i := 0; i < len(transformerBatches); {
+			e := transformerBatches[i]
+
+			subChanges, applyErr := r.ApplyTransformers(e.ctx, nil, e.transformers...)
+			if applyErr != nil {
+				if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
+					// Invalid state. fetch and reset and redo
+					err := r.FetchAndReset(e.ctx)
+					if err != nil {
+						return transformerBatches, err, nil
+					}
+					return r.applyTransformerBatches(transformerBatches, false)
+				}
+				e.finish(applyErr)
+				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+			} else {
+				changes.Combine(subChanges)
+				i++
+			}
+		}
 	}
+
 	return transformerBatches, nil, changes
 }
 
@@ -721,38 +733,39 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 		return
 	}
 
-	logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
-	// Try pushing once
-	err = r.Push(e.ctx, pushAction(pushOptions, r))
-	if err != nil {
-		gerr, ok := err.(*git.GitError)
-		// If it doesn't work because the branch diverged, try reset and apply again.
-		if ok && gerr.Code == git.ErrorCodeNonFastForward {
-			err = r.FetchAndReset(e.ctx)
-			if err != nil {
-				return
+	if !r.DB.ShouldUseOtherTables() {
+		logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
+		// Try pushing once
+		err = r.Push(e.ctx, pushAction(pushOptions, r))
+		if err != nil {
+			gerr, ok := err.(*git.GitError)
+			// If it doesn't work because the branch diverged, try reset and apply again.
+			if ok && gerr.Code == git.ErrorCodeNonFastForward {
+				err = r.FetchAndReset(e.ctx)
+				if err != nil {
+					return
+				}
+				transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
+				if err != nil || len(transformerBatches) == 0 {
+					return
+				}
+				if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
+					err = pushErr
+				}
+			} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				err = grpc.CanceledError(ctx, err)
+			} else {
+				logger.Error(fmt.Sprintf("error while pushing: %s", err))
+				err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
 			}
-			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
-			if err != nil || len(transformerBatches) == 0 {
-				return
-			}
-			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
-				err = pushErr
-			}
-		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			err = grpc.CanceledError(ctx, err)
 		} else {
-			logger.Error(fmt.Sprintf("error while pushing: %s", err))
-			err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
+			if !pushSuccess {
+				err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
+			}
 		}
-	} else {
-		if !pushSuccess {
-			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
-		}
+		span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
+		defer span.Finish()
 	}
-	span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
-	defer span.Finish()
-
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 
 	if r.config.DogstatsdEvents {
@@ -767,10 +780,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 		}
 	}
 	ddSpan.Finish()
-
-	if r.config.ArgoWebhookUrl != "" {
-		r.sendWebhookToArgoCd(ctx, logger, changes)
-	}
 
 	r.notify.Notify()
 }
@@ -788,208 +797,6 @@ func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, cha
 		return err
 	}
 	return nil
-}
-
-func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger, changes *TransformerResult) {
-	var modified = []string{}
-	for i := range changes.ChangedApps {
-		change := changes.ChangedApps[i]
-		// we may need to add the root app in some circumstances - so far it doesn't seem necessary, so we just add the manifest.yaml:
-		manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.Env, change.App)
-		modified = append(modified, manifestFilename)
-		logger.Info(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
-	}
-	var deleted = []string{}
-	for i := range changes.DeletedRootApps {
-		change := changes.DeletedRootApps[i]
-		// we may need to add the root app in some circumstances - so far it doesn't seem necessary, so we just add the manifest.yaml:
-		rootAppFilename := fmt.Sprintf("argocd/%s/%s.yaml", "v1alpha1", change.Env)
-		deleted = append(deleted, rootAppFilename)
-		logger.Info(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", rootAppFilename))
-	}
-
-	argoResult := ArgoWebhookData{
-		htmlUrl:  r.config.WebURL, // if this does not match, argo will completely ignore the request and return 200
-		revision: "refs/heads/" + r.config.Branch,
-		change: changeInfo{
-			payloadBefore: "",
-			payloadAfter:  changes.Commits.Current.String(),
-		},
-		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
-		Commits: []commit{
-			{
-				Added:    []string{},
-				Modified: modified,
-				Removed:  deleted,
-			},
-		},
-	}
-	if changes.Commits.Previous != nil {
-		argoResult.change.payloadBefore = changes.Commits.Previous.String()
-	}
-
-	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook-Retries")
-	defer span.Finish()
-
-	success := false
-	var err error = nil
-	for i := 1; i <= maxArgoRequests; i++ {
-		err, shouldRetry := doWebhookPostRequest(ctx, argoResult, r.config, i)
-		if err != nil && shouldRetry {
-			logger.Warn(fmt.Sprintf("ProcessQueueOnce: error sending webhook on try %d: %v", i, err))
-			if shouldRetry {
-				// we're still in a request here, we can't wait too long:
-				time.Sleep(time.Duration(100*i) * time.Millisecond)
-			} else {
-				break
-			}
-		} else {
-			logger.Info(fmt.Sprintf("ProcessQueueOnce: argo webhook was send successfully on try %d!", i))
-			success = true
-			break
-		}
-	}
-	span.SetTag("success", success)
-	if !success {
-		logger.Error(fmt.Sprintf("ProcessQueueOnce: error sending webhook after all %d tries: %v", maxArgoRequests, err))
-	}
-}
-
-func contains(s []int, e int) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *RepositoryConfig, retryCounter int) (error, bool) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook")
-	span.SetTag("changeAfter", data.change.payloadAfter)
-	span.SetTag("changeBefore", data.change.payloadBefore)
-	span.SetTag("try", retryCounter)
-	defer span.Finish()
-	url := repoConfig.ArgoWebhookUrl + "/api/webhook"
-	l := logger.FromContext(ctx)
-	l.Info(fmt.Sprintf("doWebhookPostRequest: URL: %s", url))
-
-	//exhaustruct:ignore
-	Repository := v1alpha1.Repository{
-		HTMLURL:       data.htmlUrl,
-		DefaultBranch: data.defaultBranch,
-	}
-	//exhaustruct:ignore
-	var argoFormat = v1alpha1.PushPayload{
-		Ref:        data.revision,
-		Before:     data.change.payloadBefore,
-		After:      data.change.payloadAfter,
-		Repository: Repository,
-		Commits:    toArgoCommits(data.Commits),
-	}
-
-	jsonBytes, err := json.MarshalIndent(argoFormat, " ", " ")
-	if err != nil {
-		return err, false
-	}
-	l.Info(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
-	if err != nil {
-		return fmt.Errorf("Could not create new request: %s", err.Error()), false
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	// now pretend that we are GitHub by adding this header, otherwise argo will ignore our request:
-	req.Header.Set("X-GitHub-Event", "push")
-
-	var webhookResolver WebhookResolver = DefaultWebhookResolver{}
-	if repoConfig.WebhookResolver != nil {
-		webhookResolver = repoConfig.WebhookResolver
-	}
-	resp, err := webhookResolver.Resolve(repoConfig.ArgoInsecure, req)
-	if err != nil {
-		return fmt.Errorf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error()), false
-	}
-	defer resp.Body.Close()
-
-	//l.Warn(fmt.Sprintf("response Status: %d", resp.StatusCode))
-	l.Info(fmt.Sprintf("response headers: %s", resp.Header))
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		// weird but we kinda do not care about the body:
-		l.Warn(fmt.Sprintf("doWebhookPostRequest: could not read body: %s - continuing anyway", err.Error()))
-	}
-	validResponseCodes := []int{200}
-	if resp.StatusCode >= 500 {
-		return fmt.Errorf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode), true
-	}
-
-	if contains(validResponseCodes, resp.StatusCode) {
-		l.Info(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
-		return nil, false
-	}
-	// in any other case we should not do a retry (e.g. status 4xx):
-	l.Warn(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
-	return fmt.Errorf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode), false
-}
-
-func toArgoCommits(commits []commit) []v1alpha1.Commit {
-	var result = []v1alpha1.Commit{}
-	for i := range commits {
-		c := commits[i]
-		result = append(result, v1alpha1.Commit{
-			// ArgoCd ignores most fields, so we can ignore them too.
-			// Source: function "affectedRevisionInfo" in https://github.com/argoproj/argo-cd/blob/master/util/webhook/webhook.go#L141
-			Sha:       "",
-			ID:        "",
-			NodeID:    "",
-			TreeID:    "",
-			Distinct:  false,
-			Message:   "",
-			Timestamp: "",
-			URL:       "",
-			Author: struct {
-				Name     string `json:"name"`
-				Email    string `json:"email"`
-				Username string `json:"username"`
-			}{
-				Name:     "",
-				Email:    "",
-				Username: "",
-			},
-			Committer: struct {
-				Name     string `json:"name"`
-				Email    string `json:"email"`
-				Username string `json:"username"`
-			}{
-				Name:     "",
-				Email:    "",
-				Username: "",
-			},
-			Added:    c.Added,
-			Removed:  c.Removed,
-			Modified: c.Modified,
-		})
-	}
-	return result
-}
-
-type changeInfo struct {
-	payloadBefore string
-	payloadAfter  string
-}
-type commit struct {
-	Added    []string
-	Modified []string
-	Removed  []string
-}
-
-type ArgoWebhookData struct {
-	htmlUrl       string
-	revision      string // aka "ref"
-	change        changeInfo
-	defaultBranch string
-	Commits       []commit
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
@@ -1032,7 +839,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 						Index:            i,
 					}
 				}
-				// read the last written event, so we can get the primary key (eslId):
+				// read the last written event, so we can get the primary key (eslVersion):
 				internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
 				if err != nil {
 					return nil, nil, nil, &TransformerBatchApplyError{
@@ -1046,7 +853,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 						Index:            i,
 					}
 				}
-				t.SetEslID(db.TransformerID(internal.EslId))
+				t.SetEslVersion(db.TransformerID(internal.EslVersion))
 			}
 
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
@@ -1301,6 +1108,11 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
+	if state.DBHandler.ShouldUseOtherTables() {
+		// if the DB is enabled fully, the manifest-export service takes care to update the argo apps
+		return nil
+	}
+
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return err
@@ -1394,13 +1206,11 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 			if errors.As(err, &gerr) {
 				if gerr.Code == git.ErrorCodeNotFound {
 					return &State{
-						Commit:                 nil,
-						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
-						BootstrapMode:          r.config.BootstrapMode,
-						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-						ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
-						DBHandler:              r.DB,
-						CloudRunClient:         r.config.CloudRunClient,
+						Commit:               nil,
+						Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
+						ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
+						DBHandler:            r.DB,
+						CloudRunClient:       r.config.CloudRunClient,
 					}, nil
 				}
 			}
@@ -1419,13 +1229,11 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		}
 	}
 	return &State{
-		Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-		Commit:                 commit,
-		BootstrapMode:          r.config.BootstrapMode,
-		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-		ReleaseVersionsLimit:   r.config.ReleaseVersionsLimit,
-		DBHandler:              r.DB,
-		CloudRunClient:         r.config.CloudRunClient,
+		Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
+		Commit:               commit,
+		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
+		DBHandler:            r.DB,
+		CloudRunClient:       r.config.CloudRunClient,
 	}, nil
 }
 
@@ -1434,11 +1242,9 @@ func (r *repository) Notify() *notify.Notify {
 }
 
 type State struct {
-	Filesystem             billy.Filesystem
-	Commit                 *git.Commit
-	BootstrapMode          bool
-	EnvironmentConfigsPath string
-	ReleaseVersionsLimit   uint
+	Filesystem           billy.Filesystem
+	Commit               *git.Commit
+	ReleaseVersionsLimit uint
 	// DbHandler will be nil if the DB is disabled
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
@@ -2004,66 +1810,45 @@ func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.T
 }
 
 func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
-	if s.BootstrapMode {
-		result := map[string]config.EnvironmentConfig{}
-		buf, err := os.ReadFile(s.EnvironmentConfigsPath)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return result, nil
-			}
-			return nil, err
-		}
-		err = json.Unmarshal(buf, &result)
-		if err != nil {
-			return nil, err
-		}
-		return result, nil
-	} else {
-		envs, err := s.Filesystem.ReadDir("environments")
-		if err != nil {
-			return nil, err
-		}
-		result := map[string]config.EnvironmentConfig{}
-		for _, env := range envs {
-			c, err := s.GetEnvironmentConfigFromManifest(env.Name())
-			if err != nil {
-				return nil, err
-
-			}
-			result[env.Name()] = *c
-		}
-		return result, nil
+	envs, err := s.Filesystem.ReadDir("environments")
+	if err != nil {
+		return nil, err
 	}
+	result := map[string]config.EnvironmentConfig{}
+	for _, env := range envs {
+		c, err := s.GetEnvironmentConfigFromManifest(env.Name())
+		if err != nil {
+			return nil, err
+
+		}
+		result[env.Name()] = *c
+	}
+	return result, nil
 }
 
 func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
-	if s.BootstrapMode {
-		// this should never ever happen
-		return nil, fmt.Errorf("bootstrap mode cannot be enabled when writing to the database")
-	} else {
-		dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
-		if err != nil {
-			return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
-		}
-		if dbAllEnvs == nil {
-			return nil, nil
-		}
-		ret := make(map[string]config.EnvironmentConfig)
-		for _, envName := range dbAllEnvs.Environments {
-			dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
-			if err != nil {
-				return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
-			}
-			if dbEnv == nil {
-				return nil, fmt.Errorf("the all_environments and environments tables are inconsistent in the database, environment %s was listed in the all_environments tables, but is not found in the environments table", envName)
-			}
-			ret[envName] = dbEnv.Config
-		}
-		if err != nil {
-			return nil, err
-		}
-		return ret, nil
+	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 	}
+	if dbAllEnvs == nil {
+		return nil, nil
+	}
+	ret := make(map[string]config.EnvironmentConfig)
+	for _, envName := range dbAllEnvs.Environments {
+		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
+		}
+		if dbEnv == nil {
+			return nil, fmt.Errorf("the all_environments and environments tables are inconsistent in the database, environment %s was listed in the all_environments tables, but is not found in the environments table", envName)
+		}
+		ret[envName] = dbEnv.Config
+	}
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // for use with custom migrations, otherwise use the two functions above
@@ -2601,7 +2386,16 @@ func extractPrNumber(sourceMessage string) string {
 	}
 }
 
-func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
+func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version uint64) (bool, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		return release.Metadata.UndeployVersion, err
+	} else {
+		return s.IsUndeployVersionFromManifest(application, version)
+	}
+}
+
+func (s *State) IsUndeployVersionFromManifest(application string, version uint64) (bool, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
 	if err != nil {
@@ -2627,7 +2421,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		}
 		return &Release{
 			Version:         env.ReleaseNumber,
-			UndeployVersion: false,
+			UndeployVersion: env.Metadata.UndeployVersion,
 			SourceAuthor:    env.Metadata.SourceAuthor,
 			SourceCommitId:  env.Metadata.SourceCommitId,
 			SourceMessage:   env.Metadata.SourceMessage,
@@ -2683,7 +2477,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 	} else {
 		release.DisplayVersion = string(displayVersion)
 	}
-	isUndeploy, err := s.IsUndeployVersion(application, version)
+	isUndeploy, err := s.IsUndeployVersionFromManifest(application, version)
 	if err != nil {
 		return nil, err
 	}

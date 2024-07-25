@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -622,12 +621,11 @@ func setupRepositoryTestWithoutDB(t *testing.T) (repository.Repository, error) {
 	t.Logf("test created dir: %s", localDir)
 
 	repoCfg := repository.RepositoryConfig{
-		URL:                    remoteDir,
-		Path:                   localDir,
-		CommitterEmail:         "kuberpult@freiheit.com",
-		CommitterName:          "kuberpult",
-		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-		ArgoCdGenerateFiles:    true,
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
 	}
 	repoCfg.DBHandler = nil
 
@@ -651,12 +649,11 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 	t.Logf("test created dir: %s", localDir)
 
 	repoCfg := repository.RepositoryConfig{
-		URL:                    remoteDir,
-		Path:                   localDir,
-		CommitterEmail:         "kuberpult@freiheit.com",
-		CommitterName:          "kuberpult",
-		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-		ArgoCdGenerateFiles:    true,
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
 	}
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
@@ -1045,7 +1042,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			var envs map[string]config.EnvironmentConfig
 			if repo.State().DBHandler.ShouldUseOtherTables() {
 				var envsPtr *map[string]config.EnvironmentConfig
-				envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 					envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
 					return &envs, err
 				})

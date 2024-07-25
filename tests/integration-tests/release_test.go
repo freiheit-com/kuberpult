@@ -184,7 +184,7 @@ func TestReleaseCalls(t *testing.T) {
 		{
 			// Note that this test is not repeatable. Once the version exists, it cannot be overridden.
 			// To repeat the test, we would have to reset the manifest repo.
-			name:               "Simple invocation of /release endpoint with valid version",
+			name:               "Simple invocation of /release endpoint with valid version should be new",
 			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
 			inputSignature:     CalcSignature(t, theManifest),
@@ -195,7 +195,7 @@ func TestReleaseCalls(t *testing.T) {
 		},
 		{
 			// this is the same test, but this time we expect 200, because the release already exists:
-			name:               "Simple invocation of /release endpoint with valid version",
+			name:               "Simple invocation of /release endpoint with valid version should already exist",
 			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
 			inputSignature:     CalcSignature(t, theManifest),
@@ -262,16 +262,9 @@ func TestReleaseCalls(t *testing.T) {
 			if err != nil {
 				t.Fatalf("callRelease failed: %s", err.Error())
 			}
-			if tc.expectedStatusCode == 200 || tc.expectedStatusCode == 201 {
-				// There is currently an issue where the status code can toggle between 200 and 201
-				// This will be fixed in Ref SRX-8D1YX3
-				if actualStatusCode != 200 && actualStatusCode != 201 {
-					t.Errorf("expected code 200 or 201 but got %v. Body: %s", actualStatusCode, body)
-				}
-			} else {
-				if actualStatusCode != tc.expectedStatusCode {
-					t.Errorf("expected code %v but got %v. Body: %s", tc.expectedStatusCode, actualStatusCode, body)
-				}
+
+			if actualStatusCode != tc.expectedStatusCode {
+				t.Errorf("expected code %v but got %v. Body: %s", tc.expectedStatusCode, actualStatusCode, body)
 			}
 		})
 	}

@@ -135,12 +135,12 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
 
-	var eslProcessingBackoff uint64
+	var eslProcessingIdleTimeSeconds uint64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
 		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
-		eslProcessingBackoff = 10
+		eslProcessingIdleTimeSeconds = 10
 	} else {
-		eslProcessingBackoff, err = strconv.ParseUint(val, 10, 64)
+		eslProcessingIdleTimeSeconds, err = strconv.ParseUint(val, 10, 64)
 		if err != nil {
 			return fmt.Errorf("error converting KUBERPULT_ESL_PROCESSING_BACKOFF, error: %w", err)
 		}
@@ -210,13 +210,11 @@ func Run(ctx context.Context) error {
 		Certificates: repository.Certificates{
 			KnownHostsFile: gitSshKnownHosts,
 		},
-		Branch:                 gitBranch,
-		NetworkTimeout:         time.Duration(networkTimeoutSeconds) * time.Second,
-		BootstrapMode:          false,
-		EnvironmentConfigsPath: "./environment_configs.json",
-		ReleaseVersionLimit:    uint(releaseVersionLimit),
-		ArgoCdGenerateFiles:    argoCdGenerateFiles,
-		DBHandler:              dbHandler,
+		Branch:              gitBranch,
+		NetworkTimeout:      time.Duration(networkTimeoutSeconds) * time.Second,
+		ReleaseVersionLimit: uint(releaseVersionLimit),
+		ArgoCdGenerateFiles: argoCdGenerateFiles,
+		DBHandler:           dbHandler,
 	}
 
 	repo, err := repository.New(ctx, cfg)
@@ -231,16 +229,16 @@ func Run(ctx context.Context) error {
 		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
 		const readonly = false
 		err = dbHandler.WithTransaction(ctx, readonly, func(ctx context.Context, transaction *sql.Tx) error {
-			eslId, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
+			eslVersion, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("error in DBReadCutoff %v", err)
 			}
-			if eslId == nil {
+			if eslVersion == nil {
 				log.Infof("did not find cutoff")
 			} else {
-				log.Infof("found cutoff: %d", *eslId)
+				log.Infof("found cutoff: %d", *eslVersion)
 			}
-			esl, err := readEslEvent(ctx, transaction, eslId, log, dbHandler)
+			esl, err := readEslEvent(ctx, transaction, eslVersion, log, dbHandler)
 			if err != nil {
 				return fmt.Errorf("error in readEslEvent %v", err)
 			}
@@ -277,7 +275,7 @@ func Run(ctx context.Context) error {
 				return nil
 			}
 			log.Infof("event processed successfully, now writing to cutoff...")
-			err = cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslId)
+			err = cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 			if err != nil {
 				return fmt.Errorf("error in DBWriteCutoff %v", err)
 			}
@@ -287,7 +285,7 @@ func Run(ctx context.Context) error {
 			return fmt.Errorf("error in transaction %v", err)
 		}
 		if eslEventSkipped || eslTableEmpty {
-			d := time.Second * time.Duration(eslProcessingBackoff)
+			d := time.Second * time.Duration(eslProcessingIdleTimeSeconds)
 			log.Infof("sleeping for %v before processing the next event", d)
 			time.Sleep(d)
 		}
@@ -305,8 +303,8 @@ func calculateProcessDelay(ctx context.Context, nextEslToProcess *db.EslEventRow
 	return diff, nil
 }
 
-func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log *zap.SugaredLogger, dbHandler *db.DBHandler) (*db.EslEventRow, error) {
-	if eslId == nil {
+func readEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *db.EslVersion, log *zap.SugaredLogger, dbHandler *db.DBHandler) (*db.EslEventRow, error) {
+	if eslVersion == nil {
 		log.Warnf("no cutoff found, starting at the beginning of time.")
 		// no read cutoff yet, we have to start from the beginning
 		esl, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
@@ -320,8 +318,8 @@ func readEslEvent(ctx context.Context, transaction *sql.Tx, eslId *db.EslId, log
 		return esl, nil
 		//log.Warnf("found esl event %v of type %s", esl, esl.EventType)
 	} else {
-		log.Warnf("cutoff found, starting at t>cutoff: %d", *eslId)
-		esl, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, *eslId)
+		log.Warnf("cutoff found, starting at t>cutoff: %d", *eslVersion)
+		esl, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, *eslVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -347,7 +345,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	if err != nil {
 		return nil, err
 	}
-	t.SetEslID(db.TransformerID(esl.EslId))
+	t.SetEslVersion(db.TransformerID(esl.EslVersion))
 	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
 
 	err = repo.Apply(ctx, tx, t)
@@ -398,10 +396,14 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtDeleteEnvFromApp:
 		//exhaustruct:ignore
 		return &repository.DeleteEnvFromApp{}, nil
-	default:
-		logger.FromContext(ctx).Sugar().Warnf("Found an unknown event %s. No further events will be processed.", eslEventType)
-		return nil, nil
+	case db.EvtCreateUndeployApplicationVersion:
+		//exhaustruct:ignore
+		return &repository.CreateUndeployApplicationVersion{}, nil
+	case db.EvtUndeployApplication:
+		//exhaustruct:ignore
+		return &repository.UndeployApplication{}, nil
 	}
+	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }
 
 func readEnvVar(envName string) (string, error) {

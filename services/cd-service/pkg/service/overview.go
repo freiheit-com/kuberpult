@@ -81,7 +81,7 @@ func (o *OverviewServiceServer) getOverviewDB(
 	s *repository.State) (*api.GetOverviewResponse, error) {
 
 	if s.DBHandler.ShouldUseOtherTables() {
-		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
+		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
 			var err2 error
 			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
 			if err2 != nil {
@@ -176,7 +176,6 @@ func (o *OverviewServiceServer) getOverview(
 			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
 				return nil, err
 			} else {
-
 				for _, appName := range apps {
 					teamName, err := s.GetTeamName(ctx, transaction, appName)
 					app := api.Environment_Application{
@@ -306,7 +305,7 @@ func (o *OverviewServiceServer) getOverview(
 						} else {
 							release := rel.ToProto()
 							release.Version = id
-
+							release.UndeployVersion = rel.UndeployVersion
 							app.Releases = append(app.Releases, release)
 						}
 					}

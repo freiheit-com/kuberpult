@@ -141,7 +141,7 @@ manifestRepoExport:
     requests:
       cpu: 2
       memory: 3Gi
-  eslProcessingBackoff: 5
+  eslProcessingIdleTimeSeconds: 5
   # Timeout in seconds used for network operations
   networkTimeoutSeconds: 120
 frontend:
@@ -222,8 +222,6 @@ argocd:
   server: ""
   # Disables tls verification. This is useful when running in the same cluster as argocd and using a self-signed certificate.
   insecure: false
-  # Enable sending webhooks to argocd
-  sendWebhooks: false
 
   refresh:
     # Enable sending refresh requests to argocd
@@ -284,7 +282,6 @@ gke:
   project_number: ""
 
 environment_configs:
-  bootstrap_mode: false
   # environment_configs_json: |
   #   {
   #     "production": {

@@ -211,7 +211,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 			Name: "Simple migration",
 			expectedReleases: []*DBReleaseWithMetaData{
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 666,
 					App:           "app1",
 					Manifests: DBReleaseManifests{
@@ -227,7 +227,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 					},
 				},
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 777,
 					App:           "app1",
 					Manifests: DBReleaseManifests{
@@ -555,7 +555,7 @@ func TestReadWriteDeployment(t *testing.T) {
 					return err2
 				}
 				if deployment != nil {
-					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *deployment))
+					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *deployment))
 				}
 
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
@@ -647,7 +647,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
 				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, tc.Message, tc.AuthorName, tc.AuthorEmail)
 				if err != nil {
@@ -724,7 +724,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
 				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, tc.Message, tc.AuthorName, tc.AuthorEmail)
 				if err != nil {
@@ -799,7 +799,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
 				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, tc.Message, tc.AuthorName, tc.AuthorEmail)
 				if err != nil {
@@ -889,7 +889,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
 				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, tc.Message, tc.AuthorName, tc.AuthorEmail)
 				if err != nil {
@@ -1127,7 +1127,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
 				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, tc.Message, tc.AuthorName, tc.AuthorEmail)
 				if err != nil {
@@ -1217,7 +1217,7 @@ func TestDeleteTeamLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslId, but got %v", *envLock))
+					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
 				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, tc.Message, tc.AuthorName, tc.AuthorEmail)
 				if err != nil {
@@ -1259,7 +1259,7 @@ func TestDeleteRelease(t *testing.T) {
 		{
 			Name: "Delete Release from database",
 			toInsert: DBReleaseWithMetaData{
-				EslId:         InitialEslId,
+				EslVersion:    InitialEslVersion,
 				Created:       time.Now(),
 				ReleaseNumber: 1,
 				App:           "app",
@@ -1275,7 +1275,7 @@ func TestDeleteRelease(t *testing.T) {
 				Deleted: false,
 			},
 			expected: DBReleaseWithMetaData{
-				EslId:         InitialEslId + 1,
+				EslVersion:    InitialEslVersion + 1,
 				Created:       time.Now(),
 				ReleaseNumber: 1,
 				App:           "app",
@@ -1301,11 +1301,11 @@ func TestDeleteRelease(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := dbHandler.DBInsertRelease(ctx, transaction, tc.toInsert, tc.toInsert.EslId-1)
+				err2 := dbHandler.DBInsertRelease(ctx, transaction, tc.toInsert, tc.toInsert.EslVersion-1)
 				if err2 != nil {
 					return err2
 				}
-				err2 = dbHandler.DBInsertAllReleases(ctx, transaction, tc.toInsert.App, []int64{int64(tc.toInsert.ReleaseNumber)}, tc.toInsert.EslId-1)
+				err2 = dbHandler.DBInsertAllReleases(ctx, transaction, tc.toInsert.App, []int64{int64(tc.toInsert.ReleaseNumber)}, tc.toInsert.EslVersion-1)
 				if err2 != nil {
 					return err2
 				}
@@ -1488,7 +1488,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 				}
 			}
 
-			envEntry, err := WithTransactionT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
+			envEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
 				envEntry, err := dbHandler.DBSelectEnvironment(ctx, transaction, tc.EnvToQuery)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
@@ -1623,10 +1623,10 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 			Name: "Write and read once",
 			Events: []EslEventRow{
 				{
-					EventType: EvtCreateApplicationVersion,
-					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:   time.Now(),
-					EslId:     1,
+					EventType:  EvtCreateApplicationVersion,
+					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:    time.Now(),
+					EslVersion: 1,
 				},
 			},
 			Limit: 1,
@@ -1635,22 +1635,22 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 			Name: "Write and read multiple",
 			Events: []EslEventRow{
 				{
-					EventType: EvtCreateApplicationVersion,
-					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:   time.Now(),
-					EslId:     1,
+					EventType:  EvtCreateApplicationVersion,
+					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:    time.Now(),
+					EslVersion: 1,
 				},
 				{
-					EventType: EvtCreateEnvironmentApplicationLock,
-					EventJson: string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:   time.Now(),
-					EslId:     2,
+					EventType:  EvtCreateEnvironmentApplicationLock,
+					EventJson:  string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:    time.Now(),
+					EslVersion: 2,
 				},
 				{
-					EventType: EvtCreateEnvironment,
-					EventJson: string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:   time.Now(),
-					EslId:     3,
+					EventType:  EvtCreateEnvironment,
+					EventJson:  string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:    time.Now(),
+					EslVersion: 3,
 				},
 			},
 			Limit: 3,
@@ -1659,22 +1659,22 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 			Name: "More than limit",
 			Events: []EslEventRow{
 				{
-					EventType: EvtCreateApplicationVersion,
-					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:   time.Now(),
-					EslId:     1,
+					EventType:  EvtCreateApplicationVersion,
+					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:    time.Now(),
+					EslVersion: 1,
 				},
 				{
-					EventType: EvtCreateEnvironmentGroupLock,
-					EventJson: string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:   time.Now(),
-					EslId:     2,
+					EventType:  EvtCreateEnvironmentGroupLock,
+					EventJson:  string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:    time.Now(),
+					EslVersion: 2,
 				},
 				{
-					EventType: EvtCreateEnvironment,
-					EventJson: string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:   time.Now(),
-					EslId:     3,
+					EventType:  EvtCreateEnvironment,
+					EventJson:  string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:    time.Now(),
+					EslVersion: 3,
 				},
 			},
 			Limit: 2,
@@ -1683,10 +1683,10 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 			Name: "Less than limit",
 			Events: []EslEventRow{
 				{
-					EventType: EvtCreateApplicationVersion,
-					EventJson: string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:   time.Now(),
-					EslId:     1,
+					EventType:  EvtCreateApplicationVersion,
+					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:    time.Now(),
+					EslVersion: 1,
 				},
 			},
 			Limit: 3,
@@ -1718,7 +1718,7 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 
 				for i, actualEvent := range actualEvents {
 					reverse_index := len(tc.Events) - 1 - i // The order of the results should be descending
-					if diff := cmp.Diff(tc.Events[reverse_index].EslId, actualEvent.EslId); diff != "" {
+					if diff := cmp.Diff(tc.Events[reverse_index].EslVersion, actualEvent.EslVersion); diff != "" {
 						t.Fatalf("event id mismatch (-want, +got):\n%s", diff)
 					}
 					if diff := cmp.Diff(tc.Events[reverse_index].EventType, actualEvent.EventType); diff != "" {
@@ -1788,7 +1788,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 				}
 			}
 
-			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
 				allEnvsEntry, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
@@ -1819,7 +1819,7 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Retrieve one release",
 			Releases: []DBReleaseWithMetaData{
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 10,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
@@ -1828,7 +1828,7 @@ func TestReadReleasesByApp(t *testing.T) {
 			AppName: "app1",
 			Expected: []*DBReleaseWithMetaData{
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 10,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
@@ -1839,25 +1839,25 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Retrieve multiple releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					EslId:         2,
+					EslVersion:    2,
 					ReleaseNumber: 10,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
 				},
 				{
-					EslId:         2,
+					EslVersion:    2,
 					ReleaseNumber: 20,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
 				},
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 10,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
 				},
 				{
-					EslId:         2,
+					EslVersion:    2,
 					ReleaseNumber: 20,
 					App:           "app2",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest4"}},
@@ -1866,13 +1866,13 @@ func TestReadReleasesByApp(t *testing.T) {
 			AppName: "app1",
 			Expected: []*DBReleaseWithMetaData{
 				{
-					EslId:         2,
+					EslVersion:    2,
 					ReleaseNumber: 20,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
 				},
 				{
-					EslId:         2,
+					EslVersion:    2,
 					ReleaseNumber: 10,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
@@ -1883,7 +1883,7 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Retrieve no releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					EslId:         2,
+					EslVersion:    2,
 					ReleaseNumber: 10,
 					App:           "app2",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
@@ -1893,22 +1893,22 @@ func TestReadReleasesByApp(t *testing.T) {
 			Expected: nil,
 		},
 		{
-			Name: "Different Releases with different eslIDs",
+			Name: "Different Releases with different eslVersions",
 			Releases: []DBReleaseWithMetaData{
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 1,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
 				},
 				{
-					EslId:         2,
+					EslVersion:    2,
 					ReleaseNumber: 2,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
 				},
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 3,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
@@ -1917,19 +1917,19 @@ func TestReadReleasesByApp(t *testing.T) {
 			AppName: "app1",
 			Expected: []*DBReleaseWithMetaData{
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 3,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
 				},
 				{
-					EslId:         2,
+					EslVersion:    2,
 					ReleaseNumber: 2,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
 				},
 				{
-					EslId:         1,
+					EslVersion:    1,
 					ReleaseNumber: 1,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
@@ -1947,7 +1947,7 @@ func TestReadReleasesByApp(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.Releases {
-					err := dbHandler.DBInsertRelease(ctx, transaction, release, release.EslId-1)
+					err := dbHandler.DBInsertRelease(ctx, transaction, release, release.EslVersion-1)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
