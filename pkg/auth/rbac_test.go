@@ -86,6 +86,55 @@ func TestValidateRbacPermission(t *testing.T) {
 	}
 }
 
+func TestValidateTeamRbacPermission(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		Permission     string
+		WantError      error
+		WantPermission map[string][]string
+	}{
+
+		{
+			Name:       "Validating RBAC works as expected",
+			Permission: "sre,testemail@test.com anothertest@mail.com yetanother@mail.com",
+			WantPermission: map[string][]string{
+				"testemail@test.com":   []string{"sre"},
+				"anothertest@mail.com": []string{"sre"},
+				"yetanother@mail.com":  []string{"sre"},
+			},
+		},
+		{
+			Name:       "Incorrect parsing of line passed to function",
+			Permission: "sre,testemail@test.com, anothertest@mail.com yetanother@mail.com",
+			WantError:  errMatcher{"2 fields are expected but 3 were specified"},
+		},
+		{
+			Name:       "Incorrect parsing of line passed to function",
+			Permission: "sre, testemail@test.com anothertest@mail.com yetanother@mail.com",
+			WantError:  errMatcher{"invalid user email "},
+		},
+		{
+			Name:       "Incorrect parsing of line passed to function",
+			Permission: "sre,testemail@.com anothertest@mail.com yetanother@mail.com",
+			WantError:  errMatcher{"invalid user email testemail@.com"},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			tp := RBACTeams{Permissions: make(map[string][]string)}
+			_, err := ValidateTeamRbacPermission(tc.Permission, &tp)
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tp.Permissions, tc.WantPermission, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("%s: unexpected result diff : %v", tc.Name, diff)
+			}
+		})
+	}
+}
+
 func TestValidateRbacGroup(t *testing.T) {
 	tcs := []struct {
 		Name           string
@@ -122,6 +171,79 @@ func TestValidateRbacGroup(t *testing.T) {
 			}
 			if diff := cmp.Diff(group, tc.WantPermission, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("%s: unexpected result diff : %v", tc.Name, diff)
+			}
+		})
+	}
+}
+
+func TestCheckUserTeamPermissions(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		rbacConfig  RBACConfig
+		user        *User
+		env         string
+		envGroup    string
+		application string
+		action      string
+		team        string
+		WantError   error
+	}{{
+		Name:        "Check user team permission works as expected",
+		user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}, Name: "user", Email: "testmail@example.com"},
+		application: "app1",
+		action:      PermissionCreateLock,
+		rbacConfig: RBACConfig{DexEnabled: true,
+			Team: &RBACTeams{Permissions: map[string][]string{
+				"testmail@example.com": []string{"team"},
+			}}},
+		team: "team",
+	},
+		{
+			Name:        "Check user team permission works with multiple teams",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}, Name: "user", Email: "testmail@example.com"},
+			application: "app1",
+			action:      PermissionCreateLock,
+			rbacConfig: RBACConfig{DexEnabled: true,
+				Team: &RBACTeams{Permissions: map[string][]string{
+					"testmail@example.com": []string{"team-4", "team-2", "team-3", "team"},
+				}}},
+			team: "team",
+		},
+		{
+			Name:        "Check user team permission works with *",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}, Name: "user", Email: "testmail@example.com"},
+			application: "app1",
+			action:      PermissionCreateLock,
+			rbacConfig: RBACConfig{DexEnabled: true,
+				Team: &RBACTeams{Permissions: map[string][]string{
+					"testmail@example.com": []string{"*"},
+				}}},
+			team: "any-team",
+		},
+		{
+			Name:        "User has no team permission",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}, Name: "user", Email: "testmail@example.com"},
+			application: "app1",
+			action:      PermissionCreateLock,
+			rbacConfig: RBACConfig{DexEnabled: true,
+				Team: &RBACTeams{Permissions: map[string][]string{
+					"testmail@example.com": []string{"team-1", "team-2", "team-3"},
+				}}},
+			team: "any-team",
+			WantError: TeamPermissionError{
+				User:   "user",
+				Email:  "testmail@example.com",
+				Action: PermissionCreateLock,
+				Team:   "any-team",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			err := CheckUserTeamPermissions(tc.rbacConfig, tc.user, tc.team, tc.action)
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

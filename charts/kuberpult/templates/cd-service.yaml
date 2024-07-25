@@ -222,6 +222,8 @@ spec:
           value: /kuberpult-rbac/policy.csv
         - name: KUBERPULT_DEX_DEFAULT_ROLE_ENABLED
           value: "{{ .Values.auth.dexAuth.defaultRoleEnabled }}"
+        - name: KUBERPULT_DEX_RBAC_TEAM_PATH
+          value: /kuberpult-rbac/team.csv
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
@@ -413,9 +415,15 @@ data:
 {{- if .Values.auth.dexAuth.enabled }}
 ---
 apiVersion: v1
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kuberpult-rbac
 data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
+kind: ConfigMap
+metadata:
+  name: kuberpult-rbac
+data:
+  team.csv: {{ .Values.auth.dexAuth.team_csv| quote}}
 {{- end }}

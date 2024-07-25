@@ -667,6 +667,12 @@ func (c *CreateApplicationVersion) Transform(
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
+		err = state.checkUserTeamPermissions(ctx, transaction, state, c.Application, auth.PermissionCreateRelease, c.RBACConfig)
+
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+
 		envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]
@@ -1099,6 +1105,10 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
+		err = state.checkUserTeamPermissions(ctx, transaction, state, c.Application, auth.PermissionCreateUndeploy, c.RBACConfig)
+		if err != nil {
+			return "", err
+		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]
@@ -1251,6 +1261,10 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", err
 		}
+		err = state.checkUserTeamPermissions(ctx, transaction, state, u.Application, auth.PermissionDeployUndeploy, u.RBACConfig)
+		if err != nil {
+			return "", err
+		}
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
 		entries, err := fs.ReadDir(envAppDir)
 		if err != nil {
@@ -1376,6 +1390,10 @@ func (u *DeleteEnvFromApp) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, transaction, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig)
+	if err != nil {
+		return "", err
+	}
+	err = state.checkUserTeamPermissions(ctx, transaction, state, u.Application, auth.PermissionDeleteEnvironmentApplication, u.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1604,6 +1622,30 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
 	return auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
+}
+
+func (s *State) checkUserTeamPermissions(ctx context.Context, transaction *sql.Tx, state *State, appName, action string, RBACConfig auth.RBACConfig) error {
+
+	if !RBACConfig.DexEnabled {
+		return nil
+	}
+
+	team, err := state.GetTeamName(ctx, transaction, appName)
+
+	if err != nil {
+		return err
+	}
+
+	return state.checkUserTeamPermissionsWithTeam(ctx, team, action, RBACConfig)
+}
+
+func (s *State) checkUserTeamPermissionsWithTeam(ctx context.Context, teamName, action string, RBACConfig auth.RBACConfig) error {
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("checkUserTeamPermissions: user not found %v", err))
+	}
+	return auth.CheckUserTeamPermissions(RBACConfig, user, teamName, action)
+
 }
 
 // checkUserPermissionsCreateEnvironment check the permission for the environment creation action.
@@ -1938,6 +1980,10 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	if err != nil {
 		return "", err
 	}
+	err = state.checkUserTeamPermissions(ctx, transaction, state, c.Application, auth.PermissionCreateLock, c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		user, err := auth.ReadUserFromContext(ctx)
 		if err != nil {
@@ -2027,6 +2073,10 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	if err != nil {
 		return "", err
 	}
+	err = state.checkUserTeamPermissions(ctx, transaction, state, c.Application, auth.PermissionDeleteLock, c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
 	fs := state.Filesystem
 	queueMessage := ""
 	if state.DBHandler.ShouldUseOtherTables() {
@@ -2103,6 +2153,13 @@ func (c *CreateEnvironmentTeamLock) Transform(
 
 	if err != nil {
 		return "", err
+	}
+
+	if c.RBACConfig.DexEnabled {
+		err = state.checkUserTeamPermissionsWithTeam(ctx, c.Team, auth.PermissionCreateLock, c.RBACConfig)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	if state.DBHandler.ShouldUseOtherTables() {
@@ -2220,6 +2277,12 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 
 	if err != nil {
 		return "", err
+	}
+	if c.RBACConfig.DexEnabled {
+		err = state.checkUserTeamPermissionsWithTeam(ctx, c.Team, auth.PermissionDeleteLock, c.RBACConfig)
+		if err != nil {
+			return "", err
+		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		err := state.DBHandler.DBDeleteTeamLock(ctx, transaction, c.Environment, c.Team, c.LockId)
@@ -2426,6 +2489,10 @@ func (c *DeployApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
+	err = state.checkUserTeamPermissions(ctx, transaction, state, c.Application, auth.PermissionDeployRelease, c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -3395,6 +3462,22 @@ func (c *envReleaseTrain) prognosis(
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
+
+			if c.Parent.RBACConfig.DexEnabled {
+				err := state.checkUserTeamPermissionsWithTeam(ctx, teamName, auth.PermissionDeployReleaseTrain, c.Parent.RBACConfig)
+
+				if err != nil {
+					appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+						SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION,
+						},
+						FirstLockMessage: "",
+						Version:          0,
+					}
+					continue
+				}
+			}
+
 			teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
 
 			if err != nil {
@@ -3481,6 +3564,8 @@ func (c *envReleaseTrain) Transform(
 			return fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env)
 		case api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED:
 			return fmt.Sprintf("skipping application %q in environment %q due to team lock on team %q", appName, c.Env, teamName)
+		case api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION:
+			return fmt.Sprintf("skipping application %q in environment %q because the user team %q is not the same as the apllication", appName, c.Env, teamName)
 		default:
 			return fmt.Sprintf("skipping application %q in environment %q for an unrecognized reason", appName, c.Env)
 		}

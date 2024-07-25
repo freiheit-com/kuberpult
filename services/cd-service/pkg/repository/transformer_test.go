@@ -2967,6 +2967,47 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 		overrideCommitHash string
 		ExpectedPrognosis  ReleaseTrainPrognosis
 	}{
+
+		{
+			Name: "User is not on the team of the application",
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "staging",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateEnvironment{
+					Environment:    "production",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"production": "production",
+						"staging":    "staging",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team-1",
+				},
+			},
+			ReleaseTrainEnv: "production",
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"production": ReleaseTrainEnvironmentPrognosis{
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"app1": ReleaseTrainApplicationPrognosis{
+								SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+									SkipCause: api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		{
 			Name: "Release train done without commit Hash",
 			SetupTransformers: []Transformer{
@@ -2981,6 +3022,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 						"dev":     "dev",
 						"staging": "staging",
 					},
+					Team: "team",
 				},
 				&CreateEnvironment{
 					Environment: "staging",
@@ -3025,6 +3067,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 						"dev":     "dev",
 						"staging": "staging",
 					},
+					Team: "team",
 				},
 				&CreateEnvironment{
 					Environment: "staging",
@@ -3202,7 +3245,7 @@ skipping "test" because it is already in the version`,
 			if err != nil {
 				t.Errorf("could not wait for git init to finish")
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutil.MakeTestContextDexEnabled()
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
@@ -3238,6 +3281,21 @@ skipping "test" because it is already in the version`,
 				CommitHash: commitHash,
 				Target:     tc.ReleaseTrainEnv,
 				Repo:       repo,
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true,
+					Team: &auth.RBACTeams{Permissions: map[string][]string{
+						"testmail@example.com": []string{"team"},
+					}},
+					Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,*:*,*,allow":                   {Role: "develepor"},
+						"p,role:developer,DeleteLock,*:*,*,allow":                   {Role: "develepor"},
+						"p,role:developer,CreateRelease,*:*,*,allow":                {Role: "developer"},
+						"p,role:developer,DeployRelease,*:*,*,allow":                {Role: "developer"},
+						"p,role:developer,CreateUndeploy,*:*,*,allow":               {Role: "developer"},
+						"p,role:developer,DeployUndeploy,*:*,*,allow":               {Role: "developer"},
+						"p,role:developer,CreateEnvironment,*:*,*,allow":            {Role: "developer"},
+						"p,role:developer,DeleteEnvironmentApplication,*:*,*,allow": {Role: "developer"},
+						"p,role:developer,DeployReleaseTrain,*:*,*,allow":           {Role: "developer"},
+					}}}},
 			}
 
 			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil)
@@ -3246,7 +3304,7 @@ skipping "test" because it is already in the version`,
 				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
 			}
 
-			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, releaseTrain)
+			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContextDexEnabled(), nil, releaseTrain)
 
 			if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -3558,6 +3616,45 @@ func TestRbacTransformerTest(t *testing.T) {
 		ExpectedError error
 	}{
 		{
+			Name: "able to undeploy application with team permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "staging",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateEnvironment{
+					Environment:    "production",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"production": "production",
+						"staging":    "staging",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team",
+				},
+				&CreateUndeployApplicationVersion{
+					Application:    "app1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&UndeployApplication{
+					Application: "app1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployUndeploy,staging:*,app1,allow":    {Role: "developer"},
+						"p,role:developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+		},
+		{
 			Name: "able to undeploy application with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -3588,9 +3685,57 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,DeployUndeploy,staging:*,app1,allow":    {Role: "developer"},
 						"p,role:developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
+		},
+		{
+			Name: "unable to undeploy application without team permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "staging",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateEnvironment{
+					Environment:    "production",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"production": "production",
+						"staging":    "staging",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team-1",
+				},
+				&CreateUndeployApplicationVersion{
+					Application:    "app1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&UndeployApplication{
+					Application: "app1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployUndeploy,staging:*,app1,allow":    {Role: "developer"},
+						"p,role:developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
+				User:   "test tester",
+				Email:  "testmail@example.com",
+				Action: "DeployUndeploy",
+				Team:   "team-1",
+			}),
 		},
 		{
 			Name: "unable to undeploy application without permissions policy",
@@ -3622,7 +3767,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application: "app1",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3668,6 +3816,43 @@ func TestRbacTransformerTest(t *testing.T) {
 			}),
 		},
 		{
+
+			Name: "able to create undeploy with team permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "staging",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateEnvironment{
+					Environment:    "production",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"production": "production",
+						"staging":    "staging",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
+						"p,role:developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+		},
+		{
 			Name: "able to create undeploy with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -3695,9 +3880,54 @@ func TestRbacTransformerTest(t *testing.T) {
 						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
 						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
 						"p,role:developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
+		},
+		{
+
+			Name: "unable to create undeploy without team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "staging",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateEnvironment{
+					Environment:    "production",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"production": "production",
+						"staging":    "staging",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team-1",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
+				User:   "test tester",
+				Email:  "testmail@example.com",
+				Action: "CreateUndeploy",
+				Team:   "team-1",
+			}),
 		},
 		{
 			Name: "unable to create undeploy without permissions policy: Missing DeployRelease permission",
@@ -3726,7 +3956,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
 						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3762,7 +3995,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application: "app1",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3788,7 +4024,10 @@ func TestRbacTransformerTest(t *testing.T) {
 				Target: envProduction,
 				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 					"p,role:developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
-				}}}},
+				}},
+					Team: &auth.RBACTeams{Permissions: map[string][]string{
+						"testmail@example.com": []string{"*"},
+					}}}},
 			}),
 			ExpectedError: fixtureWrapTransformError(status.Error(codes.Internal, "internal error")),
 		},
@@ -3806,6 +4045,31 @@ func TestRbacTransformerTest(t *testing.T) {
 			}),
 		},
 		{
+			Name: "able to create application version with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "acceptance",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1-testing",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+					Team: "team",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+						"p,role:developer,DeployRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+					WriteCommitData: true,
+				},
+			},
+		},
+		{
 			Name: "able to create application version with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -3821,10 +4085,47 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
 						"p,role:developer,DeployRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 					WriteCommitData: true,
 				},
 			},
+		},
+		{
+			Name: "unable to create application version with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "acceptance",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1-testing",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+					Team: "team-1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+					WriteCommitData: true,
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(
+				fixtureWrapGeneralFailure(
+					auth.TeamPermissionError{
+						User:   "test tester",
+						Email:  "testmail@example.com",
+						Action: "CreateRelease",
+						Team:   "team-1",
+					},
+				),
+			),
 		},
 		{
 			Name: "unable to create application version with permissions policy: Missing DeployRelease permission",
@@ -3841,7 +4142,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 					WriteCommitData: true,
 				},
 			},
@@ -3885,6 +4189,36 @@ func TestRbacTransformerTest(t *testing.T) {
 			),
 		},
 		{
+			Name: "able to deploy application with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "acceptance",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team",
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_FAIL,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+		},
+		{
 			Name: "able to deploy application with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -3906,9 +4240,48 @@ func TestRbacTransformerTest(t *testing.T) {
 					Version:       1,
 					LockBehaviour: api.LockBehavior_FAIL,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}}}},
+						"p,role:developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
+		},
+		{
+			Name: "unable to deploy application with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "acceptance",
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team-1",
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_FAIL,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
+				User:   "test tester",
+				Email:  "testmail@example.com",
+				Action: "DeployRelease",
+				Team:   "team-1",
+			}),
 		},
 		{
 			Name: "unable to deploy application with permissions policy",
@@ -4047,6 +4420,72 @@ func TestRbacTransformerTest(t *testing.T) {
 			},
 		},
 		{
+			Name: "able to create environment application lock with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to create environment application lock with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team-1",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
+				User:   "test tester",
+				Email:  "testmail@example.com",
+				Action: "CreateLock",
+				Team:   "team-1",
+			}),
+		},
+		{
 			Name: "unable to create environment application lock without permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -4098,9 +4537,100 @@ func TestRbacTransformerTest(t *testing.T) {
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
+		},
+		{
+			Name: "able to delete environment application lock with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+				&DeleteEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to delete environment application lock with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team-1",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
+				},
+				&DeleteEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
+				User:   "test tester",
+				Email:  "testmail@example.com",
+				Action: "DeleteLock",
+				Team:   "team-1",
+			}),
 		},
 		{
 			Name: "unable to delete environment application lock without permissions policy",
@@ -4160,7 +4690,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 				&DeleteEnvironmentApplicationLock{
 					Environment: "production",
@@ -4168,9 +4701,78 @@ func TestRbacTransformerTest(t *testing.T) {
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
+		},
+		{
+			Name: "able to create environment team lock with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"sre-team"},
+						}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to create environment team lock with team permissions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team-1",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"sre-team"},
+						}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
+				User:   "test tester",
+				Email:  "testmail@example.com",
+				Action: "CreateLock",
+				Team:   "sre-team-1",
+			}),
 		},
 		{
 			Name: "unable to create environment team lock without permissions policy",
@@ -4227,7 +4829,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
 		},
@@ -4254,9 +4859,100 @@ func TestRbacTransformerTest(t *testing.T) {
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
+		},
+		{
+			Name: "able to delete environment team lock with team permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"sre-team"},
+						}}}},
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"sre-team"},
+						}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to delete environment team lock with team permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"sre-team"},
+						}}}},
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"sre-team-1"},
+						}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
+				User:   "test tester",
+				Action: "DeleteLock",
+				Email:  "testmail@example.com",
+				Team:   "sre-team",
+			}),
 		},
 		{
 			Name: "unable to delete environment team lock without permissions policy",
@@ -4319,7 +5015,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 				&DeleteEnvironmentTeamLock{
 					Environment: "production",
@@ -4327,9 +5026,90 @@ func TestRbacTransformerTest(t *testing.T) {
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
+		},
+		{
+			Name: "able to delete environment application with team permission policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    envProduction,
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team",
+				},
+				&DeployApplicationVersion{
+					Environment:    envProduction,
+					Application:    "app1",
+					Version:        1,
+					LockBehaviour:  api.LockBehavior_FAIL,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&DeleteEnvFromApp{
+					Application: "app1",
+					Environment: envProduction,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteEnvironmentApplication,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to delete environment application without team permission policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    envProduction,
+					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "team-1",
+				},
+				&DeployApplicationVersion{
+					Environment:    envProduction,
+					Application:    "app1",
+					Version:        1,
+					LockBehaviour:  api.LockBehavior_FAIL,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&DeleteEnvFromApp{
+					Application: "app1",
+					Environment: envProduction,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteEnvironmentApplication,production:production,*,allow": {Role: "developer"},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
+				User:   "test tester",
+				Email:  "testmail@example.com",
+				Action: "DeleteEnvironmentApplication",
+				Team:   "team-1",
+			}),
 		},
 		{
 			Name: "unable to delete environment application without permission policy",
@@ -4395,7 +5175,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: envProduction,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,DeleteEnvironmentApplication,production:production,*,allow": {Role: "developer"},
-					}}}},
+					}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"*"},
+						}}}},
 				},
 			},
 		},
@@ -4467,6 +5250,7 @@ func ReleaseTrainTestSetup(releaseTrainTransformer Transformer) []Transformer {
 				envAcceptance: "acceptancenmanifest",
 			},
 			WriteCommitData: true,
+			Team:            "team-1",
 		},
 		&DeployApplicationVersion{
 			Environment: envProduction,

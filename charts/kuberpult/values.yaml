@@ -324,6 +324,7 @@ auth:
     # Example permission: Developer, CreateLock, development:development, *, allow
     # If no group is configured for an environment, the environment group name is the same as the environment name, here "development".
     # The policy will be available on the kuberpult-rbac config map.
+    team_csv: ""
     policy_csv: ""
     clientId: ""
     clientSecret: ""
