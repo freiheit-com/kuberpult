@@ -233,7 +233,7 @@ func Run(ctx context.Context) error {
 				BasicAuth: nil,
 				Shutdown:  nil,
 				Port:      "8080",
-				Register: nil,
+				Register:  nil,
 			},
 		},
 		GRPC: &setup.GRPCConfig{
