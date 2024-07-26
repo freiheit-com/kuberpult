@@ -24,8 +24,8 @@ import (
 type RetryErrorKind int
 
 const (
-	errorTypeGitRepo     RetryErrorKind = iota
-	errorTypeTransaction                = iota
+	errorTypeGitRepo RetryErrorKind = iota
+	//errorTypeTransaction                = iota
 )
 
 // RetryError implies that something failed that can and should be retried
@@ -39,8 +39,8 @@ func (e *RetryError) Error() string {
 	switch e.errorType {
 	case errorTypeGitRepo:
 		msg = "git"
-	case errorTypeTransaction:
-		msg = "transaction"
+		//case errorTypeTransaction:
+		//	msg = "transaction"
 	}
 	return fmt.Sprintf("retry error for kind '%s': %v", msg, e.originalError)
 }
@@ -53,9 +53,9 @@ func IsRetryError(e error) (bool, *RetryError) {
 	return false, nil
 }
 
-func (e *RetryError) IsTransaction() bool {
-	return e.errorType == errorTypeTransaction
-}
+//func (e *RetryError) IsTransaction() bool {
+//	return e.errorType == errorTypeTransaction
+//}
 
 func (e *RetryError) IsGitRepo() bool {
 	return e.errorType == errorTypeGitRepo
@@ -68,12 +68,12 @@ func RetryGitRepo(originalError error) *RetryError {
 	}
 }
 
-func RetryTransaction(originalError error) *RetryError {
-	return &RetryError{
-		originalError: originalError,
-		errorType:     errorTypeTransaction,
-	}
-}
+//func RetryTransaction(originalError error) *RetryError {
+//	return &RetryError{
+//		originalError: originalError,
+//		errorType:     errorTypeTransaction,
+//	}
+//}
 
 func UnwrapUntilRetryError(err error) *RetryError {
 	for {

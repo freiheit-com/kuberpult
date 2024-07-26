@@ -400,9 +400,9 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callba
 		gerr, ok := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
 		if ok && gerr.Code == git.ErrorCodeNonFastForward {
-			return errors2.RetryGitRepo(gerr)
+			return errors2.RetryGitRepo(fmt.Errorf("fastforward error: %w", gerr))
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return errors2.RetryGitRepo(err)
+			return errors2.RetryGitRepo(fmt.Errorf("context error: %w", err))
 		} else {
 			log.Error(fmt.Sprintf("error while pushing: %s", err))
 			return errors2.RetryGitRepo(fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))

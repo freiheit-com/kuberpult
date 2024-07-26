@@ -49,7 +49,7 @@ func TestIsRetryableError(t *testing.T) {
 		t.Run(fmt.Sprintf("error_code_is_retryable_%s", tc.InputCode), func(t *testing.T) {
 			t.Parallel()
 
-			actualRetryable := IsRetryableError(&pq.Error{Code: pq.ErrorCode(tc.InputCode)})
+			actualRetryable := IsRetryablePostgresError(&pq.Error{Code: pq.ErrorCode(tc.InputCode)})
 
 			if diff := cmp.Diff(ExpectedRetryable, actualRetryable); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
@@ -84,7 +84,7 @@ func TestIsNotRetryableError(t *testing.T) {
 		t.Run(fmt.Sprintf("error_code_is_not_retryable_%s", tc.InputCode), func(t *testing.T) {
 			t.Parallel()
 
-			actualRetryable := IsRetryableError(&pq.Error{Code: pq.ErrorCode(tc.InputCode)})
+			actualRetryable := IsRetryablePostgresError(&pq.Error{Code: pq.ErrorCode(tc.InputCode)})
 
 			if diff := cmp.Diff(ExpectedRetryable, actualRetryable); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)

@@ -108,7 +108,7 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 		if maxRetries == 0 {
 			return onError(fmt.Errorf("error %s transaction: %w", msg, e))
 		}
-		if IsRetryableError(e) {
+		if IsRetryablePostgresError(e) {
 			duration := 250 * time.Millisecond
 			logger.FromContext(ctx).Sugar().Warnf("%s transaction failed, will retry in %v: %v", msg, duration, e)
 			_ = tx.Rollback()
@@ -146,7 +146,7 @@ func (h *DBHandler) BeginTransaction(ctx context.Context, readonly bool) (*sql.T
 	})
 }
 
-func IsRetryableError(err error) bool {
+func IsRetryablePostgresError(err error) bool {
 	var pgErr = UnwrapUntilPostgresError(err)
 	if pgErr == nil {
 		// it's not even a postgres error, so we can't check if it's retryable

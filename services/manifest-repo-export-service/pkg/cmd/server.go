@@ -231,7 +231,8 @@ func Run(ctx context.Context) error {
 
 		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
 		const readonly = false
-		err = dbHandler.WithTransactionR(ctx, 100, readonly, func(ctx context.Context, transaction *sql.Tx) error {
+		const transactionRetries = 10
+		err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			eslVersion, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("error in DBReadCutoff %v", err)
@@ -267,7 +268,7 @@ func Run(ctx context.Context) error {
 			if err != nil {
 				log.Warnf("Error happend during processEslEvent: %v, skipping the event and writing to the failed table", err)
 				if ok, _ := errors.IsRetryError(err); ok {
-					// if it's a retry erorr, we handle it down below (see `calcSleep` function)
+					// if it's a retry error, we handle it down below (see `calcSleep` function)
 					return err
 				}
 				log.Errorf("skipping esl event, because it returned a non retryable error: %v", err)
@@ -291,9 +292,11 @@ func Run(ctx context.Context) error {
 		})
 		sleepData := calcSleep(err, sleepDuration, eslEventSkipped, eslTableEmpty)
 		if sleepData != nil {
-			var e2 error = nil
 			if sleepData.FetchRepo {
-				e2 = repo.FetchAndReset(ctx)
+				e2 := repo.FetchAndReset(ctx)
+				if e2 != nil {
+					logger.FromContext(ctx).Sugar().Warnf("Fetching the repo failed: %v", e2)
+				}
 			}
 			if sleepData.ResetTimer {
 				sleepDuration.Reset()
@@ -301,7 +304,7 @@ func Run(ctx context.Context) error {
 			sleepWarn(
 				ctx,
 				sleepData.SleepDuration,
-				fmt.Sprintf("%s - %v", sleepData.WarnMessage, e2),
+				fmt.Sprintf("%s - %v", sleepData.WarnMessage, err),
 				sleepData.InfoMessage,
 			)
 		}
@@ -320,31 +323,12 @@ func calcSleep(err error, backOffTimer backoff.BackOff, eslEventSkipped bool, es
 	if err != nil {
 		err = errors.UnwrapUntilRetryError(err)
 		if ok, re := errors.IsRetryError(err); ok {
-			if re.IsTransaction() {
-				// transactions are generally fast to retry, no exponential backoff:
-				return &SleepData{
-					WarnMessage:   fmt.Sprintf("transactional error: %v", re),
-					InfoMessage:   "",
-					SleepDuration: time.Millisecond * 250,
-					FetchRepo:     false,
-					ResetTimer:    false,
-				}
-			} else if re.IsGitRepo() {
-				return &SleepData{
-					WarnMessage:   "could not update git repo",
-					InfoMessage:   "",
-					SleepDuration: backOffTimer.NextBackOff(),
-					FetchRepo:     true,
-					ResetTimer:    false,
-				}
-			} else {
-				return &SleepData{
-					WarnMessage:   fmt.Sprintf("unhandled retry error, using exponential backoff: %v", re),
-					InfoMessage:   "",
-					SleepDuration: backOffTimer.NextBackOff(),
-					FetchRepo:     false,
-					ResetTimer:    false,
-				}
+			return &SleepData{
+				WarnMessage:   "could not update git repo",
+				InfoMessage:   "",
+				SleepDuration: backOffTimer.NextBackOff(),
+				FetchRepo:     true,
+				ResetTimer:    false,
 			}
 		} else {
 			// there is an error, but it's not specified to use retries
