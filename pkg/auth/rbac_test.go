@@ -106,17 +106,17 @@ func TestValidateTeamRbacPermission(t *testing.T) {
 		{
 			Name:       "Incorrect parsing of line passed to function",
 			Permission: "sre,testemail@test.com, anothertest@mail.com yetanother@mail.com",
-			WantError:  errMatcher{"2 fields are expected but 3 were specified"},
+			WantError:  errMatcher{"2 fields are expected but 3 were specified in line sre,testemail@test.com, anothertest@mail.com yetanother@mail.com"},
 		},
 		{
 			Name:       "Incorrect parsing of line passed to function",
 			Permission: "sre, testemail@test.com anothertest@mail.com yetanother@mail.com",
-			WantError:  errMatcher{"invalid user email "},
+			WantError:  errMatcher{"invalid user email ''"},
 		},
 		{
 			Name:       "Incorrect parsing of line passed to function",
 			Permission: "sre,testemail@.com anothertest@mail.com yetanother@mail.com",
-			WantError:  errMatcher{"invalid user email testemail@.com"},
+			WantError:  errMatcher{"invalid user email 'testemail@.com'"},
 		},
 	}
 
@@ -124,7 +124,8 @@ func TestValidateTeamRbacPermission(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			tp := RBACTeams{Permissions: make(map[string][]string)}
-			_, err := ValidateTeamRbacPermission(tc.Permission, &tp)
+			team, users, err := ValidateTeamRbacPermission(tc.Permission)
+			AddUsersToTeam(team, users, &tp)
 			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}

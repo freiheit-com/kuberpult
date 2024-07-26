@@ -191,41 +191,29 @@ func ValidateRbacPermission(line string) (p Permission, err error) {
 	}, nil
 }
 
-func ValidateTeamRbacPermission(line string, teamPermissions *RBACTeams) (team string, err error) {
+func ValidateTeamRbacPermission(line string) (team string, users []string, err error) {
 
 	p := strings.Split(line, ",")
 
 	if len(p) != 2 {
-		return "", fmt.Errorf("2 fields are expected but %d were specified", len(p))
+		return "", nil, fmt.Errorf("2 fields are expected but %d were specified in line %s", len(p), line)
 	}
 
-	users := strings.Split(p[1], " ")
+	users = strings.Split(p[1], " ")
 
 	if p[0] != "*" && !valid.TeamName(p[0]) {
-		return "", fmt.Errorf("invalid team name %s", p[0])
+		return "", nil, fmt.Errorf("invalid team name %s", p[0])
 	}
 
 	for _, user := range users {
 
 		if !valid.UserEmail(user) {
-			return "", fmt.Errorf("invalid user email %s", user)
+			return "", nil, fmt.Errorf("invalid user email '%s'", user)
 		}
 
-		t, ok := teamPermissions.Permissions[user]
-
-		if !ok {
-			teamPermissions.Permissions[user] = []string{p[0]}
-		} else {
-			if teamPermissions.Permissions[user][len(t)-1] == p[0] {
-				// Ignone
-				continue
-			}
-
-			teamPermissions.Permissions[user] = append(t, p[0])
-		}
 	}
 
-	return p[0], nil
+	return p[0], users, nil
 }
 
 func ValidateRbacGroup(line string) (p RBACGroup, err error) {
@@ -283,6 +271,24 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 	return policy, nil
 }
 
+func AddUsersToTeam(team string, users []string, teamPermissions *RBACTeams) {
+
+	for _, user := range users {
+		t, ok := teamPermissions.Permissions[user]
+
+		if !ok {
+			teamPermissions.Permissions[user] = []string{team}
+		} else {
+			if teamPermissions.Permissions[user][len(t)-1] == team {
+				// Ignone if user is listed more than once in the same line/team
+				continue
+			}
+
+			teamPermissions.Permissions[user] = append(t, team)
+		}
+	}
+}
+
 func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBACTeams, err error) {
 	if !dexEnabled {
 		return nil, nil
@@ -300,7 +306,7 @@ func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBA
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) > 0 {
-			t, err := ValidateTeamRbacPermission(line, teamPermissions)
+			t, u, err := ValidateTeamRbacPermission(line)
 
 			if err != nil {
 				return nil, err
@@ -308,6 +314,8 @@ func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBA
 			if teams[t] >= 1 {
 				return nil, fmt.Errorf("team " + t + " listed more than one time")
 			}
+
+			AddUsersToTeam(t, u, teamPermissions)
 			teams[t] += 1
 		}
 	}
