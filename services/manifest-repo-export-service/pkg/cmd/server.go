@@ -19,7 +19,6 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -227,11 +226,6 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
-	repositoryService :=
-		&service.Service{
-			Repository: repo,
-		}
-	httpServerLogger := logger.FromContext(ctx).Named("http_server")
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
@@ -239,10 +233,7 @@ func Run(ctx context.Context) error {
 				BasicAuth: nil,
 				Shutdown:  nil,
 				Port:      "8080",
-				Register: func(mux *http.ServeMux) {
-					handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
-					mux.Handle("/", handler)
-				},
+				Register: nil,
 			},
 		},
 		GRPC: &setup.GRPCConfig{
