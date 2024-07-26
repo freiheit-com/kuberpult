@@ -1295,7 +1295,7 @@ func (s *State) GetApplicationsFromFile() ([]string, error) {
 }
 
 func (s *State) GetApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
+	if !s.DBHandler.ShouldUseOtherTables() {
 		app, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 		if err != nil {
 			return nil, fmt.Errorf("could not get all_releases of app %s", application)

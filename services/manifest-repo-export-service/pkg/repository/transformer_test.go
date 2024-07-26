@@ -2466,6 +2466,69 @@ func TestUndeployLogic(t *testing.T) {
 			},
 		},
 		{
+			Name: "Try to undeploy application, with no undeploy versions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance2,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance:  "mani-1-acc",
+						envAcceptance2: "e2",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 3,
+				},
+				&CreateEnvironmentLock{
+					Environment:           envAcceptance2,
+					LockId:                "my-lock",
+					Message:               "Acceptance 2 is locked",
+					TransformerEslVersion: 4,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&UndeployApplication{
+					Application:           appName,
+					TransformerEslVersion: 6,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedError: errMatcher{msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: UndeployApplication: error last release is not un-deployed application version of 'app1'"},
+		},
+		{
 			Name: "Try to undeploy application, but no all envs with undeploy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -2528,20 +2591,21 @@ func TestUndeployLogic(t *testing.T) {
 
 					TransformerEslVersion: 5,
 				},
-				//&UndeployApplication{
-				//	Application:           appName,
-				//	TransformerEslVersion: 7,
-				//	TransformerMetadata: TransformerMetadata{
-				//		AuthorName:  authorName,
-				//		AuthorEmail: authorEmail,
-				//	},
-				//},
+				&UndeployApplication{
+					Application:           appName,
+					TransformerEslVersion: 6,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
 			},
-			expectedError: errMatcher{msg: "UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed:"},
+			expectedError: errMatcher{msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: UndeployApplication(repo):" +
+				" error cannot un-deploy application '" + appName + "' the release on 'acceptance2' is not un-deployed: 'environments/acceptance2/applications/" + appName + "/version/undeploy'"},
 			expectedData: []*FilenameAndData{
 				{ //There is an undeploy version
 					path:     "/applications/app1/releases/2/undeploy",
-					fileData: []byte("asdas"),
+					fileData: []byte(""),
 				},
 				{ //The first env has the undeploy version deployed
 					path:     "environments/acceptance/applications/app1/version/undeploy",
@@ -2563,12 +2627,12 @@ func TestUndeployLogic(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
 				// setup:
 				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
 				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
@@ -2588,11 +2652,11 @@ func TestUndeployLogic(t *testing.T) {
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						err2 = dbHandler.DBWriteAllApplications(ctx, transaction, 0, []string{appName})
+						err2 = dbHandler.DBWriteAllApplications(ctx, transaction, 0, []string{concreteTransformer.Application})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						err2 = dbHandler.DBInsertAllReleases(ctx, transaction, appName, []int64{int64(concreteTransformer.Version)}, 0)
+						err2 = dbHandler.DBInsertAllReleases(ctx, transaction, concreteTransformer.Application, []int64{int64(concreteTransformer.Version)}, 0)
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2622,10 +2686,11 @@ func TestUndeployLogic(t *testing.T) {
 						}
 					}
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
+						concreteTransformer := tr.(*CreateUndeployApplicationVersion)
 						err2 = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 							EslVersion:    1,
 							ReleaseNumber: 2,
-							App:           appName,
+							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
 								Manifests: map[string]string{ //empty manifest
 									"": "",
@@ -2644,16 +2709,16 @@ func TestUndeployLogic(t *testing.T) {
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						allReleases, err2 := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+						allReleases, err2 := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, concreteTransformer.Application)
 						if err2 != nil {
 							t.Fatal(err2)
 						}
 						allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(2))
-						err2 = dbHandler.DBInsertAllReleases(ctx, transaction, appName, allReleases.Metadata.Releases, 1)
+						err2 = dbHandler.DBInsertAllReleases(ctx, transaction, concreteTransformer.Application, allReleases.Metadata.Releases, 1)
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						allReleases, err2 = dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+						allReleases, err2 = dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, concreteTransformer.Application)
 						if err2 != nil {
 							t.Fatal(err2)
 						}
