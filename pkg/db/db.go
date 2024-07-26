@@ -1867,8 +1867,10 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 		}
 
 		for i := range allDeploymentsInRepo {
+
 			deploymentInRepo := allDeploymentsInRepo[i]
 			deploymentInRepo.TransformerID = 0
+			logger.FromContext(ctx).Sugar().Warnf("Inserting deployment for app '%s' on '%s'\n", deploymentInRepo.App, deploymentInRepo.Env)
 			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
