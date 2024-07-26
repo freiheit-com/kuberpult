@@ -284,6 +284,10 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 }
 
 func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBACTeams, err error) {
+	if !dexEnabled {
+		return nil, nil
+	}
+
 	file, err := os.Open(DexRbacTeamPath)
 	if err != nil {
 		return nil, err
