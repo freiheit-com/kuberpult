@@ -290,7 +290,7 @@ func Run(ctx context.Context) error {
 			}
 			return nil
 		})
-		sleepData := calcSleep(err, sleepDuration, eslEventSkipped, eslTableEmpty)
+		sleepData := calcSleep(ctx, err, sleepDuration, eslEventSkipped, eslTableEmpty)
 		if sleepData != nil {
 			if sleepData.FetchRepo {
 				e2 := repo.FetchAndReset(ctx)
@@ -319,10 +319,11 @@ type SleepData struct {
 	ResetTimer    bool
 }
 
-func calcSleep(err error, backOffTimer backoff.BackOff, eslEventSkipped bool, eslTableEmpty bool) *SleepData {
+func calcSleep(ctx context.Context, err error, backOffTimer backoff.BackOff, eslEventSkipped bool, eslTableEmpty bool) *SleepData {
 	if err != nil {
 		err = errors.UnwrapUntilRetryError(err)
 		if ok, re := errors.IsRetryError(err); ok {
+			logger.FromContext(ctx).Sugar().Warnf("found error: %v", err)
 			return &SleepData{
 				WarnMessage:   "could not update git repo",
 				InfoMessage:   "",

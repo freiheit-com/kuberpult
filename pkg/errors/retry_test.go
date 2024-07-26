@@ -52,7 +52,7 @@ func TestUnwrapUntilRetryError(t *testing.T) {
 
 			actualRetryable := UnwrapUntilRetryError(tc.InputError)
 
-			if diff := cmp.Diff(tc.Expected, actualRetryable); diff != "" {
+			if diff := cmp.Diff(tc.Expected.Error(), actualRetryable.Error()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
