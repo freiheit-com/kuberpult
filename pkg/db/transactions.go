@@ -106,7 +106,7 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 
 	retryMaybe := func(msg string, e error) ([]T, error) {
 		if maxRetries == 0 {
-			return onError(fmt.Errorf("error %s transaction: %w", e))
+			return onError(fmt.Errorf("error %s transaction: %w", msg, e))
 		}
 		if IsRetryableError(e) {
 			duration := 250 * time.Millisecond
