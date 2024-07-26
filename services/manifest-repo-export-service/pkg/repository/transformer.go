@@ -326,6 +326,7 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	fmt.Println(fmt.Sprintf("Trying to deploy version %d of %q to %q", c.Version, c.Application, c.Environment))
 
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
@@ -360,7 +361,7 @@ func (c *DeployApplicationVersion) Transform(
 			envLocks, appLocks, teamLocks map[string]Lock
 			err                           error
 		)
-		envLocks, err = state.GetEnvironmentLocksFromDB(ctx, transaction, c.Environment)
+		envLocks, err = state.GetEnvironmentLocks(c.Environment)
 		if err != nil {
 			return "", err
 		}
@@ -1609,7 +1610,7 @@ func (c *CreateUndeployApplicationVersion) SetEslVersion(eslVersion db.Transform
 }
 
 func (u *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
-	return db.EvtDeleteEnvFromApp
+	return db.EvtCreateUndeployApplicationVersion
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
@@ -1618,6 +1619,8 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	fmt.Println("CreateUndeployApplicationVersion")
+
 	fs := state.Filesystem
 	lastRelease, err := state.GetLastRelease(ctx, fs, c.Application)
 	if err != nil {
@@ -1726,6 +1729,7 @@ func (u *UndeployApplication) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	fmt.Println("UndeployApplication")
 	fs := state.Filesystem
 	lastRelease, err := state.GetLastRelease(ctx, fs, u.Application)
 	if err != nil {
@@ -1750,6 +1754,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", err
 		}
+		fmt.Printf("UndeployApplication: %s\n", env)
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
 		entries, err := fs.ReadDir(envAppDir)
 		if err != nil {
@@ -1776,7 +1781,10 @@ func (u *UndeployApplication) Transform(
 
 		undeployFile := fs.Join(versionDir, "undeploy")
 		_, err = fs.Stat(undeployFile)
+		fmt.Printf("UndeployApplication: stating: %s\n", undeployFile)
+
 		if err != nil && errors.Is(err, os.ErrNotExist) {
+			fmt.Printf("UndeployApplication: cant find undeploy version in: %s\n", undeployFile)
 			return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
 		}
 
