@@ -141,8 +141,22 @@ manifestRepoExport:
     requests:
       cpu: 2
       memory: 3Gi
+  probes:
+    liveness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
+      initialDelaySeconds: 5
+    readiness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
+      initialDelaySeconds: 5
+
   # The initial time in seconds that this service waits when it does not find esl events to process, before trying again.
-  # Time increases exponentially if errors occur.
+  # Time increases exponentially if errors occur, depending on the type of error.
   # Maximum time to wait is 600sec (cannot be changed).
   eslProcessingIdleTimeSeconds: 5
   # Timeout in seconds used for network operations
