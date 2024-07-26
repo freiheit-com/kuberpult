@@ -1306,57 +1306,57 @@ func (h *DBHandler) RunCustomMigrations(
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationsEventSourcingLight...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationsEventSourcingLight...")
 	err := h.RunCustomMigrationsEventSourcingLight(ctx)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationAllAppsTable...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationAllAppsTable...")
 	err = h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationApps...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationApps...")
 	err = h.RunCustomMigrationApps(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationDeployments...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationDeployments...")
 	err = h.RunCustomMigrationDeployments(ctx, getAllDeploymentsFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationReleases...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationReleases...")
 	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, getAllReleasesFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationEnvLocks...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationEnvLocks...")
 	err = h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationAppLocks...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationAppLocks...")
 	err = h.RunCustomMigrationAppLocks(ctx, getAllAppLocksFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationTeamLocks...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationTeamLocks...")
 	err = h.RunCustomMigrationTeamLocks(ctx, getAllTeamLocksFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationQueuedApplicationVersions...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationQueuedApplicationVersions...")
 	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationsCommitEvents...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationsCommitEvents...")
 	err = h.RunCustomMigrationsCommitEvents(ctx, getAllEventsFun)
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationEnvironments...")
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationEnvironments...")
 	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
 	if err != nil {
 		return err // better wrap the error in a descriptive message?
