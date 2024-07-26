@@ -845,7 +845,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
+	isLatest, err := isLatestVersion(state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
@@ -1017,8 +1017,8 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 	return nil
 }
 
-func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetApplicationReleases(ctx, transaction, application)
+func isLatestVersion(state *State, application string, version uint64) (bool, error) {
+	rels, err := state.GetApplicationReleasesFromFile(application)
 	if err != nil {
 		return false, err
 	}
