@@ -45,7 +45,7 @@ func (o *VersionServiceServer) GetVersion(
 	if err != nil {
 		// Note that "not finding a oid" does not mean that it doesn't exist.
 		// Because we do a shallow clone, we won't have information on all existing OIDs.
-		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: could not find revision %v: %v", in.GitRevision, err))
+		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: could not find revision %v: %w", in.GitRevision, err))
 	}
 	state, err := o.Repository.StateAt(oid)
 	if err != nil {
@@ -87,4 +87,5 @@ func (o *VersionServiceServer) GetVersion(
 
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "unimplemented")
+	// Will be implemented in Ref SRX-BVHNX1
 }
