@@ -1306,46 +1306,57 @@ func (h *DBHandler) RunCustomMigrations(
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationsEventSourcingLight...")
 	err := h.RunCustomMigrationsEventSourcingLight(ctx)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationAllAppsTable...")
 	err = h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationApps...")
 	err = h.RunCustomMigrationApps(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationDeployments...")
 	err = h.RunCustomMigrationDeployments(ctx, getAllDeploymentsFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationReleases...")
 	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, getAllReleasesFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationEnvLocks...")
 	err = h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationAppLocks...")
 	err = h.RunCustomMigrationAppLocks(ctx, getAllAppLocksFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationTeamLocks...")
 	err = h.RunCustomMigrationTeamLocks(ctx, getAllTeamLocksFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationQueuedApplicationVersions...")
 	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationsCommitEvents...")
 	err = h.RunCustomMigrationsCommitEvents(ctx, getAllEventsFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Sugar().Warnf("Checking RunCustomMigrationEnvironments...")
 	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
 	if err != nil {
 		return err // better wrap the error in a descriptive message?
@@ -1782,7 +1793,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 			return err
 		}
 		for app := range allAppsMap {
-			l.Infof("processing app %s ...", app)
+			l.Warnf("processing app %s ...", app)
 
 			releases, err := getAllReleasesFun(ctx, app)
 			if err != nil {
@@ -1815,7 +1826,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 				}
 				releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
 			}
-			l.Infof("done with app %s", app)
+			l.Warnf("done with app %s", app)
 			err = h.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslVersion-1)
 			if err != nil {
 				return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
@@ -2326,9 +2337,9 @@ func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun Ge
 		if err != nil {
 			return fmt.Errorf("could not get dbApp to run custom migrations: %v", err)
 		}
-
 		for app := range appsMap {
 			team := appsMap[app]
+			logger.FromContext(ctx).Sugar().Warnf("Inserting app: '%s'\n", app)
 			err = h.DBInsertApplication(ctx, transaction, app, InitialEslVersion, AppStateChangeMigrate, DBAppMetaData{Team: team})
 			if err != nil {
 				return fmt.Errorf("could not write dbApp %s: %v", app, err)
