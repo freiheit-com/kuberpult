@@ -368,40 +368,33 @@ func TestGetManifests(t *testing.T) {
 		}
 	}
 
-	for _, tc := range []*testCase{
-		func() *testCase {
-			release := fixtureRelease(appName, 30)
-
-			return &testCase{
-				name: "happy path",
-				setup: []repository.Transformer{
-					fixtureRelease(appNameOther, 10),
-					fixtureRelease(appNameOther, 20),
-					fixtureRelease(appName, 10),
-					fixtureRelease(appName, 20),
-					release,
-				},
-				req:  fixtureRequest(),
-				want: fixtureReleaseToManifests(release),
-			}
-		}(),
-		func() *testCase {
-			release := fixtureRelease(appName, 2)
-
-			return &testCase{
-				name: "request specific release",
-				setup: append(fixtureSetupEnv(),
-					fixtureRelease(appName, 1),
-					fixtureRelease(appNameOther, 1),
-					release,
-					fixtureRelease(appName, 3),
-					fixtureRelease(appNameOther, 2),
-				),
-				req:  fixtureRequest(func(req *api.GetManifestsRequest) { req.Release = "2" }),
-				want: fixtureReleaseToManifests(release),
-			}
-		}(),
-		{
+	release := fixtureRelease(appName, 3)
+	tcs := []*testCase{
+		&testCase{
+			name: "happy path",
+			setup: []repository.Transformer{
+				fixtureRelease(appNameOther, 1),
+				fixtureRelease(appNameOther, 2),
+				fixtureRelease(appName, 1),
+				fixtureRelease(appName, 2),
+				release,
+			},
+			req:  fixtureRequest(),
+			want: fixtureReleaseToManifests(release),
+		},
+		&testCase{
+			name: "request specific release",
+			setup: append(fixtureSetupEnv(),
+				fixtureRelease(appName, 1),
+				fixtureRelease(appNameOther, 1),
+				fixtureRelease(appName, 2),
+				release,
+				fixtureRelease(appNameOther, 2),
+			),
+			req:  fixtureRequest(func(req *api.GetManifestsRequest) { req.Release = "3" }),
+			want: fixtureReleaseToManifests(release),
+		},
+		&testCase{
 			name: "no release specified",
 			setup: append(fixtureSetupEnv(),
 				fixtureRelease(appName, 1),
@@ -411,7 +404,7 @@ func TestGetManifests(t *testing.T) {
 			req:     fixtureRequest(func(req *api.GetManifestsRequest) { req.Release = "" }),
 			wantErr: status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'"),
 		},
-		{
+		&testCase{
 			name: "no application specified",
 			setup: append(fixtureSetupEnv(),
 				fixtureRelease(appName, 1),
@@ -421,7 +414,7 @@ func TestGetManifests(t *testing.T) {
 			req:     fixtureRequest(func(req *api.GetManifestsRequest) { req.Application = "" }),
 			wantErr: status.Error(codes.InvalidArgument, "no application specified"),
 		},
-		{
+		&testCase{
 			name: "no releases for application",
 			setup: append(fixtureSetupEnv(),
 				fixtureRelease(appNameOther, 1),
@@ -431,7 +424,9 @@ func TestGetManifests(t *testing.T) {
 			req:     fixtureRequest(),
 			wantErr: status.Errorf(codes.NotFound, "no releases found for application %s", appName),
 		},
-	} {
+	}
+
+	for _, tc := range tcs {
 		tc := tc // TODO SRX-SRRONB: Remove after switching to go v1.22
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
