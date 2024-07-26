@@ -326,7 +326,6 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
 	var manifestContent []byte
@@ -360,7 +359,7 @@ func (c *DeployApplicationVersion) Transform(
 			envLocks, appLocks, teamLocks map[string]Lock
 			err                           error
 		)
-		envLocks, err = state.GetEnvironmentLocksFromDB(ctx, transaction, c.Environment)
+		envLocks, err = state.GetEnvironmentLocks(c.Environment)
 		if err != nil {
 			return "", err
 		}
@@ -527,7 +526,7 @@ func (c *CreateEnvironmentLock) Transform(
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+		return "", fmt.Errorf("could not access environment information on: '%s': %w", envDir, err)
 	}
 	chroot, err := fs.Chroot(envDir)
 	if err != nil {
@@ -846,7 +845,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
+	isLatest, err := isLatestVersion(state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
@@ -1018,8 +1017,8 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 	return nil
 }
 
-func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetApplicationReleases(ctx, transaction, application)
+func isLatestVersion(state *State, application string, version uint64) (bool, error) {
+	rels, err := state.GetApplicationReleasesFromFile(application)
 	if err != nil {
 		return false, err
 	}
@@ -1609,7 +1608,7 @@ func (c *CreateUndeployApplicationVersion) SetEslVersion(eslVersion db.Transform
 }
 
 func (u *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
-	return db.EvtDeleteEnvFromApp
+	return db.EvtCreateUndeployApplicationVersion
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
@@ -1671,6 +1670,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest {
+
 			d := &DeployApplicationVersion{
 				SourceTrain: nil,
 				Environment: env,
@@ -1776,8 +1776,9 @@ func (u *UndeployApplication) Transform(
 
 		undeployFile := fs.Join(versionDir, "undeploy")
 		_, err = fs.Stat(undeployFile)
+
 		if err != nil && errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
+			return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release on '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
 		}
 
 	}
