@@ -360,7 +360,7 @@ func (c *DeployApplicationVersion) Transform(
 			envLocks, appLocks, teamLocks map[string]Lock
 			err                           error
 		)
-		envLocks, err = state.GetEnvironmentLocksFromDB(ctx, transaction, c.Environment)
+		envLocks, err = state.GetEnvironmentLocks(c.Environment)
 		if err != nil {
 			return "", err
 		}
@@ -846,7 +846,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
+	isLatest, err := isLatestVersion(state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
@@ -1018,8 +1018,8 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 	return nil
 }
 
-func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetApplicationReleases(ctx, transaction, application)
+func isLatestVersion(state *State, application string, version uint64) (bool, error) {
+	rels, err := state.GetApplicationReleasesFromFile(application)
 	if err != nil {
 		return false, err
 	}
@@ -1609,7 +1609,7 @@ func (c *CreateUndeployApplicationVersion) SetEslVersion(eslVersion db.Transform
 }
 
 func (u *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
-	return db.EvtDeleteEnvFromApp
+	return db.EvtCreateUndeployApplicationVersion
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
@@ -1777,7 +1777,7 @@ func (u *UndeployApplication) Transform(
 		undeployFile := fs.Join(versionDir, "undeploy")
 		_, err = fs.Stat(undeployFile)
 		if err != nil && errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
+			return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release on '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
 		}
 
 	}
