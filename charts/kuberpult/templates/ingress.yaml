@@ -59,9 +59,15 @@ metadata:
 {{- range $key, $value := .Values.ingress.annotations }}
     {{ $key | quote}}: {{ $value | quote}}
 {{- end }}
+{{- if eq .Values.kubernetesEngine "GKE" }}
+    kubernetes.io/ingress.allow-http: false
+    kubernetes.io/ingress.class: "gce"
+{{- end }}
   name: kuberpult
 spec:
-{{- if .Values.ingress.ingressClassName }}
+{{- if .Values.ingress.private }}
+  ingressClassName: "gce-private"
+{{- else if .Values.ingress.ingressClassName }}
   ingressClassName: {{ .Values.ingress.ingressClassName | quote }}
 {{- end }}
   rules:
