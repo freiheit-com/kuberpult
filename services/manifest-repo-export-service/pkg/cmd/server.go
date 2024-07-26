@@ -27,11 +27,16 @@ import (
 	"os"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/service"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -221,14 +226,53 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
+	shutdownCh := make(chan struct{})
+	setup.Run(ctx, setup.ServerConfig{
+		HTTP: []setup.HTTPConfig{
+			{
+				BasicAuth: nil,
+				Shutdown:  nil,
+				Port:      "8080",
+				Register:  nil,
+			},
+		},
+		GRPC: &setup.GRPCConfig{
+			Shutdown: nil,
+			Port:     "8443",
+			Opts:     []grpc.ServerOption{},
+			Register: func(srv *grpc.Server) {
+				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
+				reflection.Register(srv)
+			},
+		},
+		Background: []setup.BackgroundTaskConfig{
+			{
+				Shutdown: nil,
+				Name:     "processEsls",
+				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
+					reporter.ReportReady("Processing Esls")
+					return processEsls(ctx, repo, dbHandler, ddMetrics, eslProcessingIdleTimeSeconds)
+				},
+			},
+		},
+		Shutdown: func(ctx context.Context) error {
+			close(shutdownCh)
+			return nil
+		},
+	})
 
+	return nil
+}
+
+func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {
+	log := logger.FromContext(ctx).Sugar()
 	for {
 		eslTableEmpty := false
 		eslEventSkipped := false
 
 		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
 		const readonly = false
-		err = dbHandler.WithTransaction(ctx, readonly, func(ctx context.Context, transaction *sql.Tx) error {
+		err := dbHandler.WithTransaction(ctx, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			eslVersion, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("error in DBReadCutoff %v", err)
