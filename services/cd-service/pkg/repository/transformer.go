@@ -2948,6 +2948,9 @@ func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, fs bill
 		if tmp == nil {
 			return "", fmt.Errorf("release %v not found for app %s", release, app)
 		}
+		if tmp.Metadata.SourceCommitId == "" {
+			return "", fmt.Errorf("Found release %v for app %s, but commit id was empty", release, app)
+		}
 		return tmp.Metadata.SourceCommitId, nil
 	} else {
 		return getCommitIDFromReleaseDir(ctx, fs, releaseDir)
