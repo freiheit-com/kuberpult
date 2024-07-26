@@ -193,16 +193,16 @@ func ValidateRbacPermission(line string) (p Permission, err error) {
 
 func ValidateTeamRbacPermission(line string) (team string, users []string, err error) {
 
-	p := strings.Split(line, ",")
+	permission := strings.Split(line, ",")
 
-	if len(p) != 2 {
-		return "", nil, fmt.Errorf("2 fields are expected but %d were specified in line %s", len(p), line)
+	if len(permission) != 2 {
+		return "", nil, fmt.Errorf("2 fields are expected but %d were specified in line %s", len(permission), line)
 	}
 
-	users = strings.Split(p[1], " ")
+	users = strings.Split(permission[1], " ")
 
-	if p[0] != "*" && !valid.TeamName(p[0]) {
-		return "", nil, fmt.Errorf("invalid team name %s", p[0])
+	if permission[0] != "*" && !valid.TeamName(permission[0]) {
+		return "", nil, fmt.Errorf("invalid team name %s", permission[0])
 	}
 
 	for _, user := range users {
@@ -213,7 +213,7 @@ func ValidateTeamRbacPermission(line string) (team string, users []string, err e
 
 	}
 
-	return p[0], users, nil
+	return permission[0], users, nil
 }
 
 func ValidateRbacGroup(line string) (p RBACGroup, err error) {
@@ -274,17 +274,17 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 func AddUsersToTeam(team string, users []string, teamPermissions *RBACTeams) {
 
 	for _, user := range users {
-		t, ok := teamPermissions.Permissions[user]
+		userTeams, ok := teamPermissions.Permissions[user]
 
 		if !ok {
 			teamPermissions.Permissions[user] = []string{team}
 		} else {
-			if teamPermissions.Permissions[user][len(t)-1] == team {
+			if teamPermissions.Permissions[user][len(userTeams)-1] == team {
 				// Ignone if user is listed more than once in the same line/team
 				continue
 			}
 
-			teamPermissions.Permissions[user] = append(t, team)
+			teamPermissions.Permissions[user] = append(userTeams, team)
 		}
 	}
 }
@@ -414,9 +414,9 @@ func CheckUserTeamPermissions(rbacConfig RBACConfig, user *User, team string, ac
 		return errors.New("the desired action can not be performed because Dex is enabled without any RBAC Team permissions")
 
 	}
-	t := rbacConfig.Team.Permissions[user.Email]
+	userTeams := rbacConfig.Team.Permissions[user.Email]
 
-	for _, teams := range t {
+	for _, teams := range userTeams {
 		if teams == "*" || teams == team {
 			return nil
 		}
