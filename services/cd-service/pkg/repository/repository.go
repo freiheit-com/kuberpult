@@ -2267,7 +2267,7 @@ func (s *State) PerformReleaseCustomMigrationForApp(ctx context.Context, transac
 			},
 			Deleted: false,
 		}
-		err = s.DBHandler.DBInsertRelease(ctx, transaction, &toInsert, db.InitialEslVersion-1)
+		err = s.DBHandler.DBInsertRelease(ctx, transaction, toInsert, db.InitialEslVersion-1)
 
 		if err != nil {
 			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
