@@ -2250,23 +2250,24 @@ func (s *State) PerformReleaseCustomMigrationForApp(ctx context.Context, transac
 			manifest := manifests[index]
 			manifestsMap[manifest.Environment] = manifests[index].Content
 		}
-		toInsert.EslVersion = db.InitialEslVersion
-		toInsert.Created = time.Now().UTC()
-		toInsert.ReleaseNumber = repoRelease.Version
-		toInsert.App = app
-		toInsert.Manifests = db.DBReleaseManifests{
-			Manifests: manifestsMap,
+		toInsert = &db.DBReleaseWithMetaData{
+			EslVersion:    db.InitialEslVersion,
+			Created:       time.Now().UTC(),
+			ReleaseNumber: repoRelease.Version,
+			App:           app,
+			Manifests: db.DBReleaseManifests{
+				Manifests: manifestsMap,
+			},
+			Metadata: db.DBReleaseMetaData{
+				UndeployVersion: repoRelease.UndeployVersion,
+				SourceAuthor:    repoRelease.SourceAuthor,
+				SourceCommitId:  repoRelease.SourceCommitId,
+				SourceMessage:   repoRelease.SourceMessage,
+				DisplayVersion:  repoRelease.DisplayVersion,
+			},
+			Deleted: false,
 		}
-		toInsert.Metadata = db.DBReleaseMetaData{
-			UndeployVersion: repoRelease.UndeployVersion,
-			SourceAuthor:    repoRelease.SourceAuthor,
-			SourceCommitId:  repoRelease.SourceCommitId,
-			SourceMessage:   repoRelease.SourceMessage,
-			DisplayVersion:  repoRelease.DisplayVersion,
-		}
-		toInsert.Deleted = false
-
-		err = s.DBHandler.DBInsertRelease(ctx, transaction, toInsert, db.InitialEslVersion-1)
+		err = s.DBHandler.DBInsertRelease(ctx, transaction, &toInsert, db.InitialEslVersion-1)
 
 		if err != nil {
 			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
