@@ -228,7 +228,7 @@ func TestVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       gotime.Time{},
@@ -461,7 +461,7 @@ func TestGetManifests(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       gotime.Time{},
@@ -472,7 +472,7 @@ func TestGetManifests(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
 					EslVersion:    1,
 					ReleaseNumber: 3,
 					Created:       gotime.Time{},
@@ -483,7 +483,7 @@ func TestGetManifests(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
 					EslVersion:    2,
 					ReleaseNumber: 3,
 					Created:       gotime.Time{},
@@ -498,7 +498,7 @@ func TestGetManifests(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
 					EslVersion:    3,
 					ReleaseNumber: 1,
 					Created:       gotime.Time{},
@@ -509,7 +509,7 @@ func TestGetManifests(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
 					EslVersion:    4,
 					ReleaseNumber: 2,
 					Created:       gotime.Time{},
@@ -520,7 +520,7 @@ func TestGetManifests(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
 					EslVersion:    5,
 					ReleaseNumber: 3,
 					Created:       gotime.Time{},
