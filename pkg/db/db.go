@@ -1794,12 +1794,15 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 		if err != nil {
 			return err
 		}
+		count := 0
 		for app := range allAppsMap {
 			l.Warnf("processing app %s ...", app)
 			err := performMigsForApp(ctx, transaction, app)
 			if err != nil {
 				return fmt.Errorf("error performing custom release migrations for app '%s': %v", app, err)
 			}
+			count += 1
+			l.Warnf("Processed (%d/%d)\n", count, len(allAppsMap))
 		}
 		return nil
 	})
