@@ -1301,7 +1301,7 @@ func TestDeleteRelease(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := dbHandler.DBInsertRelease(ctx, transaction, tc.toInsert, tc.toInsert.EslVersion-1)
+				err2 := dbHandler.DBInsertRelease(ctx, transaction, &tc.toInsert, tc.toInsert.EslVersion-1)
 				if err2 != nil {
 					return err2
 				}
@@ -1947,7 +1947,7 @@ func TestReadReleasesByApp(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.Releases {
-					err := dbHandler.DBInsertRelease(ctx, transaction, release, release.EslVersion-1)
+					err := dbHandler.DBInsertRelease(ctx, transaction, &release, release.EslVersion-1)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}

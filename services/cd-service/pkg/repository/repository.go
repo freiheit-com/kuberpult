@@ -2233,6 +2233,8 @@ func (s *State) PerformReleaseCustomMigrationForApp(ctx context.Context, transac
 		return fmt.Errorf("cannot get releases of app %s: %v", app, err)
 	}
 	releaseNumbers := []int64{}
+	//exhaustruct:ignore
+	toInsert := db.DBReleaseWithMetaData{}
 	for i := range releases {
 		releaseVersion := releases[i]
 		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
@@ -2248,7 +2250,7 @@ func (s *State) PerformReleaseCustomMigrationForApp(ctx context.Context, transac
 			manifest := manifests[index]
 			manifestsMap[manifest.Environment] = manifests[index].Content
 		}
-		toInsert := db.DBReleaseWithMetaData{
+		toInsert = db.DBReleaseWithMetaData{
 			EslVersion:    db.InitialEslVersion,
 			Created:       time.Now().UTC(),
 			ReleaseNumber: repoRelease.Version,
@@ -2265,7 +2267,7 @@ func (s *State) PerformReleaseCustomMigrationForApp(ctx context.Context, transac
 			},
 			Deleted: false,
 		}
-		err = s.DBHandler.DBInsertRelease(ctx, transaction, toInsert, db.InitialEslVersion-1)
+		err = s.DBHandler.DBInsertRelease(ctx, transaction, &toInsert, db.InitialEslVersion-1)
 
 		if err != nil {
 			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)

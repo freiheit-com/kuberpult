@@ -652,7 +652,7 @@ func (c *CreateApplicationVersion) Transform(
 			Created: time.Now(),
 			Deleted: false,
 		}
-		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
+		err = state.DBHandler.DBInsertRelease(ctx, transaction, &release, v)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1145,7 +1145,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			Created: time.Now(),
 			Deleted: false,
 		}
-		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
+		err = state.DBHandler.DBInsertRelease(ctx, transaction, &release, v)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1547,7 +1547,7 @@ func (u *DeleteEnvFromApp) Transform(
 				Metadata:      dbReleaseWithMetadata.Metadata,
 				Deleted:       dbReleaseWithMetadata.Deleted,
 			}
-			err = state.DBHandler.DBInsertRelease(ctx, transaction, newRelease, dbReleaseWithMetadata.EslVersion)
+			err = state.DBHandler.DBInsertRelease(ctx, transaction, &newRelease, dbReleaseWithMetadata.EslVersion)
 			if err != nil {
 				return "", err
 			}
