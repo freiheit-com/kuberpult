@@ -474,7 +474,7 @@ func TestGetManifests(t *testing.T) {
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    1,
-					ReleaseNumber: 3,
+					ReleaseNumber: 2,
 					Created:       gotime.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
