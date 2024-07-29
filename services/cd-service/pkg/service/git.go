@@ -151,6 +151,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	fs := s.OverviewService.Repository.State().Filesystem
 
 	commitIDPrefix := in.CommitHash
+	eventLimit := in.EventLimit
 
 	commitID, err := findCommitID(ctx, fs, commitIDPrefix)
 	if err != nil {
@@ -203,26 +204,33 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	var events []*api.Event
 	if s.OverviewService.Repository.State().DBHandler.ShouldUseOtherTables() {
 		events, err = db.WithTransactionMultipleEntriesT(s.OverviewService.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-			return s.GetEvents(ctx, transaction, fs, commitPath)
+			return s.GetEvents(ctx, transaction, fs, commitPath, eventLimit)
 		})
 	} else {
-		events, err = s.GetEvents(ctx, nil, fs, commitPath)
+		events, err = s.GetEvents(ctx, nil, fs, commitPath, eventLimit)
 	}
 	if err != nil {
 		return nil, err
 	}
+	loadMore := true
+
+	if len(events) < int(eventLimit) {
+		loadMore = false
+	}
+	slicedEvents := events[:min(len(events), int(eventLimit))]
 
 	return &api.GetCommitInfoResponse{
 		CommitHash:         commitID,
 		CommitMessage:      commitMessage,
 		TouchedApps:        touchedApps,
-		Events:             events,
+		Events:             slicedEvents,
 		PreviousCommitHash: previousCommitId,
 		NextCommitHash:     nextCommitId,
+		LoadMore:           loadMore,
 	}, nil
 }
 
-func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string) ([]*api.Event, error) {
+func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string, eventLimit uint64) ([]*api.Event, error) {
 	var result []*api.Event
 	parts := strings.Split(commitPath, "/")
 	commitID := parts[len(parts)-2] + parts[len(parts)-1]
@@ -267,10 +275,11 @@ func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy
 				result = append(result, event)
 			}
 		}
+		//NOTE: We only order when not using a db as the db query already orders the events
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].CreatedAt.AsTime().UnixNano() < result[j].CreatedAt.AsTime().UnixNano()
+		})
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreatedAt.AsTime().UnixNano() < result[j].CreatedAt.AsTime().UnixNano()
-	})
 	return result, nil
 }
 

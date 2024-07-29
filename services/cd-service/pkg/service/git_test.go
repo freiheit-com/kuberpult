@@ -318,6 +318,71 @@ func TestGetCommitInfo(t *testing.T) {
 
 	tcs := []TestCase{
 		{
+			name: "check if the number of events is equal to event limit",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application: "app",
+					Manifests: map[string]string{
+						"development-1": "manifest 1",
+						"staging-1":     "manifest 2",
+					},
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					WriteCommitData: true,
+				},
+				&rp.CreateApplicationVersion{
+					Application: "app",
+					Manifests: map[string]string{
+						"development-1": "manifest 1",
+						"staging-1":     "manifest 2",
+					},
+					SourceCommitId:  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					WriteCommitData: true,
+				},
+				&rp.ReleaseTrain{
+					Target:          "staging",
+					WriteCommitData: true,
+				},
+			},
+			allowReadingCommitData: true,
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				EventLimit: 2,
+			},
+			expectedResponse: &api.GetCommitInfoResponse{
+				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				LoadMore:      true,
+				CommitMessage: "",
+				TouchedApps: []string{
+					"app",
+				},
+				Events: []*api.Event{
+					{
+						Uuid:      "00000000-0000-0000-0000-000000000002",
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
+						EventType: &api.Event_CreateReleaseEvent{
+							CreateReleaseEvent: &api.CreateReleaseEvent{
+								EnvironmentNames: []string{
+									"development-1",
+									"staging-1",
+								},
+							},
+						},
+					},
+					{
+						Uuid:      "00000000-0000-0000-0000-000000000003",
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application:        "app",
+								TargetEnvironment:  "development-1",
+								ReleaseTrainSource: nil,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "create one commit with one app and get its info",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
@@ -332,10 +397,12 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				EventLimit: 100,
 			},
 			allowReadingCommitData: true,
 			expectedError:          nil,
 			expectedResponse: &api.GetCommitInfoResponse{
+				LoadMore:      false,
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
 				TouchedApps: []string{
@@ -398,10 +465,12 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				EventLimit: 100,
 			},
 			allowReadingCommitData: true,
 			expectedError:          nil,
 			expectedResponse: &api.GetCommitInfoResponse{
+				LoadMore:      false,
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
 				TouchedApps: []string{
@@ -502,10 +571,12 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "32a5b7b27",
+				EventLimit: 100,
 			},
 			allowReadingCommitData: true,
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
+				LoadMore:      false,
 				CommitMessage: "some message",
 				TouchedApps:   []string{"app"},
 				Events: []*api.Event{
@@ -588,8 +659,10 @@ func TestGetCommitInfo(t *testing.T) {
 			allowReadingCommitData: true,
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				EventLimit: 100,
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
+				LoadMore:      false,
 				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				CommitMessage: "",
 				TouchedApps: []string{
@@ -666,9 +739,11 @@ func TestGetCommitInfo(t *testing.T) {
 			allowReadingCommitData: true,
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				EventLimit: 100,
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				LoadMore:      false,
 				CommitMessage: "",
 				TouchedApps: []string{
 					"app",

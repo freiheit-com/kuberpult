@@ -128,10 +128,10 @@ export const refreshTags = (): void => {
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
-export const getCommitInfo = (commitHash: string, authHeader: AuthHeader): void => {
+export const getCommitInfo = (commitHash: string, eventLimit: number, authHeader: AuthHeader): void => {
     useApi
         .gitService()
-        .GetCommitInfo({ commitHash: commitHash }, authHeader)
+        .GetCommitInfo({ commitHash: commitHash, eventLimit: eventLimit }, authHeader)
         .then((result: GetCommitInfoResponse) => {
             updateCommitInfo.set({ response: result, commitInfoReady: CommitInfoState.READY });
         })

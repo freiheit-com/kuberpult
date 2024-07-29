@@ -134,6 +134,7 @@ describe('Commit info page tests', () => {
                     commitMessage: `Add google to windows
 Commit message body line 1
 Commit message body line 2`,
+                    loadMore: false,
                     events: [],
                     previousCommitHash: '',
                     nextCommitHash: '',
@@ -173,6 +174,7 @@ Commit message body line 2`,
                     commitMessage: `Add google to windows
 Commit message body line 1
 Commit message body line 2`,
+                    loadMore: false,
                     events: [],
                     previousCommitHash: '',
                     nextCommitHash: '',

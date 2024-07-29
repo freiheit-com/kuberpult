@@ -1080,7 +1080,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp ASC;")
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, commitHash)

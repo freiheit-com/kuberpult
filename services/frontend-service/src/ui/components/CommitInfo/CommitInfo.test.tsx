@@ -21,7 +21,7 @@ import { GetCommitInfoResponse, LockPreventedDeploymentEvent_LockType } from '..
 test('CommitInfo component does not render commit info when the response is undefined', () => {
     const { container } = render(
         <MemoryRouter>
-            <CommitInfo commitInfo={undefined} />
+            <CommitInfo commitInfo={undefined} triggerLoadMore={null} showMoreClicked={false}/>
         </MemoryRouter>
     );
     expect(container.textContent).toContain('Backend returned empty response');
@@ -51,6 +51,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
                 
         Commit message body line 1
         Commit message body line 2`,
+                loadMore: false,
                 touchedApps: ['google', 'windows'],
                 nextCommitHash: '',
                 previousCommitHash: '',
@@ -188,6 +189,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
                 
         Commit message body line 1
         Commit message body line 2`,
+                loadMore: false,
                 touchedApps: ['google', 'windows'],
                 nextCommitHash: '',
                 previousCommitHash: '',
@@ -258,7 +260,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
         );
         const { container } = render(
             <MemoryRouter>
-                <CommitInfo commitInfo={testCase.commitInfo} />
+                <CommitInfo commitInfo={testCase.commitInfo} triggerLoadMore={null} showMoreClicked={false}/>
             </MemoryRouter>
         );
 
@@ -297,6 +299,48 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
 
     const testCases: TestCase[] = [
         {
+            name: 'Load more button is rendered when there is more events to show',
+            commitInfo: {
+                commitHash: 'potato',
+                commitMessage: `tomato
+                
+        Commit message body line 1
+        Commit message body line 2`,
+                loadMore: true,
+                touchedApps: ['google'],
+                nextCommitHash: '',
+                previousCommitHash: '',
+                events: [],
+            },
+            expectedTitle: 'Commit: tomato',
+            expectedCommitDescriptionTable: {
+                head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
+                body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
+            },
+            expectedButtons: ['Load more'],
+        },
+        {
+            name: 'Load more button is not rendered when there is no more events to show',
+            commitInfo: {
+                commitHash: 'potato',
+                commitMessage: `tomato
+                
+        Commit message body line 1
+        Commit message body line 2`,
+                loadMore: false,
+                touchedApps: ['google'],
+                nextCommitHash: '',
+                previousCommitHash: '',
+                events: [],
+            },
+            expectedTitle: 'Commit: tomato',
+            expectedCommitDescriptionTable: {
+                head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
+                body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
+            },
+            expectedButtons: [],
+        },
+        {
             name: 'Both buttons render when there information for both commits exist',
             commitInfo: {
                 commitHash: 'potato',
@@ -304,6 +348,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 
         Commit message body line 1
         Commit message body line 2`,
+                loadMore: false,
                 touchedApps: ['google'],
                 nextCommitHash: '123456789',
                 previousCommitHash: '987654321',
@@ -324,6 +369,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 
         Commit message body line 1
         Commit message body line 2`,
+                loadMore: false,
                 touchedApps: ['google'],
                 nextCommitHash: '123456789',
                 previousCommitHash: '',
@@ -344,6 +390,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 
         Commit message body line 1
         Commit message body line 2`,
+                loadMore: false,
                 touchedApps: ['google'],
                 nextCommitHash: '',
                 previousCommitHash: '987654321',
@@ -364,6 +411,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 
         Commit message body line 1
         Commit message body line 2`,
+                loadMore: false,
                 touchedApps: ['google'],
                 nextCommitHash: '',
                 previousCommitHash: '',
@@ -384,6 +432,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 
         Commit message body line 1
         Commit message body line 2`,
+                loadMore: false,
                 touchedApps: ['google', 'microsoft'],
                 nextCommitHash: '123456789',
                 previousCommitHash: '987654321',
@@ -401,7 +450,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
         it(testCase.name, () => {
             const { container } = render(
                 <MemoryRouter>
-                    <CommitInfo commitInfo={testCase.commitInfo} />
+                    <CommitInfo commitInfo={testCase.commitInfo}  triggerLoadMore={null} showMoreClicked={false}/>
                 </MemoryRouter>
             );
 
