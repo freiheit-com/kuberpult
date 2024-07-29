@@ -19,11 +19,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/cloudrun"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -38,6 +41,52 @@ func runServer(ctx context.Context) error {
 	if err := cloudrun.Init(ctx); err != nil {
 		logger.FromContext(ctx).Fatal("Failed to initialize cloud run service")
 	}
+
+	dbLocation, err := readEnvVar("KUBERPULT_DB_LOCATION")
+	if err != nil {
+		return err
+	}
+	dbAuthProxyPort, err := readEnvVar("KUBERPULT_DB_AUTH_PROXY_PORT")
+	if err != nil {
+		return err
+	}
+	dbName, err := readEnvVar("KUBERPULT_DB_NAME")
+	if err != nil {
+		return err
+	}
+	dbOption, err := readEnvVar("KUBERPULT_DB_OPTION")
+	if err != nil {
+		return err
+	}
+	dbUserName, err := readEnvVar("KUBERPULT_DB_USER_NAME")
+	if err != nil {
+		return err
+	}
+	dbPassword, err := readEnvVar("KUBERPULT_DB_USER_PASSWORD")
+	if err != nil {
+		return err
+	}
+
+	var dbCfg db.DBConfig
+	if dbOption == "postgreSQL" {
+		dbCfg = db.DBConfig{
+			DbHost:         dbLocation,
+			DbPort:         dbAuthProxyPort,
+			DriverName:     "postgres",
+			DbName:         dbName,
+			DbPassword:     dbPassword,
+			DbUser:         dbUserName,
+			MigrationsPath: "",
+			WriteEslOnly:   false,
+		}
+	} else {
+		logger.FromContext(ctx).Fatal("unsupported value", zap.String("dbOption", dbOption))
+	}
+	_, err = db.Connect(dbCfg)
+	if err != nil {
+		return err
+	}
+	logger.FromContext(ctx).Info("connection to the database successful")
 
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{},
@@ -54,4 +103,12 @@ func runServer(ctx context.Context) error {
 	})
 
 	return nil
+}
+
+func readEnvVar(envName string) (string, error) {
+	envValue, ok := os.LookupEnv(envName)
+	if !ok {
+		return "", fmt.Errorf("could not read environment variable '%s'", envName)
+	}
+	return envValue, nil
 }
