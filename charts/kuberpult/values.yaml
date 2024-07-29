@@ -68,6 +68,7 @@ git:
   releaseVersionsLimit: 20
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+kubernetesEngine: "GKE"
 
 log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
@@ -196,9 +197,12 @@ rollout:
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
   # set to false, if you want use your own ingress:
-  create: true
+  create: false
+  private: true
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
+    kubernetes.io/ingress.allow-http: false
+    kubernetes.io/ingress.class: "gce"
   domainName: null
   # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:
