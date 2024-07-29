@@ -1995,8 +1995,6 @@ func TestLocks(t *testing.T) {
 	}
 }
 
-////@@@@@@@@@@
-
 func TestCreateUndeployLogic(t *testing.T) {
 	const appName = "app1"
 	const authorName = "testAuthorName"
@@ -2006,8 +2004,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 		Transformers    []Transformer
 		expectedData    []*FilenameAndData
 		expectedMissing []*FilenameAndData
-		expectedMessage string
-		expectedError   error
 	}{
 		{
 
@@ -2277,27 +2273,17 @@ func TestCreateUndeployLogic(t *testing.T) {
 						}
 					}
 				}
-				var commitMsg []string
 				err := repo.Apply(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					return err
-				}
-				actualMsg := ""
-				// note that we only check the LAST error here:
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedMessage, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 				}
 
 				return nil
 			})
 
 			if err != nil {
-				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-				}
+				t.Fatalf("error not expected but got: \n%v", err)
+
 			}
 			updatedState := repo.State()
 
