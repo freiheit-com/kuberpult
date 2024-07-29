@@ -33,19 +33,17 @@ export const CommitInfoPage: React.FC = () => {
     const { authHeader } = useAzureAuthSub((auth) => auth);
     const [eventLimit, setLimit] = React.useState(1);
     const increment: number = 10;
-    const [showMoreClicked, setShowMoreClicked] = React.useState(false);
 
     React.useEffect(() => {
         if (commitHash !== undefined) {
             getCommitInfo(commitHash, eventLimit, authHeader);
         }
-    }, [commitHash, authHeader, showMoreClicked]);
+    }, [commitHash, authHeader, eventLimit]);
 
     const triggerLoadMore = useCallback(() => {
-        setShowMoreClicked(!showMoreClicked);
         setLimit(eventLimit + increment);
         updateCommitInfo.set({ commitInfoReady: CommitInfoState.LOADING });
-    }, [showMoreClicked]);
+    }, [eventLimit]);
 
     const commitInfo = useCommitInfo((res) => res);
 
@@ -88,7 +86,7 @@ export const CommitInfoPage: React.FC = () => {
                 <CommitInfo
                     commitInfo={commitInfo.response}
                     triggerLoadMore={triggerLoadMore}
-                    showMoreClicked={showMoreClicked}
+                    eventLimit={eventLimit}
                 />
             );
     }
