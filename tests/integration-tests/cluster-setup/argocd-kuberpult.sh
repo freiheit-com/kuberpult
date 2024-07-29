@@ -178,7 +178,7 @@ manifestRepoExport:
       memory: 200Mi
       cpu: 0.05
 manageArgoApplications:
-  enabled: true
+  enabled: false
 ingress:
   domainName: kuberpult.example.com
 log:
