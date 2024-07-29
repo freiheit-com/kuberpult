@@ -453,6 +453,17 @@ func TestTransformerWorksWithDb(t *testing.T) {
 	}
 }
 
+func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
+	for _, contentRequirement := range required {
+		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
+			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
+		} else if string(data) != string(contentRequirement.fileData) {
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
+		}
+	}
+	return nil
+}
+
 func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 	for _, contentRequirement := range required {
 		if _, err := fs.Stat(contentRequirement.path); err != nil {
@@ -463,17 +474,6 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 			return fmt.Errorf("Error on Stat for file %s: %v\n", contentRequirement.path, err)
 		}
 		return fmt.Errorf("File exists %s\n", contentRequirement.path)
-	}
-	return nil
-}
-
-func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
-	for _, contentRequirement := range required {
-		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
-			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
-		} else if string(data) != string(contentRequirement.fileData) {
-			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
-		}
 	}
 	return nil
 }
