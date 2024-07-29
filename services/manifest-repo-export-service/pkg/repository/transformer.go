@@ -527,7 +527,7 @@ func (c *CreateEnvironmentLock) Transform(
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+		return "", fmt.Errorf("could not access environment information on: '%s': %w", envDir, err)
 	}
 	chroot, err := fs.Chroot(envDir)
 	if err != nil {
