@@ -88,9 +88,6 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	gitUrl, err := readEnvVar("KUBERPULT_GIT_URL")
 	if err != nil {
 		return err
