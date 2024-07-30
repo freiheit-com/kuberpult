@@ -375,9 +375,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sq
 	if err != nil {
 		return fmt.Errorf("first apply failed, aborting: %v", err)
 	}
-
 	return nil
-	//return r.PushRepo(ctx)
 }
 
 func (r *repository) PushRepo(ctx context.Context) error {

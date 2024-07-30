@@ -69,7 +69,10 @@ func (h *DBHandler) WithTransactionR(ctx context.Context, maxRetries uint8, read
 
 // WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
 func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionT[T]) (*T, error) {
-	res, err := WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries, readonly, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
+	res, err := withTransactionAllOptions(h, ctx, TransactionOptions{
+		maxRetries: maxRetries,
+		readonly:   readonly,
+	}, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
 		fRes, err2 := f(ctx, transaction)
 		if err2 != nil {
 			return nil, err2
@@ -87,20 +90,24 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
 func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	return WithTransactionMultipleEntriesRetryT(h, ctx, DefaultNumRetries, readonly, f)
+	return withTransactionAllOptions(h, ctx, TransactionOptions{
+		maxRetries: DefaultNumRetries,
+		readonly:   readonly,
+	}, f)
 }
 
-// WithTransactionMultipleEntriesRetryT is the same as WithTransaction, but you can also return and array of data and retries.
-// func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	//
-	//if true {
-	//	return nil, fmt.Errorf("some db error")
-	//}
+type TransactionOptions struct {
+	maxRetries uint8
+	readonly   bool
+}
+
+// withTransactionAllOptions is the same as WithTransaction, but you can also return and array of data and retries.
+// func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
+func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts TransactionOptions, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
 	defer span.Finish()
-	span.SetTag("readonly", readonly)
-	span.SetTag("maxRetries", maxRetries)
+	span.SetTag("readonly", opts.readonly)
+	span.SetTag("maxRetries", opts.maxRetries)
 
 	onError := func(e error) ([]T, error) {
 		span.Finish(tracer.WithError(e))
@@ -108,7 +115,7 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 	}
 
 	retryMaybe := func(msg string, e error, transaction *sql.Tx) ([]T, error) {
-		if maxRetries == 0 {
+		if opts.maxRetries == 0 {
 			return onError(fmt.Errorf("error %s transaction: %w", msg, e))
 		}
 		if IsRetryablePostgresError(e) {
@@ -117,12 +124,15 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 			_ = transaction.Rollback()
 			span.Finish()
 			time.Sleep(duration)
-			return WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries-1, readonly, f)
+			return withTransactionAllOptions(h, ctx, TransactionOptions{
+				maxRetries: opts.maxRetries - 1,
+				readonly:   opts.readonly,
+			}, f)
 		}
 		return nil, e
 	}
 
-	tx, err := h.BeginTransaction(ctx, readonly)
+	tx, err := h.BeginTransaction(ctx, opts.readonly)
 	if err != nil {
 		return retryMaybe("beginning", err, tx)
 	}
