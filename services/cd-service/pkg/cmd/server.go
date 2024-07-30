@@ -225,6 +225,7 @@ func RunServer() {
 				logger.FromContext(ctx).Fatal("Unable to initialize CloudRunService", zap.Error(err))
 			}
 		}
+		fmt.Println("SSL_MODE: %v\n", c.DbSslRequired)
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg db.DBConfig

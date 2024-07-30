@@ -116,10 +116,10 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 	if cfg.DriverName == "postgres" {
 		dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s",
 			cfg.DbHost, cfg.DbUser, cfg.DbPassword, cfg.DbPort, cfg.DbName)
-		if cfg.SSLRequired {
+		if !cfg.SSLRequired {
 			dbURI = dbURI + " sslmode=disable"
 		}
-
+		fmt.Println(dbURI)
 		dbPool, err := sql.Open(cfg.DriverName, dbURI)
 		if err != nil {
 			return nil, fmt.Errorf("sql.Open: %w", err)
