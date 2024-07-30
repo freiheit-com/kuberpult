@@ -1474,7 +1474,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t)
 			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.PrevReleases {
-					repo.State().DBHandler.DBInsertRelease(ctx, transaction, &release, 0)
+					repo.State().DBHandler.DBInsertRelease(ctx, transaction, release, 0)
 				}
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transforms...)
 				if err != nil {

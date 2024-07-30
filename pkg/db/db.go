@@ -696,7 +696,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	return result, nil
 }
 
-func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release *DBReleaseWithMetaData, previousEslVersion EslVersion) error {
+func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslVersion) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
 	defer span.Finish()
 	metadataJson, err := json.Marshal(release.Metadata)
@@ -805,7 +805,7 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	}
 
 	targetRelease.Deleted = true
-	if err := h.DBInsertRelease(ctx, transaction, targetRelease, targetRelease.EslVersion); err != nil {
+	if err := h.DBInsertRelease(ctx, transaction, *targetRelease, targetRelease.EslVersion); err != nil {
 		return err
 	}
 	return nil

@@ -444,7 +444,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
@@ -640,7 +640,7 @@ func TestDeploymentEvent(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
@@ -839,7 +839,7 @@ func TestReleaseTrain(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
@@ -1265,7 +1265,7 @@ func TestReplacedByEvents(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
@@ -1273,7 +1273,7 @@ func TestReplacedByEvents(t *testing.T) {
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
 				}, db.InitialEslVersion)
-				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    1,
 					ReleaseNumber: 2,
 					Created:       time.Time{},
@@ -1397,7 +1397,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
@@ -1405,7 +1405,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
 				}, 0)
-				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 2,
 					Created:       time.Time{},
