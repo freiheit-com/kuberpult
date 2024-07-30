@@ -71,23 +71,16 @@ func RetryGitRepo(originalError error) *RetryError {
 	}
 }
 
-//func RetryTransaction(OriginalError error) *RetryError {
-//	return &RetryError{
-//		OriginalError: OriginalError,
-//		ErrorType:     errorTypeTransaction,
-//	}
-//}
-
-func UnwrapUntilRetryError(err error) *RetryError {
+func UnwrapUntilRetryError(err error) (*RetryError, bool) {
 	for {
 		var applyErr *RetryError
 		if errors.As(err, &applyErr) {
-			return applyErr
+			return applyErr, true
 		}
 		err2 := errors.Unwrap(err)
 		if err2 == nil {
 			// cannot unwrap any further
-			return nil
+			return nil, false
 		}
 	}
 }

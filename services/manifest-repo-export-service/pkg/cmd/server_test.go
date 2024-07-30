@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/errors"
@@ -104,7 +105,6 @@ func TestCalcSleep(t *testing.T) {
 			eslTableEmpty:   true,
 			expectedSleepData: &SleepData{
 				WarnMessage:   "",
-				InfoMessage:   "sleeping for 500ms before looking for the first event again",
 				SleepDuration: time.Millisecond * 500,
 				FetchRepo:     false,
 				ResetTimer:    false,
@@ -118,26 +118,11 @@ func TestCalcSleep(t *testing.T) {
 			eslTableEmpty:   false,
 			expectedSleepData: &SleepData{
 				WarnMessage:   "",
-				InfoMessage:   "",
 				SleepDuration: 0,
 				FetchRepo:     false,
 				ResetTimer:    true,
 			},
 		},
-		//{
-		//	Name:            "transaction error",
-		//	inputError:      errors.RetryTransaction(fmt.Errorf("hello")),
-		//	inputBackOff:    backoff.NewConstantBackOff(time.Millisecond * 250),
-		//	eslEventSkipped: false,
-		//	eslTableEmpty:   false,
-		//	expectedSleepData: &SleepData{
-		//		WarnMessage:   "transactional error: retry error for kind 'transaction': hello",
-		//		InfoMessage:   "",
-		//		SleepDuration: time.Millisecond * 250,
-		//		FetchRepo:     false,
-		//		ResetTimer:    false,
-		//	},
-		//},
 		{
 			Name:            "git error",
 			inputError:      errors.RetryGitRepo(fmt.Errorf("holla")),
@@ -146,7 +131,6 @@ func TestCalcSleep(t *testing.T) {
 			eslTableEmpty:   false,
 			expectedSleepData: &SleepData{
 				WarnMessage:   "could not update git repo",
-				InfoMessage:   "",
 				SleepDuration: time.Millisecond * 123,
 				FetchRepo:     true,
 				ResetTimer:    false,
@@ -160,7 +144,6 @@ func TestCalcSleep(t *testing.T) {
 			eslTableEmpty:   false,
 			expectedSleepData: &SleepData{
 				WarnMessage:   "",
-				InfoMessage:   "",
 				SleepDuration: 0,
 				FetchRepo:     false,
 				ResetTimer:    true,
@@ -170,7 +153,7 @@ func TestCalcSleep(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			actualSleepData := calcSleep(tc.inputError, tc.inputBackOff, tc.eslEventSkipped, tc.eslTableEmpty)
+			actualSleepData := calcSleep(context.Background(), tc.inputError, tc.inputBackOff, tc.eslEventSkipped, tc.eslTableEmpty)
 			if diff := cmp.Diff(actualSleepData, tc.expectedSleepData); diff != "" {
 				t.Errorf("expected %v, got %v, diff:\n%s", tc.expectedSleepData, actualSleepData, diff)
 			}

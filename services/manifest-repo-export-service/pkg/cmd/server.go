@@ -271,12 +271,15 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 	for {
 		eslTableEmpty := false
 		eslEventSkipped := false
+		var esl *db.EslEventRow = nil
+		var eslVersion *db.EslVersion = nil
 
 		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
 		const readonly = false
 		const transactionRetries = 10
 		err := dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
-			eslVersion, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
+			var err error = nil
+			eslVersion, err = cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("error in DBReadCutoff %v", err)
 			}
@@ -285,7 +288,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			} else {
 				log.Infof("found cutoff: %d", *eslVersion)
 			}
-			esl, err := readEslEvent(ctx, transaction, eslVersion, log, dbHandler)
+			esl, err = readEslEvent(ctx, transaction, eslVersion, log, dbHandler)
 			if err != nil {
 				return fmt.Errorf("error in readEslEvent %v", err)
 			}
@@ -309,17 +312,18 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			}
 			transformer, err := processEslEvent(ctx, repo, esl, transaction)
 			if err != nil {
-				log.Warnf("Error happend during processEslEvent: %v, skipping the event and writing to the failed table", err)
-				if ok, _ := errors.IsRetryError(err); ok {
-					// if it's a retry error, we handle it down below (see `calcSleep` function)
-					return err
-				}
-				log.Errorf("skipping esl event, because it returned a non retryable error: %v", err)
-				err2 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
-				if err2 != nil {
-					return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
-				}
-				transformer = nil
+				return err
+				//log.Warnf("Error happend during processEslEvent: %v, skipping the event and writing to the failed table", err)
+				//if ok, _ := errors.IsRetryError(err); ok {
+				//	// if it's a retry error, we handle it down below (see `calcSleep` function)
+				//	return err
+				//}
+				//log.Errorf("skipping esl event, because it returned a non retryable error: %v", err)
+				//err2 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
+				//if err2 != nil {
+				//	return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
+				//}
+				//transformer = nil
 			}
 			if transformer == nil {
 				log.Warn("event processing skipped")
@@ -334,54 +338,67 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			return nil
 		})
 		sleepData := calcSleep(ctx, err, sleepDuration, eslEventSkipped, eslTableEmpty)
-		if sleepData != nil {
-			if sleepData.FetchRepo {
-				e2 := repo.FetchAndReset(ctx)
-				if e2 != nil {
-					logger.FromContext(ctx).Sugar().Warnf("Fetching the repo failed: %v", e2)
-				}
-			}
-			if sleepData.ResetTimer {
-				sleepDuration.Reset()
-			}
-			sleepWarn(
-				ctx,
-				sleepData.SleepDuration,
-				fmt.Sprintf("%s - %v", sleepData.WarnMessage, err),
-				sleepData.InfoMessage,
-			)
+		if sleepData == nil {
+			continue
 		}
+		if sleepData.FetchRepo {
+			e2 := repo.FetchAndReset(ctx)
+			if e2 != nil {
+				logger.FromContext(ctx).Sugar().Warnf("Fetching the repo failed: %v", e2)
+			}
+		}
+		if sleepData.MoveToOtherTable {
+			if esl == nil {
+				return fmt.Errorf("unrecoverable: could not load esl event and therefore cannot write it to failed events either"+
+					" - delete entry from event_sourcing_ligh table manually - cutoff:%v", eslVersion)
+			}
+			log.Warnf("Error happend during processEslEvent: %v, skipping the event and writing to the failed table", err)
+			err = dbHandler.WithTransactionR(ctx, 10, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
+			})
+			if err != nil {
+				return fmt.Errorf("error in DBWriteFailedEslEvent %v", err)
+			}
+		}
+		if sleepData.ResetTimer {
+			sleepDuration.Reset()
+		}
+		sleepWarn(
+			ctx,
+			sleepData.SleepDuration,
+			fmt.Sprintf("%s - %v", sleepData.WarnMessage, err),
+		)
 	}
 }
 
 type SleepData struct {
-	WarnMessage   string
-	InfoMessage   string
-	SleepDuration time.Duration
-	FetchRepo     bool
-	ResetTimer    bool
+	WarnMessage      string
+	SleepDuration    time.Duration
+	FetchRepo        bool
+	ResetTimer       bool
+	MoveToOtherTable bool
 }
 
 func calcSleep(ctx context.Context, err error, backOffTimer backoff.BackOff, eslEventSkipped bool, eslTableEmpty bool) *SleepData {
 	if err != nil {
-		err = errors.UnwrapUntilRetryError(err)
-		if ok, re := errors.IsRetryError(err); ok {
-			logger.FromContext(ctx).Sugar().Warnf("found error: %v", err)
+		retryErr, ok := errors.UnwrapUntilRetryError(err)
+		if ok {
+			logger.FromContext(ctx).Sugar().Warnf("found error: %v", retryErr)
 			return &SleepData{
-				WarnMessage:   "could not update git repo",
-				InfoMessage:   "",
-				SleepDuration: backOffTimer.NextBackOff(),
-				FetchRepo:     true,
-				ResetTimer:    false,
+				WarnMessage:      "could not update git repo",
+				SleepDuration:    backOffTimer.NextBackOff(),
+				FetchRepo:        true,
+				ResetTimer:       false,
+				MoveToOtherTable: false,
 			}
 		} else {
 			// there is an error, but it's not specified to use retries
 			return &SleepData{
-				WarnMessage:   fmt.Sprintf("unknown error, skipping esl event, and moving to other table: %v", re),
-				InfoMessage:   "",
-				SleepDuration: backOffTimer.NextBackOff(),
-				FetchRepo:     false,
-				ResetTimer:    false,
+				WarnMessage:      fmt.Sprintf("unknown error, skipping esl event, and moving to other table: %v", err),
+				SleepDuration:    backOffTimer.NextBackOff(),
+				FetchRepo:        false,
+				ResetTimer:       false,
+				MoveToOtherTable: true,
 			}
 		}
 	} else if eslEventSkipped {
@@ -392,32 +409,24 @@ func calcSleep(ctx context.Context, err error, backOffTimer backoff.BackOff, esl
 		backOffTimer.Reset()
 		d := backOffTimer.NextBackOff()
 		return &SleepData{
-			FetchRepo:     false,
-			SleepDuration: d,
-			WarnMessage:   "",
-			InfoMessage:   fmt.Sprintf("sleeping for %v before looking for the first event again", d),
-			ResetTimer:    false,
+			FetchRepo:        false,
+			SleepDuration:    d,
+			WarnMessage:      "",
+			ResetTimer:       false,
+			MoveToOtherTable: false,
 		}
 	} else {
 		// if everything was successful, then we just reset the timer:
-		return &SleepData{
-			FetchRepo:     false,
-			SleepDuration: time.Duration(0),
-			WarnMessage:   "",
-			InfoMessage:   "",
-			ResetTimer:    true,
-		}
+		backOffTimer.Reset()
+		return nil
 	}
 }
 
-func sleepWarn(ctx context.Context, d time.Duration, warnMessage string, infoMessage string) {
-	if warnMessage != "" {
+func sleepWarn(ctx context.Context, d time.Duration, warnMessage string) {
+	if len(warnMessage) > 0 {
 		warnMessage = warnMessage + " - "
 	}
 	logger.FromContext(ctx).Sugar().Warnf("%swill retry in %v", warnMessage, d)
-	if infoMessage != "" {
-		logger.FromContext(ctx).Info(infoMessage)
-	}
 	time.Sleep(d)
 }
 

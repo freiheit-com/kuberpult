@@ -91,7 +91,12 @@ func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, r
 }
 
 // WithTransactionMultipleEntriesRetryT is the same as WithTransaction, but you can also return and array of data and retries.
+// func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
 func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
+	//
+	//if true {
+	//	return nil, fmt.Errorf("some db error")
+	//}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
 	defer span.Finish()
 	span.SetTag("readonly", readonly)
@@ -102,16 +107,14 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 		return nil, e
 	}
 
-	tx, err := h.BeginTransaction(ctx, readonly)
-
-	retryMaybe := func(msg string, e error) ([]T, error) {
+	retryMaybe := func(msg string, e error, transaction *sql.Tx) ([]T, error) {
 		if maxRetries == 0 {
 			return onError(fmt.Errorf("error %s transaction: %w", msg, e))
 		}
 		if IsRetryablePostgresError(e) {
-			duration := 250 * time.Millisecond
+			duration := 50 * time.Millisecond
 			logger.FromContext(ctx).Sugar().Warnf("%s transaction failed, will retry in %v: %v", msg, duration, e)
-			_ = tx.Rollback()
+			_ = transaction.Rollback()
 			span.Finish()
 			time.Sleep(duration)
 			return WithTransactionMultipleEntriesRetryT(h, ctx, maxRetries-1, readonly, f)
@@ -119,8 +122,9 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 		return nil, e
 	}
 
+	tx, err := h.BeginTransaction(ctx, readonly)
 	if err != nil {
-		return retryMaybe("beginning", err)
+		return retryMaybe("beginning", err, tx)
 	}
 	defer func(tx *sql.Tx) {
 		_ = tx.Rollback()
@@ -130,11 +134,11 @@ func WithTransactionMultipleEntriesRetryT[T any](h *DBHandler, ctx context.Conte
 
 	result, err := f(ctx, tx)
 	if err != nil {
-		return retryMaybe("within", err)
+		return retryMaybe("within", err, tx)
 	}
 	err = tx.Commit()
 	if err != nil {
-		return retryMaybe("committing", err)
+		return retryMaybe("committing", err, tx)
 	}
 	return result, nil
 }
