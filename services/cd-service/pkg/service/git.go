@@ -150,8 +150,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 
 	fs := s.OverviewService.Repository.State().Filesystem
 
-	commitIDPrefix := in.CommitHash
-	eventLimit := in.EventLimit
+	commitIDPrefix, pageNumber, pageSize := in.CommitHash, in.PageNumber, in.PageSize
 
 	commitID, err := findCommitID(ctx, fs, commitIDPrefix)
 	if err != nil {
@@ -202,41 +201,44 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}
 	sort.Strings(touchedApps)
 	var events []*api.Event
+	loadMore := false
 	if s.OverviewService.Repository.State().DBHandler.ShouldUseOtherTables() {
 		events, err = db.WithTransactionMultipleEntriesT(s.OverviewService.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-			return s.GetEvents(ctx, transaction, fs, commitPath, eventLimit)
+			return s.GetEvents(ctx, transaction, fs, commitPath, pageNumber, pageSize)
 		})
+		if len(events) > int(pageSize) {
+			loadMore = true
+			events = events[:len(events)-1]
+		}
 	} else {
-		events, err = s.GetEvents(ctx, nil, fs, commitPath, eventLimit)
+		events, err = s.GetEvents(ctx, nil, fs, commitPath, pageNumber, pageSize)
+		if len(events) > int(pageSize) {
+			loadMore = true
+		}
+		events = events[pageNumber:min(len(events), int(pageNumber+pageSize))]
 	}
 	if err != nil {
 		return nil, err
 	}
-	loadMore := true
-
-	if len(events) < int(eventLimit) {
-		loadMore = false
-	}
-	slicedEvents := events[:min(len(events), int(eventLimit))]
 
 	return &api.GetCommitInfoResponse{
 		CommitHash:         commitID,
 		CommitMessage:      commitMessage,
 		TouchedApps:        touchedApps,
-		Events:             slicedEvents,
+		Events:             events,
 		PreviousCommitHash: previousCommitId,
 		NextCommitHash:     nextCommitId,
 		LoadMore:           loadMore,
 	}, nil
 }
 
-func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string, eventLimit uint64) ([]*api.Event, error) {
+func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string, pageNumber, pageSize uint64) ([]*api.Event, error) {
 	var result []*api.Event
 	parts := strings.Split(commitPath, "/")
 	commitID := parts[len(parts)-2] + parts[len(parts)-1]
 
 	if s.Config.DBHandler.ShouldUseOtherTables() {
-		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID)
+		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID, pageNumber, pageSize)
 		if err != nil {
 			return nil, fmt.Errorf("could not read events from DB: %v", err)
 		}

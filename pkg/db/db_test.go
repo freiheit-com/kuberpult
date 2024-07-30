@@ -377,7 +377,7 @@ func TestCommitEvents(t *testing.T) {
 					t.Fatalf("Error writing event to DB. Error: %v\n", err)
 				}
 
-				m, err := db.DBSelectAllEventsForCommit(ctx, tx, tc.commitHash)
+				m, err := db.DBSelectAllEventsForCommit(ctx, tx, tc.commitHash, 0, 100)
 				if err != nil {
 					t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 				}

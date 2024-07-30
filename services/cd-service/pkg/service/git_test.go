@@ -318,7 +318,7 @@ func TestGetCommitInfo(t *testing.T) {
 
 	tcs := []TestCase{
 		{
-			name: "check if the number of events is equal to event limit",
+			name: "check if the number of events is equal to pageNumber plus pageSize",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
 					Application: "app",
@@ -346,7 +346,8 @@ func TestGetCommitInfo(t *testing.T) {
 			allowReadingCommitData: true,
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				EventLimit: 2,
+				PageNumber: 0,
+				PageSize:   2,
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -397,7 +398,8 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-				EventLimit: 100,
+				PageNumber: 0,
+				PageSize:   100,
 			},
 			allowReadingCommitData: true,
 			expectedError:          nil,
@@ -465,7 +467,8 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-				EventLimit: 100,
+				PageNumber: 0,
+				PageSize:   100,
 			},
 			allowReadingCommitData: true,
 			expectedError:          nil,
@@ -571,7 +574,8 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "32a5b7b27",
-				EventLimit: 100,
+				PageNumber: 0,
+				PageSize:   100,
 			},
 			allowReadingCommitData: true,
 			expectedResponse: &api.GetCommitInfoResponse{
@@ -659,7 +663,8 @@ func TestGetCommitInfo(t *testing.T) {
 			allowReadingCommitData: true,
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				EventLimit: 100,
+				PageNumber: 0,
+				PageSize:   100,
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
 				LoadMore:      false,
@@ -739,7 +744,8 @@ func TestGetCommitInfo(t *testing.T) {
 			allowReadingCommitData: true,
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				EventLimit: 100,
+				PageNumber: 0,
+				PageSize:   100,
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

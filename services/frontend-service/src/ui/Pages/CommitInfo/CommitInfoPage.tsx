@@ -31,19 +31,19 @@ import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 export const CommitInfoPage: React.FC = () => {
     const { commit: commitHash } = useParams();
     const { authHeader } = useAzureAuthSub((auth) => auth);
-    const [eventLimit, setLimit] = React.useState(1);
-    const increment: number = 10;
+    const [pageNumber, setPageNumber] = React.useState(0);
+    const pageSize: number = 10;
 
     React.useEffect(() => {
         if (commitHash !== undefined) {
-            getCommitInfo(commitHash, eventLimit, authHeader);
+            getCommitInfo(commitHash, pageNumber, pageSize, authHeader);
         }
-    }, [commitHash, authHeader, eventLimit]);
+    }, [commitHash, authHeader, pageNumber]);
 
     const triggerLoadMore = useCallback(() => {
-        setLimit(eventLimit + increment);
+        setPageNumber(pageNumber + pageSize);
         updateCommitInfo.set({ commitInfoReady: CommitInfoState.LOADING });
-    }, [eventLimit]);
+    }, [pageNumber]);
 
     const commitInfo = useCommitInfo((res) => res);
 
@@ -86,7 +86,7 @@ export const CommitInfoPage: React.FC = () => {
                 <CommitInfo
                     commitInfo={commitInfo.response}
                     triggerLoadMore={triggerLoadMore}
-                    eventLimit={eventLimit}
+                    pageNumber={pageNumber}
                 />
             );
     }

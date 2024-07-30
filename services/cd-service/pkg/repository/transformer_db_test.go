@@ -1354,7 +1354,7 @@ func TestEvents(t *testing.T) {
 					return batchError
 				}
 
-				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 0, 100)
 				if err != nil {
 					t.Fatal(err)
 				}

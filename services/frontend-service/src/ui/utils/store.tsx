@@ -128,12 +128,20 @@ export const refreshTags = (): void => {
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
-export const getCommitInfo = (commitHash: string, eventLimit: number, authHeader: AuthHeader): void => {
+export const getCommitInfo = (
+    commitHash: string,
+    pageNumber: number,
+    pageSize: number,
+    authHeader: AuthHeader
+): void => {
     useApi
         .gitService()
-        .GetCommitInfo({ commitHash: commitHash, eventLimit: eventLimit }, authHeader)
+        .GetCommitInfo({ commitHash: commitHash, pageNumber: pageNumber, pageSize: pageSize }, authHeader)
         .then((result: GetCommitInfoResponse) => {
-            updateCommitInfo.set({ response: result, commitInfoReady: CommitInfoState.READY });
+            var requestResult: GetCommitInfoResponse = structuredClone(result);
+            var oldEvents = updateCommitInfo.get().response?.events.slice() ?? [];
+            requestResult.events = oldEvents.concat(requestResult.events).slice();
+            updateCommitInfo.set({ response: requestResult, commitInfoReady: CommitInfoState.READY });
         })
         .catch((e) => {
             const GrpcErrorNotFound = 5;
