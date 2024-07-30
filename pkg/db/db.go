@@ -119,7 +119,6 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 		if !cfg.SSLRequired {
 			dbURI = dbURI + " sslmode=disable"
 		}
-		fmt.Println(dbURI)
 		dbPool, err := sql.Open(cfg.DriverName, dbURI)
 		if err != nil {
 			return nil, fmt.Errorf("sql.Open: %w", err)
