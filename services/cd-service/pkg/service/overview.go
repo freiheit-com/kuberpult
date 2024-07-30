@@ -56,7 +56,7 @@ type OverviewServiceServer struct {
 func (o *OverviewServiceServer) GetOverview(
 	ctx context.Context,
 	in *api.GetOverviewRequest) (*api.GetOverviewResponse, error) {
-	if in.GitRevision != "" {
+	if !o.Repository.State().DBHandler.ShouldUseEslTable() && in.GitRevision != "" {
 		oid, err := git.NewOid(in.GitRevision)
 		if err != nil {
 			return nil, grpc.PublicError(ctx, fmt.Errorf("getOverview: could not find revision %v: %v", in.GitRevision, err))

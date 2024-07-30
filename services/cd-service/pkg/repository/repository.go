@@ -855,7 +855,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				t.SetEslVersion(db.TransformerID(internal.EslVersion))
 			}
-
+			fmt.Println("Before RunTransformer")
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
 					TransformerError: err,
@@ -866,6 +866,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				commitMsg = append(commitMsg, msg)
 				changes = append(changes, subChanges)
 			}
+			fmt.Println("After RunTransformer")
 		}
 		return commitMsg, state, changes, nil
 	}
@@ -936,69 +937,78 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
 	defer span.Finish()
-
+	fmt.Println("Before ApplyTransformersInternal")
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
+	fmt.Println("After ApplyTransformersInternal")
 	if applyErr != nil {
 		return nil, applyErr
 	}
+	fmt.Println("before afterTransform")
 	if err := r.afterTransform(ctx, *state, transaction); err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
+	fmt.Println("after afterTransform")
 
-	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-	if insertError != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
-	}
-	committer := &git.Signature{
-		Name:  r.config.CommitterName,
-		Email: r.config.CommitterEmail,
-		When:  time.Now(),
-	}
-
-	user, readUserErr := auth.ReadUserFromContext(ctx)
-
-	if readUserErr != nil {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: readUserErr,
-			Index:            -1,
-		}
-	}
-
-	author := &git.Signature{
-		Name:  user.Name,
-		Email: user.Email,
-		When:  time.Now(),
-	}
-
-	var rev *git.Oid
-	// the commit can be nil, if it's the first commit in the repo
-	if state.Commit != nil {
-		rev = state.Commit.Id()
-	}
-	oldCommitId := rev
-
-	newCommitId, createErr := r.repository.CreateCommitFromIds(
-		fmt.Sprintf("refs/heads/%s", r.config.Branch),
-		author,
-		committer,
-		strings.Join(commitMsg, "\n"),
-		treeId,
-		rev,
-	)
-	if createErr != nil {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
-			Index:            -1,
-		}
-	}
 	result := CombineArray(changes)
-	result.Commits = &CommitIds{
-		Current:  newCommitId,
-		Previous: nil,
+
+	if !r.DB.ShouldUseOtherTables() {
+		fmt.Println("This should not be running")
+		treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+		if insertError != nil {
+			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
+		}
+
+		user, readUserErr := auth.ReadUserFromContext(ctx)
+
+		if readUserErr != nil {
+			return nil, &TransformerBatchApplyError{
+				TransformerError: readUserErr,
+				Index:            -1,
+			}
+		}
+
+		committer := &git.Signature{
+			Name:  r.config.CommitterName,
+			Email: r.config.CommitterEmail,
+			When:  time.Now(),
+		}
+		author := &git.Signature{
+			Name:  user.Name,
+			Email: user.Email,
+			When:  time.Now(),
+		}
+
+		var rev *git.Oid
+		// the commit can be nil, if it's the first commit in the repo
+		if state.Commit != nil {
+			rev = state.Commit.Id()
+		}
+		oldCommitId := rev
+
+		newCommitId, createErr := r.repository.CreateCommitFromIds(
+			fmt.Sprintf("refs/heads/%s", r.config.Branch),
+			author,
+			committer,
+			strings.Join(commitMsg, "\n"),
+			treeId,
+			rev,
+		)
+		if createErr != nil {
+			return nil, &TransformerBatchApplyError{
+				TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
+				Index:            -1,
+			}
+		}
+
+		result.Commits = &CommitIds{
+			Current:  newCommitId,
+			Previous: nil,
+		}
+		if oldCommitId != nil {
+			result.Commits.Previous = oldCommitId
+		}
 	}
-	if oldCommitId != nil {
-		result.Commits.Previous = oldCommitId
-	}
+	fmt.Println("Leavig Apply transformers")
 	return result, nil
 }
 
@@ -1143,6 +1153,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 			if err != nil {
 				return err
 			}
+			fmt.Println(appName)
 			team, err := state.GetApplicationTeamOwner(ctx, transaction, appName)
 			if err != nil {
 				return err
@@ -1974,26 +1985,24 @@ func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]str
 	}
 }
 
-// GetCurrentlyDeployed returns all apps that have current deployments on any env from the filesystem
-func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (db.AllDeployments, error) {
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentlyDeployed")
+func (s *State) PerformDeploymentsCustomMigrations(ctx context.Context, transaction *sql.Tx) error {
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "PerformDeploymentsCustomMigrations")
 	defer ddSpan.Finish()
-	var result = db.AllDeployments{}
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
 
 		if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
-			return nil, err
+			return err
 		} else {
 			for _, appName := range apps {
 				var version *uint64
 				version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
 				if err != nil {
-					return nil, fmt.Errorf("could not get version of app %s in env %s", appName, envName)
+					return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 				}
 				var versionIntPtr *int64
 				if version != nil {
@@ -2002,7 +2011,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 				} else {
 					versionIntPtr = nil
 				}
-				result = append(result, db.Deployment{
+				err = s.DBHandler.DBWriteDeployment(ctx, transaction, db.Deployment{
 					EslVersion:    0,
 					Created:       time.Time{},
 					App:           appName,
@@ -2013,11 +2022,14 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 						DeployedByName:  "",
 						DeployedByEmail: "",
 					},
-				})
+				}, 0)
+				if err != nil {
+					return fmt.Errorf("error when inserting deployment of app '%s' on env '%s'", appName, envName)
+				}
 			}
 		}
 	}
-	return result, nil
+	return nil
 }
 
 // GetCurrentEnvironmentLocks gets all locks on any environment in manifest
@@ -2215,39 +2227,58 @@ func (s *State) GetAppsAndTeams() (map[string]string, error) {
 	return teamByAppName, nil
 }
 
-func (s *State) GetAllReleases(ctx context.Context, app string) (db.AllReleases, error) {
+func (s *State) PerformReleaseCustomMigrationForApp(ctx context.Context, transaction *sql.Tx, app string) error {
 	releases, err := s.GetAllApplicationReleasesFromManifest(app)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get releases of app %s: %v", app, err)
+		return fmt.Errorf("cannot get releases of app %s: %v", app, err)
 	}
-	var result = db.AllReleases{}
+	releaseNumbers := []int64{}
+	//exhaustruct:ignore
+	var toInsert *db.DBReleaseWithMetaData
 	for i := range releases {
 		releaseVersion := releases[i]
 		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
 		if err != nil {
-			return nil, fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
+			return fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 		}
 		manifests, err := s.GetApplicationReleaseManifestsFromManifest(app, releaseVersion)
 		if err != nil {
-			return nil, fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
+			return fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
 		}
 		var manifestsMap = map[string]string{}
 		for index := range manifests {
 			manifest := manifests[index]
-			manifestsMap[manifest.Environment] = manifest.Content
+			manifestsMap[manifest.Environment] = manifests[index].Content
 		}
-		result[releaseVersion] = db.ReleaseWithManifest{
-			Version:         releaseVersion,
-			UndeployVersion: repoRelease.UndeployVersion,
-			SourceAuthor:    repoRelease.SourceAuthor,
-			SourceCommitId:  repoRelease.SourceCommitId,
-			SourceMessage:   repoRelease.SourceMessage,
-			CreatedAt:       repoRelease.CreatedAt,
-			DisplayVersion:  repoRelease.DisplayVersion,
-			Manifests:       manifestsMap,
+		toInsert = &db.DBReleaseWithMetaData{
+			EslVersion:    db.InitialEslVersion,
+			Created:       time.Now().UTC(),
+			ReleaseNumber: repoRelease.Version,
+			App:           app,
+			Manifests: db.DBReleaseManifests{
+				Manifests: manifestsMap,
+			},
+			Metadata: db.DBReleaseMetaData{
+				UndeployVersion: repoRelease.UndeployVersion,
+				SourceAuthor:    repoRelease.SourceAuthor,
+				SourceCommitId:  repoRelease.SourceCommitId,
+				SourceMessage:   repoRelease.SourceMessage,
+				DisplayVersion:  repoRelease.DisplayVersion,
+			},
+			Deleted: false,
 		}
+		err = s.DBHandler.DBInsertRelease(ctx, transaction, *toInsert, db.InitialEslVersion-1)
+
+		if err != nil {
+			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
+		}
+		releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
 	}
-	return result, nil
+	err = s.DBHandler.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, db.InitialEslVersion-1)
+	if err != nil {
+		return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
+	}
+	return nil
 }
 
 func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {

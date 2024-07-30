@@ -36,5 +36,6 @@ func (b *BatchServiceWithDefaultTimeout) ProcessBatch(ctx context.Context, req *
 		ctx, cancel = context.WithTimeout(ctx, b.DefaultTimeout)
 		defer cancel()
 	}
+	ctx = context.WithoutCancel(ctx)
 	return b.Inner.ProcessBatch(ctx, req, options...)
 }

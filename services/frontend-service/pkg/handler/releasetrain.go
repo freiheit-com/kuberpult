@@ -36,7 +36,6 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 	}
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
-
 	if s.AzureAuth {
 		if req.Body == nil {
 			w.WriteHeader(http.StatusBadRequest)

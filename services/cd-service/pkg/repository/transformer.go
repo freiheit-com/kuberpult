@@ -1775,6 +1775,7 @@ func (c *CreateEnvironmentLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	fmt.Println("Create env LOCK START.")
 	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
 		return "", err
@@ -1830,6 +1831,7 @@ func (c *CreateEnvironmentLock) Transform(
 		}
 	}
 	GaugeEnvLockMetric(ctx, state, transaction, c.Environment)
+	fmt.Println("Create env LOCK END.")
 	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 }
 

@@ -1272,7 +1272,9 @@ type AllReleases map[uint64]ReleaseWithManifest // keys: releaseVersion; value: 
 // GetAllDeploymentsFun and other functions here are used during migration.
 // They are supposed to read data from files in the manifest repo,
 // and therefore should not need to access the Database at all.
-type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
+type PerformDeploymentsCustomMigrationsFun = func(ctx context.Context, transaction *sql.Tx) error
+type PerformReleaseCustomMigrationForAppFun = func(ctx context.Context, transaction *sql.Tx, app string) error
+
 type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 
 type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
@@ -1282,7 +1284,6 @@ type AllCommitEvents map[string][]event.DBEventGo        // CommitId -> uuid -> 
 
 type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
-type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
 type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, error)
 type GetAllEventsFun = func(ctx context.Context) (AllCommitEvents, error)
 
@@ -1295,8 +1296,8 @@ type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.Enviro
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
-	getAllDeploymentsFun GetAllDeploymentsFun,
-	getAllReleasesFun GetAllReleasesFun,
+	performDeploymentsMigrationsFun PerformDeploymentsCustomMigrationsFun,
+	performReleaseCustomMigrationForAppFun PerformReleaseCustomMigrationForAppFun,
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
 	getAllTeamLocksFun GetAllTeamLocksFun,
@@ -1306,46 +1307,58 @@ func (h *DBHandler) RunCustomMigrations(
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
+	//Order of these migrations matter.
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationsEventSourcingLight...")
 	err := h.RunCustomMigrationsEventSourcingLight(ctx)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationAllAppsTable...")
 	err = h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationApps...")
 	err = h.RunCustomMigrationApps(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationDeployments(ctx, getAllDeploymentsFun)
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationDeployments...")
+	err = h.RunCustomMigrationDeployments(ctx, performDeploymentsMigrationsFun)
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, getAllReleasesFun)
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationReleases...")
+	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, performReleaseCustomMigrationForAppFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationEnvLocks...")
 	err = h.RunCustomMigrationEnvLocks(ctx, getAllEnvLocksFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationAppLocks...")
 	err = h.RunCustomMigrationAppLocks(ctx, getAllAppLocksFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationTeamLocks...")
 	err = h.RunCustomMigrationTeamLocks(ctx, getAllTeamLocksFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationQueuedApplicationVersions...")
 	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationsCommitEvents...")
 	err = h.RunCustomMigrationsCommitEvents(ctx, getAllEventsFun)
 	if err != nil {
 		return err
 	}
+	logger.FromContext(ctx).Warn("Checking RunCustomMigrationEnvironments...")
 	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
 	if err != nil {
 		return err // better wrap the error in a descriptive message?
@@ -1764,7 +1777,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 
 // CUSTOM MIGRATIONS
 
-func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, getAllReleasesFun GetAllReleasesFun) error {
+func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, performMigsForApp PerformReleaseCustomMigrationForAppFun) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
 	defer span.Finish()
 
@@ -1781,45 +1794,15 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 		if err != nil {
 			return err
 		}
+		count := 0
 		for app := range allAppsMap {
-			l.Infof("processing app %s ...", app)
-
-			releases, err := getAllReleasesFun(ctx, app)
+			l.Warnf("processing app %s ...", app)
+			err := performMigsForApp(ctx, transaction, app)
 			if err != nil {
-				return fmt.Errorf("geAllReleases failed %v", err)
+				return fmt.Errorf("error performing custom release migrations for app '%s': %v", app, err)
 			}
-
-			releaseNumbers := []int64{}
-			for r := range releases {
-				repoRelease := releases[r]
-				dbRelease := DBReleaseWithMetaData{
-					EslVersion:    InitialEslVersion,
-					Created:       time.Now().UTC(),
-					ReleaseNumber: repoRelease.Version,
-					App:           app,
-					Manifests: DBReleaseManifests{
-						Manifests: repoRelease.Manifests,
-					},
-					Metadata: DBReleaseMetaData{
-						UndeployVersion: repoRelease.UndeployVersion,
-						SourceAuthor:    repoRelease.SourceAuthor,
-						SourceCommitId:  repoRelease.SourceCommitId,
-						SourceMessage:   repoRelease.SourceMessage,
-						DisplayVersion:  repoRelease.DisplayVersion,
-					},
-					Deleted: false,
-				}
-				err = h.DBInsertRelease(ctx, transaction, dbRelease, InitialEslVersion-1)
-				if err != nil {
-					return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
-				}
-				releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
-			}
-			l.Infof("done with app %s", app)
-			err = h.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslVersion-1)
-			if err != nil {
-				return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
-			}
+			count += 1
+			l.Warnf("Processed (%d/%d)\n", count, len(allAppsMap))
 		}
 		return nil
 	})
@@ -1832,14 +1815,13 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 		return true, err
 	}
 	if allReleasesDb != nil {
-		l.Warnf("There are already deployments in the DB - skipping migrations")
+		l.Warnf("There are already releases in the DB - skipping migrations")
 		return false, nil
 	}
 	return true, nil
-
 }
 
-func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun GetAllDeploymentsFun) error {
+func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, f PerformDeploymentsCustomMigrationsFun) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
 	defer span.Finish()
 
@@ -1851,19 +1833,9 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 		if !needsMigrating {
 			return nil
 		}
-		allDeploymentsInRepo, err := getAllDeploymentsFun(ctx, transaction)
+		err = f(ctx, transaction)
 		if err != nil {
-			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
-		}
-
-		for i := range allDeploymentsInRepo {
-			deploymentInRepo := allDeploymentsInRepo[i]
-			deploymentInRepo.TransformerID = 0
-			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
-			if err != nil {
-				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
-					deploymentInRepo.App, deploymentInRepo.Env, err)
-			}
+			return fmt.Errorf("could not perform custom migrations for deployments: %v", err)
 		}
 		return nil
 	})
@@ -2211,6 +2183,7 @@ func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) e
 		}
 		if !needsMigrating {
 			return nil
+
 		}
 
 		return h.DBWriteMigrationsTransformer(ctx, transaction)
@@ -2326,9 +2299,9 @@ func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun Ge
 		if err != nil {
 			return fmt.Errorf("could not get dbApp to run custom migrations: %v", err)
 		}
-
 		for app := range appsMap {
 			team := appsMap[app]
+			logger.FromContext(ctx).Sugar().Warnf("Inserting app: '%s'\n", app)
 			err = h.DBInsertApplication(ctx, transaction, app, InitialEslVersion, AppStateChangeMigrate, DBAppMetaData{Team: team})
 			if err != nil {
 				return fmt.Errorf("could not write dbApp %s: %v", app, err)
