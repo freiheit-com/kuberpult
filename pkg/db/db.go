@@ -730,7 +730,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 			previousEslVersion+1,
 			err)
 	}
-	err = h.UpdateOverviewRelease(ctx, transaction, *release)
+	err = h.UpdateOverviewRelease(ctx, transaction, release)
 	if err != nil {
 		return err
 	}
