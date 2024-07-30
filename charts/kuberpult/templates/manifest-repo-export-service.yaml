@@ -187,8 +187,12 @@ spec:
           value: "{{ .Values.db.dbUser }}"
         - name: KUBERPULT_DB_USER_PASSWORD
           value: "{{ .Values.db.dbPassword }}"
+        - name: KUBERPULT_DB_SSL_REQUIRED
+          value: "{{ .Values.db.sslRequired }}"
         - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
           value: {{ .Values.db.dbOption }}
+        - name: KUBERPULT_ENABLE_METRICS
+          value: "{{ .Values.dogstatsdMetrics.enabled }}"
         - name: KUBERPULT_DB_AUTH_PROXY_PORT
           value: "{{ .Values.db.authProxyPort }}"
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES

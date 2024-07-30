@@ -598,6 +598,8 @@ ingress:
 git:
   url: "testURL"
   releaseVersionsLimit: 15
+db:
+  dbOption: postgreSQL
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -614,6 +616,7 @@ git:
   url: "testURL"
   releaseVersionsLimit: 15
 db:
+  dbOption: postgreSQL
   sslRequired: true
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -1081,6 +1084,46 @@ manifestRepoExport:
 				{
 					Name:  "KUBERPULT_NETWORK_TIMEOUT_SECONDS",
 					Value: "300",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "DB ssl mode",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+  sslRequired: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_SSL_REQUIRED",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "DB ssl mode activated",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+  sslRequired: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_SSL_REQUIRED",
+					Value: "true",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},

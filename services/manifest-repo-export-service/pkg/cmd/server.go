@@ -84,6 +84,14 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	enableSSLstring, err := readEnvVar("KUBERPULT_DB_SSL_REQUIRED")
+	if err != nil {
+		return err
+	}
+	enableDBSSL := enableSSLstring == "true"
+	if err != nil {
+		return err
+	}
 	gitUrl, err := readEnvVar("KUBERPULT_GIT_URL")
 	if err != nil {
 		return err
@@ -177,6 +185,7 @@ func Run(ctx context.Context) error {
 			DbUser:         dbUserName,
 			MigrationsPath: "",
 			WriteEslOnly:   false,
+			SSLRequired:    enableDBSSL,
 		}
 	} else if dbOption == "sqlite" {
 		dbCfg = db.DBConfig{
@@ -188,6 +197,7 @@ func Run(ctx context.Context) error {
 			DbUser:         dbUserName,
 			MigrationsPath: "",
 			WriteEslOnly:   false,
+			SSLRequired:    false,
 		}
 	} else {
 		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
