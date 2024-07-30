@@ -2965,10 +2965,12 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 		expectedCommitMsg  string
 		overrideCommitHash string
 		ExpectedPrognosis  ReleaseTrainPrognosis
+		testTeamPermission bool
 	}{
 
 		{
-			Name: "User is not on the team of the application",
+			Name:               "User is not on the team of the application",
+			testTeamPermission: true,
 			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment:    "staging",
@@ -2987,8 +2989,8 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 						"staging":    "staging",
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-					WriteCommitData: true,
 					Team:            "team-1",
+					WriteCommitData: true,
 				},
 			},
 			ReleaseTrainEnv: "production",
@@ -3034,7 +3036,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 				},
 			},
 			ReleaseTrainEnv:    "staging",
-			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 0 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
+			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 0 services from 'dev' to 'staging' for team 'team'\ndeployed version 1 of \"test\" to \"staging\"",
 			overrideCommitHash: "",
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
@@ -3089,7 +3091,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 
 Release Train to 'staging' environment:
 
-The release train deployed 0 services from 'dev' to 'staging'
+The release train deployed 0 services from 'dev' to 'staging' for team 'team'
 deployed version 1 of "test" to "staging"`,
 			ExpectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
@@ -3120,6 +3122,7 @@ deployed version 1 of "test" to "staging"`,
 					Manifests: map[string]string{
 						"dev": "dev",
 					},
+					Team: "team",
 				},
 				&DeployApplicationVersion{
 					Application: "test",
@@ -3133,7 +3136,7 @@ deployed version 1 of "test" to "staging"`,
 
 Release Train to 'dev' environment:
 
-The release train deployed 1 services from 'latest' to 'dev'
+The release train deployed 1 services from 'latest' to 'dev' for team 'team'
 Skipped services
 skipping "test" because it is already in the version`,
 			ExpectedPrognosis: ReleaseTrainPrognosis{
@@ -3166,6 +3169,7 @@ skipping "test" because it is already in the version`,
 					Manifests: map[string]string{
 						"dev": "dev",
 					},
+					Team: "team",
 				},
 				&DeployApplicationVersion{
 					Application: "test",
@@ -3203,6 +3207,7 @@ skipping "test" because it is already in the version`,
 					Manifests: map[string]string{
 						"dev": "dev",
 					},
+					Team: "team",
 				},
 				&DeployApplicationVersion{
 					Application: "test",
@@ -3276,10 +3281,15 @@ skipping "test" because it is already in the version`,
 			if tc.overrideCommitHash != "TO_BE_REPLACED" {
 				commitHash = tc.overrideCommitHash
 			}
+			teamName := "team"
+			if tc.testTeamPermission {
+				teamName = "team-1"
+			}
 			releaseTrain := &ReleaseTrain{
 				CommitHash: commitHash,
 				Target:     tc.ReleaseTrainEnv,
 				Repo:       repo,
+				Team:       teamName,
 				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true,
 					Team: &auth.RBACTeams{Permissions: map[string][]string{
 						"testmail@example.com": []string{"team"},
@@ -4014,7 +4024,10 @@ func TestRbacTransformerTest(t *testing.T) {
 				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 					"p,role:developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
 					"p,role:developer,DeployRelease,production:*,test,allow":            {Role: "developer"},
-				}}}},
+				}},
+					Team: &auth.RBACTeams{Permissions: map[string][]string{
+						"testmail@example.com": []string{"*"},
+					}}}},
 			}),
 		},
 		{
@@ -4325,7 +4338,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Message:     "don't",
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
 				},
 			},
 		},
@@ -4341,7 +4357,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Message:     "don't",
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:releaseManager,CreateLock,production:production,*,allow": {Role: "releaseManager"}}}}},
+						"p,role:releaseManager,CreateLock,production:production,*,allow": {Role: "releaseManager"}}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
 				},
 			},
 			ctx: testutil.MakeTestContextDexEnabledUser("releaseManager"),
@@ -4379,7 +4398,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Message:     "don't",
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
 				},
 				&DeleteEnvironmentLock{
 					Environment:    "production",
@@ -4406,7 +4428,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Message:     "don't",
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
 				},
 				&DeleteEnvironmentLock{
 					Environment: "production",
@@ -4414,7 +4439,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
 						"p,role:developer,DeployRelease,production:production,*,allow": {Role: "developer"},
 						"p,role:developer,CreateLock,production:production,*,allow":    {Role: "developer"},
-						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "developer"}}}}},
+						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "developer"}}},
+						Team: &auth.RBACTeams{Permissions: map[string][]string{
+							"testmail@example.com": []string{"team"},
+						}}}},
 				},
 			},
 		},
@@ -4751,7 +4779,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Team:            "sre-team",
+					Team:            "sre-team-1",
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",
