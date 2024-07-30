@@ -415,8 +415,6 @@ func readEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *db.EslVe
 	}
 }
 
-var debugValue int64 = 0
-
 func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.EslEventRow, tx *sql.Tx) (repository.Transformer, error) {
 	if esl == nil {
 		return nil, fmt.Errorf("esl event nil")
@@ -443,10 +441,6 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 		return nil, fmt.Errorf("error while running repo apply: %v", err)
 	}
 
-	debugValue++
-	if debugValue%3 == 0 {
-		return nil, fmt.Errorf("random error")
-	}
 	logger.FromContext(ctx).Sugar().Infof("Applied transformer succesfully event=%s", t.GetDBEventType())
 	return t, nil
 }

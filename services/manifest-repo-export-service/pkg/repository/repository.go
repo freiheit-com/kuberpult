@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	errors2 "github.com/freiheit-com/kuberpult/pkg/errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -381,13 +380,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sq
 	//return r.PushRepo(ctx)
 }
 
-var debugValue int64 = 0
-
 func (r *repository) PushRepo(ctx context.Context) error {
-	//debugValue++
-	//if debugValue%3 == 0 {
-	//	return fmt.Errorf("random error")
-	//}
 	var pushSuccess = true
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
@@ -411,16 +404,16 @@ func (r *repository) PushRepo(ctx context.Context) error {
 		gerr, ok := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
 		if ok && gerr.Code == git.ErrorCodeNonFastForward {
-			return errors2.RetryGitRepo(fmt.Errorf("fastforward error: %w", gerr))
+			return fmt.Errorf("fastforward error: %w", gerr)
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return errors2.RetryGitRepo(fmt.Errorf("context error: %w", err))
+			return fmt.Errorf("context error: %w", err)
 		} else {
 			logger.FromContext(ctx).Error(fmt.Sprintf("error while pushing: %s", err))
-			return errors2.RetryGitRepo(fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
+			return fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)
 		}
 	} else {
 		if !pushSuccess {
-			return errors2.RetryGitRepo(fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch))
+			return fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
 	return nil
