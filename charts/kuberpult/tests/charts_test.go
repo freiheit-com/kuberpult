@@ -604,7 +604,7 @@ db:
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_SSL_MODE",
-					Value: "disable",
+					Value: "verify-full",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
