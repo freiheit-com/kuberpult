@@ -18,6 +18,11 @@ package cloudrun
 
 import "fmt"
 
+type QueuedDeploymentEvent struct {
+	Id       int64
+	Manifest []byte
+}
+
 type ServiceReadyCondition struct {
 	Name     string
 	Revision int64

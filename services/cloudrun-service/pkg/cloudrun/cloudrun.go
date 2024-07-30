@@ -18,10 +18,12 @@ package cloudrun
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/parser"
 	"google.golang.org/api/run/v1"
 )
@@ -32,6 +34,7 @@ const (
 	serviceReady               = "Ready"
 	serviceConfigurationsReady = "ConfigurationsReady"
 	serviceRoutesReady         = "RoutesReady"
+	QueuedDeploymentsTable     = "queued_deployments"
 )
 
 var (
@@ -51,17 +54,39 @@ func Init(ctx context.Context) error {
 	return err
 }
 
-type CloudRunService struct{}
+type CloudRunService struct {
+	DBHandler *db.DBHandler
+}
 
 func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceDeployRequest) (*api.ServiceDeployResponse, error) {
-	svc, err := validateService(in.Manifest)
+	_, err := validateService(in.Manifest)
 	if err != nil {
 		return nil, err
+	}
+	err = s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		insertQuery := s.DBHandler.AdaptQuery(fmt.Sprintf("INSERT INTO %s (created_at, manifest, processed) VALUES (?, ?, ?);", QueuedDeploymentsTable))
+		_, err := transaction.Exec(insertQuery, time.Now().UTC(), in.Manifest, false)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not write deployment to %s table: %v", QueuedDeploymentsTable, err)
+	}
+	return &api.ServiceDeployResponse{}, nil
+}
+
+func DeployService(manifest []byte) error {
+	// We already validated the manifest before writing it to the database, so we shouldn't expect any error here
+	svc, err := validateService(manifest)
+	if err != nil {
+		return err
 	}
 	req := runService.Projects.Locations.Services.List(svc.Parent)
 	resp, err := req.Do()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var serviceCallResp *run.Service
 	// If the service is already deployed before, then we need to call ReplaceService. Otherwise, we call Create.
@@ -69,31 +94,31 @@ func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceDeployReque
 		serviceCall := runService.Projects.Locations.Services.ReplaceService(svc.Path, &svc.Config)
 		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		serviceCall := runService.Projects.Locations.Services.Create(svc.Parent, &svc.Config)
 		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	if err := waitForOperation(svc.Parent, serviceCallResp, 60); err != nil {
-		return nil, err
+		return err
 	}
 	getServiceCall := runService.Projects.Locations.Services.Get(svc.Path)
 	serviceResp, err := getServiceCall.Do()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	condition, err := GetServiceReadyCondition(serviceResp)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if condition.Status != "True" {
-		return nil, fmt.Errorf("service not ready: %s", condition)
+		return fmt.Errorf("service not ready: %s", condition)
 	}
-	return &api.ServiceDeployResponse{}, nil
+	return nil
 }
 
 func validateService(manifest []byte) (*serviceConfig, error) {
