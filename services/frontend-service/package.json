@@ -44,9 +44,9 @@
     "format-scss": "prettier --write --parser scss 'src/**/*.scss'"
   },
   "devDependencies": {
-    "@babel/core": "7.24.9",
+    "@babel/core": "7.25.2",
     "@babel/plugin-syntax-flow": "7.24.7",
-    "@babel/plugin-transform-react-jsx": "7.24.7",
+    "@babel/plugin-transform-react-jsx": "7.25.2",
     "@testing-library/jest-dom": "6.4.0",
     "@testing-library/react": "14.1.2",
     "@types/jest": "29.5.12",
