@@ -130,8 +130,8 @@ db:
   # If set to true, kuberpult will write only the ESL table.
   # This is useful to already collect historical data in the database, while waiting for the full database implementation.
   writeEslTableOnly: false
-  #Enables SSL
-  sslRequired: false
+  #SSL mode to be used by the database
+  sslMode: disable
   requests:
     cpu: "100m"
     memory: "200Mi"

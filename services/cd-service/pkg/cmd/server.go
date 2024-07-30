@@ -97,7 +97,7 @@ type Config struct {
 	ReleaseVersionsLimit     uint          `default:"20" split_words:"true"`
 	DeploymentType           string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
 	CloudRunServer           string        `default:"" split_words:"true"`
-	DbSslRequired            bool          `default:"false" split_words:"true"`
+	DbSslMode                string        `default:"disable" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -238,7 +238,7 @@ func RunServer() {
 					DbUser:         c.DbUserName,
 					MigrationsPath: c.DbMigrationsLocation,
 					WriteEslOnly:   c.DbWriteEslTableOnly,
-					SSLRequired:    c.DbSslRequired,
+					SSLMode:        c.DbSslMode,
 				}
 			} else if c.DbOption == "sqlite" {
 				dbCfg = db.DBConfig{
@@ -250,7 +250,7 @@ func RunServer() {
 					DbUser:         c.DbUserName,
 					MigrationsPath: c.DbMigrationsLocation,
 					WriteEslOnly:   c.DbWriteEslTableOnly,
-					SSLRequired:    false,
+					SSLMode:        c.DbSslMode,
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")

@@ -239,8 +239,8 @@ spec:
           value: "{{ .Values.db.dbUser }}"
         - name: KUBERPULT_DB_USER_PASSWORD
           value: "{{ .Values.db.dbPassword }}"
-        - name: KUBERPULT_DB_SSL_REQUIRED
-          value: "{{ .Values.db.sslRequired }}"
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "{{ .Values.db.sslMode }}"
 {{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"

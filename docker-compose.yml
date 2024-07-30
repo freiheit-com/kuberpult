@@ -64,6 +64,7 @@ services:
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
       - KUBERPULT_NETWORK_TIMEOUT_SECONDS=120
+      - KUBERPULT_DB_SSL_MODE=disable
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database

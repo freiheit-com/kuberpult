@@ -603,8 +603,8 @@ db:
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_DB_SSL_REQUIRED",
-					Value: "false",
+					Name:  "KUBERPULT_DB_SSL_MODE",
+					Value: "disable",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -617,12 +617,12 @@ git:
   releaseVersionsLimit: 15
 db:
   dbOption: postgreSQL
-  sslRequired: true
+  sslMode: prefer
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_DB_SSL_REQUIRED",
-					Value: "true",
+					Name:  "KUBERPULT_DB_SSL_MODE",
+					Value: "prefer",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -1098,12 +1098,12 @@ ingress:
 db:
   dbOption: "postgreSQL"
   writeEslTableOnly: false
-  sslRequired: false
+  sslMode: disable
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_DB_SSL_REQUIRED",
-					Value: "false",
+					Name:  "KUBERPULT_DB_SSL_MODE",
+					Value: "disable",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -1118,12 +1118,12 @@ ingress:
 db:
   dbOption: "postgreSQL"
   writeEslTableOnly: false
-  sslRequired: true
+  sslMode: prefer
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_DB_SSL_REQUIRED",
-					Value: "true",
+					Name:  "KUBERPULT_DB_SSL_MODE",
+					Value: "prefer",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
