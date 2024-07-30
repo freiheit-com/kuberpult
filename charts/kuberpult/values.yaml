@@ -131,7 +131,7 @@ db:
   # This is useful to already collect historical data in the database, while waiting for the full database implementation.
   writeEslTableOnly: false
   #SSL mode to be used by the database
-  sslMode: disable
+  sslMode: verify-full
   requests:
     cpu: "100m"
     memory: "200Mi"
