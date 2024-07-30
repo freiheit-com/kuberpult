@@ -592,6 +592,38 @@ ingress:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test default ssl mode",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_SSL_REQUIRED",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test  ssl mode required",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+db:
+  sslRequired: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_SSL_REQUIRED",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {

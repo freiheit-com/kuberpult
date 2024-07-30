@@ -244,6 +244,8 @@ spec:
           value: "{{ .Values.cd.allowLongAppNames }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
+        - name: KUBERPULT_DB_SSL_REQUIRED
+          value: "{{ .Values.db.sslRequired }}"
         volumeMounts:
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: migrations
