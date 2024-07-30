@@ -62,6 +62,7 @@ type Repository interface {
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	FetchAndReset(ctx context.Context) error
+	PushRepo(ctx context.Context) error
 }
 
 type TransformerBatchApplyError struct {
@@ -355,29 +356,11 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
-func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callback PushUpdateFunc, pushAction PushActionCallbackFunc, tx *sql.Tx) error {
+func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sql.Tx) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
 	defer span.Finish()
 
 	log := logger.FromContext(ctx).Sugar()
-
-	var pushSuccess = true
-
-	//exhaustruct:ignore
-	RemoteCallbacks := git.RemoteCallbacks{
-		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
-		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
-		PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
-	}
-	pushOptions := git.PushOptions{
-		PbParallelism: 0,
-		Headers:       nil,
-		ProxyOptions: git.ProxyOptions{
-			Type: git.ProxyTypeNone,
-			Url:  "",
-		},
-		RemoteCallbacks: RemoteCallbacks,
-	}
 
 	// Apply the items
 	apply := func() (error, *TransformerResult) {
@@ -391,11 +374,39 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callba
 
 	err, _ := apply()
 	if err != nil {
-		return fmt.Errorf("first apply failed, aborting: %v", err)
+		return fmt.Errorf("apply failed, aborting: %v", err)
+	}
+
+	return nil
+	//return r.PushRepo(ctx)
+}
+
+var debugValue int64 = 0
+
+func (r *repository) PushRepo(ctx context.Context) error {
+	//debugValue++
+	//if debugValue%3 == 0 {
+	//	return fmt.Errorf("random error")
+	//}
+	var pushSuccess = true
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
+		PushUpdateReferenceCallback: defaultPushUpdate(r.config.Branch, &pushSuccess),
+	}
+	pushOptions := git.PushOptions{
+		PbParallelism: 0,
+		Headers:       nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+		RemoteCallbacks: RemoteCallbacks,
 	}
 
 	// Try pushing once
-	err = r.Push(ctx, pushAction(pushOptions, r))
+	err := r.Push(ctx, DefaultPushActionCallback(pushOptions, r))
 	if err != nil {
 		gerr, ok := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
@@ -404,7 +415,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callba
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			return errors2.RetryGitRepo(fmt.Errorf("context error: %w", err))
 		} else {
-			log.Error(fmt.Sprintf("error while pushing: %s", err))
+			logger.FromContext(ctx).Error(fmt.Sprintf("error while pushing: %s", err))
 			return errors2.RetryGitRepo(fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
 		}
 	} else {
@@ -649,7 +660,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 func (r *repository) Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error {
 	for i := range transformers {
 		t := transformers[i]
-		err := r.ProcessQueueOnce(ctx, t, defaultPushUpdate, DefaultPushActionCallback, tx)
+		err := r.ProcessQueueOnce(ctx, t, tx)
 		if err != nil {
 			return err
 		}

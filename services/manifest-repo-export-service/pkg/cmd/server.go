@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/errors"
 	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"strconv"
 	"time"
@@ -268,166 +267,109 @@ func Run(ctx context.Context) error {
 func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {
 	log := logger.FromContext(ctx).Sugar()
 	sleepDuration := createBackOffProvider(time.Second * time.Duration(eslProcessingIdleTimeSeconds))
-	for {
-		eslTableEmpty := false
-		eslEventSkipped := false
-		var esl *db.EslEventRow = nil
-		var eslVersion *db.EslVersion = nil
 
-		// most of what happens here is indeed "read only", however we have to write to the cutoff table in the end
-		const readonly = false
-		const transactionRetries = 10
+	const transactionRetries = 10
+	for {
+		var transformer repository.Transformer = nil
+		var esl *db.EslEventRow = nil
+		const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 		err := dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
-			var err error = nil
-			eslVersion, err = cutoff.DBReadCutoff(dbHandler, ctx, transaction)
-			if err != nil {
-				return fmt.Errorf("error in DBReadCutoff %v", err)
-			}
-			if eslVersion == nil {
-				log.Infof("did not find cutoff")
-			} else {
-				log.Infof("found cutoff: %d", *eslVersion)
-			}
-			esl, err = readEslEvent(ctx, transaction, eslVersion, log, dbHandler)
-			if err != nil {
-				return fmt.Errorf("error in readEslEvent %v", err)
-			}
-			if ddMetrics != nil {
-				now := time.Now().UTC()
-				processDelay, err := calculateProcessDelay(ctx, esl, now)
-				if err != nil {
-					log.Error("Error in calculateProcessDelay %v", err)
-				}
-				if processDelay < 0 {
-					log.Warn("process delay is negative: esl-time: %v, now: %v, delay: %v", esl.Created, now, processDelay)
-				}
-				if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
-					log.Error("Error in ddMetrics.Gauge %v", err)
-				}
-			}
-			if esl == nil {
-				log.Warn("event processing skipped: no esl event found")
-				eslTableEmpty = true
-				return nil
-			}
-			transformer, err := processEslEvent(ctx, repo, esl, transaction)
-			if err != nil {
-				return err
-				//log.Warnf("Error happend during processEslEvent: %v, skipping the event and writing to the failed table", err)
-				//if ok, _ := errors.IsRetryError(err); ok {
-				//	// if it's a retry error, we handle it down below (see `calcSleep` function)
-				//	return err
-				//}
-				//log.Errorf("skipping esl event, because it returned a non retryable error: %v", err)
-				//err2 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
-				//if err2 != nil {
-				//	return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
-				//}
-				//transformer = nil
-			}
-			if transformer == nil {
-				log.Warn("event processing skipped")
-				eslEventSkipped = true
-				return nil
-			}
-			log.Infof("event processed successfully, now writing to cutoff...")
-			err = cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
-			if err != nil {
-				return fmt.Errorf("error in DBWriteCutoff %v", err)
-			}
-			return nil
+			var err2 error = nil
+			transformer, esl, err2 = handleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
+			return err2
 		})
-		sleepData := calcSleep(ctx, err, sleepDuration, eslEventSkipped, eslTableEmpty)
-		if sleepData == nil {
-			continue
-		}
-		if sleepData.FetchRepo {
-			e2 := repo.FetchAndReset(ctx)
-			if e2 != nil {
-				logger.FromContext(ctx).Sugar().Warnf("Fetching the repo failed: %v", e2)
-			}
-		}
-		if sleepData.MoveToOtherTable {
+		if err != nil {
 			if esl == nil {
-				return fmt.Errorf("unrecoverable: could not load esl event and therefore cannot write it to failed events either"+
-					" - delete entry from event_sourcing_ligh table manually - cutoff:%v", eslVersion)
+				log.Errorf("skipping esl event, because we could not construct esl object: %v", err)
+				return err
 			}
-			log.Warnf("Error happend during processEslEvent: %v, skipping the event and writing to the failed table", err)
-			err = dbHandler.WithTransactionR(ctx, 10, false, func(ctx context.Context, transaction *sql.Tx) error {
-				return dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
+			log.Errorf("skipping esl event, because it returned an error: %v", err)
+			// after this many tries, we can just skip it:
+			err2 := dbHandler.WithTransactionR(ctx, transactionRetries, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err3 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
+				if err3 != nil {
+					return err3
+				}
+				return cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+			})
+			if err2 != nil {
+				return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
+			}
+			sleepDuration.Reset()
+		} else {
+			if transformer == nil {
+				sleepDuration.Reset()
+				d := sleepDuration.NextBackOff()
+				logger.FromContext(ctx).Sugar().Warnf("event processing skipped, will try again in %v", d)
+				time.Sleep(d)
+				continue
+			}
+			log.Infof("event processed successfully, now writing to cutoff and pushing...")
+			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+				if err2 != nil {
+					return err2
+				}
+				err2 = repo.PushRepo(ctx)
+				if err2 != nil {
+					d := sleepDuration.NextBackOff()
+					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
+					if ddMetrics != nil {
+						if err := ddMetrics.Gauge("manifest_export_push_failures", 1, []string{}, 1); err != nil {
+							log.Error("Error in ddMetrics.Gauge %v", err)
+						}
+					}
+					time.Sleep(d)
+				}
+				return err2
 			})
 			if err != nil {
-				return fmt.Errorf("error in DBWriteFailedEslEvent %v", err)
+				err3 := repo.FetchAndReset(ctx)
+				if err3 != nil {
+					d := sleepDuration.NextBackOff()
+					logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
+					time.Sleep(d)
+				}
 			}
 		}
-		if sleepData.ResetTimer {
-			sleepDuration.Reset()
-		}
-		sleepWarn(
-			ctx,
-			sleepData.SleepDuration,
-			fmt.Sprintf("%s - %v", sleepData.WarnMessage, err),
-		)
 	}
 }
 
-type SleepData struct {
-	WarnMessage      string
-	SleepDuration    time.Duration
-	FetchRepo        bool
-	ResetTimer       bool
-	MoveToOtherTable bool
-}
-
-func calcSleep(ctx context.Context, err error, backOffTimer backoff.BackOff, eslEventSkipped bool, eslTableEmpty bool) *SleepData {
+func handleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
+	log := logger.FromContext(ctx).Sugar()
+	eslVersion, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
-		retryErr, ok := errors.UnwrapUntilRetryError(err)
-		if ok {
-			logger.FromContext(ctx).Sugar().Warnf("found error: %v", retryErr)
-			return &SleepData{
-				WarnMessage:      "could not update git repo",
-				SleepDuration:    backOffTimer.NextBackOff(),
-				FetchRepo:        true,
-				ResetTimer:       false,
-				MoveToOtherTable: false,
-			}
-		} else {
-			// there is an error, but it's not specified to use retries
-			return &SleepData{
-				WarnMessage:      fmt.Sprintf("unknown error, skipping esl event, and moving to other table: %v", err),
-				SleepDuration:    backOffTimer.NextBackOff(),
-				FetchRepo:        false,
-				ResetTimer:       false,
-				MoveToOtherTable: true,
-			}
-		}
-	} else if eslEventSkipped {
-		// if we skip an event, then there's no need to sleep, just continue.
-		return nil
-	} else if eslTableEmpty {
-		// if the table is empty (no events), then we will try again with minimal wait duration:
-		backOffTimer.Reset()
-		d := backOffTimer.NextBackOff()
-		return &SleepData{
-			FetchRepo:        false,
-			SleepDuration:    d,
-			WarnMessage:      "",
-			ResetTimer:       false,
-			MoveToOtherTable: false,
-		}
+		return nil, nil, fmt.Errorf("error in DBReadCutoff %v", err)
+	}
+	if eslVersion == nil {
+		log.Infof("did not find cutoff")
 	} else {
-		// if everything was successful, then we just reset the timer:
-		backOffTimer.Reset()
-		return nil
+		log.Infof("found cutoff: %d", *eslVersion)
 	}
-}
+	esl, err := readEslEvent(ctx, transaction, eslVersion, log, dbHandler)
+	if err != nil {
+		return nil, esl, fmt.Errorf("error in readEslEvent %v", err)
+	}
+	if ddMetrics != nil {
+		now := time.Now().UTC()
+		processDelay, err := calculateProcessDelay(ctx, esl, now)
+		if err != nil {
+			log.Error("Error in calculateProcessDelay %v", err)
+		}
+		if processDelay < 0 {
+			log.Warn("process delay is negative: esl-time: %v, now: %v, delay: %v", esl.Created, now, processDelay)
+		}
+		if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
+			log.Error("Error in ddMetrics.Gauge %v", err)
+		}
+	}
+	if esl == nil {
+		// no event found
+		return nil, nil, nil
+	}
+	transformer, err := processEslEvent(ctx, repo, esl, transaction)
+	return transformer, esl, err
 
-func sleepWarn(ctx context.Context, d time.Duration, warnMessage string) {
-	if len(warnMessage) > 0 {
-		warnMessage = warnMessage + " - "
-	}
-	logger.FromContext(ctx).Sugar().Warnf("%swill retry in %v", warnMessage, d)
-	time.Sleep(d)
 }
 
 func createBackOffProvider(initialInterval time.Duration) backoff.BackOff {
@@ -473,6 +415,8 @@ func readEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *db.EslVe
 	}
 }
 
+var debugValue int64 = 0
+
 func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.EslEventRow, tx *sql.Tx) (repository.Transformer, error) {
 	if esl == nil {
 		return nil, fmt.Errorf("esl event nil")
@@ -497,6 +441,11 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	err = repo.Apply(ctx, tx, t)
 	if err != nil {
 		return nil, fmt.Errorf("error while running repo apply: %v", err)
+	}
+
+	debugValue++
+	if debugValue%3 == 0 {
+		return nil, fmt.Errorf("random error")
 	}
 	logger.FromContext(ctx).Sugar().Infof("Applied transformer succesfully event=%s", t.GetDBEventType())
 	return t, nil
