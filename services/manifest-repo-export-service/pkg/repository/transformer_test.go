@@ -237,25 +237,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 			},
 		},
 		{
-			// as of now we only have the DeployApplicationVersion and CreateEnvironmentLock transformer,
-			// so we can test only this error case.
-			// As soon as we have the other transformers (especially CreateEnvironment)
-			// we need to add more tests here.
-			Name: "create environment lock",
-			Transformers: []Transformer{
-				&CreateEnvironmentLock{
-					Authentication:        Authentication{},
-					Environment:           envAcceptance,
-					LockId:                "my-lock",
-					Message:               "My envAcceptance lock",
-					TransformerEslVersion: 1,
-				},
-			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"could not access environment information on: 'environments/acceptance': file does not exist",
-			},
-		},
-		{
 			Name: "Create a single environment",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -1459,6 +1440,45 @@ func TestLocks(t *testing.T) {
 				},
 			},
 			expectedData: []*FilenameAndData{
+				{
+					path:     "/environments/acceptance/locks/l123/created_by_email",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/environments/acceptance/locks/l123/created_by_name",
+					fileData: []byte(authorName),
+				},
+				{
+					path:     "/environments/acceptance/locks/l123/message",
+					fileData: []byte("none"),
+				},
+			},
+		},
+		{
+			Name: "Create environment lock - env does not exist",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironmentLock{
+					Environment:           "non-existent-env",
+					LockId:                "l123",
+					Message:               "none",
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			expectedError: errMatcher{msg: "first apply failed, aborting: error at index 0 of transformer batch: could not access environment information on: 'environments/non-existent-env': file does not exist"},
+			expectedMissing: []*FilenameAndData{
 				{
 					path:     "/environments/acceptance/locks/l123/created_by_email",
 					fileData: []byte(authorEmail),
