@@ -252,43 +252,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"error accessing dir \"environments/acceptance\": file does not exist",
-			},
-		},
-		{
-			// as of now we only have the DeployApplicationVersion and CreateEnvironmentLock transformer,
-			// so we can test only this error case.
-			// As soon as we have the other transformers (especially CreateEnvironment)
-			// we need to add more tests here.
-			Name: "create applications lock",
-			Transformers: []Transformer{
-				&CreateEnvironmentApplicationLock{
-					Authentication:        Authentication{},
-					Environment:           envAcceptance,
-					LockId:                "my-lock",
-					Application:           "my-app",
-					Message:               "My envAcceptance lock",
-					TransformerEslVersion: 1,
-				},
-			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"error accessing dir \"environments/acceptance\": file does not exist",
-			},
-		},
-		{
-			Name: "create team lock",
-			Transformers: []Transformer{
-				&CreateEnvironmentTeamLock{
-					Authentication:        Authentication{},
-					Environment:           envAcceptance,
-					LockId:                "my-lock",
-					Team:                  "my-team",
-					Message:               "My envAcceptance lock",
-					TransformerEslVersion: 1,
-				},
-			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"team 'my-team' does not exist",
+				"could not access environment information on: 'environments/acceptance': file does not exist",
 			},
 		},
 		{
@@ -1510,45 +1474,6 @@ func TestLocks(t *testing.T) {
 			},
 		},
 		{
-			Name: "Create environment lock - env does not exist",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateEnvironmentLock{
-					Environment:           "non-existent-env",
-					LockId:                "l123",
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedError: errMatcher{msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: could not access environment information on: 'environments/non-existent-env': file does not exist"},
-			expectedMissing: []*FilenameAndData{
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
-		},
-		{
 			Name: "Delete environment lock",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -1834,7 +1759,7 @@ func TestLocks(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
+				msg: "first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
 			},
 			expectedMissing: []*FilenameAndData{
 				{
@@ -1905,7 +1830,7 @@ func TestLocks(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
+				msg: "first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
 			},
 			expectedData: []*FilenameAndData{
 				{

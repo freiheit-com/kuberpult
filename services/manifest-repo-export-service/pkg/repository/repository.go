@@ -373,7 +373,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sq
 
 	err, _ := apply()
 	if err != nil {
-		return fmt.Errorf("apply failed, aborting: %v", err)
+		return fmt.Errorf("first apply failed, aborting: %v", err)
 	}
 
 	return nil

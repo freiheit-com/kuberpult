@@ -274,7 +274,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		var esl *db.EslEventRow = nil
 		const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 		err := dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
-			var err2 error = nil
+			var err2 error
 			transformer, esl, err2 = handleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
 			return err2
 		})

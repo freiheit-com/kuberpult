@@ -158,10 +158,7 @@ func IsRetryablePostgresError(err error) bool {
 	}
 	codeStr := string(pgErr.Code)
 	// for a list of all postgres error codes, see https://www.postgresql.org/docs/9.3/errcodes-appendix.html
-	if strings.HasPrefix(codeStr, "40") {
-		return true
-	}
-	return false
+	return strings.HasPrefix(codeStr, "40")
 }
 
 func UnwrapUntilPostgresError(err error) *pq.Error {
