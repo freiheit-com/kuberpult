@@ -69,7 +69,7 @@ func (h *DBHandler) WithTransactionR(ctx context.Context, maxRetries uint8, read
 
 // WithTransactionT is the same as WithTransaction, but you can also return data, not just the error.
 func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionT[T]) (*T, error) {
-	res, err := withTransactionAllOptions(h, ctx, TransactionOptions{
+	res, err := withTransactionAllOptions(h, ctx, transactionOptions{
 		maxRetries: maxRetries,
 		readonly:   readonly,
 	}, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
@@ -90,20 +90,19 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
 func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	return withTransactionAllOptions(h, ctx, TransactionOptions{
+	return withTransactionAllOptions(h, ctx, transactionOptions{
 		maxRetries: DefaultNumRetries,
 		readonly:   readonly,
 	}, f)
 }
 
-type TransactionOptions struct {
+type transactionOptions struct {
 	maxRetries uint8
 	readonly   bool
 }
 
-// withTransactionAllOptions is the same as WithTransaction, but you can also return and array of data and retries.
-// func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, maxRetries uint8, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts TransactionOptions, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
+// withTransactionAllOptions offers all options and returns multiple values.
+func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts transactionOptions, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
 	defer span.Finish()
 	span.SetTag("readonly", opts.readonly)
@@ -124,7 +123,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts Tr
 			_ = transaction.Rollback()
 			span.Finish()
 			time.Sleep(duration)
-			return withTransactionAllOptions(h, ctx, TransactionOptions{
+			return withTransactionAllOptions(h, ctx, transactionOptions{
 				maxRetries: opts.maxRetries - 1,
 				readonly:   opts.readonly,
 			}, f)
