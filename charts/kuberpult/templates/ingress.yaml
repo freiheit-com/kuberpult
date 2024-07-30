@@ -61,7 +61,9 @@ metadata:
 {{- end }}
   name: kuberpult
 spec:
-{{- if .Values.ingress.ingressClassName }}
+{{- if and (.Values.ingress.private) (eq .Values.kubernetesEngine "GKE") }}
+  ingressClassName: "gce-private"
+{{- else if .Values.ingress.ingressClassName }}
   ingressClassName: {{ .Values.ingress.ingressClassName | quote }}
 {{- end }}
   rules:
