@@ -1043,7 +1043,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, &db.DBReleaseWithMetaData{
+				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
