@@ -379,9 +379,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sq
 }
 
 func (r *repository) PushRepo(ctx context.Context) error {
-	//if true {
-	//	return fmt.Errorf("debug error git")
-	//}
 	var pushSuccess = true
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
