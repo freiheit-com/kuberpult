@@ -28,6 +28,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/cloudrun"
+	dbx "github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/db"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -127,7 +128,7 @@ func processDeploymentEvents(ctx context.Context, dbHandler *db.DBHandler) error
 	log := logger.FromContext(ctx).Sugar()
 	for {
 		time.Sleep(5 * time.Second)
-		queuedDeployments, err := readQueuedDeploymentEvents(ctx, dbHandler)
+		queuedDeployments, err := dbx.GetQueuedDeployments(ctx, dbHandler)
 		if err != nil {
 			log.Errorf("failed to read queued deployment events: %v", err)
 			continue
@@ -145,54 +146,15 @@ func processDeploymentEvents(ctx context.Context, dbHandler *db.DBHandler) error
 	}
 }
 
-func readQueuedDeploymentEvents(ctx context.Context, dbHandler *db.DBHandler) ([]*cloudrun.QueuedDeploymentEvent, error) {
-	queuedDeployments := []*cloudrun.QueuedDeploymentEvent{}
-	err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-		selectQuery := dbHandler.AdaptQuery(fmt.Sprintf("SELECT id, manifest FROM %s WHERE processed is false ORDER BY id ASC", cloudrun.QueuedDeploymentsTable))
-		rows, err := transaction.QueryContext(ctx, selectQuery)
-		if err != nil {
-			return fmt.Errorf("could not query %s table: Error: %w", cloudrun.QueuedDeploymentsTable, err)
-		}
-		defer func(rows *sql.Rows) {
-			err := rows.Close()
-			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("%s: row closing error: %v", cloudrun.QueuedDeploymentsTable, err)
-			}
-		}(rows)
-		for rows.Next() {
-			var id int64
-			var manifest []byte
-			err := rows.Scan(&id, &manifest)
-			if err != nil {
-				// If an error occurred here, we skip and will retry in the next processing call.
-				logger.FromContext(ctx).Sugar().Warnf("failed to scan row: %v", err)
-				continue
-			}
-			queuedDeployments = append(queuedDeployments, &cloudrun.QueuedDeploymentEvent{
-				Id:       id,
-				Manifest: manifest,
-			})
-		}
-		if err = rows.Err(); err != nil {
-			return fmt.Errorf("error iterating over rows: %v", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return queuedDeployments, nil
-}
-
-func processEvent(ctx context.Context, event *cloudrun.QueuedDeploymentEvent, dbHandler *db.DBHandler) error {
-	err := cloudrun.DeployService(event.Manifest)
+func processEvent(ctx context.Context, event *dbx.QueuedDeployment, dbHandler *db.DBHandler) error {
+	err := cloudrun.DeployService([]byte(event.Manifest))
 	if err != nil {
 		// We don't return because error during deploying the service means that the service was deployed but not ready to serve traffic
 		// which is expected behavior from the cloudrun api
 		logger.FromContext(ctx).Sugar().Warnf("service failed to deploy: %v", err)
 	}
 	err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		updateQuery := dbHandler.AdaptQuery(fmt.Sprintf("UPDATE %s SET processed = ?, processed_at = ? WHERE id = ?", cloudrun.QueuedDeploymentsTable))
+		updateQuery := dbHandler.AdaptQuery(fmt.Sprintf("UPDATE %s SET processed = ?, processed_at = ? WHERE id = ?", dbx.QueuedDeploymentsTable))
 		_, err = transaction.Exec(updateQuery, true, time.Now().UTC(), event.Id)
 		if err != nil {
 			return fmt.Errorf("failed to update the deployment events table: %v", err)

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS queued_deployments
 (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY autoincrement,
     created_at TIMESTAMP,
     manifest VARCHAR,
     processed BOOLEAN,

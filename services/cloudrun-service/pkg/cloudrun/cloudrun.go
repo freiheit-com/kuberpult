@@ -18,12 +18,12 @@ package cloudrun
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	dbx "github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/parser"
 	"google.golang.org/api/run/v1"
 )
@@ -34,7 +34,6 @@ const (
 	serviceReady               = "Ready"
 	serviceConfigurationsReady = "ConfigurationsReady"
 	serviceRoutesReady         = "RoutesReady"
-	QueuedDeploymentsTable     = "queued_deployments"
 )
 
 var (
@@ -58,21 +57,14 @@ type CloudRunService struct {
 	DBHandler *db.DBHandler
 }
 
-func (s *CloudRunService) Deploy(ctx context.Context, in *api.ServiceDeployRequest) (*api.ServiceDeployResponse, error) {
+func (s *CloudRunService) QueueDeployment(ctx context.Context, in *api.ServiceDeployRequest) (*api.ServiceDeployResponse, error) {
 	_, err := validateService(in.Manifest)
 	if err != nil {
 		return nil, err
 	}
-	err = s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		insertQuery := s.DBHandler.AdaptQuery(fmt.Sprintf("INSERT INTO %s (created_at, manifest, processed) VALUES (?, ?, ?);", QueuedDeploymentsTable))
-		_, err := transaction.Exec(insertQuery, time.Now().UTC(), in.Manifest, false)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	err = dbx.WriteQueuedDeployment(ctx, in.Manifest, s.DBHandler)
 	if err != nil {
-		return nil, fmt.Errorf("could not write deployment to %s table: %v", QueuedDeploymentsTable, err)
+		return nil, fmt.Errorf("could not write deployment to %s table: %v", dbx.QueuedDeploymentsTable, err)
 	}
 	return &api.ServiceDeployResponse{}, nil
 }

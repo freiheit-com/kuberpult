@@ -675,7 +675,7 @@ message GetManifestsResponse {
 }
 
 service CloudRunService {
-  rpc Deploy (ServiceDeployRequest) returns (ServiceDeployResponse) {}
+  rpc QueueDeployment (ServiceDeployRequest) returns (ServiceDeployResponse) {}
 }
 
 message ServiceDeployRequest {
