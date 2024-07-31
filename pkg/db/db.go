@@ -1081,7 +1081,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	defer span.Finish()
 
 	// NOTE: We add one so we know if there is more to load
-	queryStr := fmt.Sprintf("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT %d OFFSET %d;", pageSize+1, pageNumber)
+	queryStr := fmt.Sprintf("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp ASC LIMIT %d OFFSET %d;", pageSize+1, pageNumber)
 	query := h.AdaptQuery(queryStr)
 	span.SetTag("query", query)
 

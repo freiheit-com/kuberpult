@@ -277,10 +277,11 @@ func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy
 				result = append(result, event)
 			}
 		}
+		// NOTE: We only sort when using the manifesto because the db already sorts
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].CreatedAt.AsTime().UnixNano() < result[j].CreatedAt.AsTime().UnixNano()
+		})
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreatedAt.AsTime().UnixNano() < result[j].CreatedAt.AsTime().UnixNano()
-	})
 	return result, nil
 }
 
