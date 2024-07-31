@@ -130,7 +130,7 @@ db:
   # If set to true, kuberpult will write only the ESL table.
   # This is useful to already collect historical data in the database, while waiting for the full database implementation.
   writeEslTableOnly: false
-  #SSL mode to be used by the database
+  # SSL mode to be used by the database
   sslMode: verify-full
   requests:
     cpu: "100m"
@@ -208,7 +208,6 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
     kubernetes.io/ingress.allow-http: false
-    kubernetes.io/ingress.class: "gce"
   domainName: null
   # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:
