@@ -18,11 +18,12 @@ package service
 
 import (
 	"fmt"
+	"sort"
+	"testing"
+
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"sort"
-	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
@@ -314,11 +315,13 @@ func TestGetCommitInfo(t *testing.T) {
 		allowReadingCommitData bool
 		expectedResponse       *api.GetCommitInfoResponse
 		expectedError          error
+		testPageSize           bool
 	}
 
 	tcs := []TestCase{
 		{
 			name: "check if the number of events is equal to pageNumber plus pageSize",
+			testPageSize: true,
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
 					Application: "app",
@@ -358,8 +361,8 @@ func TestGetCommitInfo(t *testing.T) {
 				},
 				Events: []*api.Event{
 					{
-						Uuid:      "00000000-0000-0000-0000-000000000002",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
+						Uuid:   "df93c826-4f41-11ef-b685-00e04c684024",
+						CreatedAt: uuid.TimeFromUUID("df93c826-4f41-11ef-b685-00e04c684024"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
 								EnvironmentNames: []string{
@@ -370,8 +373,8 @@ func TestGetCommitInfo(t *testing.T) {
 						},
 					},
 					{
-						Uuid:      "00000000-0000-0000-0000-000000000003",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
+						Uuid:    "e15d9a99-4f41-11ef-9ae5-00e04c684024",
+						CreatedAt: uuid.TimeFromUUID("e15d9a99-4f41-11ef-9ae5-00e04c684024"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:        "app",
@@ -807,7 +810,11 @@ func TestGetCommitInfo(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := rp.AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			uuidGenerate := testutil.NewIncrementalUUIDGenerator()
+			if tc.testPageSize {
+				uuidGenerate = testutil.NewIncrementalUUIDGeneratorForPageSizeTest()
+			}
+			ctx := rp.AddGeneratorToContext(testutil.MakeTestContext(), uuidGenerate)
 
 			for _, transformer := range environmentSetup {
 				err := repo.Apply(ctx, transformer)
