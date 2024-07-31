@@ -627,6 +627,7 @@ enum ReleaseTrainAppSkipCause {
   APP_DOES_NOT_EXIST_IN_ENV = 3;
   APP_IS_LOCKED_BY_ENV = 4; // there is an env lock that prevents deployment for this app
   TEAM_IS_LOCKED = 5; //there is a team lock that prevents deployment for this app
+  NO_TEAM_PERMISSION = 6; // the user is not on that team
 }
 
 message ReleaseTrainAppPrognosis {

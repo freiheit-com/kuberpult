@@ -109,6 +109,24 @@ spec:
           - name: grpc
             containerPort: 8443
             protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: {{ .Values.manifestRepoExport.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.manifestRepoExport.probes.readiness.periodSeconds }}
+          successThreshold: {{ .Values.manifestRepoExport.probes.readiness.successThreshold }}
+          timeoutSeconds: {{ .Values.manifestRepoExport.probes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.manifestRepoExport.probes.readiness.failureThreshold }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: {{ .Values.manifestRepoExport.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.manifestRepoExport.probes.liveness.periodSeconds }}
+          successThreshold: {{ .Values.manifestRepoExport.probes.liveness.successThreshold }}
+          timeoutSeconds: {{ .Values.manifestRepoExport.probes.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.manifestRepoExport.probes.liveness.failureThreshold }}
         resources:
           limits:
             cpu: "{{ .Values.manifestRepoExport.resources.limits.cpu }}"
@@ -169,6 +187,8 @@ spec:
           value: "{{ .Values.db.dbUser }}"
         - name: KUBERPULT_DB_USER_PASSWORD
           value: "{{ .Values.db.dbPassword }}"
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "{{ .Values.db.sslMode }}"
         - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
           value: {{ .Values.db.dbOption }}
         - name: KUBERPULT_DB_AUTH_PROXY_PORT
@@ -223,6 +243,19 @@ spec:
         hostPath:
           path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
 {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-manifest-repo-export-service
+spec:
+  ports:
+  - name: grpc
+    port: 8443
+    targetPort: grpc
+  selector:
+    app: kuberpult-manifest-repo-export-service
+  type: NodePort
 
 {{- end }}
 {{- end }}

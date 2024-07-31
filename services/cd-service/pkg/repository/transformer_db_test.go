@@ -2358,3 +2358,161 @@ func version(v int) *int64 {
 	var result = int64(v)
 	return &result
 }
+
+func TestTransaction(t *testing.T) {
+	const appName = "app1"
+	tcs := []struct {
+		Name               string
+		Transformers       []Transformer
+		expectedDbContent  *db.DBAppWithMetaData
+		expectedDbReleases *db.DBAllReleasesWithMetaData
+	}{
+		{
+			Name: "create one version",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10000,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				EslVersion:  2,
+				App:         appName,
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslVersion: 1,
+				Created:    gotime.Time{},
+				App:        appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10000},
+				},
+			},
+		},
+		{
+			Name: "create two versions, same team",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "noteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "noteam",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				EslVersion:  2, // even when CreateApplicationVersion is called twice, we still write the app only once
+				App:         appName,
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "noteam",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslVersion: 2,
+				Created:    gotime.Time{},
+				App:        appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10, 11},
+				},
+			},
+		},
+		{
+			Name: "create two versions, different teams",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "old",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+					Team: "new",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				EslVersion:  3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
+				App:         appName,
+				StateChange: db.AppStateChangeUpdate,
+				Metadata: db.DBAppMetaData{
+					Team: "new",
+				},
+			},
+			expectedDbReleases: &db.DBAllReleasesWithMetaData{
+				EslVersion: 2,
+				Created:    gotime.Time{},
+				App:        appName,
+				Metadata: db.DBAllReleaseMetaData{
+					Releases: []int64{10, 11},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, tc.expectedDbContent.App)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedDbContent, res); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				actualRelease, err3 := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("error: %v", err3)
+				}
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease, cmpopts.IgnoreFields(db.DBAllReleasesWithMetaData{}, "Created")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}

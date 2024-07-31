@@ -227,6 +227,9 @@ func TestBatchServiceWorks(t *testing.T) {
 						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
 					},
 					},
+					Team: &auth.RBACTeams{Permissions: map[string][]string{
+						"testmail@example.com": []string{"test-team"},
+					}},
 				},
 			},
 		},

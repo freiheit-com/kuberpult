@@ -56,6 +56,7 @@ type DBConfig struct {
 	DbPassword     string
 	MigrationsPath string
 	WriteEslOnly   bool
+	SSLMode        string
 }
 
 type DBHandler struct {
@@ -113,8 +114,8 @@ func Connect(cfg DBConfig) (*DBHandler, error) {
 
 func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 	if cfg.DriverName == "postgres" {
-		dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
-			cfg.DbHost, cfg.DbUser, cfg.DbPassword, cfg.DbPort, cfg.DbName)
+		dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=%s",
+			cfg.DbHost, cfg.DbUser, cfg.DbPassword, cfg.DbPort, cfg.DbName, cfg.SSLMode)
 
 		dbPool, err := sql.Open(cfg.DriverName, dbURI)
 		if err != nil {

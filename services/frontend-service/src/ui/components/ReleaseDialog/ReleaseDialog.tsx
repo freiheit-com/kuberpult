@@ -268,7 +268,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             ))}
                         </div>
                     )}
-                    {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
+                    {appRolloutStatus !== undefined && <RolloutStatusDescription status={appRolloutStatus} />}
                 </div>
             </div>
             <div className="content-area">
