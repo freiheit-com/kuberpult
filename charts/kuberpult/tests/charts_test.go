@@ -1367,7 +1367,6 @@ ingress:
 					Annotations: map[string]string{
 						"cert-manager.io/acme-challenge-type":            "dns01",
 						"cert-manager.io/cluster-issuer":                 "letsencrypt",
-						"kubernetes.io/ingress.class":                    "gce",
 						"kubernetes.io/ingress.allow-http":               "false",
 						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
 					},
@@ -1427,7 +1426,6 @@ ingress:
 					Annotations: map[string]string{
 						"cert-manager.io/acme-challenge-type":            "dns01",
 						"cert-manager.io/cluster-issuer":                 "letsencrypt",
-						"kubernetes.io/ingress.class":                    "gce",
 						"kubernetes.io/ingress.allow-http":               "false",
 						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
 					},
