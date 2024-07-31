@@ -159,7 +159,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					TransformerEslVersion: 1,
 				},
 			},
-			ExpectedError: errMatcher{"error within transaction: first apply failed, aborting: error at index 0 of transformer batch: " +
+			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
 				"release of app myapp with version 7 not found",
 			},
 			ExpectedApp:  nil,
@@ -232,7 +232,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					PreviousCommit:  "",
 				},
 			},
-			ExpectedError: errMatcher{"error within transaction: first apply failed, aborting: error not specific to one transformer of this batch: " +
+			ExpectedError: errMatcher{"first apply failed, aborting: error not specific to one transformer of this batch: " +
 				"transformer metadata is empty",
 			},
 		},
@@ -1477,7 +1477,7 @@ func TestLocks(t *testing.T) {
 					},
 				},
 			},
-			expectedError: errMatcher{msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: could not access environment information on: 'environments/non-existent-env': file does not exist"},
+			expectedError: errMatcher{msg: "first apply failed, aborting: error at index 0 of transformer batch: could not access environment information on: 'environments/non-existent-env': file does not exist"},
 			expectedMissing: []*FilenameAndData{
 				{
 					path:     "/environments/acceptance/locks/l123/created_by_email",
@@ -1779,7 +1779,7 @@ func TestLocks(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
+				msg: "first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
 			},
 			expectedMissing: []*FilenameAndData{
 				{
@@ -1850,7 +1850,7 @@ func TestLocks(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
+				msg: "first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
 			},
 			expectedData: []*FilenameAndData{
 				{

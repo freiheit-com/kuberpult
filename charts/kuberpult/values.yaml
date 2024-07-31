@@ -130,6 +130,8 @@ db:
   # If set to true, kuberpult will write only the ESL table.
   # This is useful to already collect historical data in the database, while waiting for the full database implementation.
   writeEslTableOnly: false
+  # SSL mode to be used by the database
+  sslMode: verify-full
   requests:
     cpu: "100m"
     memory: "200Mi"
@@ -155,6 +157,10 @@ manifestRepoExport:
       timeoutSeconds: 5
       failureThreshold: 10
       initialDelaySeconds: 5
+
+  # The initial time in seconds that this service waits when it does not find esl events to process, before trying again.
+  # Time increases exponentially if errors occur, depending on the type of error.
+  # Maximum time to wait is 600sec (cannot be changed).
   eslProcessingIdleTimeSeconds: 5
   # Timeout in seconds used for network operations
   networkTimeoutSeconds: 120
@@ -202,7 +208,6 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
     kubernetes.io/ingress.allow-http: false
-    kubernetes.io/ingress.class: "gce"
   domainName: null
   # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:

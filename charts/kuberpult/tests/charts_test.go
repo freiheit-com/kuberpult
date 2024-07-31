@@ -592,6 +592,41 @@ ingress:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test default ssl mode",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+db:
+  dbOption: postgreSQL
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_SSL_MODE",
+					Value: "verify-full",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test  ssl mode required",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+db:
+  dbOption: postgreSQL
+  sslMode: prefer
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_SSL_MODE",
+					Value: "prefer",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1053,6 +1088,46 @@ manifestRepoExport:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "DB ssl mode",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+  sslMode: disable
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_SSL_MODE",
+					Value: "disable",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "DB ssl mode activated",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+  sslMode: prefer
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_SSL_MODE",
+					Value: "prefer",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1292,7 +1367,6 @@ ingress:
 					Annotations: map[string]string{
 						"cert-manager.io/acme-challenge-type":            "dns01",
 						"cert-manager.io/cluster-issuer":                 "letsencrypt",
-						"kubernetes.io/ingress.class":                    "gce",
 						"kubernetes.io/ingress.allow-http":               "false",
 						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
 					},
@@ -1352,7 +1426,6 @@ ingress:
 					Annotations: map[string]string{
 						"cert-manager.io/acme-challenge-type":            "dns01",
 						"cert-manager.io/cluster-issuer":                 "letsencrypt",
-						"kubernetes.io/ingress.class":                    "gce",
 						"kubernetes.io/ingress.allow-http":               "false",
 						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
 					},
