@@ -70,6 +70,7 @@ type Config struct {
 	AzureEnableAuth          bool          `default:"false" split_words:"true"`
 	DexEnabled               bool          `default:"false" split_words:"true"`
 	DexRbacPolicyPath        string        `split_words:"true"`
+	DexRbacTeamPath          string        `split_words:"true"`
 	EnableTracing            bool          `default:"false" split_words:"true"`
 	EnableMetrics            bool          `default:"false" split_words:"true"`
 	EnableEvents             bool          `default:"false" split_words:"true"`
@@ -147,6 +148,10 @@ func RunServer() {
 			reader = &auth.DexGrpcContextReader{DexEnabled: c.DexEnabled, DexDefaultRoleEnabled: c.DexDefaultRoleEnabled}
 		}
 		dexRbacPolicy, err := auth.ReadRbacPolicy(c.DexEnabled, c.DexRbacPolicyPath)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+		}
+		dexRbacTeam, err := auth.ReadRbacTeam(c.DexEnabled, c.DexRbacTeamPath)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
 		}
@@ -372,6 +377,7 @@ func RunServer() {
 						RBACConfig: auth.RBACConfig{
 							DexEnabled: c.DexEnabled,
 							Policy:     dexRbacPolicy,
+							Team:       dexRbacTeam,
 						},
 						Config: service.BatchServerConfig{
 							WriteCommitData: c.GitWriteCommitData,
@@ -392,6 +398,7 @@ func RunServer() {
 						RBACConfig: auth.RBACConfig{
 							DexEnabled: c.DexEnabled,
 							Policy:     dexRbacPolicy,
+							Team:       dexRbacTeam,
 						},
 					})
 					api.RegisterEslServiceServer(srv, &service.EslServiceServer{Repository: repo})
