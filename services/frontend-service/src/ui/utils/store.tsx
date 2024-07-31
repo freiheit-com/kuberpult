@@ -128,18 +128,13 @@ export const refreshTags = (): void => {
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
-export const getCommitInfo = (
-    commitHash: string,
-    pageNumber: number,
-    pageSize: number,
-    authHeader: AuthHeader
-): void => {
+export const getCommitInfo = (commitHash: string, pageNumber: number, authHeader: AuthHeader): void => {
     useApi
         .gitService()
-        .GetCommitInfo({ commitHash: commitHash, pageNumber: pageNumber, pageSize: pageSize }, authHeader)
+        .GetCommitInfo({ commitHash: commitHash, pageNumber: pageNumber }, authHeader)
         .then((result: GetCommitInfoResponse) => {
-            var requestResult: GetCommitInfoResponse = structuredClone(result);
-            var oldEvents = updateCommitInfo.get().response?.events.slice() ?? [];
+            const requestResult: GetCommitInfoResponse = structuredClone(result);
+            const oldEvents = updateCommitInfo.get().response?.events.slice() ?? [];
             requestResult.events = oldEvents.concat(requestResult.events).slice();
             updateCommitInfo.set({ response: requestResult, commitInfoReady: CommitInfoState.READY });
         })

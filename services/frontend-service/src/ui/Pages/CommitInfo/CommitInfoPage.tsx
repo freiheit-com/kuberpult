@@ -32,16 +32,15 @@ export const CommitInfoPage: React.FC = () => {
     const { commit: commitHash } = useParams();
     const { authHeader } = useAzureAuthSub((auth) => auth);
     const [pageNumber, setPageNumber] = React.useState(0);
-    const pageSize: number = 10;
 
     React.useEffect(() => {
         if (commitHash !== undefined) {
-            getCommitInfo(commitHash, pageNumber, pageSize, authHeader);
+            getCommitInfo(commitHash, pageNumber, authHeader);
         }
     }, [commitHash, authHeader, pageNumber]);
 
     const triggerLoadMore = useCallback(() => {
-        setPageNumber(pageNumber + pageSize);
+        setPageNumber(pageNumber + 1);
         updateCommitInfo.set({ commitInfoReady: CommitInfoState.LOADING });
     }, [pageNumber]);
 

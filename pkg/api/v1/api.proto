@@ -44,7 +44,6 @@ message GetCommitInfoRequest {
   // The commit hash requested, can also be a prefix.
   string commit_hash = 1;
   uint64 page_number = 2;
-  uint64 page_size = 3;
 }
 
 message GetCommitInfoResponse {
