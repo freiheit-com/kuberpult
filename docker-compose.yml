@@ -68,6 +68,9 @@ services:
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database
+    ports:
+      - "8090:8080"
+      - "8444:8443"
     stop_grace_period: 0.5s
     depends_on:
       cd-service:
@@ -80,6 +83,7 @@ services:
     container_name: kuberpult-frontend-service
     environment:
       - KUBERPULT_CDSERVER=cd-service:8443
+      - KUBERPULT_VERSIONSERVER=manifest-repo-export-service:8443
       - KUBERPULT_CD_SERVER_SECURE=false
       - LOG_LEVEL=INFO
       - KUBERPULT_ALLOWED_ORIGINS=localhost:*
