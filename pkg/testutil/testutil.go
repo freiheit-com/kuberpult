@@ -132,6 +132,11 @@ func (gen IncrementalUUID) Generate() string {
 }
 
 // NOTE: FOR TESTING PURPOSES ONLY
+/* We need this new generator because we need to perserve order
+   and with the normal generator all of the uuids point to the
+   same timestamp. Hence the new generator with 6 uuids that
+   point to different timestamps 3 seconds appart
+*/
 
 type IncrementalUUIDBaseForPageSizeTest struct {
 	count uint64
