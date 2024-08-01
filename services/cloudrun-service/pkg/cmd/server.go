@@ -81,6 +81,7 @@ func runServer(ctx context.Context) error {
 			DbUser:         dbUserName,
 			MigrationsPath: "",
 			WriteEslOnly:   false,
+			SSLMode:        "verify-full",
 		}
 	} else {
 		logger.FromContext(ctx).Fatal("unsupported value", zap.String("dbOption", dbOption))
