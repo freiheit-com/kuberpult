@@ -39,12 +39,130 @@ spec:
   - host: {{ required ".ingress.domainName is required" .Values.ingress.domainName | quote }}
     http:
       paths:
+# Old Rest API:
       - pathType: ImplementationSpecific
+        path: /release
         backend:
           service:
             name: kuberpult-frontend-service
             port:
-              name: http
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /environments/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /environment-groups/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+# New API:
+      - pathType: ImplementationSpecific
+        path: /api/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+# Dex (UI Authorization flow):
+      - pathType: ImplementationSpecific
+        path: /dex
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /login
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+# UI bootstrapping:
+      - pathType: ImplementationSpecific
+        path: /ui/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /static/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /favicon.png
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+# GRPC over HTTP for UI:
+      - pathType: ImplementationSpecific
+        path: /api.v1.OverviewService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /api.v1.BatchService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /api.v1.FrontendConfigService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /api.v1.RolloutService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /api.v1.GitService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /api.v1.EnvironmentService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /api.v1.ReleaseTrainPrognosisService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
+      - pathType: ImplementationSpecific
+        path: /api.v1.EslService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              number: 80
   tls:
   - hosts:
     - {{ default .Values.ingress.domainName .Values.ingress.tls.host | quote}}
