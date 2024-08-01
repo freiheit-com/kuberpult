@@ -675,14 +675,14 @@ message GetManifestsResponse {
 }
 
 service CloudRunService {
-  rpc Deploy (ServiceDeployRequest) returns (ServiceDeployResponse) {}
+  rpc QueueDeployment (QueueDeploymentRequest) returns (QueueDeploymentResponse) {}
 }
 
-message ServiceDeployRequest {
+message QueueDeploymentRequest {
     bytes manifest = 1;
 }
 
-message ServiceDeployResponse {}
+message QueueDeploymentResponse {}
 
 service EslService {
   rpc GetFailedEsls (GetFailedEslsRequest) returns (GetFailedEslsResponse) {}
