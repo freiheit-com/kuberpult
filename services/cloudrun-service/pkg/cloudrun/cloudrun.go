@@ -73,7 +73,7 @@ func DeployService(manifest []byte) error {
 	// We already validated the manifest before writing it to the database, so we shouldn't expect any error here
 	svc, err := validateService(manifest)
 	if err != nil {
-		return err
+		return fmt.Errorf("unexpected error: invalid manifest found in db: %w", err)
 	}
 	req := runService.Projects.Locations.Services.List(svc.Parent)
 	resp, err := req.Do()
