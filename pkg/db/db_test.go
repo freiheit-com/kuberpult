@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -267,6 +268,65 @@ func TestCustomMigrationReleases(t *testing.T) {
 					if diff := cmp.Diff(expectedRelease, release, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
 						t.Errorf("error mismatch (-want, +got):\n%s", diff)
 					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestMigrationCommitEvent(t *testing.T) {
+	migCommitEvent := &EventRow{
+		EventType:     event.EventTypeDBMigrationEventType,
+		Uuid:          "00000000-0000-0000-0000-000000000001",
+		CommitHash:    strings.Repeat("0", 40),
+		Timestamp:     time.Time{},
+		EventJson:     "{}",
+		TransformerID: 0,
+	}
+	var getAllCommitEvents = /*getAllCommitEvents*/ func(ctx context.Context) (AllCommitEvents, error) {
+		result := AllCommitEvents{}
+		return result, nil
+	}
+	tcs := []struct {
+		Name           string
+		expectedEvents []*event.DBEventGo
+	}{
+		{
+			Name: "Test migration event",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, getAllCommitEvents)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				//Check for migration event
+				ev, err := dbHandler.DBSelectEventByHash(ctx, transaction, strings.Repeat("0", 40))
+				if err != nil {
+					t.Errorf("could not get migration event: %v\n", err)
+
+				}
+				if ev == nil {
+					t.Errorf("migration event was not created: %v\n", err)
+				}
+				if diff := cmp.Diff(migCommitEvent, ev, cmpopts.IgnoreFields(EventRow{}, "Timestamp")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
