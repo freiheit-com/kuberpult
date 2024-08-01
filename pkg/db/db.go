@@ -2304,7 +2304,7 @@ func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllApp
 }
 
 func (h *DBHandler) runCustomMigrationAllAppsTable(ctx context.Context, transaction *sql.Tx, allAppsRepo *map[string]string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAllAppsTable")
+	span, ctx := tracer.StartSpanFromContext(ctx, "runCustomMigrationAllAppsTable")
 	defer span.Finish()
 	sortedApps := sorting.SortKeys(*allAppsRepo)
 	return h.DBWriteAllApplications(ctx, transaction, 0, sortedApps)
@@ -2322,7 +2322,7 @@ func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx
 
 // runCustomMigrationApps : Runs custom migrations for provided apps.
 func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql.Tx, appsMap *map[string]string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationApps")
+	span, ctx := tracer.StartSpanFromContext(ctx, "runCustomMigrationApps")
 	defer span.Finish()
 
 	for app, team := range *appsMap {
