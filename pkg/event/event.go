@@ -35,7 +35,6 @@ const (
 	EventTypeLockPreventeDeployment EventType = "lock-prevented-deployment"
 	EventTypeReplaceBy              EventType = "replaced-by"
 	EventTypeNewRelease             EventType = "new-release"
-	EventTypeDBMigrationEventType   EventType = "db-migration"
 )
 
 type eventType struct {

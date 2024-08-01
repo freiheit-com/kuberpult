@@ -983,22 +983,6 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 	return h.processSingleEventsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectEventByHash(ctx context.Context, transaction *sql.Tx, commitHash string) (*EventRow, error) {
-	if h == nil {
-		return nil, nil
-	}
-	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAnyEvent: no transaction provided")
-	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEvent")
-	defer span.Finish()
-
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 1;")
-	span.SetTag("query", query)
-	rows, err := transaction.QueryContext(ctx, query, commitHash)
-	return h.processSingleEventsRow(ctx, rows, err)
-}
-
 func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventType event.EventType, limit uint) ([]event.DBEventGo, error) {
 	if h == nil {
 		return nil, nil
@@ -2116,11 +2100,6 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllE
 				}
 			}
 		}
-		//Migration event
-		err = h.writeEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000001", event.EventTypeDBMigrationEventType, strings.Repeat("0", 40), []byte("{}"))
-		if err != nil {
-			return fmt.Errorf("error writing migration commit event to the database: %v\n", err)
-		}
 		return nil
 	})
 }
@@ -2128,8 +2107,7 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllE
 func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
 
-	//Checks for 'migration' commit event with hash 0000(...)0000
-	ev, err := h.DBSelectEventByHash(ctx, transaction, strings.Repeat("0", 40))
+	ev, err := h.DBSelectAnyEvent(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
