@@ -150,7 +150,7 @@ func processEvent(ctx context.Context, event *dbx.QueuedDeployment, dbHandler *d
 	err := cloudrun.DeployService(event.Manifest)
 	if err != nil {
 		// We don't return because error during deploying the service means that the service was deployed but not ready to serve traffic
-		// which is expected behavior from the cloudrun api
+		// which is expected behavior from the cloudrun api. The service's deployment status will be reported to the UI in SRX-JXAFVO.
 		logger.FromContext(ctx).Sugar().Warnf("service failed to deploy: %v", err)
 	}
 	return dbx.UpdateQueuedDeployment(ctx, event.Id, dbHandler)
