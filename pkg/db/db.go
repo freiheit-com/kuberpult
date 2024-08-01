@@ -2112,7 +2112,7 @@ func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction
 		return true, err
 	}
 	if ev != nil {
-		l.Infof("detected migration commit event on the database - skipping migrations")
+		l.Infof("There are already commit events in the DB - skipping migrations")
 		return false, nil
 	}
 	return true, nil
@@ -2306,11 +2306,7 @@ func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllApp
 func (h *DBHandler) runCustomMigrationAllAppsTable(ctx context.Context, transaction *sql.Tx, allAppsRepo *map[string]string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAllAppsTable")
 	defer span.Finish()
-
 	sortedApps := sorting.SortKeys(*allAppsRepo)
-
-	// if there is any difference, we assume the manifest wins over the database state,
-	// so we use `allAppsRepo`:
 	return h.DBWriteAllApplications(ctx, transaction, 0, sortedApps)
 }
 
