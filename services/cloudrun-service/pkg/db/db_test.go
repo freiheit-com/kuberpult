@@ -174,6 +174,7 @@ func isEventProcessed(ctx context.Context, eventId int64, dbHandler *db.DBHandle
 	return processed, err
 }
 func setupDB(t *testing.T) *db.DBHandler {
+	ctx := context.Background()
 	dir, _ := testutil.CreateMigrationsPath(4)
 	tmpDir := t.TempDir()
 	cfg := db.DBConfig{
@@ -182,12 +183,12 @@ func setupDB(t *testing.T) *db.DBHandler {
 		DbHost:         tmpDir,
 	}
 
-	migErr := db.RunDBMigrations(cfg)
+	migErr := db.RunDBMigrations(ctx, cfg)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := db.Connect(cfg)
+	dbHandler, err := db.Connect(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
