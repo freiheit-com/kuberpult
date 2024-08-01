@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"time"
@@ -141,26 +140,18 @@ func processDeploymentEvents(ctx context.Context, dbHandler *db.DBHandler) error
 		for _, deploymentEvent := range queuedDeployments {
 			err := processEvent(ctx, deploymentEvent, dbHandler)
 			if err != nil {
-				log.Errorf("failed to process deployment event %+v", deploymentEvent)
+				log.Errorf("failed to process deployment event %d: %v", deploymentEvent.Id, err)
 			}
 		}
 	}
 }
 
 func processEvent(ctx context.Context, event *dbx.QueuedDeployment, dbHandler *db.DBHandler) error {
-	err := cloudrun.DeployService([]byte(event.Manifest))
+	err := cloudrun.DeployService(event.Manifest)
 	if err != nil {
 		// We don't return because error during deploying the service means that the service was deployed but not ready to serve traffic
 		// which is expected behavior from the cloudrun api
 		logger.FromContext(ctx).Sugar().Warnf("service failed to deploy: %v", err)
 	}
-	err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		updateQuery := dbHandler.AdaptQuery(fmt.Sprintf("UPDATE %s SET processed = ?, processed_at = ? WHERE id = ?", dbx.QueuedDeploymentsTable))
-		_, err = transaction.Exec(updateQuery, true, time.Now().UTC(), event.Id)
-		if err != nil {
-			return fmt.Errorf("failed to update the deployment events table: %v", err)
-		}
-		return nil
-	})
-	return nil
+	return dbx.UpdateQueuedDeployment(ctx, event.Id, dbHandler)
 }

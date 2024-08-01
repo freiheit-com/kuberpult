@@ -17,6 +17,9 @@ Copyright freiheit.com*/
 package db
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -99,6 +102,77 @@ func TestReadWriteQueuedDeployments(t *testing.T) {
 	}
 }
 
+func TestUpdateQueuedDeployment(t *testing.T) {
+	tcs := []struct {
+		name              string
+		queuedDeployments []*QueuedDeployment
+	}{
+		{
+			name:              "no queued deployments",
+			queuedDeployments: []*QueuedDeployment{},
+		},
+		{
+			name: "multiple queued deployments",
+			queuedDeployments: []*QueuedDeployment{
+				{
+					Manifest: []byte("test-manifest"),
+				},
+				{
+					Manifest: []byte("test-manifest2"),
+				},
+				{
+					Manifest: []byte("test-manifest3"),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		test := tc
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+			for _, deploy := range test.queuedDeployments {
+				err := WriteQueuedDeployment(ctx, deploy.Manifest, dbHandler)
+				if err != nil {
+					t.Fatalf("error while writing deployment events: %v", err)
+				}
+			}
+			for i := range test.queuedDeployments {
+				err := UpdateQueuedDeployment(ctx, int64(i+1), dbHandler)
+				if err != nil {
+					t.Errorf("Expected to error but got: %v", err)
+				}
+				processed, err := isEventProcessed(ctx, int64(i+1), dbHandler)
+				if err != nil {
+					t.Errorf("Expected no error while reading event but got: %v", err)
+				} else {
+					if processed != true {
+						t.Errorf("Expected row %d to be processed, but it wasn't", i+1)
+					}
+				}
+			}
+
+		})
+	}
+}
+
+func isEventProcessed(ctx context.Context, eventId int64, dbHandler *db.DBHandler) (bool, error) {
+	processed := false
+	err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		selectQuery := dbHandler.AdaptQuery(fmt.Sprintf("SELECT processed FROM %s WHERE id=?", QueuedDeploymentsTable))
+		row := transaction.QueryRow(selectQuery, eventId)
+		err := row.Scan(&processed)
+		if err != nil {
+			return err
+		}
+		if err = row.Err(); err != nil {
+			return err
+		}
+		return nil
+	})
+	return processed, err
+}
 func setupDB(t *testing.T) *db.DBHandler {
 	dir, _ := testutil.CreateMigrationsPath(4)
 	tmpDir := t.TempDir()

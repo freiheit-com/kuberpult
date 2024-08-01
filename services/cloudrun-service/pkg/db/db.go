@@ -83,3 +83,15 @@ func GetQueuedDeployments(ctx context.Context, dbHandler *db.DBHandler) ([]*Queu
 	}
 	return queuedDeployments, nil
 }
+
+func UpdateQueuedDeployment(ctx context.Context, deploymentId int64, dbHandler *db.DBHandler) error {
+	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		updateQuery := dbHandler.AdaptQuery(fmt.Sprintf("UPDATE %s SET processed = ?, processed_at = ? WHERE id = ?", QueuedDeploymentsTable))
+		_, err := transaction.Exec(updateQuery, true, time.Now().UTC(), deploymentId)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return err
+}
