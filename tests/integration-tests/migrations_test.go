@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package integration_tests
 
 import (
+	"context"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -34,6 +35,7 @@ func deleteSchemaMigrationsTable(cfg db.DBConfig) error {
 	return nil
 }
 func TestMigrations(t *testing.T) {
+	ctx := context.Background()
 	dbConfig := db.DBConfig{
 		DbHost:         "localhost",
 		DbPort:         "5432",
@@ -44,7 +46,7 @@ func TestMigrations(t *testing.T) {
 		MigrationsPath: "../../database/migrations/postgres",
 		SSLMode:        "disable",
 	}
-	dbHandler, err := db.Connect(dbConfig)
+	dbHandler, err := db.Connect(ctx, dbConfig)
 	if err != nil {
 		t.Fatalf("Error establishing DB connection: %v", err)
 	}
@@ -66,7 +68,7 @@ func TestMigrations(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Run migrations for the first time
-			if err := db.RunDBMigrations(dbConfig); err != nil {
+			if err := db.RunDBMigrations(ctx, dbConfig); err != nil {
 				t.Errorf("Error running migrations: %v", err)
 			}
 			// Delete schema migrations
@@ -74,7 +76,7 @@ func TestMigrations(t *testing.T) {
 				t.Fatalf("Failed to delete schema migrations table: %v", err)
 			}
 			// Run migrations again
-			if err := db.RunDBMigrations(dbConfig); err != nil {
+			if err := db.RunDBMigrations(ctx, dbConfig); err != nil {
 				t.Errorf("Error running migrations: %v", err)
 			}
 		})

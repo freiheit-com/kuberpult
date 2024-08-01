@@ -85,7 +85,7 @@ func runServer(ctx context.Context) error {
 	} else {
 		logger.FromContext(ctx).Fatal("unsupported value", zap.String("dbOption", dbOption))
 	}
-	dbHandler, err := db.Connect(dbCfg)
+	dbHandler, err := db.Connect(ctx, dbCfg)
 	if err != nil {
 		return err
 	}

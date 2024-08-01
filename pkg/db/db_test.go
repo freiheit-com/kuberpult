@@ -68,13 +68,14 @@ func TestConnection(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			t.Parallel()
 			dir := t.TempDir()
 			cfg := DBConfig{
 				DriverName: "sqlite3",
 				DbHost:     dir,
 			}
-			db, err := Connect(cfg)
+			db, err := Connect(ctx, cfg)
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
@@ -138,12 +139,12 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
 
-			migErr := RunDBMigrations(cfg)
+			migErr := RunDBMigrations(ctx, cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(cfg)
+			db, err := Connect(ctx, cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -353,12 +354,12 @@ func TestCommitEvents(t *testing.T) {
 				DbHost:         dbDir,
 				MigrationsPath: dir,
 			}
-			migErr := RunDBMigrations(cfg)
+			migErr := RunDBMigrations(ctx, cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(cfg)
+			db, err := Connect(ctx, cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -2173,6 +2174,7 @@ func TestReadWriteOverviewCache(t *testing.T) {
 
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
+	ctx := context.Background()
 	dir, err := testutil.CreateMigrationsPath(2)
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
@@ -2183,12 +2185,12 @@ func setupDB(t *testing.T) *DBHandler {
 		DbHost:         tmpDir,
 	}
 
-	migErr := RunDBMigrations(cfg)
+	migErr := RunDBMigrations(ctx, cfg)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := Connect(cfg)
+	dbHandler, err := Connect(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2197,6 +2199,7 @@ func setupDB(t *testing.T) *DBHandler {
 }
 
 func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
+	ctx := context.Background()
 	migrationsPath, err := testutil.CreateMigrationsPath(2)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
@@ -2224,12 +2227,12 @@ func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
 
 	dbConfig.DbHost = dir
 
-	migErr := RunDBMigrations(*dbConfig)
+	migErr := RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := Connect(*dbConfig)
+	dbHandler, err := Connect(ctx, *dbConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -63,6 +63,7 @@ func (e errMatcher) Is(err error) bool {
 }
 
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
+	ctx := context.Background()
 	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
@@ -99,12 +100,12 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
 
-		migErr := db.RunDBMigrations(*dbConfig)
+		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)
 		}
 
-		dbHandler, err := db.Connect(*dbConfig)
+		dbHandler, err := db.Connect(ctx, *dbConfig)
 		if err != nil {
 			t.Fatal(err)
 		}

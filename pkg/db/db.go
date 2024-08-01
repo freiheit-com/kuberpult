@@ -96,8 +96,8 @@ func (h *DBHandler) ShouldUseOtherTables() bool {
 	return h != nil && !h.WriteEslOnly
 }
 
-func Connect(cfg DBConfig) (*DBHandler, error) {
-	db, driver, err := GetConnectionAndDriver(cfg)
+func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
+	db, driver, err := GetConnectionAndDriverWithRetries(ctx, cfg)
 
 	if err != nil {
 		return nil, err
@@ -126,7 +126,27 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 	} else if cfg.DriverName == "sqlite3" {
 		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite?_foreign_keys=on"))
 	}
-	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
+	return nil, fmt.Errorf("driver: only postgres and sqlite3 are supported, but not '%s'", cfg.DriverName)
+}
+
+func GetConnectionAndDriverWithRetries(ctx context.Context, cfg DBConfig) (*sql.DB, database.Driver, error) {
+	var l = logger.FromContext(ctx).Sugar()
+	var db *sql.DB
+	var err error
+	var driver database.Driver
+	for i := 10; i > 0; i-- {
+		db, driver, err = GetConnectionAndDriver(cfg)
+		if err == nil {
+			return db, driver, nil
+		}
+		if i > 0 {
+			d := time.Second * 10
+			l.Warnf("could not connect to db, will try again in %v for %d more times, error: %v", d, i, err)
+			time.Sleep(d)
+		}
+	}
+	return nil, nil, err
+
 }
 
 func GetConnectionAndDriver(cfg DBConfig) (*sql.DB, database.Driver, error) {
@@ -165,8 +185,8 @@ func (h *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
 	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", h.DriverName)
 }
 
-func RunDBMigrations(cfg DBConfig) error {
-	d, err := Connect(cfg)
+func RunDBMigrations(ctx context.Context, cfg DBConfig) error {
+	d, err := Connect(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)
 	}

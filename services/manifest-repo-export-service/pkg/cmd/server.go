@@ -199,7 +199,7 @@ func Run(ctx context.Context) error {
 	} else {
 		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
 	}
-	dbHandler, err := db.Connect(dbCfg)
+	dbHandler, err := db.Connect(ctx, dbCfg)
 	if err != nil {
 		return err
 	}
