@@ -57,7 +57,7 @@ type CloudRunService struct {
 	DBHandler *db.DBHandler
 }
 
-func (s *CloudRunService) QueueDeployment(ctx context.Context, in *api.ServiceDeployRequest) (*api.ServiceDeployResponse, error) {
+func (s *CloudRunService) QueueDeployment(ctx context.Context, in *api.QueueDeploymentRequest) (*api.QueueDeploymentResponse, error) {
 	_, err := validateService(in.Manifest)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (s *CloudRunService) QueueDeployment(ctx context.Context, in *api.ServiceDe
 	if err != nil {
 		return nil, fmt.Errorf("could not write deployment to %s table: %v", dbx.QueuedDeploymentsTable, err)
 	}
-	return &api.ServiceDeployResponse{}, nil
+	return &api.QueueDeploymentResponse{}, nil
 }
 
 func DeployService(manifest []byte) error {
