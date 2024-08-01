@@ -132,8 +132,8 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 func GetConnectionAndDriverWithRetries(ctx context.Context, cfg DBConfig) (*sql.DB, database.Driver, error) {
 	var l = logger.FromContext(ctx).Sugar()
 	var db *sql.DB
-	var err error = nil
-	var driver database.Driver = nil
+	var err error
+	var driver database.Driver
 	for i := 10; i > 0; i-- {
 		db, driver, err = GetConnectionAndDriver(cfg)
 		if err == nil {
