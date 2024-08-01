@@ -1220,9 +1220,35 @@ func TestEvents(t *testing.T) {
 		Name             string
 		Transformers     []Transformer
 		expectedDBEvents []event.Event
+		testPageSize     bool
 	}
 
 	tcs := []TestCase{
+		{
+			Name: "check if the number of events is equal to pageNumber plus pageSize",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Application:           "app",
+					Environment:           "staging",
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
+				},
+			},
+			testPageSize: true,
+			expectedDBEvents: []event.Event{
+				&event.NewRelease{Environments: map[string]struct{}{"staging": {}}},
+			},
+		},
 		{
 			Name: "Create a single application version and deploy it with DB",
 			// no need to bother with environments here
@@ -1353,8 +1379,12 @@ func TestEvents(t *testing.T) {
 				if batchError != nil {
 					return batchError
 				}
-
-				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+				pageSize := 100
+				if tc.testPageSize {
+					pageSize = 0
+					// we use 0 instead of 1 because the db queries for pagesize plus 1
+				}
+				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 0, uint64(pageSize))
 				if err != nil {
 					t.Fatal(err)
 				}

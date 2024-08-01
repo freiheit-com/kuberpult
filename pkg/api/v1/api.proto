@@ -43,6 +43,7 @@ message ProductSummary {
 message GetCommitInfoRequest {
   // The commit hash requested, can also be a prefix.
   string commit_hash = 1;
+  uint64 page_number = 2;
 }
 
 message GetCommitInfoResponse {
@@ -54,6 +55,7 @@ message GetCommitInfoResponse {
   repeated Event events = 3;
   string next_commit_hash = 5;
   string previous_commit_hash = 6;
+  bool load_more = 7;
 }
 
 message Event {

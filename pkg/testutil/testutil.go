@@ -113,6 +113,16 @@ func (gen *IncrementalUUIDBase) Generate() string {
 	return ret
 }
 
+func NewIncrementalUUIDGenerator() uuid.GenerateUUIDs {
+	fakeGenBase := IncrementalUUIDBase{
+		count: 0,
+	}
+	fakeGen := IncrementalUUID{
+		gen: &fakeGenBase,
+	}
+	return fakeGen
+}
+
 type IncrementalUUID struct {
 	gen *IncrementalUUIDBase
 }
@@ -121,11 +131,46 @@ func (gen IncrementalUUID) Generate() string {
 	return gen.gen.Generate()
 }
 
-func NewIncrementalUUIDGenerator() uuid.GenerateUUIDs {
-	fakeGenBase := IncrementalUUIDBase{
+// NOTE: FOR TESTING PURPOSES ONLY
+/* We need this new generator because we need to perserve order
+   and with the normal generator all of the uuids point to the
+   same timestamp. Hence the new generator with 6 uuids that
+   point to different timestamps 3 seconds appart
+*/
+
+type IncrementalUUIDBaseForPageSizeTest struct {
+	count uint64
+	arr   []string
+}
+
+func (gen *IncrementalUUIDBaseForPageSizeTest) Generate() string {
+	uuid := gen.arr[gen.count]
+	gen.count += 1
+	return uuid
+
+}
+
+type IncrementalUUIDForPageSizeTest struct {
+	gen *IncrementalUUIDBaseForPageSizeTest
+}
+
+func (gen IncrementalUUIDForPageSizeTest) Generate() string {
+	return gen.gen.Generate()
+}
+
+func NewIncrementalUUIDGeneratorForPageSizeTest() uuid.GenerateUUIDs {
+	fakeGenBase := IncrementalUUIDBaseForPageSizeTest{
 		count: 0,
+		arr: []string{
+			"dbfee8cd-4f41-11ef-b76a-00e04c684024",
+			"ddc9f32b-4f41-11ef-bb1b-00e04c684024",
+			"df93c826-4f41-11ef-b685-00e04c684024",
+			"e15d9a99-4f41-11ef-9ae5-00e04c684024",
+			"e3276e62-4f41-11ef-8788-00e04c684024",
+			"e4f13c8b-4f41-11ef-9735-00e04c684024",
+		},
 	}
-	fakeGen := IncrementalUUID{
+	fakeGen := IncrementalUUIDForPageSizeTest{
 		gen: &fakeGenBase,
 	}
 	return fakeGen

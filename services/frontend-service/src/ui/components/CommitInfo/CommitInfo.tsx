@@ -13,15 +13,24 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
 
 type CommitInfoProps = {
     commitInfo: GetCommitInfoResponse | undefined;
+    triggerLoadMore: { (): void } | null;
+    pageNumber: number;
 };
 
 export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     const commitInfo = props.commitInfo;
+    const triggerLoadMore: () => void = props.triggerLoadMore !== null ? props.triggerLoadMore : (): void => {};
+    const canLoadMore = props.commitInfo?.loadMore;
+    const pageNumber = props.pageNumber;
+
+    const onClick = useCallback(() => {
+        triggerLoadMore();
+    }, [pageNumber, triggerLoadMore]);
 
     if (commitInfo === undefined) {
         return (
@@ -58,6 +67,15 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
         ) : (
             <div className="history-text-container">Next commit not found &nbsp;</div>
         );
+    const loadMoreButton = canLoadMore ? (
+        <div className="history-button-container">
+            <button className="mdc-button button-main env-card-deploy-btn mdc-button--unelevated" onClick={onClick}>
+                Load more
+            </button>
+        </div>
+    ) : (
+        <div></div>
+    );
     return (
         <div>
             <main className="main-content commit-page">
@@ -101,6 +119,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                 </div>
                 <h2>Events</h2>
                 <CommitInfoEvents events={commitInfo.events} />
+                {loadMoreButton}
             </main>
         </div>
     );
@@ -184,10 +203,6 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => {
                     })}
                 </tbody>
             </table>
-            <div>
-                As of now, only <a href={'https://github.com/freiheit-com/kuberpult/issues/1738'}> up to 100 events</a>{' '}
-                will be displayed here.
-            </div>
         </div>
     );
 };

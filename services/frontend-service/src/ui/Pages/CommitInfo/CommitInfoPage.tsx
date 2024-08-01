@@ -14,23 +14,35 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-import { getCommitInfo, useCommitInfo, useGlobalLoadingState, CommitInfoState } from '../../utils/store';
+import {
+    getCommitInfo,
+    useCommitInfo,
+    useGlobalLoadingState,
+    CommitInfoState,
+    updateCommitInfo,
+} from '../../utils/store';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { Spinner } from '../../components/Spinner/Spinner';
 import { useParams } from 'react-router-dom';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { CommitInfo } from '../../components/CommitInfo/CommitInfo';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export const CommitInfoPage: React.FC = () => {
     const { commit: commitHash } = useParams();
     const { authHeader } = useAzureAuthSub((auth) => auth);
+    const [pageNumber, setPageNumber] = React.useState(0);
 
     React.useEffect(() => {
         if (commitHash !== undefined) {
-            getCommitInfo(commitHash, authHeader);
+            getCommitInfo(commitHash, pageNumber, authHeader);
         }
-    }, [commitHash, authHeader]);
+    }, [commitHash, authHeader, pageNumber]);
+
+    const triggerLoadMore = useCallback(() => {
+        setPageNumber(pageNumber + 1);
+        updateCommitInfo.set({ commitInfoReady: CommitInfoState.LOADING });
+    }, [pageNumber]);
 
     const commitInfo = useCommitInfo((res) => res);
 
@@ -69,6 +81,12 @@ export const CommitInfoPage: React.FC = () => {
                 </div>
             );
         case CommitInfoState.READY:
-            return <CommitInfo commitInfo={commitInfo.response} />;
+            return (
+                <CommitInfo
+                    commitInfo={commitInfo.response}
+                    triggerLoadMore={triggerLoadMore}
+                    pageNumber={pageNumber}
+                />
+            );
     }
 };

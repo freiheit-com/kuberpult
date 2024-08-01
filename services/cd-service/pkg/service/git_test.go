@@ -18,11 +18,12 @@ package service
 
 import (
 	"fmt"
+	"sort"
+	"testing"
+
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"sort"
-	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
@@ -314,9 +315,76 @@ func TestGetCommitInfo(t *testing.T) {
 		allowReadingCommitData bool
 		expectedResponse       *api.GetCommitInfoResponse
 		expectedError          error
+		testPageSize           bool
 	}
 
 	tcs := []TestCase{
+		{
+			name:         "check if the number of events is equal to pageNumber plus pageSize",
+			testPageSize: true,
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application: "app",
+					Manifests: map[string]string{
+						"development-1": "manifest 1",
+						"staging-1":     "manifest 2",
+					},
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					WriteCommitData: true,
+				},
+				&rp.CreateApplicationVersion{
+					Application: "app",
+					Manifests: map[string]string{
+						"development-1": "manifest 1",
+						"staging-1":     "manifest 2",
+					},
+					SourceCommitId:  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					WriteCommitData: true,
+				},
+				&rp.ReleaseTrain{
+					Target:          "staging",
+					WriteCommitData: true,
+				},
+			},
+			allowReadingCommitData: true,
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				PageNumber: 0,
+			},
+			expectedResponse: &api.GetCommitInfoResponse{
+				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				LoadMore:      true,
+				CommitMessage: "",
+				TouchedApps: []string{
+					"app",
+				},
+				Events: []*api.Event{
+					{
+						Uuid:      "df93c826-4f41-11ef-b685-00e04c684024",
+						CreatedAt: uuid.TimeFromUUID("df93c826-4f41-11ef-b685-00e04c684024"),
+						EventType: &api.Event_CreateReleaseEvent{
+							CreateReleaseEvent: &api.CreateReleaseEvent{
+								EnvironmentNames: []string{
+									"development-1",
+									"staging-1",
+								},
+							},
+						},
+					},
+					{
+						Uuid:      "e15d9a99-4f41-11ef-9ae5-00e04c684024",
+						CreatedAt: uuid.TimeFromUUID("e15d9a99-4f41-11ef-9ae5-00e04c684024"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application:        "app",
+								TargetEnvironment:  "development-1",
+								ReleaseTrainSource: nil,
+							},
+						},
+					},
+				},
+			},
+		},
 		{
 			name: "create one commit with one app and get its info",
 			transformers: []rp.Transformer{
@@ -332,10 +400,12 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				PageNumber: 0,
 			},
 			allowReadingCommitData: true,
 			expectedError:          nil,
 			expectedResponse: &api.GetCommitInfoResponse{
+				LoadMore:      false,
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
 				TouchedApps: []string{
@@ -398,10 +468,12 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				PageNumber: 0,
 			},
 			allowReadingCommitData: true,
 			expectedError:          nil,
 			expectedResponse: &api.GetCommitInfoResponse{
+				LoadMore:      false,
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
 				TouchedApps: []string{
@@ -502,10 +574,12 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "32a5b7b27",
+				PageNumber: 0,
 			},
 			allowReadingCommitData: true,
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
+				LoadMore:      false,
 				CommitMessage: "some message",
 				TouchedApps:   []string{"app"},
 				Events: []*api.Event{
@@ -588,8 +662,10 @@ func TestGetCommitInfo(t *testing.T) {
 			allowReadingCommitData: true,
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				PageNumber: 0,
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
+				LoadMore:      false,
 				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				CommitMessage: "",
 				TouchedApps: []string{
@@ -666,9 +742,11 @@ func TestGetCommitInfo(t *testing.T) {
 			allowReadingCommitData: true,
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				PageNumber: 0,
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				LoadMore:      false,
 				CommitMessage: "",
 				TouchedApps: []string{
 					"app",
@@ -726,7 +804,13 @@ func TestGetCommitInfo(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := rp.AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			uuidGenerate := testutil.NewIncrementalUUIDGenerator()
+			pageSize := 100
+			if tc.testPageSize {
+				uuidGenerate = testutil.NewIncrementalUUIDGeneratorForPageSizeTest()
+				pageSize = 2
+			}
+			ctx := rp.AddGeneratorToContext(testutil.MakeTestContext(), uuidGenerate)
 
 			for _, transformer := range environmentSetup {
 				err := repo.Apply(ctx, transformer)
@@ -749,6 +833,7 @@ func TestGetCommitInfo(t *testing.T) {
 			sv := &GitServer{
 				OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown},
 				Config:          config,
+				PageSize:        uint64(pageSize),
 			}
 
 			commitInfo, err := sv.GetCommitInfo(ctx, tc.request)
