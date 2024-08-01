@@ -56,6 +56,7 @@ type DBConfig struct {
 	DbPassword     string
 	MigrationsPath string
 	WriteEslOnly   bool
+	SSLMode        string
 }
 
 type DBHandler struct {
@@ -113,8 +114,8 @@ func Connect(cfg DBConfig) (*DBHandler, error) {
 
 func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 	if cfg.DriverName == "postgres" {
-		dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
-			cfg.DbHost, cfg.DbUser, cfg.DbPassword, cfg.DbPort, cfg.DbName)
+		dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=%s",
+			cfg.DbHost, cfg.DbUser, cfg.DbPassword, cfg.DbPort, cfg.DbName, cfg.SSLMode)
 
 		dbPool, err := sql.Open(cfg.DriverName, dbURI)
 		if err != nil {
@@ -1070,7 +1071,7 @@ func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, 
 	return row, nil
 }
 
-func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction *sql.Tx, commitHash string) ([]EventRow, error) {
+func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction *sql.Tx, commitHash string, pageNumber, pageSize uint64) ([]EventRow, error) {
 	if h == nil {
 		return nil, nil
 	}
@@ -1080,10 +1081,11 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
+	// NOTE: We add one so we know if there is more to load
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp ASC LIMIT (?) OFFSET (?);")
 	span.SetTag("query", query)
 
-	rows, err := transaction.QueryContext(ctx, query, commitHash)
+	rows, err := transaction.QueryContext(ctx, query, commitHash, pageSize+1, pageNumber*pageSize)
 	return processAllCommitEventRow(ctx, rows, err)
 }
 
