@@ -46,7 +46,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /environments/
@@ -54,7 +53,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /environment-groups/
@@ -62,7 +60,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
 # New API:
       - pathType: ImplementationSpecific
@@ -71,7 +68,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
 # Dex (UI Authorization flow):
       - pathType: ImplementationSpecific
@@ -80,7 +76,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /login
@@ -88,7 +83,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
 # UI bootstrapping:
       - pathType: ImplementationSpecific
@@ -97,7 +91,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /static/
@@ -105,7 +98,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /favicon.png
