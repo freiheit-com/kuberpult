@@ -69,3 +69,11 @@ Copyright freiheit.com*/
 .release_date {
     color: var(--mdc-theme-primary);
 }
+
+.app-locks-container {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1px;
+    margin-left: 30px;
+    justify-items: start;
+}

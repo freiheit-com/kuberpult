@@ -15,9 +15,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import classNames from 'classnames';
 import { Release } from '../../../api/api';
-import { useReleasesForApp } from '../../utils/store';
+import { useDisplayApplicationLocks, useReleasesForApp } from '../../utils/store';
 import { ReleaseCardMini } from '../ReleaseCardMini/ReleaseCardMini';
 import './Releases.scss';
+import { ApplicationLockChip } from '../ApplicationLockDisplay/ApplicationLockDisplay';
 
 export type ReleasesProps = {
     className?: string;
@@ -51,9 +52,21 @@ const getReleasesForAppGroupByDate = (releases: Array<Release>): [Release, ...Re
 export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
     const releases = useReleasesForApp(app);
+    const displayAppLocks = useDisplayApplicationLocks(app);
     const rel = getReleasesForAppGroupByDate(releases);
     return (
         <div className={classNames('timeline', className)}>
+            <h1 className={classNames('app_name', className)}>{'Application Locks | ' + app}</h1>
+            <div className={classNames('app-locks-container', className)}>
+                {Object.values(displayAppLocks).map((displayAppLock) => (
+                    <ApplicationLockChip
+                        environment={displayAppLock.environment}
+                        environmentGroup={displayAppLock.environmentGroup}
+                        application={displayAppLock.application}
+                        lock={displayAppLock.lock}
+                    />
+                ))}
+            </div>
             <h1 className={classNames('app_name', className)}>{'Releases | ' + app}</h1>
             {rel.map((release) => (
                 <div key={release[0].version} className={classNames('container right', className)}>
