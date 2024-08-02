@@ -2702,28 +2702,6 @@ func (c *DeployApplicationVersion) Transform(
 	versionFile := fs.Join(applicationDir, "version")
 	oldReleaseDir := ""
 	var oldVersion *int64
-	if state.DBHandler.ShouldUseOtherTables() {
-		deployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
-		if err != nil {
-			return "", err
-		}
-		if deployment.Version == nil {
-			firstDeployment = true
-		} else {
-			oldVersion = deployment.Version
-		}
-
-	} else {
-		//Check if there is a version of target app already deployed on target environment
-		if _, err := fs.Lstat(versionFile); err == nil {
-			//File Exists
-			evaledPath, _ := fs.Readlink(versionFile) //Version is stored as symlink, eval it
-			oldReleaseDir = evaledPath
-		} else {
-			//File does not exist
-			firstDeployment = true
-		}
-	}
 
 	if state.CloudRunClient != nil {
 		err := state.CloudRunClient.DeployApplicationVersion(ctx, manifestContent)
@@ -2733,6 +2711,14 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+		if err != nil {
+			return "", err
+		}
+		if existingDeployment.Version == nil {
+			firstDeployment = true
+		} else {
+			oldVersion = existingDeployment.Version
+		}
 		if err != nil {
 			return "", fmt.Errorf("could not find deployment for app %s and env %s", c.Application, c.Environment)
 		}
@@ -2760,6 +2746,16 @@ func (c *DeployApplicationVersion) Transform(
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
 	} else {
+		//Check if there is a version of target app already deployed on target environment
+		if _, err := fs.Lstat(versionFile); err == nil {
+			//File Exists
+			evaledPath, _ := fs.Readlink(versionFile) //Version is stored as symlink, eval it
+			oldReleaseDir = evaledPath
+		} else {
+			//File does not exist
+			firstDeployment = true
+		}
+
 		// Create a symlink to the release
 		if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 			return "", err
@@ -3135,6 +3131,8 @@ func (c *ReleaseTrain) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainPrognosis {
+	span, ctx := tracer.StartSpanFromContext(ctx, "Prognosis")
+	defer span.Finish()
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 
 	if err != nil {
@@ -3201,6 +3199,8 @@ func (c *ReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
+	defer span.Finish()
 	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
@@ -3265,6 +3265,8 @@ func (c *envReleaseTrain) prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainEnvironmentPrognosis {
+	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain - Prognosis")
+	defer span.Finish()
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
