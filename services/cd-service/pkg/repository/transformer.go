@@ -682,7 +682,7 @@ func (c *CreateApplicationVersion) Transform(
 		env := sortedKeys[i]
 		man := c.Manifests[env]
 
-		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
+		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1189,11 +1189,10 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		return "", fmt.Errorf("error while getting environment configs, error: %w", err)
 	}
 	for env := range configs {
-		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateUndeploy, "", c.RBACConfig)
+		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateUndeploy, "", c.RBACConfig, true)
 		if err != nil {
 			return "", err
 		}
-
 		config, found := configs[env]
 		hasUpstream := false
 		if found {
@@ -1343,7 +1342,7 @@ func (u *UndeployApplication) Transform(
 		return "", err
 	}
 	for env := range configs {
-		err := state.checkUserPermissions(ctx, transaction, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig)
+		err := state.checkUserPermissions(ctx, transaction, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig, true)
 		if err != nil {
 			return "", err
 		}
@@ -1520,11 +1519,10 @@ func (u *DeleteEnvFromApp) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, transaction, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig, true)
 	if err != nil {
 		return "", err
 	}
-
 	if state.DBHandler.ShouldUseOtherTables() {
 		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application, false)
 		if err != nil {
@@ -1725,7 +1723,7 @@ func (c *CreateEnvironmentLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
-func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig) error {
+func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig, checkTeam bool) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -1748,7 +1746,21 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
-	return auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
+	err = auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
+	if err != nil {
+		return err
+	}
+	if checkTeam {
+		if team == "" && application != "*" {
+			team, err = s.GetTeamName(ctx, transaction, application)
+
+			if err != nil {
+				return err
+			}
+		}
+		err = auth.CheckUserTeamPermissions(RBACConfig, user, team, action)
+	}
+	return err
 }
 
 // checkUserPermissionsCreateEnvironment check the permission for the environment creation action.
@@ -1775,7 +1787,7 @@ func (c *CreateEnvironmentLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionCreateLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionCreateLock, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
 	}
@@ -1894,7 +1906,7 @@ func (c *DeleteEnvironmentLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionDeleteLock, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
 	}
@@ -1983,7 +1995,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, transaction, c.EnvironmentGroup, "*", auth.PermissionCreateLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.EnvironmentGroup, "*", auth.PermissionCreateLock, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
 	}
@@ -2029,7 +2041,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, transaction, c.EnvironmentGroup, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.EnvironmentGroup, "*", auth.PermissionDeleteLock, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
 	}
@@ -2077,7 +2089,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
-	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionCreateLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionCreateLock, "", c.RBACConfig, true)
 	if err != nil {
 		return "", err
 	}
@@ -2165,7 +2177,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeleteLock, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeleteLock, "", c.RBACConfig, true)
 
 	if err != nil {
 		return "", err
@@ -2242,7 +2254,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
-	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig, true)
 
 	if err != nil {
 		return "", err
@@ -2359,7 +2371,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, transaction, c.Environment, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig, true)
 
 	if err != nil {
 		return "", err
@@ -2561,7 +2573,7 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig, true)
 	if err != nil {
 		return "", err
 	}
@@ -2880,6 +2892,9 @@ func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, fs bill
 		}
 		if tmp == nil {
 			return "", fmt.Errorf("release %v not found for app %s", release, app)
+		}
+		if tmp.Metadata.SourceCommitId == "" {
+			return "", fmt.Errorf("Found release %v for app %s, but commit id was empty", release, app)
 		}
 		return tmp.Metadata.SourceCommitId, nil
 	} else {
@@ -3270,6 +3285,7 @@ func (c *envReleaseTrain) prognosis(
 		auth.PermissionDeployReleaseTrain,
 		c.Parent.Team,
 		c.Parent.RBACConfig,
+		false,
 	)
 
 	if err != nil {
@@ -3529,6 +3545,20 @@ func (c *envReleaseTrain) prognosis(
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
+
+			err := state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
+
+			if err != nil {
+				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+						SkipCause: api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION,
+					},
+					FirstLockMessage: "",
+					Version:          0,
+				}
+				continue
+			}
+
 			teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
 
 			if err != nil {
@@ -3615,6 +3645,8 @@ func (c *envReleaseTrain) Transform(
 			return fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env)
 		case api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED:
 			return fmt.Sprintf("skipping application %q in environment %q due to team lock on team %q", appName, c.Env, teamName)
+		case api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION:
+			return fmt.Sprintf("skipping application %q in environment %q because the user team %q is not the same as the apllication", appName, c.Env, teamName)
 		default:
 			return fmt.Sprintf("skipping application %q in environment %q for an unrecognized reason", appName, c.Env)
 		}

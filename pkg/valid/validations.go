@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package valid
 
 import (
+	"net/mail"
 	"os"
 	"regexp"
 	"strings"
@@ -60,6 +61,11 @@ func ApplicationName(name string) bool {
 
 func TeamName(name string) bool {
 	return len(name) < 21 && teamNameRx.MatchString(name)
+}
+
+func UserEmail(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
 }
 
 // Lock names must be valid file names

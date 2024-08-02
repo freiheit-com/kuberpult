@@ -227,6 +227,9 @@ func TestBatchServiceWorks(t *testing.T) {
 						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
 					},
 					},
+					Team: &auth.RBACTeams{Permissions: map[string][]string{
+						"testmail@example.com": []string{"test-team"},
+					}},
 				},
 			},
 		},
@@ -1039,7 +1042,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			var envs map[string]config.EnvironmentConfig
 			if repo.State().DBHandler.ShouldUseOtherTables() {
 				var envsPtr *map[string]config.EnvironmentConfig
-				envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 					envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
 					return &envs, err
 				})

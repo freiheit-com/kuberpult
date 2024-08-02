@@ -43,6 +43,7 @@ message ProductSummary {
 message GetCommitInfoRequest {
   // The commit hash requested, can also be a prefix.
   string commit_hash = 1;
+  uint64 page_number = 2;
 }
 
 message GetCommitInfoResponse {
@@ -54,6 +55,7 @@ message GetCommitInfoResponse {
   repeated Event events = 3;
   string next_commit_hash = 5;
   string previous_commit_hash = 6;
+  bool load_more = 7;
 }
 
 message Event {
@@ -625,6 +627,7 @@ enum ReleaseTrainAppSkipCause {
   APP_DOES_NOT_EXIST_IN_ENV = 3;
   APP_IS_LOCKED_BY_ENV = 4; // there is an env lock that prevents deployment for this app
   TEAM_IS_LOCKED = 5; //there is a team lock that prevents deployment for this app
+  NO_TEAM_PERMISSION = 6; // the user is not on that team
 }
 
 message ReleaseTrainAppPrognosis {
@@ -672,14 +675,14 @@ message GetManifestsResponse {
 }
 
 service CloudRunService {
-  rpc Deploy (ServiceDeployRequest) returns (ServiceDeployResponse) {}
+  rpc QueueDeployment (QueueDeploymentRequest) returns (QueueDeploymentResponse) {}
 }
 
-message ServiceDeployRequest {
+message QueueDeploymentRequest {
     bytes manifest = 1;
 }
 
-message ServiceDeployResponse {}
+message QueueDeploymentResponse {}
 
 service EslService {
   rpc GetFailedEsls (GetFailedEslsRequest) returns (GetFailedEslsResponse) {}

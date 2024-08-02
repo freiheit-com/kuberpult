@@ -143,6 +143,7 @@ db:
   dbOption: postgreSQL
   writeEslTableOnly: false
   k8sServiceAccountName: default
+  sslMode: disable
 cd:
   resources:
     limits:
@@ -203,6 +204,7 @@ $(sed -e "s/^/    /" </kp/kuberpult-keyring.gpg)
 VALUES
 
 # Get helm dependency charts and unzip them
+cp -r database/migrations migrations
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
 helm template -s templates/migrations.yaml ./ -f values.yaml --set git.url=test --set ingress.domainName=kuberpult.example.com > templates/generated-migrations.yaml
 rm -rf migrations

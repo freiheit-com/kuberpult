@@ -42,6 +42,7 @@ import (
 type GitServer struct {
 	Config          repository.RepositoryConfig
 	OverviewService *OverviewServiceServer
+	PageSize        uint64
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
@@ -150,7 +151,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 
 	fs := s.OverviewService.Repository.State().Filesystem
 
-	commitIDPrefix := in.CommitHash
+	commitIDPrefix, pageNumber := in.CommitHash, in.PageNumber
 
 	commitID, err := findCommitID(ctx, fs, commitIDPrefix)
 	if err != nil {
@@ -201,12 +202,21 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}
 	sort.Strings(touchedApps)
 	var events []*api.Event
+	loadMore := false
 	if s.OverviewService.Repository.State().DBHandler.ShouldUseOtherTables() {
 		events, err = db.WithTransactionMultipleEntriesT(s.OverviewService.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-			return s.GetEvents(ctx, transaction, fs, commitPath)
+			return s.GetEvents(ctx, transaction, fs, commitPath, pageNumber)
 		})
+		if len(events) > int(s.PageSize) {
+			loadMore = true
+			events = events[:len(events)-1]
+		}
 	} else {
-		events, err = s.GetEvents(ctx, nil, fs, commitPath)
+		events, err = s.GetEvents(ctx, nil, fs, commitPath, pageNumber)
+		if len(events) > int(s.PageSize) {
+			loadMore = true
+		}
+		events = events[pageNumber*s.PageSize : min(len(events), int((pageNumber+1)*s.PageSize))]
 	}
 	if err != nil {
 		return nil, err
@@ -219,16 +229,17 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		Events:             events,
 		PreviousCommitHash: previousCommitId,
 		NextCommitHash:     nextCommitId,
+		LoadMore:           loadMore,
 	}, nil
 }
 
-func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string) ([]*api.Event, error) {
+func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string, pageNumber uint64) ([]*api.Event, error) {
 	var result []*api.Event
 	parts := strings.Split(commitPath, "/")
 	commitID := parts[len(parts)-2] + parts[len(parts)-1]
 
 	if s.Config.DBHandler.ShouldUseOtherTables() {
-		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID)
+		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID, pageNumber, s.PageSize)
 		if err != nil {
 			return nil, fmt.Errorf("could not read events from DB: %v", err)
 		}
@@ -267,10 +278,11 @@ func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy
 				result = append(result, event)
 			}
 		}
+		// NOTE: We only sort when using the manifest repo because the db already sorts
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].CreatedAt.AsTime().UnixNano() < result[j].CreatedAt.AsTime().UnixNano()
+		})
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreatedAt.AsTime().UnixNano() < result[j].CreatedAt.AsTime().UnixNano()
-	})
 	return result, nil
 }
 

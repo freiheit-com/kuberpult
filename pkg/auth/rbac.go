@@ -49,6 +49,8 @@ type RBACConfig struct {
 	DexEnabled bool
 	// The RBAC policies. The key is a permission or group, for example: "Developer, CreateLock, development:development, *, allow"
 	Policy *RBACPolicies
+	// The RBAC for teams. The key is the user email and the value is the list of teams he is a part of
+	Team *RBACTeams
 }
 
 // Inits the RBAC Config struct
@@ -147,6 +149,10 @@ type RBACPolicies struct {
 	Permissions map[string]Permission
 }
 
+type RBACTeams struct {
+	Permissions map[string][]string
+}
+
 func ValidateRbacPermission(line string) (p Permission, err error) {
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
@@ -183,6 +189,31 @@ func ValidateRbacPermission(line string) (p Permission, err error) {
 		Environment: environment,
 		Application: application,
 	}, nil
+}
+
+func ValidateTeamRbacPermission(line string) (team string, users []string, err error) {
+
+	permission := strings.Split(line, ",")
+
+	if len(permission) != 2 {
+		return "", nil, fmt.Errorf("2 fields are expected but %d were specified in line %s", len(permission), line)
+	}
+
+	users = strings.Split(permission[1], " ")
+
+	if permission[0] != "*" && !valid.TeamName(permission[0]) {
+		return "", nil, fmt.Errorf("invalid team name %s", permission[0])
+	}
+
+	for _, user := range users {
+
+		if !valid.UserEmail(user) {
+			return "", nil, fmt.Errorf("invalid user email '%s'", user)
+		}
+
+	}
+
+	return permission[0], users, nil
 }
 
 func ValidateRbacGroup(line string) (p RBACGroup, err error) {
@@ -240,6 +271,57 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 	return policy, nil
 }
 
+func AddUsersToTeam(team string, users []string, teamPermissions *RBACTeams) {
+
+	for _, user := range users {
+		userTeams, ok := teamPermissions.Permissions[user]
+
+		if !ok {
+			teamPermissions.Permissions[user] = []string{team}
+		} else {
+			if teamPermissions.Permissions[user][len(userTeams)-1] == team {
+				// Ignone if user is listed more than once in the same line/team
+				continue
+			}
+
+			teamPermissions.Permissions[user] = append(userTeams, team)
+		}
+	}
+}
+
+func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBACTeams, err error) {
+	if !dexEnabled {
+		return nil, nil
+	}
+
+	file, err := os.Open(DexRbacTeamPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	teamPermissions = &RBACTeams{Permissions: map[string][]string{}}
+	teams := make(map[string]int)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) > 0 {
+			t, u, err := ValidateTeamRbacPermission(line)
+
+			if err != nil {
+				return nil, err
+			}
+			if teams[t] >= 1 {
+				return nil, fmt.Errorf("team " + t + " listed more than one time")
+			}
+
+			AddUsersToTeam(t, u, teamPermissions)
+			teams[t] += 1
+		}
+	}
+	return teamPermissions, nil
+}
+
 type PermissionError struct {
 	User        string
 	Role        string
@@ -264,6 +346,31 @@ func (e PermissionError) Error() string {
 }
 
 func (e PermissionError) GRPCStatus() *status.Status {
+	return status.New(codes.PermissionDenied, e.Error())
+}
+
+type TeamPermissionError struct {
+	User   string
+	Email  string
+	Action string
+	Team   string
+}
+
+func (e TeamPermissionError) Error() string {
+	var msg = fmt.Sprintf(
+		"%s The user %s with email %s is not allowed to perform the action %s",
+		codes.PermissionDenied.String(),
+		e.User,
+		e.Email,
+		e.Action,
+	)
+	if e.Team != "" {
+		msg += fmt.Sprintf(" for team %s", e.Team)
+	}
+	return msg
+}
+
+func (e TeamPermissionError) GRPCStatus() *status.Status {
 	return status.New(codes.PermissionDenied, e.Error())
 }
 
@@ -299,6 +406,28 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 		Action:      action,
 		Environment: env,
 		Team:        team,
+	}
+}
+
+func CheckUserTeamPermissions(rbacConfig RBACConfig, user *User, team string, action string) error {
+	if rbacConfig.Team == nil {
+		return errors.New("the desired action can not be performed because Dex is enabled without any RBAC Team permissions")
+
+	}
+	userTeams := rbacConfig.Team.Permissions[user.Email]
+
+	for _, teams := range userTeams {
+		if teams == "*" || teams == team {
+			return nil
+		}
+	}
+
+	// Either the team is not found or the user was not in the configuration. Return an error
+	return TeamPermissionError{
+		User:   user.Name,
+		Email:  user.Email,
+		Action: action,
+		Team:   team,
 	}
 }
 

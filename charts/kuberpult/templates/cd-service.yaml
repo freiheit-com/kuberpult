@@ -204,6 +204,8 @@ spec:
           value: /kuberpult-rbac/policy.csv
         - name: KUBERPULT_DEX_DEFAULT_ROLE_ENABLED
           value: "{{ .Values.auth.dexAuth.defaultRoleEnabled }}"
+        - name: KUBERPULT_DEX_RBAC_TEAM_PATH
+          value: /kuberpult-rbac/team.csv
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
@@ -239,6 +241,8 @@ spec:
           value: "{{ .Values.db.dbUser }}"
         - name: KUBERPULT_DB_USER_PASSWORD
           value: "{{ .Values.db.dbPassword }}"
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "{{ .Values.db.sslMode }}"
 {{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
@@ -377,4 +381,9 @@ metadata:
   name: kuberpult-rbac
 data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
+kind: ConfigMap
+metadata:
+  name: kuberpult-rbac
+data:
+  team.csv: {{ .Values.auth.dexAuth.team_csv| quote}}
 {{- end }}

@@ -37,7 +37,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	backoff "github.com/cenkalti/backoff/v4"
@@ -61,6 +60,8 @@ type Repository interface {
 	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
+	FetchAndReset(ctx context.Context) error
+	PushRepo(ctx context.Context) error
 }
 
 type TransformerBatchApplyError struct {
@@ -354,29 +355,11 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
-func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callback PushUpdateFunc, pushAction PushActionCallbackFunc, tx *sql.Tx) error {
+func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sql.Tx) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
 	defer span.Finish()
 
 	log := logger.FromContext(ctx).Sugar()
-
-	var pushSuccess = true
-
-	//exhaustruct:ignore
-	RemoteCallbacks := git.RemoteCallbacks{
-		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
-		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
-		PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
-	}
-	pushOptions := git.PushOptions{
-		PbParallelism: 0,
-		Headers:       nil,
-		ProxyOptions: git.ProxyOptions{
-			Type: git.ProxyTypeNone,
-			Url:  "",
-		},
-		RemoteCallbacks: RemoteCallbacks,
-	}
 
 	// Apply the items
 	apply := func() (error, *TransformerResult) {
@@ -392,30 +375,39 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, callba
 	if err != nil {
 		return fmt.Errorf("first apply failed, aborting: %v", err)
 	}
+	return nil
+}
+
+func (r *repository) PushRepo(ctx context.Context) error {
+	var pushSuccess = true
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
+		PushUpdateReferenceCallback: defaultPushUpdate(r.config.Branch, &pushSuccess),
+	}
+	pushOptions := git.PushOptions{
+		PbParallelism: 0,
+		Headers:       nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+		RemoteCallbacks: RemoteCallbacks,
+	}
 
 	// Try pushing once
-	err = r.Push(ctx, pushAction(pushOptions, r))
+	err := r.Push(ctx, DefaultPushActionCallback(pushOptions, r))
 	if err != nil {
 		gerr, ok := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
 		if ok && gerr.Code == git.ErrorCodeNonFastForward {
-			err = r.FetchAndReset(ctx)
-			if err != nil {
-				return err
-			}
-			// Apply the items
-			err, _ = apply()
-			if err != nil {
-				return fmt.Errorf("apply after fetch failed, aborting: %v", err)
-			}
-			if pushErr := r.Push(ctx, pushAction(pushOptions, r)); pushErr != nil {
-				return pushErr
-			}
+			return fmt.Errorf("fastforward error: %w", gerr)
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return grpc.CanceledError(ctx, err)
+			return fmt.Errorf("context error: %w", err)
 		} else {
-			log.Error(fmt.Sprintf("error while pushing: %s", err))
-			return grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
+			logger.FromContext(ctx).Error(fmt.Sprintf("error while pushing: %s", err))
+			return fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)
 		}
 	} else {
 		if !pushSuccess {
@@ -659,7 +651,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 func (r *repository) Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error {
 	for i := range transformers {
 		t := transformers[i]
-		err := r.ProcessQueueOnce(ctx, t, defaultPushUpdate, DefaultPushActionCallback, tx)
+		err := r.ProcessQueueOnce(ctx, t, tx)
 		if err != nil {
 			return err
 		}
@@ -729,6 +721,9 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			oneAppData, err := state.DBHandler.DBSelectApp(ctx, transaction, appName)
 			if err != nil {
 				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
+			}
+			if oneAppData == nil {
+				return fmt.Errorf("skipping app %s because it was not found in the database", appName)
 			}
 			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
 			if err != nil {
@@ -1289,25 +1284,6 @@ func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql
 // GetApplicationsFromFile returns apps from the filesystem
 func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
-}
-
-func (s *State) GetApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		app, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
-		if err != nil {
-			return nil, fmt.Errorf("could not get all_releases of app %s", application)
-		}
-		if app == nil {
-			return nil, fmt.Errorf("app not found in all_release: %s", application)
-		}
-		var ints = []uint64{}
-		for i := range app.Metadata.Releases {
-			ints = append(ints, uint64(app.Metadata.Releases[i]))
-		}
-		return ints, nil
-	} else {
-		return s.GetApplicationReleasesFromFile(application)
-	}
 }
 
 func (s *State) GetApplicationReleasesFromFile(application string) ([]uint64, error) {

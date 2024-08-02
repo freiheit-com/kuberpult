@@ -192,6 +192,8 @@ const AppPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainAppSkipCaus
             );
         case ReleaseTrainAppSkipCause.TEAM_IS_LOCKED:
             return <p>Application release is skipped due to a team lock</p>;
+        case ReleaseTrainAppSkipCause.NO_TEAM_PERMISSION:
+            return <p>Application release is skipped because the user is not on the team of the application</p>;
         case ReleaseTrainAppSkipCause.UNRECOGNIZED:
         default:
             return <p>Application release it skipped due to an unrecognized reason</p>;

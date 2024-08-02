@@ -113,6 +113,20 @@ func (err *TransformerBatchApplyError) Is(target error) bool {
 	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
+func UnwrapUntilTransformerBatchApplyError(err error) *TransformerBatchApplyError {
+	for {
+		var applyErr *TransformerBatchApplyError
+		if errors.As(err, &applyErr) {
+			return applyErr
+		}
+		err2 := errors.Unwrap(err)
+		if err2 == nil {
+			// cannot unwrap any further
+			return nil
+		}
+	}
+}
+
 func defaultBackOffProvider() backoff.BackOff {
 	eb := backoff.NewExponentialBackOff()
 	eb.MaxElapsedTime = 7 * time.Second
@@ -428,7 +442,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			// Check configuration for errors and abort early if any:
 			if state.DBHandler.ShouldUseOtherTables() {
-				_, err = db.WithTransactionT(state.DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
 					return &ret, err
 				})
@@ -533,52 +547,49 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
 
-	for i := 0; i < len(transformerBatches); {
-		var transaction *sql.Tx
-		var txErr error
-		e := transformerBatches[i]
-		if r.DB.ShouldUseEslTable() {
-			transaction, txErr = r.DB.BeginTransaction(e.ctx, false)
+	if r.DB.ShouldUseEslTable() {
+		for i := 0; i < len(transformerBatches); {
+			e := transformerBatches[i]
+
+			subChanges, txErr := db.WithTransactionT(r.DB, e.ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
+				subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
+				if applyErr != nil {
+					return nil, applyErr
+				}
+				return subChanges, nil
+			})
+
 			if txErr != nil {
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 				continue //Skip this batch
 			}
-		}
-		subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
-		if applyErr != nil {
-			//Some transformer on this batch failed. Rollback the transaction
-			if r.DB.ShouldUseEslTable() {
-				rollBackError := transaction.Rollback()
-				if rollBackError != nil {
-					e.finish(rollBackError)
-					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-					continue
-				}
-			}
-			if !r.DB.ShouldUseEslTable() && errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
-				// Invalid state. fetch and reset and redo
-				err := r.FetchAndReset(e.ctx)
-				if err != nil {
-					return transformerBatches, err, nil
-				}
-				return r.applyTransformerBatches(transformerBatches, false)
-			}
-			e.finish(applyErr)
-			transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-		} else {
-			if r.DB.ShouldUseEslTable() {
-				err := transaction.Commit()
-				if err != nil {
-					e.finish(err)
-					transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-					continue
-				}
-			}
 			changes.Combine(subChanges)
 			i++
 		}
+	} else {
+		for i := 0; i < len(transformerBatches); {
+			e := transformerBatches[i]
+
+			subChanges, applyErr := r.ApplyTransformers(e.ctx, nil, e.transformers...)
+			if applyErr != nil {
+				if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset { //This error only gets thrown when NOT using the database
+					// Invalid state. fetch and reset and redo
+					err := r.FetchAndReset(e.ctx)
+					if err != nil {
+						return transformerBatches, err, nil
+					}
+					return r.applyTransformerBatches(transformerBatches, false)
+				}
+				e.finish(applyErr)
+				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
+			} else {
+				changes.Combine(subChanges)
+				i++
+			}
+		}
 	}
+
 	return transformerBatches, nil, changes
 }
 
@@ -1096,6 +1107,11 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 func (r *repository) afterTransform(ctx context.Context, state State, transaction *sql.Tx) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
+
+	if state.DBHandler.ShouldUseOtherTables() {
+		// if the DB is enabled fully, the manifest-export service takes care to update the argo apps
+		return nil
+	}
 
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {

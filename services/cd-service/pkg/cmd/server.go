@@ -70,6 +70,7 @@ type Config struct {
 	AzureEnableAuth          bool          `default:"false" split_words:"true"`
 	DexEnabled               bool          `default:"false" split_words:"true"`
 	DexRbacPolicyPath        string        `split_words:"true"`
+	DexRbacTeamPath          string        `split_words:"true"`
 	EnableTracing            bool          `default:"false" split_words:"true"`
 	EnableMetrics            bool          `default:"false" split_words:"true"`
 	EnableEvents             bool          `default:"false" split_words:"true"`
@@ -97,6 +98,7 @@ type Config struct {
 	ReleaseVersionsLimit     uint          `default:"20" split_words:"true"`
 	DeploymentType           string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
 	CloudRunServer           string        `default:"" split_words:"true"`
+	DbSslMode                string        `default:"verify-full" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -146,6 +148,10 @@ func RunServer() {
 			reader = &auth.DexGrpcContextReader{DexEnabled: c.DexEnabled, DexDefaultRoleEnabled: c.DexDefaultRoleEnabled}
 		}
 		dexRbacPolicy, err := auth.ReadRbacPolicy(c.DexEnabled, c.DexRbacPolicyPath)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+		}
+		dexRbacTeam, err := auth.ReadRbacTeam(c.DexEnabled, c.DexRbacTeamPath)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
 		}
@@ -237,6 +243,7 @@ func RunServer() {
 					DbUser:         c.DbUserName,
 					MigrationsPath: c.DbMigrationsLocation,
 					WriteEslOnly:   c.DbWriteEslTableOnly,
+					SSLMode:        c.DbSslMode,
 				}
 			} else if c.DbOption == "sqlite" {
 				dbCfg = db.DBConfig{
@@ -248,6 +255,7 @@ func RunServer() {
 					DbUser:         c.DbUserName,
 					MigrationsPath: c.DbMigrationsLocation,
 					WriteEslOnly:   c.DbWriteEslTableOnly,
+					SSLMode:        c.DbSslMode,
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
@@ -369,6 +377,7 @@ func RunServer() {
 						RBACConfig: auth.RBACConfig{
 							DexEnabled: c.DexEnabled,
 							Policy:     dexRbacPolicy,
+							Team:       dexRbacTeam,
 						},
 						Config: service.BatchServerConfig{
 							WriteCommitData: c.GitWriteCommitData,
@@ -381,7 +390,7 @@ func RunServer() {
 						Shutdown:         shutdownCh,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
-					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv})
+					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv, PageSize: 10})
 					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 					api.RegisterEnvironmentServiceServer(srv, &service.EnvironmentServiceServer{Repository: repo})
 					api.RegisterReleaseTrainPrognosisServiceServer(srv, &service.ReleaseTrainPrognosisServer{
@@ -389,6 +398,7 @@ func RunServer() {
 						RBACConfig: auth.RBACConfig{
 							DexEnabled: c.DexEnabled,
 							Policy:     dexRbacPolicy,
+							Team:       dexRbacTeam,
 						},
 					})
 					api.RegisterEslServiceServer(srv, &service.EslServiceServer{Repository: repo})

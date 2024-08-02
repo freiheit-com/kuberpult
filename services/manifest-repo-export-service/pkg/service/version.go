@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"os"
 	"strconv"
 
@@ -32,7 +31,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	git "github.com/libgit2/git2go/v34"
 )
 
@@ -47,7 +47,7 @@ func (o *VersionServiceServer) GetVersion(
 	if err != nil {
 		// Note that "not finding a oid" does not mean that it doesn't exist.
 		// Because we do a shallow clone, we won't have information on all existing OIDs.
-		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: could not find revision %v: %v", in.GitRevision, err))
+		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: could not find revision %v: %w", in.GitRevision, err))
 	}
 	state, err := o.Repository.StateAt(oid)
 	if err != nil {
@@ -59,29 +59,32 @@ func (o *VersionServiceServer) GetVersion(
 		}
 		return nil, err
 	}
-	//exhaustruct:ignore
-	res := api.GetVersionResponse{}
-	if state.DBHandler.ShouldUseOtherTables() {
-		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: not supported yet for Database mode"))
-	}
-	version, err := state.GetEnvironmentApplicationVersion(ctx, nil, in.Environment, in.Application)
+	res, err := db.WithTransactionT[api.GetVersionResponse](state.DBHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
+		//exhaustruct:ignore
+		res := &api.GetVersionResponse{}
+		version, err := state.GetEnvironmentApplicationVersion(ctx, tx, in.Environment, in.Application)
+		if err != nil {
+			return nil, err
+		}
+		if version != nil {
+			res.Version = *version
+			_, deployedAt, err := state.GetDeploymentMetaData(in.Environment, in.Application)
+			if err != nil {
+				return nil, err
+			}
+			res.DeployedAt = timestamppb.New(deployedAt)
+			release, err := state.GetApplicationRelease(in.Application, *version)
+			if err != nil {
+				return nil, err
+			}
+			res.SourceCommitId = release.SourceCommitId
+		}
+		return res, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	if version != nil {
-		res.Version = *version
-		_, deployedAt, err := state.GetDeploymentMetaDataFromRepo(in.Environment, in.Application)
-		if err != nil {
-			return nil, err
-		}
-		res.DeployedAt = timestamppb.New(deployedAt)
-		release, err := state.GetApplicationReleaseFromManifest(in.Application, *version)
-		if err != nil {
-			return nil, err
-		}
-		res.SourceCommitId = release.SourceCommitId
-	}
-	return &res, nil
+	return res, nil
 }
 
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
@@ -99,48 +102,13 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 		}
 	}
 
-	if state.DBHandler.ShouldUseOtherTables() {
-		result, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
-			var (
-				err     error
-				release uint64
-			)
-			if req.Release == "latest" {
-				release, err = state.GetLastRelease(ctx, transaction, state.Filesystem, req.Application)
-				if err != nil {
-					return nil, wrapError("application", err)
-				}
-				if release == 0 {
-					return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
-				}
-			} else {
-				release, err = strconv.ParseUint(req.Release, 10, 64)
-				if err != nil {
-					return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
-				}
-			}
-			repoRelease, err := state.GetApplicationRelease(ctx, transaction, req.Application, release)
-			if err != nil {
-				return nil, wrapError("release", err)
-			}
-			manifests, err := state.GetApplicationReleaseManifests(ctx, transaction, req.Application, release)
-			if err != nil {
-				return nil, wrapError("manifests", err)
-			}
-
-			return &api.GetManifestsResponse{
-				Release:   repoRelease.ToProto(),
-				Manifests: manifests,
-			}, nil
-		})
-		return result, err
-	} else {
+	result, err := db.WithTransactionT(state.DBHandler, ctx, 1, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
 		var (
 			err     error
 			release uint64
 		)
 		if req.Release == "latest" {
-			release, err = repository.GetLastReleaseFromFile(state.Filesystem, req.Application)
+			release, err = state.GetLastRelease(ctx, state.Filesystem, req.Application)
 			if err != nil {
 				return nil, wrapError("application", err)
 			}
@@ -153,11 +121,11 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
 			}
 		}
-		repoRelease, err := state.GetApplicationReleaseFromManifest(req.Application, release)
+		repoRelease, err := state.GetApplicationRelease(req.Application, release)
 		if err != nil {
 			return nil, wrapError("release", err)
 		}
-		manifests, err := state.GetApplicationReleaseManifestsFromManifest(req.Application, release)
+		manifests, err := state.GetApplicationReleaseManifests(req.Application, release)
 		if err != nil {
 			return nil, wrapError("manifests", err)
 		}
@@ -166,5 +134,6 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 			Release:   repoRelease.ToProto(),
 			Manifests: manifests,
 		}, nil
-	}
+	})
+	return result, err
 }
