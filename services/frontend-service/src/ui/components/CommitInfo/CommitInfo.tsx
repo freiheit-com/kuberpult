@@ -19,18 +19,16 @@ import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } f
 type CommitInfoProps = {
     commitInfo: GetCommitInfoResponse | undefined;
     triggerLoadMore: { (): void } | null;
-    pageNumber: number;
 };
 
 export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     const commitInfo = props.commitInfo;
     const triggerLoadMore: () => void = props.triggerLoadMore !== null ? props.triggerLoadMore : (): void => {};
     const canLoadMore = props.commitInfo?.loadMore;
-    const pageNumber = props.pageNumber;
 
     const onClick = useCallback(() => {
         triggerLoadMore();
-    }, [pageNumber, triggerLoadMore]);
+    }, [triggerLoadMore]);
 
     if (commitInfo === undefined) {
         return (

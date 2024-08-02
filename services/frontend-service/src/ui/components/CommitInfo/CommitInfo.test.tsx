@@ -21,7 +21,7 @@ import { GetCommitInfoResponse, LockPreventedDeploymentEvent_LockType } from '..
 test('CommitInfo component does not render commit info when the response is undefined', () => {
     const { container } = render(
         <MemoryRouter>
-            <CommitInfo commitInfo={undefined} triggerLoadMore={null} pageNumber={0} />
+            <CommitInfo commitInfo={undefined} triggerLoadMore={null} />
         </MemoryRouter>
     );
     expect(container.textContent).toContain('Backend returned empty response');
@@ -260,7 +260,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
         );
         const { container } = render(
             <MemoryRouter>
-                <CommitInfo commitInfo={testCase.commitInfo} triggerLoadMore={null} pageNumber={0} />
+                <CommitInfo commitInfo={testCase.commitInfo} triggerLoadMore={null} />
             </MemoryRouter>
         );
 
@@ -450,7 +450,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
         it(testCase.name, () => {
             const { container } = render(
                 <MemoryRouter>
-                    <CommitInfo commitInfo={testCase.commitInfo} triggerLoadMore={null} pageNumber={0} />
+                    <CommitInfo commitInfo={testCase.commitInfo} triggerLoadMore={null} />
                 </MemoryRouter>
             );
 
