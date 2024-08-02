@@ -1332,11 +1332,7 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationAllAppsTable(ctx, getAllAppsFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationApps(ctx, getAllAppsFun)
+	err = h.RunAllCustomMigrationsForApps(ctx, getAllAppsFun)
 	if err != nil {
 		return err
 	}
@@ -2194,7 +2190,6 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 	txError := h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		var checkFunctions = []CheckFun{
 			(*DBHandler).NeedsEventSourcingLightMigrations,
-			(*DBHandler).needsAllAppsMigrations,
 			(*DBHandler).needsAppsMigrations,
 			(*DBHandler).needsDeploymentsMigrations,
 			(*DBHandler).needsReleasesMigrations,
@@ -2294,12 +2289,14 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	return nil
 }
 
-func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAllAppsTable")
+// RunAllCustomMigrationsForApps : Performs necessary migrations for the apps and all_apps table
+func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunAllCustomMigrationsForApps")
 	defer span.Finish()
 
+	//We need to join the all_apps and the apps table together as they need to be committed together on the same transaction
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needMigrating, err := h.needsAllAppsMigrations(ctx, transaction)
+		needMigrating, err := h.needsAppsMigrations(ctx, transaction)
 		if err != nil {
 			return err
 		}
@@ -2309,18 +2306,31 @@ func (h *DBHandler) RunCustomMigrationAllAppsTable(ctx context.Context, getAllAp
 
 		allAppsRepo, err := getAllAppsFun()
 		if err != nil {
-			return fmt.Errorf("could not get applications to run custom migrations: %v", err)
+			return fmt.Errorf("could not get applications from manifest to run custom migrations: %v", err)
 		}
 
-		sortedApps := sorting.SortKeys(allAppsRepo)
+		err = h.runCustomMigrationAllAppsTable(ctx, transaction, &allAppsRepo)
 
-		// if there is any difference, we assume the manifest wins over the database state,
-		// so we use `allAppsRepo`:
-		return h.DBWriteAllApplications(ctx, transaction, 0, sortedApps)
+		if err != nil {
+			return fmt.Errorf("could not perform all_apps table migration: %v\n", err)
+		}
+
+		err = h.runCustomMigrationApps(ctx, transaction, &allAppsRepo)
+		if err != nil {
+			return fmt.Errorf("could not perform apps table migration: %v\n", err)
+		}
+		return nil
 	})
 }
 
-func (h *DBHandler) needsAllAppsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
+func (h *DBHandler) runCustomMigrationAllAppsTable(ctx context.Context, transaction *sql.Tx, allAppsRepo *map[string]string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "runCustomMigrationAllAppsTable")
+	defer span.Finish()
+	sortedApps := sorting.SortKeys(*allAppsRepo)
+	return h.DBWriteAllApplications(ctx, transaction, 0, sortedApps)
+}
+
+func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
 	allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
 	if err != nil {
@@ -2330,47 +2340,18 @@ func (h *DBHandler) needsAllAppsMigrations(ctx context.Context, transaction *sql
 	return allAppsDb == nil, nil
 }
 
-func (h *DBHandler) RunCustomMigrationApps(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationApps")
+// runCustomMigrationApps : Runs custom migrations for provided apps.
+func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql.Tx, appsMap *map[string]string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "runCustomMigrationApps")
 	defer span.Finish()
 
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needMigrating, err := h.needsAppsMigrations(ctx, transaction)
+	for app, team := range *appsMap {
+		err := h.DBInsertApplication(ctx, transaction, app, InitialEslVersion, AppStateChangeMigrate, DBAppMetaData{Team: team})
 		if err != nil {
-			return err
+			return fmt.Errorf("could not write dbApp %s: %v", app, err)
 		}
-		if !needMigrating {
-			logger.FromContext(ctx).Sugar().Warnf("no need to migrate apps")
-			return nil
-		}
-
-		appsMap, err := getAllAppsFun()
-		if err != nil {
-			return fmt.Errorf("could not get dbApp to run custom migrations: %v", err)
-		}
-
-		for app := range appsMap {
-			team := appsMap[app]
-			err = h.DBInsertApplication(ctx, transaction, app, InitialEslVersion, AppStateChangeMigrate, DBAppMetaData{Team: team})
-			if err != nil {
-				return fmt.Errorf("could not write dbApp %s: %v", app, err)
-			}
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	dbApp, err := h.DBSelectAnyApp(ctx, transaction)
-	if err != nil {
-		return true, err
 	}
-	if dbApp != nil {
-		// the migration was already done
-		logger.FromContext(ctx).Info("migration to apps was done already")
-		return false, nil
-	}
-	return true, nil
+	return nil
 }
 
 // ENV LOCKS
