@@ -1025,7 +1025,7 @@ func (h *DBHandler) DBContainsMigrationCommitEvent(ctx context.Context, transact
 		return false, err
 	}
 
-	return row == nil, nil
+	return row != nil, nil
 }
 
 func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventType event.EventType, limit uint) ([]event.DBEventGo, error) {
