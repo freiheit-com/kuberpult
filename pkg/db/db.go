@@ -88,6 +88,11 @@ const (
 	AppStateChangeDelete  AppStateChange = "AppStateChangeDelete"
 )
 
+const (
+	MigrationCommitEventUUID = "00000000-0000-0000-0000-000000000000"
+	MigrationCommitEventHash = "0000000000000000000000000000000000000000"
+)
+
 func (h *DBHandler) ShouldUseEslTable() bool {
 	return h != nil
 }
@@ -1013,11 +1018,9 @@ func (h *DBHandler) DBContainsMigrationCommitEvent(ctx context.Context, transact
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBContainsMigrationCommitEvent")
 	defer span.Finish()
 
-	migrationCommitHash := strings.Repeat("0", 40)
-
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 1;")
 	span.SetTag("query", query)
-	rows, err := transaction.QueryContext(ctx, query, migrationCommitHash)
+	rows, err := transaction.QueryContext(ctx, query, MigrationCommitEventHash)
 
 	row, err := h.processSingleEventsRow(ctx, rows, err)
 
@@ -2146,7 +2149,7 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllE
 			}
 		}
 		//Migration event
-		err = h.writeEvent(ctx, transaction, 0, "00000000-0000-0000-0000-000000000001", event.EventTypeDBMigrationEventType, strings.Repeat("0", 40), []byte("{}"))
+		err = h.writeEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
 		if err != nil {
 			return fmt.Errorf("error writing migration commit event to the database: %v\n", err)
 		}
