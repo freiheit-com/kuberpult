@@ -1334,7 +1334,6 @@ frontend:
 
 func TestIngress(t *testing.T) {
 	ingressClassGcePrivate := "gce-private"
-	implementationSpecific := networking.PathType("ImplementationSpecific")
 	tcs := []struct {
 		Name            string
 		Values          string
@@ -1386,19 +1385,7 @@ ingress:
 							Host: "kuberpult-example.com",
 							IngressRuleValue: networking.IngressRuleValue{
 								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: []networking.HTTPIngressPath{
-										{
-											PathType: &implementationSpecific,
-											Backend: networking.IngressBackend{
-												Service: &networking.IngressServiceBackend{
-													Name: "kuberpult-frontend-service",
-													Port: networking.ServiceBackendPort{
-														Name: "http",
-													},
-												},
-											},
-										},
-									},
+									Paths: makeAllIngressPaths(),
 								},
 							},
 						},
@@ -1444,19 +1431,7 @@ ingress:
 							Host: "kuberpult-example.com",
 							IngressRuleValue: networking.IngressRuleValue{
 								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: []networking.HTTPIngressPath{
-										{
-											PathType: &implementationSpecific,
-											Backend: networking.IngressBackend{
-												Service: &networking.IngressServiceBackend{
-													Name: "kuberpult-frontend-service",
-													Port: networking.ServiceBackendPort{
-														Name: "http",
-													},
-												},
-											},
-										},
-									},
+									Paths: makeAllIngressPaths(),
 								},
 							},
 						},
@@ -1501,19 +1476,7 @@ ingress:
 							Host: "kuberpult-example.com",
 							IngressRuleValue: networking.IngressRuleValue{
 								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: []networking.HTTPIngressPath{
-										{
-											PathType: &implementationSpecific,
-											Backend: networking.IngressBackend{
-												Service: &networking.IngressServiceBackend{
-													Name: "kuberpult-frontend-service",
-													Port: networking.ServiceBackendPort{
-														Name: "http",
-													},
-												},
-											},
-										},
-									},
+									Paths: makeAllIngressPaths(),
 								},
 							},
 						},
@@ -1534,10 +1497,62 @@ ingress:
 			if out, err := getIngress(outputFile); err != nil {
 				t.Fatalf(fmt.Sprintf("%v", err))
 			} else {
+				{
+					// This block is effectively the same as the entire diff below.
+					// It's just much easier to read the diff this way.
+					if tc.ExpectedIngress != nil && tc.ExpectedIngress.Spec.Rules != nil && out.Spec.Rules != nil {
+						for i := range tc.ExpectedIngress.Spec.Rules {
+							expectedRule := tc.ExpectedIngress.Spec.Rules[i]
+							outRule := out.Spec.Rules[i]
+							if diff := cmp.Diff(expectedRule, outRule); diff != "" {
+								t.Fatalf("output mismatch (-want, +got):\n%s", diff)
+							}
+						}
+					}
+				}
+
 				if diff := cmp.Diff(tc.ExpectedIngress, out); diff != "" {
 					t.Fatalf("output mismatch (-want, +got):\n%s", diff)
 				}
 			}
 		})
+	}
+}
+
+func makeIngressPath(path string) networking.HTTPIngressPath {
+	implementationSpecific := networking.PathType("ImplementationSpecific")
+	return networking.HTTPIngressPath{
+		PathType: &implementationSpecific,
+		Path:     path,
+		Backend: networking.IngressBackend{
+			Service: &networking.IngressServiceBackend{
+				Name: "kuberpult-frontend-service",
+				Port: networking.ServiceBackendPort{
+					Name: "http",
+				},
+			},
+		},
+	}
+}
+
+func makeAllIngressPaths() []networking.HTTPIngressPath {
+	return []networking.HTTPIngressPath{
+		makeIngressPath("/release"),
+		makeIngressPath("/environments/"),
+		makeIngressPath("/environment-groups/"),
+		makeIngressPath("/api/"),
+		makeIngressPath("/dex"),
+		makeIngressPath("/login"),
+		makeIngressPath("/ui/"),
+		makeIngressPath("/static/"),
+		makeIngressPath("/favicon.png"),
+		makeIngressPath("/api.v1.OverviewService/"),
+		makeIngressPath("/api.v1.BatchService/"),
+		makeIngressPath("/api.v1.FrontendConfigService/"),
+		makeIngressPath("/api.v1.RolloutService/"),
+		makeIngressPath("/api.v1.GitService/"),
+		makeIngressPath("/api.v1.EnvironmentService/"),
+		makeIngressPath("/api.v1.ReleaseTrainPrognosisService/"),
+		makeIngressPath("/api.v1.EslService/"),
 	}
 }
