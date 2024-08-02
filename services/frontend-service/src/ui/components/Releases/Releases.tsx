@@ -60,6 +60,7 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
             <div className={classNames('app-locks-container', className)}>
                 {Object.values(displayAppLocks).map((displayAppLock) => (
                     <ApplicationLockChip
+                        key={displayAppLock.lock.lockId}
                         environment={displayAppLock.environment}
                         environmentGroup={displayAppLock.environmentGroup}
                         application={displayAppLock.application}
