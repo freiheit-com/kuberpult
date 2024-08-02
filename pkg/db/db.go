@@ -1013,7 +1013,7 @@ func (h *DBHandler) DBContainsMigrationCommitEvent(ctx context.Context, transact
 		return false, nil
 	}
 	if transaction == nil {
-		return false, fmt.Errorf("DBSelectAnyEvent: no transaction provided")
+		return false, fmt.Errorf("DBContainsMigrationCommitEvent: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBContainsMigrationCommitEvent")
 	defer span.Finish()
