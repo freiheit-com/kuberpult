@@ -113,7 +113,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
 # GRPC over HTTP for UI:
       - pathType: ImplementationSpecific
@@ -122,7 +121,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /api.v1.BatchService/
@@ -130,7 +128,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /api.v1.FrontendConfigService/
@@ -138,7 +135,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /api.v1.RolloutService/
@@ -146,7 +142,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /api.v1.GitService/
@@ -154,7 +149,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /api.v1.EnvironmentService/
@@ -162,7 +156,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-#              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /api.v1.ReleaseTrainPrognosisService/
@@ -170,7 +163,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-##              number: 80
               name: http
       - pathType: ImplementationSpecific
         path: /api.v1.EslService/
@@ -178,7 +170,6 @@ spec:
           service:
             name: kuberpult-frontend-service
             port:
-##              number: 80
               name: http
   tls:
   - hosts:
