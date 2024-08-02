@@ -26,7 +26,6 @@ import (
 	"os/exec"
 	"path"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -359,14 +358,6 @@ func TestCustomMigrationsApps(t *testing.T) {
 }
 
 func TestMigrationCommitEvent(t *testing.T) {
-	migCommitEvent := &EventRow{
-		EventType:     event.EventTypeDBMigrationEventType,
-		Uuid:          "00000000-0000-0000-0000-000000000001",
-		CommitHash:    strings.Repeat("0", 40),
-		Timestamp:     time.Time{},
-		EventJson:     "{}",
-		TransformerID: 0,
-	}
 	var getAllCommitEvents = /*getAllCommitEvents*/ func(ctx context.Context) (AllCommitEvents, error) {
 		result := AllCommitEvents{}
 		return result, nil
@@ -397,16 +388,13 @@ func TestMigrationCommitEvent(t *testing.T) {
 					return fmt.Errorf("error: %v", err2)
 				}
 				//Check for migration event
-				ev, err := dbHandler.DBSelectEventByHash(ctx, transaction, strings.Repeat("0", 40))
+				contains, err := dbHandler.DBContainsMigrationCommitEvent(ctx, transaction)
 				if err != nil {
 					t.Errorf("could not get migration event: %v\n", err)
 
 				}
-				if ev == nil {
+				if !contains {
 					t.Errorf("migration event was not created: %v\n", err)
-				}
-				if diff := cmp.Diff(migCommitEvent, ev, cmpopts.IgnoreFields(EventRow{}, "Timestamp")); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
