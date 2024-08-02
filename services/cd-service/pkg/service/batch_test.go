@@ -640,6 +640,7 @@ func setupRepositoryTestWithoutDB(t *testing.T) (repository.Repository, error) {
 }
 
 func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.Repository, error) {
+	ctx := context.Background()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -658,12 +659,12 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 	if dbConfig != nil {
 		dbConfig.DbHost = dir
 
-		migErr := db.RunDBMigrations(*dbConfig)
+		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)
 		}
 
-		db, err := db.Connect(*dbConfig)
+		db, err := db.Connect(ctx, *dbConfig)
 		if err != nil {
 			t.Fatal(err)
 		}

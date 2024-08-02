@@ -103,6 +103,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *db.DBHandler {
+	ctx := context.Background()
 	dir, err := testutil.CreateMigrationsPath(4)
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
@@ -113,12 +114,12 @@ func setupDB(t *testing.T) *db.DBHandler {
 		DbHost:         tmpDir,
 	}
 
-	migErr := db.RunDBMigrations(cfg)
+	migErr := db.RunDBMigrations(ctx, cfg)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := db.Connect(cfg)
+	dbHandler, err := db.Connect(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
