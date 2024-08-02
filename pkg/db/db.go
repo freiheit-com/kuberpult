@@ -3244,7 +3244,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock)
+	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock, timetoInsert)
 	if err != nil {
 		return fmt.Errorf("could not update overview application lock. Error: %w\n", err)
 	}

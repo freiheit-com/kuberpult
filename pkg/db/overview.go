@@ -202,7 +202,7 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 	return api.UndeploySummary_MIXED
 }
 
-func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transaction *sql.Tx, applicationLock ApplicationLock) error {
+func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transaction *sql.Tx, applicationLock ApplicationLock, createdTime time.Time) error {
 	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
 	if err != nil {
 		return err
@@ -224,7 +224,7 @@ func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transacti
 	app.Locks[applicationLock.LockID] = &api.Lock{
 		Message:   applicationLock.Metadata.Message,
 		LockId:    applicationLock.LockID,
-		CreatedAt: timestamppb.New(applicationLock.Created),
+		CreatedAt: timestamppb.New(createdTime),
 		CreatedBy: &api.Actor{
 			Name:  applicationLock.Metadata.CreatedByName,
 			Email: applicationLock.Metadata.CreatedByEmail,
