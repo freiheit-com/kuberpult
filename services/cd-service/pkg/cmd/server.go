@@ -323,7 +323,7 @@ func RunServer() {
 				migErr := dbHandler.RunCustomMigrations(
 					ctx,
 					repo.State().GetAppsAndTeams,
-					repo.State().GetCurrentlyDeployed,
+					repo.State().WriteCurrentlyDeployed,
 					repo.State().GetAllReleases,
 					repo.State().GetCurrentEnvironmentLocks,
 					repo.State().GetCurrentApplicationLocks,

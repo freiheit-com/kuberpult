@@ -1319,10 +1319,10 @@ type AllDeployments []Deployment
 type AllEnvLocks map[string][]EnvironmentLock
 type AllReleases map[uint64]ReleaseWithManifest // keys: releaseVersion; value: release with manifests
 
-// GetAllDeploymentsFun and other functions here are used during migration.
-// They are supposed to read data from files in the manifest repo,
-// and therefore should not need to access the Database at all.
-type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
+// WriteAllDeploymentsFun and other functions here are used during migration.
+// They are supposed to read data from files in the manifest repo and write it to the databse,
+// and therefore need to access the Database.
+type WriteAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 
 type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
@@ -1345,7 +1345,7 @@ type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.Enviro
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
-	getAllDeploymentsFun GetAllDeploymentsFun,
+	getAllDeploymentsFun WriteAllDeploymentsFun,
 	getAllReleasesFun GetAllReleasesFun,
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
@@ -1885,7 +1885,7 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 
 }
 
-func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun GetAllDeploymentsFun) error {
+func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun WriteAllDeploymentsFun) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
 	defer span.Finish()
 
@@ -1897,20 +1897,11 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 		if !needsMigrating {
 			return nil
 		}
-		allDeploymentsInRepo, err := getAllDeploymentsFun(ctx, transaction)
+		err = getAllDeploymentsFun(ctx, transaction, h)
 		if err != nil {
 			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
 		}
 
-		for i := range allDeploymentsInRepo {
-			deploymentInRepo := allDeploymentsInRepo[i]
-			deploymentInRepo.TransformerID = 0
-			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
-			if err != nil {
-				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
-					deploymentInRepo.App, deploymentInRepo.Env, err)
-			}
-		}
 		return nil
 	})
 }
