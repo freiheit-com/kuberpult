@@ -1332,7 +1332,7 @@ type AllCommitEvents map[string][]event.DBEventGo        // CommitId -> uuid -> 
 
 type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
-type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
+type WriteAllReleasesFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
 type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, error)
 type GetAllEventsFun = func(ctx context.Context) (AllCommitEvents, error)
 
@@ -1346,7 +1346,7 @@ func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
 	getAllDeploymentsFun GetAllDeploymentsFun,
-	getAllReleasesFun GetAllReleasesFun,
+	writeAllReleasesFun WriteAllReleasesFun,
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
 	getAllTeamLocksFun GetAllTeamLocksFun,
@@ -1368,7 +1368,7 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, getAllReleasesFun)
+	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, writeAllReleasesFun)
 	if err != nil {
 		return err
 	}
@@ -1810,7 +1810,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 
 // CUSTOM MIGRATIONS
 
-func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, getAllReleasesFun GetAllReleasesFun) error {
+func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
 	defer span.Finish()
 
@@ -1830,42 +1830,11 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 		for app := range allAppsMap {
 			l.Infof("processing app %s ...", app)
 
-			releases, err := getAllReleasesFun(ctx, app)
+			err := writeAllReleasesFun(ctx, transaction, app, h)
 			if err != nil {
 				return fmt.Errorf("geAllReleases failed %v", err)
 			}
-
-			releaseNumbers := []int64{}
-			for r := range releases {
-				repoRelease := releases[r]
-				dbRelease := DBReleaseWithMetaData{
-					EslVersion:    InitialEslVersion,
-					Created:       time.Now().UTC(),
-					ReleaseNumber: repoRelease.Version,
-					App:           app,
-					Manifests: DBReleaseManifests{
-						Manifests: repoRelease.Manifests,
-					},
-					Metadata: DBReleaseMetaData{
-						UndeployVersion: repoRelease.UndeployVersion,
-						SourceAuthor:    repoRelease.SourceAuthor,
-						SourceCommitId:  repoRelease.SourceCommitId,
-						SourceMessage:   repoRelease.SourceMessage,
-						DisplayVersion:  repoRelease.DisplayVersion,
-					},
-					Deleted: false,
-				}
-				err = h.DBInsertRelease(ctx, transaction, dbRelease, InitialEslVersion-1)
-				if err != nil {
-					return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
-				}
-				releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
-			}
 			l.Infof("done with app %s", app)
-			err = h.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslVersion-1)
-			if err != nil {
-				return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
-			}
 		}
 		return nil
 	})
