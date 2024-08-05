@@ -562,36 +562,40 @@ export interface DisplayApplicationLock {
 }
 
 export const useDisplayApplicationLocks = (appName: string | null): DisplayApplicationLock[] => {
-    const finalLocks: DisplayApplicationLock[] = [];
-    Object.values(useEnvironmentGroups()).forEach((envGroup) => {
-        Object.values(envGroup.environments).forEach((env) => {
-            Object.values(env.applications).forEach((app) => {
-                if (appName && appName === app.name) {
-                    Object.values(app.locks).forEach((lock) =>
-                        finalLocks.push({
-                            lock: {
-                                date: lock.createdAt,
-                                application: app.name,
-                                environment: env.name,
-                                lockId: lock.lockId,
-                                message: lock.message,
-                                authorName: lock.createdBy?.name,
-                                authorEmail: lock.createdBy?.email,
-                            },
-                            application: app,
-                            environment: env,
-                            environmentGroup: envGroup,
-                        })
-                    );
-                }
+    const envGroups = useEnvironmentGroups();
+    const finalLocks = useMemo(() => {
+        const finalLocks: DisplayApplicationLock[] = [];
+        Object.values(envGroups).forEach((envGroup) => {
+            Object.values(envGroup.environments).forEach((env) => {
+                Object.values(env.applications).forEach((app) => {
+                    if (appName && appName === app.name) {
+                        Object.values(app.locks).forEach((lock) =>
+                            finalLocks.push({
+                                lock: {
+                                    date: lock.createdAt,
+                                    application: app.name,
+                                    environment: env.name,
+                                    lockId: lock.lockId,
+                                    message: lock.message,
+                                    authorName: lock.createdBy?.name,
+                                    authorEmail: lock.createdBy?.email,
+                                },
+                                application: app,
+                                environment: env,
+                                environmentGroup: envGroup,
+                            })
+                        );
+                    }
+                });
             });
         });
-    });
-    finalLocks.sort((a: DisplayApplicationLock, b: DisplayApplicationLock) => {
-        if ((a.lock.date ?? new Date(0)) < (b.lock.date ?? new Date(0))) return 1;
-        else if ((a.lock.date ?? new Date(0)) > (b.lock.date ?? new Date(0))) return -1;
-        return 0;
-    });
+        finalLocks.sort((a: DisplayApplicationLock, b: DisplayApplicationLock) => {
+            if ((a.lock.date ?? new Date(0)) < (b.lock.date ?? new Date(0))) return 1;
+            else if ((a.lock.date ?? new Date(0)) > (b.lock.date ?? new Date(0))) return -1;
+            return 0;
+        });
+        return finalLocks;
+    }, [appName, envGroups]);
     return finalLocks;
 };
 
