@@ -24,24 +24,26 @@ import {
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { Spinner } from '../../components/Spinner/Spinner';
 import { useParams } from 'react-router-dom';
-import React, { useCallback } from 'react';
 import { CommitInfo } from '../../components/CommitInfo/CommitInfo';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
+import React from 'react';
 
 export const CommitInfoPage: React.FC = () => {
     const { commit: commitHash } = useParams();
     const { authHeader } = useAzureAuthSub((auth) => auth);
     const [pageNumber, setPageNumber] = React.useState(0);
+    const [firstRender, setFirstRender] = React.useState(true);
 
     React.useEffect(() => {
-        if (commitHash !== undefined) {
+        if (commitHash !== undefined && !firstRender) {
             getCommitInfo(commitHash, pageNumber, authHeader);
         }
-    }, [commitHash, authHeader, pageNumber]);
+        setFirstRender(false);
+    }, [commitHash, authHeader, pageNumber, firstRender]);
 
-    const triggerLoadMore = useCallback(() => {
-        setPageNumber(pageNumber + 1);
+    const onClick = React.useCallback(() => {
         updateCommitInfo.set({ commitInfoReady: CommitInfoState.LOADING });
+        setPageNumber(pageNumber + 1);
     }, [pageNumber]);
 
     const commitInfo = useCommitInfo((res) => res);
@@ -81,6 +83,6 @@ export const CommitInfoPage: React.FC = () => {
                 </div>
             );
         case CommitInfoState.READY:
-            return <CommitInfo commitInfo={commitInfo.response} triggerLoadMore={triggerLoadMore} />;
+            return <CommitInfo commitInfo={commitInfo.response} onClick={onClick} />;
     }
 };
