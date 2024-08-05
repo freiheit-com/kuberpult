@@ -1523,7 +1523,6 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 			// if there is no version queued, that's not an issue, just do nothing:
 			return "", nil
 		}
-
 		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
 		if err != nil {
 			return "", err

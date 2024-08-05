@@ -47,8 +47,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var deps int
-
 type DBConfig struct {
 	DbUser         string
 	DbHost         string

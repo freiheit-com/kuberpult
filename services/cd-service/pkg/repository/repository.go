@@ -1679,12 +1679,8 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
-		PushF("GetEnvironmentApplicationVersion")
-		//fmt.Println(" -> DBSelectDeployment\n")
+	if s.DBHandler.ShouldUseOtherTables() {
 		depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
-		Register()
-		Pop()
 		if err != nil {
 			return nil, err
 		}

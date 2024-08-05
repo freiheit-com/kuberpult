@@ -82,9 +82,6 @@ const (
 	keptVersionsOnCleanup = 20
 )
 
-var callStack string
-var results = map[string]int{}
-
 func versionToString(Version uint64) string {
 	return strconv.FormatUint(Version, 10)
 }
@@ -1625,7 +1622,6 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	})
 	// Use the latest version as oldest deployed version
 	var oldestDeployedVersion uint64
-	start := time.Now()
 	if state.DBHandler.ShouldUseOtherTables() {
 		deployments, err := state.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, name)
 		if err != nil {
@@ -1640,7 +1636,6 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	} else {
 		oldestDeployedVersion = versions[len(versions)-1]
 		for env := range envConfigs {
-			//fmt.Print("findOldApplicationVersions -> GetEnvironmentApplicationVersion\n")
 			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, name)
 			if err != nil {
 				return nil, err
@@ -1652,8 +1647,6 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 			}
 		}
 	}
-	end := time.Since(start)
-	fmt.Printf("Elapsed: %s\n", end)
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
 		return versions[i] >= oldestDeployedVersion
 	})
@@ -2602,9 +2595,7 @@ func (c *DeployApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DeployApplicationVersion")
-
 	defer span.Finish()
-	fmt.Printf("DeployApplicationVersion for app '%s' on env '%s'\n", c.Application, c.Environment)
 	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig, true)
 	if err != nil {
 		return "", err
@@ -2742,7 +2733,6 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		//fmt.Println("DBSelectDeployment -> DeployApplicationVersion\n")
 		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
 		if err != nil {
 			return "", err
@@ -3076,7 +3066,6 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 				TeamLocks:          nil,
 				Team:               "",
 			}
-			//fmt.Print("getOverrideVersions -> GetEnvironmentApplicationVersion")
 			version, err := s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, fmt.Errorf("unable to get EnvironmentApplicationVersion for %s: %w", appName, err)
@@ -3093,7 +3082,6 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 
 func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sql.Tx, upstreamLatest bool, state *State, upstreamEnvName, source, commitHash string) (apps []string, appVersions []Overview, err error) {
 	if commitHash != "" {
-		//fmt.Print("getUpstreamLatestApp -> findOldApplicationVersions (1)")
 		appVersions, err := getOverrideVersions(ctx, transaction, c.CommitHash, upstreamEnvName, c.Repo)
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get app version for commitHash %s for %s: %w", c.CommitHash, c.Target, err))
@@ -3101,7 +3089,6 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 		// check that commit hash is not older than 20 commits in the past
 		for _, app := range appVersions {
 			apps = append(apps, app.App)
-			//fmt.Print("getUpstreamLatestApp -> findOldApplicationVersions (2)")
 			versions, err := findOldApplicationVersions(ctx, transaction, state, app.App)
 			if err != nil {
 				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("unable to find findOldApplicationVersions for app %s: %w", app.App, err))
@@ -3172,9 +3159,8 @@ func (c *ReleaseTrain) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainPrognosis {
-	span, ctx := tracer.StartSpanFromContext(ctx, "Prognosis")
+	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
 	defer span.Finish()
-	fmt.Println("Prognosis")
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 
 	if err != nil {
@@ -3241,10 +3227,8 @@ func (c *ReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	Clear()
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
-	fmt.Println("Release Train transformer")
 	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
@@ -3280,9 +3264,6 @@ func (c *ReleaseTrain) Transform(
 			return "", err
 		}
 	}
-	fmt.Println("Executed Release train.")
-	Print()
-	Clear()
 	return fmt.Sprintf(
 		"Release Train to environment/environment group '%s':\n",
 		targetGroupName), nil
@@ -3313,7 +3294,6 @@ func (c *envReleaseTrain) prognosis(
 ) ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	defer span.Finish()
-	fmt.Printf("envReleaseTrain Prognosis for environment: %s\n", c.Env)
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3435,7 +3415,6 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses:    appsPrognoses,
 		}
 	}
-	//fmt.Println("Processing the following apps: %s\n", apps)
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
@@ -3449,7 +3428,6 @@ func (c *envReleaseTrain) prognosis(
 				continue
 			}
 		}
-		//fmt.Print("Prognosis -> GetEnvironmentApplicationVersion")
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
