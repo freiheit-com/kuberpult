@@ -18,6 +18,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -266,46 +267,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		return
 	}
 
-	switch firstResponse := releaseResponse.Response.(type) {
-	case *api.CreateReleaseResponse_Success:
-		{
-			jsonBlob, err := json.Marshal(firstResponse)
-			writeReleaseResponse(w, r, jsonBlob, err, http.StatusCreated)
-		}
-	case *api.CreateReleaseResponse_AlreadyExistsSame:
-		{
-			jsonBlob, err := json.Marshal(firstResponse)
-			writeReleaseResponse(w, r, jsonBlob, err, http.StatusOK)
-		}
-	case *api.CreateReleaseResponse_AlreadyExistsDifferent:
-		{
-			jsonBlob, err := json.Marshal(firstResponse)
-			writeReleaseResponse(w, r, jsonBlob, err, http.StatusConflict)
-		}
-	case *api.CreateReleaseResponse_GeneralFailure:
-		{
-			jsonBlob, err := json.Marshal(firstResponse)
-			writeReleaseResponse(w, r, jsonBlob, err, http.StatusInternalServerError)
-		}
-	case *api.CreateReleaseResponse_TooOld:
-		{
-			jsonBlob, err := json.Marshal(firstResponse)
-			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
-		}
-	case *api.CreateReleaseResponse_TooLong:
-		{
-			jsonBlob, err := json.Marshal(firstResponse)
-			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
-		}
-	default:
-		{
-			msg := "unknown response type in /release"
-			jsonBlob, err := json.Marshal(releaseResponse)
-			jsonBlobRequest, _ := json.Marshal(&tf)
-			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
-			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: request: %s, response: %s", msg, jsonBlobRequest, jsonBlob)), err, http.StatusInternalServerError)
-		}
-	}
+	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
 	_, _ = w.Write([]byte("warning: /release endoint will be deprecated soon, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.\n"))
 }
 
@@ -467,7 +429,10 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
+	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
+}
 
+func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *http.Request, releaseResponse *api.CreateReleaseResponse, err error) {
 	switch firstResponse := releaseResponse.Response.(type) {
 	case *api.CreateReleaseResponse_Success:
 		{
@@ -503,9 +468,9 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		{
 			msg := "unknown response type"
 			jsonBlob, err := json.Marshal(releaseResponse)
-			jsonBlobRequest, _ := json.Marshal(&tf)
+			// jsonBlobRequest, _ := json.Marshal(&tf)
 			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
-			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: request: %s, response: %s", msg, jsonBlobRequest, jsonBlob)), err, http.StatusInternalServerError)
+			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: request: %s, response: %s", msg, "jsonBlobRequest", jsonBlob)), err, http.StatusInternalServerError)
 		}
 	}
 }
