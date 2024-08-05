@@ -4878,6 +4878,7 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 	}(rows)
 	//exhaustruct:ignore
 	var row = &DBAllDeploymentsForAppRow{}
+	//exhaustruct:ignore
 	var deployments = &AllDeploymentsForApp{}
 	if rows.Next() {
 
