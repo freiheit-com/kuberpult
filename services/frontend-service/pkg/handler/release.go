@@ -76,6 +76,7 @@ func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byt
 
 func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail string) {
 	ctx := r.Context()
+	_, _ = w.Write([]byte("warning: /release endoint will be deprecated soon, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.\n"))
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("Release does not accept additional path arguments, got: %s", tail), http.StatusNotFound)
 		return
