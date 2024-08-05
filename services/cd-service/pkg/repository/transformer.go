@@ -82,6 +82,9 @@ const (
 	keptVersionsOnCleanup = 20
 )
 
+var callStack string
+var results = map[string]int{}
+
 func versionToString(Version uint64) string {
 	return strconv.FormatUint(Version, 10)
 }
@@ -716,6 +719,7 @@ func (c *CreateApplicationVersion) Transform(
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
+				CleanOldVersions:      true,
 				Author:                c.SourceAuthor,
 				TransformerEslVersion: c.TransformerEslVersion,
 			}
@@ -1227,6 +1231,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
+				CleanOldVersions:      true,
 				Author:                "",
 				TransformerEslVersion: c.TransformerEslVersion,
 			}
@@ -1602,10 +1607,12 @@ func (c *CleanupOldApplicationVersions) SetEslVersion(id db.TransformerID) {
 // Finds old releases for an application
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
+
 	envConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
+
 	versions, err := state.GetAllApplicationReleases(ctx, transaction, name)
 	if err != nil {
 		return nil, err
@@ -1617,18 +1624,36 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return versions[i] < versions[j]
 	})
 	// Use the latest version as oldest deployed version
-	oldestDeployedVersion := versions[len(versions)-1]
-	for env := range envConfigs {
-		version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, name)
+	var oldestDeployedVersion uint64
+	start := time.Now()
+	if state.DBHandler.ShouldUseOtherTables() {
+		deployments, err := state.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, name)
 		if err != nil {
 			return nil, err
 		}
-		if version != nil {
-			if *version < oldestDeployedVersion {
-				oldestDeployedVersion = *version
+		deployedVersions := []int64{}
+		for _, version := range deployments.Deployments {
+			deployedVersions = append(deployedVersions, version)
+		}
+
+		oldestDeployedVersion = uint64(slices.Min(deployedVersions))
+	} else {
+		oldestDeployedVersion = versions[len(versions)-1]
+		for env := range envConfigs {
+			//fmt.Print("findOldApplicationVersions -> GetEnvironmentApplicationVersion\n")
+			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, name)
+			if err != nil {
+				return nil, err
+			}
+			if version != nil {
+				if *version < oldestDeployedVersion {
+					oldestDeployedVersion = *version
+				}
 			}
 		}
 	}
+	end := time.Since(start)
+	fmt.Printf("Elapsed: %s\n", end)
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
 		return versions[i] >= oldestDeployedVersion
 	})
@@ -1645,6 +1670,8 @@ func (c *CleanupOldApplicationVersions) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "CleanupOldApplicationVersions")
+	defer span.Finish()
 	fs := state.Filesystem
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
@@ -2549,6 +2576,7 @@ type DeployApplicationVersion struct {
 	Version               uint64                          `json:"version"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
 	WriteCommitData       bool                            `json:"writeCommitData"`
+	CleanOldVersions      bool                            `json:"cleanOldVersions"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
 	Author                string                          `json:"author"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
@@ -2573,6 +2601,10 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DeployApplicationVersion")
+
+	defer span.Finish()
+	fmt.Printf("DeployApplicationVersion for app '%s' on env '%s'\n", c.Application, c.Environment)
 	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig, true)
 	if err != nil {
 		return "", err
@@ -2710,6 +2742,7 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
+		//fmt.Println("DBSelectDeployment -> DeployApplicationVersion\n")
 		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
 		if err != nil {
 			return "", err
@@ -2744,6 +2777,10 @@ func (c *DeployApplicationVersion) Transform(
 		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
+		}
+		err = state.DBHandler.DBUpdateAllDeploymentsForApp(ctx, transaction, c.Application, c.Environment, int64(c.Version))
+		if err != nil {
+			return "", fmt.Errorf("could not write oldest deployment for %v - %v", newDeployment, err)
 		}
 	} else {
 		//Check if there is a version of target app already deployed on target environment
@@ -2821,9 +2858,10 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 	if c.WriteCommitData { // write the corresponding event
+		newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
 		if s.DBHandler.ShouldUseOtherTables() {
-			newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
+
 			if err != nil {
 				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 			} else {
@@ -2846,31 +2884,30 @@ func (c *DeployApplicationVersion) Transform(
 
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-			if newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application); err == nil {
-				if !valid.SHA1CommitID(newReleaseCommitId) {
-					logger.FromContext(ctx).Sugar().Infof(
-						"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
-						newReleaseCommitId)
+			if !valid.SHA1CommitID(newReleaseCommitId) {
+				logger.FromContext(ctx).Sugar().Infof(
+					"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
+					newReleaseCommitId)
+			} else {
+				ev := createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)
+				if s.DBHandler.ShouldUseOtherTables() {
+					gen := getGenerator(ctx)
+					eventUuid := gen.Generate()
+					oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, uint64(*oldVersion), oldReleaseDir, c.Application)
+					if err != nil {
+						return "", GetCreateReleaseGeneralFailure(err)
+					}
+					err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
+					if err != nil {
+						return "", err
+					}
 				} else {
-					ev := createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)
-					if s.DBHandler.ShouldUseOtherTables() {
-						gen := getGenerator(ctx)
-						eventUuid := gen.Generate()
-						oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, uint64(*oldVersion), oldReleaseDir, c.Application)
-						if err != nil {
-							return "", GetCreateReleaseGeneralFailure(err)
-						}
-						err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
-						if err != nil {
-							return "", err
-						}
-					} else {
-						if err := addEventForRelease(ctx, fs, oldReleaseDir, ev); err != nil {
-							return "", err
-						}
+					if err := addEventForRelease(ctx, fs, oldReleaseDir, ev); err != nil {
+						return "", err
 					}
 				}
 			}
+
 		} else {
 			logger.FromContext(ctx).Sugar().Infof(
 				"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
@@ -2999,6 +3036,7 @@ type Overview struct {
 }
 
 func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
+
 	oid, err := git.NewOid(commitHash)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating new oid for commitHash %s: %w", commitHash, err)
@@ -3013,7 +3051,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 		}
 		return nil, fmt.Errorf("unable to get oid: %w", err)
 	}
-	envs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
+	envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
 	}
@@ -3038,6 +3076,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 				TeamLocks:          nil,
 				Team:               "",
 			}
+			//fmt.Print("getOverrideVersions -> GetEnvironmentApplicationVersion")
 			version, err := s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, fmt.Errorf("unable to get EnvironmentApplicationVersion for %s: %w", appName, err)
@@ -3054,6 +3093,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 
 func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sql.Tx, upstreamLatest bool, state *State, upstreamEnvName, source, commitHash string) (apps []string, appVersions []Overview, err error) {
 	if commitHash != "" {
+		//fmt.Print("getUpstreamLatestApp -> findOldApplicationVersions (1)")
 		appVersions, err := getOverrideVersions(ctx, transaction, c.CommitHash, upstreamEnvName, c.Repo)
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get app version for commitHash %s for %s: %w", c.CommitHash, c.Target, err))
@@ -3061,6 +3101,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 		// check that commit hash is not older than 20 commits in the past
 		for _, app := range appVersions {
 			apps = append(apps, app.App)
+			//fmt.Print("getUpstreamLatestApp -> findOldApplicationVersions (2)")
 			versions, err := findOldApplicationVersions(ctx, transaction, state, app.App)
 			if err != nil {
 				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("unable to find findOldApplicationVersions for app %s: %w", app.App, err))
@@ -3133,6 +3174,7 @@ func (c *ReleaseTrain) Prognosis(
 ) ReleaseTrainPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "Prognosis")
 	defer span.Finish()
+	fmt.Println("Prognosis")
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 
 	if err != nil {
@@ -3199,8 +3241,10 @@ func (c *ReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	Clear()
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
+	fmt.Println("Release Train transformer")
 	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
@@ -3236,7 +3280,9 @@ func (c *ReleaseTrain) Transform(
 			return "", err
 		}
 	}
-
+	fmt.Println("Executed Release train.")
+	Print()
+	Clear()
 	return fmt.Sprintf(
 		"Release Train to environment/environment group '%s':\n",
 		targetGroupName), nil
@@ -3265,8 +3311,9 @@ func (c *envReleaseTrain) prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainEnvironmentPrognosis {
-	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain - Prognosis")
+	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	defer span.Finish()
+	fmt.Printf("envReleaseTrain Prognosis for environment: %s\n", c.Env)
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3350,7 +3397,6 @@ func (c *envReleaseTrain) prognosis(
 	if upstreamLatest {
 		source = "latest"
 	}
-
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3389,7 +3435,7 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses:    appsPrognoses,
 		}
 	}
-
+	//fmt.Println("Processing the following apps: %s\n", apps)
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
@@ -3403,7 +3449,7 @@ func (c *envReleaseTrain) prognosis(
 				continue
 			}
 		}
-
+		//fmt.Print("Prognosis -> GetEnvironmentApplicationVersion")
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
@@ -3612,6 +3658,7 @@ func (c *envReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+
 	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
@@ -3716,16 +3763,18 @@ func (c *envReleaseTrain) Transform(
 			continue
 		}
 		d := &DeployApplicationVersion{
-			Environment:     c.Env, // here we deploy to the next env
-			Application:     appName,
-			Version:         appPrognosis.Version,
-			LockBehaviour:   api.LockBehavior_RECORD,
-			Authentication:  c.Parent.Authentication,
-			WriteCommitData: c.WriteCommitData,
+			Environment:      c.Env, // here we deploy to the next env
+			Application:      appName,
+			Version:          appPrognosis.Version,
+			LockBehaviour:    api.LockBehavior_RECORD,
+			Authentication:   c.Parent.Authentication,
+			WriteCommitData:  c.WriteCommitData,
+			CleanOldVersions: false, //For performance reasons, we only clean old versions after the
 			SourceTrain: &DeployApplicationVersionSource{
 				Upstream:    upstreamEnvName,
 				TargetGroup: c.TrainGroup,
 			},
+
 			Author:                "",
 			TransformerEslVersion: c.TransformerEslVersion,
 		}

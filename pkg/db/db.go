@@ -47,6 +47,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+var deps int
+
 type DBConfig struct {
 	DbUser         string
 	DbHost         string
@@ -1358,7 +1360,6 @@ func (h *DBHandler) RunCustomMigrations(
 func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeployment")
 	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
 			" FROM deployments " +
@@ -1764,6 +1765,61 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	return nil
 }
 
+func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (*AllDeploymentsForApp, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllDeploymentsForApp: no transaction provided")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"SELECT eslVersion, created, appName, json FROM all_deployments WHERE appName = (?) ORDER BY eslVersion DESC LIMIT 1;")
+
+	span.SetTag("query", insertQuery)
+	rows, err := tx.Query(
+		insertQuery,
+		appName,
+	)
+
+	return h.processAllDeploymentRow(ctx, err, rows)
+}
+
+func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName, envName string, version int64) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBUpdateAllDeploymentsForApp: no transaction provided")
+	}
+
+	currentAllDeployments, err := h.DBSelectAllDeploymentsForApp(ctx, tx, appName)
+	if err != nil {
+		return fmt.Errorf("could not read current all deployments for app: '%s': %v", appName, err)
+	}
+	var deploymentsMap map[string]int64
+	var previousVersion EslVersion
+	if currentAllDeployments == nil { //New app
+		deploymentsMap = map[string]int64{}
+		previousVersion = 0
+	} else {
+		deploymentsMap = currentAllDeployments.Deployments
+		previousVersion = currentAllDeployments.Version
+
+	}
+	deploymentsMap[envName] = version
+
+	err = h.DBWriteAllDeploymentsForApp(ctx, tx, int(previousVersion), appName, deploymentsMap)
+	if err != nil {
+		return fmt.Errorf("could not write all deployments for app: '%s': %v", appName, err)
+	}
+	return nil
+}
+
 // CUSTOM MIGRATIONS
 
 func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, getAllReleasesFun GetAllReleasesFun) error {
@@ -1858,13 +1914,28 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
 		}
 
+		allDeployments := map[string]map[string]int64{} //Appname -> envName -> Release Number
+
 		for i := range allDeploymentsInRepo {
 			deploymentInRepo := allDeploymentsInRepo[i]
 			deploymentInRepo.TransformerID = 0
 			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
+			if deploymentInRepo.Version != nil {
+				_, ok := allDeployments[deploymentInRepo.App]
+				if !ok {
+					allDeployments[deploymentInRepo.App] = map[string]int64{}
+				}
+				allDeployments[deploymentInRepo.App][deploymentInRepo.Env] = *deploymentInRepo.Version
+			}
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
 					deploymentInRepo.App, deploymentInRepo.Env, err)
+			}
+		}
+		for key, value := range allDeployments {
+			err := h.DBWriteAllDeploymentsForApp(ctx, transaction, 0, key, value)
+			if err != nil {
+				return fmt.Errorf("could not write allDeployments to run custom migrations: %v", err)
 			}
 		}
 		return nil
@@ -1907,6 +1978,13 @@ type EventRow struct {
 	EventType     event.EventType
 	EventJson     string
 	TransformerID TransformerID
+}
+
+type AllDeploymentsForAapp struct {
+	Version                 int64
+	Timestamp               time.Time
+	OldestDeploymentVersion int64
+	App                     string
 }
 
 func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLocksFun GetAllEnvLocksFun) error {
@@ -4738,4 +4816,93 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 	}
 
 	return failedEsls, nil
+}
+
+type AllDeploymentsForApp struct {
+	Version     EslVersion       `json:"version"`
+	AppName     string           `json:"appName"`
+	Deployments map[string]int64 `json:"deployments"` //Maps environment name to release version
+}
+
+func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, prev int, appName string, environmentDeployments map[string]int64) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("attempting to write to the environmets table without a transaction")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO all_deployments (eslVersion, created, appName, json) VALUES (?, ?, ?, ?);",
+	)
+
+	jsonDeployments, err := json.Marshal(environmentDeployments)
+	if err != nil {
+		return fmt.Errorf("could not marshall deployments for app: '%s': %v\n", appName, err)
+	}
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		prev+1,
+		time.Now(),
+		appName,
+		jsonDeployments,
+	)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllDeploymentsForApp error executing query: %w", err)
+	}
+	return nil
+}
+
+type DBAllDeploymentsForAppRow struct {
+	EslVersion      EslVersion
+	Created         time.Time
+	AppName         string
+	DeploymentsJson string
+}
+
+func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (*AllDeploymentsForApp, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processAllDeploymentRow")
+	defer span.Finish()
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query all_deployments table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("all_deployments: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var row = &DBAllDeploymentsForAppRow{}
+	var deployments = &AllDeploymentsForApp{}
+	if rows.Next() {
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.AppName, &row.DeploymentsJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning oldest_deployments row from DB. Error: %w\n", err)
+		}
+		err = json.Unmarshal([]byte(row.DeploymentsJson), &deployments.Deployments)
+		if err != nil {
+			return nil, fmt.Errorf("Error unmarshalling all deployments. Error: %w\n", err)
+		}
+		deployments.AppName = row.AppName
+		deployments.Version = row.EslVersion
+	} else {
+		row = nil
+		deployments = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return deployments, nil
 }

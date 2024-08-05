@@ -1680,7 +1680,11 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
+		PushF("GetEnvironmentApplicationVersion")
+		//fmt.Println(" -> DBSelectDeployment\n")
 		depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+		Register()
+		Pop()
 		if err != nil {
 			return nil, err
 		}
@@ -2266,6 +2270,11 @@ func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.
 	}
 }
 
+//func (s *State) GetAllDeploymentsVersionsForApplication(ctx context.Context, transaction *sql.Tx, application string) (map[string]int, error)
+//{	//
+//
+//}
+
 func (s *State) GetAllApplicationReleasesFromManifest(application string) ([]uint64, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
@@ -2634,7 +2643,6 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 			// if there is no version queued, that's not an issue, just do nothing:
 			return "", nil
 		}
-
 		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
 		if err != nil {
 			return "", err
