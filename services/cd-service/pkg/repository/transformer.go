@@ -716,7 +716,6 @@ func (c *CreateApplicationVersion) Transform(
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
-				CleanOldVersions:      true,
 				Author:                c.SourceAuthor,
 				TransformerEslVersion: c.TransformerEslVersion,
 			}
@@ -1228,7 +1227,6 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
-				CleanOldVersions:      true,
 				Author:                "",
 				TransformerEslVersion: c.TransformerEslVersion,
 			}
@@ -2569,7 +2567,6 @@ type DeployApplicationVersion struct {
 	Version               uint64                          `json:"version"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
 	WriteCommitData       bool                            `json:"writeCommitData"`
-	CleanOldVersions      bool                            `json:"cleanOldVersions"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
 	Author                string                          `json:"author"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
@@ -3264,6 +3261,7 @@ func (c *ReleaseTrain) Transform(
 			return "", err
 		}
 	}
+
 	return fmt.Sprintf(
 		"Release Train to environment/environment group '%s':\n",
 		targetGroupName), nil
@@ -3377,6 +3375,7 @@ func (c *envReleaseTrain) prognosis(
 	if upstreamLatest {
 		source = "latest"
 	}
+
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3415,6 +3414,7 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses:    appsPrognoses,
 		}
 	}
+
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
@@ -3428,6 +3428,7 @@ func (c *envReleaseTrain) prognosis(
 				continue
 			}
 		}
+
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
@@ -3636,7 +3637,6 @@ func (c *envReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-
 	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
@@ -3741,13 +3741,12 @@ func (c *envReleaseTrain) Transform(
 			continue
 		}
 		d := &DeployApplicationVersion{
-			Environment:      c.Env, // here we deploy to the next env
-			Application:      appName,
-			Version:          appPrognosis.Version,
-			LockBehaviour:    api.LockBehavior_RECORD,
-			Authentication:   c.Parent.Authentication,
-			WriteCommitData:  c.WriteCommitData,
-			CleanOldVersions: false, //For performance reasons, we only clean old versions after the
+			Environment:     c.Env, // here we deploy to the next env
+			Application:     appName,
+			Version:         appPrognosis.Version,
+			LockBehaviour:   api.LockBehavior_RECORD,
+			Authentication:  c.Parent.Authentication,
+			WriteCommitData: c.WriteCommitData,
 			SourceTrain: &DeployApplicationVersionSource{
 				Upstream:    upstreamEnvName,
 				TargetGroup: c.TrainGroup,
