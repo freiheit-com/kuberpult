@@ -381,9 +381,5 @@ metadata:
   name: kuberpult-rbac
 data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
-kind: ConfigMap
-metadata:
-  name: kuberpult-rbac
-data:
   team.csv: {{ .Values.auth.dexAuth.team_csv| quote}}
 {{- end }}

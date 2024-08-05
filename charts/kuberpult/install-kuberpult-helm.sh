@@ -26,6 +26,7 @@ db:
   dbOption: postgreSQL
   writeEslTableOnly: false
   k8sServiceAccountName: default
+  sslMode: disable
 cd:
   resources:
     limits:
