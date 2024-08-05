@@ -58,6 +58,6 @@ func (c CloudRunClient) DeployApplicationVersion(ctx context.Context, manifest [
 		return fmt.Errorf("cloudrun client not initialized")
 	}
 	// Ignore the ServiceDeployResponse as it is always empty.
-	_, err := c.Client.Deploy(ctx, &api.ServiceDeployRequest{Manifest: manifest})
+	_, err := c.Client.QueueDeployment(ctx, &api.QueueDeploymentRequest{Manifest: manifest})
 	return err
 }
