@@ -346,53 +346,53 @@ func TestGroupLock(t *testing.T) {
 
 func TestEnvironmentLock(t *testing.T) {
 	testCases := []struct {
-		name               string
-		lockId             string 
-		environment        string
-		expectedStatusCodeLock int
+		name                      string
+		lockId                    string
+		environment               string
+		expectedStatusCodeLock    int
 		expectedStatusCodeRelease int
-		dbConfig	   db.DBConfig
+		dbConfig                  db.DBConfig
 		expectedBodyCreateRelease string
-		appName            string
+		appName                   string
 	}{
 		{
-			name:               "Create environment lock with endpoint",
-			lockId:             "A0",
-			environment:        "development",
-			expectedStatusCodeLock: 200,
+			name:                      "Create environment lock with endpoint",
+			lockId:                    "A0",
+			environment:               "development",
+			expectedStatusCodeLock:    200,
 			expectedStatusCodeRelease: 201,
-			appName:            "test-app",
-			expectedBodyCreateRelease:        "{\"Success\":{}}\n",
-			dbConfig:          db.DBConfig{
-				DbName:    "kuberpult",
-				DbUser:    "postgres",
-				DbHost:    "localhost",
-				DbPort:	   "5432",
-				DbPassword: "mypassword",
+			appName:                   "test-app",
+			expectedBodyCreateRelease: "{\"Success\":{}}\n",
+			dbConfig: db.DBConfig{
+				DbName:       "kuberpult",
+				DbUser:       "postgres",
+				DbHost:       "localhost",
+				DbPort:       "5432",
+				DbPassword:   "mypassword",
 				WriteEslOnly: false,
-				DriverName: "postgres",
-				SSLMode:    "disable",
-			},		
+				DriverName:   "postgres",
+				SSLMode:      "disable",
+			},
 		},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t* testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 
 			lockId := tc.lockId
 			environment := tc.environment
 			appName := tc.appName
 			inputSignature := CalcSignature(t, environment+lockId)
 			requestBodyPut := &LockRequest{
-				Message: "Create environment lock",
+				Message:   "Create environment lock",
 				Signature: inputSignature,
 			}
 			requestBodyDelete := &LockRequest{
-				Message: "Delete environment lock",
+				Message:   "Delete environment lock",
 				Signature: inputSignature,
 			}
-			dbHandler := connectToDB(t, tc.dbConfig)
 			ctx := testutil.MakeTestContext()
+			dbHandler := connectToDB(t, tc.dbConfig, ctx)
 			//Call the api to create Environment Lock in development
 			actualStatusCode, respBody, err := callEnvironmentLock(t, environment, lockId, requestBodyPut, false)
 			if err != nil {
@@ -422,9 +422,9 @@ func TestEnvironmentLock(t *testing.T) {
 			if len(release) != 1 {
 				t.Errorf("expected 1 release but got %d", len(release))
 			}
-			
+
 			// Call the db to see if the release was deployed
-			deployment := callDBForDeployments(t, dbHandler, ctx, appName);
+			deployment := callDBForDeployments(t, dbHandler, ctx, appName)
 			if deployment.App != "" {
 				t.Fatalf("expected no deployments")
 			}
@@ -464,11 +464,11 @@ func TestEnvironmentLock(t *testing.T) {
 				t.Fatalf("expected one deployment")
 			}
 		})
-	} 
+	}
 }
 
-func connectToDB(t *testing.T, dbConfig db.DBConfig) (*db.DBHandler) {
-	dbHandler, err := db.Connect(dbConfig)
+func connectToDB(t *testing.T, dbConfig db.DBConfig, ctx context.Context) *db.DBHandler {
+	dbHandler, err := db.Connect(ctx, dbConfig)
 	if err != nil {
 		t.Fatalf("DbConnect failed %s", err.Error())
 	}
@@ -479,7 +479,7 @@ func connectToDB(t *testing.T, dbConfig db.DBConfig) (*db.DBHandler) {
 	return dbHandler
 }
 
-func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, environment, lockId string) (*db.EnvironmentLock) {
+func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, environment, lockId string) *db.EnvironmentLock {
 	lock, err := db.WithTransactionT(dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.EnvironmentLock, error) {
 		return dbHandler.DBSelectEnvironmentLock(ctx, transaction, "development", lockId)
 	})
@@ -487,15 +487,15 @@ func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, e
 		t.Errorf("DBSelectEnvionmentLock failed %s", err)
 	}
 	if lock.LockID != lockId {
-		t.Errorf("expected LockId %s but got %s", lockId, lock.LockID)	
+		t.Errorf("expected LockId %s but got %s", lockId, lock.LockID)
 	}
 	if lock.Env != environment {
-		t.Errorf("expected Environment %s but got %s", environment, lock.Env)	
+		t.Errorf("expected Environment %s but got %s", environment, lock.Env)
 	}
 	return lock
 }
 
-func callDBForReleases(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) ([]*db.DBReleaseWithMetaData) {
+func callDBForReleases(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) []*db.DBReleaseWithMetaData {
 	release, err := db.WithTransactionMultipleEntriesT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*db.DBReleaseWithMetaData, error) {
 		return dbHandler.DBSelectReleasesByApp(ctx, transaction, appName, false)
 	})
@@ -505,7 +505,7 @@ func callDBForReleases(t *testing.T, dbHandler *db.DBHandler, ctx context.Contex
 	return release
 }
 
-func callDBForDeployments(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) (*db.Deployment) {
+func callDBForDeployments(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) *db.Deployment {
 	deployment, err := db.WithTransactionT(dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.Deployment, error) {
 		return dbHandler.DBSelectDeployment(ctx, transaction, appName, "development")
 	})
@@ -570,8 +570,8 @@ func TestAppParameter(t *testing.T) {
 
 func createValuesFiles(t *testing.T, appName, version string) (map[string]io.Reader, map[string]io.Reader) {
 	values := map[string]io.Reader{
-	"application": strings.NewReader(appName),
-	"version":    strings.NewReader(version),
+		"application": strings.NewReader(appName),
+		"version":     strings.NewReader(version),
 	}
 	files := map[string]io.Reader{
 		"manifests[development]":  strings.NewReader("Test Manifest"),
