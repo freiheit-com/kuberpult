@@ -598,6 +598,23 @@ func TestReadArgs(t *testing.T) {
 				msg: "the --display_version arg must be at most 15 characters long",
 			},
 		},
+		{
+			name: "use_dex_auth is passed",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--use_dex_auth"},
+			expectedCmdArgs: &commandLineArguments{
+				skipSignatures:       true,
+				useDexAuthentication: true,
+				application: cli_utils.RepeatedString{
+					Values: []string{"potato"},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{"production"},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{"manifest-file.yaml"},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
