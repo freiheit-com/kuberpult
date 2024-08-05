@@ -81,12 +81,6 @@ export const CommitInfoPage: React.FC = () => {
                 </div>
             );
         case CommitInfoState.READY:
-            return (
-                <CommitInfo
-                    commitInfo={commitInfo.response}
-                    triggerLoadMore={triggerLoadMore}
-                    pageNumber={pageNumber}
-                />
-            );
+            return <CommitInfo commitInfo={commitInfo.response} triggerLoadMore={triggerLoadMore} />;
     }
 };
