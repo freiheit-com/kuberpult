@@ -278,6 +278,133 @@ func TestCustomMigrationReleases(t *testing.T) {
 	}
 }
 
+func TestCustomMigrationsApps(t *testing.T) {
+	const appName = "my-app"
+	const teamName = "my-team"
+	tcs := []struct {
+		Name            string
+		expectedApps    []*DBAppWithMetaData
+		expectedAllApps []string
+		allAppsFunc     GetAllAppsFun
+	}{
+		{
+			Name: "Simple migration",
+			expectedApps: []*DBAppWithMetaData{
+				{
+					EslVersion:  2,
+					App:         appName,
+					StateChange: AppStateChangeMigrate,
+					Metadata: DBAppMetaData{
+						Team: teamName,
+					},
+				},
+			},
+			expectedAllApps: []string{appName},
+			allAppsFunc: func() (map[string]string, error) {
+				result := map[string]string{
+					appName: teamName,
+				}
+				return result, nil
+			},
+		},
+		{
+			Name:            "No apps still populate all_apps table",
+			expectedApps:    []*DBAppWithMetaData{},
+			expectedAllApps: []string{},
+			allAppsFunc: func() (map[string]string, error) {
+				result := map[string]string{}
+				return result, nil
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunAllCustomMigrationsForApps(ctx, tc.allAppsFunc)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				allApps, err2 := dbHandler.DBSelectAllApplications(ctx, transaction)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedAllApps, allApps.Apps); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				for i := range tc.expectedApps {
+					expectedApp := tc.expectedApps[i]
+
+					app, err := dbHandler.DBSelectApp(ctx, transaction, appName)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(expectedApp, app); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestMigrationCommitEvent(t *testing.T) {
+	var getAllCommitEvents = /*getAllCommitEvents*/ func(ctx context.Context) (AllCommitEvents, error) {
+		result := AllCommitEvents{}
+		return result, nil
+	}
+	tcs := []struct {
+		Name           string
+		expectedEvents []*event.DBEventGo
+	}{
+		{
+			Name: "Test migration event",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, getAllCommitEvents)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				//Check for migration event
+				contains, err := dbHandler.DBContainsMigrationCommitEvent(ctx, transaction)
+				if err != nil {
+					t.Errorf("could not get migration event: %v\n", err)
+
+				}
+				if !contains {
+					t.Errorf("migration event was not created: %v\n", err)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
 func TestCommitEvents(t *testing.T) {
 
 	tcs := []struct {
