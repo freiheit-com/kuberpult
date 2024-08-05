@@ -1963,6 +1963,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 			deploymentInRepo.TransformerID = 0
 			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
 			if deploymentInRepo.Version != nil {
+				logger.FromContext(ctx).Sugar().Warnf("Found non-nil version in deployments on: '%s','%s','%d'\n", deploymentInRepo.App, deploymentInRepo.Env, *deploymentInRepo.Version)
 				_, ok := allDeployments[deploymentInRepo.App]
 				if !ok {
 					allDeployments[deploymentInRepo.App] = map[string]int64{}
