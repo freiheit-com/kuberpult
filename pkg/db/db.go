@@ -1974,6 +1974,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 					deploymentInRepo.App, deploymentInRepo.Env, err)
 			}
 		}
+		logger.FromContext(ctx).Sugar().Warnf("Found '%d' for all_deployments", len(allDeployments))
 		for key, value := range allDeployments {
 			err := h.DBWriteAllDeploymentsForApp(ctx, transaction, 0, key, value)
 			if err != nil {
