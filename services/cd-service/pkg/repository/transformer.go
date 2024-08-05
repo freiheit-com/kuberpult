@@ -3751,7 +3751,6 @@ func (c *envReleaseTrain) Transform(
 				Upstream:    upstreamEnvName,
 				TargetGroup: c.TrainGroup,
 			},
-
 			Author:                "",
 			TransformerEslVersion: c.TransformerEslVersion,
 		}
