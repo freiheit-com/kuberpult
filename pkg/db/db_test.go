@@ -68,13 +68,14 @@ func TestConnection(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			t.Parallel()
 			dir := t.TempDir()
 			cfg := DBConfig{
 				DriverName: "sqlite3",
 				DbHost:     dir,
 			}
-			db, err := Connect(cfg)
+			db, err := Connect(ctx, cfg)
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
@@ -138,12 +139,12 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
 
-			migErr := RunDBMigrations(cfg)
+			migErr := RunDBMigrations(ctx, cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(cfg)
+			db, err := Connect(ctx, cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -277,6 +278,133 @@ func TestCustomMigrationReleases(t *testing.T) {
 	}
 }
 
+func TestCustomMigrationsApps(t *testing.T) {
+	const appName = "my-app"
+	const teamName = "my-team"
+	tcs := []struct {
+		Name            string
+		expectedApps    []*DBAppWithMetaData
+		expectedAllApps []string
+		allAppsFunc     GetAllAppsFun
+	}{
+		{
+			Name: "Simple migration",
+			expectedApps: []*DBAppWithMetaData{
+				{
+					EslVersion:  2,
+					App:         appName,
+					StateChange: AppStateChangeMigrate,
+					Metadata: DBAppMetaData{
+						Team: teamName,
+					},
+				},
+			},
+			expectedAllApps: []string{appName},
+			allAppsFunc: func() (map[string]string, error) {
+				result := map[string]string{
+					appName: teamName,
+				}
+				return result, nil
+			},
+		},
+		{
+			Name:            "No apps still populate all_apps table",
+			expectedApps:    []*DBAppWithMetaData{},
+			expectedAllApps: []string{},
+			allAppsFunc: func() (map[string]string, error) {
+				result := map[string]string{}
+				return result, nil
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunAllCustomMigrationsForApps(ctx, tc.allAppsFunc)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				allApps, err2 := dbHandler.DBSelectAllApplications(ctx, transaction)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedAllApps, allApps.Apps); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				for i := range tc.expectedApps {
+					expectedApp := tc.expectedApps[i]
+
+					app, err := dbHandler.DBSelectApp(ctx, transaction, appName)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(expectedApp, app); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestMigrationCommitEvent(t *testing.T) {
+	var getAllCommitEvents = /*getAllCommitEvents*/ func(ctx context.Context) (AllCommitEvents, error) {
+		result := AllCommitEvents{}
+		return result, nil
+	}
+	tcs := []struct {
+		Name           string
+		expectedEvents []*event.DBEventGo
+	}{
+		{
+			Name: "Test migration event",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, getAllCommitEvents)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				//Check for migration event
+				contains, err := dbHandler.DBContainsMigrationCommitEvent(ctx, transaction)
+				if err != nil {
+					t.Errorf("could not get migration event: %v\n", err)
+
+				}
+				if !contains {
+					t.Errorf("migration event was not created: %v\n", err)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
 func TestCommitEvents(t *testing.T) {
 
 	tcs := []struct {
@@ -353,12 +481,12 @@ func TestCommitEvents(t *testing.T) {
 				DbHost:         dbDir,
 				MigrationsPath: dir,
 			}
-			migErr := RunDBMigrations(cfg)
+			migErr := RunDBMigrations(ctx, cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(cfg)
+			db, err := Connect(ctx, cfg)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -2173,6 +2301,7 @@ func TestReadWriteOverviewCache(t *testing.T) {
 
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
+	ctx := context.Background()
 	dir, err := testutil.CreateMigrationsPath(2)
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
@@ -2183,12 +2312,12 @@ func setupDB(t *testing.T) *DBHandler {
 		DbHost:         tmpDir,
 	}
 
-	migErr := RunDBMigrations(cfg)
+	migErr := RunDBMigrations(ctx, cfg)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := Connect(cfg)
+	dbHandler, err := Connect(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2197,6 +2326,7 @@ func setupDB(t *testing.T) *DBHandler {
 }
 
 func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
+	ctx := context.Background()
 	migrationsPath, err := testutil.CreateMigrationsPath(2)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
@@ -2224,12 +2354,12 @@ func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
 
 	dbConfig.DbHost = dir
 
-	migErr := RunDBMigrations(*dbConfig)
+	migErr := RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := Connect(*dbConfig)
+	dbHandler, err := Connect(ctx, *dbConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

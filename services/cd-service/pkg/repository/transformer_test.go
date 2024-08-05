@@ -7049,6 +7049,7 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repository {
+	ctx := context.Background()
 	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
@@ -7084,12 +7085,12 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repositor
 	}
 	dbConfig.DbHost = dir
 
-	migErr := db.RunDBMigrations(*dbConfig)
+	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := db.Connect(*dbConfig)
+	dbHandler, err := db.Connect(ctx, *dbConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

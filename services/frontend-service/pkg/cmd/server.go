@@ -439,7 +439,7 @@ func runServer(ctx context.Context) error {
 
 			if c.AzureEnableAuth {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:
-				var allowedPaths = []string{"/", "/release", "/health", "/manifest.json", "/favicon.png"}
+				var allowedPaths = []string{"/", "/release", "/health", "/favicon.png"}
 				var allowedPrefixes = []string{"/static/js", "/static/css", "/ui"}
 				if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, allowedPaths, allowedPrefixes); err != nil {
 					return
