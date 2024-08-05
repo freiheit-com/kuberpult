@@ -88,6 +88,11 @@ const (
 	AppStateChangeDelete  AppStateChange = "AppStateChangeDelete"
 )
 
+const (
+	MigrationCommitEventUUID = "00000000-0000-0000-0000-000000000000"
+	MigrationCommitEventHash = "0000000000000000000000000000000000000000"
+)
+
 func (h *DBHandler) ShouldUseEslTable() bool {
 	return h != nil
 }
@@ -1001,6 +1006,29 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 	span.SetTag("query", query)
 	rows, err := transaction.QueryContext(ctx, query)
 	return h.processSingleEventsRow(ctx, rows, err)
+}
+
+func (h *DBHandler) DBContainsMigrationCommitEvent(ctx context.Context, transaction *sql.Tx) (bool, error) {
+	if h == nil {
+		return false, nil
+	}
+	if transaction == nil {
+		return false, fmt.Errorf("DBContainsMigrationCommitEvent: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBContainsMigrationCommitEvent")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 1;")
+	span.SetTag("query", query)
+	rows, err := transaction.QueryContext(ctx, query, MigrationCommitEventHash)
+
+	row, err := h.processSingleEventsRow(ctx, rows, err)
+
+	if err != nil {
+		return false, err
+	}
+
+	return row != nil, nil
 }
 
 func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventType event.EventType, limit uint) ([]event.DBEventGo, error) {
@@ -2120,6 +2148,11 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllE
 				}
 			}
 		}
+		//Migration event
+		err = h.writeEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
+		if err != nil {
+			return fmt.Errorf("error writing migration commit event to the database: %v\n", err)
+		}
 		return nil
 	})
 }
@@ -2127,12 +2160,13 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllE
 func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
 
-	ev, err := h.DBSelectAnyEvent(ctx, transaction)
+	//Checks for 'migration' commit event with hash 0000(...)0000
+	contains, err := h.DBContainsMigrationCommitEvent(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if ev != nil {
-		l.Infof("There are already commit events in the DB - skipping migrations")
+	if contains {
+		l.Infof("detected migration commit event on the database - skipping migrations")
 		return false, nil
 	}
 	return true, nil
