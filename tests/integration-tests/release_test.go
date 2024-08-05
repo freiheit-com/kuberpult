@@ -105,9 +105,9 @@ func postWithForm(client *http.Client, url string, values map[string]io.Reader, 
 	return res, nil
 }
 
-// calls the release endpoint with files for manifests + signatures
+// calls the release endpoint with files for manifests
 func callRelease(values map[string]io.Reader, files map[string]io.Reader) (int, string, error) {
-	formResult, err := postWithForm(http.DefaultClient, "http://localhost:"+frontendPort+"/release", values, files)
+	formResult, err := postWithForm(http.DefaultClient, "http://localhost:"+frontendPort+"/api/release", values, files)
 	if err != nil {
 		return 0, "", err
 	}
@@ -165,7 +165,6 @@ func TestReleaseCalls(t *testing.T) {
 		name               string
 		inputApp           string
 		inputManifest      string
-		inputSignature     string
 		inputManifestEnv   string
 		inputSignatureEnv  string // usually the same as inputManifestEnv
 		inputVersion       string // actually an int, but for testing purposes it may be a string
@@ -175,7 +174,6 @@ func TestReleaseCalls(t *testing.T) {
 			name:               "Simple invocation of /release endpoint",
 			inputApp:           "my-app",
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "1",
@@ -187,7 +185,6 @@ func TestReleaseCalls(t *testing.T) {
 			name:               "Simple invocation of /release endpoint with valid version should be new",
 			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "99",
@@ -198,7 +195,6 @@ func TestReleaseCalls(t *testing.T) {
 			name:               "Simple invocation of /release endpoint with valid version should already exist",
 			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "99",
@@ -208,7 +204,6 @@ func TestReleaseCalls(t *testing.T) {
 			name:               "Simple invocation of /release endpoint with invalid version",
 			inputApp:           "my-app",
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "notanumber",
@@ -218,30 +213,9 @@ func TestReleaseCalls(t *testing.T) {
 			name:               "too long app name",
 			inputApp:           "my-app-is-way-too-long-dont-you-think-so-too",
 			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
 			inputSignatureEnv:  devEnv,
 			inputVersion:       "2",
-			expectedStatusCode: 400,
-		},
-		{
-			name:               "invalid signature",
-			inputApp:           "my-app2",
-			inputManifest:      theManifest,
-			inputSignature:     "not valid!",
-			inputManifestEnv:   devEnv,
-			inputSignatureEnv:  devEnv,
-			inputVersion:       "3",
-			expectedStatusCode: 400,
-		},
-		{
-			name:               "Valid signature, but at the wrong place",
-			inputApp:           "my-app",
-			inputManifest:      theManifest,
-			inputSignature:     CalcSignature(t, theManifest),
-			inputManifestEnv:   devEnv,
-			inputSignatureEnv:  stageEnv, // !!
-			inputVersion:       "4",
 			expectedStatusCode: 400,
 		},
 	}
@@ -254,8 +228,7 @@ func TestReleaseCalls(t *testing.T) {
 			}
 			values["version"] = strings.NewReader(tc.inputVersion)
 			files := map[string]io.Reader{
-				"manifests[" + tc.inputManifestEnv + "]":   strings.NewReader(tc.inputManifest),
-				"signatures[" + tc.inputSignatureEnv + "]": strings.NewReader(tc.inputSignature),
+				"manifests[" + tc.inputManifestEnv + "]": strings.NewReader(tc.inputManifest),
 			}
 
 			actualStatusCode, body, err := callRelease(values, files)
@@ -345,7 +318,6 @@ func TestAppParameter(t *testing.T) {
 
 			files := map[string]io.Reader{}
 			files["manifests[dev]"] = strings.NewReader("manifest")
-			files["signatures[dev]"] = strings.NewReader(CalcSignature(t, "manifest"))
 
 			actualStatusCode, actualBody, err := callRelease(values, files)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {

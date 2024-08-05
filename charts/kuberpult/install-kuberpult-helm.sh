@@ -17,6 +17,9 @@ set -eu
 set -o pipefail
 
 cat <<VALUES > vals.yaml
+auth:
+  api:
+    enableDespiteNoAuth: true
 db:
   location: postgres
   authProxyPort: 5432
