@@ -357,6 +357,54 @@ func TestCustomMigrationsApps(t *testing.T) {
 	}
 }
 
+func TestMigrationCommitEvent(t *testing.T) {
+	var getAllCommitEvents = /*getAllCommitEvents*/ func(ctx context.Context) (AllCommitEvents, error) {
+		result := AllCommitEvents{}
+		return result, nil
+	}
+	tcs := []struct {
+		Name           string
+		expectedEvents []*event.DBEventGo
+	}{
+		{
+			Name: "Test migration event",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, getAllCommitEvents)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				//Check for migration event
+				contains, err := dbHandler.DBContainsMigrationCommitEvent(ctx, transaction)
+				if err != nil {
+					t.Errorf("could not get migration event: %v\n", err)
+
+				}
+				if !contains {
+					t.Errorf("migration event was not created: %v\n", err)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
 func TestCommitEvents(t *testing.T) {
 
 	tcs := []struct {
