@@ -793,27 +793,6 @@ func TestParseArgs(t *testing.T) {
 				msg: "error while reading command line arguments, error: --signature args are not allowed when --skip_signatures or use_dex_auth are set",
 			},
 		},
-		// {
-		// 	setup: []fileCreation{
-		// 		{
-		// 			filename: "development-manifest.yaml",
-		// 			content:  "some development manifest",
-		// 		},
-		// 		{
-		// 			filename: "development-signature.gpg",
-		// 			content:  "some development signature",
-		// 		},
-		// 	},
-		// 	name:    "skip_signatures works with use_dex_auth",
-		// 	cmdArgs: []string{"--use_dex_auth", "--skip_signatures", "--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml"},
-		// 	expectedParams: &ReleaseParameters{
-		// 		Application: "potato",
-		// 		Manifests: map[string][]byte{
-		// 			"development": []byte("some development manifest"),
-		// 		},
-		// 		UseDexAuthentication: true,
-		// 	},
-		// },
 	}
 
 	for _, tc := range tcs {

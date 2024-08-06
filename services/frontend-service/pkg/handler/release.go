@@ -468,9 +468,8 @@ func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *h
 		{
 			msg := "unknown response type"
 			jsonBlob, err := json.Marshal(releaseResponse)
-			// jsonBlobRequest, _ := json.Marshal(&tf)
 			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
-			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: request: %s, response: %s", msg, "jsonBlobRequest", jsonBlob)), err, http.StatusInternalServerError)
+			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: ,response: %s", msg, jsonBlob)), err, http.StatusInternalServerError)
 		}
 	}
 }
