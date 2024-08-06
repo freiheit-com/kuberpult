@@ -387,9 +387,8 @@ func TestCustomMigrationsApps(t *testing.T) {
 }
 
 func TestMigrationCommitEvent(t *testing.T) {
-	var getAllCommitEvents = /*getAllCommitEvents*/ func(ctx context.Context) (AllCommitEvents, error) {
-		result := AllCommitEvents{}
-		return result, nil
+	var writeAllCommitEvents = /*writeAllCommitEvents*/ func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error {
+		return nil
 	}
 	tcs := []struct {
 		Name           string
@@ -412,7 +411,7 @@ func TestMigrationCommitEvent(t *testing.T) {
 					return fmt.Errorf("error: %v", err2)
 				}
 
-				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, getAllCommitEvents)
+				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, writeAllCommitEvents)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
@@ -567,7 +566,7 @@ func writeEventAux(ctx context.Context, db *DBHandler, tx *sql.Tx, sourceCommitH
 	if err != nil {
 		return err
 	}
-	return db.writeEvent(ctx, tx, 0, ev.EventMetadata.Uuid, event.EventType(ev.EventMetadata.EventType), sourceCommitHash, jsonToInsert)
+	return db.WriteEvent(ctx, tx, 0, ev.EventMetadata.Uuid, event.EventType(ev.EventMetadata.EventType), sourceCommitHash, jsonToInsert)
 }
 
 func TestSqliteToPostgresQuery(t *testing.T) {
