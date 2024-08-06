@@ -41,6 +41,8 @@ func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {
 		http.Error(w, s.Message(), http.StatusRequestTimeout)
 	case codes.ResourceExhausted:
 		http.Error(w, s.Message(), http.StatusServiceUnavailable)
+	case codes.PermissionDenied:
+		http.Error(w, s.Message(), http.StatusForbidden)
 	default:
 		logger.FromContext(ctx).Error(s.Message())
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
