@@ -140,7 +140,7 @@ func releaseApp(t *testing.T, application string, manifests map[string]string) {
 	for env, data := range manifests {
 		files["manifests["+env+"]"] = strings.NewReader(data)
 	}
-	actualStatusCode, body, err := callRelease(values, files)
+	actualStatusCode, body, err := callRelease(values, files, "/api/release")
 	if err != nil {
 		t.Fatal(err)
 	}

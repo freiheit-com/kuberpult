@@ -106,8 +106,8 @@ func postWithForm(client *http.Client, url string, values map[string]io.Reader, 
 }
 
 // calls the release endpoint with files for manifests
-func callRelease(values map[string]io.Reader, files map[string]io.Reader) (int, string, error) {
-	formResult, err := postWithForm(http.DefaultClient, "http://localhost:"+frontendPort+"/api/release", values, files)
+func callRelease(values map[string]io.Reader, files map[string]io.Reader, endpoint string) (int, string, error) {
+	formResult, err := postWithForm(http.DefaultClient, "http://localhost:"+frontendPort+endpoint, values, files)
 	if err != nil {
 		return 0, "", err
 	}
@@ -231,7 +231,7 @@ func TestReleaseCalls(t *testing.T) {
 				"manifests[" + tc.inputManifestEnv + "]": strings.NewReader(tc.inputManifest),
 			}
 
-			actualStatusCode, body, err := callRelease(values, files)
+			actualStatusCode, body, err := callRelease(values, files, "/api/release")
 			if err != nil {
 				t.Fatalf("callRelease failed: %s", err.Error())
 			}
@@ -319,7 +319,7 @@ func TestAppParameter(t *testing.T) {
 			files := map[string]io.Reader{}
 			files["manifests[dev]"] = strings.NewReader("manifest")
 
-			actualStatusCode, actualBody, err := callRelease(values, files)
+			actualStatusCode, actualBody, err := callRelease(values, files, "/api/release")
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -354,7 +354,7 @@ func TestManifestParameterMissing(t *testing.T) {
 
 			files := map[string]io.Reader{}
 
-			actualStatusCode, actualBody, err := callRelease(values, files)
+			actualStatusCode, actualBody, err := callRelease(values, files, "/api/release")
 
 			if err != nil {
 				t.Errorf("form error %s", err.Error())
@@ -522,6 +522,75 @@ func TestServeHttpBasics(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+			}
+		})
+	}
+}
+
+func TestSignatures(t *testing.T) {
+	theManifest := "I am a manifest\n- foo\nfoo"
+
+	testCases := []struct {
+		name               string
+		inputApp           string
+		inputManifest      string
+		inputSignature     string
+		inputManifestEnv   string
+		inputSignatureEnv  string
+		inputVersion       string
+		expectedStatusCode int
+	}{
+		{
+			name:               "Correct signature",
+			inputApp:           "test-signatures-app" + appSuffix,
+			inputManifest:      theManifest,
+			inputSignature:     CalcSignature(t, theManifest),
+			inputManifestEnv:   devEnv,
+			inputSignatureEnv:  devEnv,
+			inputVersion:       "1",
+			expectedStatusCode: 201,
+		},
+		{
+			name:               "invalid signature",
+			inputApp:           "test-signatures-failing-app" + appSuffix,
+			inputManifest:      theManifest,
+			inputSignature:     "not valid!",
+			inputManifestEnv:   devEnv,
+			inputSignatureEnv:  devEnv,
+			inputVersion:       "3",
+			expectedStatusCode: 400,
+		},
+		{
+			name:               "Valid signature, but at the wrong place",
+			inputApp:           "test-signatures-failing-app" + appSuffix,
+			inputManifest:      theManifest,
+			inputSignature:     CalcSignature(t, theManifest),
+			inputManifestEnv:   devEnv,
+			inputSignatureEnv:  stageEnv, // !!
+			inputVersion:       "4",
+			expectedStatusCode: 400,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			values := map[string]io.Reader{
+				"application": strings.NewReader(tc.inputApp),
+			}
+			values["version"] = strings.NewReader(tc.inputVersion)
+			files := map[string]io.Reader{
+				"manifests[" + tc.inputManifestEnv + "]":   strings.NewReader(tc.inputManifest),
+				"signatures[" + tc.inputSignatureEnv + "]": strings.NewReader(tc.inputSignature),
+			}
+
+			actualStatusCode, body, err := callRelease(values, files, "/release")
+			if err != nil {
+				t.Fatalf("callRelease failed: %s", err.Error())
+			}
+
+			if actualStatusCode != tc.expectedStatusCode {
+				t.Errorf("expected code %v but got %v. Body: %s", tc.expectedStatusCode, actualStatusCode, body)
 			}
 		})
 	}
