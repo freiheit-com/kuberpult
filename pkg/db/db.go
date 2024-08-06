@@ -892,8 +892,8 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 	return nil
 }
 
-func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
+func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "WriteEvent")
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
@@ -935,7 +935,7 @@ func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("error marshalling lock new release event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
@@ -951,7 +951,7 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 	if err != nil {
 		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, replacedBy *event.ReplacedBy) error {
@@ -967,7 +967,7 @@ func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("error marshalling replacedBys event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeReplaceBy, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeReplaceBy, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, deployment *event.Deployment) error {
@@ -989,7 +989,7 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (*EventRow, error) {
@@ -1334,7 +1334,7 @@ type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
 type WriteAllReleasesFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
 type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, error)
-type GetAllEventsFun = func(ctx context.Context) (AllCommitEvents, error)
+type WriteAllEventsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
@@ -1352,7 +1352,7 @@ func (h *DBHandler) RunCustomMigrations(
 	getAllTeamLocksFun GetAllTeamLocksFun,
 	getAllEnvironmentsFun GetAllEnvironmentsFun,
 	getAllQueuedVersionsFun GetAllQueuedVersionsFun,
-	getAllEventsFun GetAllEventsFun,
+	writeAllEventsFun WriteAllEventsFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
@@ -1388,7 +1388,7 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationsCommitEvents(ctx, getAllEventsFun)
+	err = h.RunCustomMigrationsCommitEvents(ctx, writeAllEventsFun)
 	if err != nil {
 		return err
 	}
@@ -2082,7 +2082,7 @@ func (h *DBHandler) needsTeamLocksMigrations(ctx context.Context, transaction *s
 	return true, nil
 }
 
-func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllEvents GetAllEventsFun) error {
+func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, writeAllEvents WriteAllEventsFun) error {
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needsMigrating, err := h.needsCommitEventsMigrations(ctx, transaction)
 		if err != nil {
@@ -2092,26 +2092,14 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllE
 			return nil
 		}
 
-		allEvents, err := getAllEvents(ctx)
+		err = writeAllEvents(ctx, transaction, h)
 		if err != nil {
-			return fmt.Errorf("could not get current commit events to run custom migrations: %v", err)
-		}
-		for commitID, events := range allEvents {
-			for _, currentEvent := range events {
-				eventJson, err := json.Marshal(currentEvent)
-				if err != nil {
-					return fmt.Errorf("Could not marshal event: %v\n", err)
-				}
-				err = h.writeEvent(ctx, transaction, 0, currentEvent.EventMetadata.Uuid, event.EventType(currentEvent.EventMetadata.EventType), commitID, eventJson)
-				if err != nil {
-					return fmt.Errorf("error writing existing event version: %v", err)
-				}
-			}
+			return fmt.Errorf("could not get current commit events to run custom migrations: %w", err)
 		}
 		//Migration event
-		err = h.writeEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
+		err = h.WriteEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
 		if err != nil {
-			return fmt.Errorf("error writing migration commit event to the database: %v\n", err)
+			return fmt.Errorf("error writing migration commit event to the database: %w\n", err)
 		}
 		return nil
 	})

@@ -2145,28 +2145,27 @@ func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersio
 	return result, nil
 }
 
-func (s *State) GetAllCommitEvents(ctx context.Context) (db.AllCommitEvents, error) {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllCommitEvents")
+func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteAllCommitEvents")
 	defer ddSpan.Finish()
 	fs := s.Filesystem
 	allCommitsPath := "commits"
 	commitPrefixes, err := fs.ReadDir(allCommitsPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not read commits dir: %v\n", err)
+		return fmt.Errorf("could not read commits dir: %w\n", err)
 	}
-	result := make(db.AllCommitEvents)
 	for _, currentPrefix := range commitPrefixes {
 		currentpath := fs.Join(allCommitsPath, currentPrefix.Name())
 		commitSuffixes, err := fs.ReadDir(currentpath)
 		if err != nil {
-			return nil, fmt.Errorf("could not read commit directory '%s': %v", currentpath, err)
+			return fmt.Errorf("could not read commit directory '%s': %w", currentpath, err)
 		}
 		for _, currentSuffix := range commitSuffixes {
-			var currentEvents []event.DBEventGo
+			commitID := strings.Join([]string{currentPrefix.Name(), currentSuffix.Name()}, "")
 			currentpath := fs.Join(fs.Join(currentpath, currentSuffix.Name(), "events"))
 			potentialEventDirs, err := fs.ReadDir(currentpath)
 			if err != nil {
-				return nil, fmt.Errorf("could not read events directory '%s': %v", currentpath, err)
+				return fmt.Errorf("could not read events directory '%s': %w", currentpath, err)
 			}
 			for i := range potentialEventDirs {
 				oneEventDir := potentialEventDirs[i]
@@ -2176,26 +2175,33 @@ func (s *State) GetAllCommitEvents(ctx context.Context) (db.AllCommitEvents, err
 					eType, err := readFile(fs, fs.Join(fs.Join(currentpath, fileName), "eventType"))
 
 					if err != nil {
-						return nil, fmt.Errorf("could not read event type '%s': %v", fs.Join(currentpath, fileName), err)
+						return fmt.Errorf("could not read event type '%s': %w", fs.Join(currentpath, fileName), err)
 					}
 
 					fsEvent, err := event.Read(fs, fs.Join(currentpath, fileName))
 					if err != nil {
-						return nil, fmt.Errorf("could not read events %v", err)
+						return fmt.Errorf("could not read events %w", err)
 					}
-					currentEvents = append(currentEvents, event.DBEventGo{
+					currentEvent := event.DBEventGo{
 						EventData: fsEvent,
 						EventMetadata: event.Metadata{
 							Uuid:      fileName,
 							EventType: string(eType),
 						},
-					})
+					}
+					eventJson, err := json.Marshal(currentEvent)
+					if err != nil {
+						return fmt.Errorf("Could not marshal event: %w\n", err)
+					}
+					err = dbHandler.WriteEvent(ctx, transaction, 0, currentEvent.EventMetadata.Uuid, event.EventType(currentEvent.EventMetadata.EventType), commitID, eventJson)
+					if err != nil {
+						return fmt.Errorf("error writing existing event version: %w", err)
+					}
 				}
 			}
-			result[strings.Join([]string{currentPrefix.Name(), currentSuffix.Name()}, "")] = currentEvents
 		}
 	}
-	return result, nil
+	return nil
 }
 
 func (s *State) GetAppsAndTeams() (map[string]string, error) {
