@@ -1,7 +1,5 @@
 VERSION 0.8
 
-
-
 godeps:
     FROM golang:1.22-alpine
 
@@ -46,7 +44,7 @@ chart.yaml:
     WORKDIR /kp
 
     COPY Chart.yaml.tpl .
-    
+
     RUN env VERSION=$VERSION envsubst < Chart.yaml.tpl > Chart.yaml
 
     SAVE ARTIFACT Chart.yaml AS LOCAL Chart.yaml
@@ -83,22 +81,22 @@ test-values.yaml:
     COPY ci ci
 
     RUN grep -o '^[^#]*' values.yaml > ci/test-values.yaml
-	RUN yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' ci/test-values.yaml ci/test-values-override.yaml 
+	RUN yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' ci/test-values.yaml ci/test-values-override.yaml
 
     SAVE ARTIFACT ci/test-values.yaml AS LOCAL ci/test-values.yaml
 
 ct-test:
     LOCALLY
     ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
-    
+
     FROM +deps
     WORKDIR /kp
-    
+
     COPY ci ci
     COPY (+chart.yaml/Chart.yaml --VERSION=$VERSION) .
     COPY values.yaml .
     COPY templates templates
-    
+
     RUN ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git
 
 test-helm:
@@ -113,17 +111,19 @@ test-helm:
     COPY (+chart.yaml/Chart.yaml --VERSION=$VERSION) .
 
     RUN helm lint kuberpult-*.tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
-    COPY tests ./tests
     COPY values.yaml .
     COPY templates templates
+    RUN helm dependency build
 
-
-    RUN helm dependency build && cd tests && go mod init test-helm && go mod tidy && go test
+    COPY tests ./tests
+    WORKDIR tests
+    RUN go mod init test-helm && go mod tidy
+    RUN go test ./...
 
 test:
     LOCALLY
     ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
-    
+
     BUILD +ct-test --VERSION=$VERSION
     BUILD +test-helm --VERSION=$VERSION
 

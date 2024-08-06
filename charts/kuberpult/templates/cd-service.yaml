@@ -240,12 +240,12 @@ spec:
         - name: KUBERPULT_DB_USER_NAME
           valueFrom:
             secretKeyRef:
-              name: kuberpult-db-user
+              name: kuberpult-db
               key: username
         - name: KUBERPULT_DB_USER_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: kuberpult-db-user
+              name: kuberpult-db
               key: password
         - name: KUBERPULT_DB_SSL_MODE
           value: "{{ .Values.db.sslMode }}"
@@ -394,7 +394,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: kuberpult-db-user
+  name: kuberpult-db
 data:
   username: {{ .Values.db.dbUser | b64enc | quote }}
   password: {{ .Values.db.dbPassword | b64enc | quote }}
