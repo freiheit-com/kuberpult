@@ -65,8 +65,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 {{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.db.k8sServiceAccountName)) }}
-      serviceAccountName: {{ .Values.db.k8sServiceAccountName }}  
-{{- end }} 
+      serviceAccountName: {{ .Values.db.k8sServiceAccountName }}
+{{- end }}
       containers:
 {{- if .Values.db.cloudSqlProxyEnabled }}
       - name: cloud-sql-proxy
@@ -212,7 +212,7 @@ spec:
         - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.auth.dexAuth.enabled }}"
 {{- if .Values.environment_configs.bootstrap_mode }}
-        {{ fail "Values.environment_configs.bootstrap_mode cannot be used anymore. For more information [See environment.md/Environment Creation for how to create and edit environments](https://github.com/freiheit-com/kuberpult/blob/main/docs/environment.md) "}} 
+        {{ fail "Values.environment_configs.bootstrap_mode cannot be used anymore. For more information [See environment.md/Environment Creation for how to create and edit environments](https://github.com/freiheit-com/kuberpult/blob/main/docs/environment.md) "}}
 {{- end }}
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
@@ -238,9 +238,15 @@ spec:
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
-          value: "{{ .Values.db.dbUser }}"
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db-user
+              key: username
         - name: KUBERPULT_DB_USER_PASSWORD
-          value: "{{ .Values.db.dbPassword }}"
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db-user
+              key: password
         - name: KUBERPULT_DB_SSL_MODE
           value: "{{ .Values.db.sslMode }}"
 {{- end }}
@@ -382,4 +388,14 @@ metadata:
 data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
   team.csv: {{ .Values.auth.dexAuth.team_csv| quote}}
+{{- end }}
+{{- if eq .Values.db.dbOption "postgreSQL" }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuberpult-db-user
+data:
+  username: {{ .Values.db.dbUser | b64enc | quote }}
+  password: {{ .Values.db.dbPassword | b64enc | quote }}
 {{- end }}
