@@ -68,6 +68,8 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 		s.handleApiApplication(w, req, tail)
 	case "environments":
 		s.handleApiEnvironments(w, req, tail)
+	case "release":
+		s.handleApiRelease(w, req, tail)
 	default:
 		http.Error(w, fmt.Sprintf("unknown endpoint 'api/%s'", group), http.StatusNotFound)
 	}

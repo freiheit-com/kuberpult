@@ -175,8 +175,8 @@ func TestCustomMigrationReleases(t *testing.T) {
 		}
 		return result, nil
 	}
-	var getAllReleases = /*GetAllReleasesFun*/ func(ctx context.Context, app string) (AllReleases, error) {
-		result := AllReleases{
+	var writeAllReleases = /*writeAllReleases*/ func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error {
+		releases := AllReleases{
 			1: ReleaseWithManifest{
 				Version:         666,
 				UndeployVersion: false,
@@ -202,7 +202,36 @@ func TestCustomMigrationReleases(t *testing.T) {
 				},
 			},
 		}
-		return result, nil
+		releaseNumbers := []int64{}
+		for _, r := range releases {
+			dbRelease := DBReleaseWithMetaData{
+				EslVersion:    InitialEslVersion,
+				Created:       time.Now().UTC(),
+				ReleaseNumber: r.Version,
+				App:           app,
+				Manifests: DBReleaseManifests{
+					Manifests: r.Manifests,
+				},
+				Metadata: DBReleaseMetaData{
+					UndeployVersion: r.UndeployVersion,
+					SourceAuthor:    r.SourceAuthor,
+					SourceCommitId:  r.SourceCommitId,
+					SourceMessage:   r.SourceMessage,
+					DisplayVersion:  r.DisplayVersion,
+				},
+				Deleted: false,
+			}
+			err := dbHandler.DBInsertRelease(ctx, transaction, dbRelease, InitialEslVersion-1)
+			if err != nil {
+				return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
+			}
+			releaseNumbers = append(releaseNumbers, int64(r.Version))
+		}
+		err := dbHandler.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslVersion-1)
+		if err != nil {
+			return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
+		}
+		return nil
 	}
 	tcs := []struct {
 		Name             string
@@ -254,7 +283,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 
 			dbHandler := SetupRepositoryTestWithDB(t)
 			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, getAllReleases)
+				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, writeAllReleases)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}

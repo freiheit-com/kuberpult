@@ -13,22 +13,18 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
 
 type CommitInfoProps = {
     commitInfo: GetCommitInfoResponse | undefined;
-    triggerLoadMore: { (): void } | null;
+    onClick?: { (): void };
 };
 
 export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     const commitInfo = props.commitInfo;
-    const triggerLoadMore: () => void = props.triggerLoadMore !== null ? props.triggerLoadMore : (): void => {};
     const canLoadMore = props.commitInfo?.loadMore;
-
-    const onClick = useCallback(() => {
-        triggerLoadMore();
-    }, [triggerLoadMore]);
+    const onClick = props.onClick;
 
     if (commitInfo === undefined) {
         return (

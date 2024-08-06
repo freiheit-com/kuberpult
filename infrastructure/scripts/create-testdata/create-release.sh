@@ -66,7 +66,6 @@ manifests=()
 for env in development development2 staging fakeprod-de fakeprod-ca
 do
   file=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
-  signatureFile=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
   randomValue=$(head -c 20 /dev/urandom | sha1sum | awk '{print $1}' | head -c 12)
 cat <<EOF > "${file}"
 ---
@@ -82,8 +81,6 @@ data:
 EOF
   echo "wrote file ${file}"
   manifests+=("--form" "manifests[${env}]=@${file}")
-  gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
-  manifests+=("--form" "signatures[${env}]=@${signatureFile}")
 done
 echo commit id: "${commit_id}"
 
@@ -108,7 +105,7 @@ then
   inputs+=(--form-string "previous_commit_id=${prev}")
 fi
 
-curl http://localhost:${FRONTEND_PORT}/release \
+curl http://localhost:${FRONTEND_PORT}/api/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \

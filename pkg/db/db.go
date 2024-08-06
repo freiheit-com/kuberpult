@@ -1319,10 +1319,10 @@ type AllDeployments []Deployment
 type AllEnvLocks map[string][]EnvironmentLock
 type AllReleases map[uint64]ReleaseWithManifest // keys: releaseVersion; value: release with manifests
 
-// GetAllDeploymentsFun and other functions here are used during migration.
-// They are supposed to read data from files in the manifest repo,
-// and therefore should not need to access the Database at all.
-type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
+// WriteAllDeploymentsFun and other functions here are used during migration.
+// They are supposed to read data from files in the manifest repo and write it to the databse,
+// and therefore need to access the Database.
+type WriteAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 
 type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
@@ -1332,7 +1332,7 @@ type AllCommitEvents map[string][]event.DBEventGo        // CommitId -> uuid -> 
 
 type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
-type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
+type WriteAllReleasesFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
 type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, error)
 type GetAllEventsFun = func(ctx context.Context) (AllCommitEvents, error)
 
@@ -1345,8 +1345,8 @@ type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.Enviro
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
-	getAllDeploymentsFun GetAllDeploymentsFun,
-	getAllReleasesFun GetAllReleasesFun,
+	writeAllDeploymentsFun WriteAllDeploymentsFun,
+	writeAllReleasesFun WriteAllReleasesFun,
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
 	getAllTeamLocksFun GetAllTeamLocksFun,
@@ -1364,11 +1364,11 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationDeployments(ctx, getAllDeploymentsFun)
+	err = h.RunCustomMigrationDeployments(ctx, writeAllDeploymentsFun)
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, getAllReleasesFun)
+	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, writeAllReleasesFun)
 	if err != nil {
 		return err
 	}
@@ -1810,7 +1810,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 
 // CUSTOM MIGRATIONS
 
-func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, getAllReleasesFun GetAllReleasesFun) error {
+func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
 	defer span.Finish()
 
@@ -1830,42 +1830,11 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 		for app := range allAppsMap {
 			l.Infof("processing app %s ...", app)
 
-			releases, err := getAllReleasesFun(ctx, app)
+			err := writeAllReleasesFun(ctx, transaction, app, h)
 			if err != nil {
-				return fmt.Errorf("geAllReleases failed %v", err)
-			}
-
-			releaseNumbers := []int64{}
-			for r := range releases {
-				repoRelease := releases[r]
-				dbRelease := DBReleaseWithMetaData{
-					EslVersion:    InitialEslVersion,
-					Created:       time.Now().UTC(),
-					ReleaseNumber: repoRelease.Version,
-					App:           app,
-					Manifests: DBReleaseManifests{
-						Manifests: repoRelease.Manifests,
-					},
-					Metadata: DBReleaseMetaData{
-						UndeployVersion: repoRelease.UndeployVersion,
-						SourceAuthor:    repoRelease.SourceAuthor,
-						SourceCommitId:  repoRelease.SourceCommitId,
-						SourceMessage:   repoRelease.SourceMessage,
-						DisplayVersion:  repoRelease.DisplayVersion,
-					},
-					Deleted: false,
-				}
-				err = h.DBInsertRelease(ctx, transaction, dbRelease, InitialEslVersion-1)
-				if err != nil {
-					return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
-				}
-				releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
+				return fmt.Errorf("could not migrate releases to database: %v", err)
 			}
 			l.Infof("done with app %s", app)
-			err = h.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslVersion-1)
-			if err != nil {
-				return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
-			}
 		}
 		return nil
 	})
@@ -1885,7 +1854,7 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 
 }
 
-func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun GetAllDeploymentsFun) error {
+func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun WriteAllDeploymentsFun) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
 	defer span.Finish()
 
@@ -1897,20 +1866,11 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 		if !needsMigrating {
 			return nil
 		}
-		allDeploymentsInRepo, err := getAllDeploymentsFun(ctx, transaction)
+		err = getAllDeploymentsFun(ctx, transaction, h)
 		if err != nil {
 			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
 		}
 
-		for i := range allDeploymentsInRepo {
-			deploymentInRepo := allDeploymentsInRepo[i]
-			deploymentInRepo.TransformerID = 0
-			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
-			if err != nil {
-				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
-					deploymentInRepo.App, deploymentInRepo.Env, err)
-			}
-		}
 		return nil
 	})
 }
@@ -3279,7 +3239,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock)
+	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock, timetoInsert)
 	if err != nil {
 		return fmt.Errorf("could not update overview application lock. Error: %w\n", err)
 	}

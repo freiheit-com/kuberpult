@@ -16,7 +16,15 @@ Copyright freiheit.com*/
 import { Releases } from './Releases';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
-import { Release, UndeploySummary } from '../../../api/api';
+import {
+    Environment,
+    EnvironmentGroup,
+    Environment_Application,
+    Lock,
+    Priority,
+    Release,
+    UndeploySummary,
+} from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
 describe('Release Dialog', () => {
@@ -24,6 +32,79 @@ describe('Release Dialog', () => {
         name: string;
         dates: number;
         releases: Release[];
+        envGroups: EnvironmentGroup[];
+        expectedAppLocksLength: number;
+    };
+    const testAppLock: Lock = {
+        lockId: 'testlockId',
+        message: 'test-lock',
+        createdAt: new Date('2022-12-04T12:30:12'),
+        createdBy: { name: 'test', email: 'test' },
+    };
+    const testAppLock2: Lock = {
+        lockId: 'testlockId2',
+        message: 'test-lock',
+        createdAt: new Date('2022-12-04T12:30:12'),
+        createdBy: { name: 'test', email: 'test' },
+    };
+    const testApplock3: Lock = {
+        lockId: 'testlockId3',
+        message: 'test-lock',
+        createdAt: new Date('2022-12-04T12:30:12'),
+        createdBy: { name: 'test', email: 'test' },
+    };
+    const testApp1: Environment_Application = {
+        name: 'test',
+        version: 1,
+        locks: { testlockId: testAppLock },
+        queuedVersion: 0,
+        undeployVersion: false,
+        teamLocks: {},
+        team: 'test-team',
+    };
+    const testApp2: Environment_Application = {
+        name: 'test2',
+        version: 1,
+        locks: { testlockId2: testAppLock2 },
+        queuedVersion: 0,
+        undeployVersion: false,
+        teamLocks: {},
+        team: 'test-team',
+    };
+    const testApp3: Environment_Application = {
+        name: 'test',
+        version: 2,
+        locks: { testlockId3: testApplock3 },
+        queuedVersion: 0,
+        undeployVersion: false,
+        teamLocks: {},
+        team: 'test-team',
+    };
+    const testEnv1: Environment = {
+        name: 'dev',
+        applications: { test: testApp1, test2: testApp2 },
+        locks: {},
+        distanceToUpstream: 0,
+        priority: Priority.UPSTREAM,
+    };
+    const testEnv2: Environment = {
+        name: 'staging',
+        applications: { test: testApp3 },
+        locks: {},
+        distanceToUpstream: 0,
+        priority: Priority.PROD,
+    };
+    const testEnvGroup1: EnvironmentGroup = {
+        environmentGroupName: 'development',
+        environments: [testEnv1],
+        distanceToUpstream: 0,
+        priority: Priority.UPSTREAM,
+    };
+    const testEnvGroup2: EnvironmentGroup = {
+        environmentGroupName: 'staging',
+        environments: [testEnv2],
+        distanceToUpstream: 0,
+        priority: Priority.PROD,
     };
 
     const data: TestData[] = [
@@ -62,6 +143,8 @@ describe('Release Dialog', () => {
                     displayVersion: '3',
                 },
             ],
+            envGroups: [testEnvGroup1],
+            expectedAppLocksLength: 1,
         },
         {
             name: '3 releases in 2 days',
@@ -98,6 +181,15 @@ describe('Release Dialog', () => {
                     displayVersion: '3',
                 },
             ],
+            envGroups: [],
+            expectedAppLocksLength: 0,
+        },
+        {
+            name: 'two application locks without any release',
+            dates: 0,
+            releases: [],
+            envGroups: [testEnvGroup1, testEnvGroup2],
+            expectedAppLocksLength: 2,
         },
     ];
 
@@ -115,6 +207,7 @@ describe('Release Dialog', () => {
                         warnings: [],
                     },
                 },
+                environmentGroups: testcase.envGroups,
             });
             render(
                 <MemoryRouter>
@@ -124,6 +217,7 @@ describe('Release Dialog', () => {
 
             expect(document.querySelectorAll('.release_date')).toHaveLength(testcase.dates);
             expect(document.querySelectorAll('.content')).toHaveLength(testcase.releases.length);
+            expect(document.querySelectorAll('.application-lock-chip')).toHaveLength(testcase.expectedAppLocksLength);
         });
     });
 });

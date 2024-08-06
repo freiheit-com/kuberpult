@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/stretchr/testify/assert"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -1355,4 +1356,87 @@ type mockBatchClient struct {
 func (m *mockBatchClient) ProcessBatch(_ context.Context, in *api.BatchRequest, _ ...grpc.CallOption) (*api.BatchResponse, error) {
 	m.batchRequest = in
 	return m.batchResponse, nil
+}
+
+func TestWriteCorrespondingResponse(t *testing.T) {
+	tests := []struct {
+		name             string
+		releaseResponse  *api.CreateReleaseResponse
+		expectedStatus   int
+		expectedResponse interface{}
+	}{
+		{
+			name: "Success",
+			releaseResponse: &api.CreateReleaseResponse{
+				Response: &api.CreateReleaseResponse_Success{},
+			},
+			expectedStatus:   http.StatusCreated,
+			expectedResponse: &api.CreateReleaseResponse_Success{},
+		},
+		{
+			name: "AlreadyExistsSame",
+			releaseResponse: &api.CreateReleaseResponse{
+				Response: &api.CreateReleaseResponse_AlreadyExistsSame{},
+			},
+			expectedStatus:   http.StatusOK,
+			expectedResponse: &api.CreateReleaseResponse_AlreadyExistsSame{},
+		},
+		{
+			name: "AlreadyExistsDifferent",
+			releaseResponse: &api.CreateReleaseResponse{
+				Response: &api.CreateReleaseResponse_AlreadyExistsDifferent{},
+			},
+			expectedStatus:   http.StatusConflict,
+			expectedResponse: &api.CreateReleaseResponse_AlreadyExistsDifferent{},
+		},
+		{
+			name: "GeneralFailure",
+			releaseResponse: &api.CreateReleaseResponse{
+				Response: &api.CreateReleaseResponse_GeneralFailure{},
+			},
+			expectedStatus:   http.StatusInternalServerError,
+			expectedResponse: &api.CreateReleaseResponse_GeneralFailure{},
+		},
+		{
+			name: "TooOld",
+			releaseResponse: &api.CreateReleaseResponse{
+				Response: &api.CreateReleaseResponse_TooOld{},
+			},
+			expectedStatus:   http.StatusBadRequest,
+			expectedResponse: &api.CreateReleaseResponse_TooOld{},
+		},
+		{
+			name: "TooLong",
+			releaseResponse: &api.CreateReleaseResponse{
+				Response: &api.CreateReleaseResponse_TooLong{},
+			},
+			expectedStatus:   http.StatusBadRequest,
+			expectedResponse: &api.CreateReleaseResponse_TooLong{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			req, err := http.NewRequest("GET", "/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+
+			writeCorrespondingResponse(ctx, rr, req, tt.releaseResponse, nil)
+
+			if tt.expectedStatus != rr.Code {
+				t.Errorf("expected status code %d, but got %d", tt.expectedStatus, rr.Code)
+			}
+
+			expectedJSON, err := json.Marshal(tt.expectedResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal json: %v", err)
+			}
+
+			assert.JSONEq(t, string(expectedJSON), rr.Body.String())
+		})
+	}
 }

@@ -832,7 +832,7 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock)
+				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock, tc.NewApplicationLock.Created)
 				if err != nil {
 					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
@@ -848,7 +848,7 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
 				}
 				tc.NewApplicationLock.Deleted = true
-				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock)
+				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock, tc.NewApplicationLock.Created)
 				if err != nil {
 					return err
 				}
