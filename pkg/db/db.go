@@ -2125,12 +2125,12 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, writeAl
 
 		err = writeAllEvents(ctx, transaction, h)
 		if err != nil {
-			return fmt.Errorf("could not get current commit events to run custom migrations: %v", err)
+			return fmt.Errorf("could not get current commit events to run custom migrations: %w", err)
 		}
 		//Migration event
 		err = h.WriteEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
 		if err != nil {
-			return fmt.Errorf("error writing migration commit event to the database: %v\n", err)
+			return fmt.Errorf("error writing migration commit event to the database: %w\n", err)
 		}
 		return nil
 	})
