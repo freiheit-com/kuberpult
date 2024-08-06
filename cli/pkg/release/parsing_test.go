@@ -167,7 +167,7 @@ func TestReadArgs(t *testing.T) {
 			name: "signatures skipped, --environment and --manifest and --signature are specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--signature", "signature-file.gpg"},
 			expectedError: errMatcher{
-				msg: "--signature args are not allowed when --skip_signatures is set",
+				msg: "--signature args are not allowed when --skip_signatures or use_dex_auth are set",
 			},
 		},
 		{
@@ -758,6 +758,62 @@ func TestParseArgs(t *testing.T) {
 				msg: "error while reading command line arguments, error: error while parsing command line arguments, error: flag needs an argument: -application",
 			},
 		},
+		{
+			setup: []fileCreation{
+				{
+					filename: "development-manifest.yaml",
+					content:  "some development manifest",
+				},
+			},
+			name:    "use_dex_auth is passed",
+			cmdArgs: []string{"--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--use_dex_auth"},
+			expectedParams: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+				},
+				UseDexAuthentication: true,
+			},
+		},
+		{
+			setup: []fileCreation{
+				{
+					filename: "development-manifest.yaml",
+					content:  "some development manifest",
+				},
+				{
+					filename: "development-signature.gpg",
+					content:  "some development signature",
+				},
+			},
+			name:           "signatures are not allowed when use_dex_auth is enabled",
+			cmdArgs:        []string{"--use_dex_auth", "--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--signature", "development-signature.gpg"},
+			expectedParams: nil,
+			expectedError: errMatcher{
+				msg: "error while reading command line arguments, error: --signature args are not allowed when --skip_signatures or use_dex_auth are set",
+			},
+		},
+		// {
+		// 	setup: []fileCreation{
+		// 		{
+		// 			filename: "development-manifest.yaml",
+		// 			content:  "some development manifest",
+		// 		},
+		// 		{
+		// 			filename: "development-signature.gpg",
+		// 			content:  "some development signature",
+		// 		},
+		// 	},
+		// 	name:    "skip_signatures works with use_dex_auth",
+		// 	cmdArgs: []string{"--use_dex_auth", "--skip_signatures", "--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml"},
+		// 	expectedParams: &ReleaseParameters{
+		// 		Application: "potato",
+		// 		Manifests: map[string][]byte{
+		// 			"development": []byte("some development manifest"),
+		// 		},
+		// 		UseDexAuthentication: true,
+		// 	},
+		// },
 	}
 
 	for _, tc := range tcs {
@@ -801,7 +857,7 @@ func TestParseArgs(t *testing.T) {
 			}
 
 			// check result
-			if diff := cmp.Diff(params, tc.expectedParams, cmp.AllowUnexported(commandLineArguments{})); diff != "" {
+			if diff := cmp.Diff(tc.expectedParams, params, cmp.AllowUnexported(commandLineArguments{})); diff != "" {
 				t.Fatalf("expected args:\n  %v\n, got:\n  %v\n, diff:\n  %s\n", tc.expectedParams, params, diff)
 			}
 		})

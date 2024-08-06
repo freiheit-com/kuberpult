@@ -166,9 +166,9 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string)
 		}
 	}
 
-	if cmdArgs.skipSignatures {
+	if cmdArgs.skipSignatures || cmdArgs.useDexAuthentication {
 		if len(cmdArgs.signatures.Values) > 0 {
-			return false, "--signature args are not allowed when --skip_signatures is set"
+			return false, "--signature args are not allowed when --skip_signatures or use_dex_auth are set"
 		}
 	}
 
@@ -207,7 +207,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 		return nil, fmt.Errorf(msg)
 	}
 
-	if !cmdArgs.skipSignatures {
+	if !cmdArgs.skipSignatures && !cmdArgs.useDexAuthentication {
 		if ok, msg := manifestsSignaturesPaired(args); !ok {
 			return nil, fmt.Errorf(msg)
 		}
@@ -229,7 +229,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 
 	rp := ReleaseParameters{} //exhaustruct:ignore
 	rp.Manifests = make(map[string][]byte)
-	if !cmdArgs.skipSignatures {
+	if !cmdArgs.skipSignatures && !cmdArgs.useDexAuthentication {
 		rp.Signatures = make(map[string][]byte)
 	}
 
@@ -267,7 +267,8 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		}
 		rp.Manifests[environment] = manifestBytes
 
-		if !cmdArgs.skipSignatures {
+		// signatures are not allowed when using authentication
+		if !cmdArgs.skipSignatures && !cmdArgs.useDexAuthentication {
 			signatureFile := cmdArgs.signatures.Values[i]
 
 			signatureBytes, err := os.ReadFile(signatureFile)
