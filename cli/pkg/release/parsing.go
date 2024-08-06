@@ -32,18 +32,19 @@ type commandLineArguments struct {
 	// Technically `application` may not be set multiple times. However, the Go flag package doesn't offer a simple way of checking whether a flag was set multiple times.
 	// Therefore, we set the value of `application` to RepeatedString and later we check if it's been set more than once and raise an error accordingly.
 	// The same trick is used for all fields other than environments, manifests, and signatures.
-	application      cli_utils.RepeatedString
-	environments     cli_utils.RepeatedString
-	manifests        cli_utils.RepeatedString
-	team             cli_utils.RepeatedString
-	sourceCommitId   cli_utils.RepeatedString
-	previousCommitId cli_utils.RepeatedString
-	sourceAuthor     cli_utils.RepeatedString
-	sourceMessage    cli_utils.RepeatedString
-	version          cli_utils.RepeatedInt
-	displayVersion   cli_utils.RepeatedString
-	skipSignatures   bool
-	signatures       cli_utils.RepeatedString
+	application          cli_utils.RepeatedString
+	environments         cli_utils.RepeatedString
+	manifests            cli_utils.RepeatedString
+	team                 cli_utils.RepeatedString
+	sourceCommitId       cli_utils.RepeatedString
+	previousCommitId     cli_utils.RepeatedString
+	sourceAuthor         cli_utils.RepeatedString
+	sourceMessage        cli_utils.RepeatedString
+	version              cli_utils.RepeatedInt
+	displayVersion       cli_utils.RepeatedString
+	skipSignatures       bool
+	signatures           cli_utils.RepeatedString
+	useDexAuthentication bool
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -165,9 +166,9 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string)
 		}
 	}
 
-	if cmdArgs.skipSignatures {
+	if cmdArgs.skipSignatures || cmdArgs.useDexAuthentication {
 		if len(cmdArgs.signatures.Values) > 0 {
-			return false, "--signature args are not allowed when --skip_signatures is set"
+			return false, "--signature args are not allowed when --skip_signatures or use_dex_auth are set"
 		}
 	}
 
@@ -192,6 +193,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	fs.Var(&cmdArgs.displayVersion, "display_version", "display version (must be a string between 1 and characters long)")
 	fs.BoolVar(&cmdArgs.skipSignatures, "skip_signatures", false, "if set to true, then the command line does not accept the --signature args")
 	fs.Var(&cmdArgs.signatures, "signature", "the name of the file containing the signature of the manifest to be deployed (must be set immediately after --manifest)")
+	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "use /api/release endpoint, if set to true, dex must be enabled and dex token must be provided otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -205,7 +207,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 		return nil, fmt.Errorf(msg)
 	}
 
-	if !cmdArgs.skipSignatures {
+	if !cmdArgs.skipSignatures && !cmdArgs.useDexAuthentication {
 		if ok, msg := manifestsSignaturesPaired(args); !ok {
 			return nil, fmt.Errorf(msg)
 		}
@@ -227,7 +229,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 
 	rp := ReleaseParameters{} //exhaustruct:ignore
 	rp.Manifests = make(map[string][]byte)
-	if !cmdArgs.skipSignatures {
+	if !cmdArgs.skipSignatures && !cmdArgs.useDexAuthentication {
 		rp.Signatures = make(map[string][]byte)
 	}
 
@@ -265,7 +267,8 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		}
 		rp.Manifests[environment] = manifestBytes
 
-		if !cmdArgs.skipSignatures {
+		// signatures are not allowed when using authentication
+		if !cmdArgs.skipSignatures && !cmdArgs.useDexAuthentication {
 			signatureFile := cmdArgs.signatures.Values[i]
 
 			signatureBytes, err := os.ReadFile(signatureFile)
@@ -275,6 +278,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 			rp.Signatures[environment] = signatureBytes
 		}
 	}
+	rp.UseDexAuthentication = cmdArgs.useDexAuthentication
 	return &rp, nil
 }
 

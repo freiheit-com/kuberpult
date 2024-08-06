@@ -139,9 +139,8 @@ func releaseApp(t *testing.T, application string, manifests map[string]string) {
 	files := map[string]io.Reader{}
 	for env, data := range manifests {
 		files["manifests["+env+"]"] = strings.NewReader(data)
-		files["signatures["+env+"]"] = strings.NewReader(CalcSignature(t, data))
 	}
-	actualStatusCode, body, err := callRelease(values, files)
+	actualStatusCode, body, err := callRelease(values, files, "/api/release")
 	if err != nil {
 		t.Fatal(err)
 	}

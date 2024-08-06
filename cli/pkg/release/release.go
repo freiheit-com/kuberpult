@@ -24,16 +24,17 @@ import (
 
 // a representation of the parameters of the /release endpoint
 type ReleaseParameters struct {
-	Application      string
-	Manifests        map[string][]byte // key is name of the environment and value is the manifest file name
-	Signatures       map[string][]byte // key is name of the environment and value is the signature file name
-	Team             *string
-	SourceCommitId   *string
-	PreviousCommitId *string
-	SourceAuthor     *string
-	SourceMessage    *string
-	Version          *uint64
-	DisplayVersion   *string
+	Application          string
+	Manifests            map[string][]byte // key is name of the environment and value is the manifest file name
+	Signatures           map[string][]byte // key is name of the environment and value is the signature file name
+	Team                 *string
+	SourceCommitId       *string
+	PreviousCommitId     *string
+	SourceAuthor         *string
+	SourceMessage        *string
+	Version              *uint64
+	DisplayVersion       *string
+	UseDexAuthentication bool
 }
 
 // calls the Release endpoint with the specified parameters

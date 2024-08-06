@@ -134,6 +134,9 @@ kubectl create ns staging
 print 'installing kuberpult helm chart...'
 
 cat <<VALUES > vals.yaml
+auth:
+  api:
+    enableDespiteNoAuth: true
 db:
   location: postgres
   authProxyPort: 5432
