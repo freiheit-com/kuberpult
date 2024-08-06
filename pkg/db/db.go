@@ -1345,7 +1345,7 @@ type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.Enviro
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
-  writeAllDeploymentsFun WriteAllDeploymentsFun,
+	writeAllDeploymentsFun WriteAllDeploymentsFun,
 	writeAllReleasesFun WriteAllReleasesFun,
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
