@@ -175,7 +175,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 		}
 		return result, nil
 	}
-	var writeAllReleases = /*GetAllReleasesFun*/ func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error {
+	var writeAllReleases = /*writeAllReleases*/ func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error {
 		releases := AllReleases{
 			1: ReleaseWithManifest{
 				Version:         666,
