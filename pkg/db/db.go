@@ -892,8 +892,8 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 	return nil
 }
 
-func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
+func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "WriteEvent")
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
@@ -935,7 +935,7 @@ func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("error marshalling lock new release event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
@@ -951,7 +951,7 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 	if err != nil {
 		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, replacedBy *event.ReplacedBy) error {
@@ -967,7 +967,7 @@ func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("error marshalling replacedBys event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeReplaceBy, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeReplaceBy, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, deployment *event.Deployment) error {
@@ -989,7 +989,7 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 	if err != nil {
 		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, transaction, transformerID, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (*EventRow, error) {
@@ -1319,10 +1319,10 @@ type AllDeployments []Deployment
 type AllEnvLocks map[string][]EnvironmentLock
 type AllReleases map[uint64]ReleaseWithManifest // keys: releaseVersion; value: release with manifests
 
-// GetAllDeploymentsFun and other functions here are used during migration.
-// They are supposed to read data from files in the manifest repo,
-// and therefore should not need to access the Database at all.
-type GetAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx) (AllDeployments, error)
+// WriteAllDeploymentsFun and other functions here are used during migration.
+// They are supposed to read data from files in the manifest repo and write it to the databse,
+// and therefore need to access the Database.
+type WriteAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type GetAllAppLocksFun = func(ctx context.Context) (AllAppLocks, error)
 
 type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
@@ -1332,9 +1332,9 @@ type AllCommitEvents map[string][]event.DBEventGo        // CommitId -> uuid -> 
 
 type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
-type GetAllReleasesFun = func(ctx context.Context, app string) (AllReleases, error)
+type WriteAllReleasesFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
 type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, error)
-type GetAllEventsFun = func(ctx context.Context) (AllCommitEvents, error)
+type WriteAllEventsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
@@ -1345,14 +1345,14 @@ type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.Enviro
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
-	getAllDeploymentsFun GetAllDeploymentsFun,
-	getAllReleasesFun GetAllReleasesFun,
+	writeAllDeploymentsFun WriteAllDeploymentsFun,
+	writeAllReleasesFun WriteAllReleasesFun,
 	getAllEnvLocksFun GetAllEnvLocksFun,
 	getAllAppLocksFun GetAllAppLocksFun,
 	getAllTeamLocksFun GetAllTeamLocksFun,
 	getAllEnvironmentsFun GetAllEnvironmentsFun,
 	getAllQueuedVersionsFun GetAllQueuedVersionsFun,
-	getAllEventsFun GetAllEventsFun,
+	writeAllEventsFun WriteAllEventsFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer span.Finish()
@@ -1364,11 +1364,11 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationDeployments(ctx, getAllDeploymentsFun)
+	err = h.RunCustomMigrationDeployments(ctx, writeAllDeploymentsFun)
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, getAllReleasesFun)
+	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, writeAllReleasesFun)
 	if err != nil {
 		return err
 	}
@@ -1388,7 +1388,7 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationsCommitEvents(ctx, getAllEventsFun)
+	err = h.RunCustomMigrationsCommitEvents(ctx, writeAllEventsFun)
 	if err != nil {
 		return err
 	}
@@ -1868,9 +1868,42 @@ func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	return nil
 }
 
+// DBClearAllDeploymentsForApp Clears all deployments map. Used when undeploying an application
+func (h *DBHandler) DBClearAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBUpdateAllDeploymentsForApp: no transaction provided")
+	}
+
+	//Get current deployment information for app
+	currentAllDeployments, err := h.DBSelectAllDeploymentsForApp(ctx, tx, appName)
+	if err != nil {
+		return fmt.Errorf("could not read current all deployments for app: '%s': %v", appName, err)
+	}
+
+	deploymentsMap := map[string]int64{} //EmptyMap
+	var previousVersion EslVersion
+	if currentAllDeployments == nil {
+		previousVersion = 0
+	} else {
+		previousVersion = currentAllDeployments.Version
+	}
+
+	//Insert new information into the db
+	err = h.DBWriteAllDeploymentsForApp(ctx, tx, int(previousVersion), appName, deploymentsMap)
+	if err != nil {
+		return fmt.Errorf("could not write all deployments for app: '%s': %v", appName, err)
+	}
+	return nil
+}
+
 // CUSTOM MIGRATIONS
 
-func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, getAllReleasesFun GetAllReleasesFun) error {
+func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
 	defer span.Finish()
 
@@ -1890,42 +1923,11 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 		for app := range allAppsMap {
 			l.Infof("processing app %s ...", app)
 
-			releases, err := getAllReleasesFun(ctx, app)
+			err := writeAllReleasesFun(ctx, transaction, app, h)
 			if err != nil {
-				return fmt.Errorf("geAllReleases failed %v", err)
-			}
-
-			releaseNumbers := []int64{}
-			for r := range releases {
-				repoRelease := releases[r]
-				dbRelease := DBReleaseWithMetaData{
-					EslVersion:    InitialEslVersion,
-					Created:       time.Now().UTC(),
-					ReleaseNumber: repoRelease.Version,
-					App:           app,
-					Manifests: DBReleaseManifests{
-						Manifests: repoRelease.Manifests,
-					},
-					Metadata: DBReleaseMetaData{
-						UndeployVersion: repoRelease.UndeployVersion,
-						SourceAuthor:    repoRelease.SourceAuthor,
-						SourceCommitId:  repoRelease.SourceCommitId,
-						SourceMessage:   repoRelease.SourceMessage,
-						DisplayVersion:  repoRelease.DisplayVersion,
-					},
-					Deleted: false,
-				}
-				err = h.DBInsertRelease(ctx, transaction, dbRelease, InitialEslVersion-1)
-				if err != nil {
-					return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
-				}
-				releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
+				return fmt.Errorf("could not migrate releases to database: %v", err)
 			}
 			l.Infof("done with app %s", app)
-			err = h.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslVersion-1)
-			if err != nil {
-				return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
-			}
 		}
 		return nil
 	})
@@ -1945,7 +1947,7 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 
 }
 
-func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun GetAllDeploymentsFun) error {
+func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun WriteAllDeploymentsFun) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
 	defer span.Finish()
 
@@ -1957,34 +1959,9 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 		if !needsMigrating {
 			return nil
 		}
-		allDeploymentsInRepo, err := getAllDeploymentsFun(ctx, transaction)
+		err = getAllDeploymentsFun(ctx, transaction, h)
 		if err != nil {
 			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
-		}
-
-		allDeployments := map[string]map[string]int64{} //Appname -> envName -> Release Number
-
-		for i := range allDeploymentsInRepo {
-			deploymentInRepo := allDeploymentsInRepo[i]
-			deploymentInRepo.TransformerID = 0
-			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
-			if deploymentInRepo.Version != nil {
-				_, ok := allDeployments[deploymentInRepo.App]
-				if !ok {
-					allDeployments[deploymentInRepo.App] = map[string]int64{}
-				}
-				allDeployments[deploymentInRepo.App][deploymentInRepo.Env] = *deploymentInRepo.Version
-			}
-			if err != nil {
-				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v",
-					deploymentInRepo.App, deploymentInRepo.Env, err)
-			}
-		}
-		for key, value := range allDeployments {
-			err := h.DBWriteAllDeploymentsForApp(ctx, transaction, 0, key, value)
-			if err != nil {
-				return fmt.Errorf("could not write allDeployments to run custom migrations: %v", err)
-			}
 		}
 		return nil
 	})
@@ -2197,7 +2174,7 @@ func (h *DBHandler) needsTeamLocksMigrations(ctx context.Context, transaction *s
 	return true, nil
 }
 
-func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllEvents GetAllEventsFun) error {
+func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, writeAllEvents WriteAllEventsFun) error {
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needsMigrating, err := h.needsCommitEventsMigrations(ctx, transaction)
 		if err != nil {
@@ -2207,26 +2184,14 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, getAllE
 			return nil
 		}
 
-		allEvents, err := getAllEvents(ctx)
+		err = writeAllEvents(ctx, transaction, h)
 		if err != nil {
-			return fmt.Errorf("could not get current commit events to run custom migrations: %v", err)
-		}
-		for commitID, events := range allEvents {
-			for _, currentEvent := range events {
-				eventJson, err := json.Marshal(currentEvent)
-				if err != nil {
-					return fmt.Errorf("Could not marshal event: %v\n", err)
-				}
-				err = h.writeEvent(ctx, transaction, 0, currentEvent.EventMetadata.Uuid, event.EventType(currentEvent.EventMetadata.EventType), commitID, eventJson)
-				if err != nil {
-					return fmt.Errorf("error writing existing event version: %v", err)
-				}
-			}
+			return fmt.Errorf("could not get current commit events to run custom migrations: %w", err)
 		}
 		//Migration event
-		err = h.writeEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
+		err = h.WriteEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
 		if err != nil {
-			return fmt.Errorf("error writing migration commit event to the database: %v\n", err)
+			return fmt.Errorf("error writing migration commit event to the database: %w\n", err)
 		}
 		return nil
 	})
@@ -3354,7 +3319,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock)
+	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock, timetoInsert)
 	if err != nil {
 		return fmt.Errorf("could not update overview application lock. Error: %w\n", err)
 	}

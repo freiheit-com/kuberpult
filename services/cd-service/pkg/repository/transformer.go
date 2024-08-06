@@ -1449,6 +1449,11 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication: could not clear releases for app '%s': %v", u.Application, err)
 		}
 
+		err = state.DBHandler.DBClearAllDeploymentsForApp(ctx, transaction, u.Application)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not clear all deployments for app '%s': %v", u.Application, err)
+		}
+
 	} else {
 		// remove application
 		appDir := applicationDirectory(fs, u.Application)

@@ -323,14 +323,14 @@ func RunServer() {
 				migErr := dbHandler.RunCustomMigrations(
 					ctx,
 					repo.State().GetAppsAndTeams,
-					repo.State().GetCurrentlyDeployed,
-					repo.State().GetAllReleases,
+					repo.State().WriteCurrentlyDeployed,
+					repo.State().WriteAllReleases,
 					repo.State().GetCurrentEnvironmentLocks,
 					repo.State().GetCurrentApplicationLocks,
 					repo.State().GetCurrentTeamLocks,
 					repo.State().GetAllEnvironments,
 					repo.State().GetAllQueuedAppVersions,
-					repo.State().GetAllCommitEvents,
+					repo.State().WriteAllCommitEvents,
 				)
 				if migErr != nil {
 					logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))

@@ -1,5 +1,5 @@
 
-## Release Endpoint
+## Release Endpoint (deprecated)
 
 ### Concept
 
@@ -19,7 +19,7 @@ The `/release` endpoint accepts several parameters:
 * `author-email` and `author-name` are base64 encoded http headers. They define the `git author` that pushes to the manifest repository.
 * `version` (required/recommended) This field is **required** if the database is enabled!
   If not set, Kuberpult will just use `last release number + 1`. It is recommended to set this to a unique number, for example the number of commits in your git main branch.
-  This way, if you have parallel executions of `/release` for the same service, Kuberpult will sort them in the right order. 
+  This way, if you have parallel executions of `/release` for the same service, Kuberpult will sort them in the right order.
 * `team` (optional) team name of the microservice. Used to filter more easily for relevant services in kuberpult's UI and also written as label to the Argo CD app to allow filtering in the Argo CD UI. The team name has a maximum size of 20 characters.
 
 
@@ -71,3 +71,15 @@ The flags:
   -version value
         the release version (must be a positive integer)
 ```
+
+
+## API Release Endpoint
+
+The goal behind this endpoint is to authenticate the requests before creating new application releases. The authentication is done by Dex.
+If the user creating the release does not have sufficient permissions, the request is denied.
+
+If you want to enable this endpoint without authentication, set [enableDespiteNoAuth](https://github.com/freiheit-com/kuberpult/blob/main/charts/kuberpult/values.yaml#L359) to true.
+### Parameters
+
+The `/api/release` endpoint accepts the same parameters as `/release` except for the signatures, which are not supported for this endpoint.
+An example for this can be found [here](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/create-testdata/create-release.sh#L80).
