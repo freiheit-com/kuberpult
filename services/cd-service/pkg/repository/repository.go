@@ -1974,26 +1974,25 @@ func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]str
 	}
 }
 
-// GetCurrentlyDeployed returns all apps that have current deployments on any env from the filesystem
-func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (db.AllDeployments, error) {
+// WriteCurrentlyDeployed writes all apps that have current deployments on any env from the filesystem to the database
+func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentlyDeployed")
 	defer ddSpan.Finish()
-	var result = db.AllDeployments{}
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
 
 		if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
-			return nil, err
+			return err
 		} else {
 			for _, appName := range apps {
 				var version *uint64
 				version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
 				if err != nil {
-					return nil, fmt.Errorf("could not get version of app %s in env %s", appName, envName)
+					return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 				}
 				var versionIntPtr *int64
 				if version != nil {
@@ -2002,7 +2001,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 				} else {
 					versionIntPtr = nil
 				}
-				result = append(result, db.Deployment{
+				deployment := db.Deployment{
 					EslVersion:    0,
 					Created:       time.Time{},
 					App:           appName,
@@ -2013,11 +2012,15 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 						DeployedByName:  "",
 						DeployedByEmail: "",
 					},
-				})
+				}
+				err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0)
+				if err != nil {
+					return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v", deployment.App, deployment.Env, err)
+				}
 			}
 		}
 	}
-	return result, nil
+	return nil
 }
 
 // GetCurrentEnvironmentLocks gets all locks on any environment in manifest
