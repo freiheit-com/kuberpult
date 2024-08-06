@@ -156,7 +156,8 @@ func DexLoginInterceptor(
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 		return
 	}
-	req = req.WithContext(httpCtx)
+	noCancelCtx := context.WithoutCancel(httpCtx)
+	req = req.WithContext(noCancelCtx)
 	httpHandler(w, req)
 }
 
