@@ -329,7 +329,7 @@ func RunServer() {
 					repo.State().GetCurrentApplicationLocks,
 					repo.State().GetCurrentTeamLocks,
 					repo.State().GetAllEnvironments,
-					repo.State().GetAllQueuedAppVersions,
+					repo.State().WriteAllQueuedAppVersions,
 					repo.State().GetAllCommitEvents,
 				)
 				if migErr != nil {
