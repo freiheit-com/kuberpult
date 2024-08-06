@@ -380,7 +380,8 @@ func TestEnvironmentLock(t *testing.T) {
 				t.Errorf("expected active lock")
 			}
 			// Call the api to create a release
-			actualStatusCode, actualBody, err := callRelease(createValuesFiles(t, appName, "1"))
+			values, files := createValuesFiles(t, appName, "1")
+			actualStatusCode, actualBody, err := callRelease(values, files, "/api/release")
 			if err != nil {
 				t.Fatalf("callRelease failed %s", err.Error())
 			}
@@ -416,7 +417,8 @@ func TestEnvironmentLock(t *testing.T) {
 				t.Errorf("expected deleted lock")
 			}
 			// Call the api to create a release this time with no environment lock
-			actualStatusCode, actualBody, err = callRelease(createValuesFiles(t, appName, "2"))
+			values, files = createValuesFiles(t, appName, "2")
+			actualStatusCode, actualBody, err = callRelease(values, files, "/api/release")
 			if err != nil {
 				t.Fatalf("callRelease failed %s", err.Error())
 			}
@@ -547,7 +549,6 @@ func createValuesFiles(t *testing.T, appName, version string) (map[string]io.Rea
 	}
 	files := map[string]io.Reader{
 		"manifests[development]":  strings.NewReader("Test Manifest"),
-		"signatures[development]": strings.NewReader(CalcSignature(t, "Test Manifest")),
 	}
 	return values, files
 }
