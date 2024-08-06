@@ -1974,26 +1974,25 @@ func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]str
 	}
 }
 
-// GetCurrentlyDeployed returns all apps that have current deployments on any env from the filesystem
-func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (db.AllDeployments, error) {
+// WriteCurrentlyDeployed writes all apps that have current deployments on any env from the filesystem to the database
+func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentlyDeployed")
 	defer ddSpan.Finish()
-	var result = db.AllDeployments{}
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
 
 		if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
-			return nil, err
+			return err
 		} else {
 			for _, appName := range apps {
 				var version *uint64
 				version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
 				if err != nil {
-					return nil, fmt.Errorf("could not get version of app %s in env %s", appName, envName)
+					return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 				}
 				var versionIntPtr *int64
 				if version != nil {
@@ -2002,7 +2001,7 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 				} else {
 					versionIntPtr = nil
 				}
-				result = append(result, db.Deployment{
+				deployment := db.Deployment{
 					EslVersion:    0,
 					Created:       time.Time{},
 					App:           appName,
@@ -2013,11 +2012,15 @@ func (s *State) GetCurrentlyDeployed(ctx context.Context, transaction *sql.Tx) (
 						DeployedByName:  "",
 						DeployedByEmail: "",
 					},
-				})
+				}
+				err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0)
+				if err != nil {
+					return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v", deployment.App, deployment.Env, err)
+				}
 			}
 		}
 	}
-	return result, nil
+	return nil
 }
 
 // GetCurrentEnvironmentLocks gets all locks on any environment in manifest
@@ -2215,39 +2218,55 @@ func (s *State) GetAppsAndTeams() (map[string]string, error) {
 	return teamByAppName, nil
 }
 
-func (s *State) GetAllReleases(ctx context.Context, app string) (db.AllReleases, error) {
+func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app string, dbHandler *db.DBHandler) error {
 	releases, err := s.GetAllApplicationReleasesFromManifest(app)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get releases of app %s: %v", app, err)
+		return fmt.Errorf("cannot get releases of app %s: %v", app, err)
 	}
-	var result = db.AllReleases{}
+	releaseNumbers := []int64{}
 	for i := range releases {
 		releaseVersion := releases[i]
 		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
 		if err != nil {
-			return nil, fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
+			return fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 		}
 		manifests, err := s.GetApplicationReleaseManifestsFromManifest(app, releaseVersion)
 		if err != nil {
-			return nil, fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
+			return fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
 		}
 		var manifestsMap = map[string]string{}
 		for index := range manifests {
 			manifest := manifests[index]
 			manifestsMap[manifest.Environment] = manifest.Content
 		}
-		result[releaseVersion] = db.ReleaseWithManifest{
-			Version:         releaseVersion,
-			UndeployVersion: repoRelease.UndeployVersion,
-			SourceAuthor:    repoRelease.SourceAuthor,
-			SourceCommitId:  repoRelease.SourceCommitId,
-			SourceMessage:   repoRelease.SourceMessage,
-			CreatedAt:       repoRelease.CreatedAt,
-			DisplayVersion:  repoRelease.DisplayVersion,
-			Manifests:       manifestsMap,
+		dbRelease := db.DBReleaseWithMetaData{
+			EslVersion:    db.InitialEslVersion,
+			Created:       time.Now().UTC(),
+			ReleaseNumber: releaseVersion,
+			App:           app,
+			Manifests: db.DBReleaseManifests{
+				Manifests: manifestsMap,
+			},
+			Metadata: db.DBReleaseMetaData{
+				UndeployVersion: repoRelease.UndeployVersion,
+				SourceAuthor:    repoRelease.SourceAuthor,
+				SourceCommitId:  repoRelease.SourceCommitId,
+				SourceMessage:   repoRelease.SourceMessage,
+				DisplayVersion:  repoRelease.DisplayVersion,
+			},
+			Deleted: false,
 		}
+		err = dbHandler.DBInsertRelease(ctx, transaction, dbRelease, db.InitialEslVersion-1)
+		if err != nil {
+			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
+		}
+		releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
 	}
-	return result, nil
+	err = dbHandler.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, db.InitialEslVersion-1)
+	if err != nil {
+		return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
+	}
+	return nil
 }
 
 func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {

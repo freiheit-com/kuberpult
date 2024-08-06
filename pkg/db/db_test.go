@@ -175,8 +175,8 @@ func TestCustomMigrationReleases(t *testing.T) {
 		}
 		return result, nil
 	}
-	var getAllReleases = /*GetAllReleasesFun*/ func(ctx context.Context, app string) (AllReleases, error) {
-		result := AllReleases{
+	var writeAllReleases = /*writeAllReleases*/ func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error {
+		releases := AllReleases{
 			1: ReleaseWithManifest{
 				Version:         666,
 				UndeployVersion: false,
@@ -202,7 +202,36 @@ func TestCustomMigrationReleases(t *testing.T) {
 				},
 			},
 		}
-		return result, nil
+		releaseNumbers := []int64{}
+		for _, r := range releases {
+			dbRelease := DBReleaseWithMetaData{
+				EslVersion:    InitialEslVersion,
+				Created:       time.Now().UTC(),
+				ReleaseNumber: r.Version,
+				App:           app,
+				Manifests: DBReleaseManifests{
+					Manifests: r.Manifests,
+				},
+				Metadata: DBReleaseMetaData{
+					UndeployVersion: r.UndeployVersion,
+					SourceAuthor:    r.SourceAuthor,
+					SourceCommitId:  r.SourceCommitId,
+					SourceMessage:   r.SourceMessage,
+					DisplayVersion:  r.DisplayVersion,
+				},
+				Deleted: false,
+			}
+			err := dbHandler.DBInsertRelease(ctx, transaction, dbRelease, InitialEslVersion-1)
+			if err != nil {
+				return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
+			}
+			releaseNumbers = append(releaseNumbers, int64(r.Version))
+		}
+		err := dbHandler.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslVersion-1)
+		if err != nil {
+			return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
+		}
+		return nil
 	}
 	tcs := []struct {
 		Name             string
@@ -254,7 +283,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 
 			dbHandler := SetupRepositoryTestWithDB(t)
 			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, getAllReleases)
+				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, writeAllReleases)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
@@ -347,6 +376,54 @@ func TestCustomMigrationsApps(t *testing.T) {
 					if diff := cmp.Diff(expectedApp, app); diff != "" {
 						t.Errorf("error mismatch (-want, +got):\n%s", diff)
 					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestMigrationCommitEvent(t *testing.T) {
+	var getAllCommitEvents = /*getAllCommitEvents*/ func(ctx context.Context) (AllCommitEvents, error) {
+		result := AllCommitEvents{}
+		return result, nil
+	}
+	tcs := []struct {
+		Name           string
+		expectedEvents []*event.DBEventGo
+	}{
+		{
+			Name: "Test migration event",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, getAllCommitEvents)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				//Check for migration event
+				contains, err := dbHandler.DBContainsMigrationCommitEvent(ctx, transaction)
+				if err != nil {
+					t.Errorf("could not get migration event: %v\n", err)
+
+				}
+				if !contains {
+					t.Errorf("migration event was not created: %v\n", err)
 				}
 				return nil
 			})
