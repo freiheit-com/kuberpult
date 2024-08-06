@@ -1832,7 +1832,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 
 			err := writeAllReleasesFun(ctx, transaction, app, h)
 			if err != nil {
-				return fmt.Errorf("geAllReleases failed %v", err)
+				return fmt.Errorf("could not migrate releases to database: %v", err)
 			}
 			l.Infof("done with app %s", app)
 		}
