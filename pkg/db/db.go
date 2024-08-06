@@ -1807,6 +1807,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	return nil
 }
 
+// DBSelectAllDeploymentsForApp Returns most recent version of deployments for app with name 'appName'
 func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (*AllDeploymentsForApp, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
 	defer span.Finish()
@@ -1829,6 +1830,7 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	return h.processAllDeploymentRow(ctx, err, rows)
 }
 
+// DBUpdateAllDeploymentsForApp Updates table entry for application with name 'appName' with 'envName' -> 'version'
 func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName, envName string, version int64) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
 	defer span.Finish()
@@ -1839,10 +1841,13 @@ func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 		return fmt.Errorf("DBUpdateAllDeploymentsForApp: no transaction provided")
 	}
 
+	//Get current deployment information for app
 	currentAllDeployments, err := h.DBSelectAllDeploymentsForApp(ctx, tx, appName)
 	if err != nil {
 		return fmt.Errorf("could not read current all deployments for app: '%s': %v", appName, err)
 	}
+
+	//Update current deployment layout with envName -> version
 	var deploymentsMap map[string]int64
 	var previousVersion EslVersion
 	if currentAllDeployments == nil { //New app
@@ -1855,6 +1860,7 @@ func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	}
 	deploymentsMap[envName] = version
 
+	//Insert new information into the db
 	err = h.DBWriteAllDeploymentsForApp(ctx, tx, int(previousVersion), appName, deploymentsMap)
 	if err != nil {
 		return fmt.Errorf("could not write all deployments for app: '%s': %v", appName, err)
@@ -1963,7 +1969,6 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 			deploymentInRepo.TransformerID = 0
 			err = h.DBWriteDeployment(ctx, transaction, deploymentInRepo, 0)
 			if deploymentInRepo.Version != nil {
-				logger.FromContext(ctx).Sugar().Warnf("Found non-nil version in deployments on: '%s','%s','%d'\n", deploymentInRepo.App, deploymentInRepo.Env, *deploymentInRepo.Version)
 				_, ok := allDeployments[deploymentInRepo.App]
 				if !ok {
 					allDeployments[deploymentInRepo.App] = map[string]int64{}
@@ -1975,7 +1980,6 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 					deploymentInRepo.App, deploymentInRepo.Env, err)
 			}
 		}
-		logger.FromContext(ctx).Sugar().Warnf("Found '%d' for all_deployments", len(allDeployments))
 		for key, value := range allDeployments {
 			err := h.DBWriteAllDeploymentsForApp(ctx, transaction, 0, key, value)
 			if err != nil {
@@ -2022,13 +2026,6 @@ type EventRow struct {
 	EventType     event.EventType
 	EventJson     string
 	TransformerID TransformerID
-}
-
-type AllDeploymentsForAapp struct {
-	Version                 int64
-	Timestamp               time.Time
-	OldestDeploymentVersion int64
-	App                     string
 }
 
 func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, getAllEnvLocksFun GetAllEnvLocksFun) error {
@@ -4867,7 +4864,7 @@ func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("attempting to write to the environmets table without a transaction")
+		return fmt.Errorf("attempting to write to the all_deployments table without a transaction")
 	}
 
 	insertQuery := h.AdaptQuery(

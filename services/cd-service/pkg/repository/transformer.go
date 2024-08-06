@@ -1602,12 +1602,6 @@ func (c *CleanupOldApplicationVersions) SetEslVersion(id db.TransformerID) {
 // Finds old releases for an application
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
-
-	envConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	if err != nil {
-		return nil, err
-	}
-
 	versions, err := state.GetAllApplicationReleases(ctx, transaction, name)
 	if err != nil {
 		return nil, err
@@ -1619,32 +1613,24 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return versions[i] < versions[j]
 	})
 	// Use the latest version as oldest deployed version
-	var oldestDeployedVersion uint64
-	if state.DBHandler.ShouldUseOtherTables() {
-		deployments, err := state.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, name)
-		if err != nil {
-			return nil, err
-		}
-		deployedVersions := []int64{}
-		for _, version := range deployments.Deployments {
-			deployedVersions = append(deployedVersions, version)
-		}
 
-		oldestDeployedVersion = uint64(slices.Min(deployedVersions))
-	} else {
-		oldestDeployedVersion = versions[len(versions)-1]
-		for env := range envConfigs {
-			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, name)
-			if err != nil {
-				return nil, err
-			}
-			if version != nil {
-				if *version < oldestDeployedVersion {
-					oldestDeployedVersion = *version
-				}
-			}
-		}
+	deployments, err := state.GetAllDeploymentsForApp(ctx, transaction, name)
+	if err != nil {
+		return nil, err
 	}
+
+	var oldestDeployedVersion uint64
+	deployedVersions := []int64{}
+	for _, version := range deployments {
+		deployedVersions = append(deployedVersions, version)
+	}
+
+	if len(deployedVersions) == 0 {
+		oldestDeployedVersion = versions[len(versions)-1]
+	} else {
+		oldestDeployedVersion = uint64(slices.Min(deployedVersions))
+	}
+
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
 		return versions[i] >= oldestDeployedVersion
 	})

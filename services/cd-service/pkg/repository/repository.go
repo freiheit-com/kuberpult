@@ -1809,6 +1809,42 @@ func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.T
 	return s.GetAllEnvironmentConfigsFromManifest()
 }
 
+func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
+	}
+	return s.GetAllDeploymentsForAppFromManifest(ctx, appName)
+}
+
+func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
+	result, err := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return map[string]int64{}, nil
+	}
+	return result.Deployments, nil
+}
+
+func (s *State) GetAllDeploymentsForAppFromManifest(ctx context.Context, appName string) (map[string]int64, error) {
+	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]int64{}
+	for env := range envConfigs {
+		version, err := s.GetEnvironmentApplicationVersion(ctx, nil, env, appName)
+		if err != nil {
+			return nil, err
+		}
+		if version != nil {
+			result[env] = int64(*version)
+		}
+	}
+	return result, nil
+}
+
 func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
 	envs, err := s.Filesystem.ReadDir("environments")
 	if err != nil {
