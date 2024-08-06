@@ -2147,7 +2147,7 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 
 		err = writeAllQueuedVersionsFun(ctx, transaction, h)
 		if err != nil {
-			return fmt.Errorf("could not get current queued versions to run custom migrations: %v", err)
+			return fmt.Errorf("could not get current queued versions to run custom migrations: %w", err)
 		}
 		return nil
 	})

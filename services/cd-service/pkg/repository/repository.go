@@ -2138,7 +2138,7 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 			}
 			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr)
 			if err != nil {
-				return fmt.Errorf("error writing existing queued application version '%d' to DB for app '%s' on environment '%s': %v",
+				return fmt.Errorf("error writing existing queued application version '%d' to DB for app '%s' on environment '%s': %w",
 					*versionIntPtr, currentApp, envName, err)
 			}
 		}
