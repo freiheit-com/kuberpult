@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+make -C "$(git rev-parse --show-toplevel)" check-secrets
+docker run "aquasec/trivy@sha256:$(cat ./.trivy-image.SHA256)" fs --scanners=secret .
