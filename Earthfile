@@ -77,9 +77,9 @@ commitlint:
     WORKDIR /commitlint/
     RUN npm install --save-dev @commitlint/cli@18.4.3
     WORKDIR /commitlint/
-    COPY .commitlintrc .commitlintrc
+    COPY commitlint.config.js commitlint.config.js
     COPY commitlint.msg commitlint.msg
-    RUN cat ./commitlint.msg | npx commitlint --config .commitlintrc
+    RUN cat ./commitlint.msg | npx commitlint --config commitlint.config.js
 
 test-all:
     BUILD ./services/cd-service+unit-test --service=cd-service
