@@ -72,6 +72,55 @@ func setupRepositoryTestWithoutDB(t *testing.T) (rp.Repository, error) {
 	return repo, nil
 }
 
+func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx) error {
+	err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	fixtureAppications := []string{"app", "app-1", "app-2", "app-3"}
+	err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), fixtureAppications)
+	if err != nil {
+		return err
+	}
+	eslVersion := 0
+	for _, app := range fixtureAppications {
+		err = dbHandler.DBInsertApplication(ctx, transaction, app, db.EslVersion(eslVersion), db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
+		if err != nil {
+			return err
+		}
+		for releaseNumber := 1; releaseNumber < 4; releaseNumber++ {
+			err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				EslVersion:    db.EslVersion(releaseNumber) + (db.EslVersion(eslVersion)-1)*3,
+				ReleaseNumber: uint64(releaseNumber),
+				Created:       time.Time{},
+				App:           app,
+				Manifests:     db.DBReleaseManifests{},
+				Metadata:      db.DBReleaseMetaData{},
+			}, 0)
+			if err != nil {
+				return err
+			}
+		}
+		err = dbHandler.DBInsertAllReleases(ctx, transaction, app, []int64{1, 2, 3}, db.EslVersion(eslVersion))
+		if err != nil {
+			return err
+		}
+		eslVersion++
+	}
+	fixtureEnvironments := []string{"development-1", "development-2", "development-3"}
+	for _, env := range fixtureEnvironments {
+		err = dbHandler.DBWriteEnvironment(ctx, transaction, env, config.EnvironmentConfig{
+			Upstream: &config.EnvironmentConfigUpstream{
+				Latest: true,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func TestGetCommitInfo(t *testing.T) {
 	environmentSetup := []rp.Transformer{
 		&rp.CreateEnvironment{
@@ -939,133 +988,7 @@ func TestGetCommitInfo(t *testing.T) {
 			dbHandler := repo.State().DBHandler
 
 			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, "app", 1, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, "app-1", 1, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, "app-2", 2, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, "app-3", 3, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{"app", "app-1", "app-2", "app-3"})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    db.InitialEslVersion,
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           "app",
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
-				}, 0)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    db.InitialEslVersion,
-					ReleaseNumber: 2,
-					Created:       time.Time{},
-					App:           "app",
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
-				}, 1)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    db.InitialEslVersion,
-					ReleaseNumber: 3,
-					Created:       time.Time{},
-					App:           "app",
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
-				}, 2)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    db.InitialEslVersion,
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           "app-1",
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
-				}, 3)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    db.InitialEslVersion,
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           "app-2",
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
-				}, 4)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    db.InitialEslVersion,
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           "app-3",
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
-				}, 5)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, "app", []int64{1, 2, 3}, 0)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, "app-1", []int64{1}, 0)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, "app-2", []int64{1}, 0)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBInsertAllReleases(ctx, transaction, "app-3", []int64{1}, 0)
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "development-1", config.EnvironmentConfig{
-					Upstream: &config.EnvironmentConfigUpstream{
-						Latest: true,
-					},
-				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "development-2", config.EnvironmentConfig{
-					Upstream: &config.EnvironmentConfigUpstream{
-						Latest: true,
-					},
-				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "development-3", config.EnvironmentConfig{
-					Upstream: &config.EnvironmentConfigUpstream{
-						Latest: true,
-					},
-				})
+				err := setupDBFixtures(ctx, dbHandler, transaction)
 				if err != nil {
 					return err
 				}
