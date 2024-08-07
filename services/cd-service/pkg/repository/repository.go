@@ -2105,14 +2105,13 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 	return result, nil
 }
 
-func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersions, error) {
+func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
 	defer ddSpan.Finish()
-	result := make(db.AllQueuedVersions)
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest()
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for envNameIndex := range envNames {
 
@@ -2120,15 +2119,14 @@ func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersio
 
 		appNames, err := s.GetEnvironmentApplicationsFromManifest(envName)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		result[envName] = make(map[string]*int64)
 		for _, currentApp := range appNames {
 			var version *uint64
 			version, err := s.GetQueuedVersionFromManifest(envName, currentApp)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			var versionIntPtr *int64
@@ -2138,11 +2136,14 @@ func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersio
 			} else {
 				versionIntPtr = nil
 			}
-			result[envName][currentApp] = versionIntPtr
-
+			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr)
+			if err != nil {
+				return fmt.Errorf("error writing existing queued application version '%d' to DB for app '%s' on environment '%s': %w",
+					*versionIntPtr, currentApp, envName, err)
+			}
 		}
 	}
-	return result, nil
+	return nil
 }
 
 func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {

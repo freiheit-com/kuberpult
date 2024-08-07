@@ -1333,7 +1333,7 @@ type AllCommitEvents map[string][]event.DBEventGo        // CommitId -> uuid -> 
 type GetAllEnvLocksFun = func(ctx context.Context) (AllEnvLocks, error)
 type GetAllTeamLocksFun = func(ctx context.Context) (AllTeamLocks, error)
 type WriteAllReleasesFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
-type GetAllQueuedVersionsFun = func(ctx context.Context) (AllQueuedVersions, error)
+type WriteAllQueuedVersionsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type WriteAllEventsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
@@ -1351,7 +1351,7 @@ func (h *DBHandler) RunCustomMigrations(
 	getAllAppLocksFun GetAllAppLocksFun,
 	getAllTeamLocksFun GetAllTeamLocksFun,
 	getAllEnvironmentsFun GetAllEnvironmentsFun,
-	getAllQueuedVersionsFun GetAllQueuedVersionsFun,
+	writeAllQueuedVersionsFun WriteAllQueuedVersionsFun,
 	writeAllEventsFun WriteAllEventsFun,
 ) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
@@ -1384,7 +1384,7 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, getAllQueuedVersionsFun)
+	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, writeAllQueuedVersionsFun)
 	if err != nil {
 		return err
 	}
@@ -2120,7 +2120,7 @@ func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction
 	return true, nil
 }
 
-func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Context, getAllQueuedVersionsFun GetAllQueuedVersionsFun) error {
+func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Context, writeAllQueuedVersionsFun WriteAllQueuedVersionsFun) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationQueuedApplicationVersions")
 	defer span.Finish()
 
@@ -2133,19 +2133,9 @@ func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Cont
 			return nil
 		}
 
-		allQueuedVersionsInRepo, err := getAllQueuedVersionsFun(ctx)
+		err = writeAllQueuedVersionsFun(ctx, transaction, h)
 		if err != nil {
-			return fmt.Errorf("could not get current queued versions to run custom migrations: %v", err)
-		}
-
-		for envName, apps := range allQueuedVersionsInRepo {
-			for appName, v := range apps {
-				err := h.DBWriteDeploymentAttempt(ctx, transaction, envName, appName, v)
-				if err != nil {
-					return fmt.Errorf("error writing existing queued application version '%d' to DB for app '%s' on environment '%s': %v",
-						*v, appName, envName, err)
-				}
-			}
+			return fmt.Errorf("could not get current queued versions to run custom migrations: %w", err)
 		}
 		return nil
 	})
