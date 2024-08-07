@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"path"
 	"slices"
 	"strings"
@@ -30,7 +31,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -46,6 +46,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 )
+
+var Stack int
 
 type DBConfig struct {
 	DbUser         string
@@ -4324,10 +4326,10 @@ type DBEnvironmentRow struct {
 	Config  string
 }
 
-func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
+func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName, caller string) (*DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
 	defer span.Finish()
-
+	Stack += 1
 	selectQuery := h.AdaptQuery(
 		`
 SELECT created, version, name, json
@@ -4338,6 +4340,7 @@ LIMIT 1;
 `,
 	)
 	span.SetTag("query", selectQuery)
+	span.SetTag("caller", caller)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -4407,8 +4410,8 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
 	}
+	existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName, "writeEnvironment")
 
-	existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName)
 	if err != nil {
 		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
 	}

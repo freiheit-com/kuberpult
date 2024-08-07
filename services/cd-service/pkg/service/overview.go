@@ -131,9 +131,12 @@ func (o *OverviewServiceServer) getOverview(
 	}
 	result.ManifestRepoUrl = o.RepositoryConfig.URL
 	result.Branch = o.RepositoryConfig.Branch
+	repository.Push("Overview")
 	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
+		repository.Pop()
 		return nil, grpc.InternalError(ctx, err)
 	} else {
+		repository.Pop()
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
 		for envName, config := range envs {
 			var groupName = mapper.DeriveGroupName(config, envName)

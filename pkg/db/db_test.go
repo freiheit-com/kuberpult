@@ -1771,7 +1771,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 			}
 
 			envEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*DBEnvironment, error) {
-				envEntry, err := dbHandler.DBSelectEnvironment(ctx, transaction, tc.EnvToQuery)
+				envEntry, err := dbHandler.DBSelectEnvironment(ctx, transaction, tc.EnvToQuery, "")
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
 				}
