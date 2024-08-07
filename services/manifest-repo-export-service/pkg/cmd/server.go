@@ -320,12 +320,10 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				if err2 != nil {
 					d := sleepDuration.NextBackOff()
 					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
-					if ddMetrics != nil {
-						if err := ddMetrics.Gauge("manifest_export_push_failures", 1, []string{}, 1); err != nil {
-							log.Error("Error in ddMetrics.Gauge %v", err)
-						}
-					}
+					measurePushFailures(ddMetrics, log, true)
 					time.Sleep(d)
+				} else {
+					measurePushFailures(ddMetrics, log, false)
 				}
 				return err2
 			})
@@ -337,6 +335,18 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 					time.Sleep(d)
 				}
 			}
+		}
+	}
+}
+
+func measurePushFailures(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, failure bool) {
+	if ddMetrics != nil {
+		var value float64 = 0
+		if failure {
+			value = 1
+		}
+		if err := ddMetrics.Gauge("manifest_export_push_failures", value, []string{}, 1); err != nil {
+			log.Error("Error in ddMetrics.Gauge %v", err)
 		}
 	}
 }
