@@ -6,7 +6,7 @@ on:
       trigger:
         required: true
         type: string
-        description: 'The trigger which calls the workflow, one of [pull-request, main, tag]'
+        description: "The trigger which calls the workflow, one of [pull-request, main, tag]"
 
 jobs:
   execution_plan:
@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: google-github-actions/auth@v2
-        name: 'Authenticate to Google Cloud'
+        name: "Authenticate to Google Cloud"
         with:
           credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
       - name: gcloud authorize
@@ -62,82 +62,83 @@ jobs:
     needs: [execution_plan]
     if: needs.execution_plan.outputs.stage_a != 'null'
     strategy:
-        matrix:
-          data: ${{fromJSON(needs.execution_plan.outputs.stage_a)}}
+      matrix:
+        data: ${{fromJSON(needs.execution_plan.outputs.stage_a)}}
     name: ${{ matrix.data.directory }} - Build and Publish
     runs-on: ubuntu-latest
     # we want to publish to the ghcr.io registry. For this we need to have package:write rights
     permissions:
-        packages: write
-        contents: read
+      packages: write
+      contents: read
     steps:
       - name: Install earthly
         uses: earthly/actions-setup@v1
         with:
-            version: v0.8.13
+          version: v0.8.13
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-            fetch-depth: 0
+          fetch-depth: 0
       - name: Set version pr/main
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
-            git config --global --add safe.directory "$GITHUB_WORKSPACE"
-            echo "VERSION=$(make version)" >> $GITHUB_ENV
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo "VERSION=$(make version)" >> $GITHUB_ENV
       - name: Set version tag
         if: inputs.trigger == 'tag'
         run: |
-            echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
+          echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
       - name: Add credentials file
         run: |
-            cat > credential.json << EOF
-            ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
-            EOF
+          cat > credential.json << EOF
+          ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+          EOF
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Login to Google Artifact Registry
         uses: docker/login-action@v3
         with:
-            registry: europe-west3-docker.pkg.dev
-            username: _json_key
-            password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+          registry: europe-west3-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
       - name: Update cache
         uses: actions/cache@v4
         if: matrix.data.cachefiles != ''
         with:
-            path: ${{ matrix.data.cachefiles }}
-            key: cache-${{ matrix.data.cacheKey }}
-            restore-keys: |
-              cache-${{ matrix.data.cacheKey }}
+          path: ${{ matrix.data.cachefiles }}
+          key: cache-${{ matrix.data.cacheKey }}
+          restore-keys: |
+            cache-${{ matrix.data.cacheKey }}
       - name: Pre build actions
         uses: ./.github/actions/pre-build-action
         with:
-            data: ${{ toJSON(matrix.data) }}
+          data: ${{ toJSON(matrix.data) }}
       - name: Test, Build and Publish
         run: |
-            git config --global --add safe.directory "$GITHUB_WORKSPACE"
-            ${{ matrix.data.command }}
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          ${{ matrix.data.command }}
       - name: Post build actions
         uses: ./.github/actions/post-build-action
         with:
-            data: ${{ toJSON(matrix.data) }}
+          data: ${{ toJSON(matrix.data) }}
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
-            name: ${{ matrix.data.artifactName }}
-            path: ${{ matrix.data.directory }}/${{ matrix.data.artifacts }}
+          name: ${{ matrix.data.artifactName }}
+          path: |
+            ${{ matrix.data.directory }}/${{ matrix.data.artifacts }}
   stageB_build:
     needs: [execution_plan, stageA_build]
     # Workaround to run stageB in case stageA was skipped
     if: |
-        always() &&
-        (needs.stageA_build.result != 'failed')  &&
-        (needs.stageA_build.result != 'cancelled')  &&
-        (needs.execution_plan.outputs.stage_b != 'null')
+      always() &&
+      (needs.stageA_build.result != 'failed')  &&
+      (needs.stageA_build.result != 'cancelled')  &&
+      (needs.execution_plan.outputs.stage_b != 'null')
     strategy:
       matrix:
         data: ${{fromJSON(needs.execution_plan.outputs.stage_b)}}
@@ -208,8 +209,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
-            name: ${{ matrix.data.artifactName }}
-            path: ${{ matrix.data.directory }}/${{ matrix.data.artifacts }}
+          name: ${{ matrix.data.artifactName }}
+          path: |
+            ${{ matrix.data.directory }}/${{ matrix.data.artifacts }}
   cleanup:
     needs: [stageB_build, execution_plan]
     name: Cleanup

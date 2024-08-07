@@ -2,3 +2,6 @@ metadata:
   name: kuberpult-client
 spec:
   buildWith: infrastructure/docker/builder
+additional_artifacts:
+  - go.mod
+  - go.sum
