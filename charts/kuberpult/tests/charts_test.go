@@ -459,15 +459,15 @@ db:
 			ExpectedMissing: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_NAME",
-					Value: "",
+					Value: "does",
 				},
 				{
 					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "",
+					Value: "not",
 				},
 				{
 					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "",
+					Value: "matter",
 				},
 			},
 		},
