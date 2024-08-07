@@ -685,8 +685,9 @@ func (c *CreateApplicationVersion) Transform(
 	for i := range sortedKeys {
 		env := sortedKeys[i]
 		man := c.Manifests[env]
-
+		Push("CreateApplicationVersionTransformer")
 		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
+		Pop()
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1750,18 +1751,13 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 	}
 
 	Push("checkUserPermissions")
-	envs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
+	config, err := s.GetEnvironmentConfig(ctx, transaction, env)
 	Pop()
 	if err != nil {
 		return err
 	}
-	var group string
-	for envName, config := range envs {
-		if envName == env {
-			group = mapper.DeriveGroupName(config, env)
-			break
-		}
-	}
+	group := mapper.DeriveGroupName(*config, env)
+
 	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
@@ -2594,7 +2590,9 @@ func (c *DeployApplicationVersion) Transform(
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DeployApplicationVersion")
 	defer span.Finish()
+	Push("DeployApplicationVersion")
 	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig, true)
+	defer Pop()
 	if err != nil {
 		return "", err
 	}
@@ -3585,9 +3583,9 @@ func (c *envReleaseTrain) prognosis(
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
-
+			Push("checkUserPermissions-Team")
 			err := state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
-
+			Pop()
 			if err != nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
