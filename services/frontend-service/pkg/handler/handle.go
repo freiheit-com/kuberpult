@@ -68,6 +68,8 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 		s.handleApiApplication(w, req, tail)
 	case "environments":
 		s.handleApiEnvironments(w, req, tail)
+	case "environment-groups":
+		s.handleApiEnvironmentGroups(w, req, tail)
 	case "release":
 		s.handleApiRelease(w, req, tail)
 	default:

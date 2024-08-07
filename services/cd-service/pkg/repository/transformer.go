@@ -2987,6 +2987,7 @@ type ReleaseTrain struct {
 	WriteCommitData       bool             `json:"writeCommitData"`
 	Repo                  Repository       `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"`
+	IsTargetEnvGroup      bool             `json:"isTargetEnvGroup"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -3090,7 +3091,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 	return apps, nil, nil
 }
 
-func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) (map[string]config.EnvironmentConfig, bool) {
+func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string, isTargetEnvGroup bool) (map[string]config.EnvironmentConfig, bool) {
 	envGroupConfigs := make(map[string]config.EnvironmentConfig)
 	isEnvGroup := false
 
@@ -3100,7 +3101,7 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 			envGroupConfigs[env] = config
 		}
 	}
-	if len(envGroupConfigs) == 0 {
+	if isTargetEnvGroup || len(envGroupConfigs) == 0 {
 		envConfig, ok := configs[targetGroupName]
 		if ok {
 			envGroupConfigs[targetGroupName] = envConfig
@@ -3145,7 +3146,7 @@ func (c *ReleaseTrain) Prognosis(
 	}
 
 	var targetGroupName = c.Target
-	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.IsTargetEnvGroup)
 	if len(envGroupConfigs) == 0 {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName)),
@@ -3209,7 +3210,7 @@ func (c *ReleaseTrain) Transform(
 
 	var targetGroupName = c.Target
 	configs, _ := state.GetAllEnvironmentConfigs(ctx, transaction)
-	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.IsTargetEnvGroup)
 
 	// sorting for determinism
 	envNames := make([]string, 0, len(prognosis.EnvironmentPrognoses))
