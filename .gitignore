@@ -14,6 +14,11 @@ database/db.sqlite
 build/
 .tmp-earthly-out
 services/**/coverage.out
+services/**/coverage.html
+pkg/coverage.out
+pkg/coverage.html
+cli/coverage.out
+cli/coverage.html
 
 # used by envrc https://direnv.net/
 .envrc

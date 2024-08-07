@@ -5,4 +5,4 @@ spec:
   dependsOn:
   - ../../
 additional_artifacts:
-  - coverage.out
+  - coverage.html
