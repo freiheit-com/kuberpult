@@ -20,11 +20,12 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"io"
 	"mime/multipart"
 	"net/http"
 	urllib "net/url"
+
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
 
 func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
@@ -107,8 +108,11 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 	if err != nil {
 		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
 	}
-
-	req, err := http.NewRequest(http.MethodPost, urlStruct.JoinPath("release").String(), form)
+	path := "release"
+	if parsedArgs.UseDexAuthentication {
+		path = "api/release"
+	}
+	req, err := http.NewRequest(http.MethodPost, urlStruct.JoinPath(path).String(), form)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}
@@ -141,14 +145,14 @@ func issueHttpRequest(req http.Request) error {
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	strBody := string(body)
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body could not be be read, error: %w", resp.StatusCode, err)
 		}
-		strBody := string(body)
 		return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body:\n   %v", resp.StatusCode, strBody)
 	}
-
+	fmt.Println(strBody)
 	return nil
 }
