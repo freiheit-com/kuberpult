@@ -3857,7 +3857,6 @@ func Pop() {
 }
 
 func Register() {
-	fmt.Printf("Register. Current callstack: %s\n", callStack)
 	value, ok := callStackResults[callStack]
 	if !ok {
 		callStackResults[callStack] = 1
