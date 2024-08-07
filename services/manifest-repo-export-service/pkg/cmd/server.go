@@ -249,6 +249,7 @@ func Run(ctx context.Context) error {
 			Opts:     []grpc.ServerOption{},
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
+				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
 				reflection.Register(srv)
 			},
 		},
