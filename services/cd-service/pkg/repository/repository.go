@@ -443,6 +443,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			// Check configuration for errors and abort early if any:
 			if state.DBHandler.ShouldUseOtherTables() {
 				_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+					Clear()
 					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
 					return &ret, err
 				})
