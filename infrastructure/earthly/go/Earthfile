@@ -40,7 +40,6 @@ UNIT_TEST:
     COPY pkg pkg
     RUN go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
     RUN go tool cover -html=coverage.out -o coverage.html
-    SAVE ARTIFACT coverage.out AS LOCAL coverage.out
     SAVE ARTIFACT coverage.html AS LOCAL coverage.html
 
 LINT:
