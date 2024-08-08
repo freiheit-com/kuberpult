@@ -78,6 +78,13 @@ spec:
             port:
               name: http
       - pathType: Prefix
+        path: /callback
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              name: http
+      - pathType: Prefix
         path: /login
         backend:
           service:
