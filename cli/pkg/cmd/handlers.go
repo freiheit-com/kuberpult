@@ -23,11 +23,12 @@ import (
 	rl "github.com/freiheit-com/kuberpult/cli/pkg/release"
 )
 
-func handleRelease(kpClientParams kuberpultClientParameters, args []string) {
+func handleRelease(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
 	parsedArgs, err := rl.ParseArgs(args)
 
 	if err != nil {
-		log.Fatalf("error while parsing command line args, error: %v", err)
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
 	}
 
 	authParams := kutil.AuthenticationParameters{
@@ -38,6 +39,8 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) {
 	}
 
 	if err = rl.Release(kpClientParams.url, authParams, *parsedArgs); err != nil {
-		log.Fatalf("error on release, error: %v", err)
+		log.Printf("error on release, error: %v", err)
+		return ReturnCodeFailure
 	}
+	return ReturnCodeSuccess
 }

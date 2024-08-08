@@ -24,9 +24,21 @@ import (
 	"mime/multipart"
 	"net/http"
 	urllib "net/url"
+	"time"
 
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
+
+const (
+	RETRIES = 3
+	TIMEOUT = 10
+)
+
+var backoffSchedule = []time.Duration{
+	1 * time.Second,
+	2 * time.Second,
+	3 * time.Second,
+}
 
 func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
@@ -137,22 +149,42 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 	return req, nil
 }
 
-func issueHttpRequest(req http.Request) error {
-	client := &http.Client{} //exhaustruct:ignore
-	resp, err := client.Do(&req)
+func doRequest(request *http.Request) (*http.Response, []byte, error) {
+	client := &http.Client{
+		Timeout: TIMEOUT * time.Second,
+	}
+
+	resp, err := client.Do(request)
 	if err != nil {
-		return fmt.Errorf("error issuing the HTTP request, error: %w", err)
+		return nil, nil, fmt.Errorf("error sending request %v with error: %w", request, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
-	strBody := string(body)
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		if err != nil {
-			return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body could not be be read, error: %w", resp.StatusCode, err)
-		}
-		return fmt.Errorf("response was not OK or Accepted\nresponse code: %v\nresponse body:\n   %v", resp.StatusCode, strBody)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to read response: %v with error: %w", resp, err)
 	}
-	fmt.Println(strBody)
-	return nil
+
+	return resp, body, nil
+}
+
+func issueHttpRequest(req http.Request) error {
+	for i := 0; i < RETRIES; i++ {
+		response, body, err := doRequest(&req)
+		if err != nil {
+			fmt.Printf("Fatal: error issuing http request: %w\n", err)
+			time.Sleep(backoffSchedule[i])
+			continue
+		}
+
+		if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
+			fmt.Printf("Recieved response code %d - %s from Kuberpult\nResponse body:\n%s\nRetrying in %v...\n", response.StatusCode, http.StatusText(response.StatusCode), string(body), backoffSchedule[i])
+			time.Sleep(backoffSchedule[i])
+			continue
+		}
+
+		fmt.Printf("Success: %d - %s\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
+		return nil
+	}
+	return fmt.Errorf("could not perform a successful call to kuberpult")
 }

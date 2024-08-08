@@ -22,6 +22,14 @@ import (
 	"os"
 )
 
+type ReturnCode int
+
+const (
+	ReturnCodeSuccess          = 0 //Success
+	ReturnCodeFailure          = 1 //Error on kuberpult interaction
+	ReturnCodeInvalidArguments = 2 //Error on CLI usage
+)
+
 type kuberpultClientParameters struct {
 	url         string
 	authorName  *string
@@ -30,14 +38,16 @@ type kuberpultClientParameters struct {
 	dexToken    *string
 }
 
-func RunCLI() {
+func RunCLI() ReturnCode {
 	kpClientParams, other, err := parseArgs(os.Args[1:])
 	if err != nil {
-		log.Fatalf("error while parsing command line arguments, error: %v", err)
+		log.Printf("error while parsing command line arguments, error: %v", err)
+		return ReturnCodeInvalidArguments
 	}
 
 	if len(other) == 0 {
-		log.Fatalf("a subcommand must be specified")
+		log.Println("a subcommand must be specified")
+		return ReturnCodeInvalidArguments
 	}
 
 	subcommand := other[0]
@@ -50,13 +60,14 @@ func RunCLI() {
 	if envVar, envVarExists := os.LookupEnv("KUBERPULT_DEX_ACCESS_TOKEN"); envVarExists {
 		kpClientParams.dexToken = &envVar
 	}
-
 	switch subcommand {
 	case "help":
 		fmt.Println(helpMessage)
+		return ReturnCodeSuccess
 	case "release":
-		handleRelease(*kpClientParams, subflags)
+		return handleRelease(*kpClientParams, subflags)
 	default:
-		log.Fatalf("unknown subcommand %s", subcommand)
+		log.Printf("unknown subcommand %s\n", subcommand)
+		return ReturnCodeInvalidArguments
 	}
 }
