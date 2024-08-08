@@ -1877,7 +1877,7 @@ func (h *DBHandler) DBClearAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("DBUpdateAllDeploymentsForApp: no transaction provided")
+		return fmt.Errorf("DBClearAllDeploymentsForApp: no transaction provided")
 	}
 
 	//Get current deployment information for app
