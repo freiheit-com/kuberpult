@@ -249,6 +249,7 @@ func Run(ctx context.Context) error {
 			Opts:     []grpc.ServerOption{},
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
+				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
 				reflection.Register(srv)
 			},
 		},
@@ -320,12 +321,10 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				if err2 != nil {
 					d := sleepDuration.NextBackOff()
 					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
-					if ddMetrics != nil {
-						if err := ddMetrics.Gauge("manifest_export_push_failures", 1, []string{}, 1); err != nil {
-							log.Error("Error in ddMetrics.Gauge %v", err)
-						}
-					}
+					measurePushes(ddMetrics, log, true)
 					time.Sleep(d)
+				} else {
+					measurePushes(ddMetrics, log, false)
 				}
 				return err2
 			})
@@ -337,6 +336,18 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 					time.Sleep(d)
 				}
 			}
+		}
+	}
+}
+
+func measurePushes(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, failure bool) {
+	if ddMetrics != nil {
+		var value float64 = 0
+		if failure {
+			value = 1
+		}
+		if err := ddMetrics.Gauge("manifest_export_push_failures", value, []string{}, 1); err != nil {
+			log.Error("Error in ddMetrics.Gauge %v", err)
 		}
 	}
 }

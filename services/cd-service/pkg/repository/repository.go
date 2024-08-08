@@ -2029,7 +2029,7 @@ func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]str
 
 // WriteCurrentlyDeployed writes all apps that have current deployments on any env from the filesystem to the database
 func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetCurrentlyDeployed")
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "WriteCurrentlyDeployed")
 	defer ddSpan.Finish()
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
@@ -2081,25 +2081,24 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 	return nil
 }
 
-// GetCurrentEnvironmentLocks gets all locks on any environment in manifest
-func (s *State) GetCurrentEnvironmentLocks(ctx context.Context) (db.AllEnvLocks, error) {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentEnvironmentLocks")
+// WriteCurrentEnvironmentLocks gets all locks on any environment in manifest and writes them to the DB
+func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteCurrentEnvironmentLocks")
 	defer ddSpan.Finish()
-	result := make(db.AllEnvLocks)
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
-		var currentEnv []db.EnvironmentLock
+		var activeLockIds []string
 
 		ls, err := s.GetEnvironmentLocksFromManifest(envName)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for lockId, lock := range ls {
-			currentEnv = append(currentEnv, db.EnvironmentLock{
+			currentEnv := db.EnvironmentLock{
 				EslVersion: 0,
 				Env:        envName,
 				LockID:     lockId,
@@ -2110,21 +2109,33 @@ func (s *State) GetCurrentEnvironmentLocks(ctx context.Context) (db.AllEnvLocks,
 					Message:        lock.Message,
 				},
 				Deleted: false,
-			})
+			}
+			activeLockIds = append(activeLockIds, currentEnv.LockID)
+			err = dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, currentEnv, 0, true)
+			if err != nil {
+				return fmt.Errorf("error writing environment locks to DB for environment %s: %w",
+					envName, err)
+			}
 		}
-		result[envName] = currentEnv
+		if len(activeLockIds) == 0 {
+			activeLockIds = []string{}
+		}
+		err = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, envName, activeLockIds)
+		if err != nil {
+			return fmt.Errorf("error writing environment locks ids to DB for environment %s: %w",
+				envName, err)
+		}
 	}
-	return result, nil
+	return nil
 }
 
-func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks, error) {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentApplicationLocks")
+func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteCurrentApplicationLocks")
 	defer ddSpan.Finish()
-	result := make(db.AllAppLocks)
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for envNameIndex := range envNames {
 
@@ -2132,18 +2143,17 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 
 		appNames, err := s.GetEnvironmentApplicationsFromManifest(envName)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		result[envName] = make(map[string][]db.ApplicationLock)
 		for _, currentApp := range appNames {
-			var currentAppLocks []db.ApplicationLock
+			var activeLockIds []string
 			ls, err := s.GetEnvironmentApplicationLocksFromManifest(envName, currentApp)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			for lockId, lock := range ls {
-				currentAppLocks = append(currentAppLocks, db.ApplicationLock{
+				currentAppLock := db.ApplicationLock{
 					EslVersion: 0,
 					Env:        envName,
 					LockID:     lockId,
@@ -2155,22 +2165,34 @@ func (s *State) GetCurrentApplicationLocks(ctx context.Context) (db.AllAppLocks,
 					},
 					App:     currentApp,
 					Deleted: false,
-				})
+				}
+				activeLockIds = append(activeLockIds, currentAppLock.LockID)
+				err = dbHandler.DBWriteApplicationLockInternal(ctx, transaction, currentAppLock, 0, true)
+				if err != nil {
+					return fmt.Errorf("error writing application locks to DB for application '%s' on '%s': %w",
+						currentApp, envName, err)
+				}
 			}
-			result[envName][currentApp] = currentAppLocks
+			if len(activeLockIds) == 0 {
+				activeLockIds = []string{}
+			}
+			err = dbHandler.DBWriteAllAppLocks(ctx, transaction, 0, envName, currentApp, activeLockIds)
+			if err != nil {
+				return fmt.Errorf("error writing existing locks to DB for application '%s' on environment '%s': %w",
+					currentApp, envName, err)
+			}
 		}
 	}
-	return result, nil
+	return nil
 }
 
-func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersions, error) {
+func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
 	defer ddSpan.Finish()
-	result := make(db.AllQueuedVersions)
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest()
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for envNameIndex := range envNames {
 
@@ -2178,15 +2200,14 @@ func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersio
 
 		appNames, err := s.GetEnvironmentApplicationsFromManifest(envName)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		result[envName] = make(map[string]*int64)
 		for _, currentApp := range appNames {
 			var version *uint64
 			version, err := s.GetQueuedVersionFromManifest(envName, currentApp)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			var versionIntPtr *int64
@@ -2196,11 +2217,14 @@ func (s *State) GetAllQueuedAppVersions(ctx context.Context) (db.AllQueuedVersio
 			} else {
 				versionIntPtr = nil
 			}
-			result[envName][currentApp] = versionIntPtr
-
+			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr)
+			if err != nil {
+				return fmt.Errorf("error writing existing queued application version '%d' to DB for app '%s' on environment '%s': %w",
+					*versionIntPtr, currentApp, envName, err)
+			}
 		}
 	}
-	return result, nil
+	return nil
 }
 
 func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
@@ -2366,14 +2390,13 @@ func (s *State) GetAllApplicationReleasesFromManifest(application string) ([]uin
 	}
 }
 
-func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error) {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetCurrentTeamLocks")
+func (s *State) WriteCurrentTeamLocks(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteCurrentTeamLocks")
 	defer ddSpan.Finish()
-	result := make(db.AllTeamLocks)
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for envNameIndex := range envNames {
@@ -2382,19 +2405,18 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error
 
 		appNames, err := s.GetEnvironmentApplicationsFromManifest(envName)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		result[envName] = make(map[string][]db.TeamLock)
 		for _, currentApp := range appNames {
-			var currentTeamLocks []db.TeamLock
+			var activeLockIds []string
 
 			teamName, err := s.GetTeamNameFromManifest(currentApp)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					continue //If app has no team, we skip it
 				}
-				return nil, err
+				return err
 			}
 			_, exists := processedTeams[teamName]
 			if !exists {
@@ -2405,10 +2427,10 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error
 
 			ls, err := s.GetEnvironmentTeamLocksFromManifest(envName, teamName)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			for lockId, lock := range ls {
-				currentTeamLocks = append(currentTeamLocks, db.TeamLock{
+				currentTeamLock := db.TeamLock{
 					EslVersion: 0,
 					Env:        envName,
 					LockID:     lockId,
@@ -2420,12 +2442,25 @@ func (s *State) GetCurrentTeamLocks(ctx context.Context) (db.AllTeamLocks, error
 					},
 					Team:    teamName,
 					Deleted: false,
-				})
+				}
+				activeLockIds = append(activeLockIds, currentTeamLock.LockID)
+				err = dbHandler.DBWriteTeamLockInternal(ctx, transaction, currentTeamLock, 0, true)
+				if err != nil {
+					return fmt.Errorf("error writing team locks to DB for team '%s' on '%s': %w",
+						teamName, envName, err)
+				}
 			}
-			result[envName][teamName] = currentTeamLocks
+			if len(activeLockIds) == 0 {
+				activeLockIds = []string{}
+			}
+			err = dbHandler.DBWriteAllTeamLocks(ctx, transaction, 0, envName, teamName, activeLockIds)
+			if err != nil {
+				return fmt.Errorf("error writing existing locks to DB for team '%s' on environment '%s': %w",
+					teamName, envName, err)
+			}
 		}
 	}
-	return result, nil
+	return nil
 }
 
 type Release struct {
