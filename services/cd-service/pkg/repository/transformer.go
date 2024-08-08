@@ -3010,7 +3010,6 @@ type Overview struct {
 }
 
 func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
-
 	oid, err := git.NewOid(commitHash)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating new oid for commitHash %s: %w", commitHash, err)
@@ -3145,7 +3144,9 @@ func (c *ReleaseTrain) Prognosis(
 ) ReleaseTrainPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
 	defer span.Finish()
+
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.InternalError(ctx, err),
@@ -3212,7 +3213,9 @@ func (c *ReleaseTrain) Transform(
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
+
 	prognosis := c.Prognosis(ctx, state, transaction)
+
 	if prognosis.Error != nil {
 		return "", prognosis.Error
 	}
@@ -3413,6 +3416,7 @@ func (c *envReleaseTrain) prognosis(
 				continue
 			}
 		}
+
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
@@ -3556,7 +3560,9 @@ func (c *envReleaseTrain) prognosis(
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
+
 			err := state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
+
 			if err != nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
