@@ -1617,7 +1617,6 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	sort.Slice(versions, func(i, j int) bool {
 		return versions[i] < versions[j]
 	})
-	// Use the latest version as oldest deployed version
 
 	deployments, err := state.GetAllDeploymentsForApp(ctx, transaction, name)
 	if err != nil {
@@ -1631,6 +1630,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	}
 
 	if len(deployedVersions) == 0 {
+		// Use the latest version as oldest deployed version
 		oldestDeployedVersion = versions[len(versions)-1]
 	} else {
 		oldestDeployedVersion = uint64(slices.Min(deployedVersions))
@@ -3025,8 +3025,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 		}
 		return nil, fmt.Errorf("unable to get oid: %w", err)
 	}
-
-	envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
+	envs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
 	}
