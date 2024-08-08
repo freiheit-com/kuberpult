@@ -643,6 +643,7 @@ describe('Action details', () => {
                         target: 'dev',
                         team: '',
                         commitHash: '',
+                        isTargetEnvGroup: false,
                     },
                 },
             },

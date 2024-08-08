@@ -161,7 +161,7 @@ func (s Server) handleApiEnvironmentReleaseTrain(w http.ResponseWriter, req *htt
 	case "/prognosis":
 		s.handleReleaseTrainPrognosis(w, req, target)
 	default:
-		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain/prognosis, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
 		return
 	}
 }
@@ -171,7 +171,7 @@ func (s Server) handleApiEnvironmentGroupReleaseTrain(w http.ResponseWriter, req
 	case "/":
 		s.handleAPIReleaseTrainExecution(w, req, target, true)
 	default:
-		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
 		return
 	}
 }

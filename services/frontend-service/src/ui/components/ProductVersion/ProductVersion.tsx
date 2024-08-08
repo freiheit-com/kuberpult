@@ -181,7 +181,7 @@ export const ProductVersion: React.FC = () => {
                     addAction({
                         action: {
                             $case: 'releaseTrain',
-                            releaseTrain: { target: env, commitHash: selectedTag, team: '' },
+                            releaseTrain: { target: env, commitHash: selectedTag, team: '', isTargetEnvGroup: false },
                         },
                     });
                 });
@@ -195,7 +195,7 @@ export const ProductVersion: React.FC = () => {
                 addAction({
                     action: {
                         $case: 'releaseTrain',
-                        releaseTrain: { target: env, commitHash: selectedTag, team: teams[0] },
+                        releaseTrain: { target: env, commitHash: selectedTag, team: teams[0], isTargetEnvGroup: false },
                     },
                 });
             });
