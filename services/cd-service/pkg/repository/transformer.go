@@ -684,7 +684,7 @@ func (c *CreateApplicationVersion) Transform(
 
 		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
 		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", err
 		}
 		envDir := fs.Join(releaseDir, "environments", env)
 

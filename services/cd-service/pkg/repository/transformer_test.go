@@ -4129,14 +4129,12 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(
-				fixtureWrapGeneralFailure(
-					auth.TeamPermissionError{
-						User:   "test tester",
-						Email:  "testmail@example.com",
-						Action: "CreateRelease",
-						Team:   "team-1",
-					},
-				),
+				auth.TeamPermissionError{
+					User:   "test tester",
+					Email:  "testmail@example.com",
+					Action: "CreateRelease",
+					Team:   "team-1",
+				},
 			),
 		},
 		{
@@ -4190,14 +4188,12 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(
-				fixtureWrapGeneralFailure(
-					auth.PermissionError{
-						User:        "test tester",
-						Role:        "developer",
-						Action:      "CreateRelease",
-						Environment: "*",
-					},
-				),
+				auth.PermissionError{
+					User:        "test tester",
+					Role:        "developer",
+					Action:      "CreateRelease",
+					Environment: "*",
+				},
 			),
 		},
 		{
