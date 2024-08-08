@@ -1,6 +1,3 @@
----
-metadata:
-  builder: kuberpult-builder
 spec:
   buildWith: infrastructure/docker/builder
   dependsOn:
