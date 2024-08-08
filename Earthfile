@@ -12,7 +12,7 @@ deps:
         FROM golang:1.21-alpine3.18
         RUN apk add --no-cache ca-certificates tzdata bash libgit2-dev sqlite-dev alpine-sdk
     END
-    
+
     COPY buf_sha256.txt .
     ARG BUF_VERSION=v1.26.1
     ARG BUF_BIN_PATH=/usr/local/bin
@@ -23,7 +23,7 @@ deps:
     RUN OS=Linux ARCH=$(uname -m) && \
         SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
         echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
-    
+
     ARG GO_CI_LINT_VERSION="v1.51.2"
     RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
 
@@ -146,7 +146,7 @@ integration-test:
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
             ./tests/integration-tests/cluster-setup/setup-cluster-ssh.sh& \
-            ./tests/integration-tests/cluster-setup/setup-postgres.sh& \
+            ./tests/integration-tests/cluster-setup/setup-postgres.sh && \
             ./tests/integration-tests/cluster-setup/argocd-kuberpult.sh && \
             cd tests/integration-tests && go test $GO_TEST_ARGS ./... || ./cluster-setup/get-logs.sh; \
             echo ============ SUCCESS ============
