@@ -1433,7 +1433,7 @@ type ReleaseTrain struct {
 	WriteCommitData       bool             `json:"writeCommitData"`
 	Repo                  Repository       `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-
+	IsTargetEnvGroup      bool             `json:"isTargetEnvGroup"`
 }
 
 func (c *ReleaseTrain) GetEslVersion() db.TransformerID {
@@ -1448,7 +1448,7 @@ func (c *ReleaseTrain) GetDBEventType() db.EventType {
 	return db.EvtReleaseTrain
 }
 
-func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) (map[string]config.EnvironmentConfig, bool) {
+func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string, isTargetEnvGroup bool) (map[string]config.EnvironmentConfig, bool) {
 	envGroupConfigs := make(map[string]config.EnvironmentConfig)
 	isEnvGroup := false
 
@@ -1458,7 +1458,7 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 			envGroupConfigs[env] = config
 		}
 	}
-	if len(envGroupConfigs) == 0 {
+	if isTargetEnvGroup || len(envGroupConfigs) == 0 {
 		envConfig, ok := configs[targetGroupName]
 		if ok {
 			envGroupConfigs[targetGroupName] = envConfig
@@ -1481,7 +1481,7 @@ func (u *ReleaseTrain) Transform(
 
 	var targetGroupName = u.Target
 	configs, _ := state.GetEnvironmentConfigs()
-	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, u.IsTargetEnvGroup)
 	for _, currentDeployment := range deployments {
 		envConfig := envGroupConfigs[currentDeployment.Env]
 		upstreamEnvName := envConfig.Upstream.Environment

@@ -13,7 +13,7 @@ The train should run *often enough* to not slow down development, while also giv
 A release train takes the versions that are currently deployed on one environment and deploys those version to another environment.
 
 So there are 2 environments involved:
-* *target*:  this is where the services will be deployed (where the version changes happen), *target* can be either a single `environment` or an `environmentGroup`
+* *target*:  this is where the services will be deployed (where the version changes happen), *target* can be either a single `environment` or an `environmentGroup`. If its an `environmentGroup` you should set the value of `isTargetEnvGroup` to true.
   in the case of `environmentGroup` the train will run for all environments belonging to this `environmentGroup`. If one environment cannot be changed (e.g. because of a lock), the other environments will still be processed.
 * *upstream*: This is the source for the *versions* of the apps. You should run system tests on this environment before running the release train.
   See [environment-config](./environment.md) for configuration.
@@ -30,7 +30,9 @@ See [Release Train Recommendations](./release-train-recommendations.md) on how c
 
 Release trains are accessible via REST API:
 
-`PUT https://your.kuberpult.host.example.com/environments/${env}/releasetrain?team=${myTeam}`
+`PUT https://your.kuberpult.host.example.com/api/environments/${targetEnvironment}/releasetrain?team=${myTeam}`
+or
+`PUT https://your.kuberpult.host.example.com/api/environment-groups/${targetEnvironmentGroup}/releasetrain?team=${myTeam}`
 
 * `${env}` is the *target* environment
 * `team=${myTeam}` is an optional parameter. If set, the release train will only apply for
