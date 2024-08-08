@@ -101,8 +101,7 @@ spec:
             cpu:  {{ .Values.db.requests.cpu }}
 {{- end }}
       - name: service
-        #image: "{{ .Values.hub }}/{{ .Values.manifestRepoExport.image }}:{{ $.Chart.AppVersion }}"
-        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:v7.4.0-24-g5b39dacf"
+        image: "{{ .Values.hub }}/{{ .Values.manifestRepoExport.image }}:{{ $.Chart.AppVersion }}"
         ports:
           - name: http
             containerPort: 8080
@@ -110,21 +109,15 @@ spec:
           - name: grpc
             containerPort: 8443
             protocol: TCP
-#        readinessProbe:
-#          httpGet:
-#            path: /healthz
-#            port: http
-#          initialDelaySeconds: {{ .Values.manifestRepoExport.probes.readiness.initialDelaySeconds }}
-#          periodSeconds: {{ .Values.manifestRepoExport.probes.readiness.periodSeconds }}
-#          successThreshold: {{ .Values.manifestRepoExport.probes.readiness.successThreshold }}
-#          timeoutSeconds: {{ .Values.manifestRepoExport.probes.readiness.timeoutSeconds }}
-#          failureThreshold: {{ .Values.manifestRepoExport.probes.readiness.failureThreshold }}
-        startupProbe:
+        readinessProbe:
           httpGet:
             path: /healthz
             port: http
-          failureThreshold: 500
-          periodSeconds: 10
+          initialDelaySeconds: {{ .Values.manifestRepoExport.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.manifestRepoExport.probes.readiness.periodSeconds }}
+          successThreshold: {{ .Values.manifestRepoExport.probes.readiness.successThreshold }}
+          timeoutSeconds: {{ .Values.manifestRepoExport.probes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.manifestRepoExport.probes.readiness.failureThreshold }}
         livenessProbe:
           httpGet:
             path: /healthz
