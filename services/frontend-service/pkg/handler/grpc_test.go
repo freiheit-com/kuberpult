@@ -69,6 +69,14 @@ func Test_handleGRPCError(t *testing.T) {
 			},
 			expectedBody: "Internal Server Error\n",
 		},
+		{
+			name: "permission denied",
+			err:  status.Error(codes.PermissionDenied, "test message"),
+			expectedResp: &http.Response{
+				StatusCode: http.StatusForbidden,
+			},
+			expectedBody: "test message\n",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
