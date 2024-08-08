@@ -443,7 +443,6 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			// Check configuration for errors and abort early if any:
 			if state.DBHandler.ShouldUseOtherTables() {
 				_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
-					Clear()
 					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
 					return &ret, err
 				})
@@ -1875,7 +1874,7 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	}
 	ret := make(map[string]config.EnvironmentConfig)
 	for _, envName := range dbAllEnvs.Environments {
-		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName, callStack)
+		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 		if err != nil {
 			return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
 		}
@@ -1938,7 +1937,7 @@ func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*confi
 }
 
 func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
-	dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName, callStack)
+	dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName)
 	if err != nil {
 		return nil, fmt.Errorf("error while selecting entry for environment %s from the database, error: %w", environmentName, err)
 	}

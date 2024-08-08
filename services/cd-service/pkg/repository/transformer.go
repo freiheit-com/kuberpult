@@ -276,9 +276,6 @@ func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 	}
 }
 
-var callStack string
-var callStackResults map[string]int
-
 // A Transformer updates the files in the worktree
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
@@ -3624,7 +3621,6 @@ func (c *envReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-
 	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
@@ -3648,7 +3644,6 @@ func (c *envReleaseTrain) Transform(
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
-
 		teamName, _ := state.GetTeamName(ctx, transaction, appName)
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:

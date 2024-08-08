@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"path"
 	"slices"
 	"strings"
@@ -31,6 +30,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -1402,6 +1402,7 @@ func (h *DBHandler) RunCustomMigrations(
 func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeployment")
 	defer span.Finish()
+
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
 			" FROM deployments " +
@@ -1963,6 +1964,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 		if err != nil {
 			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
 		}
+
 		return nil
 	})
 }
@@ -4245,7 +4247,7 @@ type DBEnvironmentRow struct {
 	Config  string
 }
 
-func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName, caller string) (*DBEnvironment, error) {
+func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
 	defer span.Finish()
 
@@ -4259,7 +4261,6 @@ LIMIT 1;
 `,
 	)
 	span.SetTag("query", selectQuery)
-	span.SetTag("caller", caller)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -4329,7 +4330,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
 	}
-	existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName, "writeEnvironment")
+	existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName)
 
 	if err != nil {
 		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
