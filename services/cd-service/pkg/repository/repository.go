@@ -1113,9 +1113,8 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 		// if the DB is enabled fully, the manifest-export service takes care to update the argo apps
 		return nil
 	}
-	Push("afterTransform")
+
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		return err
 	}
@@ -1748,9 +1747,8 @@ func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFo
 
 func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	logger := logger.FromContext(ctx)
-	Push("GetEnvironmentConfigsAndValidate")
+
 	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		return nil, err
 	}
@@ -1779,9 +1777,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 }
 
 func (s *State) GetEnvironmentConfigsSorted(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, []string, error) {
-	Push("GetEnvironmentConfigsSorted")
 	configs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1810,8 +1806,6 @@ func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[string]config.Env
 
 func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		Push("GetAllEnvironmentConfigs")
-		defer Pop()
 		return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 
 	}
@@ -1881,10 +1875,7 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	}
 	ret := make(map[string]config.EnvironmentConfig)
 	for _, envName := range dbAllEnvs.Environments {
-		Push("GetAllEnvironmentConfigsFromDB")
 		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName, callStack)
-		Register()
-		Pop()
 		if err != nil {
 			return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
 		}
@@ -1947,10 +1938,7 @@ func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*confi
 }
 
 func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
-	Push("GetEnvironmentConfigFromDB")
 	dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName, callStack)
-	Register()
-	Pop()
 	if err != nil {
 		return nil, fmt.Errorf("error while selecting entry for environment %s from the database, error: %w", environmentName, err)
 	}
@@ -1962,9 +1950,7 @@ func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, transaction *sql
 }
 
 func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *sql.Tx, envGroup string) ([]string, error) {
-	Push("GetEnvironmentConfigsForGroup")
 	allEnvConfigs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		return nil, err
 	}

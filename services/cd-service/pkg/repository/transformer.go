@@ -541,9 +541,8 @@ func (c *CreateApplicationVersion) Transform(
 
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
-	Push("CreateApplicationVersionTrasformer")
+
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		if errors.Is(err, InvalidJson) {
 			return "", err
@@ -685,9 +684,8 @@ func (c *CreateApplicationVersion) Transform(
 	for i := range sortedKeys {
 		env := sortedKeys[i]
 		man := c.Manifests[env]
-		Push("CreateApplicationVersionTransformer")
+
 		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
-		Pop()
 		if err != nil {
 			return "", err
 		}
@@ -1189,9 +1187,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		}
 	}
 
-	Push("CreateUndeployApplicationVersion")
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		return "", fmt.Errorf("error while getting environment configs, error: %w", err)
 	}
@@ -1344,9 +1340,8 @@ func (u *UndeployApplication) Transform(
 	if !isUndeploy {
 		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
-	Push("UndeployApplication")
+
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		return "", err
 	}
@@ -1750,9 +1745,7 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
 	}
 
-	Push("checkUserPermissions")
 	config, err := s.GetEnvironmentConfig(ctx, transaction, env)
-	Pop()
 	if err != nil {
 		return err
 	}
@@ -2590,9 +2583,8 @@ func (c *DeployApplicationVersion) Transform(
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DeployApplicationVersion")
 	defer span.Finish()
-	Push("DeployApplicationVersion")
+
 	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig, true)
-	defer Pop()
 	if err != nil {
 		return "", err
 	}
@@ -3037,9 +3029,8 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 		}
 		return nil, fmt.Errorf("unable to get oid: %w", err)
 	}
-	Push("getOverrideVersions")
+
 	envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
 	}
@@ -3080,9 +3071,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 
 func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sql.Tx, upstreamLatest bool, state *State, upstreamEnvName, source, commitHash string) (apps []string, appVersions []Overview, err error) {
 	if commitHash != "" {
-		Push("getUpstreamLatestApp")
 		appVersions, err := getOverrideVersions(ctx, transaction, c.CommitHash, upstreamEnvName, c.Repo)
-		Pop()
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get app version for commitHash %s for %s: %w", c.CommitHash, c.Target, err))
 		}
@@ -3161,9 +3150,7 @@ func (c *ReleaseTrain) Prognosis(
 ) ReleaseTrainPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
 	defer span.Finish()
-	Push("ReleaseTrain-Prognosis")
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.InternalError(ctx, err),
@@ -3228,21 +3215,15 @@ func (c *ReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	Clear()
-	db.Stack = 0
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
-	Push("ReleaseTrainTransformer-1")
 	prognosis := c.Prognosis(ctx, state, transaction)
-	Pop()
 	if prognosis.Error != nil {
 		return "", prognosis.Error
 	}
 
 	var targetGroupName = c.Target
-	Push("ReleaseTrainTransformer-2")
 	configs, _ := state.GetAllEnvironmentConfigs(ctx, transaction)
-	Pop()
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
 	// sorting for determinism
@@ -3270,8 +3251,7 @@ func (c *ReleaseTrain) Transform(
 			return "", err
 		}
 	}
-	fmt.Println(callStackResults)
-	fmt.Println(db.Stack)
+
 	return fmt.Sprintf(
 		"Release Train to environment/environment group '%s':\n",
 		targetGroupName), nil
@@ -3313,7 +3293,7 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses:    nil,
 		}
 	}
-	Push("envReleaseTrainPrognosis")
+
 	err := state.checkUserPermissions(
 		ctx,
 		transaction,
@@ -3324,7 +3304,6 @@ func (c *envReleaseTrain) prognosis(
 		c.Parent.RBACConfig,
 		false,
 	)
-	Pop()
 
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3386,9 +3365,8 @@ func (c *envReleaseTrain) prognosis(
 	if upstreamLatest {
 		source = "latest"
 	}
-	Push("Prognosis-1")
+
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash)
-	Pop()
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:        nil,
@@ -3583,9 +3561,7 @@ func (c *envReleaseTrain) prognosis(
 		teamName, err := state.GetTeamName(ctx, transaction, appName)
 
 		if err == nil { //IF we find information for team
-			Push("checkUserPermissions-Team")
 			err := state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
-			Pop()
 			if err != nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
@@ -3843,27 +3819,4 @@ func (c *skippedService) SetEslVersion(id db.TransformerID) {
 
 func (c *skippedService) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (string, error) {
 	return c.Message, nil
-}
-
-func Push(s string) {
-	callStack = callStack + "/" + s
-}
-
-func Pop() {
-	callStackParts := strings.Split(callStack, "/")
-	callStack = strings.Join(callStackParts[:len(callStackParts)-1], "/")
-}
-
-func Register() {
-	value, ok := callStackResults[callStack]
-	if !ok {
-		callStackResults[callStack] = 1
-	} else {
-		callStackResults[callStack] = value + 1
-	}
-}
-
-func Clear() {
-	callStack = ""
-	callStackResults = map[string]int{}
 }

@@ -47,8 +47,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var Stack int
-
 type DBConfig struct {
 	DbUser         string
 	DbHost         string
@@ -4250,7 +4248,7 @@ type DBEnvironmentRow struct {
 func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName, caller string) (*DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
 	defer span.Finish()
-	Stack += 1
+
 	selectQuery := h.AdaptQuery(
 		`
 SELECT created, version, name, json
