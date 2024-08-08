@@ -184,9 +184,15 @@ spec:
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
-          value: "{{ .Values.db.dbUser }}"
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: username
         - name: KUBERPULT_DB_USER_PASSWORD
-          value: "{{ .Values.db.dbPassword }}"
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: password
         - name: KUBERPULT_DB_SSL_MODE
           value: "{{ .Values.db.sslMode }}"
         - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
