@@ -1746,7 +1746,6 @@ func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFo
 
 func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	logger := logger.FromContext(ctx)
-
 	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
@@ -1806,7 +1805,6 @@ func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[string]config.Env
 func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
-
 	}
 	return s.GetAllEnvironmentConfigsFromManifest()
 }
@@ -2737,6 +2735,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 			// if there is no version queued, that's not an issue, just do nothing:
 			return "", nil
 		}
+
 		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
 		if err != nil {
 			return "", err

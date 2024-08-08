@@ -203,8 +203,8 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 			sort.Slice(entries, sortFiles(entries))
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(ctx, state, transaction, env, app.Name())
-				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
 
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
 				if err != nil {
 					return err
 				}
@@ -1337,7 +1337,6 @@ func (u *UndeployApplication) Transform(
 	if !isUndeploy {
 		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
-
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return "", err

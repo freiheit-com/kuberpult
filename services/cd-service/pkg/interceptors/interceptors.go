@@ -41,6 +41,7 @@ func UnaryUserContextInterceptor(ctx context.Context,
 		return nil, err
 	}
 	ctx = auth.WriteUserToContext(ctx, *user)
+	
 	h, err := handler(ctx, req)
 	return h, err
 }
