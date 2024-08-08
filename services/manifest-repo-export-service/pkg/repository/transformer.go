@@ -1464,7 +1464,7 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 			envGroupConfigs[targetGroupName] = envConfig
 		}
 	}
-	return envGroupConfigs, isEnvGroup
+	return envGroupConfigs, isTargetEnvGroup || isEnvGroup
 }
 
 func (u *ReleaseTrain) Transform(

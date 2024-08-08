@@ -71,9 +71,10 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_ReleaseTrain{
 				ReleaseTrain: &api.ReleaseTrainRequest{
-					CommitHash: "",
-					Target:     target,
-					Team:       teamParam,
+					CommitHash:       "",
+					Target:           target,
+					Team:             teamParam,
+					IsTargetEnvGroup: false,
 				}}},
 		},
 		})
@@ -127,9 +128,10 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 	teamParam := queryParams.Get("team")
 
 	response, err := s.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(req.Context(), &api.ReleaseTrainRequest{
-		Target:     target,
-		CommitHash: "",
-		Team:       teamParam,
+		Target:           target,
+		CommitHash:       "",
+		Team:             teamParam,
+		IsTargetEnvGroup: false,
 	})
 
 	if err != nil {
