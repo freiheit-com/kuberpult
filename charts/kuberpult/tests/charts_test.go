@@ -1519,10 +1519,22 @@ ingress:
 	}
 }
 
-func makeIngressPath(path string) networking.HTTPIngressPath {
-	implementationSpecific := networking.PathType("ImplementationSpecific")
+func makeIngressPrefixPath(path string) networking.HTTPIngressPath {
+	pathType := networking.PathType("Prefix")
+	return makeIngressPath(path, pathType)
+}
+func makeIngressExactPath(path string) networking.HTTPIngressPath {
+	pathType := networking.PathType("Exact")
+	return makeIngressPath(path, pathType)
+}
+func makeIngressImplementationSpecificPath(path string) networking.HTTPIngressPath {
+	pathType := networking.PathType("ImplementationSpecific")
+	return makeIngressPath(path, pathType)
+}
+
+func makeIngressPath(path string, pathType networking.PathType) networking.HTTPIngressPath {
 	return networking.HTTPIngressPath{
-		PathType: &implementationSpecific,
+		PathType: &pathType,
 		Path:     path,
 		Backend: networking.IngressBackend{
 			Service: &networking.IngressServiceBackend{
@@ -1537,22 +1549,24 @@ func makeIngressPath(path string) networking.HTTPIngressPath {
 
 func makeAllIngressPaths() []networking.HTTPIngressPath {
 	return []networking.HTTPIngressPath{
-		makeIngressPath("/release"),
-		makeIngressPath("/environments/"),
-		makeIngressPath("/environment-groups/"),
-		makeIngressPath("/api/"),
-		makeIngressPath("/dex"),
-		makeIngressPath("/login"),
-		makeIngressPath("/ui/"),
-		makeIngressPath("/static/"),
-		makeIngressPath("/favicon.png"),
-		makeIngressPath("/api.v1.OverviewService/"),
-		makeIngressPath("/api.v1.BatchService/"),
-		makeIngressPath("/api.v1.FrontendConfigService/"),
-		makeIngressPath("/api.v1.RolloutService/"),
-		makeIngressPath("/api.v1.GitService/"),
-		makeIngressPath("/api.v1.EnvironmentService/"),
-		makeIngressPath("/api.v1.ReleaseTrainPrognosisService/"),
-		makeIngressPath("/api.v1.EslService/"),
+		makeIngressPrefixPath("/release"),
+		makeIngressPrefixPath("/environments"),
+		makeIngressPrefixPath("/environment-groups"),
+		makeIngressPrefixPath("/api/"),
+		makeIngressPrefixPath("/dex"),
+		makeIngressPrefixPath("/login"),
+		makeIngressImplementationSpecificPath("/ui/*"),
+		makeIngressExactPath("/"),
+		makeIngressPrefixPath("/static/js/"),
+		makeIngressPrefixPath("/static/css/"),
+		makeIngressPrefixPath("/favicon.png"),
+		makeIngressPrefixPath("/api.v1.OverviewService/"),
+		makeIngressPrefixPath("/api.v1.BatchService/"),
+		makeIngressPrefixPath("/api.v1.FrontendConfigService/"),
+		makeIngressPrefixPath("/api.v1.RolloutService/"),
+		makeIngressPrefixPath("/api.v1.GitService/"),
+		makeIngressPrefixPath("/api.v1.EnvironmentService/"),
+		makeIngressPrefixPath("/api.v1.ReleaseTrainPrognosisService/"),
+		makeIngressPrefixPath("/api.v1.EslService/"),
 	}
 }
