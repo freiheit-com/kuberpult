@@ -1346,6 +1346,7 @@ func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
 	writeAllDeploymentsFun WriteAllDeploymentsFun,
+	writeAllCurrentlyDeployedFun WriteAllDeploymentsFun,
 	writeAllReleasesFun WriteAllReleasesFun,
 	writeAllEnvLocksFun WriteAllEnvLocksFun,
 	writeAllAppLocksFun WriteAllAppLocksFun,
@@ -1365,6 +1366,10 @@ func (h *DBHandler) RunCustomMigrations(
 		return err
 	}
 	err = h.RunCustomMigrationDeployments(ctx, writeAllDeploymentsFun)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationAllDeployments(ctx, writeAllCurrentlyDeployedFun) //TODO: Merge with RunCustomMigrationDeployments
 	if err != nil {
 		return err
 	}
@@ -1603,6 +1608,38 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 		return nil, err
 	}
 	return row, nil
+}
+
+func (h *DBHandler) DBAllDeploymentsContainsData(ctx context.Context, tx *sql.Tx) (bool, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBAllDeploymentsContainsData")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, json" +
+			" FROM all_deployments " +
+			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return false, fmt.Errorf("could not select any all_deployments from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("all_deployments row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	result := rows.Next()
+
+	err = closeRows(rows)
+	if err != nil {
+		return false, err
+	}
+	return result, nil
 }
 
 type DBApp struct {
@@ -1969,6 +2006,27 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 	})
 }
 
+func (h *DBHandler) RunCustomMigrationAllDeployments(ctx context.Context, writeAllDeployments WriteAllDeploymentsFun) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		needsMigrating, err := h.needsAllDeploymentsMigrations(ctx, transaction)
+		if err != nil {
+			return err
+		}
+		if !needsMigrating {
+			return nil
+		}
+		err = writeAllDeployments(ctx, transaction, h)
+		if err != nil {
+			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
+		}
+
+		return nil
+	})
+}
+
 func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
 	allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
@@ -1980,6 +2038,19 @@ func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction 
 		return false, nil
 	}
 	return true, nil
+}
+
+func (h *DBHandler) needsAllDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
+	l := logger.FromContext(ctx).Sugar()
+	contains, err := h.DBAllDeploymentsContainsData(ctx, transaction)
+	if err != nil {
+		return true, err
+	}
+	if contains {
+		l.Warnf("There are already all_deployments in the DB - skipping migrations")
+		return !contains, nil
+	}
+	return !contains, nil
 }
 
 type AllApplicationsJson struct {
@@ -2196,6 +2267,7 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 			(*DBHandler).needsQueuedDeploymentsMigrations,
 			(*DBHandler).needsCommitEventsMigrations,
 			(*DBHandler).needsEnvironmentsMigrations,
+			(*DBHandler).needsAllDeploymentsMigrations,
 		}
 		for i := range checkFunctions {
 			f := checkFunctions[i]
