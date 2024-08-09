@@ -25,7 +25,12 @@ import {
 } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
-import { EnvironmentGroup, GetProductSummaryResponse, ProductSummary } from '../../../api/api';
+import {
+    EnvironmentGroup,
+    GetProductSummaryResponse,
+    ProductSummary,
+    ReleaseTrainRequest_TargetType,
+} from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
 import { useState } from 'react';
@@ -181,7 +186,12 @@ export const ProductVersion: React.FC = () => {
                     addAction({
                         action: {
                             $case: 'releaseTrain',
-                            releaseTrain: { target: env, commitHash: selectedTag, team: '' },
+                            releaseTrain: {
+                                target: env,
+                                commitHash: selectedTag,
+                                team: '',
+                                targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
+                            },
                         },
                     });
                 });
@@ -195,7 +205,12 @@ export const ProductVersion: React.FC = () => {
                 addAction({
                     action: {
                         $case: 'releaseTrain',
-                        releaseTrain: { target: env, commitHash: selectedTag, team: teams[0] },
+                        releaseTrain: {
+                            target: env,
+                            commitHash: selectedTag,
+                            team: teams[0],
+                            targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
+                        },
                     },
                 });
             });

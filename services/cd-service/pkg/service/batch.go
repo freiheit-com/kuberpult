@@ -252,6 +252,7 @@ func (d *BatchServer) processAction(
 				Team:                  in.Team,
 				CommitHash:            in.CommitHash,
 				WriteCommitData:       d.Config.WriteCommitData,
+				TargetType:            in.TargetType.String(),
 				Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 				TransformerEslVersion: 0,
 			}, &api.BatchResult{

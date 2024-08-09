@@ -1433,7 +1433,7 @@ type ReleaseTrain struct {
 	WriteCommitData       bool             `json:"writeCommitData"`
 	Repo                  Repository       `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-
+	TargetType            string           `json:"targetType"`
 }
 
 func (c *ReleaseTrain) GetEslVersion() db.TransformerID {
@@ -1448,20 +1448,24 @@ func (c *ReleaseTrain) GetDBEventType() db.EventType {
 	return db.EvtReleaseTrain
 }
 
-func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) (map[string]config.EnvironmentConfig, bool) {
+func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetName string, targetType string) (map[string]config.EnvironmentConfig, bool) {
 	envGroupConfigs := make(map[string]config.EnvironmentConfig)
 	isEnvGroup := false
 
-	for env, config := range configs {
-		if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetGroupName {
-			isEnvGroup = true
-			envGroupConfigs[env] = config
+	if targetType != api.ReleaseTrainRequest_ENVIRONMENT.String() {
+		for env, config := range configs {
+			if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetName {
+				isEnvGroup = true
+				envGroupConfigs[env] = config
+			}
 		}
 	}
-	if len(envGroupConfigs) == 0 {
-		envConfig, ok := configs[targetGroupName]
-		if ok {
-			envGroupConfigs[targetGroupName] = envConfig
+	if targetType != api.ReleaseTrainRequest_ENVIRONMENTGROUP.String() {
+		if len(envGroupConfigs) == 0 {
+			envConfig, ok := configs[targetName]
+			if ok {
+				envGroupConfigs[targetName] = envConfig
+			}
 		}
 	}
 	return envGroupConfigs, isEnvGroup
@@ -1481,7 +1485,7 @@ func (u *ReleaseTrain) Transform(
 
 	var targetGroupName = u.Target
 	configs, _ := state.GetEnvironmentConfigs()
-	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, u.TargetType)
 	for _, currentDeployment := range deployments {
 		envConfig := envGroupConfigs[currentDeployment.Env]
 		upstreamEnvName := envConfig.Upstream.Environment

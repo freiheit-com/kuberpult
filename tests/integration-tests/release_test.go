@@ -548,7 +548,7 @@ func createValuesFiles(t *testing.T, appName, version string) (map[string]io.Rea
 		"version":     strings.NewReader(version),
 	}
 	files := map[string]io.Reader{
-		"manifests[development]":  strings.NewReader("Test Manifest"),
+		"manifests[development]": strings.NewReader("Test Manifest"),
 	}
 	return values, files
 }
