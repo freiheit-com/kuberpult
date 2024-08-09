@@ -71,11 +71,11 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
             <div className="lock-display__table">
                 <div className="lock-display-table">
                     {!!lock.date && <FormattedDate createdAt={lock.date} className={allClassNames} />}
-                    <div className="lock-display-info">{lock.environment}</div>
-                    {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
-                    {!!lock.team && <div className="lock-display-info">{lock.team}</div>}
+                    <div className="lock-display-info-size-limit">{lock.environment}</div>
+                    {!!lock.application && <div className="lock-display-info-size-limit">{lock.application}</div>}
+                    {!!lock.team && <div className="lock-display-info-size-limit">{lock.team}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
-                    <div className="lock-display-info">{lock.message}</div>
+                    <div className="lock-display-info-size-limit">{lock.message}</div>
                     <div className="lock-display-info">{lock.authorName}</div>
                     <div className="lock-display-info">{lock.authorEmail}</div>
                     <Button
