@@ -44,6 +44,11 @@ Copyright freiheit.com*/
         @extend .sub-headline1;
     }
 
+    .mdc-data-indicator-field-size-limit {
+        max-width: 300px;
+        @extend .mdc-data-indicator-field;
+    }
+
     .mdc-data-indicator-sort-button {
         padding-inline: 0;
     }
