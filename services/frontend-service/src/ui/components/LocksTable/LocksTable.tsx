@@ -29,8 +29,6 @@ export const LocksTable: React.FC<{
 
     const [sort, setSort] = React.useState<'newestToOldest' | 'oldestToNewest'>('newestToOldest');
 
-    const headersWithLimitSize = ['Environment', 'Message', 'Application', 'Team'];
-
     const sortOnClick = useCallback(() => {
         if (sort === 'oldestToNewest') {
             setSort('newestToOldest');
@@ -56,13 +54,7 @@ export const LocksTable: React.FC<{
                                 scope="col">
                                 <div className="mdc-data-indicator-header">
                                     {columnHeaders.map((columnHeader) => (
-                                        <div
-                                            key={columnHeader}
-                                            className={
-                                                headersWithLimitSize.includes(columnHeader)
-                                                    ? 'mdc-data-indicator-field-size-limit'
-                                                    : 'mdc-data-indicator-field'
-                                            }>
+                                        <div key={columnHeader} className="mdc-data-indicator-field">
                                             {columnHeader}
                                             {columnHeader === 'Date' && sort === 'oldestToNewest' && (
                                                 <Button

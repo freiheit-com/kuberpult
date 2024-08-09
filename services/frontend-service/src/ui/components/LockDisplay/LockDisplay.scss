@@ -38,8 +38,8 @@ Copyright freiheit.com*/
 }
 
 .lock-display-info-size-limit {
-    max-width: 300px;
-    max-height: 300px;
+    max-width: 15vw;
+    max-height: 5vw;
     overflow: auto;
     @extend .lock-display-info;
 }
