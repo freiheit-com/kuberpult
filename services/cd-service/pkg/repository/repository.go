@@ -2199,8 +2199,8 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 }
 
 func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
-	defer ddSpan.Finish()
+	//ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
+	//defer ddSpan.Finish()
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest()
 
 	if err != nil {
@@ -2240,8 +2240,8 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 }
 
 func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteAllCommitEvents")
-	defer ddSpan.Finish()
+	//ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteAllCommitEvents")
+	//defer ddSpan.Finish()
 	fs := s.Filesystem
 	allCommitsPath := "commits"
 	commitPrefixes, err := fs.ReadDir(allCommitsPath)

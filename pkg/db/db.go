@@ -723,8 +723,8 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 }
 
 func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
+	//defer span.Finish()
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
 		return fmt.Errorf("insert release: could not marshal json data: %w", err)
@@ -732,7 +732,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata, deleted)  VALUES (?, ?, ?, ?, ?, ?, ?);",
 	)
-	span.SetTag("query", insertQuery)
+	//span.SetTag("query", insertQuery)
 	manifestJson, err := json.Marshal(release.Manifests)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -838,8 +838,8 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 }
 
 func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx, app string, allVersions []int64, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertAllReleases")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "DBInsertAllReleases")
+	//defer span.Finish()
 	slices.Sort(allVersions)
 	metadataJson, err := json.Marshal(DBAllReleaseMetaData{
 		Releases: allVersions,
@@ -850,7 +850,7 @@ func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO all_releases (eslVersion, created, appName, metadata)  VALUES (?, ?, ?, ?);",
 	)
-	span.SetTag("query", insertQuery)
+	//SetTag("query", insertQuery)
 
 	_, err = transaction.Exec(
 		insertQuery,
@@ -893,11 +893,11 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 }
 
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "WriteEvent")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "WriteEvent")
+	//defer span.Finish()
 
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
-	span.SetTag("query", insertQuery)
+	//span.SetTag("query", insertQuery)
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
 	if err != nil {
@@ -1805,8 +1805,8 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
 func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	//defer span.Finish()
 	if h == nil {
 		return nil
 	}
@@ -1822,7 +1822,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
-	span.SetTag("query", insertQuery)
+	//span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
 	createdTime := time.Now().UTC()
 	_, err = tx.Exec(
@@ -4816,8 +4816,8 @@ type AllDeploymentsForApp struct {
 }
 
 func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, prev int, appName string, environmentDeployments map[string]int64) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
+	//defer span.Finish()
 
 	if h == nil {
 		return nil
@@ -4835,7 +4835,7 @@ func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 		return fmt.Errorf("could not marshall deployments for app: '%s': %v\n", appName, err)
 	}
 
-	span.SetTag("query", insertQuery)
+	//span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		prev+1,
