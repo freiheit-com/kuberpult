@@ -13,10 +13,10 @@ The train should run *often enough* to not slow down development, while also giv
 A release train takes the versions that are currently deployed on one environment and deploys those version to another environment.
 
 So there are 2 environments involved:
-* *target*:  this is where the services will be deployed (where the version changes happen), *target* can be either a single `environment` or an `environmentGroup`. If its an `environmentGroup` you should set the value of `isTargetEnvGroup` to true.
-  in the case of `environmentGroup` the train will run for all environments belonging to this `environmentGroup`. If one environment cannot be changed (e.g. because of a lock), the other environments will still be processed.
+* *target*:  this is where the services will be deployed (where the version changes happen), *target* can be either a single `environment` or an `environmentGroup`. in the case of `environmentGroup` the train will run for all environments belonging to this `environmentGroup`. If one environment cannot be changed (e.g. because of a lock), the other environments will still be processed.
 * *upstream*: This is the source for the *versions* of the apps. You should run system tests on this environment before running the release train.
   See [environment-config](./environment.md) for configuration.
+* *targetType*: specifies whether the `target` is a `environment` or an `environmentGroup` or its `unknown`/
 
   
 ### Triggering a Release Train

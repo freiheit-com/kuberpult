@@ -16,7 +16,7 @@ Copyright freiheit.com*/
 import { act, render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
-import { BatchAction, LockBehavior } from '../../../api/api';
+import { BatchAction, LockBehavior, ReleaseTrainRequest_TargetType } from '../../../api/api';
 import {
     addAction,
     deleteAction,
@@ -643,7 +643,7 @@ describe('Action details', () => {
                         target: 'dev',
                         team: '',
                         commitHash: '',
-                        isTargetEnvGroup: false,
+                        targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
                     },
                 },
             },

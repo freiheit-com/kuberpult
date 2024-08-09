@@ -42,7 +42,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 		WriteCommitData:       false,
 		Repo:                  s.Repository,
 		TransformerEslVersion: 0,
-		IsTargetEnvGroup:      false,
+		TargetType:            api.ReleaseTrainRequest_UNKNOWN.String(),
 	}
 	dbHandler := t.Repo.State().DBHandler
 	var prognosis rp.ReleaseTrainPrognosis

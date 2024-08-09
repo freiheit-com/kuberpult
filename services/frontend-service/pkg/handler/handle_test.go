@@ -156,7 +156,7 @@ func TestServer_Handle(t *testing.T) {
 				Actions: []*api.BatchAction{
 					{
 						Action: &api.BatchAction_ReleaseTrain{
-							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", IsTargetEnvGroup: true},
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", TargetType: api.ReleaseTrainRequest_ENVIRONMENTGROUP},
 						},
 					},
 				},
@@ -189,7 +189,7 @@ func TestServer_Handle(t *testing.T) {
 				Actions: []*api.BatchAction{
 					{
 						Action: &api.BatchAction_ReleaseTrain{
-							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", IsTargetEnvGroup: false},
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", TargetType: api.ReleaseTrainRequest_ENVIRONMENT},
 						},
 					},
 				},

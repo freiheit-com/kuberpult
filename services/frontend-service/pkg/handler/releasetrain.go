@@ -71,10 +71,10 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_ReleaseTrain{
 				ReleaseTrain: &api.ReleaseTrainRequest{
-					CommitHash:       "",
-					Target:           target,
-					Team:             teamParam,
-					IsTargetEnvGroup: false,
+					CommitHash: "",
+					Target:     target,
+					Team:       teamParam,
+					TargetType: api.ReleaseTrainRequest_UNKNOWN,
 				}}},
 		},
 		})
@@ -88,7 +88,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 	}
 	w.Write(json) //nolint:errcheck
 }
-func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.Request, target string, isTargetEnvGroup bool) {
+func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.Request, target string, TargetType api.ReleaseTrainRequest_TargetType) {
 	if req.Method != http.MethodPut {
 		http.Error(w, fmt.Sprintf("releasetrain only accepts method PUT, got: '%s'", req.Method), http.StatusMethodNotAllowed)
 		return
@@ -100,10 +100,10 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_ReleaseTrain{
 				ReleaseTrain: &api.ReleaseTrainRequest{
-					CommitHash:       "",
-					Target:           target,
-					Team:             teamParam,
-					IsTargetEnvGroup: isTargetEnvGroup,
+					CommitHash: "",
+					Target:     target,
+					Team:       teamParam,
+					TargetType: TargetType,
 				}}},
 		},
 		})
@@ -128,10 +128,10 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 	teamParam := queryParams.Get("team")
 
 	response, err := s.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(req.Context(), &api.ReleaseTrainRequest{
-		Target:           target,
-		CommitHash:       "",
-		Team:             teamParam,
-		IsTargetEnvGroup: false,
+		Target:     target,
+		CommitHash: "",
+		Team:       teamParam,
+		TargetType: api.ReleaseTrainRequest_UNKNOWN,
 	})
 
 	if err != nil {
@@ -159,7 +159,7 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 func (s Server) handleApiEnvironmentReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
 	switch tail {
 	case "/":
-		s.handleAPIReleaseTrainExecution(w, req, target, false)
+		s.handleAPIReleaseTrainExecution(w, req, target, api.ReleaseTrainRequest_ENVIRONMENT)
 	case "/prognosis":
 		s.handleReleaseTrainPrognosis(w, req, target)
 	default:
@@ -171,7 +171,7 @@ func (s Server) handleApiEnvironmentReleaseTrain(w http.ResponseWriter, req *htt
 func (s Server) handleApiEnvironmentGroupReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
 	switch tail {
 	case "/":
-		s.handleAPIReleaseTrainExecution(w, req, target, true)
+		s.handleAPIReleaseTrainExecution(w, req, target, api.ReleaseTrainRequest_ENVIRONMENTGROUP)
 	default:
 		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
 		return
