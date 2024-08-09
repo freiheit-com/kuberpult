@@ -723,8 +723,8 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 }
 
 func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
+	//defer span.Finish()
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
 		return fmt.Errorf("insert release: could not marshal json data: %w", err)
@@ -838,8 +838,8 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 }
 
 func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx, app string, allVersions []int64, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertAllReleases")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "DBInsertAllReleases")
+	//defer span.Finish()
 	slices.Sort(allVersions)
 	metadataJson, err := json.Marshal(DBAllReleaseMetaData{
 		Releases: allVersions,
@@ -1805,8 +1805,8 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
 func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	//defer span.Finish()
 	if h == nil {
 		return nil
 	}
@@ -4816,8 +4816,8 @@ type AllDeploymentsForApp struct {
 }
 
 func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, prev int, appName string, environmentDeployments map[string]int64) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
+	//defer span.Finish()
 
 	if h == nil {
 		return nil
