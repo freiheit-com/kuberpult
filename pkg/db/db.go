@@ -893,8 +893,8 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 }
 
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "WriteEvent")
-	defer span.Finish()
+	//span, _ := tracer.StartSpanFromContext(ctx, "WriteEvent")
+	//defer span.Finish()
 
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
 	span.SetTag("query", insertQuery)
