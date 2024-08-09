@@ -1449,6 +1449,11 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication: could not clear releases for app '%s': %v", u.Application, err)
 		}
 
+		err = state.DBHandler.DBClearAllDeploymentsForApp(ctx, transaction, u.Application)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not clear all deployments for app '%s': %v", u.Application, err)
+		}
+
 	} else {
 		// remove application
 		appDir := applicationDirectory(fs, u.Application)
@@ -1602,10 +1607,6 @@ func (c *CleanupOldApplicationVersions) SetEslVersion(id db.TransformerID) {
 // Finds old releases for an application
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
-	envConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	if err != nil {
-		return nil, err
-	}
 	versions, err := state.GetAllApplicationReleases(ctx, transaction, name)
 	if err != nil {
 		return nil, err
@@ -1616,19 +1617,25 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	sort.Slice(versions, func(i, j int) bool {
 		return versions[i] < versions[j]
 	})
-	// Use the latest version as oldest deployed version
-	oldestDeployedVersion := versions[len(versions)-1]
-	for env := range envConfigs {
-		version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, name)
-		if err != nil {
-			return nil, err
-		}
-		if version != nil {
-			if *version < oldestDeployedVersion {
-				oldestDeployedVersion = *version
-			}
-		}
+
+	deployments, err := state.GetAllDeploymentsForApp(ctx, transaction, name)
+	if err != nil {
+		return nil, err
 	}
+
+	var oldestDeployedVersion uint64
+	deployedVersions := []int64{}
+	for _, version := range deployments {
+		deployedVersions = append(deployedVersions, version)
+	}
+
+	if len(deployedVersions) == 0 {
+		// Use the latest version as oldest deployed version
+		oldestDeployedVersion = versions[len(versions)-1]
+	} else {
+		oldestDeployedVersion = uint64(slices.Min(deployedVersions))
+	}
+
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
 		return versions[i] >= oldestDeployedVersion
 	})
@@ -1645,6 +1652,8 @@ func (c *CleanupOldApplicationVersions) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "CleanupOldApplicationVersions")
+	defer span.Finish()
 	fs := state.Filesystem
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
@@ -1732,17 +1741,12 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
 	}
 
-	envs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
+	config, err := s.GetEnvironmentConfig(ctx, transaction, env)
 	if err != nil {
 		return err
 	}
-	var group string
-	for envName, config := range envs {
-		if envName == env {
-			group = mapper.DeriveGroupName(config, env)
-			break
-		}
-	}
+	group := mapper.DeriveGroupName(*config, env)
+
 	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
@@ -2573,6 +2577,9 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DeployApplicationVersion")
+	defer span.Finish()
+
 	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig, true)
 	if err != nil {
 		return "", err
@@ -2702,28 +2709,6 @@ func (c *DeployApplicationVersion) Transform(
 	versionFile := fs.Join(applicationDir, "version")
 	oldReleaseDir := ""
 	var oldVersion *int64
-	if state.DBHandler.ShouldUseOtherTables() {
-		deployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
-		if err != nil {
-			return "", err
-		}
-		if deployment.Version == nil {
-			firstDeployment = true
-		} else {
-			oldVersion = deployment.Version
-		}
-
-	} else {
-		//Check if there is a version of target app already deployed on target environment
-		if _, err := fs.Lstat(versionFile); err == nil {
-			//File Exists
-			evaledPath, _ := fs.Readlink(versionFile) //Version is stored as symlink, eval it
-			oldReleaseDir = evaledPath
-		} else {
-			//File does not exist
-			firstDeployment = true
-		}
-	}
 
 	if state.CloudRunClient != nil {
 		err := state.CloudRunClient.DeployApplicationVersion(ctx, manifestContent)
@@ -2733,6 +2718,14 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+		if err != nil {
+			return "", err
+		}
+		if existingDeployment.Version == nil {
+			firstDeployment = true
+		} else {
+			oldVersion = existingDeployment.Version
+		}
 		if err != nil {
 			return "", fmt.Errorf("could not find deployment for app %s and env %s", c.Application, c.Environment)
 		}
@@ -2759,7 +2752,21 @@ func (c *DeployApplicationVersion) Transform(
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
+		err = state.DBHandler.DBUpdateAllDeploymentsForApp(ctx, transaction, c.Application, c.Environment, int64(c.Version))
+		if err != nil {
+			return "", fmt.Errorf("could not write oldest deployment for %v - %v", newDeployment, err)
+		}
 	} else {
+		//Check if there is a version of target app already deployed on target environment
+		if _, err := fs.Lstat(versionFile); err == nil {
+			//File Exists
+			evaledPath, _ := fs.Readlink(versionFile) //Version is stored as symlink, eval it
+			oldReleaseDir = evaledPath
+		} else {
+			//File does not exist
+			firstDeployment = true
+		}
+
 		// Create a symlink to the release
 		if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 			return "", err
@@ -2825,9 +2832,10 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 	if c.WriteCommitData { // write the corresponding event
+		newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
 		if s.DBHandler.ShouldUseOtherTables() {
-			newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
+
 			if err != nil {
 				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 			} else {
@@ -2850,31 +2858,30 @@ func (c *DeployApplicationVersion) Transform(
 
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-			if newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application); err == nil {
-				if !valid.SHA1CommitID(newReleaseCommitId) {
-					logger.FromContext(ctx).Sugar().Infof(
-						"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
-						newReleaseCommitId)
+			if !valid.SHA1CommitID(newReleaseCommitId) {
+				logger.FromContext(ctx).Sugar().Infof(
+					"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
+					newReleaseCommitId)
+			} else {
+				ev := createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)
+				if s.DBHandler.ShouldUseOtherTables() {
+					gen := getGenerator(ctx)
+					eventUuid := gen.Generate()
+					oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, uint64(*oldVersion), oldReleaseDir, c.Application)
+					if err != nil {
+						return "", GetCreateReleaseGeneralFailure(err)
+					}
+					err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
+					if err != nil {
+						return "", err
+					}
 				} else {
-					ev := createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)
-					if s.DBHandler.ShouldUseOtherTables() {
-						gen := getGenerator(ctx)
-						eventUuid := gen.Generate()
-						oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, uint64(*oldVersion), oldReleaseDir, c.Application)
-						if err != nil {
-							return "", GetCreateReleaseGeneralFailure(err)
-						}
-						err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
-						if err != nil {
-							return "", err
-						}
-					} else {
-						if err := addEventForRelease(ctx, fs, oldReleaseDir, ev); err != nil {
-							return "", err
-						}
+					if err := addEventForRelease(ctx, fs, oldReleaseDir, ev); err != nil {
+						return "", err
 					}
 				}
 			}
+
 		} else {
 			logger.FromContext(ctx).Sugar().Infof(
 				"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
@@ -3135,6 +3142,9 @@ func (c *ReleaseTrain) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainPrognosis {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
+	defer span.Finish()
+
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 
 	if err != nil {
@@ -3201,6 +3211,9 @@ func (c *ReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
+	defer span.Finish()
+
 	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
@@ -3265,6 +3278,8 @@ func (c *envReleaseTrain) prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) ReleaseTrainEnvironmentPrognosis {
+	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
+	defer span.Finish()
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
