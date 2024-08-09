@@ -897,7 +897,7 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 	//defer span.Finish()
 
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
-	span.SetTag("query", insertQuery)
+	//span.SetTag("query", insertQuery)
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
 	if err != nil {
