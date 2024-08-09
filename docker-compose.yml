@@ -25,7 +25,7 @@ services:
       - KUBERPULT_DB_OPTION=postgreSQL
       - KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false
       - KUBERPULT_GIT_BRANCH=master
-      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
+      - KUBERPULT_GIT_NETWORK_TIMEOUT=100000s
       - KUBERPULT_DEX_MOCK=false
       - KUBERPULT_DEX_ENABLED=false
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
@@ -53,7 +53,7 @@ services:
       - KUBERPULT_DB_LOCATION=postgres
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
       - KUBERPULT_DB_OPTION=postgreSQL
-      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
+      - KUBERPULT_GIT_NETWORK_TIMEOUT=10000s
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
       - KUBERPULT_DB_USER_PASSWORD=mypassword
