@@ -38,9 +38,9 @@ Copyright freiheit.com*/
 }
 
 .lock-display-info-size-limit {
-    max-width: 15vw;
-    max-height: 5vw;
+    flex-grow: 2;
     overflow: auto;
+    max-height: 30vh;
     @extend .lock-display-info;
 }
 
