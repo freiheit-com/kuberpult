@@ -33,12 +33,6 @@ const (
 	TIMEOUT = 10
 )
 
-var backoffSchedule = []time.Duration{
-	1 * time.Second,
-	2 * time.Second,
-	3 * time.Second,
-}
-
 func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
