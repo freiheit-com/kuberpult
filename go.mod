@@ -5,10 +5,10 @@ go 1.21
 require (
 	github.com/DataDog/datadog-go/v5 v5.5.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
-	github.com/argoproj/argo-cd/v2 v2.9.20
+	github.com/argoproj/argo-cd/v2 v2.12.0
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/coreos/go-oidc/v3 v3.10.0
+	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
@@ -20,26 +20,26 @@ require (
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lestrrat-go/jwx/v2 v2.0.21
+	github.com/lestrrat-go/jwx/v2 v2.1.1
 	github.com/lib/pq v1.10.9
 	github.com/libgit2/git2go/v34 v34.0.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mikesmitty/edkey v0.0.0-20170222072505-3356ea4e686a
 	github.com/onokonem/sillyQueueServer v0.0.0-20170829113733-84501ce98da1
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
-	go.opentelemetry.io/otel/exporters/prometheus v0.48.0
-	go.opentelemetry.io/otel/metric v1.26.0
-	go.opentelemetry.io/otel/sdk/metric v1.26.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.50.0
+	go.opentelemetry.io/otel/metric v1.28.0
+	go.opentelemetry.io/otel/sdk/metric v1.28.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.22.0
-	golang.org/x/oauth2 v0.19.0
-	google.golang.org/api v0.170.0
-	google.golang.org/grpc v1.62.1
-	google.golang.org/protobuf v1.33.0
-	gopkg.in/DataDog/dd-trace-go.v1 v1.63.1
-	k8s.io/apimachinery v0.27.3
-	k8s.io/utils v0.0.0-20231121161247-cf03d44ff3cf
+	golang.org/x/crypto v0.26.0
+	golang.org/x/oauth2 v0.22.0
+	google.golang.org/api v0.191.0
+	google.golang.org/grpc v1.65.0
+	google.golang.org/protobuf v1.34.2
+	gopkg.in/DataDog/dd-trace-go.v1 v1.66.0
+	k8s.io/apimachinery v0.30.3
+	k8s.io/utils 18e509b52bc8
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -49,7 +49,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c
-	github.com/argoproj/gitops-engine v0.7.1-0.20240715141028-c68bce0f979c
+	github.com/argoproj/gitops-engine v0.7.3
 	github.com/argoproj/pkg v0.13.7-0.20230627120311-a4dd357b057e // indirect
 	github.com/bombsimon/logrusr/v2 v2.0.1 // indirect
 	github.com/bradleyfalzon/ghinstallation/v2 v2.6.0 // indirect
@@ -109,14 +109,14 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
-	go.opentelemetry.io/otel v1.26.0
+	go.opentelemetry.io/otel v1.28.0
 	go.opentelemetry.io/otel/trace v1.26.0 // indirect
 	go.starlark.net v0.0.0-20220328144851-d1966c6b9fcd // indirect
-	golang.org/x/sync v0.7.0
+	golang.org/x/sync v0.8.0
 	golang.org/x/term v0.19.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.27.3
+	k8s.io/api v0.30.3
 	k8s.io/apiextensions-apiserver v0.26.11 // indirect
 	k8s.io/apiserver v0.26.11 // indirect
 	k8s.io/cli-runtime v0.26.11 // indirect
@@ -224,32 +224,32 @@ require (
 replace (
 	github.com/chai2010/gettext-go => github.com/chai2010/gettext-go v1.0.2 // indirect
 	// https://github.com/kubernetes/kubernetes/issues/79384#issuecomment-505627280
-	k8s.io/api => k8s.io/api v0.26.11
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.26.11
-	k8s.io/apimachinery => k8s.io/apimachinery v0.26.11
-	k8s.io/apiserver => k8s.io/apiserver v0.26.11
-	k8s.io/cli-runtime => k8s.io/cli-runtime v0.26.11
-	k8s.io/client-go => k8s.io/client-go v0.26.11
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.26.11
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.26.11
-	k8s.io/code-generator => k8s.io/code-generator v0.26.11
-	k8s.io/component-base => k8s.io/component-base v0.26.11
-	k8s.io/component-helpers => k8s.io/component-helpers v0.27.3
-	k8s.io/controller-manager => k8s.io/controller-manager v0.26.11
-	k8s.io/cri-api => k8s.io/cri-api v0.26.11
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.26.11
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.26.11
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.26.11
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.26.11
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.26.11
-	k8s.io/kubectl => k8s.io/kubectl v0.26.11
-	k8s.io/kubelet => k8s.io/kubelet v0.26.11
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.26.11
-	k8s.io/metrics => k8s.io/metrics v0.26.11
-	k8s.io/mount-utils => k8s.io/mount-utils v0.26.11
-	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.26.11
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.26.11
+	k8s.io/api => k8s.io/api v0.30.3
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.3
+	k8s.io/apimachinery => k8s.io/apimachinery v0.30.3
+	k8s.io/apiserver => k8s.io/apiserver v0.30.3
+	k8s.io/cli-runtime => k8s.io/cli-runtime v0.30.3
+	k8s.io/client-go => k8s.io/client-go v0.30.3
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.30.3
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.30.3
+	k8s.io/code-generator => k8s.io/code-generator v0.30.3
+	k8s.io/component-base => k8s.io/component-base v0.30.3
+	k8s.io/component-helpers => k8s.io/component-helpers v0.30.3
+	k8s.io/controller-manager => k8s.io/controller-manager v0.30.3
+	k8s.io/cri-api => k8s.io/cri-api v0.30.3
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.30.3
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.30.3
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.30.3
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.30.3
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.30.3
+	k8s.io/kubectl => k8s.io/kubectl v0.30.3
+	k8s.io/kubelet => k8s.io/kubelet v0.30.3
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.30.3
+	k8s.io/metrics => k8s.io/metrics v0.30.3
+	k8s.io/mount-utils => k8s.io/mount-utils v0.30.3
+	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.30.3
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.30.3
 
-	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.12.1
-	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.9
+	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.17.3
+	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.17.2
 )
