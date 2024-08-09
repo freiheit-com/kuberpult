@@ -732,7 +732,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata, deleted)  VALUES (?, ?, ?, ?, ?, ?, ?);",
 	)
-	span.SetTag("query", insertQuery)
+	//span.SetTag("query", insertQuery)
 	manifestJson, err := json.Marshal(release.Manifests)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -850,7 +850,7 @@ func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO all_releases (eslVersion, created, appName, metadata)  VALUES (?, ?, ?, ?);",
 	)
-	span.SetTag("query", insertQuery)
+	//SetTag("query", insertQuery)
 
 	_, err = transaction.Exec(
 		insertQuery,
@@ -1822,7 +1822,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
-	span.SetTag("query", insertQuery)
+	//span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
 	createdTime := time.Now().UTC()
 	_, err = tx.Exec(
@@ -4835,7 +4835,7 @@ func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 		return fmt.Errorf("could not marshall deployments for app: '%s': %v\n", appName, err)
 	}
 
-	span.SetTag("query", insertQuery)
+	//span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		prev+1,
