@@ -1540,6 +1540,7 @@ func makeAllIngressPaths() []networking.HTTPIngressPath {
 		makeIngressPrefixPath("/api/"),
 		makeIngressPrefixPath("/dex"),
 		makeIngressPrefixPath("/callback"),
+		makeIngressPrefixPath("/token"),
 		makeIngressPrefixPath("/login"),
 		makeIngressImplementationSpecificPath("/ui/*"),
 		makeIngressExactPath("/"),
