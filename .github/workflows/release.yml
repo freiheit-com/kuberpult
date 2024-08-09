@@ -10,7 +10,7 @@ jobs:
       - name: Install earthly
         uses: earthly/actions-setup@v1
         with:
-            version: v0.8.13
+          version: v0.8.13
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # needed for git describe/VERSION in Makefile
@@ -36,9 +36,9 @@ jobs:
       - name: Login to Google Artifact Registry
         uses: docker/login-action@v2
         with:
-            registry: europe-west3-docker.pkg.dev
-            username: _json_key
-            password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+          registry: europe-west3-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
       - name: Re-tag service images with release version for google docker registry
         run: |
           echo 'If this step fails, ensure that the main github action is done. We rely on it to get the docker images.'
@@ -72,6 +72,14 @@ jobs:
           echo $VERSION
           earthly ./trivy+scan-all --kuberpult_version=v${VERSION}
           gh release upload v$VERSION trivy/kuberpult-v${VERSION}-reports.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.semrel.outputs.version }}
+      - name: Append postgres migrations to release
+        run: |
+          cd database/migrations
+          tar -czhf postgres_migrations.tar.gz postgres/
+          gh release upload v$VERSION ./postgres_migrations.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semrel.outputs.version }}

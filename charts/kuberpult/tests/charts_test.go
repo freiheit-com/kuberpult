@@ -1539,6 +1539,7 @@ func makeAllIngressPaths() []networking.HTTPIngressPath {
 		makeIngressPrefixPath("/environment-groups"),
 		makeIngressPrefixPath("/api/"),
 		makeIngressPrefixPath("/dex"),
+		makeIngressPrefixPath("/callback"),
 		makeIngressPrefixPath("/login"),
 		makeIngressImplementationSpecificPath("/ui/*"),
 		makeIngressExactPath("/"),
