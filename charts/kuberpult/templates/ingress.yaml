@@ -39,6 +39,7 @@ spec:
   - host: {{ required ".ingress.domainName is required" .Values.ingress.domainName | quote }}
     http:
       paths:
+{{- if .Values.ingress.allowedPaths.oldRestApi }}
 # Old Rest API:
       - pathType: Prefix
         path: /release
@@ -61,6 +62,8 @@ spec:
             name: kuberpult-frontend-service
             port:
               name: http
+{{- end }}
+{{- if .Values.ingress.allowedPaths.restApi }}
 # New API:
       - pathType: Prefix
         path: /api/
@@ -69,6 +72,8 @@ spec:
             name: kuberpult-frontend-service
             port:
               name: http
+{{- end }}
+{{- if .Values.ingress.allowedPaths.dex }}
 # Dex (UI Authorization flow):
       - pathType: Prefix
         path: /dex
@@ -98,6 +103,8 @@ spec:
             name: kuberpult-frontend-service
             port:
               name: http
+{{- end }}
+{{- if .Values.ingress.allowedPaths.ui }}
 # UI bootstrapping:
       - pathType: ImplementationSpecific
         path: /ui/*
@@ -191,6 +198,7 @@ spec:
             name: kuberpult-frontend-service
             port:
               name: http
+{{- end }}
   tls:
   - hosts:
     - {{ default .Values.ingress.domainName .Values.ingress.tls.host | quote}}
