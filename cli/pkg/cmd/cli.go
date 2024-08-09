@@ -32,6 +32,7 @@ const (
 
 type kuberpultClientParameters struct {
 	url         string
+	retries     int64
 	authorName  *string
 	authorEmail *string
 	iapToken    *string
