@@ -687,18 +687,18 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
-	//configs, err := state.GetEnvironmentConfigs()
-	//if err != nil {
-	//	return err
-	//}
-	//for env, config := range configs {
-	//	if config.ArgoCd != nil {
-	//		err := r.updateArgoCdApps(ctx, transaction, &state, env, config)
-	//		if err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
+	configs, err := state.GetEnvironmentConfigs()
+	if err != nil {
+		return err
+	}
+	for env, config := range configs {
+		if config.ArgoCd != nil {
+			err := r.updateArgoCdApps(ctx, transaction, &state, env, config)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
