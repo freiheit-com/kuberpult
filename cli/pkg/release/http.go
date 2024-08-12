@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	DefaultTimeout = 10
+	DefaultTimeout = 180
 )
 
 func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
