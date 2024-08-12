@@ -38,7 +38,13 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) Retu
 		AuthorEmail: kpClientParams.authorEmail,
 	}
 
-	if err = rl.Release(kpClientParams.url, kpClientParams.retries, authParams, *parsedArgs); err != nil {
+	requestParameters := kutil.RequestParameters{
+		Url:         &kpClientParams.url,
+		Retries:     kpClientParams.retries,
+		HttpTimeout: rl.TIMEOUT,
+	}
+
+	if err = rl.Release(requestParameters, authParams, *parsedArgs); err != nil {
 		log.Printf("error on release, error: %v", err)
 		return ReturnCodeFailure
 	}

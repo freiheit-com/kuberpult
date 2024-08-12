@@ -39,7 +39,7 @@ func readArgs(args []string) (*commandLineArguments, []string, error) {
 	fs.Var(&cmdArgs.url, "url", "the URL of the Kuberpult instance (must be set exactly once)")
 	fs.Var(&cmdArgs.authorName, "author_name", "the name of the git author who eventually will write to the manifest repo (must be set at most once)")
 	fs.Var(&cmdArgs.authorEmail, "author_email", "the email of the git author who eventially will write to the manifest repo (must be set at most once)")
-	fs.Var(&cmdArgs.retries, "retries", "number of times ")
+	fs.Var(&cmdArgs.retries, "retries", "number of times the cli will retry http requests to kuberpult upon failure (must be set at most once) - default=3")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
@@ -85,7 +85,7 @@ func convertToParams(cmdArgs *commandLineArguments) (*kuberpultClientParameters,
 	}
 
 	if len(cmdArgs.retries.Values) == 1 {
-		params.retries = cmdArgs.retries.Values[0]
+		params.retries = uint64(cmdArgs.retries.Values[0])
 	} else {
 		params.retries = DefaultRetries
 	}

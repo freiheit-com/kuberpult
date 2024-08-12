@@ -161,9 +161,9 @@ func doRequest(request *http.Request) (*http.Response, []byte, error) {
 	return resp, body, nil
 }
 
-func issueHttpRequest(req http.Request, retries int64) error {
-	var i int64
-	for i = 0; i < retries+1; i++ { //
+func issueHttpRequest(req http.Request, retries uint64) error {
+	var i uint64
+	for i = 0; i < retries+1; i++ {
 		response, body, err := doRequest(&req)
 		if err != nil {
 			fmt.Printf("Fatal: error issuing http request: %v\n", err)
