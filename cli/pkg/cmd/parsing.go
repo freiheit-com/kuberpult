@@ -85,6 +85,9 @@ func convertToParams(cmdArgs *commandLineArguments) (*kuberpultClientParameters,
 	}
 
 	if len(cmdArgs.retries.Values) == 1 {
+		if cmdArgs.retries.Values[0] <= 0 {
+			return nil, fmt.Errorf("--retries arg value must be positive")
+		}
 		params.retries = uint64(cmdArgs.retries.Values[0])
 	} else {
 		params.retries = DefaultRetries

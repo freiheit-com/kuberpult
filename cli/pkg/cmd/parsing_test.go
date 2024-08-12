@@ -126,6 +126,13 @@ func TestParseArgs(t *testing.T) {
 				msg: "error while creating kuberpult client parameters, error: the --author_email arg must be set at most once",
 			},
 		},
+		{
+			name:    "--retries is negative",
+			cmdArgs: "--url something.somewhere --retries -1 --author_email john  subcommand --arg1 val1 etc etc",
+			expectedError: errMatcher{
+				msg: "error while creating kuberpult client parameters, error: --retries arg value must be positive",
+			},
+		},
 	}
 
 	for _, tc := range tcs {
