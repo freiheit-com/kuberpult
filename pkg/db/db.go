@@ -1346,6 +1346,7 @@ func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
 	writeAllDeploymentsFun WriteAllDeploymentsFun,
+	writeAllCurrentlyDeployedFun WriteAllDeploymentsFun,
 	writeAllReleasesFun WriteAllReleasesFun,
 	writeAllEnvLocksFun WriteAllEnvLocksFun,
 	writeAllAppLocksFun WriteAllAppLocksFun,
@@ -1365,6 +1366,10 @@ func (h *DBHandler) RunCustomMigrations(
 		return err
 	}
 	err = h.RunCustomMigrationDeployments(ctx, writeAllDeploymentsFun)
+	if err != nil {
+		return err
+	}
+	err = h.RunCustomMigrationAllDeployments(ctx, writeAllCurrentlyDeployedFun) //TODO: Merge with RunCustomMigrationDeployments
 	if err != nil {
 		return err
 	}
@@ -1605,6 +1610,38 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 	return row, nil
 }
 
+func (h *DBHandler) DBAllDeploymentsContainsData(ctx context.Context, tx *sql.Tx) (bool, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBAllDeploymentsContainsData")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, json" +
+			" FROM all_deployments " +
+			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return false, fmt.Errorf("could not select any all_deployments from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("all_deployments row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	result := rows.Next()
+
+	err = closeRows(rows)
+	if err != nil {
+		return false, err
+	}
+	return result, nil
+}
+
 type DBApp struct {
 	EslVersion EslVersion
 	App        string
@@ -1808,6 +1845,100 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	return nil
 }
 
+// DBSelectAllDeploymentsForApp Returns most recent version of deployments for app with name 'appName'
+func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (*AllDeploymentsForApp, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllDeploymentsForApp: no transaction provided")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"SELECT eslVersion, created, appName, json FROM all_deployments WHERE appName = (?) ORDER BY eslVersion DESC LIMIT 1;")
+
+	span.SetTag("query", insertQuery)
+	rows, err := tx.Query(
+		insertQuery,
+		appName,
+	)
+
+	return h.processAllDeploymentRow(ctx, err, rows)
+}
+
+// DBUpdateAllDeploymentsForApp Updates table entry for application with name 'appName' with 'envName' -> 'version'
+func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName, envName string, version int64) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBUpdateAllDeploymentsForApp: no transaction provided")
+	}
+
+	//Get current deployment information for app
+	currentAllDeployments, err := h.DBSelectAllDeploymentsForApp(ctx, tx, appName)
+	if err != nil {
+		return fmt.Errorf("could not read current all deployments for app: '%s': %v", appName, err)
+	}
+
+	//Update current deployment layout with envName -> version
+	var deploymentsMap map[string]int64
+	var previousVersion EslVersion
+	if currentAllDeployments == nil { //New app
+		deploymentsMap = map[string]int64{}
+		previousVersion = 0
+	} else {
+		deploymentsMap = currentAllDeployments.Deployments
+		previousVersion = currentAllDeployments.Version
+
+	}
+	deploymentsMap[envName] = version
+
+	//Insert new information into the db
+	err = h.DBWriteAllDeploymentsForApp(ctx, tx, int(previousVersion), appName, deploymentsMap)
+	if err != nil {
+		return fmt.Errorf("could not write all deployments for app: '%s': %v", appName, err)
+	}
+	return nil
+}
+
+// DBClearAllDeploymentsForApp Clears all deployments map. Used when undeploying an application
+func (h *DBHandler) DBClearAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBClearAllDeploymentsForApp: no transaction provided")
+	}
+
+	//Get current deployment information for app
+	currentAllDeployments, err := h.DBSelectAllDeploymentsForApp(ctx, tx, appName)
+	if err != nil {
+		return fmt.Errorf("could not read current all deployments for app: '%s': %v", appName, err)
+	}
+
+	deploymentsMap := map[string]int64{} //EmptyMap
+	var previousVersion EslVersion
+	if currentAllDeployments == nil {
+		previousVersion = 0
+	} else {
+		previousVersion = currentAllDeployments.Version
+	}
+
+	//Insert new information into the db
+	err = h.DBWriteAllDeploymentsForApp(ctx, tx, int(previousVersion), appName, deploymentsMap)
+	if err != nil {
+		return fmt.Errorf("could not write all deployments for app: '%s': %v", appName, err)
+	}
+	return nil
+}
+
 // CUSTOM MIGRATIONS
 
 func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) error {
@@ -1875,6 +2006,27 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 	})
 }
 
+func (h *DBHandler) RunCustomMigrationAllDeployments(ctx context.Context, writeAllDeployments WriteAllDeploymentsFun) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		needsMigrating, err := h.needsAllDeploymentsMigrations(ctx, transaction)
+		if err != nil {
+			return err
+		}
+		if !needsMigrating {
+			return nil
+		}
+		err = writeAllDeployments(ctx, transaction, h)
+		if err != nil {
+			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
+		}
+
+		return nil
+	})
+}
+
 func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
 	allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
@@ -1886,6 +2038,19 @@ func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction 
 		return false, nil
 	}
 	return true, nil
+}
+
+func (h *DBHandler) needsAllDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
+	l := logger.FromContext(ctx).Sugar()
+	contains, err := h.DBAllDeploymentsContainsData(ctx, transaction)
+	if err != nil {
+		return true, err
+	}
+	if contains {
+		l.Warnf("There are already all_deployments in the DB - skipping migrations")
+		return !contains, nil
+	}
+	return !contains, nil
 }
 
 type AllApplicationsJson struct {
@@ -2102,6 +2267,7 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 			(*DBHandler).needsQueuedDeploymentsMigrations,
 			(*DBHandler).needsCommitEventsMigrations,
 			(*DBHandler).needsEnvironmentsMigrations,
+			(*DBHandler).needsAllDeploymentsMigrations,
 		}
 		for i := range checkFunctions {
 			f := checkFunctions[i]
@@ -4236,7 +4402,6 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
 	}
-
 	existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName)
 	if err != nil {
 		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
@@ -4642,4 +4807,94 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 	}
 
 	return failedEsls, nil
+}
+
+type AllDeploymentsForApp struct {
+	Version     EslVersion       `json:"version"`
+	AppName     string           `json:"appName"`
+	Deployments map[string]int64 `json:"deployments"` //Maps environment name to release version
+}
+
+func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, prev int, appName string, environmentDeployments map[string]int64) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("attempting to write to the all_deployments table without a transaction")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO all_deployments (eslVersion, created, appName, json) VALUES (?, ?, ?, ?);",
+	)
+
+	jsonDeployments, err := json.Marshal(environmentDeployments)
+	if err != nil {
+		return fmt.Errorf("could not marshall deployments for app: '%s': %v\n", appName, err)
+	}
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		prev+1,
+		time.Now(),
+		appName,
+		jsonDeployments,
+	)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllDeploymentsForApp error executing query: %w", err)
+	}
+	return nil
+}
+
+type DBAllDeploymentsForAppRow struct {
+	EslVersion      EslVersion
+	Created         time.Time
+	AppName         string
+	DeploymentsJson string
+}
+
+func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (*AllDeploymentsForApp, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processAllDeploymentRow")
+	defer span.Finish()
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query all_deployments table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("all_deployments: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var row = &DBAllDeploymentsForAppRow{}
+	//exhaustruct:ignore
+	var deployments = &AllDeploymentsForApp{}
+	if rows.Next() {
+
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.AppName, &row.DeploymentsJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning oldest_deployments row from DB. Error: %w\n", err)
+		}
+		err = json.Unmarshal([]byte(row.DeploymentsJson), &deployments.Deployments)
+		if err != nil {
+			return nil, fmt.Errorf("Error unmarshalling all deployments. Error: %w\n", err)
+		}
+		deployments.AppName = row.AppName
+		deployments.Version = row.EslVersion
+	} else {
+		row = nil
+		deployments = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return deployments, nil
 }

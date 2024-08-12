@@ -1679,7 +1679,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
+	if s.DBHandler.ShouldUseOtherTables() {
 		depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
 		if err != nil {
 			return nil, err
@@ -1807,6 +1807,42 @@ func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.T
 		return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	}
 	return s.GetAllEnvironmentConfigsFromManifest()
+}
+
+func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
+	}
+	return s.GetAllDeploymentsForAppFromManifest(ctx, appName)
+}
+
+func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
+	result, err := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return map[string]int64{}, nil
+	}
+	return result.Deployments, nil
+}
+
+func (s *State) GetAllDeploymentsForAppFromManifest(ctx context.Context, appName string) (map[string]int64, error) {
+	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]int64{}
+	for env := range envConfigs {
+		version, err := s.GetEnvironmentApplicationVersion(ctx, nil, env, appName)
+		if err != nil {
+			return nil, err
+		}
+		if version != nil {
+			result[env] = int64(*version)
+		}
+	}
+	return result, nil
 }
 
 func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
@@ -1982,42 +2018,76 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 	if err != nil {
 		return err
 	}
-	for envNameIndex := range envNames {
-		envName := envNames[envNameIndex]
+	apps, err := s.GetApplicationsFromFile()
+	if err != nil {
+		return err
+	}
 
-		if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
-			return err
-		} else {
-			for _, appName := range apps {
-				var version *uint64
-				version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
-				if err != nil {
-					return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
-				}
-				var versionIntPtr *int64
-				if version != nil {
-					var versionInt = int64(*version)
-					versionIntPtr = &versionInt
-				} else {
-					versionIntPtr = nil
-				}
-				deployment := db.Deployment{
-					EslVersion:    0,
-					Created:       time.Time{},
-					App:           appName,
-					Env:           envName,
-					Version:       versionIntPtr,
-					TransformerID: 0,
-					Metadata: db.DeploymentMetadata{
-						DeployedByName:  "",
-						DeployedByEmail: "",
-					},
-				}
-				err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0)
-				if err != nil {
-					return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %v", deployment.App, deployment.Env, err)
-				}
+	for _, appName := range apps {
+		deploymentsForApp := map[string]int64{}
+		for _, envName := range envNames {
+			var version *uint64
+			version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
+			if err != nil {
+				return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 			}
+			var versionIntPtr *int64
+			if version != nil {
+				var versionInt = int64(*version)
+				versionIntPtr = &versionInt
+				deploymentsForApp[envName] = int64(*version)
+			} else {
+				versionIntPtr = nil
+			}
+			deployment := db.Deployment{
+				EslVersion:    0,
+				Created:       time.Time{},
+				App:           appName,
+				Env:           envName,
+				Version:       versionIntPtr,
+				TransformerID: 0,
+				Metadata: db.DeploymentMetadata{
+					DeployedByName:  "",
+					DeployedByEmail: "",
+				},
+			}
+			err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0)
+			if err != nil {
+				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %w", deployment.App, deployment.Env, err)
+			}
+		}
+	}
+	return nil
+}
+
+// WriteAllCurrentlyDeployed writes all active deployments for al apps
+func (s *State) WriteAllCurrentlyDeployed(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "WriteAllCurrentlyDeployed")
+	defer ddSpan.Finish()
+	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
+	if err != nil {
+		return err
+	}
+	apps, err := s.GetApplicationsFromFile()
+	if err != nil {
+		return err
+	}
+
+	for _, appName := range apps {
+		deploymentsForApp := map[string]int64{}
+		for _, envName := range envNames {
+			var version *uint64
+			version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
+			if err != nil {
+				return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
+			}
+			if version != nil {
+				deploymentsForApp[envName] = int64(*version)
+			}
+		}
+		err = dbHandler.DBWriteAllDeploymentsForApp(ctx, transaction, 0, appName, deploymentsForApp)
+		if err != nil {
+			return fmt.Errorf("error writing all deployments to DB for app %s: %w", appName, err)
 		}
 	}
 	return nil

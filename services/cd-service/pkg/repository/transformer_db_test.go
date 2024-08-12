@@ -2339,7 +2339,14 @@ func TestUndeployDBState(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedDeployments, target, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
+				allDeployments, err2 := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
+				if err2 != nil {
+					t.Fatal(err)
+				}
 
+				if len(allDeployments.Deployments) != 0 {
+					t.Fatal("No deployments expected, but found some.")
+				}
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {

@@ -836,6 +836,132 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 	}
 }
 
+func TestAllDeployments(t *testing.T) {
+	const appName = "my-app"
+	type data struct {
+		EnvName string
+		Version uint64
+	}
+	tcs := []struct {
+		Name     string
+		AppName  string
+		data     []data
+		expected map[string]int64
+	}{
+		{
+			Name:    "Simple Write",
+			AppName: appName,
+			data: []data{ //Updates in order
+				{
+					EnvName: "development",
+					Version: 3,
+				},
+			},
+			expected: map[string]int64{
+				"development": 3,
+			},
+		},
+		{
+			Name:    "Multiple Writes, no override",
+			AppName: appName,
+			data: []data{ //Updates in order
+				{
+					EnvName: "development",
+					Version: 3,
+				},
+				{
+					EnvName: "staging",
+					Version: 2,
+				},
+			},
+			expected: map[string]int64{
+				"development": 3,
+				"staging":     2,
+			},
+		},
+		{
+			Name:    "Multiple Writes, override",
+			AppName: appName,
+			data: []data{ //Updates in order
+				{
+					EnvName: "development",
+					Version: 3,
+				},
+				{
+					EnvName: "staging",
+					Version: 2,
+				},
+				{
+					EnvName: "development",
+					Version: 3,
+				},
+				{
+					EnvName: "staging",
+					Version: 3,
+				},
+			},
+			expected: map[string]int64{
+				"development": 3,
+				"staging":     3,
+			},
+		},
+		{
+			Name:    "Multiple Writes, override and downgrade",
+			AppName: appName,
+			data: []data{ //Updates in order
+				{
+					EnvName: "development",
+					Version: 3,
+				},
+				{
+					EnvName: "staging",
+					Version: 2,
+				},
+				{
+					EnvName: "development",
+					Version: 1,
+				},
+				{
+					EnvName: "staging",
+					Version: 1,
+				},
+			},
+			expected: map[string]int64{
+				"development": 1,
+				"staging":     1,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, d := range tc.data {
+					err := dbHandler.DBUpdateAllDeploymentsForApp(ctx, transaction, tc.AppName, d.EnvName, int64(d.Version))
+					if err != nil {
+						t.Fatalf("Error updating all deployments: %v\n", err)
+					}
+				}
+				result, err := dbHandler.DBSelectAllDeploymentsForApp(ctx, transaction, tc.AppName)
+				if err != nil {
+					t.Fatalf("Error reading from all deployments: %v\n", err)
+				}
+				if diff := cmp.Diff(tc.expected, result.Deployments); diff != "" {
+					t.Fatalf("mismatch result (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestReadWriteEnvironmentLock(t *testing.T) {
 	tcs := []struct {
 		Name         string

@@ -49,8 +49,12 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	// Will be implemented in Ref: SRX-E81MCI
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
+	}
+
+	return &api.GetGitTagsResponse{TagData: tags}, nil
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
