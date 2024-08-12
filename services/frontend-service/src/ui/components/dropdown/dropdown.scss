@@ -71,3 +71,10 @@ div.mdc-select {
     border: 1px solid blue;
     padding-left: 1em;
 }
+
+.confirmation-dialog-footer {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: space-evenly;
+    margin-bottom: 0.5em;
+}
