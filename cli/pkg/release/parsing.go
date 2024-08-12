@@ -45,7 +45,6 @@ type commandLineArguments struct {
 	skipSignatures       bool
 	signatures           cli_utils.RepeatedString
 	useDexAuthentication bool
-	retries              cli_utils.RepeatedInt
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
