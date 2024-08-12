@@ -2994,6 +2994,7 @@ type ReleaseTrain struct {
 	WriteCommitData       bool             `json:"writeCommitData"`
 	Repo                  Repository       `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"`
+	TargetType            string           `json:"targetType"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -3097,20 +3098,24 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 	return apps, nil, nil
 }
 
-func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) (map[string]config.EnvironmentConfig, bool) {
+func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetName string, targetType string) (map[string]config.EnvironmentConfig, bool) {
 	envGroupConfigs := make(map[string]config.EnvironmentConfig)
 	isEnvGroup := false
 
-	for env, config := range configs {
-		if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetGroupName {
-			isEnvGroup = true
-			envGroupConfigs[env] = config
+	if targetType != api.ReleaseTrainRequest_ENVIRONMENT.String() {
+		for env, config := range configs {
+			if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetName {
+				isEnvGroup = true
+				envGroupConfigs[env] = config
+			}
 		}
 	}
-	if len(envGroupConfigs) == 0 {
-		envConfig, ok := configs[targetGroupName]
-		if ok {
-			envGroupConfigs[targetGroupName] = envConfig
+	if targetType != api.ReleaseTrainRequest_ENVIRONMENTGROUP.String() {
+		if len(envGroupConfigs) == 0 {
+			envConfig, ok := configs[targetName]
+			if ok {
+				envGroupConfigs[targetName] = envConfig
+			}
 		}
 	}
 	return envGroupConfigs, isEnvGroup
@@ -3155,8 +3160,14 @@ func (c *ReleaseTrain) Prognosis(
 	}
 
 	var targetGroupName = c.Target
-	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
 	if len(envGroupConfigs) == 0 {
+		if c.TargetType == api.ReleaseTrainRequest_ENVIRONMENT.String() || c.TargetType == api.ReleaseTrainRequest_ENVIRONMENTGROUP.String() {
+			return ReleaseTrainPrognosis{
+				Error:                grpc.PublicError(ctx, fmt.Errorf("could not find target of type %v and name '%v'", c.TargetType, targetGroupName)),
+				EnvironmentPrognoses: nil,
+			}
+		}
 		return ReleaseTrainPrognosis{
 			Error:                grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName)),
 			EnvironmentPrognoses: nil,
@@ -3222,7 +3233,7 @@ func (c *ReleaseTrain) Transform(
 
 	var targetGroupName = c.Target
 	configs, _ := state.GetAllEnvironmentConfigs(ctx, transaction)
-	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
 
 	// sorting for determinism
 	envNames := make([]string, 0, len(prognosis.EnvironmentPrognoses))
