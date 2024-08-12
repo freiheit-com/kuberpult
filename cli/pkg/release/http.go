@@ -144,6 +144,7 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 }
 
 func doRequest(request *http.Request) (*http.Response, []byte, error) {
+	//exhaustruct:ignore
 	client := &http.Client{
 		Timeout: DefaultTimeout * time.Second,
 	}
