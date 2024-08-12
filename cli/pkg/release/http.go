@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	urllib "net/url"
@@ -149,7 +150,7 @@ func doRequest(request *http.Request) (*http.Response, []byte, error) {
 
 	resp, err := client.Do(request)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error sending request %v with error: %w", request, err)
+		return nil, nil, fmt.Errorf("error issuing the HTTP request, error: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -166,16 +167,16 @@ func issueHttpRequest(req http.Request, retries uint64) error {
 	for i = 0; i < retries+1; i++ {
 		response, body, err := doRequest(&req)
 		if err != nil {
-			fmt.Printf("Fatal: error issuing http request: %v\n", err)
+			log.Printf("error issuing http request: %v\n", err)
 		} else if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
-			fmt.Printf("Recieved response code %d - %s from Kuberpult\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
+			log.Printf("Recieved response code %d - %s from Kuberpult\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
 		} else {
-			fmt.Printf("Success: %d - %s\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
+			log.Printf("Success: %d - %s\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
 			return nil
 		}
 		if i < retries {
 			backoff := time.Duration(i+1) * time.Second
-			fmt.Printf("Retrying in %v...\n", backoff)
+			log.Printf("Retrying in %v...\n", backoff)
 			time.Sleep(backoff)
 		}
 	}
