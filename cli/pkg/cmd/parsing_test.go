@@ -69,7 +69,8 @@ func TestParseArgs(t *testing.T) {
 			name:    "only --url is provided",
 			cmdArgs: "--url something.somewhere",
 			expectedParams: &kuberpultClientParameters{
-				url: "something.somewhere",
+				url:     "something.somewhere",
+				retries: DefaultRetries,
 			},
 		},
 		{
@@ -90,7 +91,8 @@ func TestParseArgs(t *testing.T) {
 			name:    "--url is provided with some tail",
 			cmdArgs: "--url something.somewhere potato --tomato",
 			expectedParams: &kuberpultClientParameters{
-				url: "something.somewhere",
+				url:     "something.somewhere",
+				retries: DefaultRetries,
 			},
 			expectedOther: []string{"potato", "--tomato"},
 		},
@@ -100,6 +102,7 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: &kuberpultClientParameters{
 				url:        "something.somewhere",
 				authorName: ptrStr("john"),
+				retries:    DefaultRetries,
 			},
 			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
 		},
@@ -116,6 +119,7 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: &kuberpultClientParameters{
 				url:         "something.somewhere",
 				authorEmail: ptrStr("john"),
+				retries:     DefaultRetries,
 			},
 			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
 		},
