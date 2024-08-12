@@ -140,7 +140,7 @@ func TestParseArgs(t *testing.T) {
 			expectedOther: []string{"potato", "--tomato"},
 		},
 		{
-			name:    "default retries",
+			name:    "overriding default retries",
 			cmdArgs: "--url something.somewhere --retries 10 potato --tomato",
 			expectedParams: &kuberpultClientParameters{
 				url:     "something.somewhere",
