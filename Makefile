@@ -102,9 +102,10 @@ push-service-image/%: tag-service-image/%
 	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
 
 .PHONY: tag-release-images
-tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i) push-cli-image
+tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i) tag-cli-image
 	true
 
+# CLI is only stored in gcp docker registry
 pull-cli-image:
 	docker pull $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(VERSION)
 
