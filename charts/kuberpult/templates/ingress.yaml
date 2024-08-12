@@ -40,29 +40,29 @@ spec:
     http:
       paths:
 # Old Rest API:
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /release
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
-        path: /environments/
+      - pathType: Prefix
+        path: /environments
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
-        path: /environment-groups/
+      - pathType: Prefix
+        path: /environment-groups
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
 # New API:
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api/
         backend:
           service:
@@ -70,14 +70,28 @@ spec:
             port:
               name: http
 # Dex (UI Authorization flow):
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /dex
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
+        path: /callback
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              name: http
+      - pathType: Prefix
+        path: /token
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              name: http
+      - pathType: Prefix
         path: /login
         backend:
           service:
@@ -86,20 +100,34 @@ spec:
               name: http
 # UI bootstrapping:
       - pathType: ImplementationSpecific
-        path: /ui/
+        path: /ui/*
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
-        path: /static/
+      - pathType: Exact
+        path: /
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
+        path: /static/js/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              name: http
+      - pathType: Prefix
+        path: /static/css/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              name: http
+      - pathType: Prefix
         path: /favicon.png
         backend:
           service:
@@ -107,56 +135,56 @@ spec:
             port:
               name: http
 # GRPC over HTTP for UI:
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api.v1.OverviewService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api.v1.BatchService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api.v1.FrontendConfigService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api.v1.RolloutService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api.v1.GitService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api.v1.EnvironmentService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api.v1.ReleaseTrainPrognosisService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: ImplementationSpecific
+      - pathType: Prefix
         path: /api.v1.EslService/
         backend:
           service:

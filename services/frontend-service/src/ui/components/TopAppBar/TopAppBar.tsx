@@ -58,7 +58,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     }, [hideWithoutWarningsValue, params, setParams]);
 
     const renderedWarnings =
-        allWarnings.length === 0 ? (
+        allWarnings.length === 0 || !props.showWarningFilter ? (
             ''
         ) : (
             <div className="service-lane__warning">

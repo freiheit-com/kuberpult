@@ -37,7 +37,6 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) (string, error) {
 	testId := strconv.Itoa(rand.Intn(9999))
 	tempValuesFile := "vals" + "_" + testId + ".yaml"
 	tempValuesFile = dirName + "/" + tempValuesFile
-	t.Logf("input file: \n%s\n", valuesData)
 
 	err := os.WriteFile(tempValuesFile, valuesData, 0644)
 	if err != nil {
@@ -46,9 +45,10 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) (string, error) {
 	outputFile := "tmp_" + testId + ".tmpl"
 	outputFile = dirName + "/" + outputFile
 
-	_, err = exec.Command("sh", "-c", "helm template ./.. --values "+tempValuesFile+" > "+outputFile).CombinedOutput()
+	op, err := exec.Command("sh", "-c", "helm template ./.. --values "+tempValuesFile+" > "+outputFile).CombinedOutput()
 
 	if err != nil {
+		t.Logf("Error generating chart: %v: %s", err, string(op))
 		return "", err
 	}
 
@@ -352,7 +352,7 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 argocd:
-  sendWebHooks: false 
+  sendWebHooks: false
   server: testServer
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -421,6 +421,8 @@ db:
 					Name:  "KUBERPULT_DB_NAME",
 					Value: "dbName",
 				},
+			},
+			ExpectedMissing: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_USER_NAME",
 					Value: "dbUser",
@@ -430,10 +432,9 @@ db:
 					Value: "dbPassword",
 				},
 			},
-			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Database postgreSQL enabled 2",
+			Name: "database username and password not in environment variables",
 			Values: `
 git:
   url: "testURL"
@@ -443,8 +444,8 @@ db:
   dbOption: postgreSQL
   location: /kp/database
   dbName: does
-  dbUser: not
-  dbPassword: matter
+  dbUser: username
+  dbPassword: password
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -458,16 +459,12 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_DB_NAME",
-					Value: "",
-				},
-				{
 					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "",
+					Value: "username",
 				},
 				{
 					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "",
+					Value: "password",
 				},
 			},
 		},
@@ -507,11 +504,11 @@ db:
 				},
 				{
 					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "",
+					Value: "does",
 				},
 				{
 					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "",
+					Value: "not",
 				},
 			},
 		},
@@ -551,11 +548,11 @@ db:
 				},
 				{
 					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "",
+					Value: "does",
 				},
 				{
 					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "",
+					Value: "not",
 				},
 			},
 		},
@@ -921,19 +918,11 @@ db:
 					Name:  "KUBERPULT_DB_NAME",
 					Value: "dbName",
 				},
-				{
-					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "dbUser",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "dbPassword",
-				},
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Database postgreSQL enabled 2",
+			Name: "database username and password not in environment variables",
 			Values: `
 git:
   url: "testURL"
@@ -943,8 +932,8 @@ db:
   dbOption: postgreSQL
   location: /kp/database
   dbName: does
-  dbUser: not
-  dbPassword: matter
+  dbUser: username
+  dbPassword: password
   writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -959,16 +948,12 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_DB_NAME",
-					Value: "",
-				},
-				{
 					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "",
+					Value: "username",
 				},
 				{
 					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "",
+					Value: "password",
 				},
 			},
 		},
@@ -1174,7 +1159,7 @@ func TestHelmChartsKuberpultFrontendEnvVariables(t *testing.T) {
 			Values: `
 git:
   url: "testURL"
-  author:  
+  author:
     name: "SRE"
 ingress:
   domainName: "kuberpult-example.com"
@@ -1195,7 +1180,7 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 auth:
-  dexAuth: 
+  dexAuth:
     enabled: false
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -1223,7 +1208,7 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 auth:
-  dexAuth: 
+  dexAuth:
     enabled: true
     policy_csv: "testing"
 
@@ -1248,7 +1233,7 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 auth:
-  dexAuth: 
+  dexAuth:
     enabled: true
     useClusterInternalCommunicationToDex: true
     policy_csv: "testing"
@@ -1519,10 +1504,22 @@ ingress:
 	}
 }
 
-func makeIngressPath(path string) networking.HTTPIngressPath {
-	implementationSpecific := networking.PathType("ImplementationSpecific")
+func makeIngressPrefixPath(path string) networking.HTTPIngressPath {
+	pathType := networking.PathType("Prefix")
+	return makeIngressPath(path, pathType)
+}
+func makeIngressExactPath(path string) networking.HTTPIngressPath {
+	pathType := networking.PathType("Exact")
+	return makeIngressPath(path, pathType)
+}
+func makeIngressImplementationSpecificPath(path string) networking.HTTPIngressPath {
+	pathType := networking.PathType("ImplementationSpecific")
+	return makeIngressPath(path, pathType)
+}
+
+func makeIngressPath(path string, pathType networking.PathType) networking.HTTPIngressPath {
 	return networking.HTTPIngressPath{
-		PathType: &implementationSpecific,
+		PathType: &pathType,
 		Path:     path,
 		Backend: networking.IngressBackend{
 			Service: &networking.IngressServiceBackend{
@@ -1537,22 +1534,26 @@ func makeIngressPath(path string) networking.HTTPIngressPath {
 
 func makeAllIngressPaths() []networking.HTTPIngressPath {
 	return []networking.HTTPIngressPath{
-		makeIngressPath("/release"),
-		makeIngressPath("/environments/"),
-		makeIngressPath("/environment-groups/"),
-		makeIngressPath("/api/"),
-		makeIngressPath("/dex"),
-		makeIngressPath("/login"),
-		makeIngressPath("/ui/"),
-		makeIngressPath("/static/"),
-		makeIngressPath("/favicon.png"),
-		makeIngressPath("/api.v1.OverviewService/"),
-		makeIngressPath("/api.v1.BatchService/"),
-		makeIngressPath("/api.v1.FrontendConfigService/"),
-		makeIngressPath("/api.v1.RolloutService/"),
-		makeIngressPath("/api.v1.GitService/"),
-		makeIngressPath("/api.v1.EnvironmentService/"),
-		makeIngressPath("/api.v1.ReleaseTrainPrognosisService/"),
-		makeIngressPath("/api.v1.EslService/"),
+		makeIngressPrefixPath("/release"),
+		makeIngressPrefixPath("/environments"),
+		makeIngressPrefixPath("/environment-groups"),
+		makeIngressPrefixPath("/api/"),
+		makeIngressPrefixPath("/dex"),
+		makeIngressPrefixPath("/callback"),
+		makeIngressPrefixPath("/token"),
+		makeIngressPrefixPath("/login"),
+		makeIngressImplementationSpecificPath("/ui/*"),
+		makeIngressExactPath("/"),
+		makeIngressPrefixPath("/static/js/"),
+		makeIngressPrefixPath("/static/css/"),
+		makeIngressPrefixPath("/favicon.png"),
+		makeIngressPrefixPath("/api.v1.OverviewService/"),
+		makeIngressPrefixPath("/api.v1.BatchService/"),
+		makeIngressPrefixPath("/api.v1.FrontendConfigService/"),
+		makeIngressPrefixPath("/api.v1.RolloutService/"),
+		makeIngressPrefixPath("/api.v1.GitService/"),
+		makeIngressPrefixPath("/api.v1.EnvironmentService/"),
+		makeIngressPrefixPath("/api.v1.ReleaseTrainPrognosisService/"),
+		makeIngressPrefixPath("/api.v1.EslService/"),
 	}
 }
