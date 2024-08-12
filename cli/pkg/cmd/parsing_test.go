@@ -127,6 +127,15 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
+			name:    "default retries",
+			cmdArgs: "--url something.somewhere potato --tomato",
+			expectedParams: &kuberpultClientParameters{
+				url:     "something.somewhere",
+				retries: DefaultRetries,
+			},
+			expectedOther: []string{"potato", "--tomato"},
+		},
+		{
 			name:    "--retries is negative",
 			cmdArgs: "--url something.somewhere --retries -1 --author_email john  subcommand --arg1 val1 etc etc",
 			expectedError: errMatcher{
