@@ -41,7 +41,7 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) Retu
 	requestParameters := kutil.RequestParameters{
 		Url:         &kpClientParams.url,
 		Retries:     kpClientParams.retries,
-		HttpTimeout: rl.TIMEOUT,
+		HttpTimeout: rl.DefaultTimeout,
 	}
 
 	if err = rl.Release(requestParameters, authParams, *parsedArgs); err != nil {

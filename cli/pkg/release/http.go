@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	TIMEOUT = 10
+	DefaultTimeout = 10
 )
 
 func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
@@ -145,7 +145,7 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 
 func doRequest(request *http.Request) (*http.Response, []byte, error) {
 	client := &http.Client{
-		Timeout: TIMEOUT * time.Second,
+		Timeout: DefaultTimeout * time.Second,
 	}
 
 	resp, err := client.Do(request)
