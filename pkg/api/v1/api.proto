@@ -285,10 +285,17 @@ message DeleteEnvironmentFromAppRequest {
   string environment = 2;
 }
 
+
 message ReleaseTrainRequest {
+  enum TargetType {
+    UNKNOWN = 0;
+    ENVIRONMENT = 1;
+    ENVIRONMENTGROUP = 2;
+  }
   string target = 1;
   string team = 2;
   string commit_hash = 3;
+  TargetType target_type = 4;
 }
 
 message ReleaseTrainResponse {
