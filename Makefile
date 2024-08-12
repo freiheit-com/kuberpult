@@ -102,7 +102,20 @@ push-service-image/%: tag-service-image/%
 	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
 
 .PHONY: tag-release-images
-tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i)
+tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i) push-cli-image
+	true
+
+pull-cli-image:
+	docker pull $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(VERSION)
+
+tag-cli-image: pull-cli-image
+	docker tag $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(VERSION) $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(RELEASE_IMAGE_TAG)
+
+push-cli-image: tag-cli-image
+	docker push $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(RELEASE_IMAGE_TAG)
+
+.PHONY: tag-cli-image
+tag-cli-image: push-cli-image
 	true
 
 .PHONY: commitlint
