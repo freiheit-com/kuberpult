@@ -69,7 +69,8 @@ func TestParseArgs(t *testing.T) {
 			name:    "only --url is provided",
 			cmdArgs: "--url something.somewhere",
 			expectedParams: &kuberpultClientParameters{
-				url: "something.somewhere",
+				url:     "something.somewhere",
+				retries: DefaultRetries,
 			},
 		},
 		{
@@ -90,7 +91,8 @@ func TestParseArgs(t *testing.T) {
 			name:    "--url is provided with some tail",
 			cmdArgs: "--url something.somewhere potato --tomato",
 			expectedParams: &kuberpultClientParameters{
-				url: "something.somewhere",
+				url:     "something.somewhere",
+				retries: DefaultRetries,
 			},
 			expectedOther: []string{"potato", "--tomato"},
 		},
@@ -100,6 +102,7 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: &kuberpultClientParameters{
 				url:        "something.somewhere",
 				authorName: ptrStr("john"),
+				retries:    DefaultRetries,
 			},
 			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
 		},
@@ -116,6 +119,7 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: &kuberpultClientParameters{
 				url:         "something.somewhere",
 				authorEmail: ptrStr("john"),
+				retries:     DefaultRetries,
 			},
 			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
 		},
@@ -124,6 +128,31 @@ func TestParseArgs(t *testing.T) {
 			cmdArgs: "--url something.somewhere --author_email john --author_email joseph subcommand --arg1 val1 etc etc",
 			expectedError: errMatcher{
 				msg: "error while creating kuberpult client parameters, error: the --author_email arg must be set at most once",
+			},
+		},
+		{
+			name:    "default retries",
+			cmdArgs: "--url something.somewhere potato --tomato",
+			expectedParams: &kuberpultClientParameters{
+				url:     "something.somewhere",
+				retries: DefaultRetries,
+			},
+			expectedOther: []string{"potato", "--tomato"},
+		},
+		{
+			name:    "overriding default retries",
+			cmdArgs: "--url something.somewhere --retries 10 potato --tomato",
+			expectedParams: &kuberpultClientParameters{
+				url:     "something.somewhere",
+				retries: 10,
+			},
+			expectedOther: []string{"potato", "--tomato"},
+		},
+		{
+			name:    "--retries is negative",
+			cmdArgs: "--url something.somewhere --retries -1 --author_email john  subcommand --arg1 val1 etc etc",
+			expectedError: errMatcher{
+				msg: "error while creating kuberpult client parameters, error: --retries arg value must be positive",
 			},
 		},
 	}
