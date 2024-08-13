@@ -3693,7 +3693,7 @@ func (c *envReleaseTrain) Transform(
 			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, prognosis.FirstLockMessage, "environment")
 
 			if state.DBHandler.ShouldUseOtherTables() {
-				commitID, err := getCommitID(ctx, transaction, state, state.Filesystem, prognosis.AppsPrognoses[appName].Version, releaseDir, appName)
+				commitID, err := getCommitID(ctx, transaction, state, state.Filesystem, release, releaseDir, appName)
 				if err != nil {
 					logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 				} else {

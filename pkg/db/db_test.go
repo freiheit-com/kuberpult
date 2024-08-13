@@ -569,6 +569,134 @@ func writeEventAux(ctx context.Context, db *DBHandler, tx *sql.Tx, sourceCommitH
 	return db.WriteEvent(ctx, tx, 0, ev.EventMetadata.Uuid, event.EventType(ev.EventMetadata.EventType), sourceCommitHash, jsonToInsert)
 }
 
+func TestReadLockPreventedEvents(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		Events               []*event.LockPreventedDeployment
+		RequestTransformerID TransformerID
+		ExpectedResults      []EventRow
+	}{
+		{
+			Name: "One simple event",
+			Events: []*event.LockPreventedDeployment{
+				{
+					Application: "app",
+					Environment: "env",
+					LockMessage: "test lock message",
+					LockType:    "Application",
+				},
+			},
+			RequestTransformerID: 0,
+			ExpectedResults: []EventRow{
+				{
+					Uuid:       "00000000-0000-0000-0000-000000000000",
+					CommitHash: "test",
+					EventType:  "lock-prevented-deployment",
+					EventJson:  `{"EventData":{"Application":"app","Environment":"env","LockMessage":"test lock message","LockType":"Application"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000000","EventType":"lock-prevented-deployment"}}`,
+				},
+			},
+		},
+		{
+			Name: "Multiple events",
+			Events: []*event.LockPreventedDeployment{
+				{
+					Application: "app",
+					Environment: "env",
+					LockMessage: "test lock message",
+					LockType:    "Application",
+				},
+				{
+					Application: "app2",
+					Environment: "env2",
+					LockMessage: "message2",
+					LockType:    "Environment",
+				},
+			},
+			RequestTransformerID: 0,
+			ExpectedResults: []EventRow{
+				{
+					Uuid:       "00000000-0000-0000-0000-000000000000",
+					CommitHash: "test",
+					EventType:  "lock-prevented-deployment",
+					EventJson:  `{"EventData":{"Application":"app","Environment":"env","LockMessage":"test lock message","LockType":"Application"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000000","EventType":"lock-prevented-deployment"}}`,
+				},
+				{
+					Uuid:       "00000000-0000-0000-0000-000000000001",
+					CommitHash: "test",
+					EventType:  "lock-prevented-deployment",
+					EventJson:  `{"EventData":{"Application":"app2","Environment":"env2","LockMessage":"message2","LockType":"Environment"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000001","EventType":"lock-prevented-deployment"}}`,
+				},
+			},
+		},
+		{
+			Name: "Wrong Transformer ID",
+			Events: []*event.LockPreventedDeployment{
+				{
+					Application: "app",
+					Environment: "env",
+					LockMessage: "test lock message",
+					LockType:    "Application",
+				},
+			},
+			RequestTransformerID: 1,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			dbDir := t.TempDir()
+
+			dir, err := testutil.CreateMigrationsPath(2)
+			if err != nil {
+				t.Fatalf("setup error could not detect dir \n%v", err)
+				return
+			}
+
+			cfg := DBConfig{
+				DriverName:     "sqlite3",
+				DbHost:         dbDir,
+				MigrationsPath: dir,
+			}
+			migErr := RunDBMigrations(ctx, cfg)
+			if migErr != nil {
+				t.Fatalf("Error running migration script. Error: %v\n", migErr)
+			}
+
+			db, err := Connect(ctx, cfg)
+			if err != nil {
+				t.Fatal("Error establishing DB connection: ", zap.Error(err))
+			}
+
+			err = db.RunCustomMigrationsEventSourcingLight(ctx)
+			if err != nil {
+				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
+
+			}
+			err = db.WithTransactionR(ctx, 0, false, func(ctx context.Context, tx *sql.Tx) error {
+				for i, event := range tc.Events {
+					err = db.DBWriteLockPreventedDeploymentEvent(ctx, tx, 0, "00000000-0000-0000-0000-00000000000"+strconv.Itoa(i), "test", event)
+					if err != nil {
+						return err
+					}
+				}
+				results, err := db.DBSelectAllLockPreventedEventsForTransformerID(ctx, tx, tc.RequestTransformerID)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.ExpectedResults, results); diff != "" {
+					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestSqliteToPostgresQuery(t *testing.T) {
 	tcs := []struct {
 		Name          string

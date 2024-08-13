@@ -1154,6 +1154,23 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 	return processAllCommitEventRow(ctx, rows, err)
 }
 
+func (h *DBHandler) DBSelectAllLockPreventedEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID TransformerID) ([]EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE transformereslVersion = (?) AND eventtype = 'lock-prevented-deployment' ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := transaction.QueryContext(ctx, query, transformerID)
+	return processAllCommitEventRow(ctx, rows, err)
+}
+
 func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([]EventRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
