@@ -46,7 +46,7 @@ jobs:
           make tag-release-images RELEASE_IMAGE_TAG=v$RELEASE_IMAGE_VERSION
         env:
           RELEASE_IMAGE_VERSION: ${{ steps.new-semrel-version.outputs.version }}
-      - name: Re-tag CLI service images with release version for google docker registry
+      - name: Re-tag CLI service image with release version for google docker registry
         run: |
           echo 'If this step fails, ensure that the main github action is done. We rely on it to get the docker images.'
           git fetch --tags # this should have been done by the checkout action before.
