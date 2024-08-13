@@ -65,7 +65,7 @@ export const App: React.FC = () => {
         if (kuberpultVersion !== '') {
             document.title = 'Kuberpult ' + kuberpultVersion;
         }
-    }, [kuberpultVersion, api]);
+    }, [api]);
 
     React.useEffect(() => {
         api.configService()
