@@ -20,6 +20,7 @@ MAKEFLAGS += --no-builtin-rules
 
 SCRIPTS_BASE:=infrastructure/scripts/make
 
+
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg
 ARTIFACT_REGISTRY_URI := europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
