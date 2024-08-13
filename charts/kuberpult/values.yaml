@@ -202,12 +202,25 @@ rollout:
 
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
-  # set to false, if you want use your own ingress:
+  # set to false, if you want to use your own ingress:
   create: false
   private: true
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
     kubernetes.io/ingress.allow-http: false
+  allowedPaths:
+    # Enables the ingress paths for the old REST API, starting with `/release`, `/environments/`, or `/environment-groups/`
+    # It is recommended to use the new api, but not all endpoints are available there yet.
+    oldRestApi: false
+
+    # Enables the ingress paths for the new REST API, starting with /api/
+    restApi: false
+
+    # Enables the ingress paths for using dex. Only required if `dex.dexAuth.enabled=true`
+    dex: false
+
+    # Enables the ingress paths for the UI (html, css, js and grpc over http paths)
+    ui: false
   domainName: null
   # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:
