@@ -1482,6 +1482,10 @@ func (u *ReleaseTrain) Transform(
 	if err != nil {
 		return "", err
 	}
+	skippedDeployments, err := state.DBHandler.DBSelectAllLockPreventedEventsForTransformerID(ctx, tx, u.TransformerEslVersion)
+	if err != nil {
+		return "", err
+	}
 
 	var targetGroupName = u.Target
 	configs, _ := state.GetEnvironmentConfigs()
@@ -1511,9 +1515,16 @@ func (u *ReleaseTrain) Transform(
 			return "", err
 		}
 	}
-	return fmt.Sprintf(
-		"Release Train to environment/environment group '%s':\n",
-		targetGroupName), nil
+	commitMessage := fmt.Sprintf("Release Train to environment/environment group '%s':\n", targetGroupName)
+	for _, skipped := range skippedDeployments {
+		eventData, err := event.UnMarshallEvent("lock-prevented-deployment", skipped.EventJson)
+		if err != nil {
+			return "", err
+		}
+		lockPreventedEvent := eventData.EventData.(*event.LockPreventedDeployment)
+		commitMessage += fmt.Sprintf("skipped application %s on environment %s\n", lockPreventedEvent.Application, lockPreventedEvent.Environment)
+	}
+	return commitMessage, nil
 }
 
 type MigrationTransformer struct {
