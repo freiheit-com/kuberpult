@@ -20,22 +20,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"slices"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/go-git/go-billy/v5"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
-	"io/fs"
-	"slices"
 )
 
 type EventType string
 
 const (
-	EventTypeDeployment             EventType = "deployment"
-	EventTypeLockPreventeDeployment EventType = "lock-prevented-deployment"
-	EventTypeReplaceBy              EventType = "replaced-by"
-	EventTypeNewRelease             EventType = "new-release"
-	EventTypeDBMigrationEventType   EventType = "db-migration"
+	EventTypeDeployment              EventType = "deployment"
+	EventTypeLockPreventedDeployment EventType = "lock-prevented-deployment"
+	EventTypeReplaceBy               EventType = "replaced-by"
+	EventTypeNewRelease              EventType = "new-release"
+	EventTypeDBMigrationEventType    EventType = "db-migration"
 )
 
 type eventType struct {
@@ -109,7 +110,7 @@ type LockPreventedDeployment struct {
 }
 
 func (_ *LockPreventedDeployment) eventType() string {
-	return string(EventTypeLockPreventeDeployment)
+	return string(EventTypeLockPreventedDeployment)
 }
 
 func (ev *LockPreventedDeployment) toProto(trg *api.Event) {
