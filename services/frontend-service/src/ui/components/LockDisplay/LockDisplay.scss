@@ -20,7 +20,7 @@ Copyright freiheit.com*/
     margin: $locks-list-row-spacing;
     justify-content: center;
     align-items: center;
-    height: $locks-list-row-height;
+    height: fit-content;
 }
 
 .lock-display-table {
@@ -29,11 +29,19 @@ Copyright freiheit.com*/
     align-items: center;
     margin: $locks-list-row-margin;
     background-color: var(--mdc-theme-surface);
+    word-wrap: break-word;
 }
 
 .lock-display-info {
     flex: 1;
     text-align: center;
+}
+
+.lock-display-info-size-limit {
+    flex-grow: 2;
+    overflow: auto;
+    max-height: 30vh;
+    @extend .lock-display-info;
 }
 
 .lock-action {

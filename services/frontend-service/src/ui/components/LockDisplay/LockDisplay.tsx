@@ -75,7 +75,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
                     {!!lock.team && <div className="lock-display-info">{lock.team}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
-                    <div className="lock-display-info">{lock.message}</div>
+                    <div className="lock-display-info-size-limit">{lock.message}</div>
                     <div className="lock-display-info">{lock.authorName}</div>
                     <div className="lock-display-info">{lock.authorEmail}</div>
                     <Button

@@ -236,7 +236,7 @@ func TestRequestCreation(t *testing.T) {
 				},
 			},
 			expectedErrorMsg: errMatcher{
-				msg: "error while issuing HTTP request, error: response was not OK or Accepted\nresponse code: 400\nresponse body:\n   ",
+				msg: "error while issuing HTTP request, error: could not perform a successful call to kuberpult",
 			},
 			responseCode: http.StatusBadRequest,
 		},
@@ -597,7 +597,10 @@ func TestRequestCreation(t *testing.T) {
 			server := httptest.NewServer(mockServer)
 
 			authParams := tc.authParams
-			err := Release(server.URL, authParams, tc.params)
+			requestParams := kuberpult_utils.RequestParameters{
+				Url: &server.URL,
+			}
+			err := Release(requestParams, authParams, tc.params)
 			// check errors
 			if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
