@@ -19,6 +19,5 @@ KUBERPULT_BUILDER?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberp
 
 DOCKER_REGISTRY_URI?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 SERVICE_IMAGES:=kuberpult-cd-service kuberpult-rollout-service kuberpult-frontend-service kuberpult-manifest-repo-export-service kuberpult-cloudrun-service
-CLI_IMAGE:=kuberpult-client
 GO_TEST_ARGS ?=
 export GO_TEST_ARGS

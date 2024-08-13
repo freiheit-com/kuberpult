@@ -20,6 +20,7 @@ MAKEFLAGS += --no-builtin-rules
 
 SCRIPTS_BASE:=infrastructure/scripts/make
 
+CLI_IMAGE:=kuberpult-client
 
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg
 ARTIFACT_REGISTRY_URI := europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
@@ -102,7 +103,7 @@ push-service-image/%: tag-service-image/%
 	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
 
 .PHONY: tag-release-images
-tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i) tag-cli-release-image
+tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i)
 	true
 
 # CLI is only stored in gcp docker registry
