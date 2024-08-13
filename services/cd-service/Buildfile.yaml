@@ -4,3 +4,4 @@ spec:
   - ../../
 additional_artifacts:
   - coverage.html
+  - team.csv
