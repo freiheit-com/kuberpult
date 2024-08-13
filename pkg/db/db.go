@@ -941,7 +941,7 @@ func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql
 func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
 	metadata := event.Metadata{
 		Uuid:      uuid,
-		EventType: string(event.EventTypeLockPreventeDeployment),
+		EventType: string(event.EventTypeLockPreventedDeployment),
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     lockPreventedDeploymentEvent,
@@ -951,7 +951,7 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 	if err != nil {
 		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v\n", err)
 	}
-	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventeDeployment, sourceCommitHash, jsonToInsert)
+	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventedDeployment, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, replacedBy *event.ReplacedBy) error {
@@ -1151,6 +1151,23 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, transformerID)
+	return processAllCommitEventRow(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectAllLockPreventedEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID TransformerID) ([]EventRow, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE transformereslVersion = (?) AND eventtype = (?) ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := transaction.QueryContext(ctx, query, transformerID, string(event.EventTypeLockPreventedDeployment))
 	return processAllCommitEventRow(ctx, rows, err)
 }
 
