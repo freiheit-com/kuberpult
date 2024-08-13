@@ -1320,159 +1320,137 @@ frontend:
 func TestIngress(t *testing.T) {
 	ingressClassGcePrivate := "gce-private"
 	tcs := []struct {
-		Name            string
-		Values          string
-		ExpectedIngress *networking.Ingress
+		Name      string
+		Values    string
+		UseDex    bool
+		UseUi     bool
+		UseOldApi bool
+		UseNewApi bool
 	}{
 		{
-			Name: "Default Ingress not enabled",
-			Values: `
-git:
-  url: "testURL"
-`,
-			ExpectedIngress: &networking.Ingress{},
-		},
-		{
-			Name: "Ingress enabled",
+			Name: "dex enabled",
 			Values: `
 git:
   url: "testURL"
 ingress:
   create: true
   domainName: "kuberpult-example.com"
+  allowedPaths:
+    dex: true
 `,
-			ExpectedIngress: &networking.Ingress{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Ingress",
-					APIVersion: "networking.k8s.io/v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "kuberpult",
-					Annotations: map[string]string{
-						"cert-manager.io/acme-challenge-type":            "dns01",
-						"cert-manager.io/cluster-issuer":                 "letsencrypt",
-						"kubernetes.io/ingress.allow-http":               "false",
-						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
-					},
-				},
-				Spec: networking.IngressSpec{
-					IngressClassName: &ingressClassGcePrivate,
-					TLS: []networking.IngressTLS{
-						{
-							Hosts: []string{
-								"kuberpult-example.com",
-							},
-							SecretName: "kuberpult-tls-secret",
-						},
-					},
-					Rules: []networking.IngressRule{
-						{
-							Host: "kuberpult-example.com",
-							IngressRuleValue: networking.IngressRuleValue{
-								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: makeAllIngressPaths(),
-								},
-							},
-						},
-					},
-				},
-			},
+			UseDex:    true,
+			UseUi:     false,
+			UseOldApi: false,
+			UseNewApi: false,
 		},
 		{
-			Name: "Not Private Ingress",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  create: true
-  private: false
-  domainName: "kuberpult-example.com"
-`,
-			ExpectedIngress: &networking.Ingress{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Ingress",
-					APIVersion: "networking.k8s.io/v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "kuberpult",
-					Annotations: map[string]string{
-						"cert-manager.io/acme-challenge-type":            "dns01",
-						"cert-manager.io/cluster-issuer":                 "letsencrypt",
-						"kubernetes.io/ingress.allow-http":               "false",
-						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
-					},
-				},
-				Spec: networking.IngressSpec{
-					TLS: []networking.IngressTLS{
-						{
-							Hosts: []string{
-								"kuberpult-example.com",
-							},
-							SecretName: "kuberpult-tls-secret",
-						},
-					},
-					Rules: []networking.IngressRule{
-						{
-							Host: "kuberpult-example.com",
-							IngressRuleValue: networking.IngressRuleValue{
-								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: makeAllIngressPaths(),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			Name: "Override annotations",
+			Name: "ui enabled",
 			Values: `
 git:
   url: "testURL"
 ingress:
   create: true
   domainName: "kuberpult-example.com"
-  annotations: []
+  allowedPaths:
+    ui: true
 `,
-			ExpectedIngress: &networking.Ingress{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Ingress",
-					APIVersion: "networking.k8s.io/v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "kuberpult",
-					Annotations: map[string]string{
-						"cert-manager.io/acme-challenge-type": "dns01",
-						"cert-manager.io/cluster-issuer":      "letsencrypt",
-					},
-				},
-				Spec: networking.IngressSpec{
-					IngressClassName: &ingressClassGcePrivate,
-					TLS: []networking.IngressTLS{
-						{
-							Hosts: []string{
-								"kuberpult-example.com",
-							},
-							SecretName: "kuberpult-tls-secret",
-						},
-					},
-					Rules: []networking.IngressRule{
-						{
-							Host: "kuberpult-example.com",
-							IngressRuleValue: networking.IngressRuleValue{
-								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: makeAllIngressPaths(),
-								},
-							},
-						},
-					},
-				},
-			},
+			UseDex:    false,
+			UseUi:     true,
+			UseOldApi: false,
+			UseNewApi: false,
+		},
+		{
+			Name: "old api enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  create: true
+  domainName: "kuberpult-example.com"
+  allowedPaths:
+    oldRestApi: true
+`,
+			UseDex:    false,
+			UseUi:     false,
+			UseOldApi: true,
+			UseNewApi: false,
+		},
+		{
+			Name: "new api enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  create: true
+  domainName: "kuberpult-example.com"
+  allowedPaths:
+    restApi: true
+`,
+			UseDex:    false,
+			UseUi:     false,
+			UseOldApi: false,
+			UseNewApi: true,
+		},
+		{
+			Name: "all enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  create: true
+  domainName: "kuberpult-example.com"
+  allowedPaths:
+    restApi: true
+    oldRestApi: true
+    ui: true
+    dex: true
+`,
+			UseDex:    true,
+			UseUi:     true,
+			UseOldApi: true,
+			UseNewApi: true,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
+			var ExpectedIngress = &networking.Ingress{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Ingress",
+					APIVersion: "networking.k8s.io/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kuberpult",
+					Annotations: map[string]string{
+						"cert-manager.io/acme-challenge-type":            "dns01",
+						"cert-manager.io/cluster-issuer":                 "letsencrypt",
+						"kubernetes.io/ingress.allow-http":               "false",
+						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
+					},
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: &ingressClassGcePrivate,
+					TLS: []networking.IngressTLS{
+						{
+							Hosts: []string{
+								"kuberpult-example.com",
+							},
+							SecretName: "kuberpult-tls-secret",
+						},
+					},
+					Rules: []networking.IngressRule{
+						{
+							Host: "kuberpult-example.com",
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: makeAllIngressPaths(tc.UseDex, tc.UseUi, tc.UseOldApi, tc.UseNewApi),
+								},
+							},
+						},
+					},
+				},
+			}
+
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
@@ -1482,22 +1460,14 @@ ingress:
 			if out, err := getIngress(outputFile); err != nil {
 				t.Fatalf(fmt.Sprintf("%v", err))
 			} else {
-				{
-					// This block is effectively the same as the entire diff below.
-					// It's just much easier to read the diff this way.
-					if tc.ExpectedIngress != nil && tc.ExpectedIngress.Spec.Rules != nil && out.Spec.Rules != nil {
-						for i := range tc.ExpectedIngress.Spec.Rules {
-							expectedRule := tc.ExpectedIngress.Spec.Rules[i]
-							outRule := out.Spec.Rules[i]
-							if diff := cmp.Diff(expectedRule, outRule); diff != "" {
-								t.Fatalf("output mismatch (-want, +got):\n%s", diff)
-							}
+				if ExpectedIngress != nil && ExpectedIngress.Spec.Rules != nil && out.Spec.Rules != nil {
+					for i := range ExpectedIngress.Spec.Rules {
+						expectedRule := ExpectedIngress.Spec.Rules[i]
+						outRule := out.Spec.Rules[i]
+						if diff := cmp.Diff(expectedRule, outRule); diff != "" {
+							t.Fatalf("output mismatch (-want, +got):\n%s", diff)
 						}
 					}
-				}
-
-				if diff := cmp.Diff(tc.ExpectedIngress, out); diff != "" {
-					t.Fatalf("output mismatch (-want, +got):\n%s", diff)
 				}
 			}
 		})
@@ -1532,28 +1502,44 @@ func makeIngressPath(path string, pathType networking.PathType) networking.HTTPI
 	}
 }
 
-func makeAllIngressPaths() []networking.HTTPIngressPath {
-	return []networking.HTTPIngressPath{
-		makeIngressPrefixPath("/release"),
-		makeIngressPrefixPath("/environments"),
-		makeIngressPrefixPath("/environment-groups"),
-		makeIngressPrefixPath("/api/"),
-		makeIngressPrefixPath("/dex"),
-		makeIngressPrefixPath("/callback"),
-		makeIngressPrefixPath("/token"),
-		makeIngressPrefixPath("/login"),
-		makeIngressImplementationSpecificPath("/ui/*"),
-		makeIngressExactPath("/"),
-		makeIngressPrefixPath("/static/js/"),
-		makeIngressPrefixPath("/static/css/"),
-		makeIngressPrefixPath("/favicon.png"),
-		makeIngressPrefixPath("/api.v1.OverviewService/"),
-		makeIngressPrefixPath("/api.v1.BatchService/"),
-		makeIngressPrefixPath("/api.v1.FrontendConfigService/"),
-		makeIngressPrefixPath("/api.v1.RolloutService/"),
-		makeIngressPrefixPath("/api.v1.GitService/"),
-		makeIngressPrefixPath("/api.v1.EnvironmentService/"),
-		makeIngressPrefixPath("/api.v1.ReleaseTrainPrognosisService/"),
-		makeIngressPrefixPath("/api.v1.EslService/"),
+func makeAllIngressPaths(withDex, withUi, withOldApi, withNewApi bool) []networking.HTTPIngressPath {
+	var result []networking.HTTPIngressPath
+	if withOldApi {
+		result = append(result,
+			makeIngressPrefixPath("/release"),
+			makeIngressPrefixPath("/environments"),
+			makeIngressPrefixPath("/environment-groups"),
+		)
 	}
+	if withNewApi {
+		result = append(result,
+			makeIngressPrefixPath("/api/"),
+		)
+	}
+	if withDex {
+		result = append(result,
+			makeIngressPrefixPath("/dex"),
+			makeIngressPrefixPath("/callback"),
+			makeIngressPrefixPath("/token"),
+			makeIngressPrefixPath("/login"),
+		)
+	}
+	if withUi {
+		result = append(result,
+			makeIngressImplementationSpecificPath("/ui/*"),
+			makeIngressExactPath("/"),
+			makeIngressPrefixPath("/static/js/"),
+			makeIngressPrefixPath("/static/css/"),
+			makeIngressPrefixPath("/favicon.png"),
+			makeIngressPrefixPath("/api.v1.OverviewService/"),
+			makeIngressPrefixPath("/api.v1.BatchService/"),
+			makeIngressPrefixPath("/api.v1.FrontendConfigService/"),
+			makeIngressPrefixPath("/api.v1.RolloutService/"),
+			makeIngressPrefixPath("/api.v1.GitService/"),
+			makeIngressPrefixPath("/api.v1.EnvironmentService/"),
+			makeIngressPrefixPath("/api.v1.ReleaseTrainPrognosisService/"),
+			makeIngressPrefixPath("/api.v1.EslService/"),
+		)
+	}
+	return result
 }
