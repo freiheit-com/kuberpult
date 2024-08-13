@@ -54,7 +54,10 @@ export const LocksTable: React.FC<{
                                 scope="col">
                                 <div className="mdc-data-indicator-header">
                                     {columnHeaders.map((columnHeader) => (
-                                        <div key={columnHeader} className="mdc-data-indicator-field">
+                                        <div
+                                            key={columnHeader}
+                                            className="mdc-data-indicator-field"
+                                            style={columnHeader === 'Message' ? { flexGrow: 2 } : {}}>
                                             {columnHeader}
                                             {columnHeader === 'Date' && sort === 'oldestToNewest' && (
                                                 <Button
