@@ -22,10 +22,13 @@ import (
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
 
+const DefaultRetries = 3
+
 type commandLineArguments struct {
 	url         cli_utils.RepeatedString
 	authorEmail cli_utils.RepeatedString
 	authorName  cli_utils.RepeatedString
+	retries     cli_utils.RepeatedInt
 }
 
 func readArgs(args []string) (*commandLineArguments, []string, error) {
@@ -36,6 +39,7 @@ func readArgs(args []string) (*commandLineArguments, []string, error) {
 	fs.Var(&cmdArgs.url, "url", "the URL of the Kuberpult instance (must be set exactly once)")
 	fs.Var(&cmdArgs.authorName, "author_name", "the name of the git author who eventually will write to the manifest repo (must be set at most once)")
 	fs.Var(&cmdArgs.authorEmail, "author_email", "the email of the git author who eventially will write to the manifest repo (must be set at most once)")
+	fs.Var(&cmdArgs.retries, "retries", "number of times the cli will retry http requests to kuberpult upon failure (must be set at most once) - default=3")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
@@ -56,6 +60,9 @@ func argsValid(cmdArgs *commandLineArguments) (bool, string) {
 	if len(cmdArgs.authorEmail.Values) > 1 {
 		return false, "the --author_email arg must be set at most once"
 	}
+	if len(cmdArgs.retries.Values) > 1 {
+		return false, "the --retries arg must be set at most once"
+	}
 
 	return true, ""
 }
@@ -75,6 +82,15 @@ func convertToParams(cmdArgs *commandLineArguments) (*kuberpultClientParameters,
 
 	if len(cmdArgs.authorEmail.Values) == 1 {
 		params.authorEmail = &cmdArgs.authorEmail.Values[0]
+	}
+
+	if len(cmdArgs.retries.Values) == 1 {
+		if cmdArgs.retries.Values[0] <= 0 {
+			return nil, fmt.Errorf("--retries arg value must be positive")
+		}
+		params.retries = uint64(cmdArgs.retries.Values[0])
+	} else {
+		params.retries = DefaultRetries
 	}
 
 	return &params, nil
