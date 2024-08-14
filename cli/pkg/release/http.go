@@ -122,6 +122,7 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}
+	fmt.Printf("FormDataContentType: %s\n", writer.FormDataContentType())
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	if authParams.IapToken != nil {
