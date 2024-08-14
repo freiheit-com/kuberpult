@@ -13,6 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
+import { jwtDecode } from 'jwt-decode';
 import { Textfield } from '../textfield';
 import React, { useCallback } from 'react';
 import { SideBar } from '../SideBar/SideBar';
@@ -47,6 +48,17 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
     const version = useKuberpultVersion() || '2.6.0';
+    let user_email = 'default';
+    const cookieValue = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('kuberpult.oauth='))
+        ?.split('=')[1];
+    if (cookieValue) {
+        const decodedToken: any = jwtDecode(cookieValue);
+        if (decodedToken) {
+            user_email = decodedToken.email || 'default';
+        }
+    }
 
     const hideWithoutWarningsValue = hideWithoutWarnings(params);
     const allWarnings: Warning[] = useAllWarnings();
@@ -127,6 +139,9 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                 {renderedTeamsFilter}
                 {renderedWarningsFilter}
                 {renderedWarnings}
+                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+                    <strong className="sub-headline1">Hello {user_email}</strong>
+                </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
                     <Button
