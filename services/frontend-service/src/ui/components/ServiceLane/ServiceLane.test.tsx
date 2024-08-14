@@ -600,7 +600,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     locks: {},
                 },
             ],
-            expected: '"test1" has 1 application lock. Click on a tile to see details.',
+            expected: '"test1" has 1 lock. Click on a tile to see details.',
         },
         {
             name: 'test two locks',
@@ -623,7 +623,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     locks: {},
                 },
             ],
-            expected: '"test1" has 2 application locks. Click on a tile to see details.',
+            expected: '"test1" has 2 locks. Click on a tile to see details.',
         },
     ];
     return result;
