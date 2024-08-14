@@ -56,7 +56,7 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
     const rel = getReleasesForAppGroupByDate(releases);
     return (
         <div className={classNames('timeline', className)}>
-            <h1 className={classNames('app_name', className)}>{'Application Locks | ' + app}</h1>
+            <h1 className={classNames('app_name', className)}>{'Current Application Locks | ' + app}</h1>
             <div className={classNames('app-locks-container', className)}>
                 {Object.values(displayAppLocks).map((displayAppLock) => (
                     <ApplicationLockChip

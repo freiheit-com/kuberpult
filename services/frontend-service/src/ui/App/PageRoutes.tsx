@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Home } from '../Pages/Home/Home';
 import { EnvironmentsPage } from '../Pages/Environments/EnvironmentsPage';
-import { ReleasesPage } from '../Pages/Releases/ReleasesPage';
+import { ReleaseHistoryPage } from '../Pages/ReleaseHistory/ReleaseHistoryPage';
 import { LocksPage } from '../Pages/Locks/LocksPage';
 import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
 import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
@@ -42,7 +42,7 @@ const routes = [
     },
     {
         path: `/ui/home/releases/:appName`,
-        element: <ReleasesPage />,
+        element: <ReleaseHistoryPage />,
     },
     {
         path: `/ui/environments/productVersion/*`,
