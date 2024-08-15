@@ -830,6 +830,23 @@ func (c *CreateApplicationVersion) Transform(
 	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
+	if state.DBHandler.ShouldUseOtherTables() {
+		err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, version)
+			if err != nil {
+				return err
+			}
+			if release.Metadata.IsMinor {
+				if err := util.WriteFile(fs, fs.Join(releaseDir, "minor"), []byte(""), 0666); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
 
 	if c.Team != "" {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
