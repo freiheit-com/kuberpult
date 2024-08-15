@@ -1863,7 +1863,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	// group locks are handled on the cd-service, and split into environment locks
-	return fmt.Sprintf("empty commit for group lock creation"), nil
+	return "empty commit for group lock creation", nil
 }
 
 type DeleteEnvironmentGroupLock struct {
@@ -1891,5 +1891,5 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	// group locks are handled on the cd-service, and split into environment locks
-	return fmt.Sprintf("empty commit for group lock deletion"), nil
+	return "empty commit for group lock deletion", nil
 }
