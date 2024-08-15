@@ -48,7 +48,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
     const version = useKuberpultVersion() || '2.6.0';
-    let user_email = 'default';
+    let user_email = 'Guest';
     const cookieValue = document.cookie
         .split('; ')
         .find((row) => row.startsWith('kuberpult.oauth='))
@@ -140,7 +140,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                 {renderedWarningsFilter}
                 {renderedWarnings}
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-                    <strong className="sub-headline1">Hello {user_email}</strong>
+                    <strong className="sub-headline1">Hello, {user_email}</strong>
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
