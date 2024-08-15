@@ -1866,25 +1866,25 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	return fmt.Sprintf("empty commit for group lock creation"), nil
 }
 
-type EvtDeleteEnvironmentGroupLock struct {
+type DeleteEnvironmentGroupLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
-func (c *EvtDeleteEnvironmentGroupLock) GetEslVersion() db.TransformerID {
+func (c *DeleteEnvironmentGroupLock) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (c *EvtDeleteEnvironmentGroupLock) SetEslVersion(eslVersion db.TransformerID) {
+func (c *DeleteEnvironmentGroupLock) SetEslVersion(eslVersion db.TransformerID) {
 	c.TransformerEslVersion = eslVersion
 }
 
-func (c *EvtDeleteEnvironmentGroupLock) GetDBEventType() db.EventType {
+func (c *DeleteEnvironmentGroupLock) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvironmentGroupLock
 }
 
-func (c *EvtDeleteEnvironmentGroupLock) Transform(
+func (c *DeleteEnvironmentGroupLock) Transform(
 	_ context.Context,
 	_ *State,
 	_ TransformerContext,
