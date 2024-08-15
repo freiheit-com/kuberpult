@@ -507,7 +507,7 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 		return &repository.CreateUndeployApplicationVersion{}, nil
 	case db.EvtCreateEnvironmentGroupLock:
 		//exhaustruct:ignore
-		return &repository.EvtCreateEnvironmentGroupLock{}, nil
+		return &repository.CreateEnvironmentGroupLock{}, nil
 	case db.EvtDeleteEnvironmentGroupLock:
 		//exhaustruct:ignore
 		return &repository.EvtDeleteEnvironmentGroupLock{}, nil
