@@ -73,7 +73,6 @@ Copyright freiheit.com*/
     background-color: $env-color-unrecognized;
 }
 
-
 .app-lock-summary {
     min-width: 4.5em;
     background-color: $warning-color-locked;
@@ -89,9 +88,7 @@ Copyright freiheit.com*/
         font-size: small;
         line-height: 40px;
     }
-    .app-lock-summary-lock{
+    .app-lock-summary-lock {
         margin-top: 8px;
     }
-
 }
-
