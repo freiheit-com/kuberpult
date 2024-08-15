@@ -48,17 +48,12 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
     const version = useKuberpultVersion() || '2.6.0';
-    let user_email = 'Guest';
     const cookieValue = document.cookie
         .split('; ')
         .find((row) => row.startsWith('kuberpult.oauth='))
         ?.split('=')[1];
-    if (cookieValue) {
-        const decodedToken: any = jwtDecode(cookieValue);
-        if (decodedToken) {
-            user_email = decodedToken.email || 'default';
-        }
-    }
+    const decodedToken: any = cookieValue ? jwtDecode(cookieValue) : undefined;
+    const loggedInUser = decodedToken?.email || 'Guest';
 
     const hideWithoutWarningsValue = hideWithoutWarnings(params);
     const allWarnings: Warning[] = useAllWarnings();
@@ -126,7 +121,11 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
-
+    const renderedUser = (
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+            <span className="sub-headline1">Hello, {loggedInUser}</span>
+        </div>
+    );
     return (
         <div className="mdc-top-app-bar">
             <div className="mdc-top-app-bar__row">
@@ -139,9 +138,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                 {renderedTeamsFilter}
                 {renderedWarningsFilter}
                 {renderedWarnings}
-                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-                    <strong className="sub-headline1">Hello, {user_email}</strong>
-                </div>
+                {renderedUser}
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
                     <Button
