@@ -96,7 +96,7 @@ func ParseArgsCreateEnvironmentLock(args []string) (LockParameters, error) {
 	}
 	rp, err := convertToCreateEnvironmentLockParams(*cmdArgs)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating /release endpoint params, error: %w", err)
+		return nil, fmt.Errorf("error while creating parameters for creating an environment lock, error: %w", err)
 	}
 
 	return rp, nil
