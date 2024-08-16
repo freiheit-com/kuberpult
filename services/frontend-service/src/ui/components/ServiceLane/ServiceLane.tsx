@@ -143,7 +143,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                     {!!diff && (
                         <DiffElement
                             diff={diff}
-                            title={'There are ' + diff + ' more releases hidden. Click me to view more'}
+                            title={'There are ' + diff + ' more releases hidden. Click me to view more.'}
                             navCallback={navCallback}
                         />
                     )}
