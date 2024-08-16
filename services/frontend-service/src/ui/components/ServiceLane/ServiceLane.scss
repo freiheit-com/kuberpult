@@ -13,18 +13,27 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
+
+@import '../../../assets/variables';
+
 .service-lane__header {
     background: var(--mdc-theme-primary);
     color: var(--mdc-theme-on-primary);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: $service-lane-header-padding;
+    // the padding here has to be big enough, so that
+    // the border-radius of the whole lane does not break
+    padding: 0 4px 0 0;
     border-radius: $border-radius-medium;
     height: $service-lane-header-height;
 
     white-space: nowrap;
-    .service__name {
+    .service-lane-name {
+        margin-left: 5px;
+    }
+
+    .service-lane-wrapper {
         overflow: hidden;
         @extend .sub-headline1;
         display: flex;
@@ -59,6 +68,7 @@ Copyright freiheit.com*/
     align-self: center;
     justify-content: space-evenly;
     width: $service-lane-diff-element-width;
+    opacity: 100%;
 
     .service-lane__diff--number {
         @extend .text-bold;
@@ -83,5 +93,18 @@ Copyright freiheit.com*/
         height: 3px;
         background: $service-lane-diff-element-border-color;
         border-radius: $border-radius-large;
+    }
+}
+.service-lane__diff--container:hover {
+    cursor: pointer;
+    opacity: 60%;
+    .service-lane__diff--number {
+        background-color: var(--mdc-theme-surface, #fff);
+    }
+}
+
+.service-lane__diff--container:active {
+    .service-lane__diff--number {
+        transform: translateY(4px);
     }
 }

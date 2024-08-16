@@ -158,6 +158,7 @@ func TestParseArgsCreateAppLock(t *testing.T) {
 				Application: "my-app",
 			},
 		},
+
 		{
 			name:    "with environment and lockID and multi word message message",
 			cmdArgs: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock", "--message", "this is a very long message"},

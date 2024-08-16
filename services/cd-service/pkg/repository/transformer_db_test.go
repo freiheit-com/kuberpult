@@ -782,6 +782,302 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 	}
 }
 
+func TestMinorFlag(t *testing.T) {
+	appName := "app"
+	tcs := []struct {
+		Name           string
+		Transformers   []Transformer
+		ExpectedMinors []uint64
+		ExpectedMajors []uint64
+	}{
+		{
+			Name: "No previous or next releases",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{},
+			ExpectedMajors: []uint64{10},
+		},
+		{
+			Name: "No next Release, Previous Releases manifest equals current releases",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{11},
+			ExpectedMajors: []uint64{10},
+		},
+		{
+			Name: "No next Release, Previous Releases Manifest does not equal current's",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{},
+			ExpectedMajors: []uint64{10, 11},
+		},
+		{
+			Name: "No prev Release, next Releases Manifest equals current's",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{11},
+			ExpectedMajors: []uint64{10},
+		},
+		{
+			Name: "No prev Release, next Releases Manifest does not equal current's",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{},
+			ExpectedMajors: []uint64{10, 11},
+		},
+		{
+			Name: "prev, next, and current are not equal",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     12,
+					Manifests: map[string]string{
+						envAcceptance: "manifest3",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{},
+			ExpectedMajors: []uint64{10, 11, 12},
+		},
+		{
+			Name: "prev and current are equal but not next",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     12,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+						"new env":     "new manifest",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{11},
+			ExpectedMajors: []uint64{10, 12},
+		},
+		{
+			Name: "prev and next are equal but not current",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     12,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{},
+			ExpectedMajors: []uint64{10, 11, 12},
+		},
+		{
+			Name: "current and next are equal but not prev",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2",
+						"new env":     "new manifest",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     12,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{12},
+			ExpectedMajors: []uint64{10, 11},
+		},
+		{
+			Name: "all equal",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     12,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+			},
+			ExpectedMinors: []uint64{11, 12},
+			ExpectedMajors: []uint64{10},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				})
+				if err != nil {
+					return err
+				}
+				_, state, _, err = repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				for _, minorVersion := range tc.ExpectedMinors {
+					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, minorVersion)
+					if err != nil {
+						return err
+					}
+					if !release.Metadata.IsMinor {
+						t.Errorf("Expected release %d to be minor but its major", minorVersion)
+					}
+				}
+				for _, majorVersion := range tc.ExpectedMajors {
+					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, majorVersion)
+					if err != nil {
+						return err
+					}
+					if release.Metadata.IsMinor {
+						t.Errorf("Expected release %d to be major but its minor", majorVersion)
+					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
 func TestDeleteQueueApplicationVersion(t *testing.T) {
 	tcs := []struct {
 		Name              string

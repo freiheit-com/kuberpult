@@ -2353,6 +2353,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				SourceCommitId:  repoRelease.SourceCommitId,
 				SourceMessage:   repoRelease.SourceMessage,
 				DisplayVersion:  repoRelease.DisplayVersion,
+				IsMinor:         false,
 			},
 			Deleted: false,
 		}
