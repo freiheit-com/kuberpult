@@ -529,7 +529,7 @@ type TestDataAppLockSummary = TestData & {
     expected: string | undefined;
 };
 const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
-    const appWith1Lock: Environment_Application = {
+    const appWith1AppLock: Environment_Application = {
         name: 'test1',
         version: 123,
         queuedVersion: 0,
@@ -538,6 +538,30 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             l1: { message: 'test lock', lockId: '321' },
         },
         teamLocks: {},
+        team: 'test-team',
+    };
+    const appWith1TeamLock: Environment_Application = {
+        name: 'test1',
+        version: 123,
+        queuedVersion: 0,
+        undeployVersion: false,
+        locks: {},
+        teamLocks: {
+            l1: { message: 'test team lock', lockId: 't-1000' },
+        },
+        team: 'test-team',
+    };
+    const appWith1TeamLock1AppLock: Environment_Application = {
+        name: 'test1',
+        version: 123,
+        queuedVersion: 0,
+        undeployVersion: false,
+        locks: {
+            l1: { message: 'test app lock', lockId: 'a-1' },
+        },
+        teamLocks: {
+            l1: { message: 'test team lock', lockId: 't-1000' },
+        },
         team: 'test-team',
     };
     const appWith2Locks: Environment_Application = {
@@ -580,7 +604,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             expected: undefined,
         },
         {
-            name: 'test one lock',
+            name: 'test one app lock',
             renderedApp: {
                 name: 'test1',
                 releases: [],
@@ -593,17 +617,17 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                 {
                     name: 'foo2',
                     applications: {
-                        foo2: appWith1Lock,
+                        foo2: appWith1AppLock,
                     },
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
                 },
             ],
-            expected: '"test1" has 1 application lock. Click on a tile to see details.',
+            expected: '"test1" has 1 lock. Click on a tile to see details.',
         },
         {
-            name: 'test two locks',
+            name: 'test two app locks',
             renderedApp: {
                 name: 'test1',
                 releases: [],
@@ -623,7 +647,53 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     locks: {},
                 },
             ],
-            expected: '"test1" has 2 application locks. Click on a tile to see details.',
+            expected: '"test1" has 2 locks. Click on a tile to see details.',
+        },
+        {
+            name: 'test one team lock',
+            renderedApp: {
+                name: 'test1',
+                releases: [],
+                sourceRepoUrl: 'http://test2.com',
+                team: 'test-team',
+                undeploySummary: UndeploySummary.NORMAL,
+                warnings: [],
+            },
+            envs: [
+                {
+                    name: 'foo2',
+                    applications: {
+                        foo2: appWith1TeamLock,
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                    locks: {},
+                },
+            ],
+            expected: '"test1" has 1 lock. Click on a tile to see details.',
+        },
+        {
+            name: 'test one team + one app lock',
+            renderedApp: {
+                name: 'test1',
+                releases: [],
+                sourceRepoUrl: 'http://test2.com',
+                team: 'test-team',
+                undeploySummary: UndeploySummary.NORMAL,
+                warnings: [],
+            },
+            envs: [
+                {
+                    name: 'foo2',
+                    applications: {
+                        foo2: appWith1TeamLock1AppLock,
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                    locks: {},
+                },
+            ],
+            expected: '"test1" has 2 locks. Click on a tile to see details.',
         },
     ];
     return result;
