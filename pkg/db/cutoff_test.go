@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package cutoff
+package db
 
 import (
 	"context"
@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
@@ -34,17 +33,17 @@ type EmptyTransformer struct{}
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	tcs := []struct {
 		Name               string
-		eslVersion         []db.EslVersion
-		ExpectedEslVersion db.EslVersion
+		eslVersion         []EslVersion
+		ExpectedEslVersion EslVersion
 	}{
 		{
 			Name:               "test with one write operation",
-			eslVersion:         []db.EslVersion{1},
+			eslVersion:         []EslVersion{1},
 			ExpectedEslVersion: 1,
 		},
 		{
 			Name:               "test with multiple write operations",
-			eslVersion:         []db.EslVersion{1, 2, 3, 4, 5},
+			eslVersion:         []EslVersion{1, 2, 3, 4, 5},
 			ExpectedEslVersion: 5,
 		},
 	}
@@ -63,7 +62,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				i := 0
 				for i < len(tc.eslVersion) {
 					//Write bogus transformer for FK reasons
-					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(tf), db.ESLMetadata{})
+					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(tf), ESLMetadata{})
 					if err != nil {
 						return err
 					}
@@ -99,30 +98,4 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			}
 		})
 	}
-}
-
-// setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
-func setupDB(t *testing.T) *db.DBHandler {
-	ctx := context.Background()
-	dir, err := testutil.CreateMigrationsPath(4)
-	tmpDir := t.TempDir()
-	t.Logf("directory for DB migrations: %s", dir)
-	t.Logf("tmp dir for DB data: %s", tmpDir)
-	cfg := db.DBConfig{
-		MigrationsPath: dir,
-		DriverName:     "sqlite3",
-		DbHost:         tmpDir,
-	}
-
-	migErr := db.RunDBMigrations(ctx, cfg)
-	if migErr != nil {
-		t.Fatal(migErr)
-	}
-
-	dbHandler, err := db.Connect(ctx, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return dbHandler
 }
