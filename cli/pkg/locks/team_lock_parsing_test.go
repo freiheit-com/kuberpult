@@ -25,11 +25,11 @@ import (
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
 
-func TestReadArgsAppLock(t *testing.T) {
+func TestReadArgsTeamLock(t *testing.T) {
 	type testCase struct {
 		name            string
 		args            []string
-		expectedCmdArgs *CreateAppLockCommandLineArguments
+		expectedCmdArgs *CreateTeamLockCommandLineArguments
 		expectedError   error
 	}
 
@@ -57,14 +57,14 @@ func TestReadArgsAppLock(t *testing.T) {
 		},
 		{
 			name: "lockID is not provided",
-			args: []string{"--environment", "development", "--application", "my-app", "--message", "\"my message\""},
+			args: []string{"--environment", "development", "--team", "my-team", "--message", "\"my message\""},
 			expectedError: errMatcher{
 				msg: "the --lockID arg must be set exactly once",
 			},
 		},
 		{
 			name: "environment is not provided",
-			args: []string{"--application", "my-app", "--lockID", "my-lock", "--message", "\"my message\""},
+			args: []string{"--team", "my-team", "--lockID", "my-lock", "--message", "\"my message\""},
 			expectedError: errMatcher{
 				msg: "the --environment arg must be set exactly once",
 			},
@@ -73,7 +73,7 @@ func TestReadArgsAppLock(t *testing.T) {
 			name: "application is not provided",
 			args: []string{"--environment", "development", "--lockID", "my-lock", "--message", "\"my message\""},
 			expectedError: errMatcher{
-				msg: "the --application arg must be set exactly once",
+				msg: "the --team arg must be set exactly once",
 			},
 		},
 		{
@@ -85,8 +85,8 @@ func TestReadArgsAppLock(t *testing.T) {
 		},
 		{
 			name: "environment, lockID, application and message are are specified",
-			args: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock", "--message", "\"my message\""},
-			expectedCmdArgs: &CreateAppLockCommandLineArguments{
+			args: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--message", "\"my message\""},
+			expectedCmdArgs: &CreateTeamLockCommandLineArguments{
 				environment: cli_utils.RepeatedString{
 					Values: []string{
 						"development",
@@ -102,9 +102,9 @@ func TestReadArgsAppLock(t *testing.T) {
 						"\"my message\"",
 					},
 				},
-				application: cli_utils.RepeatedString{
+				team: cli_utils.RepeatedString{
 					Values: []string{
-						"my-app",
+						"my-team",
 					},
 				},
 			},
@@ -116,20 +116,20 @@ func TestReadArgsAppLock(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cmdArgs, err := readCreateAppLockArgs(tc.args)
+			cmdArgs, err := readCreateTeamLockArgs(tc.args)
 			// check errors
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff(cmdArgs, tc.expectedCmdArgs, cmp.AllowUnexported(CreateAppLockCommandLineArguments{})); diff != "" {
+			if diff := cmp.Diff(cmdArgs, tc.expectedCmdArgs, cmp.AllowUnexported(CreateTeamLockCommandLineArguments{})); diff != "" {
 				t.Fatalf("expected args:\n  %v\n, got:\n  %v, diff:\n  %s\n", tc.expectedCmdArgs, cmdArgs, diff)
 			}
 		})
 	}
 }
 
-func TestParseArgsCreateAppLock(t *testing.T) {
+func TestParseArgsCreateTeamLock(t *testing.T) {
 	type testCase struct {
 		name           string
 		cmdArgs        []string
@@ -140,31 +140,31 @@ func TestParseArgsCreateAppLock(t *testing.T) {
 	tcs := []testCase{
 		{
 			name:    "with environment and lockID and message",
-			cmdArgs: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock", "--message", "message"},
-			expectedParams: &AppLockParameters{
+			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--message", "message"},
+			expectedParams: &TeamLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
 				Message:     "message",
-				Application: "my-app",
+				Team:        "my-team",
 			},
 		},
 		{
 			name:    "with environment, app and lockID and no message",
-			cmdArgs: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock"},
-			expectedParams: &AppLockParameters{
+			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock"},
+			expectedParams: &TeamLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
 				Message:     "",
-				Application: "my-app",
+				Team:        "my-team",
 			},
 		},
 		{
 			name:    "with environment and lockID and multi word message message",
-			cmdArgs: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock", "--message", "this is a very long message"},
-			expectedParams: &AppLockParameters{
+			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--message", "this is a very long message"},
+			expectedParams: &TeamLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
-				Application: "my-app",
+				Team:        "my-team",
 				Message:     "this is a very long message",
 			},
 		},
@@ -175,7 +175,7 @@ func TestParseArgsCreateAppLock(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			params, err := ParseArgsCreateAppLock(tc.cmdArgs)
+			params, err := ParseArgsCreateTeamLock(tc.cmdArgs)
 			// check errors
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
