@@ -39,6 +39,14 @@ type EnvironmentLockParameters struct {
 	UseDexAuthentication bool
 }
 
+type AppLockParameters struct {
+	Environment          string
+	LockId               string
+	Message              string
+	Application          string
+	UseDexAuthentication bool
+}
+
 type LockJsonData struct {
 	Message string `json:"message"`
 }
@@ -81,6 +89,29 @@ func (e *EnvironmentLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
+	}
+	return &HttpFormDataInfo{
+		jsonData:    jsonData,
+		ContentType: "application/json",
+	}, nil
+}
+
+func (e *AppLockParameters) GetPath() string {
+	prefix := "environments"
+	if e.UseDexAuthentication {
+		prefix = "api/environments"
+	}
+
+	return fmt.Sprintf("%s/%s/applications/%s/locks/%s", prefix, e.Environment, e.Application, e.LockId)
+}
+
+func (e *AppLockParameters) FillForm() (*HttpFormDataInfo, error) {
+	d := LockJsonData{
+		Message: e.Message,
+	}
+	var jsonData, err = json.Marshal(d)
+	if err != nil {
+		return nil, fmt.Errorf("Could not marshal AppLockParameters data to json: %w\n", err)
 	}
 	return &HttpFormDataInfo{
 		jsonData:    jsonData,
