@@ -44,7 +44,7 @@ func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql
 		if app.Locks == nil {
 			app.Locks = map[string]*api.Lock{}
 		}
-		app.Locks[teamLock.LockID] = &api.Lock{
+		app.TeamLocks[teamLock.LockID] = &api.Lock{
 			Message:   teamLock.Metadata.Message,
 			LockId:    teamLock.LockID,
 			CreatedAt: timestamppb.New(teamLock.Created),
@@ -54,7 +54,7 @@ func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql
 			},
 		}
 		if teamLock.Deleted {
-			delete(app.Locks, teamLock.LockID)
+			delete(app.TeamLocks, teamLock.LockID)
 		}
 	}
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
