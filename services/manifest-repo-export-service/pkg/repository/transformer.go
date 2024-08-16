@@ -831,18 +831,15 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, version)
-			if err != nil {
-				return err
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, version)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		if release != nil && release.Metadata.IsMinor {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, "minor"), []byte(""), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
 			}
-			if release.Metadata.IsMinor {
-				if err := util.WriteFile(fs, fs.Join(releaseDir, "minor"), []byte(""), 0666); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+		}
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1086,7 +1083,30 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
-	return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], err
+	if state.DBHandler.ShouldUseOtherTables() {
+		indexToKeep := positionOfOldestVersion - 1
+		majorsCount := 0
+		for ; indexToKeep >= 0; indexToKeep-- {
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep])
+			if err != nil {
+				return nil, err
+			}
+			if release == nil {
+				majorsCount += 1
+			} else if !release.Metadata.IsMinor {
+				majorsCount += 1
+			}
+			if majorsCount >= int(state.ReleaseVersionsLimit) {
+				break
+			}
+		}
+		if indexToKeep < 0 {
+			return nil, nil
+		}
+		return versions[0:indexToKeep], nil
+	} else {
+		return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], nil
+	}
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {

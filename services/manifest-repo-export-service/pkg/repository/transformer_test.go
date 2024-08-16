@@ -889,13 +889,14 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 	tcs := []struct {
 		Name                string
 		Transformers        []Transformer
+		MinorRelease        uint64
 		ExpectedError       error
 		ExpectedFile        []*FilenameAndData
 		ExpectedAuthor      *map[string]string
 		ExpectedDeletedFile string
 	}{
 		{
-			Name: "CleanupOldApplicationVersions", //ReleaseLimit is 2
+			Name: "CleanupOldApplicationVersion without deleting any", //ReleaseLimit is 2
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
 					Authentication: Authentication{},
@@ -981,6 +982,228 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			},
 			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
 		},
+		{
+			Name: "CleanupOldApplicationVersions deleting one", //ReleaseLimit is 2
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        2,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        3,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 3,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        4,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 4,
+				},
+				&CleanupOldApplicationVersions{
+					Application: appName,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 5,
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					fileData: []byte("123456789abcdef"),
+				},
+				{
+					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					fileData: []byte("abcdef"),
+				},
+			},
+			ExpectedAuthor:      &map[string]string{"Name": authorName, "Email": authorEmail},
+			ExpectedDeletedFile: "/applications/" + appName + "/releases/1/source_commit_id",
+		},
+		{
+			Name: "CleanupOldApplicationVersions with a minor release", //ReleaseLimit is 2
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        2,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        3,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 3,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        4,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 4,
+				},
+				&CleanupOldApplicationVersions{
+					Application: appName,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 5,
+				},
+			},
+			MinorRelease: 3,
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					fileData: []byte("123456789abcdef"),
+				},
+				{
+					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					fileData: []byte("abcdef"),
+				},
+				{
+					path:     "/applications/" + appName + "/releases/1/source_commit_id",
+					fileData: []byte("123456789"),
+				},
+			},
+			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -1016,6 +1239,19 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
 				}, db.InitialEslVersion)
+
+				if tc.MinorRelease != 0 {
+					err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+						EslVersion:    1,
+						ReleaseNumber: tc.MinorRelease,
+						Created:       time.Time{},
+						App:           appName,
+						Manifests:     db.DBReleaseManifests{},
+						Metadata: db.DBReleaseMetaData{
+							IsMinor: true,
+						},
+					}, 1)
+				}
 
 				if err != nil {
 					return err
