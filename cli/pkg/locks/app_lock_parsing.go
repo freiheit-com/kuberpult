@@ -34,7 +34,7 @@ type CreateAppLockCommandLineArguments struct {
 
 func argsValidCreateAppLock(cmdArgs *CreateAppLockCommandLineArguments) (result bool, errorMessage string) {
 	if len(cmdArgs.lockId.Values) != 1 {
-		return false, "the --lockID arg must be exactly once"
+		return false, "the --lockID arg must be set exactly once"
 	}
 	if len(cmdArgs.environment.Values) != 1 {
 		return false, "the --environment arg must be set exactly once"
