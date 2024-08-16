@@ -96,11 +96,11 @@ func convertToCreateTeamLockParams(cmdArgs CreateTeamLockCommandLineArguments) (
 func ParseArgsCreateTeamLock(args []string) (LockParameters, error) {
 	cmdArgs, err := readCreateTeamLockArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
+		return nil, fmt.Errorf("error while reading command line arguments for team lock, error: %w", err)
 	}
 	rp, err := convertToCreateTeamLockParams(*cmdArgs)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating /release endpoint params, error: %w", err)
+		return nil, fmt.Errorf("error while creating parameters for team lock, error: %w", err)
 	}
 	return rp, nil
 }
