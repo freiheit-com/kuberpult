@@ -830,20 +830,6 @@ func (c *CreateApplicationVersion) Transform(
 	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
-	if state.DBHandler.ShouldUseOtherTables() {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, version)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if release != nil && release.Metadata.IsMinor {
-			if err := util.WriteFile(fs, fs.Join(releaseDir, "minor"), []byte(""), 0666); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
 
 	if c.Team != "" {
 		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
@@ -1083,30 +1069,26 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
-	if state.DBHandler.ShouldUseOtherTables() {
-		indexToKeep := positionOfOldestVersion - 1
-		majorsCount := 0
-		for ; indexToKeep >= 0; indexToKeep-- {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep])
-			if err != nil {
-				return nil, err
-			}
-			if release == nil {
-				majorsCount += 1
-			} else if !release.Metadata.IsMinor {
-				majorsCount += 1
-			}
-			if majorsCount >= int(state.ReleaseVersionsLimit) {
-				break
-			}
+	indexToKeep := positionOfOldestVersion - 1
+	majorsCount := 0
+	for ; indexToKeep >= 0; indexToKeep-- {
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep])
+		if err != nil {
+			return nil, err
 		}
-		if indexToKeep < 0 {
-			return nil, nil
+		if release == nil {
+			majorsCount += 1
+		} else if !release.Metadata.IsMinor {
+			majorsCount += 1
 		}
-		return versions[0:indexToKeep], nil
-	} else {
-		return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], nil
+		if majorsCount >= int(state.ReleaseVersionsLimit) {
+			break
+		}
 	}
+	if indexToKeep < 0 {
+		return nil, nil
+	}
+	return versions[0:indexToKeep], nil
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
