@@ -28,7 +28,7 @@ import (
 )
 
 type LockParameters interface {
-	GetPath() string
+	GetRestPath() string
 	FillForm() (*HttpFormDataInfo, error)
 }
 
@@ -57,12 +57,12 @@ type HttpFormDataInfo struct {
 }
 
 func CreateLock(requestParams kutil.RequestParameters, authParams kutil.AuthenticationParameters, params LockParameters) error {
-	path := params.GetPath()
+	restPath := params.GetRestPath()
 	data, err := params.FillForm()
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request. Could not fill form error: %w", err)
 	}
-	req, err := createHttpRequest(*requestParams.Url, path, authParams, data)
+	req, err := createHttpRequest(*requestParams.Url, restPath, authParams, data)
 
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
@@ -73,7 +73,7 @@ func CreateLock(requestParams kutil.RequestParameters, authParams kutil.Authenti
 	return nil
 }
 
-func (e *EnvironmentLockParameters) GetPath() string {
+func (e *EnvironmentLockParameters) GetRestPath() string {
 	prefix := "environments"
 	if e.UseDexAuthentication {
 		prefix = "api/environments"
@@ -96,7 +96,7 @@ func (e *EnvironmentLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	}, nil
 }
 
-func (e *AppLockParameters) GetPath() string {
+func (e *AppLockParameters) GetRestPath() string {
 	prefix := "environments"
 	if e.UseDexAuthentication {
 		prefix = "api/environments"
