@@ -19,9 +19,8 @@ package locks
 import (
 	"flag"
 	"fmt"
-	"strings"
-
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
+	"strings"
 )
 
 type CreateEnvLockCommandLineArguments struct {
@@ -71,10 +70,10 @@ func readCreateEnvLockArgs(args []string) (*CreateEnvLockCommandLineArguments, e
 	return &cmdArgs, nil
 }
 
-// converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
+// converts the intermediate representation of the command line flags into the final structure containing parameters for the create lock endpoint
 func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArguments) (LockParameters, error) {
 	if ok, msg := argsValidCreateEnvLock(&cmdArgs); !ok {
-		// this should never happen, as the validation is already peformed by the readArgs function
+		// this should never happen, as the validation is already performed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
@@ -88,7 +87,6 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 	return &rp, nil
 }
 
-// parses the command line flags provided to the release subcommand (not including the release subcommand itself) into a struct that can be passed to the Release function
 func ParseArgsCreateEnvironmentLock(args []string) (LockParameters, error) {
 	cmdArgs, err := readCreateEnvLockArgs(args)
 	if err != nil {

@@ -39,6 +39,10 @@ type TeamLockParameters struct {
 	UseDexAuthentication bool
 }
 
+type LockJsonData struct {
+	Message string `json:"message"`
+}
+
 type HttpFormDataInfo struct {
 	jsonData    []byte
 	ContentType string
@@ -71,10 +75,7 @@ func (e *EnvironmentLockParameters) GetPath() string {
 }
 
 func (e *EnvironmentLockParameters) FillForm() (*HttpFormDataInfo, error) {
-	type data struct {
-		Message string `json:"message"`
-	}
-	d := data{
+	d := LockJsonData{
 		Message: e.Message,
 	}
 	var jsonData, err = json.Marshal(d)
@@ -97,10 +98,7 @@ func (e *AppLockParameters) GetPath() string {
 }
 
 func (e *AppLockParameters) FillForm() (*HttpFormDataInfo, error) {
-	type data struct {
-		Message string `json:"message"`
-	}
-	d := data{
+	d := LockJsonData{
 		Message: e.Message,
 	}
 	var jsonData, err = json.Marshal(d)
@@ -118,15 +116,11 @@ func (e *TeamLockParameters) GetPath() string {
 	if e.UseDexAuthentication {
 		prefix = "api/environments"
 	}
-
 	return fmt.Sprintf("%s/%s/lock/team/%s/%s", prefix, e.Environment, e.Team, e.LockId)
 }
 
 func (e *TeamLockParameters) FillForm() (*HttpFormDataInfo, error) {
-	type data struct {
-		Message string `json:"message"`
-	}
-	d := data{
+	d := LockJsonData{
 		Message: e.Message,
 	}
 	var jsonData, err = json.Marshal(d)
