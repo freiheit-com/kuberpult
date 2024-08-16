@@ -62,8 +62,16 @@ function getNumberOfReleasesBetween(releases: number[], higherVersion: number, l
     return releases.findIndex((ver) => ver === lowerVersion) - releases.findIndex((ver) => ver === higherVersion) - 1;
 }
 
-const DiffElement: React.FC<{ diff: number; title: string }> = ({ diff, title }) => (
-    <div className="service-lane__diff--container" title={title}>
+export const DiffElement: React.FC<{ diff: number; title: string; navCallback: () => void }> = ({
+    diff,
+    title,
+    navCallback,
+}) => (
+    <div
+        className="service-lane__diff--container"
+        title={title}
+        onClick={navCallback}
+        data-testid="hidden-commits-button">
         <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--number">{diff}</div>
@@ -135,7 +143,8 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                     {!!diff && (
                         <DiffElement
                             diff={diff}
-                            title={'There are ' + diff + ' more releases hidden. Click on History to view more'}
+                            title={'There are ' + diff + ' more releases hidden. Click me to view more.'}
+                            navCallback={navCallback}
                         />
                     )}
                 </div>
