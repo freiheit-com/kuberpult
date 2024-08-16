@@ -121,10 +121,14 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
-    const renderedUser = (
+    const renderedUser = cookieValue ? (
         <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-            <span className="sub-headline1">Hello, {loggedInUser}</span>
+            <span className="sub-headline1">
+                Welcome, <strong>{loggedInUser}</strong>
+            </span>
         </div>
+    ) : (
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end"></div>
     );
     return (
         <div className="mdc-top-app-bar">
