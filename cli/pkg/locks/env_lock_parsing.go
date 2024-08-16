@@ -77,13 +77,15 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
-	rp := EnvironmentLockParameters{} //exhaustruct:ignore
-	rp.LockId = cmdArgs.lockId.Values[0]
-	rp.Environment = cmdArgs.environment.Values[0]
+	rp := EnvironmentLockParameters{
+	    LockId: cmdArgs.lockId.Values[0],
+	    Environment: cmdArgs.environment.Values[0],
+	    UseDexAuthentication: cmdArgs.useDexAuthentication,
+	    Message: "",
+	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
 	}
-	rp.UseDexAuthentication = cmdArgs.useDexAuthentication
 	return &rp, nil
 }
 
