@@ -31,12 +31,12 @@ type CreateEnvLockCommandLineArguments struct {
 	useDexAuthentication bool
 }
 
-func argsValid(cmdArgs *CreateEnvLockCommandLineArguments) (result bool, errorMessage string) {
+func argsValidCreateEnvLock(cmdArgs *CreateEnvLockCommandLineArguments) (result bool, errorMessage string) {
 	if len(cmdArgs.lockId.Values) != 1 {
 		return false, "the --lockID arg must be set exactly once"
 	}
 	if len(cmdArgs.environment.Values) != 1 {
-		return false, "the --environment arg be set exactly once"
+		return false, "the --environment arg must be set exactly once"
 	}
 	if len(cmdArgs.message.Values) > 1 {
 		return false, "the --message arg must be set at most once"
@@ -51,8 +51,8 @@ func readCreateEnvLockArgs(args []string) (*CreateEnvLockCommandLineArguments, e
 
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
-	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
+	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.message, "message", "lock message")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "use /api/* endpoint, if set to true, dex must be enabled and dex token must be provided otherwise the request will be denied")
 
@@ -64,7 +64,7 @@ func readCreateEnvLockArgs(args []string) (*CreateEnvLockCommandLineArguments, e
 		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
-	if ok, msg := argsValid(&cmdArgs); !ok {
+	if ok, msg := argsValidCreateEnvLock(&cmdArgs); !ok {
 		return nil, fmt.Errorf(msg)
 	}
 
@@ -73,7 +73,7 @@ func readCreateEnvLockArgs(args []string) (*CreateEnvLockCommandLineArguments, e
 
 // converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
 func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArguments) (LockParameters, error) {
-	if ok, msg := argsValid(&cmdArgs); !ok {
+	if ok, msg := argsValidCreateEnvLock(&cmdArgs); !ok {
 		// this should never happen, as the validation is already peformed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
