@@ -15,13 +15,13 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ReleasesPage } from './ReleasesPage';
+import { ReleaseHistoryPage } from './ReleaseHistoryPage';
 import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 
 describe('LocksPage', () => {
     const getNode = (): JSX.Element | any => (
         <MemoryRouter>
-            <ReleasesPage />
+            <ReleaseHistoryPage />
         </MemoryRouter>
     );
     const getWrapper = () => render(getNode());
@@ -75,7 +75,7 @@ describe('LocksPage', () => {
         },
     ];
 
-    describe.each(sampleEnvData)(`Renders ReleasesPage`, (testcase) => {
+    describe.each(sampleEnvData)(`Renders ReleaseHistoryPage`, (testcase) => {
         it(testcase.name, () => {
             fakeLoadEverything(testcase.loaded);
             if (testcase.enableDex) {

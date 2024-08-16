@@ -89,7 +89,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const deployedReleases = useDeployedReleases(application.name);
     const allReleases = useVersionsForApp(application.name);
-    const { navCallback } = useNavigateWithSearchParams('releases/' + application.name);
+    const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
     const prepareUndeployOrUndeployText = deriveUndeployMessage(application.undeploySummary);
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {

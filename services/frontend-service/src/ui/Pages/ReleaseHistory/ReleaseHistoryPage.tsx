@@ -18,7 +18,7 @@ import { useGlobalLoadingState } from '../../utils/store';
 import React from 'react';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
-export const ReleasesPage: React.FC = () => {
+export const ReleaseHistoryPage: React.FC = () => {
     const url = window.location.pathname.split('/');
     const app_name = url[url.length - 1];
 
