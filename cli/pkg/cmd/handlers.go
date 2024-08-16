@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package cmd
 
 import (
+	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 	"github.com/freiheit-com/kuberpult/cli/pkg/locks"
 	"log"
 
@@ -42,7 +43,7 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) Retu
 	requestParameters := kutil.RequestParameters{
 		Url:         &kpClientParams.url,
 		Retries:     kpClientParams.retries,
-		HttpTimeout: rl.DefaultTimeout,
+		HttpTimeout: cli_utils.HttpDefaultTimeout,
 	}
 
 	if err = rl.Release(requestParameters, authParams, *parsedArgs); err != nil {
@@ -93,7 +94,7 @@ func handleCreateLock(kpClientParams kuberpultClientParameters, parsedArgs locks
 	requestParameters := kutil.RequestParameters{
 		Url:         &kpClientParams.url,
 		Retries:     kpClientParams.retries,
-		HttpTimeout: rl.DefaultTimeout,
+		HttpTimeout: cli_utils.HttpDefaultTimeout,
 	}
 
 	if err := locks.CreateLock(requestParameters, authParams, parsedArgs); err != nil {
