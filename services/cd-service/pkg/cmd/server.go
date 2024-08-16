@@ -405,7 +405,7 @@ func RunServer() {
 					api.RegisterEslServiceServer(srv, &service.EslServiceServer{Repository: repo})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
-
+					api.RegisterCommitDeploymentServiceServer(srv, &service.CommitDeploymentServer{})
 				},
 			},
 			Background: []setup.BackgroundTaskConfig{
