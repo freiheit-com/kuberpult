@@ -41,8 +41,8 @@ func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql
 	}
 	apps := getEnvironmentApplicationsByTeam(env.Applications, teamLock.Team)
 	for _, app := range apps {
-		if app.Locks == nil {
-			app.Locks = map[string]*api.Lock{}
+		if app.TeamLocks == nil {
+			app.TeamLocks = map[string]*api.Lock{}
 		}
 		app.TeamLocks[teamLock.LockID] = &api.Lock{
 			Message:   teamLock.Metadata.Message,
