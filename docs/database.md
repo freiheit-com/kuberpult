@@ -46,8 +46,8 @@ so the database is the (only) source of truth.
 The manifest repository is now only an "export", which is handled by the new `manifest-repo-export-service`.
 On the first startup with this option, it will read the manifest repo and insert all needed data
 into the database (about 25 tables). This process can take a few minutes,
-depending on the size of your repository. We tested this with hundreds of apps
-and dozens of environments, and were done in about 5-10 minutes (TODO double-check the numbers).
+depending on the size of your repository and the resources you provide to both the database and Kuberpult's cd-service. We tested this with hundreds of apps
+and dozens of environments, and were done in about 5-10 minutes.
 
 
 ## Pushing to the manifest repo
