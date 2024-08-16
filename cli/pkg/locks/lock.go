@@ -127,7 +127,7 @@ func (e *AppLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	}, nil
 }
 
-func (e *TeamLockParameters) GetPath() string {
+func (e *TeamLockParameters) GetRestPath() string {
 	prefix := "environments"
 	if e.UseDexAuthentication {
 		prefix = "api/environments"
