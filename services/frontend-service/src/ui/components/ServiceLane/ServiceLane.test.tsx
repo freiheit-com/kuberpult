@@ -13,8 +13,8 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { render } from '@testing-library/react';
-import { ServiceLane } from './ServiceLane';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ServiceLane, DiffElement } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 import {
@@ -660,4 +660,12 @@ describe('Service Lane AppLockSummary', () => {
             expect(appLockSummary?.attributes.getNamedItem('title')?.value).toBe(testcase.expected);
         });
     });
+});
+
+test('Hidden commits button', () => {
+    const testClick = jest.fn();
+    render(<DiffElement diff={3} title="test" navCallback={testClick} />);
+    const button = screen.getAllByTestId('hidden-commits-button')[0];
+    fireEvent.click(button);
+    expect(testClick).toBeCalled();
 });
