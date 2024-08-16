@@ -831,18 +831,15 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, version)
-			if err != nil {
-				return err
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, version)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+		if release != nil && release.Metadata.IsMinor {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, "minor"), []byte(""), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
 			}
-			if release.Metadata.IsMinor {
-				if err := util.WriteFile(fs, fs.Join(releaseDir, "minor"), []byte(""), 0666); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+		}
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
