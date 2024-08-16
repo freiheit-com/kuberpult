@@ -58,7 +58,7 @@ func readCreateAppLockArgs(args []string) (*CreateAppLockCommandLineArguments, e
 	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
 	fs.Var(&cmdArgs.message, "message", "lock message")
 	fs.Var(&cmdArgs.application, "application", "application to lock")
-	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "use /api/* endpoint, if set to true, dex must be enabled and dex token must be provided otherwise the request will be denied")
+	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -75,33 +75,32 @@ func readCreateAppLockArgs(args []string) (*CreateAppLockCommandLineArguments, e
 	return &cmdArgs, nil
 }
 
-// converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
 func convertToCreateAppLockParams(cmdArgs CreateAppLockCommandLineArguments) (LockParameters, error) {
 	if ok, msg := argsValidCreateAppLock(&cmdArgs); !ok {
-		// this should never happen, as the validation is already peformed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
-	rp := AppLockParameters{} //exhaustruct:ignore
-	rp.LockId = cmdArgs.lockId.Values[0]
-	rp.Environment = cmdArgs.environment.Values[0]
+	rp := AppLockParameters{
+		LockId:               cmdArgs.lockId.Values[0],
+		Environment:          cmdArgs.environment.Values[0],
+		Application:          cmdArgs.application.Values[0],
+		Message:              "",
+		UseDexAuthentication: cmdArgs.useDexAuthentication,
+	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
 	}
-	rp.Application = cmdArgs.application.Values[0]
-	rp.UseDexAuthentication = cmdArgs.useDexAuthentication
 	return &rp, nil
 }
 
-// parses the command line flags provided to the release subcommand (not including the release subcommand itself) into a struct that can be passed to the Release function
 func ParseArgsCreateAppLock(args []string) (LockParameters, error) {
 	cmdArgs, err := readCreateAppLockArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
+		return nil, fmt.Errorf("error while reading command line arguments for creating an app lock, error: %w", err)
 	}
 	rp, err := convertToCreateAppLockParams(*cmdArgs)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating /release endpoint params, error: %w", err)
+		return nil, fmt.Errorf("error while creating parameters for creating an application lock, error: %w", err)
 	}
 	return rp, nil
 }
