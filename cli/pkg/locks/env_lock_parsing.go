@@ -92,7 +92,7 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 func ParseArgsCreateEnvironmentLock(args []string) (LockParameters, error) {
 	cmdArgs, err := readCreateEnvLockArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
+		return nil, fmt.Errorf("error while reading command line arguments for env locks, error: %w", err)
 	}
 	rp, err := convertToCreateEnvironmentLockParams(*cmdArgs)
 	if err != nil {
