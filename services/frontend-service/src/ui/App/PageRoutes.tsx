@@ -41,7 +41,7 @@ const routes = [
         element: <Home />,
     },
     {
-        path: `/ui/home/releases/:appName`,
+        path: `/ui/home/releasehistory/:appName`,
         element: <ReleaseHistoryPage />,
     },
     {
