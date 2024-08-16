@@ -13,6 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
+import { jwtDecode } from 'jwt-decode';
 import { Textfield } from '../textfield';
 import React, { useCallback } from 'react';
 import { SideBar } from '../SideBar/SideBar';
@@ -47,6 +48,12 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
     const version = useKuberpultVersion() || '2.6.0';
+    const cookieValue = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('kuberpult.oauth='))
+        ?.split('=')[1];
+    const decodedToken: any = cookieValue ? jwtDecode(cookieValue) : undefined;
+    const loggedInUser = decodedToken?.email || 'Guest';
 
     const hideWithoutWarningsValue = hideWithoutWarnings(params);
     const allWarnings: Warning[] = useAllWarnings();
@@ -114,7 +121,15 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
-
+    const renderedUser = cookieValue ? (
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+            <span className="welcome-message">
+                Welcome, <strong>{loggedInUser}!</strong>
+            </span>
+        </div>
+    ) : (
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end"></div>
+    );
     return (
         <div className="mdc-top-app-bar">
             <div className="mdc-top-app-bar__row">
@@ -127,6 +142,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                 {renderedTeamsFilter}
                 {renderedWarningsFilter}
                 {renderedWarnings}
+                {renderedUser}
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
                     <Button
