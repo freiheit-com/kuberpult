@@ -121,6 +121,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '666',
                     displayVersion: '1',
+                    isMinor: false,
                 },
                 {
                     version: 2,
@@ -131,6 +132,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '666',
                     displayVersion: '2',
+                    isMinor: false,
                 },
                 {
                     version: 3,
@@ -141,6 +143,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '666',
                     displayVersion: '3',
+                    isMinor: false,
                 },
             ],
             envGroups: [testEnvGroup1],
@@ -159,6 +162,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '666',
                     displayVersion: '1',
+                    isMinor: false,
                 },
                 {
                     version: 2,
@@ -169,6 +173,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '666',
                     displayVersion: '2',
+                    isMinor: false,
                 },
                 {
                     version: 3,
@@ -179,6 +184,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '666',
                     displayVersion: '3',
+                    isMinor: false,
                 },
             ],
             envGroups: [],
