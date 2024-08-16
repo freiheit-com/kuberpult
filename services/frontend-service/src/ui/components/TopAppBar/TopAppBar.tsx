@@ -123,8 +123,8 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
         );
     const renderedUser = cookieValue ? (
         <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-            <span className="sub-headline1">
-                Welcome, <strong>{loggedInUser}</strong>
+            <span className="welcome-message">
+                Welcome, <strong>{loggedInUser}!</strong>
             </span>
         </div>
     ) : (
