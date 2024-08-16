@@ -1330,6 +1330,7 @@ func (rel *Release) ToProto() *api.Release {
 		UndeployVersion: rel.UndeployVersion,
 		CreatedAt:       timestamppb.New(rel.CreatedAt),
 		DisplayVersion:  rel.DisplayVersion,
+		IsMinor:         false,
 	}
 }
 
