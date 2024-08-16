@@ -212,7 +212,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
             {dialog}
             <div className="service-lane__header">
                 <div className="service-lane-wrapper">
-                    {appLocks.length >= 1 && (
+                    {appLocks.length + teamLocks.length >= 1 && (
                         <div className={'test-app-lock-summary'}>
                             <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
                         </div>
