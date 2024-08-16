@@ -83,6 +83,16 @@ func handleCreateTeamLock(kpClientParams kuberpultClientParameters, args []strin
 	return handleCreateLock(kpClientParams, parsedArgs)
 }
 
+func handleCreateGroupLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsCreateGroupLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleCreateLock(kpClientParams, parsedArgs)
+}
+
 func handleCreateLock(kpClientParams kuberpultClientParameters, parsedArgs locks.LockParameters) ReturnCode {
 	authParams := kutil.AuthenticationParameters{
 		IapToken:    kpClientParams.iapToken,

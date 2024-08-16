@@ -55,6 +55,13 @@ type TeamLockParameters struct {
 	UseDexAuthentication bool
 }
 
+type EnvironmentGroupLockParameters struct {
+	EnvironmentGroup     string
+	LockId               string
+	Message              string
+	UseDexAuthentication bool
+}
+
 type LockJsonData struct {
 	Message string `json:"message"`
 }
@@ -142,6 +149,28 @@ func (e *TeamLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal TeamLockParameters data to json: %w\n", err)
+	}
+	return &HttpFormDataInfo{
+		jsonData:    jsonData,
+		ContentType: "application/json",
+	}, nil
+}
+
+func (e *EnvironmentGroupLockParameters) GetRestPath() string {
+	prefix := "environment-groups"
+	if e.UseDexAuthentication {
+		prefix = "api/environment-groups"
+	}
+	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.EnvironmentGroup, e.LockId)
+}
+
+func (e *EnvironmentGroupLockParameters) FillForm() (*HttpFormDataInfo, error) {
+	d := LockJsonData{
+		Message: e.Message,
+	}
+	var jsonData, err = json.Marshal(d)
+	if err != nil {
+		return nil, fmt.Errorf("Could not marshal EnvironmentGroupLockParameters data to json: %w\n", err)
 	}
 	return &HttpFormDataInfo{
 		jsonData:    jsonData,
