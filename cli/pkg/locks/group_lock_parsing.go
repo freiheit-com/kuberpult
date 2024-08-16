@@ -23,19 +23,19 @@ import (
 	"strings"
 )
 
-type CreateEnvLockCommandLineArguments struct {
+type CreateEnvGroupLockCommandLineArguments struct {
 	environmentGroup     cli_utils.RepeatedString
 	lockId               cli_utils.RepeatedString
 	message              cli_utils.RepeatedString
 	useDexAuthentication bool
 }
 
-func argsValidCreateEnvLock(cmdArgs *CreateEnvLockCommandLineArguments) (result bool, errorMessage string) {
+func argsValidCreateEnvGroupLock(cmdArgs *CreateEnvGroupLockCommandLineArguments) (result bool, errorMessage string) {
 	if len(cmdArgs.lockId.Values) != 1 {
 		return false, "the --lockID arg must be set exactly once"
 	}
-	if len(cmdArgs.environment.Values) != 1 {
-		return false, "the --environment arg must be set exactly once"
+	if len(cmdArgs.environmentGroup.Values) != 1 {
+		return false, "the --environment-group arg must be set exactly once"
 	}
 	if len(cmdArgs.message.Values) > 1 {
 		return false, "the --message arg must be set at most once"
@@ -45,15 +45,15 @@ func argsValidCreateEnvLock(cmdArgs *CreateEnvLockCommandLineArguments) (result 
 }
 
 // takes the raw command line flags and converts them to an intermediate represnetations for easy validation
-func readCreateGroupLockArgs(args []string) (*CreateEnvLockCommandLineArguments, error) {
-	cmdArgs := CreateEnvLockCommandLineArguments{} //exhaustruct:ignore
+func readCreateGroupLockArgs(args []string) (*CreateEnvGroupLockCommandLineArguments, error) {
+	cmdArgs := CreateEnvGroupLockCommandLineArguments{} //exhaustruct:ignore
 
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
-	fs.Var(&cmdArgs.environment, "environment-group", "the environment-group to lock")
+	fs.Var(&cmdArgs.environmentGroup, "environment-group", "the environment-group to lock")
 	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.message, "message", "lock message")
-	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "use /api/* endpoint, if set to true, dex must be enabled and dex token must be provided otherwise the request will be denied")
+	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -63,7 +63,7 @@ func readCreateGroupLockArgs(args []string) (*CreateEnvLockCommandLineArguments,
 		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
-	if ok, msg := argsValidCreateEnvLock(&cmdArgs); !ok {
+	if ok, msg := argsValidCreateEnvGroupLock(&cmdArgs); !ok {
 		return nil, fmt.Errorf(msg)
 	}
 
@@ -71,30 +71,32 @@ func readCreateGroupLockArgs(args []string) (*CreateEnvLockCommandLineArguments,
 }
 
 // converts the intermediate representation of the command line flags into the final structure containing parameters for the create lock endpoint
-func convertToCreateGroupLockParams(cmdArgs CreateEnvLockCommandLineArguments) (LockParameters, error) {
-	if ok, msg := argsValidCreateEnvLock(&cmdArgs); !ok {
+func convertToCreateGroupLockParams(cmdArgs CreateEnvGroupLockCommandLineArguments) (LockParameters, error) {
+	if ok, msg := argsValidCreateEnvGroupLock(&cmdArgs); !ok {
 		// this should never happen, as the validation is already performed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
-	rp := EnvironmentLockParameters{} //exhaustruct:ignore
-	rp.LockId = cmdArgs.lockId.Values[0]
-	rp.Environment = cmdArgs.environment.Values[0]
+	rp := EnvironmentGroupLockParameters{
+		LockId:               cmdArgs.lockId.Values[0],
+		EnvironmentGroup:     cmdArgs.environmentGroup.Values[0],
+		UseDexAuthentication: cmdArgs.useDexAuthentication,
+		Message:              "",
+	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
 	}
-	rp.UseDexAuthentication = cmdArgs.useDexAuthentication
 	return &rp, nil
 }
 
 func ParseArgsCreateGroupLock(args []string) (LockParameters, error) {
 	cmdArgs, err := readCreateGroupLockArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
+		return nil, fmt.Errorf("error while reading command line arguments for environment group lock, error: %w", err)
 	}
 	rp, err := convertToCreateGroupLockParams(*cmdArgs)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating /release endpoint params, error: %w", err)
+		return nil, fmt.Errorf("error while creating parameters for creating an environment group lock, error: %w", err)
 	}
 
 	return rp, nil
