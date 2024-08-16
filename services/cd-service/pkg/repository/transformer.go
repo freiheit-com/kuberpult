@@ -635,6 +635,10 @@ func (c *CreateApplicationVersion) Transform(
 		if len(prevRelease) > 0 {
 			v = prevRelease[0].EslVersion
 		}
+		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version)
+		if err != nil {
+			return "", err
+		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
 			ReleaseNumber: version,
@@ -648,6 +652,7 @@ func (c *CreateApplicationVersion) Transform(
 				SourceMessage:   c.SourceMessage,
 				DisplayVersion:  c.DisplayVersion,
 				UndeployVersion: false,
+				IsMinor:         isMinor,
 			},
 			Created: time.Now(),
 			Deleted: false,
@@ -731,6 +736,63 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
+}
+
+func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64) (bool, error) {
+	allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
+	if err != nil {
+		return false, err
+	}
+	if allReleases == nil {
+		return false, err
+	}
+	releaseVersions := allReleases.Metadata.Releases
+	sort.Slice(releaseVersions, func(i, j int) bool { return releaseVersions[i] > releaseVersions[j] })
+	nextVersion := int64(-1)
+	previousVersion := int64(-1)
+	for i := len(releaseVersions) - 1; i >= 0; i-- {
+		if releaseVersions[i] > int64(version) {
+			nextVersion = releaseVersions[i]
+			break
+		}
+	}
+	for i := 0; i < len(releaseVersions); i++ {
+		if releaseVersions[i] < int64(version) {
+			previousVersion = releaseVersions[i]
+			break
+		}
+	}
+	if nextVersion != -1 {
+		nextRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, uint64(nextVersion))
+		if err != nil {
+			return false, err
+		}
+		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests)
+		err = dbHandler.DBInsertRelease(ctx, transaction, *nextRelease, nextRelease.EslVersion)
+		if err != nil {
+			return false, err
+		}
+	}
+	if previousVersion == -1 {
+		return false, nil
+	}
+	previousRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, uint64(previousVersion))
+	if err != nil {
+		return false, err
+	}
+	return compareManifests(ctx, c.Manifests, previousRelease.Manifests.Manifests), nil
+}
+
+func compareManifests(ctx context.Context, firstManifests map[string]string, secondManifests map[string]string) bool {
+	if len(firstManifests) != len(secondManifests) {
+		return false
+	}
+	for key, value1 := range firstManifests {
+		if value2, exists := secondManifests[key]; !exists || value1 != value2 {
+			return false
+		}
+	}
+	return true
 }
 
 func getGenerator(ctx context.Context) uuid.GenerateUUIDs {
@@ -1141,6 +1203,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				SourceMessage:   "",
 				DisplayVersion:  "",
 				UndeployVersion: true,
+				IsMinor:         false,
 			},
 			Created: time.Now(),
 			Deleted: false,

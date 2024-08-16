@@ -503,6 +503,7 @@ type DBReleaseMetaData struct {
 	SourceMessage   string
 	DisplayVersion  string
 	UndeployVersion bool
+	IsMinor         bool
 }
 
 type DBReleaseManifests struct {
@@ -697,6 +698,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			SourceMessage:   "",
 			DisplayVersion:  "",
 			UndeployVersion: false,
+			IsMinor:         false,
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {

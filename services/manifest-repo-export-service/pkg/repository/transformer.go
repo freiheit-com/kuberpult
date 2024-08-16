@@ -1069,7 +1069,27 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
-	return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], err
+	indexToKeep := positionOfOldestVersion - 1
+	majorsCount := 0
+	for ; indexToKeep >= 0; indexToKeep-- {
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep])
+		if err != nil {
+			return nil, err
+		}
+		if release == nil {
+			majorsCount += 1
+			logger.FromContext(ctx).Warn("Release not found in database")
+		} else if !release.Metadata.IsMinor {
+			majorsCount += 1
+		}
+		if majorsCount >= int(state.ReleaseVersionsLimit) {
+			break
+		}
+	}
+	if indexToKeep < 0 {
+		return nil, nil
+	}
+	return versions[0:indexToKeep], nil
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
