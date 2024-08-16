@@ -67,6 +67,10 @@ func RunCLI() ReturnCode {
 		return ReturnCodeSuccess
 	case "release":
 		return handleRelease(*kpClientParams, subflags)
+	case "create-env-lock":
+		return handleCreateEnvLock(*kpClientParams, subflags)
+	case "create-app-lock":
+		return handleCreateAppLock(*kpClientParams, subflags)
 	default:
 		log.Printf("unknown subcommand %s\n", subcommand)
 		return ReturnCodeInvalidArguments

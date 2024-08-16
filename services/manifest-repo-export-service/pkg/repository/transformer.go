@@ -1857,3 +1857,59 @@ func (u *UndeployApplication) Transform(
 	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
+
+type CreateEnvironmentGroupLock struct {
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+func (c *CreateEnvironmentGroupLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *CreateEnvironmentGroupLock) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
+}
+
+func (c *CreateEnvironmentGroupLock) GetDBEventType() db.EventType {
+	return db.EvtCreateEnvironmentGroupLock
+}
+
+func (c *CreateEnvironmentGroupLock) Transform(
+	_ context.Context,
+	_ *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	// group locks are handled on the cd-service, and split into environment locks
+	return "empty commit for group lock creation", nil
+}
+
+type DeleteEnvironmentGroupLock struct {
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+func (c *DeleteEnvironmentGroupLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *DeleteEnvironmentGroupLock) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
+}
+
+func (c *DeleteEnvironmentGroupLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironmentGroupLock
+}
+
+func (c *DeleteEnvironmentGroupLock) Transform(
+	_ context.Context,
+	_ *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	// group locks are handled on the cd-service, and split into environment locks
+	return "empty commit for group lock deletion", nil
+}

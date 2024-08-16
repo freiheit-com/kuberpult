@@ -95,12 +95,12 @@ test-go: $(ALL_GO_FILES) | proto
 	$(GO) test $(GO_TEST_ARGS) ./...
 
 test-ts: src/api/api.ts
-	pnpm eslint
+	pnpm eslint-check
 	# The extra '--' was added because of pnpm, Usage: pnpm test [-- <args>...]
 	pnpm test -- --watchAll=false
 
-lint-scss: deps
-	pnpm lint-scss
+scss-check: deps
+	pnpm scss-check
 
 docker:
 	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)

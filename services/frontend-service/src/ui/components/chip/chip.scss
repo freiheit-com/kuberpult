@@ -14,6 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 @use '@material/chips/styles';
+@import '../../../assets/variables';
 
 .mdc-evolution-chip {
     height: $env-chip-height;
@@ -70,4 +71,24 @@ Copyright freiheit.com*/
 }
 .environment-priority-unrecognized {
     background-color: $env-color-unrecognized;
+}
+
+.app-lock-summary {
+    min-width: 4.5em;
+    background-color: $warning-color-locked;
+    border-radius: 6px;
+
+    .app-lock-summary-wrapper {
+        display: flex;
+        margin-left: 6px;
+        margin-right: 6px;
+    }
+
+    .app-lock-summary-text {
+        font-size: small;
+        line-height: 40px;
+    }
+    .app-lock-summary-lock {
+        margin-top: 8px;
+    }
 }

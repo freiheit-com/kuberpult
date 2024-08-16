@@ -29,7 +29,7 @@ import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, Environment, UndeploySummary } from '../../../api/api';
 import * as React from 'react';
-import { AppLockSummary, TeamLockSummary } from '../chip/EnvironmentGroupChip';
+import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
 import { useCallback, useState } from 'react';
@@ -62,8 +62,16 @@ function getNumberOfReleasesBetween(releases: number[], higherVersion: number, l
     return releases.findIndex((ver) => ver === lowerVersion) - releases.findIndex((ver) => ver === higherVersion) - 1;
 }
 
-const DiffElement: React.FC<{ diff: number; title: string }> = ({ diff, title }) => (
-    <div className="service-lane__diff--container" title={title}>
+export const DiffElement: React.FC<{ diff: number; title: string; navCallback: () => void }> = ({
+    diff,
+    title,
+    navCallback,
+}) => (
+    <div
+        className="service-lane__diff--container"
+        title={title}
+        onClick={navCallback}
+        data-testid="hidden-commits-button">
         <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--number">{diff}</div>
@@ -89,7 +97,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const deployedReleases = useDeployedReleases(application.name);
     const allReleases = useVersionsForApp(application.name);
-    const { navCallback } = useNavigateWithSearchParams('releases/' + application.name);
+    const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
     const prepareUndeployOrUndeployText = deriveUndeployMessage(application.undeploySummary);
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
@@ -135,7 +143,8 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                     {!!diff && (
                         <DiffElement
                             diff={diff}
-                            title={'There are ' + diff + ' more releases hidden. Click on History to view more'}
+                            title={'There are ' + diff + ' more releases hidden. Click me to view more.'}
+                            navCallback={navCallback}
                         />
                     )}
                 </div>
@@ -211,19 +220,16 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
         <div className="service-lane">
             {dialog}
             <div className="service-lane__header">
-                <div className="service__name">
-                    {application.team ? application.team : '<No Team> '}
-                    {teamLocks.length >= 1 && (
+                <div className="service-lane-wrapper">
+                    {appLocks.length + teamLocks.length >= 1 && (
                         <div className={'test-app-lock-summary'}>
-                            <TeamLockSummary team={application.team} numLocks={teamLocks.length} />
+                            <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
                         </div>
                     )}
-                    {' | ' + application.name}
-                    {appLocks.length >= 1 && (
-                        <div className={'test-app-lock-summary'}>
-                            <AppLockSummary app={application.name} numLocks={appLocks.length} />
-                        </div>
-                    )}
+                    <div className={'service-lane-name'}>
+                        <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
+                        {' | '} <span title={'app name'}> {application.name}</span>
+                    </div>
                 </div>
                 <div className="service__actions__">{dotsMenu}</div>
             </div>

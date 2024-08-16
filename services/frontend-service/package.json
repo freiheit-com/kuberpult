@@ -37,11 +37,11 @@
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "test": "TC=Europe/Berlin react-scripts test --color",
     "start": "WATCHPACK_POLLING=true CHOKIDAR_USEPOLLING=true react-scripts start",
-    "eslint": "eslint --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
+    "eslint-check": "eslint --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
     "eslint-fix": "eslint --fix --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
     "circular-check": "madge -c --extensions ts,tsx --ts-config tsconfig.json --no-spinner src/",
-    "lint-scss": "prettier -c --parser scss 'src/**/*.scss'",
-    "format-scss": "prettier --write --parser scss 'src/**/*.scss'"
+    "scss-check": "prettier -c --parser scss 'src/**/*.scss'",
+    "scss-fix": "prettier --write --parser scss 'src/**/*.scss'"
   },
   "devDependencies": {
     "@babel/core": "7.25.2",

@@ -67,8 +67,8 @@ node-modules:
 
 lint-ui:
     FROM +deps-ui
-    RUN pnpm eslint
-    RUN pnpm lint-scss
+    RUN pnpm eslint-check
+    RUN pnpm scss-check
 
 unit-test-ui:
     FROM +deps-ui
