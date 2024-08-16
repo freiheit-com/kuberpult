@@ -29,7 +29,7 @@ import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, Environment, UndeploySummary } from '../../../api/api';
 import * as React from 'react';
-import { AppLockSummary, TeamLockSummary } from '../chip/EnvironmentGroupChip';
+import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
 import { useCallback, useState } from 'react';
@@ -211,19 +211,16 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
         <div className="service-lane">
             {dialog}
             <div className="service-lane__header">
-                <div className="service__name">
-                    {application.team ? application.team : '<No Team> '}
-                    {teamLocks.length >= 1 && (
+                <div className="service-lane-wrapper">
+                    {appLocks.length + teamLocks.length >= 1 && (
                         <div className={'test-app-lock-summary'}>
-                            <TeamLockSummary team={application.team} numLocks={teamLocks.length} />
+                            <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
                         </div>
                     )}
-                    {' | ' + application.name}
-                    {appLocks.length >= 1 && (
-                        <div className={'test-app-lock-summary'}>
-                            <AppLockSummary app={application.name} numLocks={appLocks.length} />
-                        </div>
-                    )}
+                    <div className={'service-lane-name'}>
+                        <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
+                        {' | '} <span title={'app name'}> {application.name}</span>
+                    </div>
                 </div>
                 <div className="service__actions__">{dotsMenu}</div>
             </div>
