@@ -73,6 +73,8 @@ func RunCLI() ReturnCode {
 		return handleCreateAppLock(*kpClientParams, subflags)
 	case "create-team-lock":
 		return handleCreateTeamLock(*kpClientParams, subflags)
+	case "create-group-lock":
+		return handleCreateGroupLock(*kpClientParams, subflags)
 	default:
 		log.Printf("unknown subcommand %s\n", subcommand)
 		return ReturnCodeInvalidArguments
