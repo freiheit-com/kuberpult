@@ -152,7 +152,7 @@ func TestParseArgs(t *testing.T) {
 		{
 			name:    "with environment and lockID and message",
 			cmdArgs: []string{"--environment", "development", "--lockID", "my-lock", "--message", "message"},
-			expectedParams: &EnvironmentLockParameters{
+			expectedParams: &CreateEnvironmentLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
 				Message:     "message",
@@ -161,7 +161,7 @@ func TestParseArgs(t *testing.T) {
 		{
 			name:    "with environment and lockID and no message",
 			cmdArgs: []string{"--environment", "development", "--lockID", "my-lock"},
-			expectedParams: &EnvironmentLockParameters{
+			expectedParams: &CreateEnvironmentLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
 				Message:     "",
@@ -171,7 +171,7 @@ func TestParseArgs(t *testing.T) {
 		{
 			name:    "with environment and lockID and multi word message message",
 			cmdArgs: []string{"--environment", "development", "--lockID", "my-lock", "--message", "this is a very long message"},
-			expectedParams: &EnvironmentLockParameters{
+			expectedParams: &CreateEnvironmentLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
 				Message:     "this is a very long message",

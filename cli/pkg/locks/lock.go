@@ -29,14 +29,19 @@ import (
 
 type LockParameters interface {
 	GetRestPath() string
-	FillForm() (*HttpFormDataInfo, error)
+	FillForm() (*HttpInfo, error)
 }
 
-type EnvironmentLockParameters struct {
+type CreateEnvironmentLockParameters struct {
 	Environment          string
 	LockId               string
 	Message              string
-	HttpMethod           string
+	UseDexAuthentication bool
+}
+
+type DeleteEnvironmentLockParameters struct {
+	Environment          string
+	LockId               string
 	UseDexAuthentication bool
 }
 
@@ -45,7 +50,6 @@ type AppLockParameters struct {
 	LockId               string
 	Message              string
 	Application          string
-	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -54,7 +58,6 @@ type TeamLockParameters struct {
 	LockId               string
 	Message              string
 	Team                 string
-	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -62,7 +65,6 @@ type EnvironmentGroupLockParameters struct {
 	EnvironmentGroup     string
 	LockId               string
 	Message              string
-	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -70,7 +72,7 @@ type LockJsonData struct {
 	Message string `json:"message"`
 }
 
-type HttpFormDataInfo struct {
+type HttpInfo struct {
 	jsonData    []byte
 	ContentType string
 	HttpMethod  string
@@ -93,12 +95,12 @@ func CreateLock(requestParams kutil.RequestParameters, authParams kutil.Authenti
 	return nil
 }
 
-func (e *EnvironmentLockParameters) GetRestPath() string {
+func (e *CreateEnvironmentLockParameters) GetRestPath() string {
 	prefix := "environments"
 	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.Environment, e.LockId)
 }
 
-func (e *EnvironmentLockParameters) FillForm() (*HttpFormDataInfo, error) {
+func (e *CreateEnvironmentLockParameters) FillForm() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
@@ -106,10 +108,27 @@ func (e *EnvironmentLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
 	}
-	return &HttpFormDataInfo{
+	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
-		HttpMethod:  e.HttpMethod,
+		HttpMethod:  http.MethodPut,
+	}, nil
+}
+
+func (e *DeleteEnvironmentLockParameters) GetRestPath() string {
+	prefix := "environments"
+	if e.UseDexAuthentication {
+		prefix = "api/environments"
+	}
+
+	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.Environment, e.LockId)
+}
+
+func (e *DeleteEnvironmentLockParameters) FillForm() (*HttpInfo, error) {
+	return &HttpInfo{
+		jsonData:    []byte{},
+		ContentType: "application/json",
+		HttpMethod:  http.MethodDelete,
 	}, nil
 }
 
@@ -118,7 +137,7 @@ func (e *AppLockParameters) GetRestPath() string {
 	return fmt.Sprintf("%s/%s/applications/%s/locks/%s", prefix, e.Environment, e.Application, e.LockId)
 }
 
-func (e *AppLockParameters) FillForm() (*HttpFormDataInfo, error) {
+func (e *AppLockParameters) FillForm() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
@@ -126,10 +145,10 @@ func (e *AppLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal AppLockParameters data to json: %w\n", err)
 	}
-	return &HttpFormDataInfo{
+	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
-		HttpMethod:  e.HttpMethod,
+		HttpMethod:  http.MethodPut,
 	}, nil
 }
 
@@ -138,7 +157,7 @@ func (e *TeamLockParameters) GetRestPath() string {
 	return fmt.Sprintf("%s/%s/lock/team/%s/%s", prefix, e.Environment, e.Team, e.LockId)
 }
 
-func (e *TeamLockParameters) FillForm() (*HttpFormDataInfo, error) {
+func (e *TeamLockParameters) FillForm() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
@@ -146,10 +165,10 @@ func (e *TeamLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal TeamLockParameters data to json: %w\n", err)
 	}
-	return &HttpFormDataInfo{
+	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
-		HttpMethod:  e.HttpMethod,
+		HttpMethod:  http.MethodPut,
 	}, nil
 }
 
@@ -158,7 +177,7 @@ func (e *EnvironmentGroupLockParameters) GetRestPath() string {
 	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.EnvironmentGroup, e.LockId)
 }
 
-func (e *EnvironmentGroupLockParameters) FillForm() (*HttpFormDataInfo, error) {
+func (e *EnvironmentGroupLockParameters) FillForm() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
@@ -166,14 +185,14 @@ func (e *EnvironmentGroupLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal EnvironmentGroupLockParameters data to json: %w\n", err)
 	}
-	return &HttpFormDataInfo{
+	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
-		HttpMethod:  e.HttpMethod,
+		HttpMethod:  http.MethodPut,
 	}, nil
 }
 
-func createHttpRequest(url string, path string, authParams kutil.AuthenticationParameters, requestInfo *HttpFormDataInfo) (*http.Request, error) {
+func createHttpRequest(url string, path string, authParams kutil.AuthenticationParameters, requestInfo *HttpInfo) (*http.Request, error) {
 	urlStruct, err := urllib.Parse(url)
 	if err != nil {
 		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)

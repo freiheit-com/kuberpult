@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
-	"net/http"
 	"strings"
 )
 
@@ -77,12 +76,11 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
-	rp := EnvironmentLockParameters{
+	rp := CreateEnvironmentLockParameters{
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
 		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
-		HttpMethod:           http.MethodPut,
 	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
@@ -151,13 +149,10 @@ func convertToDeleteEnvironmentLockParams(cmdArgs DeleteEnvLockCommandLineArgume
 		// this should never happen, as the validation is already performed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
-
-	return &EnvironmentLockParameters{
+	return &DeleteEnvironmentLockParameters{
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
 		UseDexAuthentication: cmdArgs.useDexAuthentication,
-		Message:              "",
-		HttpMethod:           http.MethodDelete,
 	}, nil
 }
 
