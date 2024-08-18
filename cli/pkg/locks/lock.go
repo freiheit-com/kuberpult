@@ -35,6 +35,7 @@ type CreateEnvironmentLockParameters struct {
 	Environment          string
 	LockId               string
 	Message              string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -49,6 +50,7 @@ type CreateAppLockParameters struct {
 	LockId               string
 	Message              string
 	Application          string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 type DeleteAppLockParameters struct {
@@ -63,6 +65,7 @@ type CreateTeamLockParameters struct {
 	LockId               string
 	Message              string
 	Team                 string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -77,6 +80,7 @@ type EnvironmentGroupLockParameters struct {
 	EnvironmentGroup     string
 	LockId               string
 	Message              string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 
