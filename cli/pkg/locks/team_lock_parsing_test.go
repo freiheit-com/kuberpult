@@ -141,7 +141,7 @@ func TestParseArgsCreateTeamLock(t *testing.T) {
 		{
 			name:    "with environment and lockID and message",
 			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--message", "message"},
-			expectedParams: &TeamLockParameters{
+			expectedParams: &CreateTeamLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
 				Message:     "message",
@@ -151,7 +151,7 @@ func TestParseArgsCreateTeamLock(t *testing.T) {
 		{
 			name:    "with environment, app and lockID and no message",
 			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock"},
-			expectedParams: &TeamLockParameters{
+			expectedParams: &CreateTeamLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
 				Message:     "",
@@ -161,7 +161,7 @@ func TestParseArgsCreateTeamLock(t *testing.T) {
 		{
 			name:    "with environment and lockID and multi word message message",
 			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--message", "this is a very long message"},
-			expectedParams: &TeamLockParameters{
+			expectedParams: &CreateTeamLockParameters{
 				Environment: "development",
 				LockId:      "my-lock",
 				Team:        "my-team",
