@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
+	"net/http"
 	"strings"
 )
 
@@ -81,6 +82,7 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 		Environment:          cmdArgs.environment.Values[0],
 		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
+		HttpMethod:           http.MethodPut,
 	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
@@ -98,5 +100,75 @@ func ParseArgsCreateEnvironmentLock(args []string) (LockParameters, error) {
 		return nil, fmt.Errorf("error while creating parameters for creating an environment lock, error: %w", err)
 	}
 
+	return rp, nil
+}
+
+type DeleteEnvLockCommandLineArguments struct {
+	environment          cli_utils.RepeatedString
+	lockId               cli_utils.RepeatedString
+	useDexAuthentication bool
+}
+
+func argsValidDeleteEnvLock(cmdArgs *DeleteEnvLockCommandLineArguments) (result bool, errorMessage string) {
+	if len(cmdArgs.lockId.Values) != 1 {
+		return false, "the --lockID arg must be set exactly once"
+	}
+	if len(cmdArgs.environment.Values) != 1 {
+		return false, "the --environment arg must be set exactly once"
+	}
+
+	return true, ""
+}
+
+// takes the raw command line flags and converts them to an intermediate represnetations for easy validation
+func readDeleteEnvLockArgs(args []string) (*DeleteEnvLockCommandLineArguments, error) {
+	cmdArgs := DeleteEnvLockCommandLineArguments{} //exhaustruct:ignore
+
+	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
+
+	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
+	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
+	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
+	}
+
+	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
+		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+	}
+
+	if ok, msg := argsValidDeleteEnvLock(&cmdArgs); !ok {
+		return nil, fmt.Errorf(msg)
+	}
+
+	return &cmdArgs, nil
+}
+
+// converts the intermediate representation of the command line flags into the final structure containing parameters for the create lock endpoint
+func convertToDeleteEnvironmentLockParams(cmdArgs DeleteEnvLockCommandLineArguments) (LockParameters, error) {
+	if ok, msg := argsValidDeleteEnvLock(&cmdArgs); !ok {
+		// this should never happen, as the validation is already performed by the readArgs function
+		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
+	}
+
+	return &EnvironmentLockParameters{
+		LockId:               cmdArgs.lockId.Values[0],
+		Environment:          cmdArgs.environment.Values[0],
+		UseDexAuthentication: cmdArgs.useDexAuthentication,
+		Message:              "",
+		HttpMethod:           http.MethodDelete,
+	}, nil
+}
+
+func ParseArgsDeleteEnvironmentLock(args []string) (LockParameters, error) {
+	cmdArgs, err := readDeleteEnvLockArgs(args)
+	if err != nil {
+		return nil, fmt.Errorf("error while reading command line arguments for deleting env locks, error: %w", err)
+	}
+	rp, err := convertToDeleteEnvironmentLockParams(*cmdArgs)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating parameters for deleting an environment lock, error: %w", err)
+	}
 	return rp, nil
 }

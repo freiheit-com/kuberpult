@@ -36,6 +36,7 @@ type EnvironmentLockParameters struct {
 	Environment          string
 	LockId               string
 	Message              string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -44,6 +45,7 @@ type AppLockParameters struct {
 	LockId               string
 	Message              string
 	Application          string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -52,6 +54,7 @@ type TeamLockParameters struct {
 	LockId               string
 	Message              string
 	Team                 string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -59,6 +62,7 @@ type EnvironmentGroupLockParameters struct {
 	EnvironmentGroup     string
 	LockId               string
 	Message              string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -69,6 +73,7 @@ type LockJsonData struct {
 type HttpFormDataInfo struct {
 	jsonData    []byte
 	ContentType string
+	HttpMethod  string
 }
 
 func CreateLock(requestParams kutil.RequestParameters, authParams kutil.AuthenticationParameters, params LockParameters) error {
@@ -104,6 +109,7 @@ func (e *EnvironmentLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	return &HttpFormDataInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
+		HttpMethod:  e.HttpMethod,
 	}, nil
 }
 
@@ -123,6 +129,7 @@ func (e *AppLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	return &HttpFormDataInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
+		HttpMethod:  e.HttpMethod,
 	}, nil
 }
 
@@ -142,6 +149,7 @@ func (e *TeamLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	return &HttpFormDataInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
+		HttpMethod:  e.HttpMethod,
 	}, nil
 }
 
@@ -161,6 +169,7 @@ func (e *EnvironmentGroupLockParameters) FillForm() (*HttpFormDataInfo, error) {
 	return &HttpFormDataInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
+		HttpMethod:  e.HttpMethod,
 	}, nil
 }
 
@@ -170,7 +179,7 @@ func createHttpRequest(url string, path string, authParams kutil.AuthenticationP
 		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
 	}
 
-	req, err := http.NewRequest(http.MethodPut, urlStruct.JoinPath(path).String(), bytes.NewBuffer(requestInfo.jsonData))
+	req, err := http.NewRequest(requestInfo.HttpMethod, urlStruct.JoinPath(path).String(), bytes.NewBuffer(requestInfo.jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}

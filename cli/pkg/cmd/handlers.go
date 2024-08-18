@@ -53,6 +53,16 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) Retu
 	return ReturnCodeSuccess
 }
 
+func handleDeleteEnvLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsDeleteEnvironmentLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
 func handleCreateEnvLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
 	parsedArgs, err := locks.ParseArgsCreateEnvironmentLock(args)
 
@@ -60,7 +70,7 @@ func handleCreateEnvLock(kpClientParams kuberpultClientParameters, args []string
 		log.Printf("error while parsing command line args, error: %v", err)
 		return ReturnCodeInvalidArguments
 	}
-	return handleCreateLock(kpClientParams, parsedArgs)
+	return handleLockRequest(kpClientParams, parsedArgs)
 }
 
 func handleCreateAppLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
@@ -70,7 +80,7 @@ func handleCreateAppLock(kpClientParams kuberpultClientParameters, args []string
 		log.Printf("error while parsing command line args, error: %v", err)
 		return ReturnCodeInvalidArguments
 	}
-	return handleCreateLock(kpClientParams, parsedArgs)
+	return handleLockRequest(kpClientParams, parsedArgs)
 }
 
 func handleCreateTeamLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
@@ -80,7 +90,7 @@ func handleCreateTeamLock(kpClientParams kuberpultClientParameters, args []strin
 		log.Printf("error while parsing command line args, error: %v", err)
 		return ReturnCodeInvalidArguments
 	}
-	return handleCreateLock(kpClientParams, parsedArgs)
+	return handleLockRequest(kpClientParams, parsedArgs)
 }
 
 func handleCreateGroupLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
@@ -90,10 +100,10 @@ func handleCreateGroupLock(kpClientParams kuberpultClientParameters, args []stri
 		log.Printf("error while parsing command line args, error: %v", err)
 		return ReturnCodeInvalidArguments
 	}
-	return handleCreateLock(kpClientParams, parsedArgs)
+	return handleLockRequest(kpClientParams, parsedArgs)
 }
 
-func handleCreateLock(kpClientParams kuberpultClientParameters, parsedArgs locks.LockParameters) ReturnCode {
+func handleLockRequest(kpClientParams kuberpultClientParameters, parsedArgs locks.LockParameters) ReturnCode {
 	authParams := kutil.AuthenticationParameters{
 		IapToken:    kpClientParams.iapToken,
 		DexToken:    kpClientParams.dexToken,
