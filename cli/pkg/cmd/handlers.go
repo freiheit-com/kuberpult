@@ -73,6 +73,16 @@ func handleCreateEnvLock(kpClientParams kuberpultClientParameters, args []string
 	return handleLockRequest(kpClientParams, parsedArgs)
 }
 
+func handleDeleteAppLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsDeleteAppLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
 func handleCreateAppLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
 	parsedArgs, err := locks.ParseArgsCreateAppLock(args)
 
