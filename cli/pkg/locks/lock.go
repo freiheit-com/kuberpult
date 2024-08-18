@@ -35,6 +35,7 @@ type CreateEnvironmentLockParameters struct {
 	Environment          string
 	LockId               string
 	Message              string
+	HttpMethod           string
 	UseDexAuthentication bool
 }
 
