@@ -94,9 +94,20 @@ func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit,
 
 func getCommitStatus(commitReleaseNumber uint64, environmentReleases map[string]uint64, allEnvironments []string) CommitStatus {
 	commitStatus := make(CommitStatus)
-	for _, env := range allEnvironments {
-		commitStatus[env] = api.CommitDeploymentStatus_UNKNOWN
+	if commitReleaseNumber == 0 {
+		// Since 0 is the default value for uint64, it might mean that the release version was not known when the commit was created.
+		// In this case, the commit status is unkown for all environments.
+		for _, env := range allEnvironments {
+			commitStatus[env] = api.CommitDeploymentStatus_UNKNOWN
+		}
+		return commitStatus
 	}
+
+	for _, env := range allEnvironments {
+		// by defauly, a commit is pending in all environments
+		commitStatus[env] = api.CommitDeploymentStatus_PENDING
+	}
+
 	for env, environmentReleaseVersion := range environmentReleases {
 		if environmentReleaseVersion >= commitReleaseNumber {
 			commitStatus[env] = api.CommitDeploymentStatus_DEPLOYED
