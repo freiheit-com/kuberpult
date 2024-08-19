@@ -195,7 +195,7 @@ func TestReadArgsDeleteAppLock(t *testing.T) {
 			},
 		},
 		{
-			name: "environment, lockID, application and message are are specified",
+			name: "environment, lockID and application are specified",
 			args: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock"},
 			expectedCmdArgs: &DeleteAppLockCommandLineArguments{
 				environment: cli_utils.RepeatedString{
