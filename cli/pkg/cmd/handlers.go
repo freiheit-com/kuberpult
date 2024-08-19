@@ -117,7 +117,7 @@ func handleLockRequest(kpClientParams kuberpultClientParameters, parsedArgs lock
 		HttpTimeout: cli_utils.HttpDefaultTimeout,
 	}
 
-	if err := locks.CreateLock(requestParameters, authParams, parsedArgs); err != nil {
+	if err := locks.HandleLockRequest(requestParameters, authParams, parsedArgs); err != nil {
 		log.Printf("error creating lock, error: %v", err)
 		return ReturnCodeFailure
 	}
