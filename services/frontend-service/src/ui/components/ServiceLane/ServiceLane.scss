@@ -16,6 +16,12 @@ Copyright freiheit.com*/
 
 @import '../../../assets/variables';
 
+.service-lane {
+    position: relative;
+    min-width: fit-content;
+    max-width: calc(100vw - $sidebar-width - 100px); // full size minus the planned actions bar minus some buffer
+}
+
 .service-lane__header {
     background: var(--mdc-theme-primary);
     color: var(--mdc-theme-on-primary);

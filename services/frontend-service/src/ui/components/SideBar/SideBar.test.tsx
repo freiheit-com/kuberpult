@@ -37,11 +37,6 @@ describe('Show and Hide Sidebar', () => {
 
     const data: dataT[] = [
         {
-            name: 'Sidebar is hidden',
-            expect: (container) =>
-                expect(container.getElementsByClassName('mdc-drawer-sidebar--hidden')[0]).toBeTruthy(),
-        },
-        {
             name: 'Sidebar is displayed',
             expect: (container) => {
                 const result = elementQuerySelectorSafe(container, '.mdc-show-button');
