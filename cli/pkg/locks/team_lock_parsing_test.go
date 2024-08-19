@@ -129,6 +129,112 @@ func TestReadArgsTeamLock(t *testing.T) {
 	}
 }
 
+func TestReadArgsDeleteTeamLock(t *testing.T) {
+	type testCase struct {
+		name            string
+		args            []string
+		expectedCmdArgs *DeleteTeamLockCommandLineArguments
+		expectedError   error
+	}
+
+	tcs := []testCase{
+		{
+			name: "some unrecognized positional arguments",
+			args: []string{"potato", "tomato"},
+			expectedError: errMatcher{
+				msg: "these arguments are not recognized: \"potato tomato\"",
+			},
+		},
+		{
+			name: "some flags that don't exist",
+			args: []string{"--environment", "development", "--potato", "tomato"},
+			expectedError: errMatcher{
+				msg: "error while parsing command line arguments, error: flag provided but not defined: -potato",
+			},
+		},
+		{
+			name: "nothing provided",
+			args: []string{},
+			expectedError: errMatcher{
+				msg: "the --lockID arg must be set exactly once",
+			},
+		},
+		{
+			name: "lockID is not provided",
+			args: []string{"--environment", "development", "--team", "my-team"},
+			expectedError: errMatcher{
+				msg: "the --lockID arg must be set exactly once",
+			},
+		},
+		{
+			name: "environment is not provided",
+			args: []string{"--team", "my-team", "--lockID", "my-lock"},
+			expectedError: errMatcher{
+				msg: "the --environment arg must be set exactly once",
+			},
+		},
+		{
+			name: "application is not provided",
+			args: []string{"--environment", "development", "--lockID", "my-lock"},
+			expectedError: errMatcher{
+				msg: "the --team arg must be set exactly once",
+			},
+		},
+		{
+			name: "only --lockID is properly provided but without --environment",
+			args: []string{"--lockID", "potato"},
+			expectedError: errMatcher{
+				msg: "the --environment arg must be set exactly once",
+			},
+		},
+		{
+			name: "delete does not accept message",
+			args: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--message", "message"},
+			expectedError: errMatcher{
+				msg: "error while parsing command line arguments, error: flag provided but not defined: -message",
+			},
+		},
+		{
+			name: "environment, lockID and application are are specified",
+			args: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock"},
+			expectedCmdArgs: &DeleteTeamLockCommandLineArguments{
+				environment: cli_utils.RepeatedString{
+					Values: []string{
+						"development",
+					},
+				},
+				lockId: cli_utils.RepeatedString{
+					Values: []string{
+						"my-lock",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"my-team",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmdArgs, err := readDeleteTeamLockArgs(tc.args)
+			// check errors
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(cmdArgs, tc.expectedCmdArgs, cmp.AllowUnexported(DeleteTeamLockCommandLineArguments{})); diff != "" {
+				t.Fatalf("expected args:\n  %v\n, got:\n  %v, diff:\n  %s\n", tc.expectedCmdArgs, cmdArgs, diff)
+			}
+		})
+	}
+}
+
 func TestParseArgsCreateTeamLock(t *testing.T) {
 	type testCase struct {
 		name           string
@@ -176,6 +282,45 @@ func TestParseArgsCreateTeamLock(t *testing.T) {
 			t.Parallel()
 
 			params, err := ParseArgsCreateTeamLock(tc.cmdArgs)
+			// check errors
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			// check result
+			if diff := cmp.Diff(tc.expectedParams, params); diff != "" {
+				t.Fatalf("expected args:\n  %v\n, got:\n  %v\n, diff:\n  %s\n", tc.expectedParams, params, diff)
+			}
+		})
+	}
+}
+
+func TestParseArgsDeleteTeamLock(t *testing.T) {
+	type testCase struct {
+		name           string
+		cmdArgs        []string
+		expectedParams LockParameters
+		expectedError  error
+	}
+
+	tcs := []testCase{
+		{
+			name:    "with environment and lockID and team",
+			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock"},
+			expectedParams: &DeleteTeamLockParameters{
+				Environment: "development",
+				LockId:      "my-lock",
+				Team:        "my-team",
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			params, err := ParseArgsDeleteTeamLock(tc.cmdArgs)
 			// check errors
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
