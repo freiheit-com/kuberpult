@@ -710,7 +710,7 @@ message GetFailedEslsResponse {
 
 enum CommitDeploymentStatus {
     UNKNOWN = 0;
-    NOT_DEPLOYED = 1;
+    PENDING = 1;
     DEPLOYED = 2;
 }
 

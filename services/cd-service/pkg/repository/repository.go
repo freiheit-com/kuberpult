@@ -2279,8 +2279,9 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 					currentEvent := event.DBEventGo{
 						EventData: fsEvent,
 						EventMetadata: event.Metadata{
-							Uuid:      fileName,
-							EventType: string(eType),
+							Uuid:           fileName,
+							EventType:      string(eType),
+							ReleaseVersion: 0, // don't care about release version for this event
 						},
 					}
 					eventJson, err := json.Marshal(currentEvent)
