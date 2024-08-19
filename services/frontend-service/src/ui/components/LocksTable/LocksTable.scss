@@ -15,37 +15,40 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 @use '@material/data-table/data-table';
 
-.mdc-data-table__table {
-    width: 100%;
-    table-layout: fixed;
-}
-
-.mdc-data-table {
+.locks-table {
+    position: relative;
+    min-width: fit-content;
+    max-width: calc(100vw - $sidebar-width - 100px); // full size minus the planned actions bar minus some buffer
     margin: $locks-list-margin;
-}
 
-.mdc-data-indicator {
-    background-color: var(--mdc-theme-primary);
-    color: var(--mdc-theme-on-primary);
-    height: $locks-list-header-height;
-    border-radius: $locks-list-header-border-radius;
-    @extend .text-regular;
-
-    .mdc-data-indicator-header {
-        display: flex;
-        padding-inline: $locks-list-header-padding;
+    .mdc-data-table__table {
+        width: 100%;
+        table-layout: inherit;
     }
 
-    .mdc-data-header-title {
-        @extend .headline1;
-    }
+    .mdc-data-indicator {
+        background-color: var(--mdc-theme-primary);
+        color: var(--mdc-theme-on-primary);
+        height: $locks-list-header-height;
+        border-radius: $locks-list-header-border-radius;
+        @extend .text-regular;
 
-    .mdc-data-indicator-field {
-        flex: 1;
-        @extend .sub-headline1;
-    }
+        .mdc-data-indicator-header {
+            display: flex;
+            padding-inline: $locks-list-header-padding;
+        }
 
-    .mdc-data-indicator-sort-button {
-        padding-inline: 0;
+        .mdc-data-header-title {
+            @extend .headline1;
+        }
+
+        .mdc-data-indicator-field {
+            flex: 1;
+            @extend .sub-headline1;
+        }
+
+        .mdc-data-indicator-sort-button {
+            padding-inline: 0;
+        }
     }
 }
