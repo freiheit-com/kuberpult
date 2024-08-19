@@ -152,6 +152,19 @@ func (e *AppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	}, nil
 }
 
+func (e *DeleteAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
+	prefix := "environments"
+	if e.UseDexAuthentication {
+		prefix = "api/environments"
+	}
+	return &HttpInfo{
+		jsonData:    []byte{},
+		ContentType: "application/json",
+		HttpMethod:  http.MethodDelete,
+		RestPath:    fmt.Sprintf("%s/%s/applications/%s/locks/%s", prefix, e.Environment, e.Application, e.LockId),
+	}, nil
+}
+
 func (e *TeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
