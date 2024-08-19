@@ -709,9 +709,9 @@ message GetFailedEslsResponse {
 }
 
 enum CommitDeploymentStatus {
-    DEPLOYED = 0;
+    UNKNOWN = 0;
     NOT_DEPLOYED = 1;
-    UNKNOWN = 2;
+    DEPLOYED = 2;
 }
 
 service CommitDeploymentService {
