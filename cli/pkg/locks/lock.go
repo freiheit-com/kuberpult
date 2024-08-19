@@ -115,11 +115,11 @@ func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
+
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
 	}
-
 	prefix := "environments"
 	if e.UseDexAuthentication {
 		prefix = "api/environments"
