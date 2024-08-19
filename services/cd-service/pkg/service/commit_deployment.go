@@ -57,7 +57,7 @@ func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit,
 			return err
 		}
 		// Get all deployments for the commit
-		query = h.AdaptQuery("SELECT json FROM all_deployments WHERE appname = ? ORDER BY timestamp DESC LIMIT 1;")
+		query = h.AdaptQuery("SELECT json FROM all_deployments WHERE appname = ? ORDER BY eslversion DESC LIMIT 1;")
 		row = transaction.QueryRow(query, app)
 		err = row.Scan(&jsonAllDeploymentsMetadata)
 		if err != nil {
