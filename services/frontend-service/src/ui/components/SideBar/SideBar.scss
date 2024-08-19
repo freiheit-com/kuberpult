@@ -123,10 +123,6 @@ Copyright freiheit.com*/
     height: 85vh;
 }
 
-.actions-cart__lock-message {
-    background: var(--mdc-theme-background);
-    position: relative;
-}
 
 .mdc-drawer-sidebar .mdc-drawer-sidebar-footer-input {
     border: 2px solid #f2f5f7;
@@ -147,6 +143,10 @@ Copyright freiheit.com*/
     height: $sidebar-apply-button-height;
     border-radius: 0 0 0 $border-radius-large;
     @extend .sub-headline1;
+
+    .sidebar-apply-button-hidden {
+        display: none;
+    }
 }
 
 .mdc-drawer__drawer {

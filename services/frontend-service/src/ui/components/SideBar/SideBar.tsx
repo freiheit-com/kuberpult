@@ -468,6 +468,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
         setLockMessage(e.target.value);
     }, []);
 
+    const showApply = useMemo(() => actions.length > 0, [actions.length]);
     const canApply = useMemo(
         () => actions.length > 0 && (!newLockExists || lockMessage),
         [actions.length, lockMessage, newLockExists]
@@ -568,7 +569,8 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                         className={classNames(
                             'mdc-sidebar-sidebar-footer',
                             'mdc-button--unelevated',
-                            'mdc-drawer-sidebar-apply-button'
+                            'mdc-drawer-sidebar-apply-button',
+                            { 'sidebar-apply-button-hidden': !showApply }
                         )}
                         label={'Apply'}
                         disabled={!canApply}
