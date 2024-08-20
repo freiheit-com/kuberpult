@@ -3747,6 +3747,9 @@ func (c *envReleaseTrain) Transform(
 		return "", prognosis.Error
 	}
 	if prognosis.SkipCause != nil {
+		if !c.WriteCommitData {
+			return renderEnvironmentSkipCause(prognosis.SkipCause), nil
+		}
 		for appName := range prognosis.AppsPrognoses {
 			release, err := state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
 			if err != nil {
@@ -3754,7 +3757,6 @@ func (c *envReleaseTrain) Transform(
 			}
 			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
 			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, prognosis.FirstLockMessage, "environment")
-
 			if state.DBHandler.ShouldUseOtherTables() {
 				commitID, err := getCommitID(ctx, transaction, state, state.Filesystem, release, releaseDir, appName)
 				if err != nil {
