@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -54,20 +55,31 @@ func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit,
 		row := transaction.QueryRow(query, commit, "new-release")
 		err := row.Scan(&jsonCommitEventsMetadata)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("commit \"%s\" could not be found", commit)
+			}
 			return err
 		}
+
 		// Get all deployments for the commit
 		query = h.AdaptQuery("SELECT json FROM all_deployments WHERE appname = ? ORDER BY eslversion DESC LIMIT 1;")
 		row = transaction.QueryRow(query, app)
 		err = row.Scan(&jsonAllDeploymentsMetadata)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("application \"%s\" does not exist or has no deployments yet.", app)
+			}
 			return err
 		}
+
 		// Get all environments
 		query = h.AdaptQuery("SELECT json FROM all_environments ORDER BY version DESC LIMIT 1;")
 		row = transaction.QueryRow(query)
 		err = row.Scan(&jsonAllEnvironmentsMetadata)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("no environments exist")
+			}
 			return err
 		}
 		return nil
