@@ -3747,6 +3747,9 @@ func (c *envReleaseTrain) Transform(
 		return "", prognosis.Error
 	}
 	if prognosis.SkipCause != nil {
+		if !c.WriteCommitData {
+			return renderEnvironmentSkipCause(prognosis.SkipCause), nil
+		}
 		for appName := range prognosis.AppsPrognoses {
 			release, err := state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
 			if err != nil {
@@ -3754,23 +3757,21 @@ func (c *envReleaseTrain) Transform(
 			}
 			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
 			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, prognosis.FirstLockMessage, "environment")
-			if c.WriteCommitData {
-				if state.DBHandler.ShouldUseOtherTables() {
-					commitID, err := getCommitID(ctx, transaction, state, state.Filesystem, release, releaseDir, appName)
-					if err != nil {
-						logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
-					} else {
-						gen := getGenerator(ctx)
-						eventUuid := gen.Generate()
-						err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, commitID, newEvent)
-						if err != nil {
-							return "", GetCreateReleaseGeneralFailure(err)
-						}
-					}
+			if state.DBHandler.ShouldUseOtherTables() {
+				commitID, err := getCommitID(ctx, transaction, state, state.Filesystem, release, releaseDir, appName)
+				if err != nil {
+					logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 				} else {
-					if err := addEventForRelease(ctx, state.Filesystem, releaseDir, newEvent); err != nil {
-						return "", err
+					gen := getGenerator(ctx)
+					eventUuid := gen.Generate()
+					err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, commitID, newEvent)
+					if err != nil {
+						return "", GetCreateReleaseGeneralFailure(err)
 					}
+				}
+			} else {
+				if err := addEventForRelease(ctx, state.Filesystem, releaseDir, newEvent); err != nil {
+					return "", err
 				}
 			}
 		}
