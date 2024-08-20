@@ -720,9 +720,12 @@ service CommitDeploymentService {
 
 message GetCommitDeploymentInfoRequest {
   string commit_id = 1;
-  string application = 2;
+}
+
+message AppCommitDeploymentStatus {
+    map<string, CommitDeploymentStatus> deployment_status = 1;
 }
 
 message GetCommitDeploymentInfoResponse {
-    map<string, CommitDeploymentStatus> deployment_status = 1;
+    map<string,AppCommitDeploymentStatus> deployment_status = 1;
 }

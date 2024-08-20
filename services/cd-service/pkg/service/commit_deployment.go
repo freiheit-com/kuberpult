@@ -35,16 +35,42 @@ type CommitDeploymentServer struct {
 }
 
 func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in *api.GetCommitDeploymentInfoRequest) (*api.GetCommitDeploymentInfoResponse, error) {
-	status, err := getCommitDeploymentInfoForApp(ctx, s.DBHandler, in.CommitId, in.Application)
+	commitDeploymentStatus := make(map[string]*api.AppCommitDeploymentStatus, 0)
+	var jsonAllApplicationsMetadata []byte
+	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		// Get all applications
+		query := s.DBHandler.AdaptQuery("SELECT json FROM all_apps ORDER BY version DESC LIMIT 1;")
+		row := transaction.QueryRow(query)
+		err := row.Scan(&jsonAllApplicationsMetadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("No applications found")
+			}
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("Could not get commit deployment info: %v", err)
+		return nil, err
 	}
+	apps, err := getAllApplications(jsonAllApplicationsMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get all applications: %v", err)
+	}
+	for _, app := range apps {
+		commitDeploymentStatusForApp, err := getCommitDeploymentInfoForApp(ctx, s.DBHandler, in.CommitId, app)
+		if err != nil {
+			return nil, fmt.Errorf("Could not get commit deployment info for app %s: %v", app, err)
+		}
+		commitDeploymentStatus[app] = commitDeploymentStatusForApp
+	}
+
 	return &api.GetCommitDeploymentInfoResponse{
-		DeploymentStatus: status,
+		DeploymentStatus: commitDeploymentStatus,
 	}, nil
 }
 
-func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit, app string) (CommitStatus, error) {
+func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit, app string) (*api.AppCommitDeploymentStatus, error) {
 	var jsonCommitEventsMetadata []byte
 	var jsonAllDeploymentsMetadata []byte
 	var jsonAllEnvironmentsMetadata []byte
@@ -101,7 +127,9 @@ func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit,
 	}
 
 	commitStatus := getCommitStatus(releaseNumber, environmentReleases, allEnvironments)
-	return commitStatus, nil
+	return &api.AppCommitDeploymentStatus{
+		DeploymentStatus: commitStatus,
+	}, nil
 }
 
 func getCommitStatus(commitReleaseNumber uint64, environmentReleases map[string]uint64, allEnvironments []string) CommitStatus {
@@ -116,7 +144,7 @@ func getCommitStatus(commitReleaseNumber uint64, environmentReleases map[string]
 	}
 
 	for _, env := range allEnvironments {
-		// by defauly, a commit is pending in all environments
+		// by default, a commit is pending in all environments
 		commitStatus[env] = api.CommitDeploymentStatus_PENDING
 	}
 
@@ -165,4 +193,15 @@ func getEnvironmentReleases(jsonInput []byte) (map[string]uint64, error) {
 		return nil, err
 	}
 	return releases, nil
+}
+
+func getAllApplications(jsonInput []byte) ([]string, error) {
+	applications := db.AllApplicationsJson{
+		Apps: []string{},
+	}
+	err := json.Unmarshal(jsonInput, &applications)
+	if err != nil {
+		return nil, err
+	}
+	return applications.Apps, nil
 }
