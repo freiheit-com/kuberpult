@@ -115,11 +115,11 @@ func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitR
 
 	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
 	defer span.Finish()
+	span.SetTag("app", app)
 
 	err := h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		// Get all deployments for the application
 		query := h.AdaptQuery("SELECT json FROM all_deployments WHERE appname = ? ORDER BY eslversion DESC LIMIT 1;")
-		span.SetTag("query", query)
 		row := transaction.QueryRow(query, app)
 		err := row.Scan(&jsonAllDeploymentsMetadata)
 		if err != nil {
