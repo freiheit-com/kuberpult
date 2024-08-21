@@ -26,6 +26,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type CommitStatus map[string]api.CommitDeploymentStatus
@@ -39,6 +40,10 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 	var jsonAllApplicationsMetadata []byte
 	var jsonCommitEventsMetadata []byte
 	var jsonAllEnvironmentsMetadata []byte
+
+	span, _ := tracer.StartSpanFromContext(ctx, "GetCommitDeploymentInfo")
+	defer span.Finish()
+	span.SetTag("commit_id", in.CommitId)
 
 	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		// Get all applications
@@ -108,9 +113,13 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []string) (*api.AppCommitDeploymentStatus, error) {
 	var jsonAllDeploymentsMetadata []byte
 
+	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
+	defer span.Finish()
+
 	err := h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		// Get all deployments for the application
 		query := h.AdaptQuery("SELECT json FROM all_deployments WHERE appname = ? ORDER BY eslversion DESC LIMIT 1;")
+		span.SetTag("query", query)
 		row := transaction.QueryRow(query, app)
 		err := row.Scan(&jsonAllDeploymentsMetadata)
 		if err != nil {
