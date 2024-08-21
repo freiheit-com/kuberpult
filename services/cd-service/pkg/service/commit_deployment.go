@@ -37,6 +37,9 @@ type CommitDeploymentServer struct {
 func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in *api.GetCommitDeploymentInfoRequest) (*api.GetCommitDeploymentInfoResponse, error) {
 	commitDeploymentStatus := make(map[string]*api.AppCommitDeploymentStatus, 0)
 	var jsonAllApplicationsMetadata []byte
+	var jsonCommitEventsMetadata []byte
+	var jsonAllEnvironmentsMetadata []byte
+
 	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		// Get all applications
 		query := s.DBHandler.AdaptQuery("SELECT json FROM all_apps ORDER BY version DESC LIMIT 1;")
@@ -48,58 +51,20 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 			}
 			return err
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	apps, err := getAllApplications(jsonAllApplicationsMetadata)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get all applications: %v", err)
-	}
-	for _, app := range apps {
-		commitDeploymentStatusForApp, err := getCommitDeploymentInfoForApp(ctx, s.DBHandler, in.CommitId, app)
-		if err != nil {
-			return nil, fmt.Errorf("Could not get commit deployment info for app %s: %v", app, err)
-		}
-		commitDeploymentStatus[app] = commitDeploymentStatusForApp
-	}
 
-	return &api.GetCommitDeploymentInfoResponse{
-		DeploymentStatus: commitDeploymentStatus,
-	}, nil
-}
-
-func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit, app string) (*api.AppCommitDeploymentStatus, error) {
-	var jsonCommitEventsMetadata []byte
-	var jsonAllDeploymentsMetadata []byte
-	var jsonAllEnvironmentsMetadata []byte
-
-	err := h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		// Get the latest new-release event for the commit
-		query := h.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
-		row := transaction.QueryRow(query, commit, "new-release")
-		err := row.Scan(&jsonCommitEventsMetadata)
+		query = s.DBHandler.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
+		row = transaction.QueryRow(query, in.CommitId, "new-release")
+		err = row.Scan(&jsonCommitEventsMetadata)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("commit \"%s\" could not be found", commit)
-			}
-			return err
-		}
-
-		// Get all deployments for the commit
-		query = h.AdaptQuery("SELECT json FROM all_deployments WHERE appname = ? ORDER BY eslversion DESC LIMIT 1;")
-		row = transaction.QueryRow(query, app)
-		err = row.Scan(&jsonAllDeploymentsMetadata)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("application \"%s\" does not exist or has no deployments yet.", app)
+				return fmt.Errorf("commit \"%s\" could not be found", in.CommitId)
 			}
 			return err
 		}
 
 		// Get all environments
-		query = h.AdaptQuery("SELECT json FROM all_environments ORDER BY version DESC LIMIT 1;")
+		query = s.DBHandler.AdaptQuery("SELECT json FROM all_environments ORDER BY version DESC LIMIT 1;")
 		row = transaction.QueryRow(query)
 		err = row.Scan(&jsonAllEnvironmentsMetadata)
 		if err != nil {
@@ -113,6 +78,11 @@ func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit,
 	if err != nil {
 		return nil, err
 	}
+
+	apps, err := getAllApplications(jsonAllApplicationsMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get all applications: %v", err)
+	}
 	releaseNumber, err := getCommitReleaseNumber(jsonCommitEventsMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get commit release number from commit_events metadata: %v", err)
@@ -121,12 +91,46 @@ func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commit,
 	if err != nil {
 		return nil, fmt.Errorf("Could not get all environments from all_environments metadata: %v", err)
 	}
+
+	for _, app := range apps {
+		commitDeploymentStatusForApp, err := getCommitDeploymentInfoForApp(ctx, s.DBHandler, releaseNumber, app, allEnvironments)
+		if err != nil {
+			return nil, fmt.Errorf("Could not get commit deployment info for app %s: %v", app, err)
+		}
+		commitDeploymentStatus[app] = commitDeploymentStatusForApp
+	}
+
+	return &api.GetCommitDeploymentInfoResponse{
+		DeploymentStatus: commitDeploymentStatus,
+	}, nil
+}
+
+func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []string) (*api.AppCommitDeploymentStatus, error) {
+	var jsonAllDeploymentsMetadata []byte
+
+	err := h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		// Get all deployments for the application
+		query := h.AdaptQuery("SELECT json FROM all_deployments WHERE appname = ? ORDER BY eslversion DESC LIMIT 1;")
+		row := transaction.QueryRow(query, app)
+		err := row.Scan(&jsonAllDeploymentsMetadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("application \"%s\" does not exist or has no deployments yet.", app)
+			}
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	environmentReleases, err := getEnvironmentReleases(jsonAllDeploymentsMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get environment releases from all_deployments metadata: %v", err)
 	}
-
-	commitStatus := getCommitStatus(releaseNumber, environmentReleases, allEnvironments)
+	commitStatus := getCommitStatus(commitReleaseNumber, environmentReleases, environments)
 	return &api.AppCommitDeploymentStatus{
 		DeploymentStatus: commitStatus,
 	}, nil
