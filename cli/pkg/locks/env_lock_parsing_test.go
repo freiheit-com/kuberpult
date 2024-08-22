@@ -284,3 +284,42 @@ func TestParseArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestParseArgsDeleteEnvLock(t *testing.T) {
+	type testCase struct {
+		name           string
+		cmdArgs        []string
+		expectedParams LockParameters
+		expectedError  error
+	}
+
+	tcs := []testCase{
+		{
+			name:    "with environment and lockID and message",
+			cmdArgs: []string{"--environment", "development", "--lockID", "my-lock"},
+			expectedParams: &DeleteEnvironmentLockParameters{
+				Environment:          "development",
+				LockId:               "my-lock",
+				UseDexAuthentication: false,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			params, err := ParseArgsDeleteEnvironmentLock(tc.cmdArgs)
+			// check errors
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			// check result
+			if diff := cmp.Diff(tc.expectedParams, params); diff != "" {
+				t.Fatalf("expected args:\n  %v\n, got:\n  %v\n, diff:\n  %s\n", tc.expectedParams, params, diff)
+			}
+		})
+	}
+}
