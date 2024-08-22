@@ -151,10 +151,7 @@ func (e *TeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal TeamLockParameters data to json: %w\n", err)
 	}
-	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
+	prefix := "api/environments"
 	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
