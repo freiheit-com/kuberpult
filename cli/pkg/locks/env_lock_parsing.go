@@ -123,7 +123,7 @@ func readDeleteEnvLockArgs(args []string) (*DeleteEnvLockCommandLineArguments, e
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
 	fs.Var(&cmdArgs.environment, "environment", "the environment to delete the lock for")
-	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
+	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to delete")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
