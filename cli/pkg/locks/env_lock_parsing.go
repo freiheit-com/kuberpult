@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
-	"net/http"
 	"strings"
 )
 
@@ -81,7 +80,6 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 		Environment:          cmdArgs.environment.Values[0],
 		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
-		HttpMethod:           http.MethodPut,
 	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
