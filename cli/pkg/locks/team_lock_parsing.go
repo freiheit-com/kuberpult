@@ -84,7 +84,7 @@ func convertToCreateTeamLockParams(cmdArgs CreateTeamLockCommandLineArguments) (
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
 		Team:                 cmdArgs.team.Values[0],
-		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
+		UseDexAuthentication: true, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
 	}
 	if len(cmdArgs.message.Values) != 0 {
@@ -160,7 +160,7 @@ func convertToDeleteTeamLockParams(cmdArgs DeleteTeamLockCommandLineArguments) (
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
 		Team:                 cmdArgs.team.Values[0],
-		UseDexAuthentication: false,
+		UseDexAuthentication: true,
 	}
 	return &rp, nil
 }
