@@ -35,7 +35,6 @@ type CreateEnvironmentLockParameters struct {
 	Environment          string
 	LockId               string
 	Message              string
-	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -45,12 +44,17 @@ type DeleteEnvironmentLockParameters struct {
 	UseDexAuthentication bool
 }
 
-type AppLockParameters struct {
+type CreateAppLockParameters struct {
 	Environment          string
 	LockId               string
 	Message              string
 	Application          string
-	HttpMethod           string
+	UseDexAuthentication bool
+}
+type DeleteAppLockParameters struct {
+	Environment          string
+	LockId               string
+	Application          string
 	UseDexAuthentication bool
 }
 
@@ -132,13 +136,13 @@ func (e *DeleteEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	}, nil
 }
 
-func (e *AppLockParameters) FillHttpInfo() (*HttpInfo, error) {
+func (e *CreateAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
-		return nil, fmt.Errorf("Could not marshal AppLockParameters data to json: %w\n", err)
+		return nil, fmt.Errorf("Could not marshal CreateAppLockParameters data to json: %w\n", err)
 	}
 	prefix := "environments"
 	if e.UseDexAuthentication {
