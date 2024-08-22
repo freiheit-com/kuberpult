@@ -58,7 +58,6 @@ func readCreateTeamLockArgs(args []string) (*CreateTeamLockCommandLineArguments,
 	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
 	fs.Var(&cmdArgs.message, "message", "lock message")
 	fs.Var(&cmdArgs.team, "team", "application to lock")
-	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -86,7 +85,7 @@ func convertToCreateTeamLockParams(cmdArgs CreateTeamLockCommandLineArguments) (
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
 		Team:                 cmdArgs.team.Values[0],
-		UseDexAuthentication: cmdArgs.useDexAuthentication,
+		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
 	}
 	if len(cmdArgs.message.Values) != 0 {

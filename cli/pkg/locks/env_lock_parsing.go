@@ -53,7 +53,6 @@ func readCreateEnvLockArgs(args []string) (*CreateEnvLockCommandLineArguments, e
 	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
 	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.message, "message", "lock message")
-	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -80,7 +79,7 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 	rp := EnvironmentLockParameters{
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
-		UseDexAuthentication: cmdArgs.useDexAuthentication,
+		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
 	}
 	if len(cmdArgs.message.Values) != 0 {

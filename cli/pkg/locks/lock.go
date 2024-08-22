@@ -90,10 +90,6 @@ func CreateLock(requestParams kutil.RequestParameters, authParams kutil.Authenti
 
 func (e *EnvironmentLockParameters) GetRestPath() string {
 	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
-
 	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.Environment, e.LockId)
 }
 
@@ -113,10 +109,6 @@ func (e *EnvironmentLockParameters) FillForm() (*HttpFormDataInfo, error) {
 
 func (e *AppLockParameters) GetRestPath() string {
 	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
-
 	return fmt.Sprintf("%s/%s/applications/%s/locks/%s", prefix, e.Environment, e.Application, e.LockId)
 }
 
@@ -135,10 +127,7 @@ func (e *AppLockParameters) FillForm() (*HttpFormDataInfo, error) {
 }
 
 func (e *TeamLockParameters) GetRestPath() string {
-	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
+	prefix := "api/environments"
 	return fmt.Sprintf("%s/%s/lock/team/%s/%s", prefix, e.Environment, e.Team, e.LockId)
 }
 
@@ -158,9 +147,6 @@ func (e *TeamLockParameters) FillForm() (*HttpFormDataInfo, error) {
 
 func (e *EnvironmentGroupLockParameters) GetRestPath() string {
 	prefix := "environment-groups"
-	if e.UseDexAuthentication {
-		prefix = "api/environment-groups"
-	}
 	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.EnvironmentGroup, e.LockId)
 }
 
