@@ -172,7 +172,7 @@ func ParseArgsDeleteTeamLock(args []string) (LockParameters, error) {
 	}
 	rp, err := convertToDeleteTeamLockParams(*cmdArgs)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating parameters for team lock, error: %w", err)
+		return nil, fmt.Errorf("error while creating parameters for deleting team lock, error: %w", err)
 	}
 	return rp, nil
 }

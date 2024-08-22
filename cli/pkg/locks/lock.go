@@ -207,14 +207,6 @@ func (e *DeleteTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	}, nil
 }
 
-func (e *EnvironmentGroupLockParameters) GetRestPath() string {
-	prefix := "environment-groups"
-	if e.UseDexAuthentication {
-		prefix = "api/environment-groups"
-	}
-	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.EnvironmentGroup, e.LockId)
-}
-
 func (e *EnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
