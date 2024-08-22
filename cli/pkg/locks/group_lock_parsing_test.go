@@ -139,7 +139,7 @@ func TestParseEnvGroupArgs(t *testing.T) {
 		{
 			name:    "with environment and lockID and message",
 			cmdArgs: []string{"--environment-group", "development", "--lockID", "my-lock", "--message", "message"},
-			expectedParams: &EnvironmentGroupLockParameters{
+			expectedParams: &CreateEnvironmentGroupLockParameters{
 				EnvironmentGroup: "development",
 				LockId:           "my-lock",
 				Message:          "message",
@@ -148,7 +148,7 @@ func TestParseEnvGroupArgs(t *testing.T) {
 		{
 			name:    "with environment and lockID and no message",
 			cmdArgs: []string{"--environment-group", "development", "--lockID", "my-lock"},
-			expectedParams: &EnvironmentGroupLockParameters{
+			expectedParams: &CreateEnvironmentGroupLockParameters{
 				EnvironmentGroup: "development",
 				LockId:           "my-lock",
 				Message:          "",
@@ -158,7 +158,7 @@ func TestParseEnvGroupArgs(t *testing.T) {
 		{
 			name:    "with environment and lockID and multi word message message",
 			cmdArgs: []string{"--environment-group", "development", "--lockID", "my-lock", "--message", "this is a very long message"},
-			expectedParams: &EnvironmentGroupLockParameters{
+			expectedParams: &CreateEnvironmentGroupLockParameters{
 				EnvironmentGroup: "development",
 				LockId:           "my-lock",
 				Message:          "this is a very long message",
