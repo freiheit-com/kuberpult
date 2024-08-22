@@ -56,7 +56,7 @@ func readCreateTeamLockArgs(args []string) (*CreateTeamLockCommandLineArguments,
 	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
 	fs.Var(&cmdArgs.message, "message", "lock message")
-	fs.Var(&cmdArgs.team, "team", "application to lock")
+	fs.Var(&cmdArgs.team, "team", "team to lock")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -106,10 +106,9 @@ func ParseArgsCreateTeamLock(args []string) (LockParameters, error) {
 }
 
 type DeleteTeamLockCommandLineArguments struct {
-	environment          cli_utils.RepeatedString
-	lockId               cli_utils.RepeatedString
-	team                 cli_utils.RepeatedString
-	useDexAuthentication bool
+	environment cli_utils.RepeatedString
+	lockId      cli_utils.RepeatedString
+	team        cli_utils.RepeatedString
 }
 
 func argsValidDeleteTeamLock(cmdArgs *DeleteTeamLockCommandLineArguments) (result bool, errorMessage string) {
@@ -131,10 +130,9 @@ func readDeleteTeamLockArgs(args []string) (*DeleteTeamLockCommandLineArguments,
 
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
-	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
-	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
-	fs.Var(&cmdArgs.team, "team", "application to lock")
-	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
+	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to delete")
+	fs.Var(&cmdArgs.environment, "environment", "the environment of the lock you are trying to delete")
+	fs.Var(&cmdArgs.team, "team", "the team of the lock you are trying to delete")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -162,7 +160,7 @@ func convertToDeleteTeamLockParams(cmdArgs DeleteTeamLockCommandLineArguments) (
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
 		Team:                 cmdArgs.team.Values[0],
-		UseDexAuthentication: cmdArgs.useDexAuthentication,
+		UseDexAuthentication: false,
 	}
 	return &rp, nil
 }
