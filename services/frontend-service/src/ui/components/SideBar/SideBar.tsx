@@ -553,6 +553,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
 
     return (
         <aside className={className}>
+            <strong className="sub-headline1">Planned Actions</strong>
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
                 <nav className="mdc-drawer-sidebar mdc-drawer-sidebar-content">
                     <div className="mdc-drawer-sidebar mdc-drawer-sidebar-list">

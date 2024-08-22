@@ -112,29 +112,32 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
     const renderedUser = cookieValue ? (
-        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--wide-filter">
             <span className="welcome-message">
                 Welcome, <strong>{loggedInUser}!</strong>
             </span>
         </div>
     ) : (
-        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end"></div>
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--wide-filter"></div>
     );
     return (
         <div className="mdc-top-app-bar">
-            <div className="mdc-top-app-bar__row">
-                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                    <span className="mdc-top-app-bar__title">
-                        Kuberpult <KuberpultGitHubLink version={version} />
-                    </span>
+            <div className="top-app-bar__sidebarrow">
+                <div className="top-app-bar__mainsection">
+                    <div className="mdc-top-app-bar__row">
+                        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+                            <span className="mdc-top-app-bar__title">
+                                Kuberpult <KuberpultGitHubLink version={version} />
+                            </span>
+                        </div>
+                        {renderedAppFilter}
+                        {renderedTeamsFilter}
+                        {renderedWarningsFilter}
+                        {renderedWarnings}
+                        {renderedUser}
+                    </div>
                 </div>
-                {renderedAppFilter}
-                {renderedTeamsFilter}
-                {renderedWarningsFilter}
-                {renderedWarnings}
-                {renderedUser}
-                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-                    <strong className="sub-headline1">Planned Actions</strong>
+                <div className="top-app-bar__sidebarsection">
                     <SideBar
                         className={classNames(
                             `mdc-drawer-sidebar mdc-drawer-sidebar-container`,
