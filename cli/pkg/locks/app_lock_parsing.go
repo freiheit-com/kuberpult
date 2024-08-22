@@ -164,11 +164,11 @@ func convertToDeleteAppLockParams(cmdArgs DeleteAppLockCommandLineArguments) (Lo
 func ParseArgsDeleteAppLock(args []string) (LockParameters, error) {
 	cmdArgs, err := readDeleteAppLockArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading command line arguments for creating an app lock, error: %w", err)
+		return nil, fmt.Errorf("error while reading command line arguments for deleting an app lock, error: %w", err)
 	}
 	rp, err := convertToDeleteAppLockParams(*cmdArgs)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating parameters for creating an application lock, error: %w", err)
+		return nil, fmt.Errorf("error while creating parameters for deleting an application lock, error: %w", err)
 	}
 	return rp, nil
 }
