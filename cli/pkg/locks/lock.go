@@ -63,7 +63,6 @@ type TeamLockParameters struct {
 	LockId               string
 	Message              string
 	Team                 string
-	HttpMethod           string
 	UseDexAuthentication bool
 }
 
@@ -71,7 +70,6 @@ type EnvironmentGroupLockParameters struct {
 	EnvironmentGroup     string
 	LockId               string
 	Message              string
-	HttpMethod           string
 	UseDexAuthentication bool
 }
 
