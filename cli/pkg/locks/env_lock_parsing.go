@@ -24,10 +24,9 @@ import (
 )
 
 type CreateEnvLockCommandLineArguments struct {
-	environment          cli_utils.RepeatedString
-	lockId               cli_utils.RepeatedString
-	message              cli_utils.RepeatedString
-	useDexAuthentication bool
+	environment cli_utils.RepeatedString
+	lockId      cli_utils.RepeatedString
+	message     cli_utils.RepeatedString
 }
 
 func argsValidCreateEnvLock(cmdArgs *CreateEnvLockCommandLineArguments) (result bool, errorMessage string) {

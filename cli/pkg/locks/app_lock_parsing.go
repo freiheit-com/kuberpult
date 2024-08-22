@@ -25,11 +25,10 @@ import (
 )
 
 type CreateAppLockCommandLineArguments struct {
-	environment          cli_utils.RepeatedString
-	lockId               cli_utils.RepeatedString
-	message              cli_utils.RepeatedString
-	application          cli_utils.RepeatedString
-	useDexAuthentication bool
+	environment cli_utils.RepeatedString
+	lockId      cli_utils.RepeatedString
+	message     cli_utils.RepeatedString
+	application cli_utils.RepeatedString
 }
 
 func argsValidCreateAppLock(cmdArgs *CreateAppLockCommandLineArguments) (result bool, errorMessage string) {

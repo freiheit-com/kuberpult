@@ -25,11 +25,10 @@ import (
 )
 
 type CreateTeamLockCommandLineArguments struct {
-	environment          cli_utils.RepeatedString
-	lockId               cli_utils.RepeatedString
-	message              cli_utils.RepeatedString
-	team                 cli_utils.RepeatedString
-	useDexAuthentication bool
+	environment cli_utils.RepeatedString
+	lockId      cli_utils.RepeatedString
+	message     cli_utils.RepeatedString
+	team        cli_utils.RepeatedString
 }
 
 func argsValidCreateTeamLock(cmdArgs *CreateTeamLockCommandLineArguments) (result bool, errorMessage string) {
