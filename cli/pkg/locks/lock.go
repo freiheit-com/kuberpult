@@ -44,10 +44,16 @@ type DeleteEnvironmentLockParameters struct {
 	UseDexAuthentication bool
 }
 
-type AppLockParameters struct {
+type CreateAppLockParameters struct {
 	Environment          string
 	LockId               string
 	Message              string
+	Application          string
+	UseDexAuthentication bool
+}
+type DeleteAppLockParameters struct {
+	Environment          string
+	LockId               string
 	Application          string
 	UseDexAuthentication bool
 }
@@ -98,13 +104,15 @@ func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
-
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
 	}
 
 	prefix := "environments"
+	if e.UseDexAuthentication {
+		prefix = "api/environments"
+	}
 	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
@@ -126,19 +134,35 @@ func (e *DeleteEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	}, nil
 }
 
-func (e *AppLockParameters) FillHttpInfo() (*HttpInfo, error) {
+func (e *CreateAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
-		return nil, fmt.Errorf("Could not marshal AppLockParameters data to json: %w\n", err)
+		return nil, fmt.Errorf("Could not marshal CreateAppLockParameters data to json: %w\n", err)
 	}
 	prefix := "environments"
+	if e.UseDexAuthentication {
+		prefix = "api/environments"
+	}
 	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
 		HttpMethod:  http.MethodPut,
+		RestPath:    fmt.Sprintf("%s/%s/applications/%s/locks/%s", prefix, e.Environment, e.Application, e.LockId),
+	}, nil
+}
+
+func (e *DeleteAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
+	prefix := "environments"
+	if e.UseDexAuthentication {
+		prefix = "api/environments"
+	}
+	return &HttpInfo{
+		jsonData:    []byte{},
+		ContentType: "application/json",
+		HttpMethod:  http.MethodDelete,
 		RestPath:    fmt.Sprintf("%s/%s/applications/%s/locks/%s", prefix, e.Environment, e.Application, e.LockId),
 	}, nil
 }
@@ -151,6 +175,7 @@ func (e *TeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal TeamLockParameters data to json: %w\n", err)
 	}
+
 	prefix := "api/environments"
 	return &HttpInfo{
 		jsonData:    jsonData,
