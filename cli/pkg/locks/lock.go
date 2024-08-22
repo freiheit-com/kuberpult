@@ -93,6 +93,7 @@ func (e *EnvironmentLockParameters) GetRestPath() string {
 	if e.UseDexAuthentication {
 		prefix = "api/environments"
 	}
+
 	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.Environment, e.LockId)
 }
 
@@ -115,6 +116,7 @@ func (e *AppLockParameters) GetRestPath() string {
 	if e.UseDexAuthentication {
 		prefix = "api/environments"
 	}
+
 	return fmt.Sprintf("%s/%s/applications/%s/locks/%s", prefix, e.Environment, e.Application, e.LockId)
 }
 
@@ -156,6 +158,7 @@ func (e *EnvironmentGroupLockParameters) GetRestPath() string {
 	if e.UseDexAuthentication {
 		prefix = "api/environment-groups"
 	}
+
 	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.EnvironmentGroup, e.LockId)
 }
 
