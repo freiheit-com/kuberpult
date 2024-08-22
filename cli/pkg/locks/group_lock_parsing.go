@@ -24,10 +24,9 @@ import (
 )
 
 type CreateEnvGroupLockCommandLineArguments struct {
-	environmentGroup     cli_utils.RepeatedString
-	lockId               cli_utils.RepeatedString
-	message              cli_utils.RepeatedString
-	useDexAuthentication bool
+	environmentGroup cli_utils.RepeatedString
+	lockId           cli_utils.RepeatedString
+	message          cli_utils.RepeatedString
 }
 
 func argsValidCreateEnvGroupLock(cmdArgs *CreateEnvGroupLockCommandLineArguments) (result bool, errorMessage string) {
@@ -53,7 +52,6 @@ func readCreateGroupLockArgs(args []string) (*CreateEnvGroupLockCommandLineArgum
 	fs.Var(&cmdArgs.environmentGroup, "environment-group", "the environment-group to lock")
 	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.message, "message", "lock message")
-	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -80,7 +78,7 @@ func convertToCreateGroupLockParams(cmdArgs CreateEnvGroupLockCommandLineArgumen
 	rp := EnvironmentGroupLockParameters{
 		LockId:               cmdArgs.lockId.Values[0],
 		EnvironmentGroup:     cmdArgs.environmentGroup.Values[0],
-		UseDexAuthentication: cmdArgs.useDexAuthentication,
+		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
 	}
 	if len(cmdArgs.message.Values) != 0 {

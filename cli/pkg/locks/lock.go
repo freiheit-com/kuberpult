@@ -135,10 +135,7 @@ func (e *AppLockParameters) FillForm() (*HttpFormDataInfo, error) {
 }
 
 func (e *TeamLockParameters) GetRestPath() string {
-	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
+	prefix := "api/environments"
 	return fmt.Sprintf("%s/%s/lock/team/%s/%s", prefix, e.Environment, e.Team, e.LockId)
 }
 
@@ -161,6 +158,7 @@ func (e *EnvironmentGroupLockParameters) GetRestPath() string {
 	if e.UseDexAuthentication {
 		prefix = "api/environment-groups"
 	}
+
 	return fmt.Sprintf("%s/%s/locks/%s", prefix, e.EnvironmentGroup, e.LockId)
 }
 
