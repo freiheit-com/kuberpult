@@ -452,8 +452,7 @@ describe('Release Dialog', () => {
     };
 
     describe(`Test automatic cart opening`, () => {
-        it('Test using direct call to open function', () => {
-        });
+        it('Test using direct call to open function', () => {});
 
         describe.each(dataLocks)('click handling', (testcase) => {
             it('Test using deploy button click simulation ' + testcase.name, () => {

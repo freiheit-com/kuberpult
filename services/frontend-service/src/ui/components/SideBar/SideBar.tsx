@@ -20,6 +20,7 @@ import {
     deleteAction,
     useActions,
     deleteAllActions,
+    useNumberOfActions,
     showSnackbarSuccess,
     showSnackbarError,
     useAllLocks,
@@ -386,6 +387,14 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
     const api = useApi;
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
 
+    let title = 'Planned Actions';
+    const numActions = useNumberOfActions();
+    if (numActions > 0) {
+        title = 'Planned Actions (' + numActions + ')';
+    } else {
+        title = 'Planned Actions';
+    }
+
     const lockCreationList = actions.filter(
         (action) =>
             action.action?.$case === 'createEnvironmentLock' ||
@@ -553,7 +562,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
 
     return (
         <aside className={className}>
-            <strong className="sub-headline1">Planned Actions</strong>
+            <strong className="sub-headline1">{title}</strong>
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
                 <nav className="mdc-drawer-sidebar mdc-drawer-sidebar-content">
                     <div className="mdc-drawer-sidebar mdc-drawer-sidebar-list">
