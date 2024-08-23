@@ -219,8 +219,7 @@ func (e *DeleteTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	}, nil
 }
 
-func (e *EnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
-
+func (e *CreateEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
