@@ -76,7 +76,7 @@ func handleReleaseTrain(kpClientParams kuberpultClientParameters, args []string)
 	}
 
 	if err = releasetrain.HandleReleaseTrain(requestParameters, authParams, *parsedArgs); err != nil {
-		log.Printf("error on release, error: %v", err)
+		log.Printf("error on release train, error: %v", err)
 		return ReturnCodeFailure
 	}
 	return ReturnCodeSuccess

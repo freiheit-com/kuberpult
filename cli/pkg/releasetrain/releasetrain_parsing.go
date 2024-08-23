@@ -42,14 +42,13 @@ func releaseTrainArgsValid(cmdArgs *ReleaseTrainCommandLineArguments) (result bo
 	return true, ""
 }
 
-// takes the raw command line flags and converts them to an intermediate represnetations for easy validation
 func readArgs(args []string) (*ReleaseTrainCommandLineArguments, error) {
 	cmdArgs := ReleaseTrainCommandLineArguments{} //exhaustruct:ignore
 
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
 	fs.Var(&cmdArgs.targetEnvironment, "target-environment", "the name of the environment to target with the release train (must be set exactly once)")
-	fs.Var(&cmdArgs.team, "team", "the team")
+	fs.Var(&cmdArgs.team, "team", "the target team. Only specified teams services will be taken into account when conducting the release train")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
@@ -67,10 +66,8 @@ func readArgs(args []string) (*ReleaseTrainCommandLineArguments, error) {
 	return &cmdArgs, nil
 }
 
-// converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
 func convertToParams(cmdArgs ReleaseTrainCommandLineArguments) (*ReleaseTrainParameters, error) {
 	if ok, msg := releaseTrainArgsValid(&cmdArgs); !ok {
-		// this should never happen, as the validation is already peformed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
@@ -86,15 +83,14 @@ func convertToParams(cmdArgs ReleaseTrainCommandLineArguments) (*ReleaseTrainPar
 	return &rp, nil
 }
 
-// parses the command line flags provided to the release subcommand (not including the release subcommand itself) into a struct that can be passed to the Release function
 func ParseArgsReleaseTrain(args []string) (*ReleaseTrainParameters, error) {
 	cmdArgs, err := readArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
+		return nil, fmt.Errorf("error while reading command line arguments for running a release train error: %w", err)
 	}
 	rp, err := convertToParams(*cmdArgs)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating /releasetrain endpoint params, error: %w", err)
+		return nil, fmt.Errorf("error while creating endpoint params for running a release train, error: %w", err)
 	}
 
 	return rp, nil
