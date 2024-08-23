@@ -158,11 +158,11 @@ func convertToDeleteGroupLockParams(cmdArgs DeleteEnvGroupLockCommandLineArgumen
 func ParseArgsDeleteGroupLock(args []string) (LockParameters, error) {
 	cmdArgs, err := readDeleteGroupLockArgs(args)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading command line arguments for environment group lock, error: %w", err)
+		return nil, fmt.Errorf("error while reading command line arguments for deleting an environment group lock, error: %w", err)
 	}
 	rp, err := convertToDeleteGroupLockParams(*cmdArgs)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating parameters for creating an environment group lock, error: %w", err)
+		return nil, fmt.Errorf("error while creating parameters for deleting an environment group lock, error: %w", err)
 	}
 
 	return rp, nil
