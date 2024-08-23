@@ -73,10 +73,15 @@ type DeleteTeamLockParameters struct {
 	UseDexAuthentication bool
 }
 
-type EnvironmentGroupLockParameters struct {
+type CreateEnvironmentGroupLockParameters struct {
 	EnvironmentGroup     string
 	LockId               string
 	Message              string
+	UseDexAuthentication bool
+}
+type DeleteEnvironmentGroupLockParameters struct {
+	EnvironmentGroup     string
+	LockId               string
 	UseDexAuthentication bool
 }
 
@@ -111,11 +116,11 @@ func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
+
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
 	}
-
 	prefix := "environments"
 	if e.UseDexAuthentication {
 		prefix = "api/environments"
@@ -207,13 +212,13 @@ func (e *DeleteTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	}, nil
 }
 
-func (e *EnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
+func (e *CreateEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
-		return nil, fmt.Errorf("Could not marshal EnvironmentGroupLockParameters data to json: %w\n", err)
+		return nil, fmt.Errorf("Could not marshal CreateEnvironmentGroupLockParameters data to json: %w\n", err)
 	}
 	prefix := "environment-groups"
 	if e.UseDexAuthentication {
@@ -223,6 +228,19 @@ func (e *EnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
 		jsonData:    jsonData,
 		ContentType: "application/json",
 		HttpMethod:  http.MethodPut,
+		RestPath:    fmt.Sprintf("%s/%s/locks/%s", prefix, e.EnvironmentGroup, e.LockId),
+	}, nil
+}
+
+func (e *DeleteEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
+	prefix := "environment-groups"
+	if e.UseDexAuthentication {
+		prefix = "api/environment-groups"
+	}
+	return &HttpInfo{
+		jsonData:    []byte{},
+		ContentType: "application/json",
+		HttpMethod:  http.MethodDelete,
 		RestPath:    fmt.Sprintf("%s/%s/locks/%s", prefix, e.EnvironmentGroup, e.LockId),
 	}, nil
 }
