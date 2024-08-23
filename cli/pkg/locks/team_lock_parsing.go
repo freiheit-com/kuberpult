@@ -56,7 +56,7 @@ func readCreateTeamLockArgs(args []string) (*CreateTeamLockCommandLineArguments,
 	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
 	fs.Var(&cmdArgs.message, "message", "lock message")
-	fs.Var(&cmdArgs.team, "team", "application to lock")
+	fs.Var(&cmdArgs.team, "team", "team to lock")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -80,11 +80,11 @@ func convertToCreateTeamLockParams(cmdArgs CreateTeamLockCommandLineArguments) (
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
-	rp := TeamLockParameters{
+	rp := CreateTeamLockParameters{
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
 		Team:                 cmdArgs.team.Values[0],
-		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
+		UseDexAuthentication: true, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
 	}
 	if len(cmdArgs.message.Values) != 0 {
@@ -101,6 +101,78 @@ func ParseArgsCreateTeamLock(args []string) (LockParameters, error) {
 	rp, err := convertToCreateTeamLockParams(*cmdArgs)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating parameters for team lock, error: %w", err)
+	}
+	return rp, nil
+}
+
+type DeleteTeamLockCommandLineArguments struct {
+	environment cli_utils.RepeatedString
+	lockId      cli_utils.RepeatedString
+	team        cli_utils.RepeatedString
+}
+
+func argsValidDeleteTeamLock(cmdArgs *DeleteTeamLockCommandLineArguments) (result bool, errorMessage string) {
+	if len(cmdArgs.lockId.Values) != 1 {
+		return false, "the --lockID arg must be set exactly once"
+	}
+	if len(cmdArgs.environment.Values) != 1 {
+		return false, "the --environment arg must be set exactly once"
+	}
+	if len(cmdArgs.team.Values) != 1 {
+		return false, "the --team arg must be set exactly once"
+	}
+
+	return true, ""
+}
+
+func readDeleteTeamLockArgs(args []string) (*DeleteTeamLockCommandLineArguments, error) {
+	cmdArgs := DeleteTeamLockCommandLineArguments{} //exhaustruct:ignore
+
+	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
+
+	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to delete")
+	fs.Var(&cmdArgs.environment, "environment", "the environment of the lock you are trying to delete")
+	fs.Var(&cmdArgs.team, "team", "the team of the lock you are trying to delete")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
+	}
+
+	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
+		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+	}
+
+	if ok, msg := argsValidDeleteTeamLock(&cmdArgs); !ok {
+		return nil, fmt.Errorf(msg)
+	}
+
+	return &cmdArgs, nil
+}
+
+// converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
+func convertToDeleteTeamLockParams(cmdArgs DeleteTeamLockCommandLineArguments) (LockParameters, error) {
+	if ok, msg := argsValidDeleteTeamLock(&cmdArgs); !ok {
+		// this should never happen, as the validation is already peformed by the readArgs function
+		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
+	}
+
+	rp := DeleteTeamLockParameters{
+		LockId:               cmdArgs.lockId.Values[0],
+		Environment:          cmdArgs.environment.Values[0],
+		Team:                 cmdArgs.team.Values[0],
+		UseDexAuthentication: true,
+	}
+	return &rp, nil
+}
+
+func ParseArgsDeleteTeamLock(args []string) (LockParameters, error) {
+	cmdArgs, err := readDeleteTeamLockArgs(args)
+	if err != nil {
+		return nil, fmt.Errorf("error while reading command line arguments for team lock, error: %w", err)
+	}
+	rp, err := convertToDeleteTeamLockParams(*cmdArgs)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating parameters for deleting team lock, error: %w", err)
 	}
 	return rp, nil
 }
