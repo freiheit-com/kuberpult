@@ -16,95 +16,102 @@ Copyright freiheit.com*/
 
 @import '../../../assets/variables';
 
-.service-lane__header {
-    background: var(--mdc-theme-primary);
-    color: var(--mdc-theme-on-primary);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    // the padding here has to be big enough, so that
-    // the border-radius of the whole lane does not break
-    padding: 0 4px 0 0;
-    border-radius: $border-radius-medium;
-    height: $service-lane-header-height;
+.service-lane {
+    position: relative;
+    min-width: fit-content;
+    max-width: calc(100vw - $sidebar-width - 100px); // full size minus the planned actions bar minus some buffer
 
-    white-space: nowrap;
-    .service-lane-name {
-        margin-left: 5px;
-    }
-
-    .service-lane-wrapper {
-        overflow: hidden;
-        @extend .sub-headline1;
+    .service-lane__header {
+        background: var(--mdc-theme-primary);
+        color: var(--mdc-theme-on-primary);
         display: flex;
         align-items: center;
-    }
-
-    .service-action {
-        border: 1px solid var(--mdc-theme-on-primary);
+        justify-content: space-between;
+        // the padding here has to be big enough, so that
+        // the border-radius of the whole lane does not break
+        padding: 0 4px 0 0;
         border-radius: $border-radius-medium;
-        margin-left: $service-lane-header-actions-margin-left;
-        height: $service-lane-header-actions-height;
-        color: var(--mdc-theme-on-primary);
-        .mdc-button__label {
-            padding-left: $service-lane-header-actions-button-padding-left;
-            @extend .text-bold;
+        height: $service-lane-header-height;
+
+        white-space: nowrap;
+        .service-lane-name {
+            margin-left: 5px;
+        }
+
+        .service-lane-wrapper {
+            overflow: hidden;
+            @extend .sub-headline1;
+            display: flex;
+            align-items: center;
+        }
+
+        .service-action {
+            border: 1px solid var(--mdc-theme-on-primary);
+            border-radius: $border-radius-medium;
+            margin-left: $service-lane-header-actions-margin-left;
+            height: $service-lane-header-actions-height;
+            color: var(--mdc-theme-on-primary);
+            .mdc-button__label {
+                padding-left: $service-lane-header-actions-button-padding-left;
+                @extend .text-bold;
+            }
         }
     }
-}
 
-.service__releases {
-    display: flex;
-    margin: $service-lane-releases-margin;
-}
-
-.service-lane__diff {
-    display: flex;
-}
-
-.service-lane__diff--container {
-    display: flex;
-    flex-direction: row;
-    align-self: center;
-    justify-content: space-evenly;
-    width: $service-lane-diff-element-width;
-    opacity: 100%;
-
-    .service-lane__diff--number {
-        @extend .text-bold;
+    .service__releases {
         display: flex;
-        align-items: center;
-        box-sizing: border-box;
-        justify-content: space-evenly;
-
-        // Copied from figma
-        width: 24px;
-        height: 24px;
-        border: 2px solid $service-lane-diff-element-border-color;
-        border-radius: $border-radius-large;
+        margin: $service-lane-releases-margin;
     }
 
-    .service-lane__diff--dot {
+    .service-lane__diff {
+        display: flex;
+    }
+
+    .service-lane__diff--container {
+        display: flex;
+        flex-direction: row;
         align-self: center;
-        box-sizing: border-box;
+        justify-content: space-evenly;
+        width: $service-lane-diff-element-width;
+        opacity: 100%;
 
-        // Copied from figma
-        width: 3px;
-        height: 3px;
-        background: $service-lane-diff-element-border-color;
-        border-radius: $border-radius-large;
-    }
-}
-.service-lane__diff--container:hover {
-    cursor: pointer;
-    opacity: 60%;
-    .service-lane__diff--number {
-        background-color: var(--mdc-theme-surface, #fff);
-    }
-}
+        .service-lane__diff--number {
+            @extend .text-bold;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+            justify-content: space-evenly;
 
-.service-lane__diff--container:active {
-    .service-lane__diff--number {
-        transform: translateY(4px);
+            // Copied from figma
+            width: 24px;
+            height: 24px;
+            border: 2px solid $service-lane-diff-element-border-color;
+            border-radius: $border-radius-large;
+        }
+
+        .service-lane__diff--dot {
+            align-self: center;
+            box-sizing: border-box;
+
+            // Copied from figma
+            width: 3px;
+            height: 3px;
+            background: $service-lane-diff-element-border-color;
+            border-radius: $border-radius-large;
+        }
+    }
+
+    .service-lane__diff--container:hover {
+        cursor: pointer;
+        opacity: 60%;
+        .service-lane__diff--number {
+            background-color: var(--mdc-theme-surface, #fff);
+        }
+    }
+
+    .service-lane__diff--container:active {
+        .service-lane__diff--number {
+            transform: translateY(4px);
+        }
     }
 }

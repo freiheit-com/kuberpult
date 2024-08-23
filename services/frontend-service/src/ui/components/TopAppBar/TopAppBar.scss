@@ -22,24 +22,35 @@ Copyright freiheit.com*/
     padding: $top-app-bar-padding;
     position: fixed;
     width: 100%;
+    max-height: $top-app-bar-height;
     z-index: 4;
 
+    .top-app-bar__sidebarrow {
+        display: flex;
+        flex-flow: row;
+
+        .top-app-bar__mainsection {
+            max-width: calc(100vw - 20em - 100px);
+        }
+
+        .top-app-bar__sidebarsection {
+            width: 20em;
+        }
+    }
     .mdc-top-app-bar__row {
         display: flex;
+        flex-flow: wrap;
+        align-items: stretch;
 
-        .mdc-top-app-bar__section--align-end {
-            padding-right: 0;
-            justify-content: flex-end;
-        }
         .top-app-bar-search-field {
             width: 100%;
             height: 100%;
         }
         .top-app-bar--wide-filter {
-            flex-basis: 400px;
+            flex-basis: 300px;
         }
         .top-app-bar--narrow-filter {
-            flex-basis: 300px;
+            flex-basis: 150px;
             flex-grow: 0.01;
         }
     }
