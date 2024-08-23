@@ -58,12 +58,6 @@ type DeleteAppLockParameters struct {
 	Application          string
 	UseDexAuthentication bool
 }
-type DeleteAppLockParameters struct {
-	Environment          string
-	LockId               string
-	Application          string
-	UseDexAuthentication bool
-}
 
 type CreateTeamLockParameters struct {
 	Environment          string
