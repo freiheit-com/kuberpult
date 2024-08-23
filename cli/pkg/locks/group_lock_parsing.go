@@ -147,7 +147,7 @@ func convertToDeleteGroupLockParams(cmdArgs DeleteEnvGroupLockCommandLineArgumen
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
-	rp := CreateEnvironmentGroupLockParameters{
+	rp := DeleteEnvironmentGroupLockParameters{
 		LockId:               cmdArgs.lockId.Values[0],
 		EnvironmentGroup:     cmdArgs.environmentGroup.Values[0],
 		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
