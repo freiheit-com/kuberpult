@@ -9,7 +9,7 @@ package api.v1;
 
 service GitService {
   rpc GetGitTags (GetGitTagsRequest) returns (GetGitTagsResponse) {}
-  // By "Product" we mean the entire collection of apps 
+  // By "Product" we mean the entire collection of apps
   rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
   rpc GetCommitInfo(GetCommitInfoRequest) returns(GetCommitInfoResponse) {}
 }
@@ -23,7 +23,7 @@ message GetGitTagsResponse {
 
 message GetProductSummaryRequest {
   string commit_hash = 1;
-  optional string environment = 2; 
+  optional string environment = 2;
   optional string environment_group = 3;
 }
 
@@ -399,7 +399,7 @@ message EnvironmentGroup {
 
     Environment priority is calculated based on the location of an environment in a chain. Environment group priority is calculated based on the distance to upstream **and** the maximum global distance to upstream.
     This field therefore characterizes the "layer" of an environment group. The reason it is reusing the name and type of Environment.priority is to keep the calculation of environment colors in the frontend untouched.
-  
+
     Note: proper calculation of this field assumes there is not more than one environment group hierarchy; that is, there is only one group with distance_to_upstream = 0.
   */
   Priority priority = 4;
@@ -706,4 +706,26 @@ message EslItem {
 
 message GetFailedEslsResponse {
   repeated EslItem failed_esls = 1;
+}
+
+enum CommitDeploymentStatus {
+    UNKNOWN = 0;
+    PENDING = 1;
+    DEPLOYED = 2;
+}
+
+service CommitDeploymentService {
+  rpc GetCommitDeploymentInfo (GetCommitDeploymentInfoRequest) returns (GetCommitDeploymentInfoResponse) {}
+}
+
+message GetCommitDeploymentInfoRequest {
+  string commit_id = 1;
+}
+
+message AppCommitDeploymentStatus {
+    map<string, CommitDeploymentStatus> deployment_status = 1;
+}
+
+message GetCommitDeploymentInfoResponse {
+    map<string,AppCommitDeploymentStatus> deployment_status = 1;
 }

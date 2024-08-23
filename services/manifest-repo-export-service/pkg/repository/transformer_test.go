@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"os"
 	"os/exec"
 	"path"
@@ -29,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -590,7 +591,7 @@ func TestDeploymentEvent(t *testing.T) {
 						}
 					}
 				}
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, "00000000-0000-0000-0000-000000000000", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, 1, "00000000-0000-0000-0000-000000000000", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
 					return err
 				}
@@ -789,7 +790,7 @@ func TestReleaseTrain(t *testing.T) {
 						}
 					}
 				}
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 3, "00000000-0000-0000-0000-000000000000", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 3, 1, "00000000-0000-0000-0000-000000000000", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
 					return err
 				}
@@ -1433,11 +1434,11 @@ func TestReplacedByEvents(t *testing.T) {
 					}
 				}
 
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, "00000000-0000-0000-0000-000000000002", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", &event.NewRelease{})
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, 1, "00000000-0000-0000-0000-000000000002", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", &event.NewRelease{})
 				if err != nil {
 					return err
 				}
@@ -1583,7 +1584,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					}
 				}
 
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
 					return err
 				}

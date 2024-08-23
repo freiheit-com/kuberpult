@@ -21,12 +21,13 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os/exec"
 	"path"
 	"testing"
 	gotime "time"
+
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/google/go-cmp/cmp"
@@ -240,7 +241,7 @@ func TestVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, "00000000-0000-0000-0000-000000000003", "deadbeef", &event.NewRelease{Environments: map[string]struct{}{"development": {}}})
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, 1, "00000000-0000-0000-0000-000000000003", "deadbeef", &event.NewRelease{Environments: map[string]struct{}{"development": {}}})
 				if err != nil {
 					return err
 				}

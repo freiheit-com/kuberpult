@@ -920,14 +920,14 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 	return nil
 }
 
-func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) error {
-	//func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
+func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, releaseVersion uint64, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentEvent")
 	defer span.Finish()
 
 	metadata := event.Metadata{
-		Uuid:      uuid,
-		EventType: string(event.EventTypeNewRelease),
+		Uuid:           uuid,
+		EventType:      string(event.EventTypeNewRelease),
+		ReleaseVersion: releaseVersion,
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     newReleaseEvent,
@@ -942,8 +942,9 @@ func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql
 
 func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, lockPreventedDeploymentEvent *event.LockPreventedDeployment) error {
 	metadata := event.Metadata{
-		Uuid:      uuid,
-		EventType: string(event.EventTypeLockPreventedDeployment),
+		Uuid:           uuid,
+		EventType:      string(event.EventTypeLockPreventedDeployment),
+		ReleaseVersion: 0, // don't care about release version for this event
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     lockPreventedDeploymentEvent,
@@ -958,8 +959,9 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 
 func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, replacedBy *event.ReplacedBy) error {
 	metadata := event.Metadata{
-		Uuid:      uuid,
-		EventType: string(event.EventTypeReplaceBy),
+		Uuid:           uuid,
+		EventType:      string(event.EventTypeReplaceBy),
+		ReleaseVersion: 0, // don't care about release version for this event
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     replacedBy,
@@ -974,8 +976,9 @@ func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql
 
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, uuid, sourceCommitHash string, deployment *event.Deployment) error {
 	metadata := event.Metadata{
-		Uuid:      uuid,
-		EventType: string(event.EventTypeDeployment),
+		Uuid:           uuid,
+		EventType:      string(event.EventTypeDeployment),
+		ReleaseVersion: 0, // don't care about release version for this event
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     deployment,

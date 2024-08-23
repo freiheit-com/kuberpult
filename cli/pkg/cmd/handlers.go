@@ -19,6 +19,7 @@ package cmd
 import (
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 	"github.com/freiheit-com/kuberpult/cli/pkg/locks"
+	"github.com/freiheit-com/kuberpult/cli/pkg/releasetrain"
 	"log"
 
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
@@ -53,47 +54,14 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) Retu
 	return ReturnCodeSuccess
 }
 
-func handleCreateEnvLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
-	parsedArgs, err := locks.ParseArgsCreateEnvironmentLock(args)
+func handleReleaseTrain(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := releasetrain.ParseArgsReleaseTrain(args)
 
 	if err != nil {
 		log.Printf("error while parsing command line args, error: %v", err)
 		return ReturnCodeInvalidArguments
 	}
-	return handleCreateLock(kpClientParams, parsedArgs)
-}
 
-func handleCreateAppLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
-	parsedArgs, err := locks.ParseArgsCreateAppLock(args)
-
-	if err != nil {
-		log.Printf("error while parsing command line args, error: %v", err)
-		return ReturnCodeInvalidArguments
-	}
-	return handleCreateLock(kpClientParams, parsedArgs)
-}
-
-func handleCreateTeamLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
-	parsedArgs, err := locks.ParseArgsCreateTeamLock(args)
-
-	if err != nil {
-		log.Printf("error while parsing command line args, error: %v", err)
-		return ReturnCodeInvalidArguments
-	}
-	return handleCreateLock(kpClientParams, parsedArgs)
-}
-
-func handleCreateGroupLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
-	parsedArgs, err := locks.ParseArgsCreateGroupLock(args)
-
-	if err != nil {
-		log.Printf("error while parsing command line args, error: %v", err)
-		return ReturnCodeInvalidArguments
-	}
-	return handleCreateLock(kpClientParams, parsedArgs)
-}
-
-func handleCreateLock(kpClientParams kuberpultClientParameters, parsedArgs locks.LockParameters) ReturnCode {
 	authParams := kutil.AuthenticationParameters{
 		IapToken:    kpClientParams.iapToken,
 		DexToken:    kpClientParams.dexToken,
@@ -107,7 +75,108 @@ func handleCreateLock(kpClientParams kuberpultClientParameters, parsedArgs locks
 		HttpTimeout: cli_utils.HttpDefaultTimeout,
 	}
 
-	if err := locks.CreateLock(requestParameters, authParams, parsedArgs); err != nil {
+	if err = releasetrain.HandleReleaseTrain(requestParameters, authParams, *parsedArgs); err != nil {
+		log.Printf("error on release train, error: %v", err)
+		return ReturnCodeFailure
+	}
+	return ReturnCodeSuccess
+}
+
+func handleDeleteEnvLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsDeleteEnvironmentLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
+func handleCreateEnvLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsCreateEnvironmentLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
+func handleDeleteAppLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsDeleteAppLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
+func handleCreateAppLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsCreateAppLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
+func handleDeleteTeamLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsDeleteTeamLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
+func handleCreateTeamLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsCreateTeamLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
+func handleCreateGroupLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsCreateGroupLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
+func handleDeleteGroupLock(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := locks.ParseArgsDeleteGroupLock(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+	return handleLockRequest(kpClientParams, parsedArgs)
+}
+
+func handleLockRequest(kpClientParams kuberpultClientParameters, parsedArgs locks.LockParameters) ReturnCode {
+	authParams := kutil.AuthenticationParameters{
+		IapToken:    kpClientParams.iapToken,
+		DexToken:    kpClientParams.dexToken,
+		AuthorName:  kpClientParams.authorName,
+		AuthorEmail: kpClientParams.authorEmail,
+	}
+
+	requestParameters := kutil.RequestParameters{
+		Url:         &kpClientParams.url,
+		Retries:     kpClientParams.retries,
+		HttpTimeout: cli_utils.HttpDefaultTimeout,
+	}
+
+	if err := locks.HandleLockRequest(requestParameters, authParams, parsedArgs); err != nil {
 		log.Printf("error creating lock, error: %v", err)
 		return ReturnCodeFailure
 	}

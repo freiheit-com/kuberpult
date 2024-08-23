@@ -490,6 +490,21 @@ func TestCommitEvents(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:       "New release event",
+			commitHash: "abcdefabcdef",
+			email:      "test@email.com",
+			event: event.DBEventGo{
+				EventData: &event.NewRelease{
+					Environments: map[string]struct{}{"dev": {}},
+				},
+				EventMetadata: event.Metadata{
+					Uuid:           "00000000-0000-0000-0000-000000000001",
+					EventType:      "new-release",
+					ReleaseVersion: 1,
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -592,7 +607,7 @@ func TestReadLockPreventedEvents(t *testing.T) {
 					Uuid:       "00000000-0000-0000-0000-000000000000",
 					CommitHash: "test",
 					EventType:  "lock-prevented-deployment",
-					EventJson:  `{"EventData":{"Application":"app","Environment":"env","LockMessage":"test lock message","LockType":"Application"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000000","EventType":"lock-prevented-deployment"}}`,
+					EventJson:  `{"EventData":{"Application":"app","Environment":"env","LockMessage":"test lock message","LockType":"Application"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000000","EventType":"lock-prevented-deployment","ReleaseVersion":0}}`,
 				},
 			},
 		},
@@ -618,13 +633,13 @@ func TestReadLockPreventedEvents(t *testing.T) {
 					Uuid:       "00000000-0000-0000-0000-000000000000",
 					CommitHash: "test",
 					EventType:  "lock-prevented-deployment",
-					EventJson:  `{"EventData":{"Application":"app","Environment":"env","LockMessage":"test lock message","LockType":"Application"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000000","EventType":"lock-prevented-deployment"}}`,
+					EventJson:  `{"EventData":{"Application":"app","Environment":"env","LockMessage":"test lock message","LockType":"Application"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000000","EventType":"lock-prevented-deployment","ReleaseVersion":0}}`,
 				},
 				{
 					Uuid:       "00000000-0000-0000-0000-000000000001",
 					CommitHash: "test",
 					EventType:  "lock-prevented-deployment",
-					EventJson:  `{"EventData":{"Application":"app2","Environment":"env2","LockMessage":"message2","LockType":"Environment"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000001","EventType":"lock-prevented-deployment"}}`,
+					EventJson:  `{"EventData":{"Application":"app2","Environment":"env2","LockMessage":"message2","LockType":"Environment"},"EventMetadata":{"Uuid":"00000000-0000-0000-0000-000000000001","EventType":"lock-prevented-deployment","ReleaseVersion":0}}`,
 				},
 			},
 		},
