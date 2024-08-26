@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"gopkg.in/yaml.v3"
@@ -55,22 +56,21 @@ func TestArgoRolloutWork(t *testing.T) {
 		name string
 		app  string
 	}{
-		// TODO this will be fixed in Ref SRX-PA568W
-		//{
-		//	name: "it can sync manifests into the cluster",
-		//	app:  "rollout-" + appSuffix,
-		//},
+		{
+			name: "it can sync manifests into the cluster",
+			app:  "rollout-" + appSuffix,
+		},
 	}
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			appName := "development-" + tc.app
+			appName := "development2-" + tc.app
 			expectedConfig := simplifiedConfigMap{
 				ApiVersion: "v1",
 				Kind:       "ConfigMap",
 				Metadata: simplifiedConfigMapMeta{
 					Name:      tc.app,
-					Namespace: "development",
+					Namespace: "development2",
 				},
 				Data: map[string]string{
 					"key": tc.app,
@@ -82,13 +82,14 @@ func TestArgoRolloutWork(t *testing.T) {
 			}
 			// Release a new app that we start completely fresh
 			releaseApp(t, tc.app, map[string]string{
-				"development": string(data),
+				"development2": string(data),
 			})
+			time.Sleep(5 * time.Second)
 			// We have to sync the root app once because we have created a new app
 			runArgo(t, "app", "sync", "root")
 			// The sync may already be in progress, therefore we wait here for pending operations to finish
-			runArgo(t, "app", "wait", appName, "--operation")
-			runArgo(t, "app", "sync", appName)
+			// runArgo(t, "app", "wait", appName, "--operation")
+			// runArgo(t, "app", "sync", appName)
 			_, appData := runArgo(t, "app", "get", appName, "-o", "yaml")
 			var app simplifiedArgoApp
 			err = yaml.Unmarshal(appData, &app)
@@ -118,7 +119,7 @@ func TestArgoRolloutWork(t *testing.T) {
 
 func runArgo(t *testing.T, args ...string) (*exec.Cmd, []byte) {
 	var out, stderr bytes.Buffer
-	args = append([]string{"--port-forward"}, args...)
+	args = append([]string{"--port-forward", "--grpc-web"}, args...)
 	cmd := exec.Command("argocd", args...)
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
@@ -134,7 +135,10 @@ func runArgo(t *testing.T, args ...string) (*exec.Cmd, []byte) {
 
 func releaseApp(t *testing.T, application string, manifests map[string]string) {
 	values := map[string]io.Reader{
-		"application": strings.NewReader(application),
+		"application":      strings.NewReader(application),
+		"version":          strings.NewReader("12"),
+		"source_commit_id": strings.NewReader("0123456789abcdef0123456789abcdef01234567"),
+		"team":             strings.NewReader("team"),
 	}
 	files := map[string]io.Reader{}
 	for env, data := range manifests {

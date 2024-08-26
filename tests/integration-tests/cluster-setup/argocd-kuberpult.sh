@@ -67,10 +67,6 @@ $(sed -e "s/^/        /" </kp/known_hosts)
   cm:
     accounts.kuberpult: apiKey
     timeout.reconciliation: 0s
-  params:
-    controller.repo.server.plaintext: "true"
-    server.repo.server.plaintext: "true"
-    repo.server: kuberpult-cd-service:8443
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, refresh, */*, allow
@@ -168,21 +164,21 @@ rollout:
   resources:
     limits:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.2
     requests:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.2
 manifestRepoExport:
-  eslProcessingIdleTimeSeconds: 15
+  eslProcessingIdleTimeSeconds: 1
   resources:
     limits:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.2
     requests:
       memory: 200Mi
-      cpu: 0.05
+      cpu: 0.2
 manageArgoApplications:
-  enabled: true
+  enabled: false
 ingress:
   domainName: kuberpult.example.com
 log:

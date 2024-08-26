@@ -791,7 +791,7 @@ func (c *CreateApplicationVersion) Transform(
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
 	if err := fs.MkdirAll(releaseDir, 0777); err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("mkdir %s error:%v", releaseDir, err))
 	}
 
 	var checkForInvalidCommitId = func(commitId, helperText string) {
@@ -808,27 +808,27 @@ func (c *CreateApplicationVersion) Transform(
 	if c.SourceCommitId != "" {
 		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("writefile %s error:%v", fieldSourceCommitId, err))
 		}
 	}
 
 	if c.SourceAuthor != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("writefile %s error:%v", fieldSourceAuthor, err))
 		}
 	}
 	if c.SourceMessage != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("writefile %s error:%v", fieldSourceMessage, err))
 		}
 	}
 	if c.DisplayVersion != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("writefile %s error:%v", fieldDisplayVersion, err))
 		}
 	}
 	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("writefile %s error:%v", fieldCreatedAt, err))
 	}
 
 	if c.Team != "" {
@@ -839,22 +839,22 @@ func (c *CreateApplicationVersion) Transform(
 		if _, err := fs.Stat(teamFileLoc); err == nil { //If path to file exists
 			err := fs.Remove(teamFileLoc)
 			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("remove %s error:%v", teamFileLoc, err))
 			}
 		}
 		if err := util.WriteFile(fs, teamFileLoc, []byte(c.Team), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("writefile %s error:%v", teamFileLoc, err))
 		}
 	}
 	isLatest, err := isLatestVersion(state, c.Application, version)
 	if err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("islatest version error:%v", err))
 	}
 	if !isLatest {
 		// check that we can actually backfill this version
 		oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("findOldApplicationVersions error:%v", err))
 		}
 		for _, oldVersion := range oldVersions {
 			if version == oldVersion {
@@ -906,10 +906,10 @@ func (c *CreateApplicationVersion) Transform(
 		}
 
 		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("mkdir %s error:%v", envDir, err))
 		}
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("writefile %s error:%v", envDir, err))
 		}
 
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
@@ -939,7 +939,7 @@ func (c *CreateApplicationVersion) Transform(
 				if ok {
 					continue // LockedErrors are expected
 				} else {
-					return "", GetCreateReleaseGeneralFailure(err)
+					return "", GetCreateReleaseGeneralFailure(fmt.Errorf("execute error:%v", err))
 				}
 			}
 		}
