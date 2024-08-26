@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import { Button } from '../button';
-import { DeleteGray, HideBarWhite } from '../../../images';
+import { DeleteGray } from '../../../images';
 import { BatchAction, DeleteEnvironmentTeamLockRequest } from '../../../api/api';
 import {
     deleteAction,
@@ -380,8 +380,8 @@ export const SideBarList = (): JSX.Element => {
     );
 };
 
-export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }> = (props) => {
-    const { className, toggleSidebar } = props;
+export const SideBar: React.FC<{ className?: string }> = (props) => {
+    const className = 'mdc-drawer-sidebar--displayed'; //props;
     const actions = useActions();
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
@@ -394,6 +394,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     } else {
         title = 'Planned Actions';
     }
+
     const lockCreationList = actions.filter(
         (action) =>
             action.action?.$case === 'createEnvironmentLock' ||
@@ -476,6 +477,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
         setLockMessage(e.target.value);
     }, []);
 
+    const showApply = useMemo(() => actions.length > 0, [actions.length]);
     const canApply = useMemo(
         () => actions.length > 0 && (!newLockExists || lockMessage),
         [actions.length, lockMessage, newLockExists]
@@ -560,16 +562,8 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
 
     return (
         <aside className={className}>
+            <strong className="sub-headline1">{title}</strong>
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
-                <div className="mdc-drawer-sidebar mdc-drawer-sidebar-header">
-                    <Button
-                        className={'mdc-drawer-sidebar-header__button mdc-button--unelevated'}
-                        icon={<HideBarWhite />}
-                        onClick={toggleSidebar}
-                        highlightEffect={false}
-                    />
-                    <h1 className="mdc-drawer-sidebar mdc-drawer-sidebar-header-title">{title}</h1>
-                </div>
                 <nav className="mdc-drawer-sidebar mdc-drawer-sidebar-content">
                     <div className="mdc-drawer-sidebar mdc-drawer-sidebar-list">
                         <SideBarList />
@@ -585,7 +579,8 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                         className={classNames(
                             'mdc-sidebar-sidebar-footer',
                             'mdc-button--unelevated',
-                            'mdc-drawer-sidebar-apply-button'
+                            'mdc-drawer-sidebar-apply-button',
+                            { 'sidebar-apply-button-hidden': !showApply }
                         )}
                         label={'Apply'}
                         disabled={!canApply}

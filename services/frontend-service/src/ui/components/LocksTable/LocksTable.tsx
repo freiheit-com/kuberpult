@@ -19,6 +19,7 @@ import * as React from 'react';
 import { Button } from '../button';
 import { SortAscending, SortDescending } from '../../../images';
 import { useCallback } from 'react';
+import classNames from 'classnames';
 
 export const LocksTable: React.FC<{
     headerTitle: string;
@@ -38,7 +39,7 @@ export const LocksTable: React.FC<{
         sortLocks(locks, sort);
     }, [locks, sort]);
     return (
-        <div className="mdc-data-table">
+        <div className={classNames('mdc-data-table', 'locks-table')}>
             <div className="mdc-data-table__table-container">
                 <table className="mdc-data-table__table" aria-label="Dessert calories">
                     <thead>

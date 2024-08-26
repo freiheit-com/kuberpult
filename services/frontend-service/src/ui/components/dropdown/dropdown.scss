@@ -55,19 +55,28 @@ div.mdc-select {
 }
 
 .dropdown-arrow-container {
-    position: relative;
+    display: flex;
+    flex-flow: row-reverse;
+    height: 100%;
     .dropdown-arrow {
         position: absolute;
         right: 10px;
-        top: 10px;
+        top: 20px;
         font-size: xx-large;
         pointer-events: none;
     }
 }
+.dropdown-container {
+    display: flex;
+    flex-flow: column;
+    justify-content: center;
+    align-items: stretch;
+    height: 100%;
+}
 
 .dropdown-input {
-    height: 50px;
-    border-radius: $border-radius-small;
+    height: 70px;
+    border-radius: $border-radius-medium;
     border: 1px solid blue;
     padding-left: 1em;
 }

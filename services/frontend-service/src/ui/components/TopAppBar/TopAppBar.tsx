@@ -17,19 +17,11 @@ import { jwtDecode } from 'jwt-decode';
 import { Textfield } from '../textfield';
 import React, { useCallback } from 'react';
 import { SideBar } from '../SideBar/SideBar';
-import { Button } from '../button';
-import { ShowBarWhite } from '../../../images';
 import { useSearchParams } from 'react-router-dom';
 import { Dropdown } from '../dropdown/dropdown';
 import { Checkbox } from '../dropdown/checkbox';
 import classNames from 'classnames';
-import {
-    UpdateSidebar,
-    useAllWarnings,
-    useKuberpultVersion,
-    useShownWarnings,
-    useSidebarShown,
-} from '../../utils/store';
+import { useAllWarnings, useKuberpultVersion, useShownWarnings } from '../../utils/store';
 import { Warning } from '../../../api/api';
 import { hideWithoutWarnings, KuberpultGitHubLink, setHideWithoutWarnings } from '../../utils/Links';
 
@@ -40,10 +32,8 @@ export type TopAppBarProps = {
 };
 
 export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
-    const sideBar = useSidebarShown();
     const [params, setParams] = useSearchParams();
 
-    const toggleSideBar = useCallback(() => UpdateSidebar.set({ shown: !sideBar }), [sideBar]);
     const appNameParam = params.get('application') || '';
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
@@ -122,41 +112,37 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
     const renderedUser = cookieValue ? (
-        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--wide-filter">
             <span className="welcome-message">
                 Welcome, <strong>{loggedInUser}!</strong>
             </span>
         </div>
     ) : (
-        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end"></div>
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--wide-filter"></div>
     );
     return (
         <div className="mdc-top-app-bar">
-            <div className="mdc-top-app-bar__row">
-                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                    <span className="mdc-top-app-bar__title">
-                        Kuberpult <KuberpultGitHubLink version={version} />
-                    </span>
+            <div className="top-app-bar__sidebarrow">
+                <div className="top-app-bar__mainsection">
+                    <div className="mdc-top-app-bar__row">
+                        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+                            <span className="mdc-top-app-bar__title">
+                                Kuberpult <KuberpultGitHubLink version={version} />
+                            </span>
+                        </div>
+                        {renderedAppFilter}
+                        {renderedTeamsFilter}
+                        {renderedWarningsFilter}
+                        {renderedWarnings}
+                        {renderedUser}
+                    </div>
                 </div>
-                {renderedAppFilter}
-                {renderedTeamsFilter}
-                {renderedWarningsFilter}
-                {renderedWarnings}
-                {renderedUser}
-                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-                    <strong className="sub-headline1">Planned Actions</strong>
-                    <Button
-                        className="mdc-show-button mdc-button--unelevated"
-                        icon={<ShowBarWhite />}
-                        onClick={toggleSideBar}
-                        highlightEffect={false}
-                    />
+                <div className="top-app-bar__sidebarsection">
                     <SideBar
-                        className={classNames(`mdc-drawer-sidebar mdc-drawer-sidebar-container`, {
-                            'mdc-drawer-sidebar--displayed': sideBar,
-                            'mdc-drawer-sidebar--hidden': !sideBar,
-                        })}
-                        toggleSidebar={toggleSideBar}
+                        className={classNames(
+                            `mdc-drawer-sidebar mdc-drawer-sidebar-container`,
+                            'mdc-drawer-sidebar--displayed'
+                        )}
                     />
                 </div>
             </div>

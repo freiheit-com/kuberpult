@@ -37,7 +37,7 @@ Copyright freiheit.com*/
 }
 
 .mdc-drawer-sidebar-list {
-    margin: 35px 40px;
+    margin: 5px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -48,7 +48,7 @@ Copyright freiheit.com*/
     border: 2px solid #f2f5f7;
     border-radius: 10px;
     background-color: white;
-    padding: 20px; // 105px 20px 20px;
+    padding: 5px;
     width: 100%;
     position: relative;
     display: flex;
@@ -119,22 +119,14 @@ Copyright freiheit.com*/
     overflow: overlay;
     position: relative;
     width: 100%;
-    background-color: #fafbfc;
-    height: 75vh;
-}
-
-.actions-cart__lock-message {
-    background: var(--mdc-theme-background);
-    position: relative;
+    background-color: var(--mdc-theme-primary);
+    height: 85vh;
 }
 
 .mdc-drawer-sidebar .mdc-drawer-sidebar-footer-input {
     border: 2px solid #f2f5f7;
     border-radius: 10px;
-    border-bottom-right-radius: 0px;
-    border-bottom-left-radius: 0px;
-    background-color: white;
-    padding: 20px;
+    padding: 5px;
     width: 100%;
     position: relative;
     display: flex;
@@ -150,6 +142,10 @@ Copyright freiheit.com*/
     height: $sidebar-apply-button-height;
     border-radius: 0 0 0 $border-radius-large;
     @extend .sub-headline1;
+
+    .sidebar-apply-button-hidden {
+        display: none;
+    }
 }
 
 .mdc-drawer__drawer {
@@ -165,13 +161,6 @@ Copyright freiheit.com*/
 .mdc-drawer-sidebar--displayed {
     position: absolute;
     right: 0;
-    top: 0;
-    width: $sidebar-width;
-}
-
-.mdc-drawer-sidebar--hidden {
-    position: absolute;
-    right: $sidebar-hidden-displacement;
     top: 0;
     width: $sidebar-width;
 }
