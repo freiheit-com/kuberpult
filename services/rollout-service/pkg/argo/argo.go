@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path/filepath"
 	"slices"
@@ -174,11 +175,14 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			}
 
 			//exhaustruct:ignore
-			emptyAppSpec := v1alpha1.ApplicationSpec{}
+			emptyAppSpec := v1alpha1.ApplicationSpec{
+				Destination: v1alpha1.ApplicationDestination{},
+				SyncPolicy:  &v1alpha1.SyncPolicy{},
+			}
 			//We have to exclude the unexported type destination and the syncPolicy
 			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
 				cmp.AllowUnexported(emptyAppSpec.Destination),
-				cmp.AllowUnexported(emptyAppSpec.SyncPolicy))
+				cmpopts.IgnoreTypes(emptyAppSpec.SyncPolicy))
 			if diff != "" {
 				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
 				updateSpan.SetTag("application", app.Name)
