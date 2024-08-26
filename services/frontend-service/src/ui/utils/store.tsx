@@ -216,8 +216,6 @@ export const randomLockId = (): string => 'ui-v2-' + randBase36();
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
 export const useTags = (): TagsResponse => useTag((res) => res);
 
-export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
-
 export enum SnackbarStatus {
     SUCCESS,
     WARN,
@@ -231,7 +229,6 @@ export const showSnackbarError = (content: string): void =>
     UpdateSnackbar.set({ show: true, status: SnackbarStatus.ERROR, content: content });
 export const showSnackbarWarn = (content: string): void =>
     UpdateSnackbar.set({ show: true, status: SnackbarStatus.WARN, content: content });
-export const useSidebarShown = (): boolean => useSidebar(({ shown }) => shown);
 
 export const useNumberOfActions = (): number => useAction(({ actions }) => actions.length);
 
@@ -387,7 +384,6 @@ export const addAction = (action: BatchAction): void => {
             break;
     }
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
-    UpdateSidebar.set({ shown: true });
 };
 
 export const useOpenReleaseDialog = (app: string, version: number): (() => void) => {

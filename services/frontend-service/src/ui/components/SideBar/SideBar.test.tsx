@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { act, render, renderHook } from '@testing-library/react';
+import { render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
 import { BatchAction, LockBehavior, ReleaseTrainRequest_TargetType } from '../../../api/api';
@@ -27,54 +27,6 @@ import {
     DisplayLock,
 } from '../../utils/store';
 import { ActionDetails, ActionTypes, getActionDetails, SideBar } from './SideBar';
-import { elementQuerySelectorSafe } from '../../../setupTests';
-
-describe('Show and Hide Sidebar', () => {
-    interface dataT {
-        name: string;
-        expect: (container: HTMLElement) => HTMLElement | void;
-    }
-
-    const data: dataT[] = [
-        {
-            name: 'Sidebar is hidden',
-            expect: (container) =>
-                expect(container.getElementsByClassName('mdc-drawer-sidebar--hidden')[0]).toBeTruthy(),
-        },
-        {
-            name: 'Sidebar is displayed',
-            expect: (container) => {
-                const result = elementQuerySelectorSafe(container, '.mdc-show-button');
-                act(() => {
-                    result.click();
-                });
-                expect(container.getElementsByClassName('mdc-drawer-sidebar--displayed')[0]).toBeTruthy();
-            },
-        },
-    ];
-
-    const getNode = (overrides?: {}): JSX.Element => {
-        // given
-        const defaultProps: any = {
-            children: null,
-        };
-        return (
-            <MemoryRouter>
-                <TopAppBar {...defaultProps} {...overrides} />{' '}
-            </MemoryRouter>
-        );
-    };
-    const getWrapper = (overrides?: {}) => render(getNode(overrides));
-
-    describe.each(data)(`SideBar functionality`, (testcase) => {
-        it(testcase.name, () => {
-            // when
-            const { container } = getWrapper({});
-            // then
-            testcase.expect(container);
-        });
-    });
-});
 
 describe('Sidebar shows list of actions', () => {
     interface dataT {
@@ -144,10 +96,6 @@ describe('Sidebar shows list of actions', () => {
             updateActions(testcase.actions);
             // when
             const { container } = getWrapper({});
-            const result = elementQuerySelectorSafe(container, '.mdc-show-button');
-            act(() => {
-                result.click();
-            });
             // then
             expect(container.getElementsByClassName('mdc-drawer-sidebar-list')[0].children).toHaveLength(
                 testcase.expectedNumOfActions
@@ -207,10 +155,6 @@ describe('Sidebar test deletebutton', () => {
             updateActions(testcase.actions);
             // when
             const { container } = getWrapper({});
-            const result = elementQuerySelectorSafe(container, '.mdc-show-button');
-            act(() => {
-                result.click();
-            });
             const svg = container.getElementsByClassName('mdc-drawer-sidebar-list-item-delete-icon')[0];
             if (svg) {
                 const button = svg.parentElement;
@@ -717,9 +661,7 @@ describe('Action details', () => {
             it(testcase.name, () => {
                 updateActions(testcase.actions);
                 const { container } = getWrapper({});
-                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
-                    testcase.expectedTitle
-                );
+                expect(container.getElementsByClassName('sub-headline1')[0].textContent).toBe(testcase.expectedTitle);
             });
         });
     });
@@ -782,17 +724,13 @@ describe('Action details', () => {
         it('Create an action initially', () => {
             updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'test' } } }]);
             const { container } = getWrapper({});
-            expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
-                'Planned Actions (1)'
-            );
+            expect(container.getElementsByClassName('sub-headline1')[0].textContent).toBe('Planned Actions (1)');
         });
         describe.each(data)('', (testcase) => {
             it(testcase.name, () => {
                 appendAction(testcase.actions);
                 const { container } = getWrapper({});
-                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
-                    testcase.expectedTitle
-                );
+                expect(container.getElementsByClassName('sub-headline1')[0].textContent).toBe(testcase.expectedTitle);
             });
         });
         describe('Deleting an action from the cart', () => {
@@ -807,9 +745,7 @@ describe('Action details', () => {
                     const button = svg.parentElement;
                     if (button) button.click();
                 }
-                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
-                    expected
-                );
+                expect(container.getElementsByClassName('sub-headline1')[0].textContent).toBe(expected);
             });
         });
     });

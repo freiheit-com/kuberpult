@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
-import { UpdateAction, UpdateOverview, UpdateRolloutStatus, UpdateSidebar } from '../../utils/store';
+import { UpdateAction, UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
 import { Environment, EnvironmentGroup, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
@@ -452,15 +452,10 @@ describe('Release Dialog', () => {
     };
 
     describe(`Test automatic cart opening`, () => {
-        it('Test using direct call to open function', () => {
-            UpdateSidebar.set({ shown: false });
-            UpdateSidebar.set({ shown: true });
-            expect(UpdateSidebar.get().shown).toBeTruthy();
-        });
+        it('Test using direct call to open function', () => {});
 
         describe.each(dataLocks)('click handling', (testcase) => {
             it('Test using deploy button click simulation ' + testcase.name, () => {
-                UpdateSidebar.set({ shown: false });
                 UpdateAction.set({ actions: [] });
                 setTheStore(testcase);
 
@@ -475,7 +470,6 @@ describe('Release Dialog', () => {
                 );
                 const result = querySelectorSafe('.env-card-deploy-btn');
                 fireEvent.click(result);
-                expect(UpdateSidebar.get().shown).toBeTruthy();
                 expect(UpdateAction.get().actions).toEqual([
                     {
                         action: {
@@ -505,7 +499,6 @@ describe('Release Dialog', () => {
         });
         it('Test using add lock button click simulation', () => {
             const testcase = data[0];
-            UpdateSidebar.set({ shown: false });
             UpdateAction.set({ actions: [] });
             setTheStore(testcase);
 
@@ -519,10 +512,9 @@ describe('Release Dialog', () => {
                     release={testcase.rels[0]}
                 />
             );
-            render(<SideBar toggleSidebar={Spy()} />);
+            render(<SideBar />);
             const result = querySelectorSafe('.env-card-add-lock-btn');
             fireEvent.click(result);
-            expect(UpdateSidebar.get().shown).toBeTruthy();
             expect(UpdateAction.get().actions).toEqual([
                 {
                     action: {
