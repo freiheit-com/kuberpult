@@ -84,12 +84,12 @@ func TestArgoRolloutWork(t *testing.T) {
 			releaseApp(t, tc.app, map[string]string{
 				"development2": string(data),
 			})
-			time.Sleep(5 * time.Second)
+			time.Sleep(10 * time.Second)
 			// We have to sync the root app once because we have created a new app
 			runArgo(t, "app", "sync", "root")
 			// The sync may already be in progress, therefore we wait here for pending operations to finish
-			// runArgo(t, "app", "wait", appName, "--operation")
-			// runArgo(t, "app", "sync", appName)
+			runArgo(t, "app", "wait", appName, "--operation")
+			runArgo(t, "app", "sync", appName)
 			_, appData := runArgo(t, "app", "get", appName, "-o", "yaml")
 			var app simplifiedArgoApp
 			err = yaml.Unmarshal(appData, &app)
