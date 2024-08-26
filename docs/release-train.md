@@ -43,7 +43,8 @@ or
 There is a Kubepult command line client for communicating with the `/release-train` endpoint now at [`cli`](https://github.com/freiheit-com/kuberpult/tree/main/cli). The usage is as follows:
 
 ```
-kuberpult-client release-train \
+kuberpult-client --url=${kuberpult_URL} \
+    release-train \
     --target-environment=staging \
     --team=sre-team
 ```
