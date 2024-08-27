@@ -175,6 +175,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			}
 
 			//We have to exclude the unexported type destination and the syncPolicy
+			//exhaustruct:ignore
 			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
 				cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
 				cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
