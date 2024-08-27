@@ -26,11 +26,12 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: my-private-ssh-repo
-  namespace: default
   labels:
     argocd.argoproj.io/secret-type: repository
   namespace: ${ARGO_NAMESPACE}
 stringData:
+  project: test-env
+  insecure: "true"
   url: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
   sshPrivateKey: |
 $(sed -e "s/^/    /" <"$scratch"/client)
