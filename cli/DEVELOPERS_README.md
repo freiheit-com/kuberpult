@@ -3,7 +3,7 @@
 There are no major design decisions to be discussed, as the CLI is a simple command line tool design to replace
 curl requests to the REST endpoints that Kuberpult offers.
 
-The CLI is not supposed to contain any kuberpult related business logic. As such, if you wish to perform some more task 
+The CLI is not supposed to contain any kuberpult related business logic. As such, if you wish to perform some task 
 that cannot ultimately be done through one curl request to Kuberpult, you should use the various commands the CLI already 
 offers inside a script that performs your intended action.
 
