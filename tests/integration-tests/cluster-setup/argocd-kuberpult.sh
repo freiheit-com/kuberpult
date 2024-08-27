@@ -224,6 +224,8 @@ print "connection to frontend service successful"
 waitForDeployment "default" "app=kuberpult-rollout-service"
 waitForDeployment "default" "app=kuberpult-manifest-repo-export-service"
 
+portForwardAndWait "default" deploy/postgres "5432" "5432"
+
 kubectl get deployment
 kubectl get pods
 
