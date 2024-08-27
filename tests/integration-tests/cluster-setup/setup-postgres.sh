@@ -22,21 +22,6 @@ function waitForDeployment() {
   done
 }
 
-function portForwardAndWait() {
-  ns="$1"
-  deployment="$2"
-  portHere="$3"
-  portThere="$4"
-  ports="$portHere:$portThere"
-  print "portForwardAndWait for $ns/$deployment $ports"
-  kubectl -n "$ns" port-forward "$deployment" "$ports" &
-  print "portForwardAndWait: waiting until the port forward works..."
-  until nc -vz localhost "$portHere"
-  do
-    sleep 1s
-  done
-}
-
 kubectl apply -f - <<EOF
 ---
 apiVersion: v1
@@ -87,5 +72,4 @@ spec:
 EOF
 
 waitForDeployment default "app=postgres"
-portForwardAndWait "default" deploy/postgres "5432" "5432"
 echo "done setting up postgres"

@@ -113,7 +113,7 @@ func (a *mockArgoProcessor) checkEvent(ev *v1alpha1.ApplicationWatchEvent) bool 
 	return false
 }
 
-func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, expectedTypes []string, existingArgoApps bool) error {
+func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, expectedTypes []string, existingArgoApps bool, syncDisable bool) error {
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
 	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
 
@@ -133,7 +133,18 @@ func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, expectedT
 
 					for _, app := range env.Applications {
 						if existingArgoApps {
-							envAppsKnownToArgo[app.Name] = CreateArgoApplication(overview, app, env)
+							argoApp := CreateArgoApplication(overview, app, env)
+							if syncDisable {
+								argoApp.Spec.SyncPolicy = &v1alpha1.SyncPolicy{
+									Automated: &v1alpha1.SyncPolicyAutomated{
+										Prune:      false,
+										SelfHeal:   false,
+										AllowEmpty: false,
+									},
+								}
+							}
+							envAppsKnownToArgo[app.Name] = argoApp
+
 							appsKnownToArgo[env.Name] = envAppsKnownToArgo
 						}
 						a.CreateOrUpdateApp(ctx, overview, app, env, envAppsKnownToArgo)
@@ -258,6 +269,7 @@ func TestArgoConsume(t *testing.T) {
 		ExpectedConsumed      int
 		ExpectedConsumedTypes []string
 		ExistingArgoApps      bool
+		SyncDisable           bool
 	}{
 		{
 			Name: "when ctx in cancelled no app is processed",
@@ -673,6 +685,62 @@ func TestArgoConsume(t *testing.T) {
 			ExpectedConsumedTypes: []string{},
 			ExistingArgoApps:      true,
 		},
+		{
+			Name: "one application in the overview but no event is consumed",
+			Steps: []step{
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			Overview: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"foo": {
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								SourceCommitId: "00001",
+							},
+						},
+						Team: "footeam",
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+
+						EnvironmentGroupName: "staging-group",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Applications: map[string]*api.Environment_Application{
+									"foo": {
+										Name:    "foo",
+										Version: 1,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+								Priority: api.Priority_UPSTREAM,
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+											Name:   "staging",
+											Server: "test-server",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				GitRevision: "1234",
+			},
+			ExpectedConsumed:      0,
+			ExpectedConsumedTypes: []string{},
+			ExistingArgoApps:      true,
+			SyncDisable:           true,
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -694,7 +762,7 @@ func TestArgoConsume(t *testing.T) {
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			errCh := make(chan error)
 			go func() {
-				errCh <- argoProcessor.Consume(t, ctx, tc.ExpectedConsumedTypes, tc.ExistingArgoApps)
+				errCh <- argoProcessor.Consume(t, ctx, tc.ExpectedConsumedTypes, tc.ExistingArgoApps, tc.SyncDisable)
 			}()
 
 			go func() {
@@ -771,8 +839,13 @@ func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 			Application:          appToUpdate,
 			Project:              conversion.FromString(appToUpdate.Spec.Project),
 		}
+		//We have to exclude the unexported type destination and the syncPolicy
+		//exhaustruct:ignore
+		diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
+			cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
+			cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
 
-		if !cmp.Equal(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(v1alpha1.ApplicationSpec{}.Destination)) {
+		if diff != "" {
 			a.ApplicationClient.Update(ctx, appUpdateRequest)
 		}
 	}
