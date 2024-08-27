@@ -174,11 +174,9 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				Project:              conversion.FromString(appToUpdate.Spec.Project),
 			}
 
-			//exhaustruct:ignore
-			emptyAppSpec := v1alpha1.ApplicationSpec{}
 			//We have to exclude the unexported type destination and the syncPolicy
 			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
-				cmp.AllowUnexported(emptyAppSpec.Destination),
+				cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
 				cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
 			if diff != "" {
 				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
