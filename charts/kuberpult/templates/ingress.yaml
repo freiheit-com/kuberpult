@@ -106,8 +106,8 @@ spec:
 {{- end }}
 {{- if .Values.ingress.allowedPaths.ui }}
 # UI bootstrapping:
-      - pathType: ImplementationSpecific
-        path: /ui/*
+      - pathType: Prefix
+        path: /ui/
         backend:
           service:
             name: kuberpult-frontend-service

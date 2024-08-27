@@ -1526,7 +1526,7 @@ func makeAllIngressPaths(withDex, withUi, withOldApi, withNewApi bool) []network
 	}
 	if withUi {
 		result = append(result,
-			makeIngressImplementationSpecificPath("/ui/*"),
+			makeIngressPrefixPath("/ui/"),
 			makeIngressExactPath("/"),
 			makeIngressPrefixPath("/static/js/"),
 			makeIngressPrefixPath("/static/css/"),
