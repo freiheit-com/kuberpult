@@ -79,7 +79,7 @@ describe('Release Card', () => {
                     prNumber: '666',
                     createdAt: new Date(2002),
                     displayVersion: '2',
-                    isMinor: false,
+                    isMinor: true,
                 },
             ],
             environments: {},
