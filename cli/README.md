@@ -3,12 +3,12 @@
 
 The Kuberpult client is a Go command line client and library for interacting with a Kuberpult deployment. It essentially just wraps the Kuberpult API in a high-level, human-friendly interface.
 
-The Kuberpult client offers functionality to interact with kuberpult, able to perform three actions:
+The Kuberpult client offers functionality to interact with kuberpult, able to perform four actions:
 
 * Create releases
 * Conduct release trains
-* Create and delete locks
-
+* Create locks
+* Delete locks
 ## Building
 
 For local use, you can build kuberpult by:
