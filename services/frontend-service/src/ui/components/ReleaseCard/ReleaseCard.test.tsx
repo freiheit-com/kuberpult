@@ -224,6 +224,10 @@ describe('Release Card', () => {
                 );
             }
 
+            if (testcase.rels[0].isMinor) {
+                expect(container.querySelector('.release__title')?.textContent).toContain('💤');
+            }
+
             if (testcase.rels[0].displayVersion) {
                 expect(container.querySelector('.release-version__display-version')?.textContent).toContain(
                     testcase.rels[0].displayVersion
