@@ -40,6 +40,7 @@ const extendRelease = (props: Partial<Release>): Release => ({
     sourceMessage: 'source',
     undeployVersion: false,
     prNumber: 'pr',
+    isMinor: false,
     ...props,
 });
 

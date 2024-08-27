@@ -76,6 +76,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '#1337',
                     displayVersion: '2',
+                    isMinor: false,
                 },
             ],
             envs: [
@@ -129,6 +130,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '#1337',
                     displayVersion: '2',
+                    isMinor: false,
                 },
             ],
             envs: [
@@ -180,6 +182,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '#1337',
                     displayVersion: '2',
+                    isMinor: false,
                 },
             ],
             envs: [
@@ -277,6 +280,7 @@ describe('Release Dialog', () => {
                     prNumber: 'PR123',
                     sourceAuthor: 'nobody',
                     displayVersion: '2',
+                    isMinor: false,
                 },
                 {
                     sourceCommitId: 'cafe',
@@ -287,6 +291,7 @@ describe('Release Dialog', () => {
                     prNumber: 'PR123',
                     sourceAuthor: 'nobody',
                     displayVersion: '3',
+                    isMinor: false,
                 },
             ],
             rolloutStatus: [
@@ -324,6 +329,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date(2002),
                     undeployVersion: true,
                     displayVersion: '4',
+                    isMinor: false,
                 },
             ],
             envs: [],

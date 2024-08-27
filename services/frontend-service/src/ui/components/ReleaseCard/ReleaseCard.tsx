@@ -137,7 +137,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const { className, app, version } = props;
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
     const release = useReleaseOrThrow(app, version);
-    const { createdAt, sourceMessage, sourceAuthor, undeployVersion } = release;
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor } = release;
     const openReleaseDialog = useOpenReleaseDialog(app, version);
     const deployedAt = useCurrentlyDeployedAtGroup(app, version);
 
@@ -145,7 +145,11 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
 
     const tooltipContents = (
         <div className="mdc-tooltip__title_ release__details">
-            {!!sourceMessage && <b>{sourceMessage}</b>}
+            {!!sourceMessage && (
+                <b>
+                    {sourceMessage} {isMinor ? '💤' : ''}
+                </b>
+            )}
             {!!sourceAuthor && (
                 <div>
                     <span>Author:</span> {sourceAuthor}
@@ -180,7 +184,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         </div>
     );
 
-    const firstLine = sourceMessage.split('\n')[0];
+    const firstLine = sourceMessage.split('\n')[0] + (isMinor ? '💤' : '');
     return (
         <Tooltip id={app + version} tooltipContent={tooltipContents}>
             <div className="release-card__container">

@@ -2489,6 +2489,7 @@ type Release struct {
 	SourceMessage   string
 	CreatedAt       time.Time
 	DisplayVersion  string
+	IsMinor         bool
 }
 
 func (rel *Release) ToProto() *api.Release {
@@ -2504,6 +2505,7 @@ func (rel *Release) ToProto() *api.Release {
 		UndeployVersion: rel.UndeployVersion,
 		CreatedAt:       timestamppb.New(rel.CreatedAt),
 		DisplayVersion:  rel.DisplayVersion,
+		IsMinor:         rel.IsMinor,
 	}
 }
 
@@ -2559,6 +2561,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 			SourceMessage:   env.Metadata.SourceMessage,
 			CreatedAt:       env.Created,
 			DisplayVersion:  env.Metadata.DisplayVersion,
+			IsMinor:         env.Metadata.IsMinor,
 		}, nil
 	} else {
 		return s.GetApplicationReleaseFromManifest(application, version)
@@ -2579,6 +2582,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		SourceMessage:   "",
 		CreatedAt:       time.Time{},
 		DisplayVersion:  "",
+		IsMinor:         false,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {

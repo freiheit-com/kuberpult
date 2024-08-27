@@ -553,6 +553,7 @@ message Release {
   bool undeploy_version = 6;
   string pr_number = 7;
   string display_version = 8;
+  bool is_minor = 9;
 }
 
 enum UndeploySummary {
