@@ -157,7 +157,7 @@ The CLI offers the following parameters for deleting an environment lock:
       the ID of the lock you are trying to create
 ```
 
-You can create an delete an environment lock by running:
+You can delete an environment lock by running:
 
 ```shell
 kuberpult-client --url <kuberpult_url> delete-env-lock [parameters]
