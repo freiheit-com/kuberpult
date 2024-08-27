@@ -2618,13 +2618,6 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		return nil, err
 	}
 	release.UndeployVersion = isUndeploy
-	release.IsMinor = true
-	if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "minor")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-		release.IsMinor = false
-	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "created_at")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
