@@ -855,7 +855,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				t.SetEslVersion(db.TransformerID(internal.EslVersion))
 
-				if r.DB.ShouldUseOtherTables() {
+				if r.DB.WriteEslOnly {
 					// if we were previously running with `db.writeEslTableOnly=true`, but now are running with
 					// `db.writeEslTableOnly=false` (which is the recommended way to enable the database),
 					// then we would have many events in the event_sourcing_light table that have not been processed.
