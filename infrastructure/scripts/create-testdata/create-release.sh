@@ -111,6 +111,7 @@ curl http://localhost:${FRONTEND_PORT}/api/release \
   "${inputs[@]}" \
   ${release_version} \
   --form-string "display_version=${displayVersion}" \
+  --form-string "ci_link=http://google.com" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
   "${manifests[@]}"
