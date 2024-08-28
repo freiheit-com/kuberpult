@@ -587,6 +587,7 @@ describe('Action details', () => {
                         target: 'dev',
                         team: '',
                         commitHash: '',
+                        ciLink: '',
                         targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
                     },
                 },

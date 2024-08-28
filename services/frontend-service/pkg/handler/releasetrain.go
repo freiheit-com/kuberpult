@@ -67,15 +67,36 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 			return
 		}
 	}
+	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "Invalid body: %s", err)
+		return
+	}
+	form := req.MultipartForm
+	tf := &api.ReleaseTrainRequest{
+		CommitHash: "",
+		Target:     target,
+		Team:       teamParam,
+		TargetType: api.ReleaseTrainRequest_UNKNOWN,
+		CiLink:     "",
+	}
+	if ciLink, ok := form.Value["ci_link"]; ok {
+		if len(ciLink) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(ciLink))
+		}
+
+		tf.CiLink = ciLink[0]
+
+	}
+
 	response, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
-			{Action: &api.BatchAction_ReleaseTrain{
-				ReleaseTrain: &api.ReleaseTrainRequest{
-					CommitHash: "",
-					Target:     target,
-					Team:       teamParam,
-					TargetType: api.ReleaseTrainRequest_UNKNOWN,
-				}}},
+			{
+				Action: &api.BatchAction_ReleaseTrain{
+					ReleaseTrain: tf,
+				},
+			},
 		},
 		})
 	if err != nil {

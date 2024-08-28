@@ -377,6 +377,7 @@ type CreateApplicationVersion struct {
 	DisplayVersion        string            `json:"displayVersion"`
 	WriteCommitData       bool              `json:"writeCommitData"`
 	PreviousCommit        string            `json:"previousCommit"`
+	CiLink                string            `json:"ciLink"`
 	TransformerEslVersion db.TransformerID  `json:"-"`
 }
 
@@ -653,6 +654,7 @@ func (c *CreateApplicationVersion) Transform(
 				DisplayVersion:  c.DisplayVersion,
 				UndeployVersion: false,
 				IsMinor:         isMinor,
+				CiLink:          c.CiLink,
 			},
 			Created: time.Now(),
 			Deleted: false,
@@ -722,6 +724,7 @@ func (c *CreateApplicationVersion) Transform(
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
 				Author:                c.SourceAuthor,
+				CiLink:                c.CiLink,
 				TransformerEslVersion: c.TransformerEslVersion,
 			}
 			err := t.Execute(d, transaction)
@@ -2618,6 +2621,7 @@ type DeployApplicationVersion struct {
 	WriteCommitData       bool                            `json:"writeCommitData"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
 	Author                string                          `json:"author"`
+	CiLink                string                          `json:"cilink"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
@@ -2803,6 +2807,7 @@ func (c *DeployApplicationVersion) Transform(
 			Metadata: db.DeploymentMetadata{
 				DeployedByEmail: user.Email,
 				DeployedByName:  user.Name,
+				CiLink:          c.CiLink,
 			},
 		}
 		var previousVersion db.EslVersion
@@ -3058,6 +3063,7 @@ type ReleaseTrain struct {
 	Repo                  Repository       `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"`
 	TargetType            string           `json:"targetType"`
+	CiLink                string           `json:"-"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -3259,6 +3265,7 @@ func (c *ReleaseTrain) Prognosis(
 			WriteCommitData:       c.WriteCommitData,
 			TrainGroup:            trainGroup,
 			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
 		}
 
 		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction)
@@ -3287,7 +3294,7 @@ func (c *ReleaseTrain) Transform(
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
-
+	fmt.Printf("CILINK: %s\n", c.CiLink)
 	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
@@ -3319,6 +3326,7 @@ func (c *ReleaseTrain) Transform(
 			WriteCommitData:       c.WriteCommitData,
 			TrainGroup:            trainGroup,
 			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
 		}, transaction); err != nil {
 			return "", err
 		}
@@ -3337,6 +3345,7 @@ type envReleaseTrain struct {
 	WriteCommitData       bool
 	TrainGroup            *string
 	TransformerEslVersion db.TransformerID
+	CiLink                string
 }
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
@@ -3817,6 +3826,7 @@ func (c *envReleaseTrain) Transform(
 			},
 			Author:                "",
 			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
 		}
 		if err := t.Execute(d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))

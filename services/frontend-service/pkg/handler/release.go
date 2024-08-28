@@ -94,6 +94,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		PreviousCommitId: "",
 		DisplayVersion:   "",
 		Manifests:        map[string]string{},
+		CiLink:           "",
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -241,7 +242,15 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		tf.DisplayVersion = displayVersion[0]
 
 	}
+	if ciLink, ok := form.Value["ci_link"]; ok {
+		if len(ciLink) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(ciLink))
+		}
 
+		tf.CiLink = ciLink[0]
+
+	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{
@@ -290,6 +299,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		PreviousCommitId: "",
 		DisplayVersion:   "",
 		Manifests:        map[string]string{},
+		CiLink:           "",
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -404,7 +414,15 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		tf.DisplayVersion = displayVersion[0]
 
 	}
+	if ciLink, ok := form.Value["ci_link"]; ok {
+		if len(ciLink) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of ci links provided: %d, ", len(ciLink))
+		}
 
+		tf.CiLink = ciLink[0]
+
+	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{

@@ -228,6 +228,7 @@ func (d *BatchServer) processAction(
 			WriteCommitData:       d.Config.WriteCommitData,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			Author:                "",
+			CiLink:                "", //Only gets populated when a release is created.
 			TransformerEslVersion: 0,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
@@ -255,6 +256,7 @@ func (d *BatchServer) processAction(
 				TargetType:            in.TargetType.String(),
 				Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 				TransformerEslVersion: 0,
+				CiLink:                in.CiLink,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},
@@ -275,6 +277,7 @@ func (d *BatchServer) processAction(
 				DisplayVersion:        in.DisplayVersion,
 				Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 				WriteCommitData:       d.Config.WriteCommitData,
+				CiLink:                in.CiLink,
 				TransformerEslVersion: 0,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{

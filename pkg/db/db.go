@@ -504,6 +504,7 @@ type DBReleaseMetaData struct {
 	DisplayVersion  string
 	UndeployVersion bool
 	IsMinor         bool
+	CiLink          string
 }
 
 type DBReleaseManifests struct {
@@ -1294,6 +1295,7 @@ type Deployment struct {
 type DeploymentMetadata struct {
 	DeployedByName  string
 	DeployedByEmail string
+	CiLink          string
 }
 
 type EnvironmentLock struct {

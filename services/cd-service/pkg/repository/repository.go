@@ -1250,6 +1250,10 @@ type State struct {
 	CloudRunClient *cloudrun.CloudRunClient
 }
 
+func (s *State) checkAllowedDomains(toCheck string) {
+
+}
+
 func (s *State) Releases(application string) ([]uint64, error) {
 	if entries, err := s.Filesystem.ReadDir(s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
