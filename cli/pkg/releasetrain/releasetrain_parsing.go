@@ -27,6 +27,7 @@ import (
 type ReleaseTrainCommandLineArguments struct {
 	targetEnvironment    cli_utils.RepeatedString
 	team                 cli_utils.RepeatedString
+	ciLink               cli_utils.RepeatedString
 	useDexAuthentication bool
 }
 
@@ -39,6 +40,9 @@ func releaseTrainArgsValid(cmdArgs *ReleaseTrainCommandLineArguments) (result bo
 		return false, "the --team arg must be set at most once"
 	}
 
+	if len(cmdArgs.ciLink.Values) > 1 {
+		return false, "the --ci_link arg must be set at most once"
+	}
 	return true, ""
 }
 
@@ -49,6 +53,7 @@ func readArgs(args []string) (*ReleaseTrainCommandLineArguments, error) {
 
 	fs.Var(&cmdArgs.targetEnvironment, "target-environment", "the name of the environment to target with the release train (must be set exactly once)")
 	fs.Var(&cmdArgs.team, "team", "the target team. Only specified teams services will be taken into account when conducting the release train")
+	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the ci pipeline that triggered this release train")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
@@ -74,11 +79,15 @@ func convertToParams(cmdArgs ReleaseTrainCommandLineArguments) (*ReleaseTrainPar
 	rp := ReleaseTrainParameters{
 		Team:                 nil,
 		TargetEnvironment:    cmdArgs.targetEnvironment.Values[0],
+		CiLink:               nil,
 		UseDexAuthentication: cmdArgs.useDexAuthentication,
 	}
 
 	if len(cmdArgs.team.Values) == 1 {
 		rp.Team = &cmdArgs.team.Values[0]
+	}
+	if len(cmdArgs.ciLink.Values) == 1 {
+		rp.CiLink = &cmdArgs.ciLink.Values[0]
 	}
 	return &rp, nil
 }

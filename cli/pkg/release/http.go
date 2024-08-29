@@ -98,6 +98,12 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 		}
 	}
 
+	if parsedArgs.CiLink != nil {
+		if err := writer.WriteField("ci_link", *parsedArgs.CiLink); err != nil {
+			return nil, fmt.Errorf("error writing ci_link field, error: %w", err)
+		}
+	}
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}

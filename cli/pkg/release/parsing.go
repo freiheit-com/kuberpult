@@ -44,6 +44,7 @@ type commandLineArguments struct {
 	displayVersion       cli_utils.RepeatedString
 	skipSignatures       bool
 	signatures           cli_utils.RepeatedString
+	ciLink               cli_utils.RepeatedString
 	useDexAuthentication bool
 }
 
@@ -111,6 +112,10 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string)
 
 	if len(cmdArgs.sourceCommitId.Values) > 1 {
 		return false, "the --source_commit_id arg must be set at most once"
+	}
+
+	if len(cmdArgs.ciLink.Values) > 1 {
+		return false, "the --ci_link arg must be set at most once"
 	}
 
 	if len(cmdArgs.sourceCommitId.Values) == 1 {
@@ -193,6 +198,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	fs.Var(&cmdArgs.displayVersion, "display_version", "display version (must be a string between 1 and characters long)")
 	fs.BoolVar(&cmdArgs.skipSignatures, "skip_signatures", false, "if set to true, then the command line does not accept the --signature args")
 	fs.Var(&cmdArgs.signatures, "signature", "the name of the file containing the signature of the manifest to be deployed (must be set immediately after --manifest)")
+	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the CI pipeline that created this release")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "use /api/release endpoint, if set to true, dex must be enabled and dex token must be provided otherwise the request will be denied")
 
 	if err := fs.Parse(args); err != nil {
@@ -237,6 +243,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 	if len(cmdArgs.team.Values) == 1 {
 		rp.Team = &cmdArgs.team.Values[0]
 	}
+
 	if len(cmdArgs.sourceCommitId.Values) == 1 {
 		rp.SourceCommitId = &cmdArgs.sourceCommitId.Values[0]
 	}
@@ -256,6 +263,9 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 	}
 	if len(cmdArgs.displayVersion.Values) == 1 {
 		rp.DisplayVersion = &cmdArgs.displayVersion.Values[0]
+	}
+	if len(cmdArgs.ciLink.Values) == 1 {
+		rp.CiLink = &cmdArgs.ciLink.Values[0]
 	}
 	for i := range cmdArgs.environments.Values {
 		manifestFile := cmdArgs.manifests.Values[i]
