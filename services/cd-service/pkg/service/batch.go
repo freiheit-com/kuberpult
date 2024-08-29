@@ -258,6 +258,7 @@ func (d *BatchServer) processAction(
 				Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 				TransformerEslVersion: 0,
 				CiLink:                in.CiLink,
+				AllowedDomains:        d.Config.AllowedCILinkDomains,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},

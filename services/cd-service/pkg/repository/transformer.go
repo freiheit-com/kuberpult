@@ -3080,6 +3080,7 @@ type ReleaseTrain struct {
 	TransformerEslVersion db.TransformerID `json:"-"`
 	TargetType            string           `json:"targetType"`
 	CiLink                string           `json:"-"`
+	AllowedDomains        []string         `json:"-"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -3310,7 +3311,10 @@ func (c *ReleaseTrain) Transform(
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
-	fmt.Printf("CILINK: %s\n", c.CiLink)
+	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
+	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
+		return "", fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink)
+	}
 	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
