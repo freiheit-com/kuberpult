@@ -116,6 +116,7 @@ kuberpult-client \
   --source_commit_id  "${commit_id}" \
   --source_author     "${author}" \
   --source_message    "$(cat "${commit_message_file}")" \
+  --display_version   "${displayVersion}" \
   --team              "${applicationOwnerTeam}" \
   --use_dex_auth \
   "${manifestsForCLI[@]}"
