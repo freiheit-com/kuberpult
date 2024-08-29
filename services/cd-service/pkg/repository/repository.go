@@ -218,8 +218,6 @@ type RepositoryConfig struct {
 
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
-
-	CILinkAllowedDomains []string
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -1250,10 +1248,6 @@ type State struct {
 	// DbHandler will be nil if the DB is disabled
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
-}
-
-func (s *State) checkAllowedDomains(toCheck string) {
-
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {

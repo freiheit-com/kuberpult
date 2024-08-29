@@ -441,6 +441,7 @@ func isValidLink(urlToCheck string, allowedDomains []string) bool {
 	if err != nil {
 		return false
 	}
+	fmt.Println(u.Hostname())
 	return slices.Contains(allowedDomains, u.Hostname())
 }
 
@@ -458,9 +459,7 @@ func (c *CreateApplicationVersion) Transform(
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
-
 	if state.DBHandler.ShouldUseOtherTables() {
-
 		allApps, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
