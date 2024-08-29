@@ -11,7 +11,7 @@ else
 fi
 
 
-curl -X PUT "$url" -H "multipart/form-data" --form-string "ci_link=test"
+curl -X PUT "$url"
 echo
 
 
