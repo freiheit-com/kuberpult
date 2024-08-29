@@ -3311,12 +3311,10 @@ func (c *ReleaseTrain) Transform(
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
-
 	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
 	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
-
 	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
