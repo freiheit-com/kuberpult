@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"path"
 	"slices"
@@ -377,6 +378,8 @@ type CreateApplicationVersion struct {
 	DisplayVersion        string            `json:"displayVersion"`
 	WriteCommitData       bool              `json:"writeCommitData"`
 	PreviousCommit        string            `json:"previousCommit"`
+	CiLink                string            `json:"ciLink"`
+	AllowedDomains        []string          `json:"-"`
 	TransformerEslVersion db.TransformerID  `json:"-"`
 }
 
@@ -431,6 +434,14 @@ func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, fs bill
 	} else {
 		return GetLastReleaseFromFile(fs, application)
 	}
+}
+
+func isValidLink(urlToCheck string, allowedDomains []string) bool {
+	u, err := url.ParseRequestURI(urlToCheck) //Check if is a valid URL
+	if err != nil {
+		return false
+	}
+	return slices.Contains(allowedDomains, u.Hostname())
 }
 
 func (c *CreateApplicationVersion) Transform(
@@ -592,6 +603,10 @@ func (c *CreateApplicationVersion) Transform(
 	} else {
 		logger.FromContext(ctx).Sugar().Warnf("skipping team file for team %s and should=%v", c.Team, state.DBHandler.ShouldUseOtherTables())
 	}
+	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	}
+
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
@@ -653,6 +668,7 @@ func (c *CreateApplicationVersion) Transform(
 				DisplayVersion:  c.DisplayVersion,
 				UndeployVersion: false,
 				IsMinor:         isMinor,
+				CiLink:          c.CiLink,
 			},
 			Created: time.Now(),
 			Deleted: false,
@@ -722,6 +738,7 @@ func (c *CreateApplicationVersion) Transform(
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
 				Author:                c.SourceAuthor,
+				CiLink:                c.CiLink,
 				TransformerEslVersion: c.TransformerEslVersion,
 			}
 			err := t.Execute(d, transaction)
@@ -1204,6 +1221,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				DisplayVersion:  "",
 				UndeployVersion: true,
 				IsMinor:         false,
+				CiLink:          "",
 			},
 			Created: time.Now(),
 			Deleted: false,
@@ -1292,6 +1310,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				WriteCommitData:       c.WriteCommitData,
 				Author:                "",
 				TransformerEslVersion: c.TransformerEslVersion,
+				CiLink:                "",
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
@@ -2618,6 +2637,7 @@ type DeployApplicationVersion struct {
 	WriteCommitData       bool                            `json:"writeCommitData"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
 	Author                string                          `json:"author"`
+	CiLink                string                          `json:"cilink"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
@@ -2803,6 +2823,7 @@ func (c *DeployApplicationVersion) Transform(
 			Metadata: db.DeploymentMetadata{
 				DeployedByEmail: user.Email,
 				DeployedByName:  user.Name,
+				CiLink:          c.CiLink,
 			},
 		}
 		var previousVersion db.EslVersion
@@ -3058,6 +3079,8 @@ type ReleaseTrain struct {
 	Repo                  Repository       `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"`
 	TargetType            string           `json:"targetType"`
+	CiLink                string           `json:"-"`
+	AllowedDomains        []string         `json:"-"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {
@@ -3259,6 +3282,7 @@ func (c *ReleaseTrain) Prognosis(
 			WriteCommitData:       c.WriteCommitData,
 			TrainGroup:            trainGroup,
 			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
 		}
 
 		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction)
@@ -3287,7 +3311,10 @@ func (c *ReleaseTrain) Transform(
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
-
+	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
+	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	}
 	prognosis := c.Prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
@@ -3319,6 +3346,7 @@ func (c *ReleaseTrain) Transform(
 			WriteCommitData:       c.WriteCommitData,
 			TrainGroup:            trainGroup,
 			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
 		}, transaction); err != nil {
 			return "", err
 		}
@@ -3337,6 +3365,7 @@ type envReleaseTrain struct {
 	WriteCommitData       bool
 	TrainGroup            *string
 	TransformerEslVersion db.TransformerID
+	CiLink                string
 }
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
@@ -3817,6 +3846,7 @@ func (c *envReleaseTrain) Transform(
 			},
 			Author:                "",
 			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
 		}
 		if err := t.Execute(d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))

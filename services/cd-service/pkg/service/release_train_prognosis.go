@@ -43,6 +43,8 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 		Repo:                  s.Repository,
 		TransformerEslVersion: 0,
 		TargetType:            api.ReleaseTrainRequest_UNKNOWN.String(),
+		CiLink:                "",
+		AllowedDomains:        []string{},
 	}
 	dbHandler := t.Repo.State().DBHandler
 	var prognosis rp.ReleaseTrainPrognosis
