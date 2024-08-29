@@ -117,7 +117,6 @@ kuberpult-client \
   --source_author     "${author}" \
   --source_message    "$(cat "${commit_message_file}")" \
   --team              "${applicationOwnerTeam}" \
-  --ci_link           "https://google.com" \
   --use_dex_auth \
   "${manifestsForCLI[@]}"
 
