@@ -26,6 +26,8 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"reflect"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -635,7 +637,7 @@ func (c *CreateApplicationVersion) Transform(
 		if len(prevRelease) > 0 {
 			v = prevRelease[0].EslVersion
 		}
-		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version)
+		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 		if err != nil {
 			return "", err
 		}
@@ -738,7 +740,7 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64) (bool, error) {
+func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64, minorRegexes []*regexp.Regexp) (bool, error) {
 	allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
 	if err != nil {
 		return false, err
@@ -767,7 +769,7 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 		if err != nil {
 			return false, err
 		}
-		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests)
+		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
 		err = dbHandler.DBInsertRelease(ctx, transaction, *nextRelease, nextRelease.EslVersion)
 		if err != nil {
 			return false, err
@@ -780,19 +782,43 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 	if err != nil {
 		return false, err
 	}
-	return compareManifests(ctx, c.Manifests, previousRelease.Manifests.Manifests), nil
+	return compareManifests(ctx, c.Manifests, previousRelease.Manifests.Manifests, minorRegexes), nil
 }
 
-func compareManifests(ctx context.Context, firstManifests map[string]string, secondManifests map[string]string) bool {
+func compareManifests(ctx context.Context, firstManifests map[string]string, secondManifests map[string]string, comparisonRegexes []*regexp.Regexp) bool {
 	if len(firstManifests) != len(secondManifests) {
 		return false
 	}
-	for key, value1 := range firstManifests {
-		if value2, exists := secondManifests[key]; !exists || value1 != value2 {
+	for key, manifest1 := range firstManifests {
+		manifest2, exists := secondManifests[key]
+		if !exists {
+			return false
+		}
+		filteredLines1 := filterManifestLines(ctx, manifest1, comparisonRegexes)
+		filteredLines2 := filterManifestLines(ctx, manifest2, comparisonRegexes)
+		if !reflect.DeepEqual(filteredLines1, filteredLines2) {
 			return false
 		}
 	}
 	return true
+}
+
+func filterManifestLines(ctx context.Context, str string, regexes []*regexp.Regexp) []string {
+	lines := strings.Split(str, "\n")
+	var filteredLines []string
+	for _, line := range lines {
+		match := false
+		for _, regex := range regexes {
+			if regex.MatchString(line) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			filteredLines = append(filteredLines, line)
+		}
+	}
+	return filteredLines
 }
 
 func getGenerator(ctx context.Context) uuid.GenerateUUIDs {

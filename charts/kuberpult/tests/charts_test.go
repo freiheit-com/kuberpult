@@ -230,6 +230,10 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
+cd:
+  minorRegexes:
+  - "^exampleRegexForMinors:.*$"
+  - "^secondExampleRegexForMinors:.*$"
 argocd:
   generateFiles: true
 `,
@@ -241,6 +245,10 @@ argocd:
 				{
 					Name:  "KUBERPULT_GIT_URL",
 					Value: "testURL",
+				},
+				{
+					Name:  "KUBERPULT_MINORS_REGEXES",
+					Value: "^exampleRegexForMinors:.*$,^secondExampleRegexForMinors:.*$",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
