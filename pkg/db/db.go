@@ -700,6 +700,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			DisplayVersion:  "",
 			UndeployVersion: false,
 			IsMinor:         false,
+			CiLink:          "",
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {

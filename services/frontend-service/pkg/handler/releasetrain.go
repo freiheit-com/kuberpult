@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -67,12 +68,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 			return
 		}
 	}
-	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
-		w.WriteHeader(400)
-		fmt.Fprintf(w, "Invalid body: %s", err)
-		return
-	}
-	form := req.MultipartForm
+
 	tf := &api.ReleaseTrainRequest{
 		CommitHash: "",
 		Target:     target,
@@ -80,14 +76,22 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		TargetType: api.ReleaseTrainRequest_UNKNOWN,
 		CiLink:     "",
 	}
-	if ciLink, ok := form.Value["ci_link"]; ok {
-		if len(ciLink) != 1 {
-			w.WriteHeader(400)
-			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(ciLink))
+	if req.Body != nil {
+		type releaseTrainBody struct {
+			CiLink string `json:"ciLink,omitempty"`
 		}
-
-		tf.CiLink = ciLink[0]
-
+		var body releaseTrainBody
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			decodeError := err.Error()
+			if errors.Is(err, io.EOF) {
+				tf.CiLink = "" //If no body, CI link is empty
+			} else {
+				http.Error(w, decodeError, http.StatusBadRequest)
+				return
+			}
+		} else {
+			tf.CiLink = body.CiLink
+		}
 	}
 
 	response, err := s.BatchClient.ProcessBatch(req.Context(),
@@ -117,15 +121,36 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
 
+	tf := &api.ReleaseTrainRequest{
+		CommitHash: "",
+		Target:     target,
+		Team:       teamParam,
+		TargetType: TargetType,
+		CiLink:     "",
+	}
+	if req.Body != nil {
+		type releaseTrainBody struct {
+			CiLink string `json:"ciLink,omitempty"`
+		}
+		var body releaseTrainBody
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			decodeError := err.Error()
+			if errors.Is(err, io.EOF) {
+				tf.CiLink = "" //If no body, CI link is empty
+			} else {
+				http.Error(w, decodeError, http.StatusBadRequest)
+				return
+			}
+		} else {
+			tf.CiLink = body.CiLink
+		}
+	}
+
 	response, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_ReleaseTrain{
-				ReleaseTrain: &api.ReleaseTrainRequest{
-					CommitHash: "",
-					Target:     target,
-					Team:       teamParam,
-					TargetType: TargetType,
-				}}},
+				ReleaseTrain: tf,
+			}},
 		},
 		})
 	if err != nil {
@@ -151,6 +176,7 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 	response, err := s.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(req.Context(), &api.ReleaseTrainRequest{
 		Target:     target,
 		CommitHash: "",
+		CiLink:     "",
 		Team:       teamParam,
 		TargetType: api.ReleaseTrainRequest_UNKNOWN,
 	})
