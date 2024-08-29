@@ -218,6 +218,8 @@ type RepositoryConfig struct {
 
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
+
+	CILinkAllowedDomains []string
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {

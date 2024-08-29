@@ -34,7 +34,8 @@ import (
 )
 
 type BatchServerConfig struct {
-	WriteCommitData bool
+	WriteCommitData      bool
+	AllowedCILinkDomains []string //Transformers that create releases or deploy them can only accept CI links from these domains
 }
 
 type BatchServer struct {
@@ -278,6 +279,7 @@ func (d *BatchServer) processAction(
 				Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 				WriteCommitData:       d.Config.WriteCommitData,
 				CiLink:                in.CiLink,
+				AllowedDomains:        d.Config.AllowedCILinkDomains,
 				TransformerEslVersion: 0,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{

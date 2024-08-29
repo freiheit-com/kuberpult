@@ -24,8 +24,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -378,6 +380,7 @@ type CreateApplicationVersion struct {
 	WriteCommitData       bool              `json:"writeCommitData"`
 	PreviousCommit        string            `json:"previousCommit"`
 	CiLink                string            `json:"ciLink"`
+	AllowedDomains        []string          `json:"-"`
 	TransformerEslVersion db.TransformerID  `json:"-"`
 }
 
@@ -434,6 +437,22 @@ func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, fs bill
 	}
 }
 
+func isValidLink(urlToCheck string, allowedDomains []string) bool {
+	_, err := url.ParseRequestURI(urlToCheck) //Check if is a valid URL
+	if err != nil {
+		return false
+	}
+
+	for _, domain := range allowedDomains { //Check if it is from one of the accepted domains
+		pattern := fmt.Sprintf(".*\\.?%s.*", domain)
+		if matched, _ := regexp.MatchString(pattern, urlToCheck); matched {
+			return true
+		}
+	}
+	fmt.Printf("Link does not match a valid domain: %s\n", urlToCheck)
+	return false
+}
+
 func (c *CreateApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
@@ -448,7 +467,9 @@ func (c *CreateApplicationVersion) Transform(
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
+
 	if state.DBHandler.ShouldUseOtherTables() {
+
 		allApps, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
@@ -593,6 +614,10 @@ func (c *CreateApplicationVersion) Transform(
 	} else {
 		logger.FromContext(ctx).Sugar().Warnf("skipping team file for team %s and should=%v", c.Team, state.DBHandler.ShouldUseOtherTables())
 	}
+	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	}
+
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
