@@ -27,7 +27,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -438,19 +437,11 @@ func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, fs bill
 }
 
 func isValidLink(urlToCheck string, allowedDomains []string) bool {
-	_, err := url.ParseRequestURI(urlToCheck) //Check if is a valid URL
+	u, err := url.ParseRequestURI(urlToCheck) //Check if is a valid URL
 	if err != nil {
 		return false
 	}
-
-	for _, domain := range allowedDomains { //Check if it is from one of the accepted domains
-		pattern := fmt.Sprintf(".*\\.?%s.*", domain)
-		if matched, _ := regexp.MatchString(pattern, urlToCheck); matched {
-			return true
-		}
-	}
-	fmt.Printf("Link does not match a valid domain: %s\n", urlToCheck)
-	return false
+	return slices.Contains(allowedDomains, u.Hostname())
 }
 
 func (c *CreateApplicationVersion) Transform(
