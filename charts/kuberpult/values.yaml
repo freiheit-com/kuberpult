@@ -83,7 +83,7 @@ cd:
 # `configs.cm.application.resourceTrackingMethod: annotation+label`
 # Note that there is no simple way in kuberpult to rename an app.
   allowLongAppNames: false
-#List of allowed domains that the links provided in releases, release trains and locks must match
+# List of allowed domains that the links provided in releases, release trains and locks must match
   allowedDomains: ""
   backendConfig:
     create: false   # Add backend config for health checks on GKE only
