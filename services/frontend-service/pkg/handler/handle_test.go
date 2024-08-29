@@ -196,6 +196,40 @@ func TestServer_Handle(t *testing.T) {
 			},
 		},
 		{
+			name: "release train api with CI Link",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader(`{"cilink":"https://google.com"}`)),
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "development",
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"target\":\"development\"}",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", TargetType: api.ReleaseTrainRequest_ENVIRONMENT, CiLink: "https://google.com"},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "release train",
 			req: &http.Request{
 				Method: http.MethodPut,

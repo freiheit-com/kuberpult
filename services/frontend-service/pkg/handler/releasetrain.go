@@ -76,21 +76,22 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		TargetType: api.ReleaseTrainRequest_UNKNOWN,
 		CiLink:     "",
 	}
-
-	type releaseTrainBody struct {
-		CiLink string `json:"ciLink,omitempty"`
-	}
-	var body releaseTrainBody
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		decodeError := err.Error()
-		if errors.Is(err, io.EOF) {
-			tf.CiLink = "" //If no body, CI link is empty
-		} else {
-			http.Error(w, decodeError, http.StatusBadRequest)
-			return
+	if req.Body != nil {
+		type releaseTrainBody struct {
+			CiLink string `json:"ciLink,omitempty"`
 		}
-	} else {
-		tf.CiLink = body.CiLink
+		var body releaseTrainBody
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			decodeError := err.Error()
+			if errors.Is(err, io.EOF) {
+				tf.CiLink = "" //If no body, CI link is empty
+			} else {
+				http.Error(w, decodeError, http.StatusBadRequest)
+				return
+			}
+		} else {
+			tf.CiLink = body.CiLink
+		}
 	}
 
 	response, err := s.BatchClient.ProcessBatch(req.Context(),
@@ -124,24 +125,25 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 		CommitHash: "",
 		Target:     target,
 		Team:       teamParam,
-		TargetType: api.ReleaseTrainRequest_UNKNOWN,
+		TargetType: TargetType,
 		CiLink:     "",
 	}
-
-	type releaseTrainBody struct {
-		CiLink string `json:"ciLink,omitempty"`
-	}
-	var body releaseTrainBody
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		decodeError := err.Error()
-		if errors.Is(err, io.EOF) {
-			tf.CiLink = "" //If no body, CI link is empty
-		} else {
-			http.Error(w, decodeError, http.StatusBadRequest)
-			return
+	if req.Body != nil {
+		type releaseTrainBody struct {
+			CiLink string `json:"ciLink,omitempty"`
 		}
-	} else {
-		tf.CiLink = body.CiLink
+		var body releaseTrainBody
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			decodeError := err.Error()
+			if errors.Is(err, io.EOF) {
+				tf.CiLink = "" //If no body, CI link is empty
+			} else {
+				http.Error(w, decodeError, http.StatusBadRequest)
+				return
+			}
+		} else {
+			tf.CiLink = body.CiLink
+		}
 	}
 
 	response, err := s.BatchClient.ProcessBatch(req.Context(),
