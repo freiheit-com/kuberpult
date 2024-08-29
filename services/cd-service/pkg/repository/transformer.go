@@ -1221,6 +1221,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				DisplayVersion:  "",
 				UndeployVersion: true,
 				IsMinor:         false,
+				CiLink:          "",
 			},
 			Created: time.Now(),
 			Deleted: false,
@@ -1309,6 +1310,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				WriteCommitData:       c.WriteCommitData,
 				Author:                "",
 				TransformerEslVersion: c.TransformerEslVersion,
+				CiLink:                "",
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
