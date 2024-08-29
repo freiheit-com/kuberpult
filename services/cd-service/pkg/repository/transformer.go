@@ -441,7 +441,6 @@ func isValidLink(urlToCheck string, allowedDomains []string) bool {
 	if err != nil {
 		return false
 	}
-	fmt.Println(u.Hostname())
 	return slices.Contains(allowedDomains, u.Hostname())
 }
 

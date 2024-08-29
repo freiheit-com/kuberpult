@@ -225,7 +225,6 @@ func RunServer() {
 			)
 		}
 
-		fmt.Printf("ALLOWED DOMAINS: %s\n", c.AllowedDomains)
 		var cloudRunClient *cloudrun.CloudRunClient = nil
 		if c.DeploymentType == "cloudrun" {
 			cloudRunClient, err = cloudrun.InitCloudRunClient(c.CloudRunServer)

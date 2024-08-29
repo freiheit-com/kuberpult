@@ -120,15 +120,35 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
 
+	tf := &api.ReleaseTrainRequest{
+		CommitHash: "",
+		Target:     target,
+		Team:       teamParam,
+		TargetType: api.ReleaseTrainRequest_UNKNOWN,
+		CiLink:     "",
+	}
+
+	type releaseTrainBody struct {
+		CiLink string `json:"ciLink,omitempty"`
+	}
+	var body releaseTrainBody
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		decodeError := err.Error()
+		if errors.Is(err, io.EOF) {
+			tf.CiLink = "" //If no body, CI link is empty
+		} else {
+			http.Error(w, decodeError, http.StatusBadRequest)
+			return
+		}
+	} else {
+		tf.CiLink = body.CiLink
+	}
+
 	response, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_ReleaseTrain{
-				ReleaseTrain: &api.ReleaseTrainRequest{
-					CommitHash: "",
-					Target:     target,
-					Team:       teamParam,
-					TargetType: TargetType,
-				}}},
+				ReleaseTrain: tf,
+			}},
 		},
 		})
 	if err != nil {
