@@ -229,7 +229,7 @@ func (d *BatchServer) processAction(
 			WriteCommitData:       d.Config.WriteCommitData,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			Author:                "",
-			CiLink:                "", //Only gets populated when a release is created.
+			CiLink:                "", //Only gets populated when a release is created or release train is conducted.
 			TransformerEslVersion: 0,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:

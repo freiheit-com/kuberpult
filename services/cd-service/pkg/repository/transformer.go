@@ -3313,7 +3313,7 @@ func (c *ReleaseTrain) Transform(
 	defer span.Finish()
 	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
 	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink)
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	prognosis := c.Prognosis(ctx, state, transaction)
 
