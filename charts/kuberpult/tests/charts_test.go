@@ -624,6 +624,28 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Minimal values.yaml leads to proper default values",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  allowedDomains: freiheit.com, github.com
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "NO_DB",
+				},
+				{
+					Name:  "KUBERPULT_ALLOWED_DOMAINS",
+					Value: "freiheit.com, github.com",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
