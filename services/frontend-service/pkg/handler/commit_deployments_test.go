@@ -39,7 +39,9 @@ func (m mockCommitDeploymentServiceClient) GetCommitDeploymentInfo(ctx context.C
 		DeploymentStatus: map[string]*api.AppCommitDeploymentStatus{
 			"app1": {
 				DeploymentStatus: map[string]api.CommitDeploymentStatus{
-					"dev": api.CommitDeploymentStatus_DEPLOYED,
+					"dev":   api.CommitDeploymentStatus_DEPLOYED,
+					"stage": api.CommitDeploymentStatus_PENDING,
+					"prod":  api.CommitDeploymentStatus_UNKNOWN,
 				},
 			},
 		},
@@ -80,7 +82,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 			inputTail:          "123456/",
 			failGrpcCall:       false,
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   "{\"app1\":{\"deployment_status\":{\"dev\":2}}}\n",
+			expectedResponse:   "{\"app1\":{\"deployment_status\":{\"dev\":2,\"prod\":0,\"stage\":1}}}\n",
 		},
 	}
 	for _, tc := range tcs {
