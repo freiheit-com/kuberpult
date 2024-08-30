@@ -54,7 +54,7 @@ ls "${commit_message_file}"
 release_version=''
 case "${RELEASE_VERSION:-}" in
 	*[!0-9]*) echo "Please set the env variable RELEASE_VERSION to a number"; exit 1;;
-	*) release_version=${RELEASE_VERSION:-};;
+	*) release_version='--form-string '"version=${RELEASE_VERSION:-}";;
 esac
 
 echo "release version:" "${release_version}"
@@ -80,7 +80,7 @@ data:
 ---
 EOF
   echo "wrote file ${file}"
-  manifestsForCLI+=(--environment "${env}" --manifest "${file}")
+  manifests+=("--form" "manifests[${env}]=@${file}")
 done
 echo commit id: "${commit_id}"
 
@@ -105,21 +105,15 @@ then
   inputs+=(--form-string "previous_commit_id=${prev}")
 fi
 
-kuberpultURL="http://localhost:${FRONTEND_PORT}"
-kuberpult-client \
-  --url               "${kuberpultURL}" \
-  --author_name       "${AUTHOR}" \
-  --author_email      "${EMAIL}" \
-  release \
-  --version           "${release_version}" \
-  --application       "${name}" \
-  --source_commit_id  "${commit_id}" \
-  --source_author     "${author}" \
-  --source_message    "$(cat "${commit_message_file}")" \
-  --display_version   "${displayVersion}" \
-  --team              "${applicationOwnerTeam}" \
-  --use_dex_auth \
-  "${manifestsForCLI[@]}"
-
+curl http://localhost:${FRONTEND_PORT}/api/release \
+  -H "author-email:${EMAIL}" \
+  -H "author-name:${AUTHOR}=" \
+  "${inputs[@]}" \
+  ${release_version} \
+  --form-string "display_version=${displayVersion}" \
+  --form-string "ci_link=http://google.com" \
+  --form "source_message=<${commit_message_file}" \
+  "${configuration[@]}" \
+  "${manifests[@]}"
 
 echo # curl sometimes does not print a trailing \n
