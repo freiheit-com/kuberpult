@@ -254,9 +254,9 @@ spec:
           value: "{{ .Values.cd.allowLongAppNames }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
-{{- if .Values.manifestRepoExport.minorsRegexes }}
+{{- if .Values.cd.minorRegexes }}
         - name: KUBERPULT_MINOR_REGEXES
-          value: {{ .Values.manifestRepoExport.minorRegexes | join "," | quote }}
+          value: {{ .Values.cd.minorRegexes | join "," | quote }}
 {{- end }}
         volumeMounts:
 {{- if (eq .Values.db.dbOption "postgreSQL") }}

@@ -247,7 +247,7 @@ argocd:
 					Value: "testURL",
 				},
 				{
-					Name:  "KUBERPULT_MINORS_REGEXES",
+					Name:  "KUBERPULT_MINOR_REGEXES",
 					Value: "^exampleRegexForMinors:.*$,^secondExampleRegexForMinors:.*$",
 				},
 			},

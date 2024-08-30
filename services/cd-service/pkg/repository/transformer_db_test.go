@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 	gotime "time"
 
@@ -789,6 +790,7 @@ func TestMinorFlag(t *testing.T) {
 		Transformers   []Transformer
 		ExpectedMinors []uint64
 		ExpectedMajors []uint64
+		MinorRegexes   []*regexp.Regexp
 	}{
 		{
 			Name: "No previous or next releases",
@@ -1030,6 +1032,93 @@ func TestMinorFlag(t *testing.T) {
 			ExpectedMinors: []uint64{11, 12},
 			ExpectedMajors: []uint64{10},
 		},
+		{
+			Name: "With Regex, all manifests are equal",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     12,
+					Manifests: map[string]string{
+						envAcceptance: "manifest3",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2",
+					},
+				},
+			},
+			MinorRegexes:   []*regexp.Regexp{regexp.MustCompile(".*manifest.*")},
+			ExpectedMinors: []uint64{11, 12},
+			ExpectedMajors: []uint64{10},
+		},
+		{
+			Name: "Multiple Regexes",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1\nfirstLine1\nsecondLine1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     12,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2\nfirstLine3\nsecondLine3",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2\nfirstLine2\nsecondLine2",
+					},
+				},
+			},
+			MinorRegexes:   []*regexp.Regexp{regexp.MustCompile(".*firstLine.*"), regexp.MustCompile(".*secondLine.*")},
+			ExpectedMinors: []uint64{12},
+			ExpectedMajors: []uint64{10, 11},
+		},
+		{
+			Name: "Multiple Regexes and one of them do not match",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Manifests: map[string]string{
+						envAcceptance: "manifest1\nfirstLine1\nsecondLine1",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     12,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2\nfirstLine3\nsecondLine3",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     11,
+					Manifests: map[string]string{
+						envAcceptance: "manifest2\nfirstLine2\nsecondLine2",
+					},
+				},
+			},
+			MinorRegexes:   []*regexp.Regexp{regexp.MustCompile(".*firstLine.*"), regexp.MustCompile(".*ItDoesNotMatch.*")},
+			ExpectedMinors: []uint64{},
+			ExpectedMajors: []uint64{10, 11, 12},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1038,7 +1127,8 @@ func TestMinorFlag(t *testing.T) {
 			t.Parallel()
 
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
-			repo := SetupRepositoryTestWithDB(t)
+			repo := SetupRepositoryTestWithDB(t).(*repository)
+			repo.config.MinorRegexes = tc.MinorRegexes
 			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
 					Environment: "acceptance",

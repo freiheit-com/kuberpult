@@ -2006,6 +2006,7 @@ func (c *DeleteEnvironmentLock) Transform(
 	fs := state.Filesystem
 	s := State{
 		Commit:               nil,
+		MinorRegexes:         state.MinorRegexes,
 		Filesystem:           fs,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
@@ -2903,6 +2904,7 @@ func (c *DeployApplicationVersion) Transform(
 
 	s := State{
 		Commit:               nil,
+		MinorRegexes:         state.MinorRegexes,
 		Filesystem:           fs,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
