@@ -158,6 +158,7 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 				Environment: environment,
 				LockId:      lockID,
 				Message:     body.Message,
+				CiLink:      body.CiLink,
 			},
 		}},
 	}})
@@ -269,6 +270,7 @@ func (s Server) handlePutEnvironmentGroupLock(w http.ResponseWriter, req *http.R
 				EnvironmentGroup: environmentGroup,
 				LockId:           lockID,
 				Message:          body.Message,
+				CiLink:           body.CiLink,
 			},
 		}},
 	}})
@@ -396,6 +398,7 @@ func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, envi
 				Team:        team,
 				LockId:      lockID,
 				Message:     body.Message,
+				CiLink:      body.CiLink,
 			},
 		}},
 	}})

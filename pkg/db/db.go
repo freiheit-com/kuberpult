@@ -1322,6 +1322,7 @@ type LockMetadata struct {
 	CreatedByName  string
 	CreatedByEmail string
 	Message        string
+	CiLink         string
 }
 
 type ReleaseWithManifest struct {
@@ -2578,7 +2579,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 
 }
 
-func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID, environment, message, authorName, authorEmail string) error {
+func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID, environment string, metadata LockMetadata) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
 	defer span.Finish()
 	if h == nil {
@@ -2607,12 +2608,8 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 		LockID:     lockID,
 		Created:    time.Time{},
 		Env:        environment,
-		Metadata: LockMetadata{
-			Message:        message,
-			CreatedByName:  authorName,
-			CreatedByEmail: authorEmail,
-		},
-		Deleted: false,
+		Metadata:   metadata,
+		Deleted:    false,
 	}
 	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion, false)
 }

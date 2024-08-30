@@ -948,7 +948,12 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 				if envLock != nil {
 					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
-				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				metadata := LockMetadata{
+					Message:        tc.Message,
+					CreatedByName:  tc.AuthorName,
+					CreatedByEmail: tc.AuthorEmail,
+				}
+				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, metadata)
 				if err != nil {
 					return err
 				}
@@ -1151,7 +1156,12 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 				if envLock != nil {
 					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
-				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				metadata := LockMetadata{
+					Message:        tc.Message,
+					CreatedByName:  tc.AuthorName,
+					CreatedByEmail: tc.AuthorEmail,
+				}
+				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, metadata)
 				if err != nil {
 					return err
 				}
