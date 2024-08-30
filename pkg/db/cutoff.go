@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package cutoff
+package db
 
 import (
 	"context"
@@ -23,12 +23,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslVersion, error) {
+func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBReadCutoff")
 	defer span.Finish()
 
@@ -48,8 +47,8 @@ func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslVers
 		}
 	}(rows)
 
-	var eslVersion db.EslVersion
-	var eslVersionPtr *db.EslVersion = nil
+	var eslVersion EslVersion
+	var eslVersionPtr *EslVersion = nil
 	if rows.Next() {
 		err := rows.Scan(&eslVersion)
 		if err != nil {
@@ -71,7 +70,7 @@ func DBReadCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx) (*db.EslVers
 	return eslVersionPtr, nil
 }
 
-func DBWriteCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, eslVersion db.EslVersion) error {
+func DBWriteCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx, eslVersion EslVersion) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCutoff")
 	defer span.Finish()
 
