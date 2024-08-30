@@ -855,13 +855,15 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				t.SetEslVersion(db.TransformerID(internal.EslVersion))
 
-				if r.DB.WriteEslOnly {
+				if r.DB != nil && r.DB.WriteEslOnly {
 					// if we were previously running with `db.writeEslTableOnly=true`, but now are running with
 					// `db.writeEslTableOnly=false` (which is the recommended way to enable the database),
 					// then we would have many events in the event_sourcing_light table that have not been processed.
-					// So, if there is no cutoff yet, we write the current transformer to the cutoff, so it doesn't get processed:
+					// So, we write the cutoff if we are only writing to the esl table. Then, when the database is fully
+					// enabled, the cutoff is found and determined to be the latest transformer. When this happens,
+					// the export service takes over the duties of writing the cutoff
 
-					eslVersion, err := db.DBReadCutoff(r.DB, ctx, transaction)
+					err = db.DBWriteCutoff(r.DB, ctx, transaction, internal.EslVersion)
 					if err != nil {
 						applyErr := TransformerBatchApplyError{
 							TransformerError: err,
@@ -869,17 +871,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 						}
 						return nil, nil, nil, &applyErr
 					}
-					// only write if there is no cutoff yet:
-					if eslVersion == nil {
-						err = db.DBWriteCutoff(r.DB, ctx, transaction, internal.EslVersion)
-						if err != nil {
-							applyErr := TransformerBatchApplyError{
-								TransformerError: err,
-								Index:            i,
-							}
-							return nil, nil, nil, &applyErr
-						}
-					}
+
 				}
 			}
 
