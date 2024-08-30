@@ -805,7 +805,7 @@ func compareManifests(ctx context.Context, firstManifests map[string]string, sec
 
 func filterManifestLines(ctx context.Context, str string, regexes []*regexp.Regexp) []string {
 	lines := strings.Split(str, "\n")
-	var filteredLines []string
+	filteredLines := make([]string, 0)
 	for _, line := range lines {
 		match := false
 		for _, regex := range regexes {

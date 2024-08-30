@@ -1168,6 +1168,71 @@ func TestMinorFlag(t *testing.T) {
 	}
 }
 
+func TestFilterManifestLines(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		StartingString string
+		Regexes        []*regexp.Regexp
+		ExpectedResult []string
+	}{
+		{
+			Name:           "Simple Use Case",
+			StartingString: "line1\nline2\nline3\nline4\nline5\nline5\nline6",
+			Regexes: []*regexp.Regexp{
+				regexp.MustCompile(".*1$"),
+				regexp.MustCompile(".*5.*"),
+				regexp.MustCompile("line3"),
+				regexp.MustCompile(".*8.*"),
+				regexp.MustCompile(".*DoesNOTMatch.*"),
+			},
+			ExpectedResult: []string{
+				"line2",
+				"line4",
+				"line6",
+			},
+		},
+		{
+			Name:           "Empty string",
+			StartingString: "",
+			Regexes: []*regexp.Regexp{
+				regexp.MustCompile("^.*testRegex$"),
+			},
+			ExpectedResult: []string{""},
+		},
+		{
+			Name:           "Empty list of regexes",
+			StartingString: "line1\nline2\nline3",
+			Regexes:        []*regexp.Regexp{},
+			ExpectedResult: []string{
+				"line1",
+				"line2",
+				"line3",
+			},
+		},
+		{
+			Name:           "All lines match",
+			StartingString: "line1\nline2\nline3",
+			Regexes: []*regexp.Regexp{
+				regexp.MustCompile("^line1$"),
+				regexp.MustCompile(".*2.*"),
+				regexp.MustCompile("^line3.*"),
+			},
+			ExpectedResult: []string{},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			filteredLines := filterManifestLines(ctx, tc.StartingString, tc.Regexes)
+			if diff := cmp.Diff(tc.ExpectedResult, filteredLines); diff != "" {
+				t.Errorf("error mismatch in filtered lines (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
 func TestDeleteQueueApplicationVersion(t *testing.T) {
 	tcs := []struct {
 		Name              string
