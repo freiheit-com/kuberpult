@@ -201,6 +201,7 @@ func RunServer() {
 			regex, err := regexp.Compile(minorRegexStr)
 			if err != nil {
 				logger.FromContext(ctx).Sugar().Warnf("Invalid regex input: %s", minorRegexStr)
+				continue
 			}
 			minorRegexes = append(minorRegexes, regex)
 		}
