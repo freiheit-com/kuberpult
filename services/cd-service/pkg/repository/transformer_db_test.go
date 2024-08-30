@@ -2683,6 +2683,222 @@ func TestCreateUndeployDBState(t *testing.T) {
 	}
 }
 
+func TestAllowedCILinksState(t *testing.T) {
+	const appName = "my-app"
+
+	tcs := []struct {
+		Name                string
+		TargetApp           string
+		Transformers        []Transformer
+		expectedError       *TransformerBatchApplyError
+		expectedCommitMsg   string
+		expectedAllReleases []int64
+		expectedDeployments []db.Deployment
+	}{
+		{
+			Name: "No Link provided should succeed",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:           envProduction,
+					Config:                config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envProduction, Latest: true}},
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
+					CiLink:                "",
+					AllowedDomains:        []string{"google.com", "freiheit.com"},
+				},
+			},
+			expectedAllReleases: []int64{1},
+			expectedDeployments: []db.Deployment{
+				{
+					EslVersion: 1,
+					App:        appName,
+					Env:        envProduction,
+					Version:    version(1),
+					Metadata: db.DeploymentMetadata{
+						DeployedByEmail: "testmail@example.com",
+						DeployedByName:  "test tester",
+						CiLink:          "",
+					},
+					TransformerID: 2,
+				},
+			},
+		},
+		{
+			Name: "No accepted domains but no link provided should succeed",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:           envProduction,
+					Config:                config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envProduction, Latest: true}},
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
+					CiLink:                "",
+					AllowedDomains:        []string{""},
+				},
+			},
+			expectedAllReleases: []int64{1},
+			expectedDeployments: []db.Deployment{
+				{
+					EslVersion: 1,
+					App:        appName,
+					Env:        envProduction,
+					Version:    version(1),
+					Metadata: db.DeploymentMetadata{
+						DeployedByEmail: "testmail@example.com",
+						DeployedByName:  "test tester",
+						CiLink:          "",
+					},
+					TransformerID: 2,
+				},
+			},
+		},
+		{
+			Name: "Link in domain",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:           envProduction,
+					Config:                config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envProduction, Latest: true}},
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
+					CiLink:                "https://google.com/search?q=freiheit.com",
+					AllowedDomains:        []string{"google.com", "freiheit.com"},
+				},
+			},
+			expectedAllReleases: []int64{1},
+			expectedDeployments: []db.Deployment{
+				{
+					EslVersion: 1,
+					App:        appName,
+					Env:        envProduction,
+					Version:    version(1),
+					Metadata: db.DeploymentMetadata{
+						DeployedByEmail: "testmail@example.com",
+						DeployedByName:  "test tester",
+						CiLink:          "https://google.com/search?q=freiheit.com",
+					},
+					TransformerID: 2,
+				},
+			},
+		},
+		{
+			Name: "Link not in accepted domains",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:           envProduction,
+					Config:                config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envProduction, Latest: true}},
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
+					CiLink:                "https://github.com/freiheit-com/kuberpult",
+					AllowedDomains:        []string{"google.com", "freiheit.com"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"Provided CI Link: https://github.com/freiheit-com/kuberpult is not valid or does not match any of the allowed domain\"}"},
+			},
+		},
+		{
+			Name: "No accepted domains should always fail",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:           envProduction,
+					Config:                config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envProduction, Latest: true}},
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData:       true,
+					Version:               1,
+					TransformerEslVersion: 1,
+					CiLink:                "https://google.com/search?q=freiheit.com",
+					AllowedDomains:        []string{""},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"Provided CI Link: https://google.com/search?q=freiheit.com is not valid or does not match any of the allowed domain\"}"},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, s, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+
+				if err != nil {
+					return err
+				}
+
+				allReleases, err2 := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err2 != nil {
+					t.Fatal(err)
+				}
+
+				if diff := cmp.Diff(tc.expectedAllReleases, allReleases.Metadata.Releases); diff != "" {
+					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+				}
+
+				target, err2 := s.DBHandler.DBSelectDeploymentHistory(ctx, transaction, appName, envProduction, 10)
+
+				if err2 != nil {
+					t.Fatal(err2)
+				}
+				if diff := cmp.Diff(tc.expectedDeployments, target, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if tc.expectedError == nil && err != nil {
+				t.Fatalf("Did no expect error but got):\n%+v", err)
+			}
+			if err != nil {
+				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
 func TestUndeployDBState(t *testing.T) {
 	const appName = "my-app"
 

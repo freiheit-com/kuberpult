@@ -211,6 +211,7 @@ message CreateReleaseRequest {
   string source_repo_url = 9;
   string display_version = 10;
   string previous_commit_id = 11;
+  string ci_link = 12;
 }
 
 message CreateReleaseResponseSuccess {
@@ -296,6 +297,7 @@ message ReleaseTrainRequest {
   string team = 2;
   string commit_hash = 3;
   TargetType target_type = 4;
+  string ci_link = 5;
 }
 
 message ReleaseTrainResponse {

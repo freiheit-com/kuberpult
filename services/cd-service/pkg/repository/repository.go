@@ -2053,6 +2053,7 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 				Metadata: db.DeploymentMetadata{
 					DeployedByName:  "",
 					DeployedByEmail: "",
+					CiLink:          "",
 				},
 			}
 			err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0)
@@ -2359,6 +2360,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				SourceMessage:   repoRelease.SourceMessage,
 				DisplayVersion:  repoRelease.DisplayVersion,
 				IsMinor:         false,
+				CiLink:          "",
 			},
 			Deleted: false,
 		}

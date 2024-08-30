@@ -252,6 +252,8 @@ spec:
 {{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
+        - name: KUBERPULT_ALLOWED_DOMAINS
+          value: "{{ .Values.cd.allowedDomains }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
 {{- if .Values.cd.minorRegexes }}

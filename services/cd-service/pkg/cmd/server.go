@@ -101,6 +101,7 @@ type Config struct {
 	CloudRunServer           string        `default:"" split_words:"true"`
 	DbSslMode                string        `default:"verify-full" split_words:"true"`
 	MinorRegexes             string        `default:"" split_words:"true"`
+	AllowedDomains           []string      `split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -234,6 +235,7 @@ func RunServer() {
 				zap.String("details", err.Error()),
 			)
 		}
+
 		var cloudRunClient *cloudrun.CloudRunClient = nil
 		if c.DeploymentType == "cloudrun" {
 			cloudRunClient, err = cloudrun.InitCloudRunClient(c.CloudRunServer)
@@ -393,7 +395,8 @@ func RunServer() {
 							Team:       dexRbacTeam,
 						},
 						Config: service.BatchServerConfig{
-							WriteCommitData: c.GitWriteCommitData,
+							WriteCommitData:      c.GitWriteCommitData,
+							AllowedCILinkDomains: c.AllowedDomains,
 						},
 					})
 
