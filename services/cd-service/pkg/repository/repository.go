@@ -215,6 +215,7 @@ type RepositoryConfig struct {
 	AllowLongAppNames bool
 
 	ArgoCdGenerateFiles bool
+	MinorRegexes        []*regexp.Regexp
 
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
@@ -1209,6 +1210,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Commit:               nil,
 						Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
 						ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
+						MinorRegexes:         r.config.MinorRegexes,
 						DBHandler:            r.DB,
 						CloudRunClient:       r.config.CloudRunClient,
 					}, nil
@@ -1232,6 +1234,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
 		Commit:               commit,
 		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
+		MinorRegexes:         r.config.MinorRegexes,
 		DBHandler:            r.DB,
 		CloudRunClient:       r.config.CloudRunClient,
 	}, nil
@@ -1245,6 +1248,7 @@ type State struct {
 	Filesystem           billy.Filesystem
 	Commit               *git.Commit
 	ReleaseVersionsLimit uint
+	MinorRegexes         []*regexp.Regexp
 	// DbHandler will be nil if the DB is disabled
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient

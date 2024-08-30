@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -99,6 +100,7 @@ type Config struct {
 	DeploymentType           string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
 	CloudRunServer           string        `default:"" split_words:"true"`
 	DbSslMode                string        `default:"verify-full" split_words:"true"`
+	MinorRegexes             string        `default:"" split_words:"true"`
 	AllowedDomains           []string      `split_words:"true"`
 }
 
@@ -195,6 +197,15 @@ func RunServer() {
 			}
 			ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
 		}
+		minorRegexes := []*regexp.Regexp{}
+		for _, minorRegexStr := range strings.Split(c.MinorRegexes, ",") {
+			regex, err := regexp.Compile(minorRegexStr)
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("Invalid regex input: %s", minorRegexStr)
+				continue
+			}
+			minorRegexes = append(minorRegexes, regex)
+		}
 
 		// If the tracer is not started, calling this function is a no-op.
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
@@ -290,6 +301,7 @@ func RunServer() {
 			Certificates: repository.Certificates{
 				KnownHostsFile: c.GitSshKnownHosts,
 			},
+			MinorRegexes:          minorRegexes,
 			Branch:                c.GitBranch,
 			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
 			StorageBackend:        c.storageBackend(),
