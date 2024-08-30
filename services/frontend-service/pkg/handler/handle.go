@@ -37,6 +37,7 @@ type Server struct {
 	RolloutClient               api.RolloutServiceClient
 	VersionClient               api.VersionServiceClient
 	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
+	CommitDeploymentsClient     api.CommitDeploymentServiceClient
 	Config                      config.ServerConfig
 	KeyRing                     openpgp.KeyRing
 	AzureAuth                   bool
@@ -72,6 +73,8 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 		s.handleApiEnvironmentGroups(w, req, tail)
 	case "release":
 		s.handleApiRelease(w, req, tail)
+	case "commit-deployments":
+		s.handleCommitDeployments(w, req, tail)
 	default:
 		http.Error(w, fmt.Sprintf("unknown endpoint 'api/%s'", group), http.StatusNotFound)
 	}
