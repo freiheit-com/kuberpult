@@ -301,12 +301,12 @@ kuberpult-client --url <kuberpult_url> delete-group-lock [parameters]
 You can get commit deployments by using the **get-commit-deployments** command.
 
 The CLI offers the following parameters for getting commit deployments:
-```shell
+```
 -commit value
       the commit ID to get deployments for
 ```
 
-```shell
+```
 -out value
       the file to write the output to
 ```
