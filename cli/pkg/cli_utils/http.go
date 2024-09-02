@@ -32,6 +32,7 @@ func doRequest(request *http.Request) (*http.Response, []byte, error) {
 	//exhaustruct:ignore
 	client := &http.Client{
 		Timeout: HttpDefaultTimeout * time.Second,
+		// We don't want to follow redirects. If we get a redirect, we want to return the original status code.
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
