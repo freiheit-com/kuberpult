@@ -116,7 +116,7 @@ func TestCreateHttpRequest(t *testing.T) {
 			t.Parallel()
 			actual, err := createHttpRequest(tc.url, tc.authParams, tc.parameters)
 			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if actual.Method != tc.expectedRequest.Method {
 				t.Errorf("expected method %s, got %s", tc.expectedRequest.Method, actual.Method)
