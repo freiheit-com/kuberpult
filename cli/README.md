@@ -298,7 +298,7 @@ kuberpult-client --url <kuberpult_url> delete-group-lock [parameters]
 
 ### Getting commit deployments
 
-You can get commit deployments by using the **get-commit-deployments** command.
+You can get the deployment status of a commit by using the **get-commit-deployments** command. This answers the question "is my commit deployed yet, according to kuberpult", for all environments.
 
 The CLI offers the following parameters for getting commit deployments:
 ```
