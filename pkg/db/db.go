@@ -505,6 +505,7 @@ type DBReleaseMetaData struct {
 	UndeployVersion bool
 	IsMinor         bool
 	CiLink          string
+	IsPrepublish    bool
 }
 
 type DBReleaseManifests struct {

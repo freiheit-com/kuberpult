@@ -383,6 +383,7 @@ type CreateApplicationVersion struct {
 	CiLink                string            `json:"ciLink"`
 	AllowedDomains        []string          `json:"-"`
 	TransformerEslVersion db.TransformerID  `json:"-"`
+	IsPrepublish          bool              `json:"isPrepublish"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -671,6 +672,7 @@ func (c *CreateApplicationVersion) Transform(
 				UndeployVersion: false,
 				IsMinor:         isMinor,
 				CiLink:          c.CiLink,
+				IsPrepublish:    c.IsPrepublish,
 			},
 			Created: time.Now(),
 			Deleted: false,
