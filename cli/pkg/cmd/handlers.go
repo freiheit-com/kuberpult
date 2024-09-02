@@ -185,7 +185,7 @@ func handleLockRequest(kpClientParams kuberpultClientParameters, parsedArgs lock
 	return ReturnCodeSuccess
 }
 
-func handleCommitDeployments(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+func handleGetCommitDeployments(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
 	parsedArgs, err := deployments.ParseArgsCommitDeployments(args)
 
 	if err != nil {
@@ -206,7 +206,7 @@ func handleCommitDeployments(kpClientParams kuberpultClientParameters, args []st
 		HttpTimeout: cli_utils.HttpDefaultTimeout,
 	}
 
-	if err = deployments.HandleCommitDeployments(requestParameters, authParams, parsedArgs); err != nil {
+	if err = deployments.HandleGetCommitDeployments(requestParameters, authParams, parsedArgs); err != nil {
 		log.Printf("error on commit deployments, error: %v", err)
 		return ReturnCodeFailure
 	}

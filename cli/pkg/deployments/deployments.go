@@ -30,7 +30,7 @@ type CommitDeploymentsParameters struct {
 	OutFile  string
 }
 
-func HandleCommitDeployments(requestParams kutil.RequestParameters, authParams kutil.AuthenticationParameters, params *CommitDeploymentsParameters) error {
+func HandleGetCommitDeployments(requestParams kutil.RequestParameters, authParams kutil.AuthenticationParameters, params *CommitDeploymentsParameters) error {
 	req, err := createHttpRequest(*requestParams.Url, authParams, params)
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
