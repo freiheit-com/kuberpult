@@ -32,6 +32,9 @@ func doRequest(request *http.Request) (*http.Response, []byte, error) {
 	//exhaustruct:ignore
 	client := &http.Client{
 		Timeout: HttpDefaultTimeout * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 
 	resp, err := client.Do(request)
@@ -67,4 +70,15 @@ func IssueHttpRequest(req http.Request, retries uint64) error {
 		}
 	}
 	return fmt.Errorf("could not perform a successful call to kuberpult")
+}
+
+func IssueHttpRequestWithBodyReturn(req http.Request) ([]byte, error) {
+	response, body, err := doRequest(&req)
+	if err != nil {
+		return nil, err
+	} else if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Recieved response code %d - %s from Kuberpult\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
+	} else {
+		return body, nil
+	}
 }
