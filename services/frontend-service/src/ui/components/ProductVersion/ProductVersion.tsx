@@ -154,7 +154,10 @@ export const ProductVersion: React.FC = () => {
         setSummaryLoading(true);
         useApi
             .gitService()
-            .GetProductSummary({ commitHash: tag, environment: env[0], environmentGroup: env[1] }, authHeader)
+            .GetProductSummary(
+                { manifestRepoCommitHash: tag, environment: env[0], environmentGroup: env[1] },
+                authHeader
+            )
             .then((result: GetProductSummaryResponse) => {
                 setProductSummaries(result.productSummary);
             })
