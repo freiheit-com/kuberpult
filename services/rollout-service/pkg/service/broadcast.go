@@ -55,10 +55,10 @@ func (a *appState) applyArgoEvent(ctx context.Context, ev *ArgoEvent) *Broadcast
 		a.rolloutStatus = status
 		a.argocdVersion = ev.Version
 		evt := a.getEvent(ev.Application, ev.Environment)
-		l.Infof("applyArgoEvent: getEvent(%v, %v)=%v", ev.Application, ev.Environment, evt)
+		l.Infof("applyArgoEvent: new event applied (%v, %v)=%v", ev.Application, ev.Environment, evt)
 		return evt
 	}
-	l.Info("applyArgoEvent: nil")
+	l.Infof("applyArgoEvent: ignored. Status: %v,%v; version: %v %v", a.rolloutStatus, status, a.argocdVersion, ev.Version)
 	return nil
 }
 
