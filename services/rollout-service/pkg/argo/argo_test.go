@@ -240,7 +240,6 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 		LastEvent: "ADDED",
 	}
 	for _, existingArgoApp := range m.Apps {
-		fmt.Println(existingArgoApp.App.Name)
 		if existingArgoApp.App.Name == req.Application.Name {
 			// App alrady exists
 			return nil
