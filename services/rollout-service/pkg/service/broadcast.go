@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"sync"
 	"time"
 
@@ -45,13 +46,19 @@ type appState struct {
 	team             string
 }
 
-func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
+func (a *appState) applyArgoEvent(ctx context.Context, ev *ArgoEvent) *BroadcastEvent {
+	l := logger.FromContext(ctx).Sugar()
+	//l.Infof("applyArgoEvent: %v", ev)
 	status := rolloutStatus(ev)
+	l.Infof("applyArgoEvent: event=%v; status=%v", ev, status)
 	if a.rolloutStatus != status || !a.argocdVersion.Equal(ev.Version) {
 		a.rolloutStatus = status
 		a.argocdVersion = ev.Version
-		return a.getEvent(ev.Application, ev.Environment)
+		evt := a.getEvent(ev.Application, ev.Environment)
+		l.Infof("applyArgoEvent: getEvent(%v, %v)=%v", ev.Application, ev.Environment, evt)
+		return evt
 	}
+	l.Info("applyArgoEvent: nil")
 	return nil
 }
 
@@ -109,6 +116,8 @@ func New() *Broadcast {
 
 // ProcessArgoEvent implements service.EventProcessor
 func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
+	l := logger.FromContext(ctx).Sugar()
+	l.Info("ProcessArgoEvent: %v", ev)
 	b.mx.Lock()
 	defer b.mx.Unlock()
 	k := Key{
@@ -119,7 +128,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 		//exhaustruct:ignore
 		b.state[k] = &appState{}
 	}
-	msg := b.state[k].applyArgoEvent(&ev)
+	msg := b.state[k].applyArgoEvent(ctx, &ev)
 	if msg == nil {
 		return
 	}
@@ -207,6 +216,8 @@ func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutSe
 }
 
 func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*api.GetStatusResponse, error) {
+	l := logger.FromContext(ctx).Sugar()
+	l.Info("GetStatus...")
 	var wait <-chan time.Time
 	if req.WaitSeconds > 0 {
 		wait = time.After(time.Duration(req.WaitSeconds) * time.Second)
@@ -214,13 +225,17 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 	resp, ch, unsubscribe := b.Start()
 	defer unsubscribe()
 	apps := map[Key]*api.GetStatusResponse_ApplicationStatus{}
+	l.Infof("GetStatus response: %v: %v", len(resp), resp)
 	for _, r := range resp {
-		s := filterApplication(req, r)
+		s := filterApplication(ctx, req, r)
+		l.Infof("GetStatus filter for %v: %v", r, s == nil)
 		if s != nil {
 			apps[r.Key] = s
+			l.Infof("GetStatus app[r.key]=s. key=%v, s=%v", r.Key, s)
 		}
 	}
 	status := aggregateStatus(apps)
+	l.Infof("GetStatus aggregate=%v", status)
 	if wait != nil {
 		// The waiting function is used in testing to make sure, we are really processing delayed events.
 		if b.waiting != nil {
@@ -228,6 +243,8 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 		}
 	waiting:
 		for {
+			l.Info("GetStatus for...")
+
 			status = aggregateStatus(apps)
 			if status == api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL || status == api.RolloutStatus_ROLLOUT_STATUS_ERROR {
 				break
@@ -237,7 +254,7 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 				if !ok {
 					break waiting
 				}
-				s := filterApplication(req, r)
+				s := filterApplication(ctx, req, r)
 				if s != nil {
 					apps[r.Key] = s
 				} else {
@@ -263,20 +280,26 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 }
 
 // Removes irrelevant app states from the list.
-func filterApplication(req *api.GetStatusRequest, ev *BroadcastEvent) *api.GetStatusResponse_ApplicationStatus {
+func filterApplication(ctx context.Context, req *api.GetStatusRequest, ev *BroadcastEvent) *api.GetStatusResponse_ApplicationStatus {
+	l := logger.FromContext(ctx).Sugar()
+
 	// Only apps that have the correct envgroup are considered
 	if ev.EnvironmentGroup != req.EnvironmentGroup {
+		l.Infof("filterApplication team ev.envgroup=%v, req.envgroup=%v", ev.EnvironmentGroup, req.EnvironmentGroup)
 		return nil
 	}
 	// If it's filtered by team, then only apps with the correct team are considered.
 	if req.Team != "" && req.Team != ev.Team {
+		l.Infof("filterApplication team req.Team=%v, ev.Team=%v", req.Team, ev.Team)
 		return nil
 	}
 	s := getStatus(ev)
 	// Successful apps are also irrelevant.
 	if s.RolloutStatus == api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL {
+		l.Infof("filterApplication successful s=%v", s)
 		return nil
 	}
+	l.Infof("filterApplication end s=%v", s)
 	return s
 }
 

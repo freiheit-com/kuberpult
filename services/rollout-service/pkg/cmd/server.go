@@ -52,7 +52,7 @@ import (
 type Config struct {
 	CdServer       string `default:"kuberpult-cd-service:8443"`
 	CdServerSecure bool   `default:"false" split_words:"true"`
-	VersionServer  string `default:"kuberpult-manifest-repo-export-service:8443"`
+	VersionServer  string `default:"kuberpult-manifest-repo-export-service:8443"` // !
 	EnableTracing  bool   `default:"false" split_words:"true"`
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
