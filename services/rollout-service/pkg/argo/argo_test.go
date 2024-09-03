@@ -19,7 +19,9 @@ package argo
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
+	"slices"
 	"testing"
 	"time"
 
@@ -89,11 +91,13 @@ type ArgoApp struct {
 }
 
 type mockArgoProcessor struct {
-	trigger           chan *api.GetOverviewResponse
-	lastOverview      *api.GetOverviewResponse
-	argoApps          chan *v1alpha1.ApplicationWatchEvent
-	ApplicationClient *mockApplicationServiceClient
-	HealthReporter    *setup.HealthReporter
+	trigger               chan *api.GetOverviewResponse
+	lastOverview          *api.GetOverviewResponse
+	argoApps              chan *v1alpha1.ApplicationWatchEvent
+	ApplicationClient     *mockApplicationServiceClient
+	HealthReporter        *setup.HealthReporter
+	ManageArgoAppsEnabled bool
+	ManageArgoAppsFilter  []string
 }
 
 func (a *mockArgoProcessor) Push(ctx context.Context, last *api.GetOverviewResponse) {
@@ -236,6 +240,7 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 		LastEvent: "ADDED",
 	}
 	for _, existingArgoApp := range m.Apps {
+		fmt.Println(existingArgoApp.App.Name)
 		if existingArgoApp.App.Name == req.Application.Name {
 			// App alrady exists
 			return nil
@@ -754,10 +759,12 @@ func TestArgoConsume(t *testing.T) {
 			}
 			hlth := &setup.HealthServer{}
 			argoProcessor := &mockArgoProcessor{
-				lastOverview:      tc.Overview,
-				ApplicationClient: as,
-				trigger:           make(chan *api.GetOverviewResponse, 10),
-				argoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				lastOverview:          tc.Overview,
+				ApplicationClient:     as,
+				trigger:               make(chan *api.GetOverviewResponse, 10),
+				argoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				ManageArgoAppsEnabled: true,
+				ManageArgoAppsFilter:  []string{"non", "*"},
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			errCh := make(chan error)
@@ -782,7 +789,201 @@ func TestArgoConsume(t *testing.T) {
 	}
 }
 
-func (a mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) error {
+func TestCreateOrUpdateArgoApp(t *testing.T) {
+	tcs := []struct {
+		Name               string
+		Overview           *api.GetOverviewResponse
+		Application        *api.Environment_Application
+		Environment        *api.Environment
+		AppsKnownToArgo    map[string]*v1alpha1.Application
+		ArgoManageEnabled  bool
+		ArgoManageFilter   []string
+		ExpectedOperations int
+	}{
+		{
+			Name: "when filter has `*` and a team name",
+			Overview: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"foo": {
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								SourceCommitId: "00001",
+							},
+						},
+						Team: "footeam",
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+
+						EnvironmentGroupName: "staging-group",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Applications: map[string]*api.Environment_Application{
+									"foo": {
+										Name:    "foo",
+										Version: 1,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+								Priority: api.Priority_UPSTREAM,
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+											Name:   "staging",
+											Server: "test-server",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				GitRevision: "1234",
+			},
+			Application: &api.Environment_Application{
+				Name:    "foo",
+				Version: 1,
+				DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+					DeployTime: "123456789",
+				},
+			},
+			Environment: &api.Environment{
+				Name: "development",
+				Applications: map[string]*api.Environment_Application{
+					"foo": {
+						Name:    "foo",
+						Version: 1,
+						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+							DeployTime: "123456789",
+						},
+					},
+				},
+				Priority: api.Priority_UPSTREAM,
+				Config: &api.EnvironmentConfig{
+					Argocd: &api.EnvironmentConfig_ArgoCD{
+						Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+							Name:   "development",
+							Server: "test-server",
+						},
+					},
+				},
+			},
+			ArgoManageEnabled:  true,
+			ArgoManageFilter:   []string{"*", "sreteam"},
+			ExpectedOperations: 0,
+		},
+		{
+			Name: "when filter has `*`",
+			Overview: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"foo": {
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								SourceCommitId: "00001",
+							},
+						},
+						Team: "footeam",
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+
+						EnvironmentGroupName: "staging-group",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Applications: map[string]*api.Environment_Application{
+									"foo": {
+										Name:    "foo",
+										Version: 1,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+								Priority: api.Priority_UPSTREAM,
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+											Name:   "staging",
+											Server: "test-server",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				GitRevision: "1234",
+			},
+			Application: &api.Environment_Application{
+				Name:    "foo",
+				Version: 1,
+				DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+					DeployTime: "123456789",
+				},
+			},
+			Environment: &api.Environment{
+				Name: "development",
+				Applications: map[string]*api.Environment_Application{
+					"foo": {
+						Name:    "foo",
+						Version: 1,
+						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+							DeployTime: "123456789",
+						},
+					},
+				},
+				Priority: api.Priority_UPSTREAM,
+				Config: &api.EnvironmentConfig{
+					Argocd: &api.EnvironmentConfig_ArgoCD{
+						Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+							Name:   "development",
+							Server: "test-server",
+						},
+					},
+				},
+			},
+			ArgoManageEnabled:  true,
+			ArgoManageFilter:   []string{"*"},
+			ExpectedOperations: 1,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			as := &mockApplicationServiceClient{
+				cancel:    cancel,
+				t:         t,
+				lastEvent: make(chan *ArgoEvent, 10),
+			}
+			hlth := &setup.HealthServer{}
+			argoProcessor := &mockArgoProcessor{
+				lastOverview:          tc.Overview,
+				ApplicationClient:     as,
+				trigger:               make(chan *api.GetOverviewResponse, 10),
+				argoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				ManageArgoAppsEnabled: tc.ArgoManageEnabled,
+				ManageArgoAppsFilter:  tc.ArgoManageFilter,
+			}
+			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
+
+			argoProcessor.CreateOrUpdateApp(ctx, tc.Overview, tc.Application, tc.Environment, tc.AppsKnownToArgo)
+			if len(argoProcessor.ApplicationClient.Apps) != tc.ExpectedOperations {
+				t.Fatalf("expected processor to have done %v operations but it did %v", tc.ExpectedOperations, len(argoProcessor.argoApps))
+			}
+		})
+	}
+}
+
+func (a *mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) error {
 	toDelete := make([]*v1alpha1.Application, 0)
 	for _, argoApp := range appsKnownToArgo {
 		for i, app := range apps {
@@ -803,52 +1004,67 @@ func (a mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo m
 	return nil
 }
 
-func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
+func (a *mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	var existingApp *v1alpha1.Application
-	for _, argoApp := range appsKnownToArgo {
-		if argoApp.Name == fmt.Sprintf("%s-%s", env.Name, app.Name) && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
-			existingApp = argoApp
-			break
-		}
+	selfManaged, err := a.isSelfManagedFilterActive(team(overview, app.Name))
+	if err != nil {
+		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
 	}
-
-	if existingApp == nil {
-		appToCreate := CreateArgoApplication(overview, app, env)
-		appToCreate.ResourceVersion = ""
-		upsert := false
-		validate := false
-		appCreateRequest := &application.ApplicationCreateRequest{
-			Application: appToCreate,
-			Upsert:      &upsert,
-			Validate:    &validate,
-		}
-		err := a.ApplicationClient.Create(ctx, appCreateRequest)
-		if err != nil {
-			// We check if the application was created in the meantime
-			if status.Code(err) != codes.InvalidArgument {
-				logger.FromContext(ctx).Error("creating application: %w")
+	if selfManaged {
+		for _, argoApp := range appsKnownToArgo {
+			if argoApp.Name == fmt.Sprintf("%s-%s", env.Name, app.Name) && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
+				existingApp = argoApp
+				break
 			}
 		}
-	} else {
-		appToUpdate := CreateArgoApplication(overview, app, env)
-		appUpdateRequest := &application.ApplicationUpdateRequest{
-			XXX_NoUnkeyedLiteral: struct{}{},
-			XXX_unrecognized:     nil,
-			XXX_sizecache:        0,
-			Validate:             conversion.Bool(false),
-			Application:          appToUpdate,
-			Project:              conversion.FromString(appToUpdate.Spec.Project),
-		}
-		//We have to exclude the unexported type destination and the syncPolicy
-		//exhaustruct:ignore
-		diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
-			cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
-			cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
 
-		if diff != "" {
-			a.ApplicationClient.Update(ctx, appUpdateRequest)
+		if existingApp == nil {
+			appToCreate := CreateArgoApplication(overview, app, env)
+			appToCreate.ResourceVersion = ""
+			upsert := false
+			validate := false
+			appCreateRequest := &application.ApplicationCreateRequest{
+				Application: appToCreate,
+				Upsert:      &upsert,
+				Validate:    &validate,
+			}
+			err := a.ApplicationClient.Create(ctx, appCreateRequest)
+			if err != nil {
+				// We check if the application was created in the meantime
+				if status.Code(err) != codes.InvalidArgument {
+					logger.FromContext(ctx).Error("creating application: %w")
+				}
+			}
+		} else {
+			appToUpdate := CreateArgoApplication(overview, app, env)
+			appUpdateRequest := &application.ApplicationUpdateRequest{
+				XXX_NoUnkeyedLiteral: struct{}{},
+				XXX_unrecognized:     nil,
+				XXX_sizecache:        0,
+				Validate:             conversion.Bool(false),
+				Application:          appToUpdate,
+				Project:              conversion.FromString(appToUpdate.Spec.Project),
+			}
+			//We have to exclude the unexported type destination and the syncPolicy
+			//exhaustruct:ignore
+			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
+				cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
+				cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
+
+			if diff != "" {
+				a.ApplicationClient.Update(ctx, appUpdateRequest)
+			}
 		}
 	}
+}
+
+func (a *mockArgoProcessor) isSelfManagedFilterActive(team string) (bool, error) {
+	if len(a.ManageArgoAppsFilter) > 1 && slices.Contains(a.ManageArgoAppsFilter, "*") {
+		return false, fmt.Errorf("filter can only have length of 1 when `*` is active")
+	}
+
+	isSelfManaged := a.ManageArgoAppsEnabled && (slices.Contains(a.ManageArgoAppsFilter, team) || slices.Contains(a.ManageArgoAppsFilter, "*"))
+	return isSelfManaged, nil
 }
 
 type ArgoEvent struct {
