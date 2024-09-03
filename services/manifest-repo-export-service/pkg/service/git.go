@@ -44,11 +44,11 @@ type GitServer struct {
 	PageSize   uint64
 }
 
-func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
+func (s *GitServer) GetProductSummary(_ context.Context, _ *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
-func (s *GitServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
+func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get tags from repository: %v", err)

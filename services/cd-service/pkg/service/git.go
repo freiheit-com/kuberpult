@@ -45,7 +45,7 @@ type GitServer struct {
 	PageSize        uint64
 }
 
-func (s *GitServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
+func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
@@ -63,12 +63,12 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			return nil, fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for")
 		}
 	}
-	if in.CommitHash == "" {
+	if in.ManifestRepoCommitHash == "" {
 		return nil, fmt.Errorf("Must have a commit to get the product summary for")
 	}
-	response, err := s.OverviewService.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.CommitHash})
+	response, err := s.OverviewService.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.ManifestRepoCommitHash})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get overview for %s: %v", in.CommitHash, err)
+		return nil, fmt.Errorf("unable to get overview for %s: %v", in.ManifestRepoCommitHash, err)
 	}
 
 	var summaryFromEnv []api.ProductSummary
