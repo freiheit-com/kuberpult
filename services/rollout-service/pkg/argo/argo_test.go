@@ -790,14 +790,15 @@ func TestArgoConsume(t *testing.T) {
 
 func TestCreateOrUpdateArgoApp(t *testing.T) {
 	tcs := []struct {
-		Name               string
-		Overview           *api.GetOverviewResponse
-		Application        *api.Environment_Application
-		Environment        *api.Environment
-		AppsKnownToArgo    map[string]*v1alpha1.Application
-		ArgoManageEnabled  bool
-		ArgoManageFilter   []string
-		ExpectedOperations int
+		Name              string
+		Overview          *api.GetOverviewResponse
+		Application       *api.Environment_Application
+		Environment       *api.Environment
+		AppsKnownToArgo   map[string]*v1alpha1.Application
+		ArgoManageEnabled bool
+		ArgoManageFilter  []string
+		ExpectedOutput    bool
+		ExpectedError     string
 	}{
 		{
 			Name: "when filter has `*` and a team name",
@@ -872,9 +873,10 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 					},
 				},
 			},
-			ArgoManageEnabled:  true,
-			ArgoManageFilter:   []string{"*", "sreteam"},
-			ExpectedOperations: 0,
+			ArgoManageEnabled: true,
+			ArgoManageFilter:  []string{"*", "sreteam"},
+			ExpectedOutput:    false,
+			ExpectedError:     "filter can only have length of 1 when `*` is active",
 		},
 		{
 			Name: "when filter has `*`",
@@ -949,15 +951,15 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 					},
 				},
 			},
-			ArgoManageEnabled:  true,
-			ArgoManageFilter:   []string{"*"},
-			ExpectedOperations: 1,
+			ArgoManageEnabled: true,
+			ArgoManageFilter:  []string{"*"},
+			ExpectedOutput:    true,
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			_, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
 				cancel:    cancel,
 				t:         t,
@@ -974,9 +976,14 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 
-			argoProcessor.CreateOrUpdateApp(ctx, tc.Overview, tc.Application, tc.Environment, tc.AppsKnownToArgo)
-			if len(argoProcessor.ApplicationClient.Apps) != tc.ExpectedOperations {
-				t.Fatalf("expected processor to have done %v operations but it did %v", tc.ExpectedOperations, len(argoProcessor.argoApps))
+			isActive, err := argoProcessor.IsSelfManagedFilterActive(team(tc.Overview, tc.Application.Name))
+			if tc.ExpectedError != "" {
+				if err.Error() != tc.ExpectedError {
+					t.Fatalf("expected error to be %s but got %s", tc.ExpectedError, err.Error())
+				}
+			}
+			if isActive != tc.ExpectedOutput {
+				t.Fatalf("expected processor to have done %v operations but it did %v", tc.ExpectedOutput, len(argoProcessor.argoApps))
 			}
 		})
 	}
@@ -1005,7 +1012,7 @@ func (a *mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo 
 
 func (a *mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	var existingApp *v1alpha1.Application
-	selfManaged, err := a.isSelfManagedFilterActive(team(overview, app.Name))
+	selfManaged, err := a.IsSelfManagedFilterActive(team(overview, app.Name))
 	if err != nil {
 		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
 	}
@@ -1057,7 +1064,7 @@ func (a *mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api
 	}
 }
 
-func (a *mockArgoProcessor) isSelfManagedFilterActive(team string) (bool, error) {
+func (a *mockArgoProcessor) IsSelfManagedFilterActive(team string) (bool, error) {
 	if len(a.ManageArgoAppsFilter) > 1 && slices.Contains(a.ManageArgoAppsFilter, "*") {
 		return false, fmt.Errorf("filter can only have length of 1 when `*` is active")
 	}
