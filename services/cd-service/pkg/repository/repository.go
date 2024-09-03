@@ -2515,6 +2515,7 @@ type Release struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 	IsMinor         bool
+	IsPrepublish    bool
 }
 
 func (rel *Release) ToProto() *api.Release {
@@ -2587,6 +2588,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 			CreatedAt:       env.Created,
 			DisplayVersion:  env.Metadata.DisplayVersion,
 			IsMinor:         env.Metadata.IsMinor,
+			IsPrepublish:    env.Metadata.IsPrepublish,
 		}, nil
 	} else {
 		return s.GetApplicationReleaseFromManifest(application, version)

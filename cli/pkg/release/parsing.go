@@ -45,6 +45,7 @@ type commandLineArguments struct {
 	skipSignatures       bool
 	signatures           cli_utils.RepeatedString
 	useDexAuthentication bool
+	isPrepublish		 bool
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -194,6 +195,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	fs.BoolVar(&cmdArgs.skipSignatures, "skip_signatures", false, "if set to true, then the command line does not accept the --signature args")
 	fs.Var(&cmdArgs.signatures, "signature", "the name of the file containing the signature of the manifest to be deployed (must be set immediately after --manifest)")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "use /api/release endpoint, if set to true, dex must be enabled and dex token must be provided otherwise the request will be denied")
+	fs.BoolVar(&cmdArgs.isPrepublish, "is_prepublish", false, "if set to true, it will create a prepublish release")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -279,6 +281,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		}
 	}
 	rp.UseDexAuthentication = cmdArgs.useDexAuthentication
+	rp.IsPrepublish = cmdArgs.isPrepublish
 	return &rp, nil
 }
 
