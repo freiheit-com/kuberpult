@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"io"
-	"slices"
 	"testing"
 	"time"
 
@@ -117,7 +116,11 @@ func (a *mockArgoProcessor) checkEvent(ev *v1alpha1.ApplicationWatchEvent) bool 
 	return false
 }
 
-func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, expectedTypes []string, existingArgoApps bool, syncDisable bool) error {
+func (a *mockArgoProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
+	return nil
+}
+
+func (a *mockArgoProcessor) TestConsume(t *testing.T, ctx context.Context, expectedTypes []string, existingArgoApps bool, syncDisable bool) error {
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
 	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
 
@@ -128,11 +131,7 @@ func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, expectedT
 				for _, env := range envGroup.Environments {
 					if ok := appsKnownToArgo[env.Name]; ok != nil {
 						envAppsKnownToArgo = appsKnownToArgo[env.Name]
-						err := a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
-
-						if err != nil {
-							continue
-						}
+						a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
 					}
 
 					for _, app := range env.Applications {
@@ -768,7 +767,7 @@ func TestArgoConsume(t *testing.T) {
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			errCh := make(chan error)
 			go func() {
-				errCh <- argoProcessor.Consume(t, ctx, tc.ExpectedConsumedTypes, tc.ExistingArgoApps, tc.SyncDisable)
+				errCh <- argoProcessor.TestConsume(t, ctx, tc.ExpectedConsumedTypes, tc.ExistingArgoApps, tc.SyncDisable)
 			}()
 
 			go func() {
@@ -976,7 +975,7 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 
-			isActive, err := argoProcessor.IsSelfManagedFilterActive(team(tc.Overview, tc.Application.Name))
+			isActive, err := IsSelfManagedFilterActive(team(tc.Overview, tc.Application.Name), argoProcessor)
 			if tc.ExpectedError != "" {
 				if err.Error() != tc.ExpectedError {
 					t.Fatalf("expected error to be %s but got %s", tc.ExpectedError, err.Error())
@@ -989,9 +988,9 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 	}
 }
 
-func (a *mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) error {
+func (a *mockArgoProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) {
 	toDelete := make([]*v1alpha1.Application, 0)
-	for _, argoApp := range appsKnownToArgo {
+	for _, argoApp := range argoApps {
 		for i, app := range apps {
 			if argoApp.Name == fmt.Sprintf("%s-%s", i, app.Name) {
 				break
@@ -1006,13 +1005,19 @@ func (a *mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo 
 		})
 
 	}
+}
 
-	return nil
+func (a *mockArgoProcessor) GetManageArgoAppsFilter() []string {
+	return a.ManageArgoAppsFilter
+}
+
+func (a *mockArgoProcessor) GetManageArgoAppsEnabled() bool {
+	return a.ManageArgoAppsEnabled
 }
 
 func (a *mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	var existingApp *v1alpha1.Application
-	selfManaged, err := a.IsSelfManagedFilterActive(team(overview, app.Name))
+	selfManaged, err := IsSelfManagedFilterActive(team(overview, app.Name), a)
 	if err != nil {
 		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
 	}
@@ -1062,15 +1067,6 @@ func (a *mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api
 			}
 		}
 	}
-}
-
-func (a *mockArgoProcessor) IsSelfManagedFilterActive(team string) (bool, error) {
-	if len(a.ManageArgoAppsFilter) > 1 && slices.Contains(a.ManageArgoAppsFilter, "*") {
-		return false, fmt.Errorf("filter can only have length of 1 when `*` is active")
-	}
-
-	isSelfManaged := a.ManageArgoAppsEnabled && (slices.Contains(a.ManageArgoAppsFilter, team) || slices.Contains(a.ManageArgoAppsFilter, "*"))
-	return isSelfManaged, nil
 }
 
 type ArgoEvent struct {
