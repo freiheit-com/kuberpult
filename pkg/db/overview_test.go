@@ -1084,6 +1084,81 @@ func TestUpdateOverviewRelease(t *testing.T) {
 			},
 			ExpectedError: errMatcher{"could not find application does-not-exists in overview"},
 		},
+		{
+			Name: "Update overview with prepublish release",
+			NewRelease: DBReleaseWithMetaData{
+				App:           "test",
+				ReleaseNumber: 12,
+				Metadata: DBReleaseMetaData{
+					SourceAuthor:   "testmail@example.com",
+					SourceCommitId: "testcommit",
+					SourceMessage:  "changed something (#677)",
+					DisplayVersion: "12",
+					IsPrepublish:   true,
+				},
+				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+			},
+			ExcpectedOverview: &api.GetOverviewResponse{
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "dev",
+						Environments: []*api.Environment{
+							{
+								Name: "development",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									EnvironmentGroup: &dev,
+								},
+								Applications: map[string]*api.Environment_Application{
+									"test": {
+										Name:    "test",
+										Version: 1,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployAuthor: "testmail@example.com",
+											DeployTime:   "1",
+										},
+										Team: "team-123",
+									},
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+				Applications: map[string]*api.Application{
+					"test": {
+						Name: "test",
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UnusualDeploymentOrder{
+									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         12,
+										ThisEnvironment:     "development",
+									},
+								},
+							},
+						},
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								SourceCommitId: "deadbeef",
+								SourceAuthor:   "example <example@example.com>",
+								SourceMessage:  "changed something (#678)",
+								PrNumber:       "678",
+								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							},
+						},
+						Team: "team-123",
+					},
+				},
+				GitRevision: "0",
+			},
+		},
 	}
 
 	for _, tc := range tcs {

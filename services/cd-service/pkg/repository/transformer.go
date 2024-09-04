@@ -1249,6 +1249,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				DisplayVersion:  "",
 				UndeployVersion: true,
 				IsMinor:         false,
+				IsPrepublish:    false,
 				CiLink:          "",
 			},
 			Created: time.Now(),

@@ -2379,6 +2379,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				SourceMessage:   repoRelease.SourceMessage,
 				DisplayVersion:  repoRelease.DisplayVersion,
 				IsMinor:         false,
+				IsPrepublish:    false,
 				CiLink:          "",
 			},
 			Deleted: false,
@@ -2610,6 +2611,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		CreatedAt:       time.Time{},
 		DisplayVersion:  "",
 		IsMinor:         false,
+		IsPrepublish:    false,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {

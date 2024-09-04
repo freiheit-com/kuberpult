@@ -269,14 +269,12 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 			if release.Deleted {
 				app.Releases = append(app.Releases[:relIndex], app.Releases[relIndex+1:]...)
 			} else {
-				if !release.Metadata.IsPrepublish {
-					app.Releases[relIndex] = apiRelease
-				}
+				app.Releases[relIndex] = apiRelease
 			}
 			foundRelease = true
 		}
 	}
-	if !foundRelease && !release.Deleted {
+	if !foundRelease && !release.Deleted && !release.Metadata.IsPrepublish {
 		app.Releases = append(app.Releases, apiRelease)
 	}
 

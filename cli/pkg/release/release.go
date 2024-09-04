@@ -36,7 +36,7 @@ type ReleaseParameters struct {
 	Version              *uint64
 	DisplayVersion       *string
 	UseDexAuthentication bool
-	IsPrepublish		 bool
+	IsPrepublish         bool
 }
 
 // calls the Release endpoint with the specified parameters

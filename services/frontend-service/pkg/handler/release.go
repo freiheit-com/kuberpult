@@ -95,6 +95,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		DisplayVersion:   "",
 		Manifests:        map[string]string{},
 		CiLink:           "",
+		IsPrepublish:     false,
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
