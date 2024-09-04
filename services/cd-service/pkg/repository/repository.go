@@ -2516,7 +2516,11 @@ type Release struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 	IsMinor         bool
-	IsPrepublish    bool
+	/**
+	"IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
+	The goal is to get 100% of the commits even if the pipeline fails.
+	*/
+	IsPrepublish bool
 }
 
 func (rel *Release) ToProto() *api.Release {
