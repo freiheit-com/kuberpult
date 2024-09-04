@@ -891,6 +891,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 		Name                string
 		Transformers        []Transformer
 		MinorRelease        uint64
+		PrepublishRelease   uint64
 		ExpectedError       error
 		ExpectedFile        []*FilenameAndData
 		ExpectedAuthor      *map[string]string
@@ -1205,6 +1206,119 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			},
 			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
 		},
+		{
+			Name: "CleanupOldApplicationVersions with a prepublish release", //ReleaseLimit is 2
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        2,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        3,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 3,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        4,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance: "mani-1-acc",
+						envDev:        "mani-1-dev",
+					},
+					SourceCommitId:  "123456789abcdef",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 4,
+				},
+				&CleanupOldApplicationVersions{
+					Application: appName,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 5,
+				},
+			},
+			PrepublishRelease: 3,
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					fileData: []byte("123456789abcdef"),
+				},
+				{
+					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					fileData: []byte("abcdef"),
+				},
+				{
+					path:     "/applications/" + appName + "/releases/1/source_commit_id",
+					fileData: []byte("123456789"),
+				},
+			},
+			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -1250,6 +1364,18 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 						Manifests:     db.DBReleaseManifests{},
 						Metadata: db.DBReleaseMetaData{
 							IsMinor: true,
+						},
+					}, 1)
+				}
+				if tc.PrepublishRelease != 0 {
+					err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
+						EslVersion:    1,
+						ReleaseNumber: tc.PrepublishRelease,
+						Created:       time.Time{},
+						App:           appName,
+						Manifests:     db.DBReleaseManifests{},
+						Metadata: db.DBReleaseMetaData{
+							IsPrepublish: true,
 						},
 					}, 1)
 				}
