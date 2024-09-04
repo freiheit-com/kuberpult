@@ -98,6 +98,15 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 		}
 	}
 
+	if parsedArgs.IsPrepublish {
+		if !parsedArgs.UseDexAuthentication {
+			return nil, fmt.Errorf("prepublish endpoint is only available for the new api endpoint which is only available through dex authentication")
+		}
+		if err := writer.WriteField("is_prepublish", fmt.Sprintf("%v", parsedArgs.IsPrepublish)); err != nil {
+			return nil, fmt.Errorf("error writing is_prepublish field, error: %w", err)
+		}
+	}
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}

@@ -607,7 +607,7 @@ func TestOverviewService(t *testing.T) {
 								Applications: map[string]*api.Environment_Application{
 									"test": {
 										Name:    "test",
-										Version: 1,
+										Version: 2,
 										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
 											DeployAuthor: "testmail@example.com",
 											DeployTime:   "1",
@@ -665,6 +665,23 @@ func TestOverviewService(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "v1",
 					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					SourceCommitId:        "deadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       false,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "test",
+					Manifests: map[string]string{
+						"development": "v1",
+					},
+					IsPrepublish: true,
 				},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {

@@ -2379,6 +2379,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				SourceMessage:   repoRelease.SourceMessage,
 				DisplayVersion:  repoRelease.DisplayVersion,
 				IsMinor:         false,
+				IsPrepublish:    false,
 				CiLink:          "",
 			},
 			Deleted: false,
@@ -2515,6 +2516,11 @@ type Release struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 	IsMinor         bool
+	/**
+	"IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
+	The goal is to get 100% of the commits even if the pipeline fails.
+	*/
+	IsPrepublish bool
 }
 
 func (rel *Release) ToProto() *api.Release {
@@ -2587,6 +2593,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 			CreatedAt:       env.Created,
 			DisplayVersion:  env.Metadata.DisplayVersion,
 			IsMinor:         env.Metadata.IsMinor,
+			IsPrepublish:    env.Metadata.IsPrepublish,
 		}, nil
 	} else {
 		return s.GetApplicationReleaseFromManifest(application, version)
@@ -2608,6 +2615,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		CreatedAt:       time.Time{},
 		DisplayVersion:  "",
 		IsMinor:         false,
+		IsPrepublish:    false,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {

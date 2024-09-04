@@ -1079,7 +1079,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		if release == nil {
 			majorsCount += 1
 			logger.FromContext(ctx).Warn("Release not found in database")
-		} else if !release.Metadata.IsMinor {
+		} else if !release.Metadata.IsMinor && !release.Metadata.IsPrepublish {
 			majorsCount += 1
 		}
 		if majorsCount >= int(state.ReleaseVersionsLimit) {
