@@ -1331,6 +1331,7 @@ func (rel *Release) ToProto() *api.Release {
 		CreatedAt:       timestamppb.New(rel.CreatedAt),
 		DisplayVersion:  rel.DisplayVersion,
 		IsMinor:         false,
+		IsPrepublish: false,
 	}
 }
 
