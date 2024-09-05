@@ -44,7 +44,7 @@ func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {
 	case codes.PermissionDenied:
 		http.Error(w, s.Message(), http.StatusForbidden)
 	default:
-		logger.FromContext(ctx).Error(s.Message())
+		logger.FromContext(ctx).Error(err.Error())
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
