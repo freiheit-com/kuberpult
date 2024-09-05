@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"io/fs"
+	"strconv"
 	"strings"
 	"time"
 
@@ -72,7 +73,7 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		}
 
 		releaseResult, err := db.WithTransactionT[ReleaseResult](dbHandler, ctx, 3, true, func(ctx context.Context, transaction *sql.Tx) (*ReleaseResult, error) {
-			deployment, err := dbHandler.DBSelectDeployment(ctx, transaction, appName, envName)
+			deployment, err := dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, envName)
 			if err != nil {
 				return nil, err
 			}
@@ -166,6 +167,10 @@ type PseudoRevision = string
 
 func ToRevision(releaseVersions uint64) PseudoRevision {
 	return fmt.Sprintf("%040d", releaseVersions)
+}
+
+func FromRevision(releaseVersionStr PseudoRevision) (uint64, error) {
+	return strconv.ParseUint(releaseVersionStr, 10, 64)
 }
 
 func splitManifest(m []byte, req *argorepo.ManifestRequest) ([]string, error) {

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 	"os"
 	"strconv"
 
@@ -43,45 +44,72 @@ type VersionServiceServer struct {
 func (o *VersionServiceServer) GetVersion(
 	ctx context.Context,
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
-	oid, err := git.NewOid(in.GitRevision)
-	if err != nil {
-		// Note that "not finding a oid" does not mean that it doesn't exist.
-		// Because we do a shallow clone, we won't have information on all existing OIDs.
-		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: could not find revision %v: %v", in.GitRevision, err))
-	}
-	state, err := o.Repository.StateAt(oid)
-	if err != nil {
-		var gerr *git.GitError
-		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrorCodeNotFound {
-				return nil, status.Error(codes.NotFound, "not found")
+	state := o.Repository.State()
+	dbHandler := state.DBHandler
+	if dbHandler.ShouldUseOtherTables() {
+		res, err := db.WithTransactionT[api.GetVersionResponse](dbHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
+			// The gitRevision field is actually not a proper git revision.
+			// Instead, it has the release number stored with leading zeroes.
+			releaseVersion, err := reposerver.FromRevision(in.GitRevision) // TODO SU: extract into function and test roundtrip
+			if err != nil {
+				return nil, fmt.Errorf("could not parse GitRevision '%s': %w", in.GitRevision, err)
 			}
-		}
-		return nil, err
-	}
-	//exhaustruct:ignore
-	res := api.GetVersionResponse{}
-	if state.DBHandler.ShouldUseOtherTables() {
-		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: not supported yet for Database mode"))
-	}
-	version, err := state.GetEnvironmentApplicationVersion(ctx, nil, in.Environment, in.Application)
-	if err != nil {
-		return nil, err
-	}
-	if version != nil {
-		res.Version = *version
-		_, deployedAt, err := state.GetDeploymentMetaDataFromRepo(in.Environment, in.Application)
+			deployment, err := dbHandler.DBSelectSpecificDeployment(ctx, tx, in.Environment, in.Application, releaseVersion)
+			if err != nil || deployment == nil {
+				return nil, fmt.Errorf("no deployment found for env='%s' and app='%s': %w", in.Environment, in.Application, err)
+			}
+			release, err := state.GetApplicationRelease(ctx, tx, in.Application, releaseVersion)
+			if err != nil {
+				return nil, err
+			}
+			return &api.GetVersionResponse{
+				Version:        releaseVersion,
+				DeployedAt:     timestamppb.New(deployment.Created),
+				SourceCommitId: release.SourceCommitId,
+			}, nil
+		})
 		if err != nil {
 			return nil, err
 		}
-		res.DeployedAt = timestamppb.New(deployedAt)
-		release, err := state.GetApplicationReleaseFromManifest(in.Application, *version)
+		return res, nil
+	} else {
+		oid, err := git.NewOid(in.GitRevision)
+		if err != nil {
+			// Note that "not finding an oid" does not mean that it doesn't exist.
+			// Because we do a shallow clone, we won't have information on all existing OIDs.
+			return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: could not find revision %v: %v", in.GitRevision, err))
+		}
+		state, err := o.Repository.StateAt(oid)
+		if err != nil {
+			var gerr *git.GitError
+			if errors.As(err, &gerr) {
+				if gerr.Code == git.ErrorCodeNotFound {
+					return nil, status.Error(codes.NotFound, "not found")
+				}
+			}
+			return nil, err
+		}
+		//exhaustruct:ignore
+		res := api.GetVersionResponse{}
+		version, err := state.GetEnvironmentApplicationVersion(ctx, nil, in.Environment, in.Application)
 		if err != nil {
 			return nil, err
 		}
-		res.SourceCommitId = release.SourceCommitId
+		if version != nil {
+			res.Version = *version
+			_, deployedAt, err := state.GetDeploymentMetaDataFromRepo(in.Environment, in.Application)
+			if err != nil {
+				return nil, err
+			}
+			res.DeployedAt = timestamppb.New(deployedAt)
+			release, err := state.GetApplicationReleaseFromManifest(in.Application, *version)
+			if err != nil {
+				return nil, err
+			}
+			res.SourceCommitId = release.SourceCommitId
+		}
+		return &res, nil
 	}
-	return &res, nil
 }
 
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
@@ -100,11 +128,12 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 	}
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		result, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
+		result, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
 			var (
 				err     error
 				release uint64
 			)
+
 			if req.Release == "latest" {
 				release, err = state.GetLastRelease(ctx, transaction, state.Filesystem, req.Application)
 				if err != nil {
