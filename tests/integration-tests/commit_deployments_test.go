@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 	"testing"
@@ -27,7 +28,6 @@ import (
 	json "google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 )
 
 const (
@@ -36,26 +36,7 @@ const (
 )
 
 func TestCommitDeployments(t *testing.T) {
-	ctx := context.Background()
-	dbConfig := db.DBConfig{
-		DbHost:         "localhost",
-		DbPort:         "5432",
-		DbUser:         "postgres",
-		DbPassword:     "mypassword",
-		DbName:         "kuberpult",
-		DriverName:     "postgres",
-		MigrationsPath: "../../database/migrations/postgres",
-		SSLMode:        "disable",
-	}
-	dbHandler, err := db.Connect(ctx, dbConfig)
-	if err != nil {
-		t.Fatalf("Error establishing DB connection: %v", err)
-	}
-	pErr := dbHandler.DB.Ping()
-	if pErr != nil {
-		t.Fatalf("Error pinging database: %v", err)
-	}
-
+	randNum := fmt.Sprintf("%d", rand.Intn(10000))
 	for _, tc := range []struct {
 		name           string
 		apps           []string
@@ -65,7 +46,7 @@ func TestCommitDeployments(t *testing.T) {
 	}{
 		{
 			name:           "Running commit deployments",
-			apps:           []string{"commit-deployments-test-app1", "commit-deployments-test-app2"},
+			apps:           []string{"commit-deployments-test-app-1-" + randNum, "commit-deployments-test-app-2-" + randNum},
 			releaseVersion: "1",
 			commitId:       "1234567890123456789012345678901234567890",
 			expectedStatus: map[string]api.CommitDeploymentStatus{
@@ -75,7 +56,7 @@ func TestCommitDeployments(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create the application releases
+			// Create the applications
 			for _, app := range tc.apps {
 				values := map[string]io.Reader{
 					"application":      strings.NewReader(app),
@@ -93,8 +74,8 @@ func TestCommitDeployments(t *testing.T) {
 				if statusCode != http.StatusCreated {
 					t.Fatalf("Error creating app: %s", body)
 				}
-			}
-			for _, app := range tc.apps {
+
+				// Get deployment status for development
 				status, err := getAppEnvDeploymentStatus(app, development, tc.commitId)
 				if err != nil {
 					t.Fatalf("Error getting deployments: %v", err)
@@ -102,12 +83,34 @@ func TestCommitDeployments(t *testing.T) {
 				if status != tc.expectedStatus[development] {
 					t.Errorf("Deployment status for %s on %s is not as expected\nexpected: %v, got: %v", app, development, tc.expectedStatus[development], status)
 				}
+				// Get deployment status for staging
 				status, err = getAppEnvDeploymentStatus(app, staging, tc.commitId)
 				if err != nil {
 					t.Fatalf("Error getting deployments: %v", err)
 				}
 				if status != tc.expectedStatus[staging] {
 					t.Errorf("Deployment status for %s on %s is not as expected\nexpected: %v, got: %v", app, development, tc.expectedStatus[staging], status)
+				}
+
+				// Run release train to staging
+				resp, err := runReleaseTrain(staging)
+				if err != nil {
+					t.Fatalf("Error running release train: %v", err)
+				}
+				if resp.StatusCode != http.StatusOK {
+					body, err := io.ReadAll(resp.Body)
+					if err != nil {
+						t.Fatalf("Release train failed with status %v", resp.StatusCode)
+					}
+					t.Fatalf("Release train failed with status %v:\n%v", resp.StatusCode, string(body))
+				}
+				// Staging should be deployed
+				status, err = getAppEnvDeploymentStatus(app, staging, tc.commitId)
+				if err != nil {
+					t.Fatalf("Error getting deployments: %v", err)
+				}
+				if status != api.CommitDeploymentStatus_DEPLOYED {
+					t.Errorf("Deployment status for %s on %s is not as expected\nexpected: %v, got: %v", app, staging, api.CommitDeploymentStatus_DEPLOYED, status)
 				}
 			}
 		})
@@ -138,4 +141,18 @@ func getAppEnvDeploymentStatus(app, env, commit string) (api.CommitDeploymentSta
 		return api.CommitDeploymentStatus_UNKNOWN, nil
 	}
 	return appEnvStatus, nil
+}
+
+func runReleaseTrain(env string) (*http.Response, error) {
+	url := fmt.Sprintf("http://localhost:8081/api/environments/%s/releasetrain", env)
+	request, err := http.NewRequestWithContext(context.Background(), "PUT", url, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating request: %v", err)
+	}
+	client := http.Client{}
+	resp, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("Error running release train: %v", err)
+	}
+	return resp, nil
 }
