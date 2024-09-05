@@ -1072,7 +1072,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	indexToKeep := positionOfOldestVersion - 1
 	majorsCount := 0
 	for ; indexToKeep >= 0; indexToKeep-- {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep], true)
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep], false)
 		if err != nil {
 			return nil, err
 		}
