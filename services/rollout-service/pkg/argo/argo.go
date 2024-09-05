@@ -43,6 +43,16 @@ type SimplifiedApplicationServiceClient interface {
 	Watch(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchClient, error)
 }
 
+type Processor interface {
+	Push(ctx context.Context, last *api.GetOverviewResponse)
+	Consume(ctx context.Context, hlth *setup.HealthReporter) error
+	CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application)
+	ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error
+	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application)
+	GetManageArgoAppsFilter() []string
+	GetManageArgoAppsEnabled() bool
+}
+
 type ArgoAppProcessor struct {
 	trigger               chan *api.GetOverviewResponse
 	lastOverview          *api.GetOverviewResponse
@@ -68,6 +78,14 @@ type Key struct {
 	EnvName     string
 	Application *api.Environment_Application
 	Environment *api.Environment
+}
+
+func (a *ArgoAppProcessor) GetManageArgoAppsFilter() []string {
+	return a.ManageArgoAppsFilter
+}
+
+func (a *ArgoAppProcessor) GetManageArgoAppsEnabled() bool {
+	return a.ManageArgoAppsEnabled
 }
 
 func (a *ArgoAppProcessor) Push(ctx context.Context, last *api.GetOverviewResponse) {
@@ -125,12 +143,15 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 	}
 }
 
-func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
+func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	t := team(overview, app.Name)
 
 	var existingApp *v1alpha1.Application
-	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
-
+	selfManaged, err := IsSelfManagedFilterActive(t, a)
+	if err != nil {
+		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
+	}
+	if selfManaged {
 		for _, argoApp := range appsKnownToArgo {
 			if argoApp.Annotations["com.freiheit.kuberpult/application"] == app.Name && argoApp.Annotations["com.freiheit.kuberpult/environment"] == env.Name {
 				existingApp = argoApp
@@ -195,6 +216,18 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 	}
 }
 
+func IsSelfManagedFilterActive(team string, processor Processor) (bool, error) {
+	managedAppsFilter := processor.GetManageArgoAppsFilter()
+	managedAppsEnabled := processor.GetManageArgoAppsEnabled()
+	if len(managedAppsFilter) > 1 && slices.Contains(managedAppsFilter, "*") {
+		return false, fmt.Errorf("filter can only have length of 1 when `*` is active")
+	}
+
+	isSelfManaged := managedAppsEnabled && (slices.Contains(managedAppsFilter, team) || slices.Contains(managedAppsFilter, "*"))
+
+	return isSelfManaged, nil
+}
+
 func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error {
 	return hlth.Retry(ctx, func() error {
 		//exhaustruct:ignore
@@ -231,7 +264,7 @@ func calculateFinalizers() []string {
 	}
 }
 
-func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) {
+func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) {
 	toDelete := make([]*v1alpha1.Application, 0)
 	deleteSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplications")
 	defer deleteSpan.Finish()
