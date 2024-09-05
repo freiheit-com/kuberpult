@@ -41,6 +41,13 @@ Copyright freiheit.com*/
     }
 }
 
+.release-card.release-card__prepublish {
+    background-color: var(--mdc-theme-on-surface-dark);
+}
+.release__title.release__title__prepublish{
+    color: white;
+}
+
 .release-card__header {
     .release__title {
         @extend .text-bold;

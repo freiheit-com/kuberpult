@@ -22,6 +22,7 @@ describe('ExpandButton', () => {
     const mySubmitSpy = jest.fn(() => {});
     const defaultProps: ExpandButtonProps = {
         onClickSubmit: mySubmitSpy,
+        disabled: false,
         defaultButtonLabel: 'default-button',
     };
 
