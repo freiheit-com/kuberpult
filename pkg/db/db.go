@@ -532,7 +532,7 @@ type DBAllReleasesWithMetaData struct {
 	Metadata   DBAllReleaseMetaData
 }
 
-func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
@@ -545,7 +545,7 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 		ctx,
 		selectQuery,
 	)
-	processedRows, err := h.processReleaseRows(ctx, err, rows)
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
 	if err != nil {
 		return nil, err
 	}
@@ -555,7 +555,7 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx) (*DBRele
 	return processedRows[0], nil
 }
 
-func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
@@ -572,7 +572,7 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 		releaseVersion,
 	)
 
-	processedRows, err := h.processReleaseRows(ctx, err, rows)
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
 	if err != nil {
 		return nil, err
 	}
@@ -582,7 +582,7 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	return processedRows[0], nil
 }
 
-func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
@@ -598,7 +598,7 @@ func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app s
 		deleted,
 	)
 
-	return h.processReleaseRows(ctx, err, rows)
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
@@ -660,7 +660,7 @@ func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *
 	}
 	return row, nil
 }
-func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseRows")
 	defer span.Finish()
 
@@ -719,6 +719,9 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
 		}
 		row.Manifests = manifestData
+		if ignorePrepublishes && row.Metadata.IsPrepublish {
+			continue
+		}
 		result = append(result, row)
 	}
 	err = closeRows(rows)
@@ -826,7 +829,7 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
 	defer span.Finish()
 
-	targetRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, application, releaseToDelete)
+	targetRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, application, releaseToDelete, true)
 	if err != nil {
 		return err
 	}
@@ -2000,7 +2003,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 
 func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
-	allReleasesDb, err := h.DBSelectAnyRelease(ctx, transaction)
+	allReleasesDb, err := h.DBSelectAnyRelease(ctx, transaction, true)
 	if err != nil {
 		return true, err
 	}

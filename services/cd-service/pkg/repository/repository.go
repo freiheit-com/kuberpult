@@ -2553,7 +2553,7 @@ func extractPrNumber(sourceMessage string) string {
 
 func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version uint64) (bool, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 		return release.Metadata.UndeployVersion, err
 	} else {
 		return s.IsUndeployVersionFromManifest(application, version)
@@ -2577,7 +2577,7 @@ func (s *State) IsUndeployVersionFromManifest(application string, version uint64
 
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 		if err != nil {
 			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
 		}
@@ -2668,7 +2668,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application string, version uint64) (map[string]*api.Manifest, error) {
 	manifests := map[string]*api.Manifest{}
 	if s.DBHandler.ShouldUseOtherTables() {
-		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 		if err != nil {
 			return nil, fmt.Errorf("could not get release for app %s with version %v: %w", application, version, err)
 		}
