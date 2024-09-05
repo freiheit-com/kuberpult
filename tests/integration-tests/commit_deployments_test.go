@@ -117,17 +117,17 @@ func TestCommitDeployments(t *testing.T) {
 func getAppEnvDeploymentStatus(app, env, commit string) (api.CommitDeploymentStatus, error) {
 	resp, err := http.Get("http://localhost:8081/api/commit-deployments/" + commit)
 	if err != nil {
-		return api.CommitDeploymentStatus_UNKNOWN, err
+		return api.CommitDeploymentStatus_UNKNOWN, fmt.Errorf("Error getting commit deployments: %v", err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return api.CommitDeploymentStatus_UNKNOWN, err
+		return api.CommitDeploymentStatus_UNKNOWN, fmt.Errorf("Error reading response body: %v", err)
 	}
 	var status api.GetCommitDeploymentInfoResponse
 	err = json.Unmarshal(body, &status)
 	if err != nil {
-		return api.CommitDeploymentStatus_UNKNOWN, err
+		return api.CommitDeploymentStatus_UNKNOWN, fmt.Errorf("Error unmarshalling response body: %v", err)
 	}
 	appStatus, ok := status.DeploymentStatus[app]
 	if !ok {
