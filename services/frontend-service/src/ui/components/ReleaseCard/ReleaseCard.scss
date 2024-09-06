@@ -48,6 +48,10 @@ Copyright freiheit.com*/
     color: white;
 }
 
+.prerelease__description {
+    color: var(--mdc-theme-error)
+}
+
 .release-card__header {
     .release__title {
         @extend .text-bold;

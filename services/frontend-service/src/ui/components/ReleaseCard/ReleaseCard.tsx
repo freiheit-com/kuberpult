@@ -156,7 +156,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                 </div>
             )}
             {isPrepublish && (
-                <div>
+                <div className="prerelease__description">
                     <span>This is a pre-release. It doesn't have any manfiests. It can't be deployed anywhere.</span>
                 </div>
             )}
