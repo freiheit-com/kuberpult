@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strings"
 	"testing"
@@ -37,7 +36,6 @@ const (
 )
 
 func TestCommitDeployments(t *testing.T) {
-	randNum := fmt.Sprintf("%d", rand.Intn(10000))
 	for _, tc := range []struct {
 		name           string
 		apps           []string
@@ -47,7 +45,7 @@ func TestCommitDeployments(t *testing.T) {
 	}{
 		{
 			name:           "Running commit deployments",
-			apps:           []string{"commit-deployments-test-app-1-" + randNum, "commit-deployments-test-app-2-" + randNum},
+			apps:           []string{"commit-deployments-test-app-1", "commit-deployments-test-app-2"},
 			releaseVersion: "1",
 			commitId:       "1234567890123456789012345678901234567890",
 			expectedStatus: map[string]api.CommitDeploymentStatus{
