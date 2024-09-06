@@ -85,7 +85,7 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 			releaseVersion := uint64(*deployment.Version)
 
 			var release *db.DBReleaseWithMetaData
-			release, err = dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion)
+			release, err = dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, true)
 			if err != nil {
 				return nil, err
 			}
