@@ -1142,7 +1142,7 @@ func TestMinorFlag(t *testing.T) {
 					return err
 				}
 				for _, minorVersion := range tc.ExpectedMinors {
-					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, minorVersion)
+					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, minorVersion, true)
 					if err != nil {
 						return err
 					}
@@ -1151,7 +1151,7 @@ func TestMinorFlag(t *testing.T) {
 					}
 				}
 				for _, majorVersion := range tc.ExpectedMajors {
-					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, majorVersion)
+					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, majorVersion, true)
 					if err != nil {
 						return err
 					}
@@ -1961,7 +1961,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("error: %v", err)
 				}
-				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, firstRelease.App, false)
+				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, firstRelease.App, false, true)
 				if err2 != nil {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}
@@ -2661,7 +2661,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases.Metadata.Releases); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
-				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uint64(allReleases.Metadata.Releases[len(allReleases.Metadata.Releases)-1]))
+				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uint64(allReleases.Metadata.Releases[len(allReleases.Metadata.Releases)-1]), true)
 				if err2 != nil {
 					t.Fatal(err)
 				}

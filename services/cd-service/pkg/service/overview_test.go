@@ -607,7 +607,7 @@ func TestOverviewService(t *testing.T) {
 								Applications: map[string]*api.Environment_Application{
 									"test": {
 										Name:    "test",
-										Version: 2,
+										Version: 1,
 										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
 											DeployAuthor: "testmail@example.com",
 											DeployTime:   "1",
