@@ -73,6 +73,7 @@ git:
   sourceRepoUrl: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
   branch: "main"
   networkTimeout: 1s
+  enableWritingCommitData: true
 ssh:
   identity: |
 $(sed -e "s/^/    /" <../../services/cd-service/client)
