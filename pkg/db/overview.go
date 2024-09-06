@@ -126,7 +126,7 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 
 	if deployment.Version != nil { //Check if not trying to deploy an undeploy version
 		//Get the undeploy information from the release
-		release, err := h.DBSelectReleaseByVersion(ctx, transaction, appInEnv.Name, appInEnv.Version)
+		release, err := h.DBSelectReleaseByVersion(ctx, transaction, appInEnv.Name, appInEnv.Version, true)
 		if err != nil {
 			return fmt.Errorf("error getting release %d for app %s", appInEnv.Version, appInEnv.Name)
 		}
