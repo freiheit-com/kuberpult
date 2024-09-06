@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	json "google.golang.org/protobuf/encoding/protojson"
 
@@ -91,6 +92,8 @@ func TestCommitDeployments(t *testing.T) {
 				if status != tc.expectedStatus[staging] {
 					t.Errorf("Deployment status for %s on %s is not as expected\nexpected: %v, got: %v", app, development, tc.expectedStatus[staging], status)
 				}
+
+				time.Sleep(2 * time.Second)
 
 				// Run release train to staging
 				resp, err := runReleaseTrain(staging)
