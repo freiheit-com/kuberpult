@@ -606,8 +606,12 @@ func (c *CreateApplicationVersion) Transform(
 	} else {
 		logger.FromContext(ctx).Sugar().Warnf("skipping team file for team %s and should=%v", c.Team, state.DBHandler.ShouldUseOtherTables())
 	}
-	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
 	}
 
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
@@ -1915,8 +1919,12 @@ func (c *CreateEnvironmentLock) Transform(
 		return "", err
 	}
 
-	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
 	}
 
 	if state.DBHandler.ShouldUseOtherTables() {
@@ -2136,8 +2144,12 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
 	}
 	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, transaction, c.EnvironmentGroup)
 	if err != nil {
@@ -2237,8 +2249,12 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		user, err := auth.ReadUserFromContext(ctx)
@@ -2414,8 +2430,12 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		return "", err
 	}
 
-	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		user, err := auth.ReadUserFromContext(ctx)
@@ -3391,8 +3411,12 @@ func (c *ReleaseTrain) Transform(
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
 	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
-	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
 	}
 	prognosis := c.Prognosis(ctx, state, transaction)
 
