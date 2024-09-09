@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"github.com/cenkalti/backoff/v4"
-	cutoff "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db"
 	"strconv"
 	"time"
 
@@ -297,7 +296,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				if err3 != nil {
 					return err3
 				}
-				return cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+				return db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 			})
 			if err2 != nil {
 				return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
@@ -313,7 +312,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			}
 			log.Infof("event processed successfully, now writing to cutoff and pushing...")
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := cutoff.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+				err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 				if err2 != nil {
 					return err2
 				}
@@ -354,7 +353,7 @@ func measurePushes(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, fai
 
 func handleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
 	log := logger.FromContext(ctx).Sugar()
-	eslVersion, err := cutoff.DBReadCutoff(dbHandler, ctx, transaction)
+	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error in DBReadCutoff %v", err)
 	}

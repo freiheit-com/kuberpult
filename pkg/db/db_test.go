@@ -290,7 +290,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				for i := range tc.expectedReleases {
 					expectedRelease := tc.expectedReleases[i]
 
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumber)
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumber, true)
 					if err != nil {
 						return err
 					}
@@ -1763,7 +1763,7 @@ func TestDeleteRelease(t *testing.T) {
 					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases.Metadata.Releases))
 				}
 
-				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber)
+				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber, true)
 				if err != nil {
 					return err
 				}
@@ -2244,11 +2244,12 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 func TestReadReleasesByApp(t *testing.T) {
 
 	tcs := []struct {
-		Name        string
-		Releases    []DBReleaseWithMetaData
-		AppName     string
-		Expected    []*DBReleaseWithMetaData
-		ExpectedErr error
+		Name                 string
+		Releases             []DBReleaseWithMetaData
+		RetrievePrepublishes bool
+		AppName              string
+		Expected             []*DBReleaseWithMetaData
+		ExpectedErr          error
 	}{
 		{
 			Name: "Retrieve one release",
@@ -2371,6 +2372,93 @@ func TestReadReleasesByApp(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Prepublish Release should not be retrieved",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslVersion:    2,
+					ReleaseNumber: 2,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+					Metadata:      DBReleaseMetaData{IsPrepublish: true},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 3,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+				},
+			},
+			AppName:              "app1",
+			RetrievePrepublishes: false,
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 3,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+		},
+		{
+			Name: "Prepublish Release should be retrieved",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslVersion:    2,
+					ReleaseNumber: 2,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+					Metadata:      DBReleaseMetaData{IsPrepublish: true},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 3,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+				},
+			},
+			AppName:              "app1",
+			RetrievePrepublishes: true,
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 3,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+				},
+				{
+					EslVersion:    2,
+					ReleaseNumber: 2,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+					Metadata:      DBReleaseMetaData{IsPrepublish: true},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -2387,7 +2475,7 @@ func TestReadReleasesByApp(t *testing.T) {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
-				releases, err := dbHandler.DBSelectReleasesByApp(ctx, transaction, tc.AppName, false)
+				releases, err := dbHandler.DBSelectReleasesByApp(ctx, transaction, tc.AppName, false, !tc.RetrievePrepublishes)
 				if err != nil {
 					return fmt.Errorf("error while selecting release, error: %w", err)
 				}

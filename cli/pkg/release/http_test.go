@@ -584,6 +584,41 @@ func TestRequestCreation(t *testing.T) {
 			},
 			responseCode: http.StatusOK,
 		},
+		{
+			name: "Prepublish without using dex",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+				},
+				IsPrepublish: true,
+			},
+			expectedErrorMsg: errMatcher{"error while preparing HTTP request, error: prepublish endpoint is only available for the new api endpoint which is only available through dex authentication"},
+		},
+		{
+			name: "create a prepublish release",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+				},
+				IsPrepublish:         true,
+				UseDexAuthentication: true,
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":   {"potato"},
+				"is_prepublish": {"true"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
 	}
 
 	for _, tc := range tcs {
@@ -602,8 +637,11 @@ func TestRequestCreation(t *testing.T) {
 			}
 			err := Release(requestParams, authParams, tc.params)
 			// check errors
-			if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
-				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			if tc.expectedErrorMsg != nil {
+				if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return
 			}
 
 			// check headers, note that we cannot compare with cmp.Diff because there are some default headers that we shouldn't bother checking (like Accept-Encoding etc)

@@ -18,10 +18,13 @@ package reposerver
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"io/fs"
+	"strings"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -48,64 +51,143 @@ var notImplemented error = status.Error(codes.Unimplemented, "not implemented")
 
 // GenerateManifest implements apiclient.RepoServerServiceServer.
 func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.ManifestRequest) (*argorepo.ManifestResponse, error) {
-	state, _, err := r.resolve(req.Revision)
-	if err != nil {
-		return nil, err
-	}
-	bfs := state.Filesystem
-	path := req.ApplicationSource.Path
-	mn := []string{}
-	filter := func(p string) bool { return true }
-	if req.ApplicationSource.Directory != nil {
-		if req.ApplicationSource.Directory.Include != "" {
-			inc := req.ApplicationSource.Directory.Include
-			filter = func(p string) bool { return p == inc }
+	var mn []string
+	if r.repo.State().DBHandler.ShouldUseOtherTables() {
+		dbHandler := r.repo.State().DBHandler
+
+		// Extract the env and app from the path.
+		// We expect the path to have this form:
+		// "environments/$env/applications/$app/manifests",
+		include := req.ApplicationSource.Path
+		split := strings.Split(include, "/")
+		if len(split) != 5 {
+			return nil, fmt.Errorf("unexpected path: '%s'", include)
 		}
-	}
-	err = util.Walk(bfs, path, func(file string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
+		envName := split[1]
+		appName := split[3]
+
+		type ReleaseResult struct {
+			manifest       string
+			releaseVersion uint64
 		}
-		if !info.IsDir() && filter(info.Name()) {
-			m, err := util.ReadFile(bfs, file)
+
+		releaseResult, err := db.WithTransactionT[ReleaseResult](dbHandler, ctx, 3, true, func(ctx context.Context, transaction *sql.Tx) (*ReleaseResult, error) {
+			deployment, err := dbHandler.DBSelectDeployment(ctx, transaction, appName, envName)
 			if err != nil {
-				return fmt.Errorf("reading %s: %w", file, err)
+				return nil, err
 			}
-			parts, err := kube.SplitYAML(m)
+			if deployment == nil {
+				return nil, fmt.Errorf("could not find deployment for app=%s and env=%s", appName, envName)
+			}
+			if deployment.Version == nil {
+				return nil, fmt.Errorf("could not find version for app=%s and env=%s", appName, envName)
+			}
+			releaseVersion := uint64(*deployment.Version)
+
+			var release *db.DBReleaseWithMetaData
+			release, err = dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, true)
+			if err != nil {
+				return nil, err
+			}
+			result := &ReleaseResult{
+				manifest:       release.Manifests.Manifests[envName],
+				releaseVersion: releaseVersion,
+			}
+			return result, nil
+		})
+		if err != nil || releaseResult == nil {
+			return nil, fmt.Errorf("could not load all data to generate manifests: %w", err)
+		}
+		mn, err = splitManifest([]byte(releaseResult.manifest), req)
+		if err != nil {
+			return nil, err
+		}
+		resp := &argorepo.ManifestResponse{
+			Namespace:            "",
+			Server:               "",
+			VerifyResult:         "",
+			XXX_NoUnkeyedLiteral: struct{}{},
+			XXX_unrecognized:     nil,
+			XXX_sizecache:        0,
+			Manifests:            mn,
+			Revision:             ToRevision(releaseResult.releaseVersion),
+			SourceType:           "Directory",
+		}
+		return resp, nil
+	} else {
+		state, _, err := r.resolve(req.Revision)
+		if err != nil {
+			return nil, err
+		}
+		bfs := state.Filesystem
+		path := req.ApplicationSource.Path
+		filter := func(p string) bool { return true }
+		if req.ApplicationSource.Directory != nil {
+			if req.ApplicationSource.Directory.Include != "" {
+				inc := req.ApplicationSource.Directory.Include
+				filter = func(p string) bool { return p == inc }
+			}
+		}
+		err = util.Walk(bfs, path, func(file string, info fs.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-			for _, obj := range parts {
-				if req.AppLabelKey != "" && req.AppName != "" && !kube.IsCRD(obj) {
-					err = resourceTracking.SetAppInstance(obj, req.AppLabelKey, req.AppName, req.Namespace, v1alpha1.TrackingMethod(req.TrackingMethod))
-					if err != nil {
-						return err
-					}
+			if !info.IsDir() && filter(info.Name()) {
+				m, err := util.ReadFile(bfs, file)
+				if err != nil {
+					return fmt.Errorf("reading %s: %w", file, err)
 				}
-				jsonData, err := json.Marshal(obj.Object)
+				mn, err = splitManifest(m, req)
 				if err != nil {
 					return err
 				}
-				mn = append(mn, string(jsonData))
 			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
 		}
-		return nil
-	})
+		resp := &argorepo.ManifestResponse{
+			Namespace:            "",
+			Server:               "",
+			VerifyResult:         "",
+			XXX_NoUnkeyedLiteral: struct{}{},
+			XXX_unrecognized:     nil,
+			XXX_sizecache:        0,
+			Manifests:            mn,
+			Revision:             state.Commit.Id().String(),
+			SourceType:           "Directory",
+		}
+		return resp, nil
+	}
+}
+
+type PseudoRevision = string
+
+func ToRevision(releaseVersions uint64) PseudoRevision {
+	return fmt.Sprintf("%040d", releaseVersions)
+}
+
+func splitManifest(m []byte, req *argorepo.ManifestRequest) ([]string, error) {
+	mn := []string{}
+	parts, err := kube.SplitYAML(m)
 	if err != nil {
 		return nil, err
 	}
-	resp := &argorepo.ManifestResponse{
-		Namespace:            "",
-		Server:               "",
-		VerifyResult:         "",
-		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
-		XXX_sizecache:        0,
-		Manifests:            mn,
-		Revision:             state.Commit.Id().String(),
-		SourceType:           "Directory",
+	for _, obj := range parts {
+		if req.AppLabelKey != "" && req.AppName != "" && !kube.IsCRD(obj) {
+			err = resourceTracking.SetAppInstance(obj, req.AppLabelKey, req.AppName, req.Namespace, v1alpha1.TrackingMethod(req.TrackingMethod))
+			if err != nil {
+				return nil, err
+			}
+		}
+		jsonData, err := json.Marshal(obj.Object)
+		if err != nil {
+			return nil, err
+		}
+		mn = append(mn, string(jsonData))
 	}
-	return resp, nil
+	return mn, nil
 }
 
 // GenerateManifestWithFiles implements apiclient.RepoServerServiceServer.

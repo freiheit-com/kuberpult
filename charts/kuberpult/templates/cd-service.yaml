@@ -256,6 +256,10 @@ spec:
           value: "{{ .Values.cd.allowedDomains }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
+{{- if .Values.cd.minorRegexes }}
+        - name: KUBERPULT_MINOR_REGEXES
+          value: {{ .Values.cd.minorRegexes | join "," | quote }}
+{{- end }}
         volumeMounts:
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: migrations

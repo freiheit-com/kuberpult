@@ -22,7 +22,7 @@ message GetGitTagsResponse {
 }
 
 message GetProductSummaryRequest {
-  string commit_hash = 1;
+  string manifest_repo_commit_hash = 1;
   optional string environment = 2;
   optional string environment_group = 3;
 }
@@ -216,6 +216,7 @@ message CreateReleaseRequest {
   string display_version = 10;
   string previous_commit_id = 11;
   string ci_link = 12;
+  bool is_prepublish = 13;
 }
 
 message CreateReleaseResponseSuccess {

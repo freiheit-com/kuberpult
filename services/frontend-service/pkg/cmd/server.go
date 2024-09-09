@@ -286,7 +286,7 @@ func runServer(ctx context.Context) error {
 	}
 
 	releaseTrainPrognosisClient := api.NewReleaseTrainPrognosisServiceClient(cdCon)
-
+	commitDeploymentsClient := api.NewCommitDeploymentServiceClient(cdCon)
 	gproxy := &GrpcProxy{
 		OverviewClient:              api.NewOverviewServiceClient(cdCon),
 		BatchClient:                 batchClient,
@@ -337,6 +337,7 @@ func runServer(ctx context.Context) error {
 		RolloutClient:               rolloutClient,
 		VersionClient:               api.NewVersionServiceClient(cdCon),
 		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+		CommitDeploymentsClient:     commitDeploymentsClient,
 		Config:                      c,
 		KeyRing:                     pgpKeyRing,
 		AzureAuth:                   c.AzureEnableAuth,

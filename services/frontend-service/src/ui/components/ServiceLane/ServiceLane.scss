@@ -18,7 +18,7 @@ Copyright freiheit.com*/
 
 .service-lane {
     position: relative;
-    min-width: fit-content;
+    min-width: 40em;
     max-width: calc(100vw - $sidebar-width - 100px); // full size minus the planned actions bar minus some buffer
 
     .service-lane__header {
@@ -61,6 +61,8 @@ Copyright freiheit.com*/
     .service__releases {
         display: flex;
         margin: $service-lane-releases-margin;
+        flex-flow: wrap;
+        width: calc(100vw - 20em - 100px);
     }
 
     .service-lane__diff {

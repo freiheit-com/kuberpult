@@ -95,6 +95,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		DisplayVersion:   "",
 		Manifests:        map[string]string{},
 		CiLink:           "",
+		IsPrepublish:     false,
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -300,6 +301,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		DisplayVersion:   "",
 		Manifests:        map[string]string{},
 		CiLink:           "",
+		IsPrepublish:     false,
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -413,6 +415,21 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		}
 		tf.DisplayVersion = displayVersion[0]
 
+	}
+
+	if isPrepublish, ok := form.Value["is_prepublish"]; ok {
+		if len(isPrepublish) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid is_prepublish value")
+			return
+		}
+		val, err := strconv.ParseBool(isPrepublish[0])
+		if err != nil {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid is_prepublish value: %s", err)
+			return
+		}
+		tf.IsPrepublish = val
 	}
 	if ciLink, ok := form.Value["ci_link"]; ok {
 		if len(ciLink) != 1 {

@@ -295,3 +295,24 @@ You delete a group lock by running:
 ```shell
 kuberpult-client --url <kuberpult_url> delete-group-lock [parameters]
 ```
+
+### Getting commit deployments
+
+You can get the deployment status of a commit by using the **get-commit-deployments** command. This answers the question "is my commit deployed yet, according to kuberpult", for all environments.
+
+The CLI offers the following parameters for getting commit deployments:
+```
+-commit value
+      the commit ID to get deployments for
+```
+
+```
+-out value
+      the file to write the output to
+```
+
+You can get commit deployments by running:
+
+```shell
+kuberpult-client --url <kuberpult_url> get-commit-deployments [parameters]
+```

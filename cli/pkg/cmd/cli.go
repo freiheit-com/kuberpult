@@ -85,6 +85,8 @@ func RunCLI() ReturnCode {
 		return handleDeleteGroupLock(*kpClientParams, subflags)
 	case "release-train":
 		return handleReleaseTrain(*kpClientParams, subflags)
+	case "get-commit-deployments":
+		return handleGetCommitDeployments(*kpClientParams, subflags)
 	default:
 		log.Printf("unknown subcommand %s\n", subcommand)
 		return ReturnCodeInvalidArguments

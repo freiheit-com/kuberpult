@@ -666,6 +666,23 @@ func TestOverviewService(t *testing.T) {
 						"development": "v1",
 					},
 				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					SourceCommitId:        "deadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       false,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "test",
+					Manifests: map[string]string{
+						"development": "v1",
+					},
+					IsPrepublish: true,
+				},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
 				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{

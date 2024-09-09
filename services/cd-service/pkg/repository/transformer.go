@@ -27,6 +27,8 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"reflect"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -381,6 +383,7 @@ type CreateApplicationVersion struct {
 	CiLink                string            `json:"ciLink"`
 	AllowedDomains        []string          `json:"-"`
 	TransformerEslVersion db.TransformerID  `json:"-"`
+	IsPrepublish          bool              `json:"isPrepublish"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -642,7 +645,7 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, c.Application, false)
+		prevRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false, false)
 		if err != nil {
 			return "", err
 		}
@@ -650,16 +653,20 @@ func (c *CreateApplicationVersion) Transform(
 		if len(prevRelease) > 0 {
 			v = prevRelease[0].EslVersion
 		}
-		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version)
+		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 		if err != nil {
 			return "", err
+		}
+		manifestsToKeep := c.Manifests
+		if c.IsPrepublish {
+			manifestsToKeep = make(map[string]string)
 		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
 			ReleaseNumber: version,
 			App:           c.Application,
 			Manifests: db.DBReleaseManifests{
-				Manifests: c.Manifests,
+				Manifests: manifestsToKeep,
 			},
 			Metadata: db.DBReleaseMetaData{
 				SourceAuthor:    c.SourceAuthor,
@@ -669,6 +676,7 @@ func (c *CreateApplicationVersion) Transform(
 				UndeployVersion: false,
 				IsMinor:         isMinor,
 				CiLink:          c.CiLink,
+				IsPrepublish:    c.IsPrepublish,
 			},
 			Created: time.Now(),
 			Deleted: false,
@@ -693,7 +701,9 @@ func (c *CreateApplicationVersion) Transform(
 		} else {
 			allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(release.ReleaseNumber))
 		}
-		err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslVersion)
+		if !c.IsPrepublish {
+			err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslVersion)
+		}
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -728,7 +738,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
-		if hasUpstream && config.Upstream.Latest && isLatest {
+		if hasUpstream && config.Upstream.Latest && isLatest && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -755,7 +765,7 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64) (bool, error) {
+func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64, minorRegexes []*regexp.Regexp) (bool, error) {
 	allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
 	if err != nil {
 		return false, err
@@ -780,11 +790,11 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 		}
 	}
 	if nextVersion != -1 {
-		nextRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, uint64(nextVersion))
+		nextRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, uint64(nextVersion), true)
 		if err != nil {
 			return false, err
 		}
-		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests)
+		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
 		err = dbHandler.DBInsertRelease(ctx, transaction, *nextRelease, nextRelease.EslVersion)
 		if err != nil {
 			return false, err
@@ -793,23 +803,47 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 	if previousVersion == -1 {
 		return false, nil
 	}
-	previousRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, uint64(previousVersion))
+	previousRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, uint64(previousVersion), true)
 	if err != nil {
 		return false, err
 	}
-	return compareManifests(ctx, c.Manifests, previousRelease.Manifests.Manifests), nil
+	return compareManifests(ctx, c.Manifests, previousRelease.Manifests.Manifests, minorRegexes), nil
 }
 
-func compareManifests(ctx context.Context, firstManifests map[string]string, secondManifests map[string]string) bool {
+func compareManifests(ctx context.Context, firstManifests map[string]string, secondManifests map[string]string, comparisonRegexes []*regexp.Regexp) bool {
 	if len(firstManifests) != len(secondManifests) {
 		return false
 	}
-	for key, value1 := range firstManifests {
-		if value2, exists := secondManifests[key]; !exists || value1 != value2 {
+	for key, manifest1 := range firstManifests {
+		manifest2, exists := secondManifests[key]
+		if !exists {
+			return false
+		}
+		filteredLines1 := filterManifestLines(ctx, manifest1, comparisonRegexes)
+		filteredLines2 := filterManifestLines(ctx, manifest2, comparisonRegexes)
+		if !reflect.DeepEqual(filteredLines1, filteredLines2) {
 			return false
 		}
 	}
 	return true
+}
+
+func filterManifestLines(ctx context.Context, str string, regexes []*regexp.Regexp) []string {
+	lines := strings.Split(str, "\n")
+	filteredLines := make([]string, 0)
+	for _, line := range lines {
+		match := false
+		for _, regex := range regexes {
+			if regex.MatchString(line) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			filteredLines = append(filteredLines, line)
+		}
+	}
+	return filteredLines
 }
 
 func getGenerator(ctx context.Context) uuid.GenerateUUIDs {
@@ -943,7 +977,7 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 		return lastRelease + 1, nil
 	} else {
 		if state.DBHandler.ShouldUseEslTable() {
-			metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+			metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
 			if err != nil {
 				return 0, fmt.Errorf("could not calculate version, error: %v", err)
 			}
@@ -1015,7 +1049,7 @@ func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transac
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
-	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
 	if err != nil {
 		return fmt.Errorf("could not calculate version, error: %v", err)
 	}
@@ -1197,7 +1231,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, lastRelease)
+		prevRelease, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, lastRelease, true)
 		if err != nil {
 			return "", err
 		}
@@ -1221,6 +1255,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				DisplayVersion:  "",
 				UndeployVersion: true,
 				IsMinor:         false,
+				IsPrepublish:    false,
 				CiLink:          "",
 			},
 			Created: time.Now(),
@@ -1436,7 +1471,7 @@ func (u *UndeployApplication) Transform(
 
 			var isUndeploy bool
 			if deployment != nil && deployment.Version != nil {
-				release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, uint64(*deployment.Version))
+				release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, uint64(*deployment.Version), true)
 				if err != nil {
 					return "", err
 				}
@@ -1611,7 +1646,7 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", err
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application, false)
+		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application, false, true)
 		if err != nil {
 			return "", err
 		}
@@ -2012,6 +2047,7 @@ func (c *DeleteEnvironmentLock) Transform(
 	fs := state.Filesystem
 	s := State{
 		Commit:               nil,
+		MinorRegexes:         state.MinorRegexes,
 		Filesystem:           fs,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
@@ -2700,7 +2736,7 @@ func (c *DeployApplicationVersion) Transform(
 	var manifestContent []byte
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	if state.DBHandler.ShouldUseOtherTables() {
-		version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+		version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
 		if err != nil {
 			return "", err
 		}
@@ -2926,6 +2962,7 @@ func (c *DeployApplicationVersion) Transform(
 
 	s := State{
 		Commit:               nil,
+		MinorRegexes:         state.MinorRegexes,
 		Filesystem:           fs,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
@@ -3005,7 +3042,7 @@ func (c *DeployApplicationVersion) Transform(
 
 func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, fs billy.Filesystem, release uint64, releaseDir string, app string) (string, error) {
 	if state.DBHandler.ShouldUseOtherTables() {
-		tmp, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, app, release)
+		tmp, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, app, release, true)
 		if err != nil {
 			return "", err
 		}
@@ -3640,7 +3677,7 @@ func (c *envReleaseTrain) prognosis(
 		}
 
 		if state.DBHandler.ShouldUseOtherTables() {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy)
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, true)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:        nil,

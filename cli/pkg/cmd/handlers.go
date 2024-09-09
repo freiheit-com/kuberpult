@@ -17,10 +17,12 @@ Copyright freiheit.com*/
 package cmd
 
 import (
+	"log"
+
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
+	"github.com/freiheit-com/kuberpult/cli/pkg/deployments"
 	"github.com/freiheit-com/kuberpult/cli/pkg/locks"
 	"github.com/freiheit-com/kuberpult/cli/pkg/releasetrain"
-	"log"
 
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	rl "github.com/freiheit-com/kuberpult/cli/pkg/release"
@@ -178,6 +180,34 @@ func handleLockRequest(kpClientParams kuberpultClientParameters, parsedArgs lock
 
 	if err := locks.HandleLockRequest(requestParameters, authParams, parsedArgs); err != nil {
 		log.Printf("error creating lock, error: %v", err)
+		return ReturnCodeFailure
+	}
+	return ReturnCodeSuccess
+}
+
+func handleGetCommitDeployments(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := deployments.ParseArgsCommitDeployments(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+
+	authParams := kutil.AuthenticationParameters{
+		IapToken:    kpClientParams.iapToken,
+		DexToken:    kpClientParams.dexToken,
+		AuthorName:  kpClientParams.authorName,
+		AuthorEmail: kpClientParams.authorEmail,
+	}
+
+	requestParameters := kutil.RequestParameters{
+		Url:         &kpClientParams.url,
+		Retries:     kpClientParams.retries,
+		HttpTimeout: cli_utils.HttpDefaultTimeout,
+	}
+
+	if err = deployments.HandleGetCommitDeployments(requestParameters, authParams, parsedArgs); err != nil {
+		log.Printf("error on commit deployments, error: %v", err)
 		return ReturnCodeFailure
 	}
 	return ReturnCodeSuccess

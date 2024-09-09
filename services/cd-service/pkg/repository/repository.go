@@ -215,6 +215,7 @@ type RepositoryConfig struct {
 	AllowLongAppNames bool
 
 	ArgoCdGenerateFiles bool
+	MinorRegexes        []*regexp.Regexp
 
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
@@ -330,6 +331,7 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
 			}
 			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
+
 		} else {
 			tagCommit, err := repo.LookupCommit(tagRef.TargetId())
 			if err != nil {
@@ -854,6 +856,25 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					}
 				}
 				t.SetEslVersion(db.TransformerID(internal.EslVersion))
+
+				if r.DB != nil && r.DB.WriteEslOnly {
+					// if we were previously running with `db.writeEslTableOnly=true`, but now are running with
+					// `db.writeEslTableOnly=false` (which is the recommended way to enable the database),
+					// then we would have many events in the event_sourcing_light table that have not been processed.
+					// So, we write the cutoff if we are only writing to the esl table. Then, when the database is fully
+					// enabled, the cutoff is found and determined to be the latest transformer. When this happens,
+					// the export service takes over the duties of writing the cutoff
+
+					err = db.DBWriteCutoff(r.DB, ctx, transaction, internal.EslVersion)
+					if err != nil {
+						applyErr := TransformerBatchApplyError{
+							TransformerError: err,
+							Index:            i,
+						}
+						return nil, nil, nil, &applyErr
+					}
+
+				}
 			}
 
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
@@ -1209,6 +1230,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Commit:               nil,
 						Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
 						ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
+						MinorRegexes:         r.config.MinorRegexes,
 						DBHandler:            r.DB,
 						CloudRunClient:       r.config.CloudRunClient,
 					}, nil
@@ -1232,6 +1254,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
 		Commit:               commit,
 		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
+		MinorRegexes:         r.config.MinorRegexes,
 		DBHandler:            r.DB,
 		CloudRunClient:       r.config.CloudRunClient,
 	}, nil
@@ -1245,6 +1268,7 @@ type State struct {
 	Filesystem           billy.Filesystem
 	Commit               *git.Commit
 	ReleaseVersionsLimit uint
+	MinorRegexes         []*regexp.Regexp
 	// DbHandler will be nil if the DB is disabled
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
@@ -2356,6 +2380,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				SourceMessage:   repoRelease.SourceMessage,
 				DisplayVersion:  repoRelease.DisplayVersion,
 				IsMinor:         false,
+				IsPrepublish:    false,
 				CiLink:          "",
 			},
 			Deleted: false,
@@ -2492,6 +2517,11 @@ type Release struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 	IsMinor         bool
+	/**
+	"IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
+	The goal is to get 100% of the commits even if the pipeline fails.
+	*/
+	IsPrepublish bool
 }
 
 func (rel *Release) ToProto() *api.Release {
@@ -2524,7 +2554,7 @@ func extractPrNumber(sourceMessage string) string {
 
 func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version uint64) (bool, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 		return release.Metadata.UndeployVersion, err
 	} else {
 		return s.IsUndeployVersionFromManifest(application, version)
@@ -2548,7 +2578,7 @@ func (s *State) IsUndeployVersionFromManifest(application string, version uint64
 
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 		if err != nil {
 			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
 		}
@@ -2564,6 +2594,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 			CreatedAt:       env.Created,
 			DisplayVersion:  env.Metadata.DisplayVersion,
 			IsMinor:         env.Metadata.IsMinor,
+			IsPrepublish:    env.Metadata.IsPrepublish,
 		}, nil
 	} else {
 		return s.GetApplicationReleaseFromManifest(application, version)
@@ -2585,6 +2616,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		CreatedAt:       time.Time{},
 		DisplayVersion:  "",
 		IsMinor:         false,
+		IsPrepublish:    false,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
@@ -2637,7 +2669,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application string, version uint64) (map[string]*api.Manifest, error) {
 	manifests := map[string]*api.Manifest{}
 	if s.DBHandler.ShouldUseOtherTables() {
-		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 		if err != nil {
 			return nil, fmt.Errorf("could not get release for app %s with version %v: %w", application, version, err)
 		}

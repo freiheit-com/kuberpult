@@ -246,7 +246,7 @@ func TestGetProductOverview(t *testing.T) {
 			if err != nil {
 				t.Errorf("expected no error, got %s", err)
 			}
-			productSummary, err := sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{CommitHash: ov.GitRevision, Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
+			productSummary, err := sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: ov.GitRevision, Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
 			if err != nil && tc.expectedErr == nil {
 				t.Fatalf("expected no error, but got [%s]: %v", ov.GitRevision, err)
 			}

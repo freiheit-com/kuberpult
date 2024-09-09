@@ -332,7 +332,7 @@ func (c *DeployApplicationVersion) Transform(
 	var manifestContent []byte
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
 	if state.DBHandler.ShouldUseOtherTables() {
-		version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version)
+		version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
 		if err != nil {
 			return "", err
 		}
@@ -1072,14 +1072,14 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	indexToKeep := positionOfOldestVersion - 1
 	majorsCount := 0
 	for ; indexToKeep >= 0; indexToKeep-- {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep])
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep], false)
 		if err != nil {
 			return nil, err
 		}
 		if release == nil {
 			majorsCount += 1
 			logger.FromContext(ctx).Warn("Release not found in database")
-		} else if !release.Metadata.IsMinor {
+		} else if !release.Metadata.IsMinor && !release.Metadata.IsPrepublish {
 			majorsCount += 1
 		}
 		if majorsCount >= int(state.ReleaseVersionsLimit) {
