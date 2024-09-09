@@ -608,9 +608,9 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	if c.CiLink != "" {
 		if !state.DBHandler.ShouldUseOtherTables() {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Ci Link is only supported when database is fully enabled."))
 		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 		}
 	}
 
