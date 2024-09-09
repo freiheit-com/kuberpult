@@ -1855,13 +1855,13 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
 func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeployment")
 	defer span.Finish()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
+		return fmt.Errorf("DBWriteDeployment: no transaction provided")
 	}
 
 	jsonToInsert, err := json.Marshal(deployment.Metadata)
@@ -4776,7 +4776,7 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 	return nil
 }
 func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslEventRow) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
 	defer span.Finish()
 	if h == nil {
 		return nil
