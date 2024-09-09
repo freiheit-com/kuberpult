@@ -897,6 +897,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 		Message       string
 		AuthorName    string
 		AuthorEmail   string
+		CiLink        string
 		ExpectedLocks []EnvironmentLock
 	}{
 		{
@@ -1118,6 +1119,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 		Message      string
 		AuthorName   string
 		AuthorEmail  string
+		CiLink       string
 		ExpectedLock *EnvironmentLock
 	}{
 		{
@@ -1127,6 +1129,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 			Message:     "My lock on dev",
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
+			CiLink:      "www.test.com",
 			ExpectedLock: &EnvironmentLock{
 				Env:        "dev",
 				LockID:     "dev-lock",
@@ -1136,6 +1139,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 					Message:        "My lock on dev",
 					CreatedByName:  "myself",
 					CreatedByEmail: "myself@example.com",
+					CiLink:         "www.test.com",
 				},
 			},
 		},
@@ -1160,6 +1164,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 					Message:        tc.Message,
 					CreatedByName:  tc.AuthorName,
 					CreatedByEmail: tc.AuthorEmail,
+					CiLink:         tc.CiLink,
 				}
 				err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, tc.LockID, tc.Env, metadata)
 				if err != nil {
@@ -1196,6 +1201,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 		AppName      string
 		AuthorName   string
 		AuthorEmail  string
+		CiLink       string
 		ExpectedLock *ApplicationLock
 	}{
 		{
@@ -1206,6 +1212,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
 			AppName:     "my-app",
+			CiLink:      "www.test.com",
 			ExpectedLock: &ApplicationLock{
 				Env:        "dev",
 				LockID:     "dev-app-lock",
@@ -1216,6 +1223,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 					Message:        "My application lock on dev for my-app",
 					CreatedByName:  "myself",
 					CreatedByEmail: "myself@example.com",
+					CiLink:         "www.test.com",
 				},
 			},
 		},
@@ -1236,7 +1244,12 @@ func TestReadWriteApplicationLock(t *testing.T) {
 				if envLock != nil {
 					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
-				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, LockMetadata{
+					CreatedByName:  tc.AuthorName,
+					CreatedByEmail: tc.AuthorEmail,
+					Message:        tc.Message,
+					CiLink:         tc.CiLink,
+				})
 				if err != nil {
 					return err
 				}
@@ -1326,7 +1339,12 @@ func TestDeleteApplicationLock(t *testing.T) {
 				if envLock != nil {
 					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
-				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, LockMetadata{
+					CreatedByName:  tc.AuthorName,
+					CreatedByEmail: tc.AuthorEmail,
+					Message:        tc.Message,
+					CiLink:         "",
+				})
 				if err != nil {
 					return err
 				}
@@ -1524,6 +1542,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 		TeamName     string
 		AuthorName   string
 		AuthorEmail  string
+		CiLink       string
 		ExpectedLock *TeamLock
 	}{
 		{
@@ -1534,6 +1553,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
 			TeamName:    "my-team",
+			CiLink:      "www.test.com",
 			ExpectedLock: &TeamLock{
 				Env:        "dev",
 				LockID:     "dev-team-lock",
@@ -1544,6 +1564,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 					Message:        "My team lock on dev for my-team",
 					CreatedByName:  "myself",
 					CreatedByEmail: "myself@example.com",
+					CiLink:         "www.test.com",
 				},
 			},
 		},
@@ -1564,7 +1585,12 @@ func TestReadWriteTeamLock(t *testing.T) {
 				if envLock != nil {
 					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
-				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, LockMetadata{
+					CreatedByName:  tc.AuthorName,
+					CreatedByEmail: tc.AuthorEmail,
+					Message:        tc.Message,
+					CiLink:         tc.CiLink,
+				})
 				if err != nil {
 					return err
 				}
@@ -1654,7 +1680,12 @@ func TestDeleteTeamLock(t *testing.T) {
 				if envLock != nil {
 					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
 				}
-				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, tc.Message, tc.AuthorName, tc.AuthorEmail)
+				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, LockMetadata{
+					CreatedByName:  tc.AuthorName,
+					CreatedByEmail: tc.AuthorEmail,
+					Message:        tc.Message,
+					CiLink:         "",
+				})
 				if err != nil {
 					return err
 				}

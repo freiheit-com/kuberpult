@@ -2244,7 +2244,12 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 			return "", err
 		}
 		//Write to locks table
-		errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, c.Message, user.Name, user.Email)
+		errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, db.LockMetadata{
+			CreatedByName:  user.Name,
+			CreatedByEmail: user.Email,
+			Message:        c.Message,
+			CiLink:         c.CiLink,
+		})
 		if errW != nil {
 			return "", errW
 		}
@@ -2406,7 +2411,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	
+
 	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
@@ -2416,7 +2421,14 @@ func (c *CreateEnvironmentTeamLock) Transform(
 			return "", err
 		}
 		//Write to locks table
-		errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, c.Message, user.Name, user.Email)
+
+		errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, db.LockMetadata{
+			CreatedByName:  user.Name,
+			CreatedByEmail: user.Email,
+			Message:        c.Message,
+			CiLink:         c.CiLink,
+		})
+
 		if errW != nil {
 			return "", errW
 		}

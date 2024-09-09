@@ -3280,7 +3280,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 	return appLocks, nil
 }
 
-func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lockID, environment, appName, message, authorName, authorEmail string) error {
+func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lockID, environment, appName string, metadata LockMetadata) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLock")
 	defer span.Finish()
 
@@ -3310,13 +3310,9 @@ func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lock
 		LockID:     lockID,
 		Created:    time.Time{},
 		Env:        environment,
-		Metadata: LockMetadata{
-			Message:        message,
-			CreatedByName:  authorName,
-			CreatedByEmail: authorEmail,
-		},
-		App:     appName,
-		Deleted: false,
+		Metadata:   metadata,
+		App:        appName,
+		Deleted:    false,
 	}
 	return h.DBWriteApplicationLockInternal(ctx, tx, appLock, previousVersion, false)
 }
@@ -3591,7 +3587,7 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 	return h.processAllTeamLocksRow(ctx, err, rows)
 }
 
-func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, environment, teamName, message, authorName, authorEmail string) error {
+func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, environment, teamName string, metadata LockMetadata) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLock")
 	defer span.Finish()
 	if h == nil {
@@ -3620,13 +3616,9 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, env
 		LockID:     lockID,
 		Created:    time.Time{},
 		Env:        environment,
-		Metadata: LockMetadata{
-			Message:        message,
-			CreatedByName:  authorName,
-			CreatedByEmail: authorEmail,
-		},
-		Team:    teamName,
-		Deleted: false,
+		Metadata:   metadata,
+		Team:       teamName,
+		Deleted:    false,
 	}
 	return h.DBWriteTeamLockInternal(ctx, tx, teamLock, previousVersion, false)
 }
