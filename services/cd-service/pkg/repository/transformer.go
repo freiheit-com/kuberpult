@@ -2152,6 +2152,8 @@ func (c *CreateEnvironmentGroupLock) Transform(
 			LockId:                c.LockId, // the IDs should be the same for all. See `useLocksSimilarTo` in store.tsx
 			Message:               c.Message,
 			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
+			AllowedDomains:        c.AllowedDomains,
 		}
 		if err := t.Execute(&x, transaction); err != nil {
 			return "", err
