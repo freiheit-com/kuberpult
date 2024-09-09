@@ -262,7 +262,7 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 		CreatedAt:       timestamppb.New(release.Created),
 		DisplayVersion:  release.Metadata.DisplayVersion,
 		IsMinor:         release.Metadata.IsMinor,
-		IsPrepublish: release.Metadata.IsPrepublish,
+		IsPrepublish:    release.Metadata.IsPrepublish,
 	}
 	foundRelease := false
 	for relIndex, currentRelease := range app.Releases {
