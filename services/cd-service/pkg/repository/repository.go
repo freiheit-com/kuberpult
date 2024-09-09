@@ -2144,6 +2144,7 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 					CreatedByName:  lock.CreatedBy.Name,
 					CreatedByEmail: lock.CreatedBy.Email,
 					Message:        lock.Message,
+					CiLink:         "", //CI links are not written into the manifest
 				},
 				Deleted: false,
 			}
@@ -2199,6 +2200,7 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 						CreatedByName:  lock.CreatedBy.Name,
 						CreatedByEmail: lock.CreatedBy.Email,
 						Message:        lock.Message,
+						CiLink:         "", //CI links are not written into the manifest
 					},
 					App:     currentApp,
 					Deleted: false,
@@ -2480,6 +2482,7 @@ func (s *State) WriteCurrentTeamLocks(ctx context.Context, transaction *sql.Tx, 
 						CreatedByName:  lock.CreatedBy.Name,
 						CreatedByEmail: lock.CreatedBy.Email,
 						Message:        lock.Message,
+						CiLink:         "", //CI links are not written into the manifest
 					},
 					Team:    teamName,
 					Deleted: false,

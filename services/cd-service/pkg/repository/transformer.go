@@ -606,8 +606,12 @@ func (c *CreateApplicationVersion) Transform(
 	} else {
 		logger.FromContext(ctx).Sugar().Warnf("skipping team file for team %s and should=%v", c.Team, state.DBHandler.ShouldUseOtherTables())
 	}
-	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
 	}
 
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
@@ -1837,6 +1841,8 @@ type CreateEnvironmentLock struct {
 	Environment           string           `json:"env"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
+	CiLink                string           `json:"ciLink"`
+	AllowedDomains        []string         `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
@@ -1912,13 +1918,28 @@ func (c *CreateEnvironmentLock) Transform(
 	if err != nil {
 		return "", err
 	}
+
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
+	}
+
 	if state.DBHandler.ShouldUseOtherTables() {
 		user, err := auth.ReadUserFromContext(ctx)
 		if err != nil {
 			return "", err
 		}
 		//Write to locks table
-		errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, c.Message, user.Name, user.Email)
+		metadata := db.LockMetadata{
+			Message:        c.Message,
+			CreatedByName:  user.Name,
+			CreatedByEmail: user.Email,
+			CiLink:         c.CiLink,
+		}
+		errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, metadata)
 		if errW != nil {
 			return "", errW
 		}
@@ -2099,6 +2120,8 @@ type CreateEnvironmentGroupLock struct {
 	EnvironmentGroup      string           `json:"env"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
+	CiLink                string           `json:"ciLink"`
+	AllowedDomains        []string         `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
@@ -2121,6 +2144,13 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	if err != nil {
 		return "", err
 	}
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
+	}
 	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, transaction, c.EnvironmentGroup)
 	if err != nil {
 		return "", grpc.PublicError(ctx, err)
@@ -2134,6 +2164,8 @@ func (c *CreateEnvironmentGroupLock) Transform(
 			LockId:                c.LockId, // the IDs should be the same for all. See `useLocksSimilarTo` in store.tsx
 			Message:               c.Message,
 			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
+			AllowedDomains:        c.AllowedDomains,
 		}
 		if err := t.Execute(&x, transaction); err != nil {
 			return "", err
@@ -2192,6 +2224,8 @@ type CreateEnvironmentApplicationLock struct {
 	Application           string           `json:"app"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
+	CiLink                string           `json:"ciLink"`
+	AllowedDomains        []string         `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
@@ -2215,13 +2249,25 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	if err != nil {
 		return "", err
 	}
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
+	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		user, err := auth.ReadUserFromContext(ctx)
 		if err != nil {
 			return "", err
 		}
 		//Write to locks table
-		errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, c.Message, user.Name, user.Email)
+		errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, db.LockMetadata{
+			CreatedByName:  user.Name,
+			CreatedByEmail: user.Email,
+			Message:        c.Message,
+			CiLink:         c.CiLink,
+		})
 		if errW != nil {
 			return "", errW
 		}
@@ -2357,6 +2403,8 @@ type CreateEnvironmentTeamLock struct {
 	Team                  string           `json:"team"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
+	CiLink                string           `json:"ciLink"`
+	AllowedDomains        []string         `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
@@ -2382,13 +2430,27 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		return "", err
 	}
 
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
+	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		user, err := auth.ReadUserFromContext(ctx)
 		if err != nil {
 			return "", err
 		}
 		//Write to locks table
-		errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, c.Message, user.Name, user.Email)
+
+		errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, db.LockMetadata{
+			CreatedByName:  user.Name,
+			CreatedByEmail: user.Email,
+			Message:        c.Message,
+			CiLink:         c.CiLink,
+		})
+
 		if errW != nil {
 			return "", errW
 		}
@@ -3349,8 +3411,12 @@ func (c *ReleaseTrain) Transform(
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
 	defer span.Finish()
 	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
-	if c.CiLink != "" && state.DBHandler.ShouldUseOtherTables() && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	if c.CiLink != "" {
+		if !state.DBHandler.ShouldUseOtherTables() {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Ci Link is only supported when database is fully enabled."))
+		} else if !isValidLink(c.CiLink, c.AllowedDomains) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		}
 	}
 	prognosis := c.Prognosis(ctx, state, transaction)
 

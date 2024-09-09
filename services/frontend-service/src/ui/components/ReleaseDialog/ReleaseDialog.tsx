@@ -143,6 +143,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     application: app,
                     lockId: '',
                     message: '',
+                    ciLink: '',
                 },
             },
         });

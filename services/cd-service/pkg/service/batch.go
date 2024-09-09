@@ -124,6 +124,8 @@ func (d *BatchServer) processAction(
 			Environment:           act.Environment,
 			LockId:                act.LockId,
 			Message:               act.Message,
+			CiLink:                act.CiLink,
+			AllowedDomains:        d.Config.AllowedCILinkDomains,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
@@ -148,6 +150,8 @@ func (d *BatchServer) processAction(
 			Application:           act.Application,
 			LockId:                act.LockId,
 			Message:               act.Message,
+			CiLink:                act.CiLink,
+			AllowedDomains:        d.Config.AllowedCILinkDomains,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
@@ -173,6 +177,8 @@ func (d *BatchServer) processAction(
 			Team:                  act.Team,
 			LockId:                act.LockId,
 			Message:               act.Message,
+			CiLink:                act.CiLink,
+			AllowedDomains:        d.Config.AllowedCILinkDomains,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
@@ -331,6 +337,8 @@ func (d *BatchServer) processAction(
 			EnvironmentGroup:      act.EnvironmentGroup,
 			LockId:                act.LockId,
 			Message:               act.Message,
+			CiLink:                act.CiLink,
+			AllowedDomains:        d.Config.AllowedCILinkDomains,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
