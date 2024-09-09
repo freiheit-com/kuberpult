@@ -204,7 +204,6 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                     )}>
                     <div
                         className="mdc-card__primary-action release-card__description"
-                        // ref={control}
                         tabIndex={0}
                         onClick={openReleaseDialog}>
                         <div className="release-card__header">
