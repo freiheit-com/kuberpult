@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/fs"
 	"strconv"
 	"strings"
@@ -52,6 +53,9 @@ var notImplemented error = status.Error(codes.Unimplemented, "not implemented")
 
 // GenerateManifest implements apiclient.RepoServerServiceServer.
 func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.ManifestRequest) (*argorepo.ManifestResponse, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "GenerateManifest")
+	defer span.Finish()
+
 	var mn []string
 	if r.repo.State().DBHandler.ShouldUseOtherTables() {
 		dbHandler := r.repo.State().DBHandler

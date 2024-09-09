@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"os"
 	"strconv"
 
@@ -44,6 +45,9 @@ type VersionServiceServer struct {
 func (o *VersionServiceServer) GetVersion(
 	ctx context.Context,
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "GetVersion")
+	defer span.Finish()
+
 	state := o.Repository.State()
 	dbHandler := state.DBHandler
 	if dbHandler.ShouldUseOtherTables() {
