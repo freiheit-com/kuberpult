@@ -53,9 +53,12 @@ spec:
         tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
         tags.datadoghq.com/service: kuberpult-frontend-service
         tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+{{- end }}
       annotations:
+{{- if .Values.datadogTracing.enabled }}
         apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
 {{- end }}
+{{ .Values.frontend.pod.annotations | toYaml | indent 8}}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -223,9 +226,7 @@ metadata:
 {{- if .Values.ingress.iap.enabled }}
     cloud.google.com/backend-config: '{"default": "kuberpult"}'
 {{- end }}
-{{- range $key, $value := .Values.frontend.service.annotations }}
-    {{ $key | quote}}: {{ $value | quote}}
-{{- end }}
+{{ .Values.frontend.service.annotations | toYaml | indent 4}}
 spec:
   ports:
   - name: http

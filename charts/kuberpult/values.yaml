@@ -85,6 +85,10 @@ cd:
   allowLongAppNames: false
 # List of allowed domains that the links provided in releases, release trains and locks must match
   allowedDomains: ""
+  service:
+    annotations: {}
+  pod:
+    annotations: {}
   backendConfig:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
@@ -139,6 +143,10 @@ db:
     memory: "200Mi"
 manifestRepoExport:
   image: kuberpult-manifest-repo-export-service
+  service:
+    annotations: {}
+  pod:
+    annotations: {}
   resources:
     limits:
       cpu: 2
@@ -172,6 +180,8 @@ frontend:
 # See frontend-service.yaml for automatically added annotations.
   service:
     annotations: {}
+  pod:
+    annotations: {}
   resources:
     limits:
       cpu: 500m
@@ -189,6 +199,10 @@ frontend:
   grpcMaxRecvMsgSize: 4
 rollout:
   enabled: false
+  service:
+    annotations: {}
+  pod:
+    annotations: {}
   image: kuberpult-rollout-service
   resources:
     limits:
@@ -199,8 +213,6 @@ rollout:
       memory: 250Mi
   # The maximum message size in mega bytes the client can receive.
   grpcMaxRecvMsgSize: 4
-  # annotations given here will take precedence over the defaults defined in _helpers.tpl
-  podAnnotations: {}
 
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.

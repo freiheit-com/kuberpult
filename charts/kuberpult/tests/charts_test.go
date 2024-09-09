@@ -1334,6 +1334,7 @@ func TestIngress(t *testing.T) {
 		UseUi     bool
 		UseOldApi bool
 		UseNewApi bool
+		ExpectedExtraAnnotations map[string]string
 	}{
 		{
 			Name: "dex enabled",
@@ -1407,6 +1408,9 @@ git:
 ingress:
   create: true
   domainName: "kuberpult-example.com"
+  annotations:
+    test-annotation-key: test-value
+    secondKey: secondValue
   allowedPaths:
     restApi: true
     oldRestApi: true
@@ -1417,11 +1421,24 @@ ingress:
 			UseUi:     true,
 			UseOldApi: true,
 			UseNewApi: true,
+			ExpectedExtraAnnotations: map[string]string{
+				"test-annotation-key": "test-value",
+				"secondKey": "secondValues",
+			},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
+			ExpectedAnnotations := map[string]string {
+				"cert-manager.io/acme-challenge-type":            "dns01",
+				"cert-manager.io/cluster-issuer":                 "letsencrypt",
+				"kubernetes.io/ingress.allow-http":               "false",
+				"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
+			}
+			for key, value := range tc.ExpectedExtraAnnotations {
+				ExpectedAnnotations[key] = value
+			}
 			var ExpectedIngress = &networking.Ingress{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Ingress",
@@ -1429,12 +1446,7 @@ ingress:
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "kuberpult",
-					Annotations: map[string]string{
-						"cert-manager.io/acme-challenge-type":            "dns01",
-						"cert-manager.io/cluster-issuer":                 "letsencrypt",
-						"kubernetes.io/ingress.allow-http":               "false",
-						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
-					},
+					Annotations: ExpectedAnnotations,
 				},
 				Spec: networking.IngressSpec{
 					IngressClassName: &ingressClassGcePrivate,
