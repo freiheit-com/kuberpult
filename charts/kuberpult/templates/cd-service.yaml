@@ -107,7 +107,8 @@ spec:
             cpu:  {{ .Values.db.requests.cpu }}
 {{- end }}
       - name: service
-        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
+#        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:v8.14.1-3-g0b5595b8"
         ports:
           - name: http
             containerPort: 8080
