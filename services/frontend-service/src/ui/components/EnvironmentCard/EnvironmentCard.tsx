@@ -41,7 +41,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
         addAction({
             action: {
                 $case: 'createEnvironmentLock',
-                createEnvironmentLock: { environment: environment.name, lockId: '', message: '' },
+                createEnvironmentLock: { environment: environment.name, lockId: '', message: '', ciLink: '' },
             },
         });
     }, [environment.name]);
@@ -64,6 +64,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                             environment: environment.name,
                             lockId: '',
                             message: '',
+                            ciLink: '',
                         },
                     },
                 });
@@ -146,7 +147,7 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
             addAction({
                 action: {
                     $case: 'createEnvironmentLock',
-                    createEnvironmentLock: { environment: environment.name, lockId: '', message: '' },
+                    createEnvironmentLock: { environment: environment.name, lockId: '', message: '', ciLink: '' },
                 },
             });
         });

@@ -632,6 +632,24 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Allowed domains for CI Link",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  allowedDomains: freiheit.com, github.com
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ALLOWED_DOMAINS",
+					Value: "freiheit.com, github.com",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {

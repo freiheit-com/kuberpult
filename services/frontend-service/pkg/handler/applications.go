@@ -83,6 +83,7 @@ func (s Server) handlePutApplicationLock(w http.ResponseWriter, req *http.Reques
 				Application: application,
 				LockId:      lockID,
 				Message:     body.Message,
+				CiLink:      body.CiLink,
 			},
 		}},
 	}})

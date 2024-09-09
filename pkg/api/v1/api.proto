@@ -152,6 +152,7 @@ message CreateEnvironmentLockRequest {
   string environment = 1;
   string lock_id = 2;
   string message = 3;
+  string ci_link = 4;
 }
 
 message DeleteEnvironmentLockRequest {
@@ -163,6 +164,7 @@ message CreateEnvironmentGroupLockRequest {
   string environment_group = 1;
   string lock_id = 2;
   string message = 3;
+  string ci_link = 4;
 }
 
 message DeleteEnvironmentGroupLockRequest {
@@ -176,6 +178,7 @@ message CreateEnvironmentApplicationLockRequest {
   string application = 2;
   string lock_id = 3;
   string message = 4;
+  string ci_link = 5;
 }
 
 message DeleteEnvironmentApplicationLockRequest {
@@ -189,6 +192,7 @@ message CreateEnvironmentTeamLockRequest {
   string team = 2;
   string lock_id = 3;
   string message = 4;
+  string ci_link = 5;
 }
 
 message DeleteEnvironmentTeamLockRequest {
