@@ -239,6 +239,16 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         )
         .flat();
 
+    const allowDeployment: boolean = ((): boolean => {
+        if (release.isPrepublish) {
+            return false;
+        }
+        if (!otherRelease) {
+            return false;
+        }
+        return otherRelease.version === release.version;
+    })();
+
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -307,7 +317,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             <ExpandButton
                                 onClickSubmit={deployAndLockClick}
                                 defaultButtonLabel={'Deploy & Lock'}
-                                disabled={release.isPrepublish}
+                                disabled={allowDeployment}
                             />
                         </div>
                     </div>
@@ -320,10 +330,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
 export const EnvironmentList: React.FC<{
     release: Release;
     app: string;
-    version: number;
     team: string;
     className?: string;
-}> = ({ release, app, version, className, team }) => {
+}> = ({ release, app, className, team }) => {
     const allEnvGroups: EnvironmentGroup[] = useEnvironmentGroups();
     return (
         <div className="release-env-group-list">
@@ -410,7 +419,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         highlightEffect={false}
                     />
                 </div>
-                <EnvironmentList app={app} team={team} className={className} release={release} version={version} />
+                <EnvironmentList app={app} team={team} className={className} release={release} />
             </>
         </PlainDialog>
     );
