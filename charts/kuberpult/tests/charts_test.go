@@ -162,11 +162,11 @@ func getIngress(fileName string) (*networking.Ingress, error) {
 
 func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 	tcs := []struct {
-		Name            string
-		Values          string
-		ExpectedEnvs    []core.EnvVar
-		ExpectedMissing []core.EnvVar
-		ExpectedPodAnnotations	map[string]string
+		Name                   string
+		Values                 string
+		ExpectedEnvs           []core.EnvVar
+		ExpectedMissing        []core.EnvVar
+		ExpectedPodAnnotations map[string]string
 	}{
 		{
 			Name: "Minimal values.yaml leads to proper default values",
@@ -358,7 +358,7 @@ datadogTracing:
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-			ExpectedPodAnnotations: map[string]string {
+			ExpectedPodAnnotations: map[string]string{
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared","DD_VERSION":"v8.14.1-1-gf4383c93"}`,
 			},
 		},
@@ -660,7 +660,7 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 			ExpectedPodAnnotations: map[string]string{
-				"test-key": "test-value",
+				"test-key":  "test-value",
 				"secondKey": "secondValue",
 			},
 		},
@@ -1359,12 +1359,12 @@ frontend:
 func TestIngress(t *testing.T) {
 	ingressClassGcePrivate := "gce-private"
 	tcs := []struct {
-		Name      string
-		Values    string
-		UseDex    bool
-		UseUi     bool
-		UseOldApi bool
-		UseNewApi bool
+		Name                     string
+		Values                   string
+		UseDex                   bool
+		UseUi                    bool
+		UseOldApi                bool
+		UseNewApi                bool
 		ExpectedExtraAnnotations map[string]string
 	}{
 		{
@@ -1454,14 +1454,14 @@ ingress:
 			UseNewApi: true,
 			ExpectedExtraAnnotations: map[string]string{
 				"test-annotation-key": "test-value",
-				"secondKey": "secondValue",
+				"secondKey":           "secondValue",
 			},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			ExpectedAnnotations := map[string]string {
+			ExpectedAnnotations := map[string]string{
 				"cert-manager.io/acme-challenge-type":            "dns01",
 				"cert-manager.io/cluster-issuer":                 "letsencrypt",
 				"kubernetes.io/ingress.allow-http":               "false",
@@ -1476,7 +1476,7 @@ ingress:
 					APIVersion: "networking.k8s.io/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "kuberpult",
+					Name:        "kuberpult",
 					Annotations: ExpectedAnnotations,
 				},
 				Spec: networking.IngressSpec{
@@ -1538,14 +1538,14 @@ func filterDDVersion(dict map[string]string) {
 
 func TestAnnotations(t *testing.T) {
 	tcs := []struct {
-		Name            string
-		Values          string
-		ExpectedCdPodAnnotations	map[string]string
-		ExpectedCdServiceAnnotations map[string]string
-		ExpectedManifestRepoExportPodAnnotations map[string]string
+		Name                                         string
+		Values                                       string
+		ExpectedCdPodAnnotations                     map[string]string
+		ExpectedCdServiceAnnotations                 map[string]string
+		ExpectedManifestRepoExportPodAnnotations     map[string]string
 		ExpectedManifestRepoExportServiceAnnotations map[string]string
-		ExpectedFrontendPodAnnotations map[string]string
-		ExpectedFrontendServiceAnnotations map[string]string
+		ExpectedFrontendPodAnnotations               map[string]string
+		ExpectedFrontendServiceAnnotations           map[string]string
 	}{
 		{
 			Name: "Test no annotations",
@@ -1568,13 +1568,13 @@ db:
 datadogTracing:
   enabled: true
 `,
-			ExpectedCdPodAnnotations: map[string]string {
+			ExpectedCdPodAnnotations: map[string]string{
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared"`,
 			},
-			ExpectedManifestRepoExportPodAnnotations: map[string]string {
+			ExpectedManifestRepoExportPodAnnotations: map[string]string{
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-manifest-repo-export-service","DD_ENV":"shared"`,
 			},
-			ExpectedFrontendPodAnnotations: map[string]string {
+			ExpectedFrontendPodAnnotations: map[string]string{
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"shared"`,
 			},
 		},
@@ -1603,15 +1603,15 @@ db:
   dbOption: postgreSQL
 `,
 			ExpectedCdPodAnnotations: map[string]string{
-				"test-key": "test-value",
+				"test-key":  "test-value",
 				"secondKey": "secondValue",
 			},
 			ExpectedManifestRepoExportPodAnnotations: map[string]string{
-				"test-key": "test-value2",
+				"test-key":  "test-value2",
 				"secondKey": "secondValue2",
 			},
 			ExpectedFrontendPodAnnotations: map[string]string{
-				"test-key": "test-value3",
+				"test-key":  "test-value3",
 				"secondKey": "secondValue3",
 			},
 		},
@@ -1642,18 +1642,18 @@ db:
   dbOption: postgreSQL
 `,
 			ExpectedCdPodAnnotations: map[string]string{
-				"test-key": "test-value",
-				"secondKey": "secondValue",
+				"test-key":              "test-value",
+				"secondKey":             "secondValue",
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared"`,
 			},
 			ExpectedManifestRepoExportPodAnnotations: map[string]string{
-				"test-key": "test-value2",
-				"secondKey": "secondValue2",
+				"test-key":              "test-value2",
+				"secondKey":             "secondValue2",
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-manifest-repo-export-service","DD_ENV":"shared"`,
 			},
 			ExpectedFrontendPodAnnotations: map[string]string{
-				"test-key": "test-value3",
-				"secondKey": "secondValue3",
+				"test-key":              "test-value3",
+				"secondKey":             "secondValue3",
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"shared"`,
 			},
 		},
@@ -1685,16 +1685,16 @@ db:
   dbOption: postgreSQL
 `,
 			ExpectedCdServiceAnnotations: map[string]string{
-				"test-key": "test-value",
+				"test-key":  "test-value",
 				"secondKey": "secondValue",
 			},
 			ExpectedManifestRepoExportServiceAnnotations: map[string]string{
-				"test-key": "test-value2",
+				"test-key":  "test-value2",
 				"secondKey": "secondValue2",
 			},
 			ExpectedFrontendServiceAnnotations: map[string]string{
-				"test-key": "test-value3",
-				"secondKey": "secondValue3",
+				"test-key":                        "test-value3",
+				"secondKey":                       "secondValue3",
 				"cloud.google.com/backend-config": `{"default": "kuberpult"}`,
 			},
 		},
