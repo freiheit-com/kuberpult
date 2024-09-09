@@ -25,7 +25,9 @@ metadata:
   annotations:
     cert-manager.io/acme-challenge-type: dns01
     cert-manager.io/cluster-issuer: letsencrypt
+{{- if .Values.ingress.annotations }}
 {{ .Values.ingress.annotations | toYaml | indent 4}}
+{{- end }}
   name: kuberpult
 spec:
 {{- if and (.Values.ingress.private) (eq .Values.kubernetesEngine "GKE") }}

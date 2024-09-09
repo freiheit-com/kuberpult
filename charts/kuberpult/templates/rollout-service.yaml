@@ -55,7 +55,9 @@ spec:
 {{- if .Values.datadogTracing.enabled }}
 apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-rollout-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
 {{- end }}
+{{- if .Values.rollout.pod.annotations}}
 {{ .Values.rollout.pod.annotations | toYaml | indent 8}}
+{{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -186,8 +188,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kuberpult-rollout-service
+{{- if .Values.rollout.service.annotations }}
   annotations:
 {{ .Values.rollout.service.annotations | toYaml | indent 4}}
+{{- end }}
 spec:
   ports:
   - name: http

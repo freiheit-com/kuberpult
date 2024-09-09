@@ -61,7 +61,9 @@ spec:
 {{- if .Values.datadogTracing.enabled }}
         apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
 {{- end }}
+{{- if .Values.cd.pod.annotations }}
 {{ .Values.cd.pod.annotations | toYaml | indent 8}}
+{{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -334,7 +336,9 @@ metadata:
 {{- if .Values.cd.backendConfig.create }}
     cloud.google.com/backend-config: '{"default": "kuberpult-cd-service"}'
 {{- end }}
+{{- if .Values.cd.service.annotations }}
 {{ .Values.cd.service.annotations | toYaml | indent 4}}
+{{- end }}
 spec:
   ports:
   - name: http

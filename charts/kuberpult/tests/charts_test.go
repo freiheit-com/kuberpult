@@ -142,6 +142,7 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 		Values          string
 		ExpectedEnvs    []core.EnvVar
 		ExpectedMissing []core.EnvVar
+		ExpectedPodAnnotations	map[string]string
 	}{
 		{
 			Name: "Minimal values.yaml leads to proper default values",
@@ -333,6 +334,9 @@ datadogTracing:
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
+			ExpectedPodAnnotations: map[string]string {
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared","DD_VERSION":"v8.14.1-1-gf4383c93"}`,
+			},
 		},
 		{
 			Name: "Two variables involved web hook disabled",
@@ -620,6 +624,11 @@ db:
 git:
   url: "testURL"
   releaseVersionsLimit: 15
+cd:
+  pod:
+    annotations:
+      test-key: test-value
+      secondKey: secondValue
 db:
   dbOption: postgreSQL
   sslMode: prefer
@@ -631,6 +640,10 @@ db:
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
+			ExpectedPodAnnotations: map[string]string{
+				"test-key": "test-value",
+				"secondKey": "secondValue",
+			},
 		},
 	}
 
@@ -656,7 +669,9 @@ db:
 						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
 					}
 				}
-
+				if diff := cmp.Diff(tc.ExpectedPodAnnotations, targetDocument.Spec.Template.ObjectMeta.Annotations); diff != "" {
+					t.Fatalf("wrong cd annotations (-want, +got):\n%s", diff)
+				}
 			}
 		})
 	}
@@ -1423,7 +1438,7 @@ ingress:
 			UseNewApi: true,
 			ExpectedExtraAnnotations: map[string]string{
 				"test-annotation-key": "test-value",
-				"secondKey": "secondValues",
+				"secondKey": "secondValue",
 			},
 		},
 	}
@@ -1487,6 +1502,9 @@ ingress:
 						if diff := cmp.Diff(expectedRule, outRule); diff != "" {
 							t.Fatalf("output mismatch (-want, +got):\n%s", diff)
 						}
+					}
+					if diff := cmp.Diff(ExpectedAnnotations, out.ObjectMeta.Annotations); diff != "" {
+						t.Fatalf("wrong ingress annotation (-want, +got):\n%s", diff)
 					}
 				}
 			}
