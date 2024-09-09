@@ -33,25 +33,31 @@ import { useApi } from '../utils/GrpcApi';
 import { AzureAuthProvider, useAzureAuthSub } from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
 import { mergeMap, retryWhen } from 'rxjs/operators';
-import { Observable, throwError, timer } from 'rxjs';
+import { Observable, timer } from 'rxjs';
 import { GetFrontendConfigResponse } from '../../api/api';
 import { EnvironmentConfigDialog } from '../components/EnvironmentConfigDialog/EnvironmentConfigDialog';
 import { getOpenEnvironmentConfigDialog } from '../utils/Links';
 import { useSearchParams } from 'react-router-dom';
 import { TooltipProvider } from '../components/tooltip/tooltip';
 
-// retry strategy: retries the observable subscription with randomized exponential backoff
+// retry strategy: retries the observable subscription with a linear backoff
 // source: https://www.learnrxjs.io/learn-rxjs/operators/error_handling/retrywhen#examples
-function retryStrategy(maxRetryAttempts: number) {
+function retryStrategy(maxWaitTimeMinutes: number) {
     return (attempts: Observable<any>): Observable<any> =>
         attempts.pipe(
             mergeMap((error, retryAttempt) => {
-                if (retryAttempt >= maxRetryAttempts) {
-                    return throwError(error);
+                if (error.code === 12) {
+                    // Error code 12 means "not implemented". That is what we get when the rollout service is not enabled
+                    // so we don't want to retry in this case
+                    throw error;
                 }
-                // backoff time in seconds = 2^attempt number (exponential) + random
-                const backoffTime = 1000 * (2 ** retryAttempt + Math.random());
-                return timer(backoffTime);
+
+                // retry forever with a maximum wait time of maxWaitTimeMinutes minutes
+                if (retryAttempt >= maxWaitTimeMinutes * 60) {
+                    return timer(maxWaitTimeMinutes * 60 * 1000);
+                } else {
+                    return timer(retryAttempt * 1000);
+                }
             })
         );
 }
@@ -86,7 +92,7 @@ export const App: React.FC = () => {
             const subscription = api
                 .overviewService()
                 .StreamOverview({}, authHeader)
-                .pipe(retryWhen(retryStrategy(8)))
+                .pipe(retryWhen(retryStrategy(1)))
                 .subscribe(
                     (result) => {
                         UpdateOverview.set(result);
@@ -107,7 +113,7 @@ export const App: React.FC = () => {
             const subscription = api
                 .rolloutService()
                 .StreamStatus({}, authHeader)
-                .pipe(retryWhen(retryStrategy(8)))
+                .pipe(retryWhen(retryStrategy(1)))
                 .subscribe(
                     (result) => {
                         UpdateRolloutStatus(result);
