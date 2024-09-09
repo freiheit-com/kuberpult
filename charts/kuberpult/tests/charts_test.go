@@ -633,7 +633,7 @@ db:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Minimal values.yaml leads to proper default values",
+			Name: "Allowed domains for CI Link",
 			Values: `
 git:
   url:  "testURL"
@@ -643,10 +643,6 @@ cd:
   allowedDomains: freiheit.com, github.com
 `,
 			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "NO_DB",
-				},
 				{
 					Name:  "KUBERPULT_ALLOWED_DOMAINS",
 					Value: "freiheit.com, github.com",
