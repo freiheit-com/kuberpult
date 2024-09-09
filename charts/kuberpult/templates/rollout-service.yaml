@@ -53,7 +53,7 @@ spec:
 {{- end }}
       annotations:
 {{- if .Values.datadogTracing.enabled }}
-apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-rollout-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
+ .      apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-rollout-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
 {{- end }}
 {{- if .Values.rollout.pod.annotations}}
 {{ .Values.rollout.pod.annotations | toYaml | indent 8}}
