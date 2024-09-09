@@ -51,7 +51,8 @@ function retryStrategy(maxWaitTimeMinutes: number) {
                     // so we don't want to retry in this case
                     throw error;
                 }
-
+                // eslint-disable-next-line no-console
+                console.log(`Attempt ${retryAttempt}: retrying in ${retryAttempt} seconds`);
                 // retry forever with a maximum wait time of maxWaitTimeMinutes minutes
                 if (retryAttempt >= maxWaitTimeMinutes * 60) {
                     return timer(maxWaitTimeMinutes * 60 * 1000);
