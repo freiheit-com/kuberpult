@@ -88,6 +88,7 @@ func TestServer_Handle(t *testing.T) {
 	lockRequestJSON, _ := json.Marshal(putLockRequest{
 		Message:   "test message",
 		Signature: exampleLockSignature,
+		CiLink:    "www.test.com",
 	})
 
 	tests := []struct {
@@ -676,6 +677,37 @@ func TestServer_Handle(t *testing.T) {
 			},
 		},
 		{
+			name: "lock env with CI Link",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/locks/test",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"message":"test message", "ciLink":"www.test.com"}`)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironmentLock{
+							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
+								Environment: "development",
+								LockId:      "test",
+								Message:     "test message",
+								CiLink:      "www.test.com",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:             "lock env - Azure Enabled",
 			AzureAuthEnabled: true,
 			KeyRing:          exampleKeyRing,
@@ -701,6 +733,7 @@ func TestServer_Handle(t *testing.T) {
 								Environment: "development",
 								LockId:      "test",
 								Message:     "test message",
+								CiLink:      "www.test.com",
 							},
 						},
 					},
@@ -903,7 +936,7 @@ func TestServer_Handle(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"message":"test message"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"message":"test message", "CiLink":"www.test.com"}`)),
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -918,6 +951,7 @@ func TestServer_Handle(t *testing.T) {
 								Application: "service",
 								LockId:      "test",
 								Message:     "test message",
+								CiLink:      "www.test.com",
 							},
 						},
 					},
