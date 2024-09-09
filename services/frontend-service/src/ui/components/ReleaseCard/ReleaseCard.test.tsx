@@ -62,6 +62,7 @@ describe('Release Card', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
+                    isPrepublish: false,
                 },
             ],
             environments: {},
@@ -80,6 +81,7 @@ describe('Release Card', () => {
                     createdAt: new Date(2002),
                     displayVersion: '2',
                     isMinor: true,
+                    isPrepublish: false,
                 },
             ],
             environments: {},
@@ -98,6 +100,7 @@ describe('Release Card', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
+                    isPrepublish: false,
                 },
             ],
             environments: {
@@ -134,6 +137,7 @@ describe('Release Card', () => {
                     prNumber: '666',
                     displayVersion: '2',
                     isMinor: false,
+                    isPrepublish: false,
                 },
             ],
             environments: {
@@ -170,6 +174,7 @@ describe('Release Card', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
+                    isPrepublish: false,
                 },
             ],
             environments: {
@@ -192,6 +197,25 @@ describe('Release Card', () => {
                     },
                 },
             },
+        },
+        {
+            name: 'using a prepublished release',
+            props: { app: 'test2', version: 2 },
+            rels: [
+                {
+                    undeployVersion: false,
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    sourceCommitId: '12s3',
+                    sourceAuthor: 'test-author',
+                    prNumber: '666',
+                    createdAt: new Date(2002),
+                    displayVersion: '2',
+                    isMinor: true,
+                    isPrepublish: true,
+                },
+            ],
+            environments: {},
         },
     ];
 
@@ -220,6 +244,13 @@ describe('Release Card', () => {
                 expect(container.querySelector('.release__title')?.textContent).toContain('Undeploy Version');
             } else {
                 expect(container.querySelector('.release__title')?.textContent).toContain(
+                    testcase.rels[0].sourceMessage
+                );
+            }
+
+            if (testcase.rels[0].isPrepublish) {
+                expect(container.querySelector('.release-card__prepublish')).toBeInTheDocument();
+                expect(container.querySelector('.release__title__prepublish')?.textContent).toContain(
                     testcase.rels[0].sourceMessage
                 );
             }
@@ -278,6 +309,7 @@ describe('Release Card Rollout Status', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
+                    isPrepublish: false,
                 },
             ],
             environmentGroups: [

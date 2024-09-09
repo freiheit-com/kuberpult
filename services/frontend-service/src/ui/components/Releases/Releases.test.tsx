@@ -122,6 +122,7 @@ describe('Release Dialog', () => {
                     prNumber: '666',
                     displayVersion: '1',
                     isMinor: false,
+                    isPrepublish: false,
                 },
                 {
                     version: 2,
@@ -133,6 +134,7 @@ describe('Release Dialog', () => {
                     prNumber: '666',
                     displayVersion: '2',
                     isMinor: false,
+                    isPrepublish: false,
                 },
                 {
                     version: 3,
@@ -144,6 +146,7 @@ describe('Release Dialog', () => {
                     prNumber: '666',
                     displayVersion: '3',
                     isMinor: false,
+                    isPrepublish: false,
                 },
             ],
             envGroups: [testEnvGroup1],
@@ -163,6 +166,7 @@ describe('Release Dialog', () => {
                     prNumber: '666',
                     displayVersion: '1',
                     isMinor: false,
+                    isPrepublish: false,
                 },
                 {
                     version: 2,
@@ -174,6 +178,7 @@ describe('Release Dialog', () => {
                     prNumber: '666',
                     displayVersion: '2',
                     isMinor: false,
+                    isPrepublish: false,
                 },
                 {
                     version: 3,
@@ -185,6 +190,7 @@ describe('Release Dialog', () => {
                     prNumber: '666',
                     displayVersion: '3',
                     isMinor: false,
+                    isPrepublish: false,
                 },
             ],
             envGroups: [],

@@ -26,6 +26,7 @@ import { PlainDialog } from '../dialog/ConfirmationDialog';
 export type ExpandButtonProps = {
     onClickSubmit: (shouldLockToo: boolean) => void;
     defaultButtonLabel: string;
+    disabled: boolean;
 };
 
 export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
@@ -55,6 +56,7 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                 {/* the main button: */}
                 <Button
                     onClick={onClickSubmitMain}
+                    disabled={props.disabled}
                     className={'button-main env-card-deploy-btn mdc-button--unelevated'}
                     key={'button-first-key'}
                     label={props.defaultButtonLabel}
@@ -63,6 +65,7 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                 {/* the button to expand the dialog: */}
                 <Button
                     onClick={onClickExpand}
+                    disabled={props.disabled}
                     className={'button-expand'}
                     key={'button-second-key'}
                     label={''}

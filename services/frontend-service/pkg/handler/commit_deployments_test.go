@@ -82,7 +82,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 			inputTail:          "123456/",
 			failGrpcCall:       false,
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   "{\"deploymentStatus\":{\"app1\":{\"deploymentStatus\":{\"dev\":\"DEPLOYED\", \"prod\":\"UNKNOWN\", \"stage\":\"PENDING\"}}}}\n",
+			expectedResponse:   "{\"deploymentStatus\":{\"app1\":{\"deploymentStatus\":{\"dev\":\"DEPLOYED\",\"prod\":\"UNKNOWN\",\"stage\":\"PENDING\"}}}}\n",
 		},
 	}
 	for _, tc := range tcs {

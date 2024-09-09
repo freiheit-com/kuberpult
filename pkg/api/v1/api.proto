@@ -561,6 +561,7 @@ message Release {
   string pr_number = 7;
   string display_version = 8;
   bool is_minor = 9;
+  bool is_prepublish = 10;
 }
 
 enum UndeploySummary {

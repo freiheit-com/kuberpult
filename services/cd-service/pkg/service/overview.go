@@ -303,12 +303,10 @@ func (o *OverviewServiceServer) getOverview(
 						if rel == nil {
 							// ignore
 						} else {
-							if !rel.IsPrepublish {
-								release := rel.ToProto()
-								release.Version = id
-								release.UndeployVersion = rel.UndeployVersion
-								app.Releases = append(app.Releases, release)
-							}
+							release := rel.ToProto()
+							release.Version = id
+							release.UndeployVersion = rel.UndeployVersion
+							app.Releases = append(app.Releases, release)
 						}
 					}
 				}

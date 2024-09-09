@@ -42,6 +42,9 @@ Copyright freiheit.com*/
         height: 36px;
         .button-main {
             border-radius: 12px 0 0 12px;
+            &:disabled {
+                color: white;
+            }
         }
         .button-expand {
             padding: 0;
