@@ -2257,7 +2257,12 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Message, concreteTransformer.AuthorName, concreteTransformer.AuthorEmail)
+						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, db.LockMetadata{
+							CreatedByName:  concreteTransformer.AuthorName,
+							CreatedByEmail: concreteTransformer.AuthorEmail,
+							Message:        concreteTransformer.Message,
+							CiLink:         "", //not transported to repo
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2298,7 +2303,12 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentApplicationLock {
 						concreteTransformer := tr.(*CreateEnvironmentApplicationLock)
-						err2 = dbHandler.DBWriteApplicationLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Application, concreteTransformer.Message, concreteTransformer.AuthorName, concreteTransformer.AuthorEmail)
+						err2 = dbHandler.DBWriteApplicationLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Application, db.LockMetadata{
+							CreatedByName:  concreteTransformer.AuthorName,
+							CreatedByEmail: concreteTransformer.AuthorEmail,
+							Message:        concreteTransformer.Message,
+							CiLink:         "", //not transported to repo
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2312,7 +2322,13 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentTeamLock {
 						concreteTransformer := tr.(*CreateEnvironmentTeamLock)
-						err2 = dbHandler.DBWriteTeamLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Team, concreteTransformer.Message, concreteTransformer.AuthorName, concreteTransformer.AuthorEmail)
+
+						err2 = dbHandler.DBWriteTeamLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Team, db.LockMetadata{
+							CreatedByName:  concreteTransformer.AuthorName,
+							CreatedByEmail: concreteTransformer.AuthorEmail,
+							Message:        concreteTransformer.Message,
+							CiLink:         "", //not transported to repo
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2590,7 +2606,12 @@ func TestCreateUndeployLogic(t *testing.T) {
 
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Message, concreteTransformer.AuthorName, concreteTransformer.AuthorEmail)
+						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, db.LockMetadata{
+							CreatedByName:  concreteTransformer.AuthorName,
+							CreatedByEmail: concreteTransformer.AuthorEmail,
+							Message:        concreteTransformer.Message,
+							CiLink:         "", //not transported to repo
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2995,7 +3016,12 @@ func TestUndeployLogic(t *testing.T) {
 
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Message, concreteTransformer.AuthorName, concreteTransformer.AuthorEmail)
+						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, db.LockMetadata{
+							CreatedByName:  concreteTransformer.AuthorName,
+							CreatedByEmail: concreteTransformer.AuthorEmail,
+							Message:        concreteTransformer.Message,
+							CiLink:         "", //not transported to repo
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}

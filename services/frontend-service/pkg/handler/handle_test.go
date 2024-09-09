@@ -936,7 +936,7 @@ func TestServer_Handle(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"message":"test message", "CiLink":"www.test.com"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"message":"test message", "ciLink":"www.test.com"}`)),
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
