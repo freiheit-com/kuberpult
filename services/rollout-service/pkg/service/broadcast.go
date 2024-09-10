@@ -19,6 +19,8 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,8 +47,12 @@ type appState struct {
 	team             string
 }
 
-func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
+func (a *appState) applyArgoEvent(ctx context.Context, ev *ArgoEvent) *BroadcastEvent {
 	status := rolloutStatus(ev)
+	if strings.Contains(ev.Application, "apps-demo-app") {
+		logger.FromContext(ctx).Sugar().Warnf("Update from demo app: %s/%s version=%v sync=%v health=%v sync=%v /// appstate=%v", ev.Environment, ev.Application,
+			ev.Version, ev.SyncStatusCode, ev.HealthStatusCode, ev.SyncStatusCode, a.argocdVersion)
+	}
 	if a.rolloutStatus != status || !a.argocdVersion.Equal(ev.Version) {
 		a.rolloutStatus = status
 		a.argocdVersion = ev.Version
@@ -119,7 +125,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 		//exhaustruct:ignore
 		b.state[k] = &appState{}
 	}
-	msg := b.state[k].applyArgoEvent(&ev)
+	msg := b.state[k].applyArgoEvent(ctx, &ev)
 	if msg == nil {
 		return
 	}
