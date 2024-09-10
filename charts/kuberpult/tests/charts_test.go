@@ -114,6 +114,30 @@ func getDeployments(fileName string) (map[string]apps.Deployment, error) {
 	return output, nil
 }
 
+func checkService(lines []string) bool {
+	return searchSimpleKeyValuePair(lines, "kind", "Service")
+}
+
+// Check template files at ../templates/
+func getServices(fileName string) (map[string]core.Service, error) {
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		return nil, fmt.Errorf("error reading yaml file '%s': %w", fileName, err)
+	}
+	output := map[string]core.Service{}               // Name of deployment -> configuration
+	serviceYaml := strings.Split(string(data), "---") //Split into documents
+	for _, document := range serviceYaml {
+		if checkService(strings.Split(document, "\n")) {
+			var target core.Service
+			if err := k8sYaml.Unmarshal([]byte(document), &target); err != nil {
+				return nil, fmt.Errorf("Unmarshalling deployment failed failed: %s\n", document)
+			}
+			output[target.Name] = target
+		}
+	}
+	return output, nil
+}
+
 func checkIngress(lines []string) bool {
 	return searchSimpleKeyValuePair(lines, "kind", "Ingress")
 }
@@ -138,10 +162,11 @@ func getIngress(fileName string) (*networking.Ingress, error) {
 
 func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 	tcs := []struct {
-		Name            string
-		Values          string
-		ExpectedEnvs    []core.EnvVar
-		ExpectedMissing []core.EnvVar
+		Name                   string
+		Values                 string
+		ExpectedEnvs           []core.EnvVar
+		ExpectedMissing        []core.EnvVar
+		ExpectedPodAnnotations map[string]string
 	}{
 		{
 			Name: "Minimal values.yaml leads to proper default values",
@@ -333,6 +358,9 @@ datadogTracing:
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
+			ExpectedPodAnnotations: map[string]string{
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared","DD_VERSION":"v8.14.1-1-gf4383c93"}`,
+			},
 		},
 		{
 			Name: "Two variables involved web hook disabled",
@@ -631,6 +659,10 @@ db:
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
+			ExpectedPodAnnotations: map[string]string{
+				"test-key":  "test-value",
+				"secondKey": "secondValue",
+			},
 		},
 		{
 			Name: "Allowed domains for CI Link",
@@ -674,7 +706,6 @@ cd:
 						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
 					}
 				}
-
 			}
 		})
 	}
@@ -1346,12 +1377,13 @@ frontend:
 func TestIngress(t *testing.T) {
 	ingressClassGcePrivate := "gce-private"
 	tcs := []struct {
-		Name      string
-		Values    string
-		UseDex    bool
-		UseUi     bool
-		UseOldApi bool
-		UseNewApi bool
+		Name                     string
+		Values                   string
+		UseDex                   bool
+		UseUi                    bool
+		UseOldApi                bool
+		UseNewApi                bool
+		ExpectedExtraAnnotations map[string]string
 	}{
 		{
 			Name: "dex enabled",
@@ -1425,6 +1457,9 @@ git:
 ingress:
   create: true
   domainName: "kuberpult-example.com"
+  annotations:
+    test-annotation-key: test-value
+    secondKey: secondValue
   allowedPaths:
     restApi: true
     oldRestApi: true
@@ -1435,24 +1470,32 @@ ingress:
 			UseUi:     true,
 			UseOldApi: true,
 			UseNewApi: true,
+			ExpectedExtraAnnotations: map[string]string{
+				"test-annotation-key": "test-value",
+				"secondKey":           "secondValue",
+			},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
+			ExpectedAnnotations := map[string]string{
+				"cert-manager.io/acme-challenge-type":            "dns01",
+				"cert-manager.io/cluster-issuer":                 "letsencrypt",
+				"kubernetes.io/ingress.allow-http":               "false",
+				"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
+			}
+			for key, value := range tc.ExpectedExtraAnnotations {
+				ExpectedAnnotations[key] = value
+			}
 			var ExpectedIngress = &networking.Ingress{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Ingress",
 					APIVersion: "networking.k8s.io/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "kuberpult",
-					Annotations: map[string]string{
-						"cert-manager.io/acme-challenge-type":            "dns01",
-						"cert-manager.io/cluster-issuer":                 "letsencrypt",
-						"kubernetes.io/ingress.allow-http":               "false",
-						"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
-					},
+					Name:        "kuberpult",
+					Annotations: ExpectedAnnotations,
 				},
 				Spec: networking.IngressSpec{
 					IngressClassName: &ingressClassGcePrivate,
@@ -1494,6 +1537,225 @@ ingress:
 							t.Fatalf("output mismatch (-want, +got):\n%s", diff)
 						}
 					}
+					if diff := cmp.Diff(ExpectedAnnotations, out.ObjectMeta.Annotations); diff != "" {
+						t.Fatalf("wrong ingress annotation (-want, +got):\n%s", diff)
+					}
+				}
+			}
+		})
+	}
+}
+
+func filterDDVersion(dict map[string]string) {
+	if DDAnnotation, exists := dict["apm.datadoghq.com/env"]; exists {
+		if idx := strings.Index(DDAnnotation, `,"DD_VERSION`); idx != -1 {
+			dict["apm.datadoghq.com/env"] = DDAnnotation[:idx]
+		}
+	}
+}
+
+func TestAnnotations(t *testing.T) {
+	tcs := []struct {
+		Name                                         string
+		Values                                       string
+		ExpectedCdPodAnnotations                     map[string]string
+		ExpectedCdServiceAnnotations                 map[string]string
+		ExpectedManifestRepoExportPodAnnotations     map[string]string
+		ExpectedManifestRepoExportServiceAnnotations map[string]string
+		ExpectedFrontendPodAnnotations               map[string]string
+		ExpectedFrontendServiceAnnotations           map[string]string
+	}{
+		{
+			Name: "Test no annotations",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+		},
+		{
+			Name: "Only DD Tracing enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: postgreSQL
+datadogTracing:
+  enabled: true
+`,
+			ExpectedCdPodAnnotations: map[string]string{
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared"`,
+			},
+			ExpectedManifestRepoExportPodAnnotations: map[string]string{
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-manifest-repo-export-service","DD_ENV":"shared"`,
+			},
+			ExpectedFrontendPodAnnotations: map[string]string{
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"shared"`,
+			},
+		},
+		{
+			Name: "Test pod annotations",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+cd:
+  pod:
+    annotations:
+      test-key: test-value
+      secondKey: secondValue
+manifestRepoExport:
+  pod:
+    annotations:
+      test-key: test-value2
+      secondKey: secondValue2
+frontend:
+  pod:
+    annotations:
+      test-key: test-value3
+      secondKey: secondValue3
+db:
+  dbOption: postgreSQL
+`,
+			ExpectedCdPodAnnotations: map[string]string{
+				"test-key":  "test-value",
+				"secondKey": "secondValue",
+			},
+			ExpectedManifestRepoExportPodAnnotations: map[string]string{
+				"test-key":  "test-value2",
+				"secondKey": "secondValue2",
+			},
+			ExpectedFrontendPodAnnotations: map[string]string{
+				"test-key":  "test-value3",
+				"secondKey": "secondValue3",
+			},
+		},
+		{
+			Name: "Test pod annotations with datadog tracing enabled",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+cd:
+  pod:
+    annotations:
+      test-key: test-value
+      secondKey: secondValue
+manifestRepoExport:
+  pod:
+    annotations:
+      test-key: test-value2
+      secondKey: secondValue2
+frontend:
+  pod:
+    annotations:
+      test-key: test-value3
+      secondKey: secondValue3
+datadogTracing:
+  enabled: true
+db:
+  dbOption: postgreSQL
+`,
+			ExpectedCdPodAnnotations: map[string]string{
+				"test-key":              "test-value",
+				"secondKey":             "secondValue",
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared"`,
+			},
+			ExpectedManifestRepoExportPodAnnotations: map[string]string{
+				"test-key":              "test-value2",
+				"secondKey":             "secondValue2",
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-manifest-repo-export-service","DD_ENV":"shared"`,
+			},
+			ExpectedFrontendPodAnnotations: map[string]string{
+				"test-key":              "test-value3",
+				"secondKey":             "secondValue3",
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"shared"`,
+			},
+		},
+		{
+			Name: "Test service annotations",
+			Values: `
+git:
+  url: "testURL"
+  releaseVersionsLimit: 15
+cd:
+  service:
+    annotations:
+      test-key: test-value
+      secondKey: secondValue
+manifestRepoExport:
+  service:
+    annotations:
+      test-key: test-value2
+      secondKey: secondValue2
+frontend:
+  service:
+    annotations:
+      test-key: test-value3
+      secondKey: secondValue3
+ingress:
+  iap:
+    enabled: true
+db:
+  dbOption: postgreSQL
+`,
+			ExpectedCdServiceAnnotations: map[string]string{
+				"test-key":  "test-value",
+				"secondKey": "secondValue",
+			},
+			ExpectedManifestRepoExportServiceAnnotations: map[string]string{
+				"test-key":  "test-value2",
+				"secondKey": "secondValue2",
+			},
+			ExpectedFrontendServiceAnnotations: map[string]string{
+				"test-key":                        "test-value3",
+				"secondKey":                       "secondValue3",
+				"cloud.google.com/backend-config": `{"default": "kuberpult"}`,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			}
+			if deployments, err := getDeployments(outputFile); err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			} else {
+				cdPodAnnotations := deployments["kuberpult-cd-service"].Spec.Template.ObjectMeta.Annotations
+				filterDDVersion(cdPodAnnotations)
+				manifestPodAnnotations := deployments["kuberpult-manifest-repo-export-service"].Spec.Template.ObjectMeta.Annotations
+				filterDDVersion(manifestPodAnnotations)
+				frontendPodAnnotations := deployments["kuberpult-frontend-service"].Spec.Template.ObjectMeta.Annotations
+				filterDDVersion(frontendPodAnnotations)
+				if diff := cmp.Diff(tc.ExpectedCdPodAnnotations, cdPodAnnotations); diff != "" {
+					t.Fatalf("wrong cd pod annotations (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.ExpectedManifestRepoExportPodAnnotations, manifestPodAnnotations); diff != "" {
+					t.Fatalf("wrong manfiest repo export pod annotations (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.ExpectedFrontendPodAnnotations, frontendPodAnnotations); diff != "" {
+					t.Fatalf("wrong frontend pod annotations (-want, +got):\n%s", diff)
+				}
+			}
+			if service, err := getServices(outputFile); err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			} else {
+				if diff := cmp.Diff(tc.ExpectedCdServiceAnnotations, service["kuberpult-cd-service"].ObjectMeta.Annotations); diff != "" {
+					t.Fatalf("wrong cd service annotations (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.ExpectedManifestRepoExportServiceAnnotations, service["kuberpult-manifest-repo-export-service"].ObjectMeta.Annotations); diff != "" {
+					t.Fatalf("wrong manifest repo export service annotations (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.ExpectedFrontendServiceAnnotations, service["kuberpult-frontend-service"].ObjectMeta.Annotations); diff != "" {
+					t.Fatalf("wrong frontend service annotations (-want, +got):\n%s", diff)
 				}
 			}
 		})

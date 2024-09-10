@@ -25,7 +25,6 @@
 {{- if not (eq .Values.argocd.refreshEnabled nil) }}
 {{ fail "argocd.refreshEnabled is removed in favour of argocd.refresh.enabled"}}
 {{- end -}}
-{{- $podAnnotations := mustMergeOverwrite (dict) (include "rollout-podAnnotations" . | fromYaml ) .Values.rollout.podAnnotations -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -53,7 +52,12 @@ spec:
         tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
 {{- end }}
       annotations:
-{{ $podAnnotations | toYaml | indent 8}}
+{{- if .Values.datadogTracing.enabled }}
+ .      apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-rollout-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
+{{- end }}
+{{- if .Values.rollout.pod.annotations}}
+{{ .Values.rollout.pod.annotations | toYaml | indent 8}}
+{{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -184,6 +188,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kuberpult-rollout-service
+{{- if .Values.rollout.service.annotations }}
+  annotations:
+{{ .Values.rollout.service.annotations | toYaml | indent 4}}
+{{- end }}
 spec:
   ports:
   - name: http

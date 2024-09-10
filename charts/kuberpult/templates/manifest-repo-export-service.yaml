@@ -50,8 +50,13 @@ spec:
         tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
         tags.datadoghq.com/service: kuberpult-manifest-repo-export-service
         tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+{{- end }}
       annotations:
+{{- if .Values.datadogTracing.enabled }}
         apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-manifest-repo-export-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
+{{- end }}
+{{- if .Values.manifestRepoExport.pod.annotations }}
+{{ .Values.manifestRepoExport.pod.annotations | toYaml | indent 8}}
 {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
@@ -254,6 +259,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kuberpult-manifest-repo-export-service
+{{- if .Values.manifestRepoExport.service.annotations }}
+  annotations:
+{{ .Values.manifestRepoExport.service.annotations | toYaml | indent 4}}
+{{- end }}
 spec:
   ports:
   - name: grpc
