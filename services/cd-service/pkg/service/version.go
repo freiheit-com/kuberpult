@@ -54,7 +54,7 @@ func (o *VersionServiceServer) GetVersion(
 		res, err := db.WithTransactionT[api.GetVersionResponse](dbHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
 			// The gitRevision field is actually not a proper git revision.
 			// Instead, it has the release number stored with leading zeroes.
-			releaseVersion, err := reposerver.FromRevision(in.GitRevision) // TODO SU: extract into function and test roundtrip
+			releaseVersion, err := reposerver.FromRevision(in.GitRevision)
 			if err != nil {
 				return nil, fmt.Errorf("could not parse GitRevision '%s': %w", in.GitRevision, err)
 			}
