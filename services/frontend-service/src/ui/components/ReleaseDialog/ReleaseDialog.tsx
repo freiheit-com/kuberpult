@@ -240,7 +240,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         .flat();
 
     const allowDeployment: boolean = ((): boolean => {
-        //!release.isPrepublish)();
         if (release.isPrepublish) {
             return false;
         }
