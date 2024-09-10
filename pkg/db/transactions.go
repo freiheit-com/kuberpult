@@ -21,11 +21,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/lib/pq"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"strings"
-	"time"
 )
 
 const (
@@ -154,7 +155,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 
 func (h *DBHandler) BeginTransaction(ctx context.Context, readonly bool) (*sql.Tx, error) {
 	return h.DB.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
+		Isolation: sql.LevelRepeatableRead,
 		ReadOnly:  readonly,
 	})
 }

@@ -494,7 +494,8 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 func (o *OverviewServiceServer) update(s *repository.State) {
 	r, err := o.getOverviewDB(context.Background(), s)
 	if err != nil {
-		panic(err)
+		logger.FromContext(context.Background()).Error("error getting overview:", zap.Error(err))
+		return
 	}
 	o.response.Store(r)
 	o.notify.Notify()
