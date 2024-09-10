@@ -18,6 +18,8 @@ package service
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"strings"
 	"sync"
 	"time"
 
@@ -110,6 +112,12 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 }
 
 func (r *Dispatcher) sendEvent(ctx context.Context, k Key, version *versions.VersionInfo, ev *v1alpha1.ApplicationWatchEvent) {
+	if strings.Contains(k.Application, "apps-demo-app") {
+		logger.FromContext(ctx).Sugar().Warnf("Incoming demo-app event: %s/%s version=%v sync=%v op=%v health=%v",
+			k.Environment, k.Application, version,
+			ev.Application.Status.Sync.Status, ev.Application.Status.OperationState, ev.Application.Status.Health.Status)
+	}
+
 	r.sink.ProcessArgoEvent(ctx, ArgoEvent{
 		Application:      k.Application,
 		Environment:      k.Environment,
