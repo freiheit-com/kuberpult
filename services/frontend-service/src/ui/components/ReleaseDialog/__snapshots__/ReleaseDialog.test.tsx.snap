@@ -232,6 +232,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                             <button
                               aria-label="Deploy & Lock"
                               class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -245,6 +246,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                             <button
                               aria-label=""
                               class="mdc-button button-expand"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -506,6 +508,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                             <button
                               aria-label="Deploy & Lock"
                               class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -519,6 +522,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                             <button
                               aria-label=""
                               class="mdc-button button-expand"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -780,6 +784,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                             <button
                               aria-label="Deploy & Lock"
                               class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -793,6 +798,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                             <button
                               aria-label=""
                               class="mdc-button button-expand"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"

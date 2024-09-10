@@ -240,13 +240,14 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         .flat();
 
     const allowDeployment: boolean = ((): boolean => {
+        //!release.isPrepublish)();
         if (release.isPrepublish) {
             return false;
         }
         if (!otherRelease) {
-            return false;
+            return true;
         }
-        return otherRelease.version === release.version;
+        return otherRelease.version !== release.version;
     })();
 
     return (
@@ -317,7 +318,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             <ExpandButton
                                 onClickSubmit={deployAndLockClick}
                                 defaultButtonLabel={'Deploy & Lock'}
-                                disabled={allowDeployment}
+                                disabled={!allowDeployment}
                             />
                         </div>
                     </div>
