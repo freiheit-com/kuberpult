@@ -798,6 +798,9 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 		if err != nil {
 			return false, err
 		}
+		if nextRelease == nil {
+			return false, fmt.Errorf("next release exists in the all releases but not in the release table!")
+		}
 		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
 		err = dbHandler.DBInsertRelease(ctx, transaction, *nextRelease, nextRelease.EslVersion)
 		if err != nil {
