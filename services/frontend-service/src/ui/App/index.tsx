@@ -53,8 +53,9 @@ function retryStrategy(maxWaitTimeMinutes: number) {
                 }
 
                 // retry forever with a maximum wait time of maxWaitTimeMinutes minutes
-                if (retryAttempt >= maxWaitTimeMinutes * 60) {
-                    return timer(maxWaitTimeMinutes * 60 * 1000);
+                const maxWaitTimeSeconds = maxWaitTimeMinutes * 60;
+                if (retryAttempt >= maxWaitTimeSeconds) {
+                    return timer(maxWaitTimeSeconds * 1000);
                 } else {
                     return timer(retryAttempt * 1000);
                 }
