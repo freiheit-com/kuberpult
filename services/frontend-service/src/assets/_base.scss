@@ -42,6 +42,7 @@ body,
     position: relative;
     padding: $main-content-padding;
     height: 100%;
+    max-width: calc(100vw - 20em);
 }
 
 .font {
