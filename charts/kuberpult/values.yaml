@@ -220,8 +220,8 @@ ingress:
   create: false
   private: true
   annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: 300
-    kubernetes.io/ingress.allow-http: false
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    kubernetes.io/ingress.allow-http: "false"
   allowedPaths:
     # Enables the ingress paths for the old REST API, starting with `/release`, `/environments/`, or `/environment-groups/`
     # It is recommended to use the new api, but not all endpoints are available there yet.
