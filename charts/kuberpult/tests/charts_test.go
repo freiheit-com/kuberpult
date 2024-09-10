@@ -1564,6 +1564,8 @@ func TestAnnotations(t *testing.T) {
 		ExpectedManifestRepoExportServiceAnnotations map[string]string
 		ExpectedFrontendPodAnnotations               map[string]string
 		ExpectedFrontendServiceAnnotations           map[string]string
+		ExpectedRolloutPodAnnotations                map[string]string
+		ExpectedRolloutServiceAnnotations            map[string]string
 	}{
 		{
 			Name: "Test no annotations",
@@ -1581,8 +1583,12 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
 db:
   dbOption: postgreSQL
+argocd:
+  server: https://argo:1090
 datadogTracing:
   enabled: true
 `,
@@ -1594,6 +1600,9 @@ datadogTracing:
 			},
 			ExpectedFrontendPodAnnotations: map[string]string{
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"shared"`,
+			},
+			ExpectedRolloutPodAnnotations: map[string]string{
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-rollout-service","DD_ENV":"shared"`,
 			},
 		},
 		{
@@ -1617,8 +1626,16 @@ frontend:
     annotations:
       test-key: test-value3
       secondKey: secondValue3
+rollout:
+  enabled: true
+  pod:
+    annotations:
+      test-key: test-value4
+      secondKey: secondValue4
 db:
   dbOption: postgreSQL
+argocd:
+  server: https://argo:1090
 `,
 			ExpectedCdPodAnnotations: map[string]string{
 				"test-key":  "test-value",
@@ -1631,6 +1648,10 @@ db:
 			ExpectedFrontendPodAnnotations: map[string]string{
 				"test-key":  "test-value3",
 				"secondKey": "secondValue3",
+			},
+			ExpectedRolloutPodAnnotations: map[string]string{
+				"test-key":  "test-value4",
+				"secondKey": "secondValue4",
 			},
 		},
 		{
@@ -1654,10 +1675,18 @@ frontend:
     annotations:
       test-key: test-value3
       secondKey: secondValue3
+rollout:
+  enabled: true
+  pod:
+    annotations:
+      test-key: test-value4
+      secondKey: secondValue4
 datadogTracing:
   enabled: true
 db:
   dbOption: postgreSQL
+argocd:
+  server: https://argo:1090
 `,
 			ExpectedCdPodAnnotations: map[string]string{
 				"test-key":              "test-value",
@@ -1673,6 +1702,11 @@ db:
 				"test-key":              "test-value3",
 				"secondKey":             "secondValue3",
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"shared"`,
+			},
+			ExpectedRolloutPodAnnotations: map[string]string{
+				"test-key":              "test-value4",
+				"secondKey":             "secondValue4",
+				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-rollout-service","DD_ENV":"shared"`,
 			},
 		},
 		{
@@ -1696,11 +1730,19 @@ frontend:
     annotations:
       test-key: test-value3
       secondKey: secondValue3
+rollout:
+  enabled: true
+  service:
+    annotations:
+      test-key: test-value4
+      secondKey: secondValue4
 ingress:
   iap:
     enabled: true
 db:
   dbOption: postgreSQL
+argocd:
+  server: https://argo:1090
 `,
 			ExpectedCdServiceAnnotations: map[string]string{
 				"test-key":  "test-value",
@@ -1714,6 +1756,10 @@ db:
 				"test-key":                        "test-value3",
 				"secondKey":                       "secondValue3",
 				"cloud.google.com/backend-config": `{"default": "kuberpult"}`,
+			},
+			ExpectedRolloutServiceAnnotations: map[string]string{
+				"test-key":  "test-value4",
+				"secondKey": "secondValue4",
 			},
 		},
 	}
@@ -1735,6 +1781,8 @@ db:
 				filterDDVersion(manifestPodAnnotations)
 				frontendPodAnnotations := deployments["kuberpult-frontend-service"].Spec.Template.ObjectMeta.Annotations
 				filterDDVersion(frontendPodAnnotations)
+				rolloutPodAnnotations := deployments["kuberpult-rollout-service"].Spec.Template.ObjectMeta.Annotations
+				filterDDVersion(rolloutPodAnnotations)
 				if diff := cmp.Diff(tc.ExpectedCdPodAnnotations, cdPodAnnotations); diff != "" {
 					t.Fatalf("wrong cd pod annotations (-want, +got):\n%s", diff)
 				}
@@ -1743,6 +1791,9 @@ db:
 				}
 				if diff := cmp.Diff(tc.ExpectedFrontendPodAnnotations, frontendPodAnnotations); diff != "" {
 					t.Fatalf("wrong frontend pod annotations (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.ExpectedRolloutPodAnnotations, rolloutPodAnnotations); diff != "" {
+					t.Fatalf("wrong rollout pod annotations (-want, +got):\n%s", diff)
 				}
 			}
 			if service, err := getServices(outputFile); err != nil {
@@ -1756,6 +1807,9 @@ db:
 				}
 				if diff := cmp.Diff(tc.ExpectedFrontendServiceAnnotations, service["kuberpult-frontend-service"].ObjectMeta.Annotations); diff != "" {
 					t.Fatalf("wrong frontend service annotations (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.ExpectedRolloutServiceAnnotations, service["kuberpult-rollout-service"].ObjectMeta.Annotations); diff != "" {
+					t.Fatalf("wrong rollout service annotations (-want, +got):\n%s", diff)
 				}
 			}
 		})
