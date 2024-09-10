@@ -137,7 +137,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const { className, app, version } = props;
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
     const release = useReleaseOrThrow(app, version);
-    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor } = release;
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor, isPrepublish } = release;
     const openReleaseDialog = useOpenReleaseDialog(app, version);
     const deployedAt = useCurrentlyDeployedAtGroup(app, version);
 
@@ -153,6 +153,11 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
             {!!sourceAuthor && (
                 <div>
                     <span>Author:</span> {sourceAuthor}
+                </div>
+            )}
+            {isPrepublish && (
+                <div className="prerelease__description">
+                    <span>This is a pre-release. It doesn't have any manifests. It can't be deployed anywhere.</span>
                 </div>
             )}
             {!!createdAt && (
@@ -187,18 +192,28 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const firstLine = sourceMessage.split('\n')[0] + (isMinor ? '💤' : '');
     return (
         <Tooltip id={app + version} tooltipContent={tooltipContents}>
-            <div className="release-card__container">
+            <div className={'release-card__container'}>
                 <div className="release__environments">
                     <EnvironmentGroupChipList app={props.app} version={props.version} smallEnvChip />
                 </div>
-                <div className={classNames('mdc-card release-card', className)}>
+                <div
+                    className={classNames(
+                        'mdc-card release-card',
+                        className,
+                        release.isPrepublish ? 'release-card__prepublish' : ''
+                    )}>
                     <div
                         className="mdc-card__primary-action release-card__description"
-                        // ref={control}
                         tabIndex={0}
                         onClick={openReleaseDialog}>
                         <div className="release-card__header">
-                            <div className="release__title">{undeployVersion ? 'Undeploy Version' : firstLine}</div>
+                            <div
+                                className={classNames(
+                                    'release__title',
+                                    release.isPrepublish ? 'release__title__prepublish' : ''
+                                )}>
+                                {undeployVersion ? 'Undeploy Version' : firstLine}
+                            </div>
                             <ReleaseVersion release={release} />
                         </div>
                         {mostInteresting !== undefined && (

@@ -57,6 +57,7 @@ deps-ui:
     COPY src src
     COPY public public
     RUN buf generate --path api --timeout 5m
+    SAVE ARTIFACT src/api AS LOCAL src/api
     RUN pnpm build
     
     SAVE ARTIFACT build
