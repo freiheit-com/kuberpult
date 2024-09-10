@@ -18,7 +18,7 @@ import { render } from '@testing-library/react';
 import { Spy } from 'spy4js';
 import { AzureAuthSub } from '../utils/AzureAuthProvider';
 import { Observable } from 'rxjs';
-import { PanicOverview, UpdateOverview } from '../utils/store';
+import { UpdateOverview } from '../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 
 Spy.mockModule('../components/NavigationBar/NavigationBar', 'NavigationBar');
@@ -110,21 +110,20 @@ describe('App uses the API', () => {
 
         // when
         jest.advanceTimersByTime(5000);
-        // then - 3 retries in 5s
-        expect(subscriptionCount).toBe(3);
-        // when
-        jest.advanceTimersByTime(5000);
-        // then - 4 retries in 10s
+        // then - 4 retries in 5s
         expect(subscriptionCount).toBe(4);
         // when
-        jest.advanceTimersByTime(50000);
-        // then - 6 retries in 60s
+        jest.advanceTimersByTime(5000);
+        // then - 6 retries in 10s
         expect(subscriptionCount).toBe(6);
+        // when
+        jest.advanceTimersByTime(6000);
+        // then - 7 retries in 16s
+        expect(subscriptionCount).toBe(7);
 
-        // when - max attempts reached
-        jest.advanceTimersByTime(10000000);
-        // then - first attempt + 8 retries = 9
-        expect(subscriptionCount).toBe(9);
-        expect(PanicOverview.get().error).toContain('error in streamoverview');
+        // when - advance time by 1 minute
+        jest.advanceTimersByTime(1 * 60 * 1000);
+        // then - after one minute and 16 seconds, there should be 12 retries + first attempt
+        expect(subscriptionCount).toBe(13);
     });
 });
