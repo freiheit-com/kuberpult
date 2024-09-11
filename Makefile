@@ -138,5 +138,8 @@ check-secrets:
 .git/hooks/pre-commit: hooks/pre-commit
 	cp $< $@
 
+.git/hooks/commit-msg: hooks/commit-msg
+	cp $< $@
+
 # kuberpult and kuberpult-earthly should install/update the precommit hook as a sideeffect
 kuberpult kuberpult-earthly: .git/hooks/pre-commit
