@@ -279,6 +279,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		var transformer repository.Transformer = nil
 		var esl *db.EslEventRow = nil
 		const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
+
 		err := dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			var err2 error
 			transformer, esl, err2 = handleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
@@ -289,6 +290,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				log.Errorf("skipping esl event, because we could not construct esl object: %v", err)
 				return err
 			}
+
 			log.Errorf("skipping esl event, because it returned an error: %v", err)
 			// after this many tries, we can just skip it:
 			err2 := dbHandler.WithTransactionR(ctx, transactionRetries, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -303,6 +305,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			}
 			sleepDuration.Reset()
 		} else {
+
 			if transformer == nil {
 				sleepDuration.Reset()
 				d := sleepDuration.NextBackOff()
@@ -322,10 +325,17 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
 					measurePushes(ddMetrics, log, true)
 					time.Sleep(d)
+					return err2
 				} else {
 					measurePushes(ddMetrics, log, false)
 				}
-				return err2
+				commit, err := repo.GetHead()
+				if err != nil {
+					return err2
+				} else {
+					logger.FromContext(ctx).Sugar().Warnf("COmmit ID: %s", commit.Id().String())
+				}
+				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
 			})
 			if err != nil {
 				err3 := repo.FetchAndReset(ctx)
