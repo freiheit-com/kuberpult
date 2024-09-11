@@ -21,15 +21,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"os"
-	"sort"
-	"strconv"
-	"strings"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
@@ -37,6 +33,10 @@ import (
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 type GitServer struct {
@@ -46,6 +46,7 @@ type GitServer struct {
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
+	fmt.Println("GetGitTags")
 	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
@@ -55,6 +56,7 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 }
 
 func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
+	fmt.Println(in.Timestamp.String())
 	if in.Environment == nil && in.EnvironmentGroup == nil {
 		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
 	}
@@ -63,85 +65,196 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			return nil, fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for")
 		}
 	}
-	if in.ManifestRepoCommitHash == "" {
-		return nil, fmt.Errorf("Must have a commit to get the product summary for")
-	}
-	response, err := s.OverviewService.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.ManifestRepoCommitHash})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get overview for %s: %v", in.ManifestRepoCommitHash, err)
-	}
-
 	var summaryFromEnv []api.ProductSummary
-	if in.Environment != nil && *in.Environment != "" {
-		for _, group := range response.EnvironmentGroups {
-			for _, env := range group.Environments {
-				if env.Name == *in.Environment {
-					for _, app := range env.Applications {
-						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
-							CommitId:       "",
-							DisplayVersion: "",
-							Team:           "",
-							App:            app.Name,
-							Version:        strconv.FormatUint(app.Version, 10),
-							Environment:    *in.Environment,
-						})
-					}
-				}
+	if s.Config.DBHandler.ShouldUseOtherTables() {
+		if in.Timestamp == nil {
+			return nil, fmt.Errorf("Must have a timestamp to get the product summary when database is enabled")
+		}
+		dbHandler := s.Config.DBHandler
+		response, err := db.WithTransactionT[api.GetProductSummaryResponse](dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetProductSummaryResponse, error) {
+
+			ts := in.Timestamp.AsTime()
+
+			// Get all apps at a certain timestamp
+			allApps, err := dbHandler.DBSelectAllApplicationsAtTimestamp(ctx, transaction, ts)
+			if err != nil {
+				return nil, fmt.Errorf("unable to get allApps  %v", err)
 			}
-		}
-		if len(summaryFromEnv) == 0 {
-			return &api.GetProductSummaryResponse{
-				ProductSummary: nil,
-			}, nil
-		}
-		sort.Slice(summaryFromEnv, func(i, j int) bool {
-			a := summaryFromEnv[i].App
-			b := summaryFromEnv[j].App
-			return a < b
-		})
-	} else {
-		for _, group := range response.EnvironmentGroups {
-			if *in.EnvironmentGroup == group.EnvironmentGroupName {
-				for _, env := range group.Environments {
-					var singleEnvSummary []api.ProductSummary
-					for _, app := range env.Applications {
-						singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
-							CommitId:       "",
-							DisplayVersion: "",
-							Team:           "",
-							App:            app.Name,
-							Version:        strconv.FormatUint(app.Version, 10),
-							Environment:    env.Name,
-						})
+			if allApps == nil || len(allApps.Apps) == 0 {
+				return &api.GetProductSummaryResponse{
+					ProductSummary: nil,
+				}, nil
+			}
+
+			// For each app get the deployed version
+			for _, currentApp := range allApps.Apps {
+				currentAppDeployments, err := dbHandler.DBSelectAllDeploymentsTimestamp(ctx, transaction, currentApp, ts)
+
+				if err != nil {
+					return nil, fmt.Errorf("unable to get DBSelectAllDeploymentsTimestamp  %v", err)
+				}
+				if in.Environment != nil && *in.Environment != "" {
+					for environmentName, version := range currentAppDeployments.Deployments {
+						if environmentName == *in.Environment {
+							summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
+								CommitId:       "",
+								DisplayVersion: "",
+								Team:           "",
+								App:            currentApp,
+								Version:        strconv.FormatInt(version, 10),
+								Environment:    *in.Environment,
+							})
+						}
 					}
-					sort.Slice(singleEnvSummary, func(i, j int) bool {
-						a := singleEnvSummary[i].App
-						b := singleEnvSummary[j].App
+					if len(summaryFromEnv) == 0 {
+						return &api.GetProductSummaryResponse{
+							ProductSummary: nil,
+						}, nil
+					}
+					sort.Slice(summaryFromEnv, func(i, j int) bool {
+						a := summaryFromEnv[i].App
+						b := summaryFromEnv[j].App
 						return a < b
 					})
-					summaryFromEnv = append(summaryFromEnv, singleEnvSummary...)
+				} else {
+					state := s.OverviewService.Repository.State()
+					var environmentGroups []*api.EnvironmentGroup
+					if envs, err := state.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
+						return nil, fmt.Errorf("Could not get environment configs", err)
+					} else {
+						environmentGroups = mapper.MapEnvironmentsToGroups(envs)
+					}
+					for _, group := range environmentGroups {
+						if *in.EnvironmentGroup == group.EnvironmentGroupName {
+							for _, env := range group.Environments {
+								var singleEnvSummary []api.ProductSummary
+								for _, app := range env.Applications {
+									singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
+										CommitId:       "",
+										DisplayVersion: "",
+										Team:           "",
+										App:            app.Name,
+										Version:        strconv.FormatUint(app.Version, 10),
+										Environment:    env.Name,
+									})
+								}
+								sort.Slice(singleEnvSummary, func(i, j int) bool {
+									a := singleEnvSummary[i].App
+									b := singleEnvSummary[j].App
+									return a < b
+								})
+								summaryFromEnv = append(summaryFromEnv, singleEnvSummary...)
+							}
+						}
+					}
+					if len(summaryFromEnv) == 0 {
+						return nil, nil
+					}
 				}
 			}
-		}
-		if len(summaryFromEnv) == 0 {
-			return nil, nil
-		}
-	}
+			var productVersion []*api.ProductSummary
+			for _, row := range summaryFromEnv { //nolint: govet
+				v, err := strconv.ParseUint(row.Version, 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Version, err)
+				}
+				release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, v, false, ts)
+				if err != nil {
+					return nil, fmt.Errorf("error getting release for version")
+				}
+				app, err := dbHandler.DBSelectApp(ctx, transaction, row.App)
+				if err != nil {
+					return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
+				}
+				productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.Metadata.SourceCommitId, DisplayVersion: release.Metadata.DisplayVersion, Environment: row.Environment, Team: app.Metadata.Team})
+			}
+			return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
+		})
 
-	var productVersion []*api.ProductSummary
-	for _, row := range summaryFromEnv { //nolint: govet
-		for _, app := range response.Applications {
-			if row.App == app.Name {
-				for _, release := range app.Releases {
-					if strconv.FormatUint(release.Version, 10) == row.Version {
-						productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion, Environment: row.Environment, Team: app.Team})
-						break
+		// Get currently deployed based on the timestamp
+
+		return response, err
+	} else {
+
+		if in.ManifestRepoCommitHash == "" {
+			return nil, fmt.Errorf("Must have a commit to get the product summary for")
+		}
+		response, err := s.OverviewService.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.ManifestRepoCommitHash})
+		if err != nil {
+			return nil, fmt.Errorf("unable to get overview for %s: %v", in.ManifestRepoCommitHash, err)
+		}
+
+		if in.Environment != nil && *in.Environment != "" {
+			for _, group := range response.EnvironmentGroups {
+				for _, env := range group.Environments {
+					if env.Name == *in.Environment {
+						for _, app := range env.Applications {
+							summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
+								CommitId:       "",
+								DisplayVersion: "",
+								Team:           "",
+								App:            app.Name,
+								Version:        strconv.FormatUint(app.Version, 10),
+								Environment:    *in.Environment,
+							})
+						}
+					}
+				}
+			}
+			if len(summaryFromEnv) == 0 {
+				return &api.GetProductSummaryResponse{
+					ProductSummary: nil,
+				}, nil
+			}
+			sort.Slice(summaryFromEnv, func(i, j int) bool {
+				a := summaryFromEnv[i].App
+				b := summaryFromEnv[j].App
+				return a < b
+			})
+		} else {
+			for _, group := range response.EnvironmentGroups {
+				if *in.EnvironmentGroup == group.EnvironmentGroupName {
+					for _, env := range group.Environments {
+						var singleEnvSummary []api.ProductSummary
+						for _, app := range env.Applications {
+							singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
+								CommitId:       "",
+								DisplayVersion: "",
+								Team:           "",
+								App:            app.Name,
+								Version:        strconv.FormatUint(app.Version, 10),
+								Environment:    env.Name,
+							})
+						}
+						sort.Slice(singleEnvSummary, func(i, j int) bool {
+							a := singleEnvSummary[i].App
+							b := singleEnvSummary[j].App
+							return a < b
+						})
+						summaryFromEnv = append(summaryFromEnv, singleEnvSummary...)
+					}
+				}
+			}
+			if len(summaryFromEnv) == 0 {
+				return nil, nil
+			}
+		}
+
+		var productVersion []*api.ProductSummary
+		for _, row := range summaryFromEnv { //nolint: govet
+			for _, app := range response.Applications {
+				if row.App == app.Name {
+					for _, release := range app.Releases {
+						if strconv.FormatUint(release.Version, 10) == row.Version {
+							productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion, Environment: row.Environment, Team: app.Team})
+							break
+						}
 					}
 				}
 			}
 		}
+		return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
 	}
-	return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {

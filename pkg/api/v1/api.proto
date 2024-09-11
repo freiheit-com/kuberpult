@@ -23,6 +23,7 @@ message GetGitTagsResponse {
 
 message GetProductSummaryRequest {
   string manifest_repo_commit_hash = 1;
+  google.protobuf.Timestamp timestamp = 4; //Timestamp corresponding manifest_repo_commit_hash
   optional string environment = 2;
   optional string environment_group = 3;
 }
@@ -107,6 +108,7 @@ message ReplacedByEvent{
 message TagData {
   string tag = 1;
   string commit_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
 }
 
 service BatchService {

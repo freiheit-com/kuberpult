@@ -582,6 +582,34 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	return processedRows[0], nil
 }
 
+func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool, timestamp time.Time) (*DBReleaseWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
+			" FROM releases " +
+			" WHERE appName=? AND releaseVersion=? AND created <= ?" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersionAtTimestamp")
+	defer span.Finish()
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+		releaseVersion,
+		timestamp,
+	)
+
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
+	if err != nil {
+		return nil, err
+	}
+	if len(processedRows) == 0 {
+		return nil, nil
+	}
+	return processedRows[0], nil
+}
+
 func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
 	defer span.Finish()
@@ -1266,6 +1294,26 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
 	span.SetTag("query", query)
 	rows := transaction.QueryRowContext(ctx, query)
+	return processAllAppsRow(rows)
+}
+
+// DBSelectAllApplications returns (nil, nil) if there are no rows
+func (h *DBHandler) DBSelectAllApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, timestamp time.Time) (*AllApplicationsGo, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
+	defer span.Finish()
+	query := "SELECT version, created, json FROM all_apps WHERE created <= (?) ORDER BY created DESC LIMIT 1;"
+	span.SetTag("query", query)
+	rows := transaction.QueryRowContext(ctx, query, timestamp)
+	return processAllAppsRow(rows)
+}
+
+func processAllAppsRow(rows *sql.Row) (*AllApplicationsGo, error) {
 	result := AllApplicationsRow{
 		version: 0,
 		created: time.Time{},
@@ -1913,6 +1961,30 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	rows, err := tx.Query(
 		insertQuery,
 		appName,
+	)
+
+	return h.processAllDeploymentRow(ctx, err, rows)
+}
+
+// DBSelectAllDeploymentsForApp Returns most recent version of deployments for app with name 'appName'
+func (h *DBHandler) DBSelectAllDeploymentsTimestamp(ctx context.Context, tx *sql.Tx, app string, timestamp time.Time) (*AllDeploymentsForApp, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllDeploymentsForApp: no transaction provided")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"SELECT eslVersion, created, appName, json FROM all_deployments WHERE created <= (?) AND appName = (?) ORDER BY eslVersion DESC LIMIT 1;")
+
+	span.SetTag("query", insertQuery)
+	rows, err := tx.Query(
+		insertQuery,
+		timestamp,
+		app,
 	)
 
 	return h.processAllDeploymentRow(ctx, err, rows)
