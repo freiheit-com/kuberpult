@@ -47,8 +47,8 @@ type OverviewServiceServer struct {
 	RepositoryConfig repository.RepositoryConfig
 	Shutdown         <-chan struct{}
 
-	notify notify.Notify
-
+	notify   notify.Notify
+	Context  context.Context
 	init     sync.Once
 	response atomic.Value
 }
@@ -492,9 +492,9 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {
-	r, err := o.getOverviewDB(context.Background(), s)
+	r, err := o.getOverviewDB(o.Context, s)
 	if err != nil {
-		logger.FromContext(context.Background()).Error("error getting overview:", zap.Error(err))
+		logger.FromContext(o.Context).Error("error getting overview:", zap.Error(err))
 		return
 	}
 	o.response.Store(r)
