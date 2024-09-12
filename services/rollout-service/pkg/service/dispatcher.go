@@ -72,6 +72,9 @@ func (r *Dispatcher) Dispatch(ctx context.Context, k Key, ev *v1alpha1.Applicati
 }
 
 func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.ApplicationWatchEvent) *versions.VersionInfo {
+	l := logger.FromContext(ctx).Sugar()
+
+	l.Info("tryresolve 1")
 	r.mx.Lock()
 	defer r.mx.Unlock()
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "tryResolve")
@@ -89,12 +92,16 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 		return version
 	}
 	// 1. Check if the revision has not changed
-	if vi := r.known[k]; vi != nil && vi.revision == revision {
+	vi := r.known[k]
+	l.Info("tryresolve 2: k=%v, vi=%v, revision=%v", k, vi, revision)
+	if vi != nil && vi.revision == revision {
 		delete(r.unknown, k)
+		l.Info("tryresolve 2a return: vi.version=%v", vi.version)
 		return vi.version
 	}
 	// 2. Check if the versions client knows this version already
 	if version, err := r.versionClient.GetVersion(ctx, revision, k.Environment, k.Application); err == nil {
+		l.Info("tryresolve 2: k=%v, vi=%v, revision=%v", k, vi, revision)
 		r.known[k] = &knownRevision{
 			revision: revision,
 			version:  version,
