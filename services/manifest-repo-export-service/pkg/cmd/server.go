@@ -329,11 +329,11 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				} else {
 					measurePushes(ddMetrics, log, false)
 				}
+
+				//Get latest commit. Write esl timestamp and commit hash.
 				commit, err := repo.GetHead()
 				if err != nil {
-					return err2
-				} else {
-					logger.FromContext(ctx).Sugar().Warnf("COmmit ID: %s", commit.Id().String())
+					return err
 				}
 				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
 			})
