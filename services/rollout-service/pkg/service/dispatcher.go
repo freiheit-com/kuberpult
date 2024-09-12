@@ -73,6 +73,7 @@ func (r *Dispatcher) Dispatch(ctx context.Context, k Key, ev *v1alpha1.Applicati
 
 func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.ApplicationWatchEvent) *versions.VersionInfo {
 	l := logger.FromContext(ctx).Sugar()
+	l.Infof("tryresolve 0: app=%v, env=%v", k.Application, k.Environment)
 
 	doLog := k.Application == "apps-demo-app" && k.Environment == "development"
 	if doLog {
