@@ -112,7 +112,7 @@ spec:
             cpu:  {{ .Values.db.requests.cpu }}
 {{- end }}
       - name: service
-        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:v9.0.1-8-g9aad1d0d"
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:9.0.3-7-g39acbc80"
 #        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
         ports:
           - name: http

@@ -69,7 +69,7 @@ spec:
       containers:
       - name: service
 #        image: "{{ .Values.hub }}/{{ .Values.frontend.image }}:{{ $.Chart.AppVersion }}"
-        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:v9.0.1-8-g9aad1d0d"
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:v9.0.3-7-g39acbc80"
         ports:
           - name: http
             containerPort: 8081
