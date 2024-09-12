@@ -166,10 +166,24 @@ func TestToRevision(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(fmt.Sprintf("TestToRevision_%v", tc.ReleaseVersion), func(t *testing.T) {
-			actual := ToRevision(tc.ReleaseVersion)
-			if diff := cmp.Diff(tc.Expected, actual); diff != "" {
-				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			{
+				// one way test:
+				actual := ToRevision(tc.ReleaseVersion)
+				if diff := cmp.Diff(tc.Expected, actual); diff != "" {
+					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				}
 			}
+			{
+				// round-trip test:
+				actual, err := FromRevision(tc.Expected)
+				if err != nil {
+					t.Fatalf("FromRevision failed: %v", err)
+				}
+				if diff := cmp.Diff(tc.ReleaseVersion, actual); diff != "" {
+					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				}
+			}
+
 		})
 	}
 }
