@@ -93,15 +93,15 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 	}
 	// 1. Check if the revision has not changed
 	vi := r.known[k]
-	l.Infof("tryresolve 2: k=%v, vi=%v, revision=%v", k, vi, revision)
+	l.Infof("tryresolve 2a: k=%v, vi=%v, revision=%v", k, vi, revision)
 	if vi != nil && vi.revision == revision {
 		delete(r.unknown, k)
-		l.Infof("tryresolve 2a return: vi.version=%v", vi.version)
+		l.Infof("tryresolve 2b: return vi.version=%v", vi.version)
 		return vi.version
 	}
 	// 2. Check if the versions client knows this version already
 	if version, err := r.versionClient.GetVersion(ctx, revision, k.Environment, k.Application); err == nil {
-		l.Infof("tryresolve 2: k=%v, vi=%v, revision=%v", k, vi, revision)
+		l.Infof("tryresolve 3: GetVersion: k=%v, vi=%v, revision=%v", k, vi, revision)
 		r.known[k] = &knownRevision{
 			revision: revision,
 			version:  version,
@@ -109,6 +109,7 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 		delete(r.unknown, k)
 		return version
 	}
+	l.Infof("tryresolve 3: Putting into unknown, returning nil: k=%v, vi=%v, revision=%v", k, vi, revision)
 	// 3. Put this in the unknown queue and trigger the channel
 	r.unknown[k] = ev
 	select {
