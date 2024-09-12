@@ -72,6 +72,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 				continue
 			}
 			k := Key{Application: application, Environment: environment}
+			logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: event.type: %v", ev.Type)
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
 				dispatcher.Dispatch(ctx, k, ev)
