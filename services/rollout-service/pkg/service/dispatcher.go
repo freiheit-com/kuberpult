@@ -93,15 +93,15 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 	}
 	// 1. Check if the revision has not changed
 	vi := r.known[k]
-	l.Info("tryresolve 2: k=%v, vi=%v, revision=%v", k, vi, revision)
+	l.Infof("tryresolve 2: k=%v, vi=%v, revision=%v", k, vi, revision)
 	if vi != nil && vi.revision == revision {
 		delete(r.unknown, k)
-		l.Info("tryresolve 2a return: vi.version=%v", vi.version)
+		l.Infof("tryresolve 2a return: vi.version=%v", vi.version)
 		return vi.version
 	}
 	// 2. Check if the versions client knows this version already
 	if version, err := r.versionClient.GetVersion(ctx, revision, k.Environment, k.Application); err == nil {
-		l.Info("tryresolve 2: k=%v, vi=%v, revision=%v", k, vi, revision)
+		l.Infof("tryresolve 2: k=%v, vi=%v, revision=%v", k, vi, revision)
 		r.known[k] = &knownRevision{
 			revision: revision,
 			version:  version,
