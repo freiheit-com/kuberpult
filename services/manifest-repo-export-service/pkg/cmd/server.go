@@ -328,7 +328,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				}
 
 				//Get latest commit. Write esl timestamp and commit hash.
-				commit, err := repo.GetHead()
+				commit, err := repo.GetHeadCommit()
 				if err != nil {
 					return err
 				}
