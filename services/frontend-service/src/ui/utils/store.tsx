@@ -1174,8 +1174,17 @@ export const useRolloutStatus = <T,>(f: (getter: RolloutStatusGetter) => T): T =
     useEntireRolloutStatus((data) => f(new RolloutStatusGetter(data)));
 
 export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
+    // ev.rolloutStatus
     // eslint-disable-next-line no-console
-    console.info('SU DEBUG: updaterolloutstatus: ', ev.application, ev.environment, ev.version, ev.rolloutStatus);
+    console.info(
+        'SU DEBUG: updaterolloutstatus: ',
+        ev.application,
+        ev.environment,
+        'version:',
+        ev.version,
+        'status:',
+        ev.rolloutStatus
+    );
     rolloutStatus.set((data: RolloutStatusStore) => ({
         enabled: true,
         applications: {
