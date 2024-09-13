@@ -150,6 +150,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 	if err != nil {
 		return retryMaybe("committing", err, tx)
 	}
+
 	return result, nil
 }
 
