@@ -481,7 +481,7 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 	defer span.Finish()
 	if !valid.SHA1CommitID(sourceCommitId) {
 		logger.FromContext(ctx).Sugar().Warnf(
-			"no source commit id found - could not write an event for commit '%s' for uuid '%s'",
+			"could not write an event for commit '%s' for uuid '%s' - commit ID is not valid",
 			sourceCommitId,
 			eventId,
 		)
