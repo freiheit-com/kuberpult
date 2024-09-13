@@ -65,7 +65,7 @@ spec:
       {{- end }}
       containers:
       - name: service
-        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:v9.0.3-20-g833bddf9"
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:v9.0.3-24-g25c5c562"
 #        image: "{{ .Values.hub }}/{{ .Values.rollout.image }}:{{ $.Chart.AppVersion }}"
         ports:
           - name: http
