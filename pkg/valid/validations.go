@@ -17,9 +17,11 @@ Copyright freiheit.com*/
 package valid
 
 import (
+	"fmt"
 	"net/mail"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -82,4 +84,24 @@ func SHA1CommitID(commitID string) bool {
 
 func SHA1CommitIDPrefix(prefix string) bool {
 	return commitIDPrefixRx.MatchString(prefix)
+}
+
+func ReadEnvVar(envName string) (string, error) {
+	envValue, ok := os.LookupEnv(envName)
+	if !ok {
+		return "", fmt.Errorf("could not read environment variable '%s'", envName)
+	}
+	return envValue, nil
+}
+
+func ReadEnvVarUInt(envName string) (uint, error) {
+	envValue, err := ReadEnvVar(envName)
+	if err != nil {
+		return 0, err
+	}
+	i, err := strconv.ParseUint(envValue, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert environment variable '%s=%s' to int", envName, envValue)
+	}
+	return uint(i), nil
 }
