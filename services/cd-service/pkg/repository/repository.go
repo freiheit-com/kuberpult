@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"io"
 	"net/http"
 	"os"
@@ -2358,15 +2359,23 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 		if err != nil {
 			return fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 		}
+
 		manifests, err := s.GetApplicationReleaseManifestsFromManifest(app, releaseVersion)
 		if err != nil {
 			return fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
 		}
+
+		if !valid.SHA1CommitID(repoRelease.SourceCommitId) {
+			logger.FromContext(ctx).Sugar().Warnf("Source commit ID %s is not valid. Skipping migration for this release %d for app %s", repoRelease.SourceCommitId, releaseVersion, app)
+			continue
+		}
+
 		var manifestsMap = map[string]string{}
 		for index := range manifests {
 			manifest := manifests[index]
 			manifestsMap[manifest.Environment] = manifest.Content
 		}
+
 		dbRelease := db.DBReleaseWithMetaData{
 			EslVersion:    db.InitialEslVersion,
 			Created:       time.Now().UTC(),
