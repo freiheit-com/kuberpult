@@ -2366,7 +2366,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 
 		if !valid.SHA1CommitID(repoRelease.SourceCommitId) {
 			logger.FromContext(ctx).Sugar().Warnf("Source commit ID %s is not valid. Skipping migration for release %d of app %s", repoRelease.SourceCommitId, releaseVersion, app)
-			continue
+			repoRelease.SourceCommitId = ""
 		}
 
 		var manifestsMap = map[string]string{}

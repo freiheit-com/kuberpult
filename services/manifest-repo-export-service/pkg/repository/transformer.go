@@ -480,11 +480,12 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	if !valid.SHA1CommitID(sourceCommitId) {
-		return fmt.Errorf(
+		logger.FromContext(ctx).Sugar().Warnf(
 			"no source commit id found - could not write an event for commit '%s' for uuid '%s'",
 			sourceCommitId,
 			eventId,
 		)
+		return nil
 	}
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
