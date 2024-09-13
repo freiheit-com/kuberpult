@@ -2367,9 +2367,15 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 			manifest := manifests[index]
 			manifestsMap[manifest.Environment] = manifest.Content
 		}
+
+		now, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not get transaction timestamp %v", err)
+
+		}
 		dbRelease := db.DBReleaseWithMetaData{
 			EslVersion:    db.InitialEslVersion,
-			Created:       time.Now().UTC(),
+			Created:       *now,
 			ReleaseNumber: releaseVersion,
 			App:           app,
 			Manifests: db.DBReleaseManifests{

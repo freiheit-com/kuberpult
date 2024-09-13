@@ -3190,3 +3190,117 @@ func TestTransaction(t *testing.T) {
 		})
 	}
 }
+
+func TestTimestampConsistency(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		ReleaseVersionsLimit uint
+		Transformers         []Transformer
+		ExpectedVersion      uint
+		TargetEnv            string
+		TargetApp            string
+	}{
+		{
+			Name:            "Release train",
+			ExpectedVersion: 2,
+			TargetEnv:       envProduction,
+			TargetApp:       "test",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: "test",
+					Version:     1,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         2,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     1,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     2,
+				},
+				&ReleaseTrain{
+					Target: envProduction,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			//check deployments
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if err2 != nil {
+					return err2
+				}
+				//Get timestamp from transaction and check that every new entry has the same ts
+				ts, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				//Event sourcing light
+				env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envProduction)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(ts, env.Created); diff != "" {
+					t.Fatalf("error mismatch on envProduction(-want, +got):\n%s", diff)
+				}
+				//Environment
+
+				//Release
+
+				//Deployment
+
+				//
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Err: %v\n", err)
+			}
+		})
+	}
+}

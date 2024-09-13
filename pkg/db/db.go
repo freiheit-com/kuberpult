@@ -34,7 +34,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -308,10 +307,15 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
 
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteEslEventInternal unable to get transaction timestamp: %w", err)
+	}
+
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
-		time.Now().UTC(),
+		*now,
 		eventType,
 		jsonToInsert)
 
@@ -766,10 +770,14 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
+	}
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		*now,
 		release.ReleaseNumber,
 		release.App,
 		manifestJson,
@@ -878,12 +886,18 @@ func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO all_releases (eslVersion, created, appName, metadata)  VALUES (?, ?, ?, ?);",
 	)
+
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBInsertAllReleases unable to get transaction timestamp: %w", err)
+	}
+
 	span.SetTag("query", insertQuery)
 
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		*now,
 		app,
 		metadataJson,
 	)
@@ -907,11 +921,15 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllApplications unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now().UTC(),
+		*now,
 		jsonToInsert)
 
 	if err != nil {
@@ -925,6 +943,12 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
+
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("WriteEvent unable to get transaction timestamp: %w", err)
+	}
+
 	span.SetTag("query", insertQuery)
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
@@ -934,7 +958,7 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 	_, err = transaction.Exec(
 		insertQuery,
 		rawUUID.String(),
-		uuid2.GetTime(&rawUUID).AsTime(),
+		*now,
 		sourceCommitHash,
 		eventType,
 		eventJson,
@@ -1718,11 +1742,15 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO apps (eslVersion, created, appName, stateChange, metadata)  VALUES (?, ?, ?, ?, ?);",
 	)
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBInsertApplication unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		*now,
 		appName,
 		stateChange,
 		jsonToInsert,
@@ -1872,13 +1900,17 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteDeployment unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
-	createdTime := time.Now().UTC()
+
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		createdTime,
+		*now,
 		nullVersion,
 		deployment.App,
 		deployment.Env,
@@ -1888,7 +1920,7 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewDeployment(ctx, tx, deployment, createdTime)
+	err = h.UpdateOverviewDeployment(ctx, tx, deployment, *now)
 	if err != nil {
 		return fmt.Errorf("could not update overview table. Error: %w\n", err)
 	}
@@ -2393,17 +2425,19 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 		return fmt.Errorf("could not marshal json transformer: %w", err)
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
-
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
+	ts, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
-	_, err = transaction.Exec(
+	_, err2 := transaction.Exec(
 		insertQuery,
-		time.Now().UTC(),
+		ts,
 		EvtMigrationTransformer,
 		jsonToInsert)
-
-	if err != nil {
-		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+	if err2 != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err2)
 	}
 	return nil
 }
@@ -2657,17 +2691,15 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?);")
 
-	var timetoInsert time.Time
-	if useTimeInLock {
-		timetoInsert = envLock.Created
-	} else {
-		timetoInsert = time.Now().UTC()
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteEnvironmentLockInternal unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		timetoInsert,
+		*now,
 		envLock.LockID,
 		envLock.Env,
 		envLock.Deleted,
@@ -2914,11 +2946,17 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_env_locks (version , created, environment, json)  VALUES (?, ?, ?, ?);")
+
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllEnvironmentLocks unable to get transaction timestamp: %w", err)
+	}
+
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now().UTC(),
+		*now,
 		environment,
 		jsonToInsert)
 	if err != nil {
@@ -3036,11 +3074,15 @@ func (h *DBHandler) DBWriteAllAppLocks(ctx context.Context, transaction *sql.Tx,
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_app_locks (version , created, environment, appName, json)  VALUES (?, ?, ?, ?, ?);")
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllAppLocks unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now().UTC(),
+		*now,
 		environment,
 		appName,
 		jsonToInsert)
@@ -3336,17 +3378,16 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO app_locks (eslVersion, created, lockID, envName, appName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
-	var timetoInsert time.Time
-	if useTimeInLock {
-		timetoInsert = appLock.Created
-	} else {
-		timetoInsert = time.Now().UTC()
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllAppLocks unable to get transaction timestamp: %w", err)
 	}
+
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		timetoInsert,
+		*now,
 		appLock.LockID,
 		appLock.Env,
 		appLock.App,
@@ -3356,7 +3397,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock, timetoInsert)
+	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock, appLock.Created)
 	if err != nil {
 		return fmt.Errorf("could not update overview application lock. Error: %w\n", err)
 	}
@@ -3643,17 +3684,15 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 		"INSERT INTO team_locks (eslVersion, created, lockID, envName, teamName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
 	span.SetTag("query", insertQuery)
 
-	var timetoInsert time.Time
-	if useTimeInLock {
-		timetoInsert = teamLock.Created
-	} else {
-		timetoInsert = time.Now().UTC()
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteTeamLockInternal unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		timetoInsert,
+		*now,
 		teamLock.LockID,
 		teamLock.Env,
 		teamLock.Team,
@@ -3681,11 +3720,15 @@ func (h *DBHandler) DBWriteAllTeamLocks(ctx context.Context, transaction *sql.Tx
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_team_locks (version , created, environment, teamName, json)  VALUES (?, ?, ?, ?, ?);")
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllTeamLocks unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now().UTC(),
+		*now,
 		environment,
 		teamName,
 		jsonToInsert)
@@ -4214,12 +4257,15 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO deployment_attempts (eslVersion, created, envName, appName, queuedReleaseVersion) VALUES (?, ?, ?, ?, ?);")
-
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("dbWriteDeploymentAttemptInternal unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		*now,
 		deployment.Env,
 		deployment.App,
 		nullVersion)
@@ -4455,11 +4501,14 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	insertQuery := h.AdaptQuery(
 		"INSERT Into environments (created, version, name, json) VALUES (?, ?, ?, ?);",
 	)
-
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteEnvironment unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
-		time.Now(),
+		*now,
 		existingEnvironmentVersion+1,
 		environmentName,
 		jsonToInsert,
@@ -4558,10 +4607,14 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO all_environments (created, version, json) VALUES (?, ?, ?)")
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllEnvironments unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
-		time.Now(),
+		*now,
 		previousVersion+1,
 		jsonToInsert,
 	)
@@ -4760,6 +4813,10 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO overview_cache (timestamp, Json) VALUES (?, ?);",
 	)
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("WriteOverviewCache unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	jsonResponse, err := protojson.Marshal(overviewResponse)
 	if err != nil {
@@ -4767,7 +4824,7 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 	}
 	_, err = transaction.Exec(
 		insertQuery,
-		time.Now().UTC(),
+		*now,
 		jsonResponse,
 	)
 	if err != nil {
@@ -4786,11 +4843,14 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type , json)  VALUES (?, ?, ?);")
-
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteFailedEslEvent unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
-	_, err := tx.Exec(
+	_, err = tx.Exec(
 		insertQuery,
-		time.Now().UTC(),
+		*now,
 		eslEvent.EventType,
 		eslEvent.EventJson)
 
@@ -4867,7 +4927,10 @@ func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO all_deployments (eslVersion, created, appName, json) VALUES (?, ?, ?, ?);",
 	)
-
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllDeploymentsForApp unable to get transaction timestamp: %w", err)
+	}
 	jsonDeployments, err := json.Marshal(environmentDeployments)
 	if err != nil {
 		return fmt.Errorf("could not marshall deployments for app: '%s': %v\n", appName, err)
@@ -4877,7 +4940,7 @@ func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 	_, err = tx.Exec(
 		insertQuery,
 		prev+1,
-		time.Now(),
+		*now,
 		appName,
 		jsonDeployments,
 	)
@@ -4935,4 +4998,52 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 		return nil, err
 	}
 	return deployments, nil
+}
+
+func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) (*time.Time, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBReadTransactionTimestamp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("attempting to read transaction timestamp without a transaction")
+	}
+
+	query := "select CURRENT_TIMESTAMP as now;"
+
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(
+		ctx,
+		query,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("DBReadTransactionTimestamp error executing query: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	var now time.Time
+	var nowString string
+	if rows.Next() {
+		err = rows.Scan(&nowString)
+		if err != nil {
+			return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
+		}
+		now, err := time.Parse(time.DateTime, nowString)
+		if err != nil {
+			return nil, fmt.Errorf("DBReadTransactionTimestamp error converting: %w", err)
+		}
+		now = now.UTC()
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+	}
+	return &now, nil
 }

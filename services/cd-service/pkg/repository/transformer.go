@@ -467,12 +467,17 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if allApps == nil {
+			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could get transaction timestamp"))
+			}
+
 			allApps = &db.AllApplicationsGo{
 				Version: 1,
 				AllApplicationsJson: db.AllApplicationsJson{
 					Apps: []string{},
 				},
-				Created: time.Now(),
+				Created: *now,
 			}
 		}
 
@@ -665,6 +670,10 @@ func (c *CreateApplicationVersion) Transform(
 		if c.IsPrepublish {
 			manifestsToKeep = make(map[string]string)
 		}
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could get transaction timestamp"))
+		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
 			ReleaseNumber: version,
@@ -682,7 +691,7 @@ func (c *CreateApplicationVersion) Transform(
 				CiLink:          c.CiLink,
 				IsPrepublish:    c.IsPrepublish,
 			},
-			Created: time.Now(),
+			Created: *now,
 			Deleted: false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
@@ -694,9 +703,10 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if allReleases == nil {
+
 			allReleases = &db.DBAllReleasesWithMetaData{
 				EslVersion: db.InitialEslVersion - 1,
-				Created:    time.Now(),
+				Created:    *now,
 				App:        c.Application,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{int64(release.ReleaseNumber)},
@@ -1246,6 +1256,10 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if prevRelease != nil {
 			v = prevRelease.EslVersion
 		}
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could get transaction timestamp")
+		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
 			ReleaseNumber: lastRelease + 1,
@@ -1265,7 +1279,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Created: time.Now(),
+			Created: *now,
 			Deleted: false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
@@ -1279,7 +1293,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if allReleases == nil {
 			allReleases = &db.DBAllReleasesWithMetaData{
 				EslVersion: db.InitialEslVersion - 1,
-				Created:    time.Now(),
+				Created:    *now,
 				App:        c.Application,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{int64(release.ReleaseNumber)},
@@ -1665,11 +1679,15 @@ func (u *DeleteEnvFromApp) Transform(
 					newManifests[envName] = manifest
 				}
 			}
+			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+			if err != nil {
+				return "", fmt.Errorf("could get transaction timestamp")
+			}
 			newRelease := db.DBReleaseWithMetaData{
 				EslVersion:    dbReleaseWithMetadata.EslVersion + 1,
 				ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
 				App:           dbReleaseWithMetadata.App,
-				Created:       time.Now().UTC(),
+				Created:       *now,
 				Manifests:     db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:      dbReleaseWithMetadata.Metadata,
 				Deleted:       dbReleaseWithMetadata.Deleted,
@@ -1952,14 +1970,17 @@ func (c *CreateEnvironmentLock) Transform(
 		if err != nil {
 			return "", err
 		}
-
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could get transaction timestamp")
+		}
 		if allEnvLocks == nil {
 			allEnvLocks = &db.AllEnvLocksGo{
 				Version: 1,
 				AllEnvLocksJson: db.AllEnvLocksJson{
 					EnvLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 			}
 		}
@@ -2280,14 +2301,17 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		if err != nil {
 			return "", err
 		}
-
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could get transaction timestamp")
+		}
 		if allAppLocks == nil {
 			allAppLocks = &db.AllAppLocksGo{
 				Version: 1,
 				AllAppLocksJson: db.AllAppLocksJson{
 					AppLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 				AppName:     c.Application,
 			}
@@ -2463,14 +2487,17 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		if err != nil {
 			return "", err
 		}
-
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could get transaction timestamp")
+		}
 		if allTeamLocks == nil {
 			allTeamLocks = &db.AllTeamLocksGo{
 				Version: 1,
 				AllTeamLocksJson: db.AllTeamLocksJson{
 					TeamLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 				Team:        c.Team,
 			}
