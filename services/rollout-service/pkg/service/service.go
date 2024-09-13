@@ -60,7 +60,10 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 		hlth.ReportReady("consuming events")
 		for {
 			ev, err := watch.Recv()
+			logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: received annotations: %v", ev.Application.Annotations)
+			logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: received full event: %v", ev)
 			if err != nil {
+				logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: error: %v", err)
 				if status.Code(err) == codes.Canceled {
 					// context is cancelled -> we are shutting down
 					return setup.Permanent(nil)
@@ -69,6 +72,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			}
 			environment, application := getEnvironmentAndName(ev.Application.Annotations)
 			if application == "" {
+				logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: skipped, no app found: %v", ev.Application.Annotations)
 				continue
 			}
 			k := Key{Application: application, Environment: environment}
