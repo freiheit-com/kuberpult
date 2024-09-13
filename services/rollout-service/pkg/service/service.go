@@ -61,22 +61,22 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 		for {
 			ev, err := watch.Recv()
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: error: %v", err)
+				logger.FromContext(ctx).Sugar().Warnf("ConsumeEvents: error: %v", err)
 				if status.Code(err) == codes.Canceled {
 					// context is cancelled -> we are shutting down
 					return setup.Permanent(nil)
 				}
 				return err
 			}
-			logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: received annotations: %v", ev.Application.Annotations)
-			logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: received full event: %v", ev)
+			logger.FromContext(ctx).Sugar().Warnf("ConsumeEvents: received annotations: %v", ev.Application.Annotations)
+			logger.FromContext(ctx).Sugar().Warnf("ConsumeEvents: received full event: %v", ev)
 			environment, application := getEnvironmentAndName(ev.Application.Annotations)
 			if application == "" {
 				logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: skipped, no app found: %v", ev.Application.Annotations)
 				continue
 			}
 			k := Key{Application: application, Environment: environment}
-			logger.FromContext(ctx).Sugar().Infof("ConsumeEvents: event.type: %v", ev.Type)
+			logger.FromContext(ctx).Sugar().Warnf("ConsumeEvents: event.type: %v", ev.Type)
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
 				dispatcher.Dispatch(ctx, k, ev)
