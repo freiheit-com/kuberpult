@@ -872,7 +872,7 @@ func TestReadWriteDeployment(t *testing.T) {
 					return err
 				}
 
-				actual, err := dbHandler.DBSelectDeployment(ctx, transaction, tc.App, tc.Env)
+				actual, err := dbHandler.DBSelectLatestDeployment(ctx, transaction, tc.App, tc.Env)
 				if err != nil {
 					return err
 				}
