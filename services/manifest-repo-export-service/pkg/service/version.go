@@ -102,7 +102,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 		}
 	}
 
-	result, err := db.WithTransactionT(state.DBHandler, ctx, 1, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
+	result, err := db.WithTransactionT(state.DBHandler, ctx, 1, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
 		var (
 			err     error
 			release uint64
