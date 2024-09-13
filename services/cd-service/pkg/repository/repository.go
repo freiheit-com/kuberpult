@@ -2359,7 +2359,6 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 		if err != nil {
 			return fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 		}
-
 		manifests, err := s.GetApplicationReleaseManifestsFromManifest(app, releaseVersion)
 		if err != nil {
 			return fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
