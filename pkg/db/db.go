@@ -56,6 +56,9 @@ type DBConfig struct {
 	MigrationsPath string
 	WriteEslOnly   bool
 	SSLMode        string
+
+	MaxIdleConnections uint
+	MaxOpenConnections uint
 }
 
 type DBHandler struct {
@@ -126,6 +129,8 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 			return nil, fmt.Errorf("sql.Open: %w", err)
 		}
 		dbPool.SetConnMaxLifetime(5 * time.Minute)
+		dbPool.SetMaxOpenConns(int(cfg.MaxOpenConnections))
+		dbPool.SetMaxIdleConns(int(cfg.MaxIdleConnections))
 		return dbPool, nil
 	} else if cfg.DriverName == "sqlite3" {
 		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite?_foreign_keys=on"))

@@ -254,6 +254,10 @@ spec:
               key: password
         - name: KUBERPULT_DB_SSL_MODE
           value: "{{ .Values.db.sslMode }}"
+        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
+          value: "{{ .Values.db.connections.cd.maxOpen }}"
+        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
+          value: "{{ .Values.db.connections.cd.maxIdle }}"
 {{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"

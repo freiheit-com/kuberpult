@@ -84,6 +84,14 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	dbMaxOpen, err := readEnvVarUInt("KUBERPULT_DB_MAX_OPEN_CONNECTIONS")
+	if err != nil {
+		return err
+	}
+	dbMaxIdle, err := readEnvVarUInt("KUBERPULT_DB_MAX_IDLE_CONNECTIONS")
+	if err != nil {
+		return err
+	}
 	sslMode, err := readEnvVar("KUBERPULT_DB_SSL_MODE")
 	if err != nil {
 		return err
@@ -182,6 +190,9 @@ func Run(ctx context.Context) error {
 			MigrationsPath: "",
 			WriteEslOnly:   false,
 			SSLMode:        sslMode,
+
+			MaxIdleConnections: dbMaxIdle,
+			MaxOpenConnections: dbMaxOpen,
 		}
 	} else if dbOption == "sqlite" {
 		dbCfg = db.DBConfig{
@@ -194,6 +205,9 @@ func Run(ctx context.Context) error {
 			MigrationsPath: "",
 			WriteEslOnly:   false,
 			SSLMode:        sslMode,
+
+			MaxIdleConnections: dbMaxIdle,
+			MaxOpenConnections: dbMaxOpen,
 		}
 	} else {
 		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
@@ -530,6 +544,18 @@ func readEnvVar(envName string) (string, error) {
 		return "", fmt.Errorf("could not read environment variable '%s'", envName)
 	}
 	return envValue, nil
+}
+
+func readEnvVarUInt(envName string) (uint, error) {
+	envValue, err := readEnvVar(envName)
+	if err != nil {
+		return 0, err
+	}
+	i, err := strconv.ParseUint(envValue, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert environment variable '%s=%s' to int", envName, envValue)
+	}
+	return uint(i), nil
 }
 
 func checkReleaseVersionLimit(limit uint) error {

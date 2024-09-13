@@ -204,6 +204,10 @@ spec:
           value: {{ .Values.db.dbOption }}
         - name: KUBERPULT_DB_AUTH_PROXY_PORT
           value: "{{ .Values.db.authProxyPort }}"
+        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
+          value: "{{ .Values.db.connections.manifestRepoExport.maxOpen }}"
+        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
+          value: "{{ .Values.db.connections.manifestRepoExport.maxIdle }}"
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
