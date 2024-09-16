@@ -18,12 +18,17 @@ import { Textfield } from '../textfield';
 import React, { useCallback } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { useSearchParams } from 'react-router-dom';
-import { Dropdown } from '../dropdown/dropdown';
-import { Checkbox } from '../dropdown/checkbox';
+import { TeamsFilterDropdown, FiltersDropdown } from '../dropdown/dropdown';
 import classNames from 'classnames';
 import { useAllWarnings, useKuberpultVersion, useShownWarnings } from '../../utils/store';
 import { Warning } from '../../../api/api';
-import { hideWithoutWarnings, KuberpultGitHubLink, setHideWithoutWarnings } from '../../utils/Links';
+import {
+    hideMinors,
+    setHideMinors,
+    hideWithoutWarnings,
+    KuberpultGitHubLink,
+    setHideWithoutWarnings,
+} from '../../utils/Links';
 
 export type TopAppBarProps = {
     showAppFilter: boolean;
@@ -48,17 +53,23 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const hideWithoutWarningsValue = hideWithoutWarnings(params);
     const allWarnings: Warning[] = useAllWarnings();
     const shownWarnings: Warning[] = useShownWarnings(teamsParam, appNameParam);
+    const hideMinorsValue = hideMinors(params);
 
     const onWarningsFilterClick = useCallback((): void => {
         setHideWithoutWarnings(params, !hideWithoutWarningsValue);
         setParams(params);
     }, [hideWithoutWarningsValue, params, setParams]);
 
+    const onMinorsFilterClick = useCallback((): void => {
+        setHideMinors(params, !hideMinorsValue);
+        setParams(params);
+    }, [hideMinorsValue, params, setParams]);
+
     const renderedWarnings =
         allWarnings.length === 0 || !props.showWarningFilter ? (
             ''
         ) : (
-            <div className="service-lane__warning">
+            <div className="service-lane__warning mdc-top-app-bar__section top-app-bar--narrow-filter">
                 {shownWarnings.length} warnings shown ({allWarnings.length} total).
             </div>
         );
@@ -92,22 +103,22 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const renderedTeamsFilter =
         props.showTeamFilter === true ? (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter">
-                <Dropdown className={'top-app-bar-search-field'} placeholder={'Teams'} leadingIcon={'search'} />
+                <TeamsFilterDropdown
+                    className={'top-app-bar-search-field'}
+                    placeholder={'Teams'}
+                    leadingIcon={'search'}
+                />
             </div>
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
     const renderedWarningsFilter =
         props.showWarningFilter === true ? (
-            <div className="mdc-top-app-bar__section top-app-bar--narrow-filter">
-                <Checkbox
-                    enabled={hideWithoutWarningsValue}
-                    onClick={onWarningsFilterClick}
-                    id="warningFilter"
-                    label="hide apps without warnings"
-                    classes=""
-                />
-            </div>
+            <FiltersDropdown
+                hideWithoutWarningsValue={hideWithoutWarningsValue}
+                hideMinorsValue={hideMinorsValue}
+                onWarningsFilterClick={onWarningsFilterClick}
+                onMinorsFilterClick={onMinorsFilterClick}></FiltersDropdown>
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
