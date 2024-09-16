@@ -3322,7 +3322,7 @@ func TestTimestampConsistency(t *testing.T) {
 				}
 				for _, d := range deployments {
 					if diff := cmp.Diff(ts, &d.Created); diff != "" {
-						t.Fatalf("error mismatch on releases(-want, +got):\n%s", diff)
+						t.Fatalf("error mismatch on deployments(-want, +got):\n%s", diff)
 					}
 				}
 				//Release
@@ -3332,7 +3332,7 @@ func TestTimestampConsistency(t *testing.T) {
 				}
 				for _, d := range deployments {
 					if diff := cmp.Diff(ts, &d.Created); diff != "" {
-						t.Fatalf("error mismatch on releases(-want, +got):\n%s", diff)
+						t.Fatalf("error mismatch on deployments(-want, +got):\n%s", diff)
 					}
 				}
 				return nil
