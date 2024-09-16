@@ -542,11 +542,11 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	if !valid.SHA1CommitID(c.SourceCommitId) {
+	if c.SourceCommitId != "" && !valid.SHA1CommitID(c.SourceCommitId) {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", c.SourceCommitId))
 	}
-	if !valid.SHA1CommitID(c.PreviousCommit) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Previous commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", c.PreviousCommit))
+	if c.PreviousCommit != "" && !valid.SHA1CommitID(c.PreviousCommit) {
+		logger.FromContext(ctx).Sugar().Warnf("Previous commit ID %s is invalid", c.PreviousCommit)
 	}
 
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
