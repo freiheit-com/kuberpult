@@ -5033,8 +5033,9 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 		}
 	}(rows)
 	var now time.Time
-	var nowString string
+
 	if rows.Next() {
+		var nowString string
 		err = rows.Scan(&nowString)
 		if err != nil {
 			return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
