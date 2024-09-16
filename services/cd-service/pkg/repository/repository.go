@@ -444,7 +444,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			// Check configuration for errors and abort early if any:
 			if state.DBHandler.ShouldUseOtherTables() {
-				_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
 					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
 					return &ret, err
 				})
@@ -1561,7 +1561,7 @@ func (s *State) GetEnvironmentTeamLocksFromManifest(environment, team string) (m
 }
 func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, environment, application string) (string, time.Time, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		result, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+		result, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 		if err != nil {
 			return "", time.Time{}, err
 		}
@@ -1704,7 +1704,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+		depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 		if err != nil {
 			return nil, err
 		}

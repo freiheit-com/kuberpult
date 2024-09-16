@@ -437,7 +437,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	t.AddAppEnv(c.Application, c.Environment, teamOwner)
 
-	existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, c.Environment)
 	if err != nil {
 		return "", fmt.Errorf("error while retrieving deployment: %v", err)
 	}

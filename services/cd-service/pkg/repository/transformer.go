@@ -1485,7 +1485,7 @@ func (u *UndeployApplication) Transform(
 			return "", err
 		}
 		if state.DBHandler.ShouldUseOtherTables() {
-			deployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, u.Application, env)
+			deployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, u.Application, env)
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' cannot be found", u.Application, env)
 			}
@@ -2928,7 +2928,7 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+		existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, c.Environment)
 		if err != nil {
 			return "", err
 		}
