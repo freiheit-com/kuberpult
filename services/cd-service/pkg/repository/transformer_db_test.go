@@ -3282,20 +3282,59 @@ func TestTimestampConsistency(t *testing.T) {
 				}
 
 				//Event sourcing light
+				eslVersion, err := state.DBHandler.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(ts, &eslVersion.Created); diff != "" {
+					t.Fatalf("error mismatch on eslVersion(-want, +got):\n%s", diff)
+				}
+				//Environment
 				env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envProduction)
 				if err != nil {
 					return err
 				}
-				if diff := cmp.Diff(ts, env.Created); diff != "" {
+				if diff := cmp.Diff(ts, &env.Created); diff != "" {
 					t.Fatalf("error mismatch on envProduction(-want, +got):\n%s", diff)
 				}
 				//Environment
-
+				env, err = state.DBHandler.DBSelectEnvironment(ctx, transaction, envAcceptance)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(ts, &env.Created); diff != "" {
+					t.Fatalf("error mismatch on envAcceptance(-want, +got):\n%s", diff)
+				}
 				//Release
-
-				//Deployment
-
-				//
+				releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, "test", false, true)
+				if err != nil {
+					return err
+				}
+				for _, r := range releases {
+					if diff := cmp.Diff(ts, &r.Created); diff != "" {
+						t.Fatalf("error mismatch on releases(-want, +got):\n%s", diff)
+					}
+				}
+				//Release
+				deployments, err := state.DBHandler.DBSelectDeploymentHistory(ctx, transaction, "test", envAcceptance, 10)
+				if err != nil {
+					return err
+				}
+				for _, d := range deployments {
+					if diff := cmp.Diff(ts, &d.Created); diff != "" {
+						t.Fatalf("error mismatch on releases(-want, +got):\n%s", diff)
+					}
+				}
+				//Release
+				deployments, err = state.DBHandler.DBSelectDeploymentHistory(ctx, transaction, "test", envProduction, 10)
+				if err != nil {
+					return err
+				}
+				for _, d := range deployments {
+					if diff := cmp.Diff(ts, &d.Created); diff != "" {
+						t.Fatalf("error mismatch on releases(-want, +got):\n%s", diff)
+					}
+				}
 				return nil
 			})
 			if err != nil {

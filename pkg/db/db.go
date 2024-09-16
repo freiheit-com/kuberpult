@@ -311,7 +311,6 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	if err != nil {
 		return fmt.Errorf("DBWriteEslEventInternal unable to get transaction timestamp: %w", err)
 	}
-
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
@@ -412,7 +411,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	if firstRow {
 		sort = "ASC"
 	}
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type , json FROM event_sourcing_light ORDER BY created %s LIMIT 1;", sort))
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type , json FROM event_sourcing_light ORDER BY eslVersion %s LIMIT 1;", sort))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -456,7 +455,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 	defer span.Finish()
 
 	sort := "ASC"
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json FROM event_sourcing_light WHERE eslVersion > (?) ORDER BY created %s LIMIT 1;", sort))
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json FROM event_sourcing_light WHERE eslVersion > (?) ORDER BY eslVersion %s LIMIT 1;", sort))
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
@@ -4870,7 +4869,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light_failed ORDER BY eslVersion DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
@@ -5011,7 +5010,12 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 		return nil, fmt.Errorf("attempting to read transaction timestamp without a transaction")
 	}
 
-	query := "select CURRENT_TIMESTAMP as now;"
+	var query string
+	if h.DriverName == "sqlite3" { //Testing purposes
+		query = "select CURRENT_TIMESTAMP as now;"
+	} else {
+		query = "select now();"
+	}
 
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(
