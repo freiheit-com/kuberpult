@@ -90,7 +90,7 @@ func makeTestStartingOverview() *api.GetOverviewResponse {
 				Releases: []*api.Release{
 					{
 						Version:        1,
-						SourceCommitId: "deadbeef",
+						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 						SourceAuthor:   "example <example@example.com>",
 						SourceMessage:  "changed something (#678)",
 						PrNumber:       "678",
@@ -189,7 +189,7 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
@@ -341,7 +341,7 @@ func TestUpdateOverviewEnvironmentLock(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
@@ -479,7 +479,7 @@ func TestUpdateOverviewDeployment(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
@@ -613,7 +613,7 @@ func TestUpdateOverviewDeploymentAttempt(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
@@ -772,7 +772,7 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
@@ -929,7 +929,7 @@ func TestUpdateOverviewRelease(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
@@ -957,7 +957,7 @@ func TestUpdateOverviewRelease(t *testing.T) {
 				ReleaseNumber: 1,
 				Metadata: DBReleaseMetaData{
 					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "changed something (#678)",
 					DisplayVersion: "12",
 				},
@@ -1146,7 +1146,7 @@ func TestUpdateOverviewRelease(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
