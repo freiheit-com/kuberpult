@@ -469,7 +469,7 @@ func (c *CreateApplicationVersion) Transform(
 		if allApps == nil {
 			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could get transaction timestamp"))
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 			}
 
 			allApps = &db.AllApplicationsGo{
@@ -672,7 +672,7 @@ func (c *CreateApplicationVersion) Transform(
 		}
 		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could get transaction timestamp"))
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
@@ -1258,7 +1258,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		}
 		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 		if err != nil {
-			return "", fmt.Errorf("could get transaction timestamp")
+			return "", fmt.Errorf("could not get transaction timestamp")
 		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
@@ -1681,7 +1681,7 @@ func (u *DeleteEnvFromApp) Transform(
 			}
 			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 			if err != nil {
-				return "", fmt.Errorf("could get transaction timestamp")
+				return "", fmt.Errorf("could not get transaction timestamp")
 			}
 			newRelease := db.DBReleaseWithMetaData{
 				EslVersion:    dbReleaseWithMetadata.EslVersion + 1,
@@ -1972,7 +1972,7 @@ func (c *CreateEnvironmentLock) Transform(
 		}
 		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 		if err != nil {
-			return "", fmt.Errorf("could get transaction timestamp")
+			return "", fmt.Errorf("could not get transaction timestamp")
 		}
 		if allEnvLocks == nil {
 			allEnvLocks = &db.AllEnvLocksGo{
@@ -2303,7 +2303,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		}
 		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 		if err != nil {
-			return "", fmt.Errorf("could get transaction timestamp")
+			return "", fmt.Errorf("could not get transaction timestamp")
 		}
 		if allAppLocks == nil {
 			allAppLocks = &db.AllAppLocksGo{
@@ -2489,7 +2489,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		}
 		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 		if err != nil {
-			return "", fmt.Errorf("could get transaction timestamp")
+			return "", fmt.Errorf("could not get transaction timestamp")
 		}
 		if allTeamLocks == nil {
 			allTeamLocks = &db.AllTeamLocksGo{

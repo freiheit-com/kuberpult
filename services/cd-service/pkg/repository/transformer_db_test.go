@@ -39,6 +39,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+var (
+	testAppName = "test"
+)
+
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	setupTransformers := []Transformer{
 		&CreateEnvironment{
@@ -1253,7 +1257,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					LockId:         "manual",
 				},
 				&CreateApplicationVersion{
-					Application: "test",
+					Application: testAppName,
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
@@ -1265,13 +1269,13 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				{
 					EslVersion: 2,
 					Env:        "production",
-					App:        "test",
+					App:        testAppName,
 					Version:    nil,
 				},
 				{
 					EslVersion: 1,
 					Env:        "production",
-					App:        "test",
+					App:        testAppName,
 					Version:    version(1),
 				},
 			},
@@ -1288,11 +1292,11 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				err2 := state.DeleteQueuedVersion(ctx, transaction, envProduction, "test")
+				err2 := state.DeleteQueuedVersion(ctx, transaction, envProduction, testAppName)
 				if err2 != nil {
 					t.Fatalf("expected no error, got %v", err2)
 				}
-				result, err2 := state.DBHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envProduction, "test", 10)
+				result, err2 := state.DBHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envProduction, testAppName, 10)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
@@ -1327,7 +1331,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 					LockId:         "manual",
 				},
 				&CreateApplicationVersion{
-					Application: "test",
+					Application: testAppName,
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
@@ -1339,7 +1343,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 				{
 					EslVersion: 1,
 					Env:        envProduction,
-					App:        "test",
+					App:        testAppName,
 					Version:    version(1),
 				},
 			},
@@ -1356,7 +1360,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				result, err2 := state.DBHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envProduction, "test", 10)
+				result, err2 := state.DBHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envProduction, testAppName, 10)
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
@@ -1880,10 +1884,10 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			},
 		},
 		Metadata: db.DBReleaseMetaData{
-			SourceAuthor:   "test",
-			SourceMessage:  "test",
-			SourceCommitId: "test",
-			DisplayVersion: "test",
+			SourceAuthor:   testAppName,
+			SourceMessage:  testAppName,
+			SourceCommitId: testAppName,
+			DisplayVersion: testAppName,
 		},
 	}
 	secondRelease := db.DBReleaseWithMetaData{
@@ -1897,10 +1901,10 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			},
 		},
 		Metadata: db.DBReleaseMetaData{
-			SourceAuthor:   "test",
-			SourceMessage:  "test",
-			SourceCommitId: "test",
-			DisplayVersion: "test",
+			SourceAuthor:   testAppName,
+			SourceMessage:  testAppName,
+			SourceCommitId: testAppName,
+			DisplayVersion: testAppName,
 		},
 	}
 	tcs := []struct {
@@ -1997,7 +2001,7 @@ func TestReleaseTrain(t *testing.T) {
 			Name:            "Release train",
 			ExpectedVersion: 2,
 			TargetEnv:       envProduction,
-			TargetApp:       "test",
+			TargetApp:       testAppName,
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envProduction,
@@ -2017,7 +2021,7 @@ func TestReleaseTrain(t *testing.T) {
 					},
 				},
 				&CreateApplicationVersion{
-					Application: "test",
+					Application: testAppName,
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
@@ -2027,11 +2031,11 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&DeployApplicationVersion{
 					Environment: envProduction,
-					Application: "test",
+					Application: testAppName,
 					Version:     1,
 				},
 				&CreateApplicationVersion{
-					Application: "test",
+					Application: testAppName,
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
@@ -2041,12 +2045,12 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&DeployApplicationVersion{
 					Environment: envAcceptance,
-					Application: "test",
+					Application: testAppName,
 					Version:     1,
 				},
 				&DeployApplicationVersion{
 					Environment: envAcceptance,
-					Application: "test",
+					Application: testAppName,
 					Version:     2,
 				},
 				&ReleaseTrain{
@@ -2058,7 +2062,7 @@ func TestReleaseTrain(t *testing.T) {
 			Name:            "Release train from Latest",
 			ExpectedVersion: 2,
 			TargetEnv:       envAcceptance,
-			TargetApp:       "test",
+			TargetApp:       testAppName,
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
@@ -2070,7 +2074,7 @@ func TestReleaseTrain(t *testing.T) {
 					TransformerEslVersion: 0,
 				},
 				&CreateApplicationVersion{
-					Application: "test",
+					Application: testAppName,
 					Manifests: map[string]string{
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -2079,7 +2083,7 @@ func TestReleaseTrain(t *testing.T) {
 					TransformerEslVersion: 0,
 				},
 				&CreateApplicationVersion{
-					Application: "test",
+					Application: testAppName,
 					Manifests: map[string]string{
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -2124,7 +2128,7 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team:                  "test",
+					Team:                  testAppName,
 					WriteCommitData:       true,
 					Version:               1,
 					TransformerEslVersion: 0,
@@ -2144,7 +2148,7 @@ func TestReleaseTrain(t *testing.T) {
 					WriteCommitData:       true,
 					Version:               2,
 					TransformerEslVersion: 0,
-					Team:                  "test",
+					Team:                  testAppName,
 				},
 				&DeployApplicationVersion{
 					Environment:           envAcceptance,
@@ -2160,7 +2164,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&ReleaseTrain{
 					Target:                envProduction,
-					Team:                  "test",
+					Team:                  testAppName,
 					TransformerEslVersion: 0,
 				},
 			},
@@ -2293,7 +2297,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
-					Message:     "test",
+					Message:     testAppName,
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -2323,7 +2327,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
-					Message:     "test",
+					Message:     testAppName,
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -2349,7 +2353,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
 					LockId:      "22133",
-					Message:     "test",
+					Message:     testAppName,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2413,7 +2417,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
 					LockId:      "22133",
-					Message:     "test",
+					Message:     testAppName,
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -3204,7 +3208,7 @@ func TestTimestampConsistency(t *testing.T) {
 			Name:            "Release train",
 			ExpectedVersion: 2,
 			TargetEnv:       envProduction,
-			TargetApp:       "test",
+			TargetApp:       testAppName,
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envProduction,
@@ -3224,7 +3228,7 @@ func TestTimestampConsistency(t *testing.T) {
 					},
 				},
 				&CreateApplicationVersion{
-					Application: "test",
+					Application: testAppName,
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
@@ -3234,11 +3238,11 @@ func TestTimestampConsistency(t *testing.T) {
 				},
 				&DeployApplicationVersion{
 					Environment: envProduction,
-					Application: "test",
+					Application: testAppName,
 					Version:     1,
 				},
 				&CreateApplicationVersion{
-					Application: "test",
+					Application: testAppName,
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
@@ -3248,12 +3252,12 @@ func TestTimestampConsistency(t *testing.T) {
 				},
 				&DeployApplicationVersion{
 					Environment: envAcceptance,
-					Application: "test",
+					Application: testAppName,
 					Version:     1,
 				},
 				&DeployApplicationVersion{
 					Environment: envAcceptance,
-					Application: "test",
+					Application: testAppName,
 					Version:     2,
 				},
 				&ReleaseTrain{
@@ -3306,7 +3310,7 @@ func TestTimestampConsistency(t *testing.T) {
 					t.Fatalf("error mismatch on envAcceptance(-want, +got):\n%s", diff)
 				}
 				//Release
-				releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, "test", false, true)
+				releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, testAppName, false, true)
 				if err != nil {
 					return err
 				}
@@ -3316,7 +3320,7 @@ func TestTimestampConsistency(t *testing.T) {
 					}
 				}
 				//Release
-				deployments, err := state.DBHandler.DBSelectDeploymentHistory(ctx, transaction, "test", envAcceptance, 10)
+				deployments, err := state.DBHandler.DBSelectDeploymentHistory(ctx, transaction, testAppName, envAcceptance, 10)
 				if err != nil {
 					return err
 				}
@@ -3326,7 +3330,7 @@ func TestTimestampConsistency(t *testing.T) {
 					}
 				}
 				//Release
-				deployments, err = state.DBHandler.DBSelectDeploymentHistory(ctx, transaction, "test", envProduction, 10)
+				deployments, err = state.DBHandler.DBSelectDeploymentHistory(ctx, transaction, testAppName, envProduction, 10)
 				if err != nil {
 					return err
 				}
