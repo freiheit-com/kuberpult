@@ -5040,7 +5040,7 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 		if err != nil {
 			return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
 		}
-		now, err := time.Parse(time.DateTime, nowString)
+		now, err = time.Parse(time.DateTime, nowString)
 		if err != nil {
 			return nil, fmt.Errorf("DBReadTransactionTimestamp error converting: %w", err)
 		}
