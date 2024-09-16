@@ -1139,7 +1139,7 @@ func (s *State) DeleteQueuedVersionIfExists(environment string, application stri
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment, application string) (*uint64, error) {
-	depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+	depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 	if err != nil {
 		return nil, err
 	}

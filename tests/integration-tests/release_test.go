@@ -482,10 +482,10 @@ func callDBForReleases(t *testing.T, dbHandler *db.DBHandler, ctx context.Contex
 
 func callDBForDeployments(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) *db.Deployment {
 	deployment, err := db.WithTransactionT(dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.Deployment, error) {
-		return dbHandler.DBSelectDeployment(ctx, transaction, appName, "development")
+		return dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, "development")
 	})
 	if err != nil {
-		t.Fatalf("DBSelectDeployment failed %s", err)
+		t.Fatalf("DBSelectLatestDeployment failed %s", err)
 	}
 	return deployment
 }
