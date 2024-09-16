@@ -5016,7 +5016,6 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	} else {
 		query = "select now();"
 	}
-
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(
 		ctx,
@@ -5035,15 +5034,23 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	var now time.Time
 
 	if rows.Next() {
-		var nowString string
-		err = rows.Scan(&nowString)
-		if err != nil {
-			return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
+		if h.DriverName == "sqlite3" { //Testing purposes
+			var nowString string
+			err = rows.Scan(&nowString)
+			if err != nil {
+				return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
+			}
+			now, err = time.Parse(time.DateTime, nowString)
+			if err != nil {
+				return nil, fmt.Errorf("DBReadTransactionTimestamp error converting: %w", err)
+			}
+		} else {
+			err = rows.Scan(&now)
+			if err != nil {
+				return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
+			}
 		}
-		now, err = time.Parse(time.DateTime, nowString)
-		if err != nil {
-			return nil, fmt.Errorf("DBReadTransactionTimestamp error converting: %w", err)
-		}
+
 		now = now.UTC()
 	}
 	err = closeRows(rows)
