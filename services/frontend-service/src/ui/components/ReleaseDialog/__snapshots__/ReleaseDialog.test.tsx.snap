@@ -195,13 +195,6 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                          
                       </div>
                     </div>
-                    <div
-                      class="env-card-data"
-                    >
-                      <div>
-                        same version
-                      </div>
-                    </div>
                   </div>
                   <div
                     class="content-right"
@@ -476,13 +469,6 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                           some formatted date
                         </div>
                          
-                      </div>
-                    </div>
-                    <div
-                      class="env-card-data"
-                    >
-                      <div>
-                        same version
                       </div>
                     </div>
                   </div>
@@ -761,13 +747,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                          
                       </div>
                     </div>
-                    <div
-                      class="env-card-data"
-                    >
-                      <div>
-                        same version
-                      </div>
-                    </div>
                   </div>
                   <div
                     class="content-right"
@@ -961,18 +940,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       </div>
                       <div>
                          
-                      </div>
-                    </div>
-                    <div
-                      class="env-card-data"
-                    >
-                      <div>
-                        <span
-                          class="env-card-release-diff-negative"
-                        >
-                          1
-                        </span>
-                         versions behind
                       </div>
                     </div>
                   </div>

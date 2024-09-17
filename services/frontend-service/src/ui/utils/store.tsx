@@ -1015,24 +1015,6 @@ export const useReleasesForApp = (app: string): Release[] =>
 // Get all release versions for an app
 export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);
 
-// Calculated release difference between a specific release and currently deployed release on a specific environment
-export const useReleaseDifference = (toDeployVersion: number, application: string, environment: string): number => {
-    const envApplications = useEnvironments().find((env) => env.name === environment)?.applications;
-    const currentDeployedIndex = useReleasesForApp(application)?.findIndex(
-        (rel) => rel.version === envApplications?.[application]?.version
-    );
-    const newVersionIndex = useReleasesForApp(application)?.findIndex((rel) => rel.version === toDeployVersion);
-    if (
-        currentDeployedIndex === undefined ||
-        newVersionIndex === undefined ||
-        currentDeployedIndex === -1 ||
-        newVersionIndex === -1
-    ) {
-        return 0;
-    }
-    return currentDeployedIndex - newVersionIndex;
-};
-
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate
 export const useNavigateWithSearchParams = (to: string): { navURL: string; navCallback: () => void } => {
     const location = useLocation();

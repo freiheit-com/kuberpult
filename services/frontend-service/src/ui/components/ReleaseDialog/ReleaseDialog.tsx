@@ -20,7 +20,6 @@ import {
     addAction,
     useCloseReleaseDialog,
     useEnvironmentGroups,
-    useReleaseDifference,
     useReleaseOptional,
     useReleaseOrThrow,
     useRolloutStatus,
@@ -249,26 +248,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
         return otherRelease.version !== release.version;
     })();
-    const releaseDifference = useReleaseDifference(release.version, app, env.name);
-    const getReleaseDiffContent = (): JSX.Element => {
-        if (!otherRelease || !application) {
-            return <div></div>;
-        }
-        if (releaseDifference > 0) {
-            return (
-                <div>
-                    <span className="env-card-release-diff-positive">{releaseDifference}</span> versions ahead
-                </div>
-            );
-        } else if (releaseDifference < 0) {
-            return (
-                <div>
-                    <span className="env-card-release-diff-negative">{releaseDifference * -1}</span> versions behind
-                </div>
-            );
-        }
-        return <div>same version</div>;
-    };
 
     return (
         <li key={env.name} className={classNames('env-card', className)}>
@@ -321,7 +300,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             <div key={i}>{metadata}&nbsp;</div>
                         ))}
                     </div>
-                    <div className={classNames('env-card-data', className)}>{getReleaseDiffContent()}</div>
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">

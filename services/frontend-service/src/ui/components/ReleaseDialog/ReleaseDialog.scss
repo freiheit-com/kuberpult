@@ -164,12 +164,6 @@ Copyright freiheit.com*/
                 flex-direction: row;
                 padding-left: 27px;
                 @extend .text-medium;
-                .env-card-release-diff-positive {
-                    color: green;
-                }
-                .env-card-release-diff-negative {
-                    color: red;
-                }
             }
 
             .env-card-buttons {

@@ -218,7 +218,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 0,
-            data_length: 3,
+            data_length: 2,
             teamName: '',
         },
         {
@@ -272,7 +272,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 0,
-            data_length: 3,
+            data_length: 2,
             teamName: '',
         },
         {
@@ -368,7 +368,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 1,
-            data_length: 7,
+            data_length: 5,
             teamName: 'test me team',
         },
         {
@@ -445,7 +445,7 @@ describe('Release Dialog', () => {
             getWrapper(testcase.props);
             if (testcase.expect_message) {
                 expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
-                    testcase.rels[testcase.rels.length - 1].sourceMessage
+                    testcase.rels[0].sourceMessage
                 );
             } else {
                 expect(document.querySelector('.release-dialog-message') === undefined);
