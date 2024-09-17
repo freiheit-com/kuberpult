@@ -44,8 +44,9 @@ import (
 )
 
 type reposerver struct {
-	repo   repository.Repository
-	config repository.RepositoryConfig
+	repo              repository.Repository
+	config            repository.RepositoryConfig
+	disableEverything bool
 }
 
 var resourceTracking argo.ResourceTracking = argo.NewResourceTracking()
@@ -58,6 +59,10 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 
 	var mn []string
 	if r.repo.State().DBHandler.ShouldUseOtherTables() {
+		if r.disableEverything {
+			return nil, fmt.Errorf("generateManifest not implemented in this version")
+		}
+
 		dbHandler := r.repo.State().DBHandler
 
 		// Extract the env and app from the path.
@@ -308,7 +313,7 @@ func (*reposerver) GetRevisionChartDetails(context.Context, *argorepo.RepoServer
 }
 
 func New(repo repository.Repository, config repository.RepositoryConfig) argorepo.RepoServerServiceServer {
-	return &reposerver{repo, config}
+	return &reposerver{repo, config, true}
 }
 
 func Register(s *grpc.Server, repo repository.Repository, config repository.RepositoryConfig) {
