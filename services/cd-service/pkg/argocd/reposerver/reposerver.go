@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"io/fs"
+	"strconv"
 	"strings"
 	"time"
 
@@ -166,6 +167,10 @@ type PseudoRevision = string
 
 func ToRevision(releaseVersions uint64) PseudoRevision {
 	return fmt.Sprintf("%040d", releaseVersions)
+}
+
+func FromRevision(releaseVersionStr PseudoRevision) (uint64, error) {
+	return strconv.ParseUint(releaseVersionStr, 10, 64)
 }
 
 func splitManifest(m []byte, req *argorepo.ManifestRequest) ([]string, error) {
