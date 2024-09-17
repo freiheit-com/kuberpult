@@ -43,6 +43,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 
@@ -2749,17 +2751,37 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
-						Error:            nil,
-						AppsPrognoses:    map[string]ReleaseTrainApplicationPrognosis{},
-						FirstLockMessage: "mA",
+						Error:         nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						Locks: []*api.Lock{
+							{
+								Message:   "mA",
+								LockId:    "IdA",
+								CreatedAt: timestamppb.Now(),
+								CreatedBy: &api.Actor{
+									Email: "testmail@example.com",
+									Name:  "test tester",
+								},
+							},
+						},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
-						Error:            nil,
-						AppsPrognoses:    map[string]ReleaseTrainApplicationPrognosis{},
-						FirstLockMessage: "mB",
+						Error:         nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						Locks: []*api.Lock{
+							{
+								Message:   "mB",
+								LockId:    "IdB",
+								CreatedAt: timestamppb.Now(),
+								CreatedBy: &api.Actor{
+									Email: "testmail@example.com",
+									Name:  "test tester",
+								},
+							},
+						},
 					},
 				},
 			},
@@ -2895,17 +2917,17 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:            nil,
-						FirstLockMessage: "",
-						AppsPrognoses:    nil,
+						Error:         nil,
+						Locks:         nil,
+						AppsPrognoses: nil,
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:            nil,
-						FirstLockMessage: "",
-						AppsPrognoses:    nil,
+						Error:         nil,
+						Locks:         nil,
+						AppsPrognoses: nil,
 					},
 				},
 			},
@@ -2931,8 +2953,7 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 			}
 
 			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State(), nil)
-
-			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses); diff != "" {
+			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
 				t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
 			}
 			if !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
