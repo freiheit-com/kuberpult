@@ -2180,7 +2180,7 @@ func TestReleaseTrain(t *testing.T) {
 					return err2
 				}
 
-				deployment, dplError := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
+				deployment, dplError := state.DBHandler.DBSelectDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
 				if dplError != nil {
 					return dplError
 				}

@@ -1561,7 +1561,7 @@ func (s *State) GetEnvironmentTeamLocksFromManifest(environment, team string) (m
 }
 func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, environment, application string) (string, time.Time, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		result, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
+		result, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
 		if err != nil {
 			return "", time.Time{}, err
 		}
@@ -1704,7 +1704,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
+		depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
 		if err != nil {
 			return nil, err
 		}

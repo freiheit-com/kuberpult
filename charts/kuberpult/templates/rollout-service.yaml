@@ -94,7 +94,11 @@ spec:
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_VERSIONSERVER
+{{- if (eq .Values.db.dbOption "NO_DB") }}
           value: kuberpult-cd-service:8443
+{{- else }}
+          value: kuberpult-manifest-repo-export-service:8443
+{{- end }}
         - name: KUBERPULT_ARGOCD_SERVER
           value: {{ .Values.argocd.server | quote }}
         - name: KUBERPULT_ARGOCD_INSECURE

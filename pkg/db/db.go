@@ -1454,8 +1454,8 @@ func (h *DBHandler) RunCustomMigrations(
 	return nil
 }
 
-func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
+func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeployment")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
@@ -1480,41 +1480,6 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
 		}
 	}(rows)
-	return processDeployment(rows)
-}
-
-func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeployment")
-	defer span.Finish()
-
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
-			" FROM deployments " +
-			" WHERE appName=? AND envName=? and releaseVersion=?" +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		appSelector,
-		envSelector,
-		releaseVersion,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
-	return processDeployment(rows)
-}
-
-func processDeployment(rows *sql.Rows) (*Deployment, error) {
-	var releaseVersion sql.NullInt64
 	var row = &DBDeployment{
 		EslVersion:     0,
 		Created:        time.Time{},
@@ -1524,6 +1489,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 		Metadata:       "",
 		TransformerID:  0,
 	}
+	var releaseVersion sql.NullInt64
 	//exhaustruct:ignore
 	var resultJson = DeploymentMetadata{}
 	if rows.Next() {
@@ -1543,7 +1509,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
 		}
 	}
-	err := rows.Close()
+	err = rows.Close()
 	if err != nil {
 		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
 	}

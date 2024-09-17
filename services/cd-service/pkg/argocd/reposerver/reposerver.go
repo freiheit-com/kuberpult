@@ -23,9 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/fs"
-	"strconv"
 	"strings"
 	"time"
 
@@ -53,9 +51,6 @@ var notImplemented error = status.Error(codes.Unimplemented, "not implemented")
 
 // GenerateManifest implements apiclient.RepoServerServiceServer.
 func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.ManifestRequest) (*argorepo.ManifestResponse, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "GenerateManifest")
-	defer span.Finish()
-
 	var mn []string
 	if r.repo.State().DBHandler.ShouldUseOtherTables() {
 		dbHandler := r.repo.State().DBHandler
@@ -77,7 +72,7 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		}
 
 		releaseResult, err := db.WithTransactionT[ReleaseResult](dbHandler, ctx, 3, true, func(ctx context.Context, transaction *sql.Tx) (*ReleaseResult, error) {
-			deployment, err := dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, envName)
+			deployment, err := dbHandler.DBSelectDeployment(ctx, transaction, appName, envName)
 			if err != nil {
 				return nil, err
 			}
@@ -171,10 +166,6 @@ type PseudoRevision = string
 
 func ToRevision(releaseVersions uint64) PseudoRevision {
 	return fmt.Sprintf("%040d", releaseVersions)
-}
-
-func FromRevision(releaseVersionStr PseudoRevision) (uint64, error) {
-	return strconv.ParseUint(releaseVersionStr, 10, 64)
 }
 
 func splitManifest(m []byte, req *argorepo.ManifestRequest) ([]string, error) {
