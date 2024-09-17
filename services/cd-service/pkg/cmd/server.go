@@ -408,7 +408,7 @@ func RunServer() {
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv, PageSize: 10})
-					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
+					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo, DisableGetVersion: true})
 					api.RegisterEnvironmentServiceServer(srv, &service.EnvironmentServiceServer{Repository: repo})
 					api.RegisterReleaseTrainPrognosisServiceServer(srv, &service.ReleaseTrainPrognosisServer{
 						Repository: repo,

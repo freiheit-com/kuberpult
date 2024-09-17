@@ -39,7 +39,8 @@ import (
 )
 
 type VersionServiceServer struct {
-	Repository repository.Repository
+	Repository        repository.Repository
+	DisableGetVersion bool
 }
 
 func (o *VersionServiceServer) GetVersion(
@@ -47,6 +48,10 @@ func (o *VersionServiceServer) GetVersion(
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "GetVersion")
 	defer span.Finish()
+
+	if o.DisableGetVersion {
+		return nil, fmt.Errorf("getVersion is disabled")
+	}
 
 	state := o.Repository.State()
 	dbHandler := state.DBHandler
