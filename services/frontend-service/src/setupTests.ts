@@ -73,6 +73,8 @@ export const makeRelease = (
     createdAt: new Date(2002),
     undeployVersion: undeployVersion,
     prNumber: '666',
+    isMinor: false,
+    isPrepublish: false,
 });
 
 const date = new Date(2023, 6, 12);

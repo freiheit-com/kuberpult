@@ -243,6 +243,20 @@ export const setHideWithoutWarnings = (params: URLSearchParams, newValue: boolea
     }
 };
 
+const hideMinorsParamName = 'hideMinors';
+const hideMinorsParamEnabledValue = 'Y';
+export const hideMinors = (params: URLSearchParams): boolean => {
+    const hideMinorsParam = params.get(hideMinorsParamName) || '';
+    return hideMinorsParam === hideMinorsParamEnabledValue;
+};
+export const setHideMinors = (params: URLSearchParams, newValue: boolean): void => {
+    if (newValue) {
+        params.set(hideMinorsParamName, hideMinorsParamEnabledValue);
+    } else {
+        params.delete(hideMinorsParamName);
+    }
+};
+
 const envConfigDialogParamName = 'dialog-env-config';
 export const getOpenEnvironmentConfigDialog = (params: URLSearchParams): string =>
     params.get(envConfigDialogParamName) || '';
