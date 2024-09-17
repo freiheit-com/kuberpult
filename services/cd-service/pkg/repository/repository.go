@@ -2135,21 +2135,23 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 			return err
 		}
 		for lockId, lock := range ls {
+			fmt.Printf("LOCK: %s\n", lock.CreatedAt.String())
 			currentEnv := db.EnvironmentLock{
 				EslVersion: 0,
 				Env:        envName,
 				LockID:     lockId,
-				Created:    lock.CreatedAt,
+				Created:    time.Time{}, //Time of insertion in the database
 				Metadata: db.LockMetadata{
 					CreatedByName:  lock.CreatedBy.Name,
 					CreatedByEmail: lock.CreatedBy.Email,
 					Message:        lock.Message,
-					CiLink:         "", //CI links are not written into the manifest
+					CiLink:         "",             //CI links are not written into the manifest
+					CreatedAt:      lock.CreatedAt, //Actual creation date
 				},
 				Deleted: false,
 			}
 			activeLockIds = append(activeLockIds, currentEnv.LockID)
-			err = dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, currentEnv, 0, true)
+			err = dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, currentEnv, 0)
 			if err != nil {
 				return fmt.Errorf("error writing environment locks to DB for environment %s: %w",
 					envName, err)
@@ -2195,18 +2197,19 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 					EslVersion: 0,
 					Env:        envName,
 					LockID:     lockId,
-					Created:    lock.CreatedAt,
+					Created:    time.Time{},
 					Metadata: db.LockMetadata{
 						CreatedByName:  lock.CreatedBy.Name,
 						CreatedByEmail: lock.CreatedBy.Email,
 						Message:        lock.Message,
 						CiLink:         "", //CI links are not written into the manifest
+						CreatedAt:      lock.CreatedAt,
 					},
 					App:     currentApp,
 					Deleted: false,
 				}
 				activeLockIds = append(activeLockIds, currentAppLock.LockID)
-				err = dbHandler.DBWriteApplicationLockInternal(ctx, transaction, currentAppLock, 0, true)
+				err = dbHandler.DBWriteApplicationLockInternal(ctx, transaction, currentAppLock, 0)
 				if err != nil {
 					return fmt.Errorf("error writing application locks to DB for application '%s' on '%s': %w",
 						currentApp, envName, err)
@@ -2483,18 +2486,19 @@ func (s *State) WriteCurrentTeamLocks(ctx context.Context, transaction *sql.Tx, 
 					EslVersion: 0,
 					Env:        envName,
 					LockID:     lockId,
-					Created:    lock.CreatedAt,
+					Created:    time.Time{},
 					Metadata: db.LockMetadata{
 						CreatedByName:  lock.CreatedBy.Name,
 						CreatedByEmail: lock.CreatedBy.Email,
 						Message:        lock.Message,
 						CiLink:         "", //CI links are not written into the manifest
+						CreatedAt:      lock.CreatedAt,
 					},
 					Team:    teamName,
 					Deleted: false,
 				}
 				activeLockIds = append(activeLockIds, currentTeamLock.LockID)
-				err = dbHandler.DBWriteTeamLockInternal(ctx, transaction, currentTeamLock, 0, true)
+				err = dbHandler.DBWriteTeamLockInternal(ctx, transaction, currentTeamLock, 0)
 				if err != nil {
 					return fmt.Errorf("error writing team locks to DB for team '%s' on '%s': %w",
 						teamName, envName, err)

@@ -1370,6 +1370,7 @@ type LockMetadata struct {
 	CreatedByEmail string
 	Message        string
 	CiLink         string
+	CreatedAt      time.Time
 }
 
 type ReleaseWithManifest struct {
@@ -2702,10 +2703,10 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 		Metadata:   metadata,
 		Deleted:    false,
 	}
-	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion, false)
+	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
 }
 
-func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslVersion, useTimeInLock bool) error {
+func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslVersion) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLockInternal")
 	defer span.Finish()
 
@@ -2716,6 +2717,12 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 		return fmt.Errorf("DBWriteEnvironmentLockInternal: no transaction provided")
 	}
 
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+
+	if err != nil {
+		return fmt.Errorf("DBWriteEnvironmentLockInternal unable to get transaction timestamp: %w", err)
+	}
+
 	jsonToInsert, err := json.Marshal(envLock.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -2724,10 +2731,6 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?);")
 
-	now, err := h.DBReadTransactionTimestamp(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("DBWriteEnvironmentLockInternal unable to get transaction timestamp: %w", err)
-	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
@@ -3029,7 +3032,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	}
 
 	existingEnvLock.Deleted = true
-	err = h.DBWriteEnvironmentLockInternal(ctx, tx, *existingEnvLock, previousVersion, false)
+	err = h.DBWriteEnvironmentLockInternal(ctx, tx, *existingEnvLock, previousVersion)
 
 	if err != nil {
 		return fmt.Errorf("could not delete environment lock from DB. Error: %w\n", err)
@@ -3389,10 +3392,10 @@ func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lock
 		App:        appName,
 		Deleted:    false,
 	}
-	return h.DBWriteApplicationLockInternal(ctx, tx, appLock, previousVersion, false)
+	return h.DBWriteApplicationLockInternal(ctx, tx, appLock, previousVersion)
 }
 
-func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.Tx, appLock ApplicationLock, previousEslVersion EslVersion, useTimeInLock bool) error {
+func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.Tx, appLock ApplicationLock, previousEslVersion EslVersion) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLockInternal")
 	defer span.Finish()
 
@@ -3403,6 +3406,12 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 		return fmt.Errorf("DBWriteApplicationLockInternal: no transaction provided")
 	}
 
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+
+	if err != nil {
+		return fmt.Errorf("DBWriteApplicationLockInternal unable to get transaction timestamp: %w", err)
+	}
+
 	jsonToInsert, err := json.Marshal(appLock.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -3410,11 +3419,6 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO app_locks (eslVersion, created, lockID, envName, appName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
-
-	now, err := h.DBReadTransactionTimestamp(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("DBWriteAllAppLocks unable to get transaction timestamp: %w", err)
-	}
 
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
@@ -3467,7 +3471,7 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 	}
 
 	existingAppLock.Deleted = true
-	err = h.DBWriteApplicationLockInternal(ctx, tx, *existingAppLock, previousVersion, false)
+	err = h.DBWriteApplicationLockInternal(ctx, tx, *existingAppLock, previousVersion)
 
 	if err != nil {
 		return fmt.Errorf("could not delete application lock from DB. Error: %w\n", err)
@@ -3694,10 +3698,10 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, env
 		Team:       teamName,
 		Deleted:    false,
 	}
-	return h.DBWriteTeamLockInternal(ctx, tx, teamLock, previousVersion, false)
+	return h.DBWriteTeamLockInternal(ctx, tx, teamLock, previousVersion)
 }
 
-func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, teamLock TeamLock, previousEslVersion EslVersion, useTimeInLock bool) error {
+func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, teamLock TeamLock, previousEslVersion EslVersion) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLockInternal")
 	defer span.Finish()
 
@@ -3706,6 +3710,12 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteTeamLockInternal: no transaction provided")
+	}
+
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+
+	if err != nil {
+		return fmt.Errorf("DBWriteTeamLockInternal unable to get transaction timestamp: %w", err)
 	}
 
 	jsonToInsert, err := json.Marshal(teamLock.Metadata)
@@ -3717,10 +3727,6 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 		"INSERT INTO team_locks (eslVersion, created, lockID, envName, teamName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
 	span.SetTag("query", insertQuery)
 
-	now, err := h.DBReadTransactionTimestamp(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("DBWriteTeamLockInternal unable to get transaction timestamp: %w", err)
-	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
@@ -3893,7 +3899,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	}
 
 	existingTeamLock.Deleted = true
-	err = h.DBWriteTeamLockInternal(ctx, tx, *existingTeamLock, previousVersion, false)
+	err = h.DBWriteTeamLockInternal(ctx, tx, *existingTeamLock, previousVersion)
 
 	if err != nil {
 		return fmt.Errorf("could not delete team lock from DB. Error: %w\n", err)

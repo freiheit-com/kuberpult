@@ -1959,6 +1959,7 @@ func (c *CreateEnvironmentLock) Transform(
 			CreatedByName:  user.Name,
 			CreatedByEmail: user.Email,
 			CiLink:         c.CiLink,
+			CreatedAt:      time.Time{}, //will not be used
 		}
 		errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, metadata)
 		if errW != nil {
@@ -2291,6 +2292,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 			CreatedByEmail: user.Email,
 			Message:        c.Message,
 			CiLink:         c.CiLink,
+			CreatedAt:      time.Time{},
 		})
 		if errW != nil {
 			return "", errW
