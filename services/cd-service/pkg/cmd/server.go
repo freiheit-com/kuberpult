@@ -404,7 +404,6 @@ func RunServer() {
 						Repository:       repo,
 						RepositoryConfig: cfg,
 						Shutdown:         shutdownCh,
-						Context:          ctx,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv, PageSize: 10})
