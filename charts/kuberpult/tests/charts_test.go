@@ -693,7 +693,7 @@ cd:
   allowedDomains: freiheit.com, github.com
 db:
   dbOption: "postgreSQL"
-giq  connections:
+  connections:
     cd:
       maxOpen: 777
       maxIdle: 321
