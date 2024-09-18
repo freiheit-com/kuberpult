@@ -298,33 +298,6 @@ button.mdc-button.env-card-deploy-btn {
             }
         }
     }
-
-    .environment__locks {
-        display: flex;
-        margin: $environment-locks-margin;
-    }
-
-    .environment__actions {
-        position: relative;
-        margin-left: auto;
-        margin-right: $environment-actions-right-displacement;
-        margin-top: $environment-actions-top-displacement;
-
-        .environment-action {
-            border: $environment-add-lock-button-border;
-            border-radius: $environment-add-lock-button-border-radius;
-            color: $environment-add-lock-button-color;
-            margin: $environment-buttons-column-margin;
-            .mdc-button__label {
-                padding-left: $environment-add-lock-button-padding-left;
-                @extend .text-bold;
-            }
-        }
-        .environment-link {
-            display: inline-block;
-            margin-left: 8px;
-        }
-    }
 }
 
 .collapse-dropdown-arrow-container {
