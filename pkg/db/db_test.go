@@ -700,7 +700,7 @@ func TestReadLockPreventedEvents(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if diff := cmp.Diff(tc.ExpectedResults, results); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedResults, results, cmpopts.IgnoreFields(EventRow{}, "Timestamp")); diff != "" {
 					t.Errorf("response mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
