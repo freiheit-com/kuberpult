@@ -106,7 +106,8 @@ spec:
             cpu:  {{ .Values.db.requests.cpu }}
 {{- end }}
       - name: service
-        image: "{{ .Values.hub }}/{{ .Values.manifestRepoExport.image }}:{{ $.Chart.AppVersion }}"
+#        image: "{{ .Values.hub }}/{{ .Values.manifestRepoExport.image }}:{{ $.Chart.AppVersion }}"
+        image: "image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:v9.2.0-2-ga1ccd057"
         ports:
           - name: http
             containerPort: 8080
