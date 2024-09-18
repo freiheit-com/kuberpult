@@ -35,6 +35,27 @@ Copyright freiheit.com*/
     }
 }
 
+.mdc-evolution-chip-release-dialog {
+    background-color: #a5a5a5;
+    height: $env-chip-height;
+    border-radius: $border-radius-small;
+    margin-bottom: 10px;
+    .mdc-evolution-chip__action--primary {
+        padding-left: $env-chip-padding;
+        padding-right: $env-chip-padding;
+    }
+    .env-locks {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        padding-right: -$env-chip-padding;
+    }
+    .mdc-evolution-chip__cell {
+        color: white;
+        overflow: hidden;
+    }
+}
+
 .env-group-chip-list {
     display: flex;
     > *:not(:last-child) {

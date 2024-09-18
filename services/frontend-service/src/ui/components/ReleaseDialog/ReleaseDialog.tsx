@@ -270,7 +270,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     };
 
     return (
-        <li key={env.name} className={classNames('env-card', className)}>
+        <li key={env.name} className={classNames('env-card')}>
             <div className="env-card-header">
                 <EnvironmentChip
                     env={env}
@@ -281,6 +281,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     groupNameOverride={undefined}
                     numberEnvsDeployed={undefined}
                     numberEnvsInGroup={undefined}
+                    useEnvColor={false}
                 />
                 <div className={classNames('env-card-locks')}>
                     {appLocks.length > 0 && (
