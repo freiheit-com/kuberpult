@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"slices"
 	"strings"
@@ -73,6 +74,8 @@ type DBHandler struct {
 		3) DBHandler!=nil && WriteEslOnly==false: write everything to the database.
 	*/
 	WriteEslOnly bool
+
+	WithIndexColumn bool // testing
 }
 
 type EslVersion int64
@@ -101,19 +104,35 @@ func (h *DBHandler) ShouldUseOtherTables() bool {
 	return h != nil && !h.WriteEslOnly
 }
 
+func readEnvVar(envName string) (bool, error) {
+	envValue, ok := os.LookupEnv(envName)
+	if !ok {
+		return false, fmt.Errorf("could not read environment variable '%s'", envName)
+	}
+	return envValue == "true", nil
+}
+
 func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 	db, driver, err := GetConnectionAndDriverWithRetries(ctx, cfg)
 
 	if err != nil {
 		return nil, err
 	}
+
+	withIndexColumn, err := readEnvVar("WITH_INDEX_COLUMN")
+	if err != nil {
+		return nil, err
+	}
+	logger.FromContext(ctx).Sugar().Warnf("WITH_INDEX_COLUMN: %v", withIndexColumn)
+
 	return &DBHandler{
-		DbName:         cfg.DbName,
-		DriverName:     cfg.DriverName,
-		MigrationsPath: cfg.MigrationsPath,
-		DB:             db,
-		DBDriver:       &driver,
-		WriteEslOnly:   cfg.WriteEslOnly,
+		DbName:          cfg.DbName,
+		DriverName:      cfg.DriverName,
+		MigrationsPath:  cfg.MigrationsPath,
+		DB:              db,
+		DBDriver:        &driver,
+		WriteEslOnly:    cfg.WriteEslOnly,
+		WithIndexColumn: withIndexColumn,
 	}, nil
 }
 
@@ -1455,7 +1474,7 @@ func (h *DBHandler) RunCustomMigrations(
 }
 
 func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
@@ -1484,33 +1503,70 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 }
 
 func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeployment")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeployment")
 	defer span.Finish()
 
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
-			" FROM deployments " +
-			" WHERE appName=? AND envName=? and releaseVersion=?" +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		appSelector,
-		envSelector,
-		releaseVersion,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
+	span.SetTag("withIndexColumn", h.WithIndexColumn)
+	if h.WithIndexColumn {
+		selectQuery := h.AdaptQuery(fmt.Sprintf(
+			"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
+				" FROM deployments " +
+				" WHERE appEnvRelease=? " +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT 1;"))
+		i64 := int64(releaseVersion)
+		nullVersion := NewNullInt(&i64)
+		appEnvRelease := createAppEnvReleaseKey(appSelector, envSelector, nullVersion)
+		span.SetTag("query", selectQuery)
+		rows, err := tx.QueryContext(
+			ctx,
+			selectQuery,
+			appEnvRelease,
+		)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+			return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
 		}
-	}(rows)
-	return processDeployment(rows)
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+			}
+		}(rows)
+		return processDeployment(rows)
+	} else {
+		selectQuery := h.AdaptQuery(fmt.Sprintf(
+			"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
+				" FROM deployments " +
+				" WHERE appName=? AND envName=? and releaseVersion=?" +
+				" ORDER BY eslVersion DESC " +
+				" LIMIT 1;"))
+		span.SetTag("query", selectQuery)
+		rows, err := tx.QueryContext(
+			ctx,
+			selectQuery,
+			appSelector,
+			envSelector,
+			releaseVersion,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+		}
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+			}
+		}(rows)
+		return processDeployment(rows)
+	}
+}
+
+func createAppEnvReleaseKey(appSelector string, envSelector string, releaseVersion sql.NullInt64) string {
+	i := int64(0)
+	if releaseVersion.Valid {
+		i = releaseVersion.Int64
+	}
+	return fmt.Sprintf("%s_%s_v", appSelector, envSelector, i)
 }
 
 func processDeployment(rows *sql.Rows) (*Deployment, error) {
@@ -1904,13 +1960,15 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion) VALUES (?, ?, ?, ?, ?, ?, ?);")
+		"INSERT INTO deployments (appEnvRelease, eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?);")
 
 	span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
+	appEnvRelease := createAppEnvReleaseKey(deployment.App, deployment.Env, nullVersion)
 	createdTime := time.Now().UTC()
 	_, err = tx.Exec(
 		insertQuery,
+		appEnvRelease,
 		previousEslVersion+1,
 		createdTime,
 		nullVersion,
