@@ -18,6 +18,7 @@ import React, { ReactElement, useCallback } from 'react';
 import { Environment, Environment_Application, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
+    getPriorityClassName,
     useCloseReleaseDialog,
     useEnvironmentGroups,
     useReleaseDifference,
@@ -200,9 +201,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
         const deployedDate = new Date(+deployedUNIX * 1000);
         const returnString = 'Deployed by ' + deployedBy + ' ';
-        const time = (
-            <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', className)} />
-        );
+        const time = <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', '')} />;
 
         return [returnString, time];
     };
@@ -306,7 +305,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             <div className="content-area">
                 <div className="content-left">
                     <div
-                        className={classNames('env-card-data', className)}
+                        className={classNames('env-card-data', '')}
                         title={
                             'Shows the version that is currently deployed on ' +
                             env.name +
@@ -316,12 +315,12 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                         <DeployedVersion app={app} env={env} application={application} otherRelease={otherRelease} />
                     </div>
                     {queueInfo}
-                    <div className={classNames('env-card-data', className)}>
+                    <div className={classNames('env-card-data', '')}>
                         {getDeploymentMetadata().flatMap((metadata, i) => (
                             <div key={i}>{metadata}&nbsp;</div>
                         ))}
                     </div>
-                    <div className={classNames('env-card-data', className)}>{getReleaseDiffContent()}</div>
+                    <div className={classNames('env-card-data', '')}>{getReleaseDiffContent()}</div>
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">
@@ -359,20 +358,7 @@ export const EnvironmentList: React.FC<{
     return (
         <div className="release-env-group-list">
             {allEnvGroups.map((envGroup) => (
-                <ul className={classNames('release-env-list', className)} key={envGroup.environmentGroupName}>
-                    {envGroup.environments.map((env) => (
-                        <EnvironmentListItem
-                            key={env.name}
-                            env={env}
-                            envGroup={envGroup}
-                            app={app}
-                            release={release}
-                            team={team}
-                            className={className}
-                            queuedVersion={env.applications[app] ? env.applications[app].queuedVersion : 0}
-                        />
-                    ))}
-                </ul>
+                <EnvironmentGroupLane environmentGroup={envGroup} app={app} release={release} team={team} />
             ))}
         </div>
     );
@@ -446,4 +432,40 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
         </PlainDialog>
     );
     return <div>{dialog}</div>;
+};
+
+export const EnvironmentGroupLane: React.FC<{
+    environmentGroup: EnvironmentGroup;
+    release: Release;
+    app: string;
+    team: string;
+}> = (props) => {
+    const { environmentGroup, release, app, team } = props;
+    // all envs in the same group have the same priority
+    const priorityClassName = getPriorityClassName(environmentGroup);
+    return (
+        <div className="environment-group-lane">
+            <div className={classNames('environment-group-lane__header', priorityClassName)}>
+                <div className="environment-group__name" title={'Name of the environment group'}>
+                    {environmentGroup.environmentGroupName}
+                </div>
+            </div>
+            <div className="environment-group-lane__body">
+                {environmentGroup.environments.map((env) => (
+                    <EnvironmentListItem
+                        key={env.name}
+                        env={env}
+                        envGroup={environmentGroup}
+                        app={app}
+                        release={release}
+                        team={team}
+                        className={priorityClassName}
+                        queuedVersion={env.applications[app] ? env.applications[app].queuedVersion : 0}
+                    />
+                ))}
+            </div>
+            {/*I am just here so that we can avoid margin collapsing */}
+            <div className={'environment-group-lane__footer'} />
+        </div>
+    );
 };
