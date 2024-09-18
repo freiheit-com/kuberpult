@@ -444,13 +444,13 @@ export const EnvironmentGroupLane: React.FC<{
     // all envs in the same group have the same priority
     const priorityClassName = getPriorityClassName(environmentGroup);
     return (
-        <div className="environment-group-lane">
-            <div className={classNames('environment-group-lane__header', priorityClassName)}>
+        <div className="release-dialog-environment-group-lane">
+            <div className={classNames('release-dialog-environment-group-lane__header', priorityClassName)}>
                 <div className="environment-group__name" title={'Name of the environment group'}>
                     {environmentGroup.environmentGroupName}
                 </div>
             </div>
-            <div className="environment-group-lane__body">
+            <div className="release-dialog-environment-group-lane__body">
                 {environmentGroup.environments.map((env) => (
                     <EnvironmentListItem
                         key={env.name}
@@ -465,7 +465,7 @@ export const EnvironmentGroupLane: React.FC<{
                 ))}
             </div>
             {/*I am just here so that we can avoid margin collapsing */}
-            <div className={'environment-group-lane__footer'} />
+            <div className={'release-dialog-environment-group-lane__footer'} />
         </div>
     );
 };

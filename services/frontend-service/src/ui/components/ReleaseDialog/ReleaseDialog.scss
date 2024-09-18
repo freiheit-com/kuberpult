@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 .release-dialog {
-    min-width: 1000px;
+    min-width: 980px;
 
     a {
         color: white;
@@ -99,7 +99,7 @@ Copyright freiheit.com*/
             flex-direction: column;
             width: 900px;
             padding: 0 0 10px;
-            margin: 10px 20px 0;
+            margin: 15px 15px 0;
             border-radius: $release-dialog-inner-border-radius;
             gap: 0;
 
@@ -206,4 +206,107 @@ button.button-lock {
 button.mdc-button.env-card-deploy-btn {
     border-radius: $release-dialog-inner-border-radius;
     @extend .text-bold;
+}
+
+
+.release-dialog-environment-group-lane {
+    position: relative;
+    min-width: fit-content;
+    max-width: calc(100vw - $sidebar-width - 100px); // full size minus the planned actions bar minus some buffer
+    background-color: rgba(0, 0, 0, 0.06);
+    border-radius: $environment-lane-header-border-radius;
+    margin-top: 10px;
+    margin-bottom: 10px;
+
+    .release-dialog-environment-group-lane__footer {
+        padding-bottom: 1px; // must not be 0, or margins will collapse
+    }
+
+    .release-dialog-environment-group-lane__header-wrapper {
+        display: flex;
+    }
+
+    .release-dialog-environment-group-lane__header {
+        position: relative;
+        color: var(--mdc-theme-surface); // will be fixed in SRX-E9D7EE
+        display: flex;
+        justify-content: space-between;
+        padding: $environment-lane-header-padding;
+        border-radius: $environment-lane-header-border-radius;
+        width: max-content;
+
+        .environment-group__name {
+            @extend .headline1;
+            display: flex;
+            align-items: center;
+        }
+    }
+    .release-dialog-environment-group-lane__body {
+        margin-top: 20px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+    }
+
+    .environment-lane {
+        position: relative;
+        background-color: #eee;
+        border-radius: $environment-lane-border-radius;
+        margin: $environment-lane-margin;
+        overflow: visible;
+
+        .environment-lane__header {
+            position: relative;
+            color: $environment-lane-header-color;
+            display: flex;
+            justify-content: space-between;
+            padding: $environment-lane-header-padding;
+            border-radius: $environment-lane-header-border-radius;
+            width: max-content;
+
+            .environment__name {
+                @extend .headline1;
+                display: flex;
+                align-items: center;
+            }
+        }
+
+        .environment-lane__body {
+            display: flex;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            padding-right: 0px;
+            padding-left: 0px;
+
+            .tooltip-container {
+                min-width: 40px;
+            }
+        }
+    }
+
+    .environment__locks {
+        display: flex;
+        margin: $environment-locks-margin;
+    }
+
+    .environment__actions {
+        position: relative;
+        margin-left: auto;
+        margin-right: $environment-actions-right-displacement;
+        margin-top: $environment-actions-top-displacement;
+
+        .environment-action {
+            border: $environment-add-lock-button-border;
+            border-radius: $environment-add-lock-button-border-radius;
+            color: $environment-add-lock-button-color;
+            margin: $environment-buttons-column-margin;
+            .mdc-button__label {
+                padding-left: $environment-add-lock-button-padding-left;
+                @extend .text-bold;
+            }
+        }
+        .environment-link {
+            display: inline-block;
+            margin-left: 8px;
+        }
+    }
 }
