@@ -107,7 +107,7 @@ spec:
 {{- end }}
       - name: service
 #        image: "{{ .Values.hub }}/{{ .Values.manifestRepoExport.image }}:{{ $.Chart.AppVersion }}"
-        image: "image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:v9.2.0-2-ga1ccd057"
+        image: "image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:v9.2.0-5-ge5c57d68"
         ports:
           - name: http
             containerPort: 8080
