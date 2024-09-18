@@ -305,7 +305,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             <div className="content-area">
                 <div className="content-left">
                     <div
-                        className={classNames('env-card-data', '')}
+                        className={classNames('env-card-data')}
                         title={
                             'Shows the version that is currently deployed on ' +
                             env.name +
@@ -315,12 +315,12 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                         <DeployedVersion app={app} env={env} application={application} otherRelease={otherRelease} />
                     </div>
                     {queueInfo}
-                    <div className={classNames('env-card-data', '')}>
+                    <div className={classNames('env-card-data')}>
                         {getDeploymentMetadata().flatMap((metadata, i) => (
                             <div key={i}>{metadata}&nbsp;</div>
                         ))}
                     </div>
-                    <div className={classNames('env-card-data', '')}>{getReleaseDiffContent()}</div>
+                    <div className={classNames('env-card-data')}>{getReleaseDiffContent()}</div>
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">
