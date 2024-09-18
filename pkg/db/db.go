@@ -5099,3 +5099,30 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	}
 	return &now, nil
 }
+
+func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string, timestamp time.Time) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("attempting to write to the commit_transaction_timestamps table without a transaction")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO commit_transaction_timestamps (commitHash, transactionTimestamp) VALUES (?, ?);",
+	)
+
+	span.SetTag("query", insertQuery)
+	_, err := tx.Exec(
+		insertQuery,
+		commitHash,
+		timestamp,
+	)
+	if err != nil {
+		return fmt.Errorf("DBWriteCommitTransactionTimestamp error executing query: %w", err)
+	}
+	return nil
+}

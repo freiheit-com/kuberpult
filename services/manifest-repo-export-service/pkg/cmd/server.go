@@ -322,10 +322,17 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
 					measurePushes(ddMetrics, log, true)
 					time.Sleep(d)
+					return err2
 				} else {
 					measurePushes(ddMetrics, log, false)
 				}
-				return err2
+
+				//Get latest commit. Write esl timestamp and commit hash.
+				commit, err := repo.GetHeadCommit()
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
 			})
 			if err != nil {
 				err3 := repo.FetchAndReset(ctx)
