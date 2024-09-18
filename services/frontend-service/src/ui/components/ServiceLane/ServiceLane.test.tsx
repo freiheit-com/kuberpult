@@ -48,7 +48,7 @@ const extendRelease = (props: Partial<Release>): Release => ({
 describe('Service Lane', () => {
     const getNode = (overrides: { application: Application }) => (
         <MemoryRouter>
-            <ServiceLane {...overrides} />
+            <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
@@ -254,7 +254,7 @@ const data: TestDataDiff[] = [
 describe('Service Lane Diff', () => {
     const getNode = (overrides: { application: Application }) => (
         <MemoryRouter>
-            <ServiceLane {...overrides} />
+            <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
@@ -300,7 +300,12 @@ describe('Service Lane Diff', () => {
     });
 });
 
-type TestDataImportantRels = { name: string; releases: Release[]; currentlyDeployedVersion: number };
+type TestDataImportantRels = {
+    name: string;
+    releases: Release[];
+    currentlyDeployedVersion: number;
+    minorReleaseIndex: number;
+};
 
 const dataImportantRels: TestDataImportantRels[] = [
     {
@@ -316,6 +321,7 @@ const dataImportantRels: TestDataImportantRels[] = [
             makeRelease(2),
             makeRelease(1), // not important
         ],
+        minorReleaseIndex: 7,
     },
     {
         name: 'Gets latest release first, then deployed release and 4 trailing releases',
@@ -330,6 +336,7 @@ const dataImportantRels: TestDataImportantRels[] = [
             makeRelease(2),
             makeRelease(1), // not important
         ],
+        minorReleaseIndex: 7,
     },
     {
         name: 'jumps over not important second release',
@@ -344,19 +351,36 @@ const dataImportantRels: TestDataImportantRels[] = [
             makeRelease(2),
             makeRelease(1), // not important
         ],
+        minorReleaseIndex: 7,
+    },
+    {
+        name: 'Minor release should be ignored',
+        currentlyDeployedVersion: 9,
+        releases: [
+            makeRelease(9),
+            makeRelease(7),
+            makeRelease(6),
+            makeRelease(5),
+            makeRelease(4),
+            makeRelease(3),
+            makeRelease(2),
+            makeRelease(1), // not important
+        ],
+        minorReleaseIndex: 1,
     },
 ];
 
 describe('Service Lane Important Releases', () => {
     const getNode = (overrides: { application: Application }) => (
         <MemoryRouter>
-            <ServiceLane {...overrides} />
+            <ServiceLane {...overrides} hideMinors={true} />
         </MemoryRouter>
     );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
     describe.each(dataImportantRels)('Service Lane important releases', (testcase) => {
         it(testcase.name, () => {
             // given
+            testcase.releases[testcase.minorReleaseIndex].isMinor = true;
             const sampleApp: Application = {
                 releases: testcase.releases,
                 name: 'test2',
@@ -419,6 +443,10 @@ describe('Service Lane Important Releases', () => {
             // then - the old release is not important and not displayed
             mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
                 { app: 'test2', version: testcase.releases[7].version },
+                Spy.IGNORE
+            );
+            mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
+                { app: 'test2', version: testcase.releases[testcase.minorReleaseIndex].version },
                 Spy.IGNORE
             );
         });
@@ -493,7 +521,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
 describe('Service Lane ⋮ menu', () => {
     const getNode = (overrides: { application: Application }) => (
         <MemoryRouter>
-            <ServiceLane {...overrides} />
+            <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
@@ -704,7 +732,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
 describe('Service Lane AppLockSummary', () => {
     const getNode = (overrides: { application: Application }) => (
         <MemoryRouter>
-            <ServiceLane {...overrides} />
+            <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));

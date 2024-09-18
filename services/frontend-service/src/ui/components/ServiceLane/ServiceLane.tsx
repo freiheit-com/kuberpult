@@ -21,6 +21,7 @@ import {
     useCurrentlyExistsAtGroup,
     useDeployedReleases,
     useFilteredApplicationLocks,
+    useMinorsForApp,
     useNavigateWithSearchParams,
     useTeamLocksFilterByTeam,
     useVersionsForApp,
@@ -39,7 +40,17 @@ import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 // we could update this dynamically based on viewport width
 const numberOfDisplayedReleasesOnHome = 6;
 
-const getReleasesToDisplay = (deployedReleases: number[], allReleases: number[]): number[] => {
+const getReleasesToDisplay = (
+    deployedReleases: number[],
+    allReleases: number[],
+    minorReleases: number[],
+    ignoreMinors: boolean
+): number[] => {
+    if (ignoreMinors) {
+        allReleases = allReleases.filter(
+            (version) => !minorReleases.includes(version) || deployedReleases.includes(version)
+        );
+    }
     // all deployed releases are important and the latest release is also important
     const importantReleases = deployedReleases.includes(allReleases[0])
         ? deployedReleases
@@ -93,8 +104,8 @@ const deriveUndeployMessage = (undeploySummary: UndeploySummary): string | undef
     }
 };
 
-export const ServiceLane: React.FC<{ application: Application }> = (props) => {
-    const { application } = props;
+export const ServiceLane: React.FC<{ application: Application; hideMinors: boolean }> = (props) => {
+    const { application, hideMinors } = props;
     const deployedReleases = useDeployedReleases(application.name);
     const allReleases = useVersionsForApp(application.name);
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
@@ -126,7 +137,8 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                 break;
         }
     }, [application.name, application.undeploySummary]);
-    const releases = getReleasesToDisplay(deployedReleases, allReleases);
+    const minorReleases = useMinorsForApp(application.name);
+    const releases = getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors);
 
     const releases_lane =
         !!releases &&

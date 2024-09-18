@@ -52,9 +52,18 @@ describe('App', () => {
         getWrapper();
 
         // then apps are sorted and Service Lane is called
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({ application: sampleApps.app1 });
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({ application: sampleApps.app2 });
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({ application: sampleApps.app3 });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({
+            application: sampleApps.app1,
+            hideMinors: false,
+        });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({
+            application: sampleApps.app2,
+            hideMinors: false,
+        });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({
+            application: sampleApps.app3,
+            hideMinors: false,
+        });
     });
     it('Renders Spinner', () => {
         // given
@@ -95,9 +104,18 @@ describe('App', () => {
         getWrapper();
 
         // then apps are sorted and Service Lane is called
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({ application: sampleApps.app1 });
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({ application: sampleApps.app2 });
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({ application: sampleApps.app3 });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({
+            application: sampleApps.app1,
+            hideMinors: false,
+        });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({
+            application: sampleApps.app2,
+            hideMinors: false,
+        });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({
+            application: sampleApps.app3,
+            hideMinors: false,
+        });
     });
 });
 
