@@ -121,7 +121,7 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 
 	withIndexColumn, err := readEnvVar("WITH_INDEX_COLUMN")
 	if err != nil {
-		return nil, err
+		logger.FromContext(ctx).Sugar().Warnf("WITH_INDEX_COLUMN not found: %v", err)
 	}
 	logger.FromContext(ctx).Sugar().Warnf("WITH_INDEX_COLUMN: %v", withIndexColumn)
 
