@@ -18,7 +18,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApplicationsFilteredAndSorted, useGlobalLoadingState } from '../../utils/store';
 import React from 'react';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
-import { hideWithoutWarnings } from '../../utils/Links';
+import { hideWithoutWarnings, hideMinors } from '../../utils/Links';
 
 export const Home: React.FC = () => {
     const [params] = useSearchParams();
@@ -39,7 +39,7 @@ export const Home: React.FC = () => {
             <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={true} />
             <main className="main-content">
                 {apps.map((app) => (
-                    <ServiceLane application={app} key={app.name} />
+                    <ServiceLane application={app} hideMinors={hideMinors(params)} key={app.name} />
                 ))}
             </main>
         </div>

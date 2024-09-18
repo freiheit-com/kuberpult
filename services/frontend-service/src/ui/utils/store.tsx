@@ -1032,6 +1032,11 @@ export const useReleaseDifference = (toDeployVersion: number, application: strin
     }
     return currentDeployedIndex - newVersionIndex;
 };
+// Get all minor releases for an app
+export const useMinorsForApp = (app: string): number[] =>
+    useReleasesForApp(app)
+        .filter((rel) => rel.isMinor)
+        .map((rel) => rel.version);
 
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate
 export const useNavigateWithSearchParams = (to: string): { navURL: string; navCallback: () => void } => {

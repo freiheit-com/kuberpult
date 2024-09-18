@@ -18,14 +18,17 @@ package service
 
 import (
 	"context"
+
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
 
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -130,6 +133,17 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						Outcome: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
+						Locks: []*api.Lock{
+							{
+								LockId:    "staging-1-lock",
+								CreatedAt: timestamppb.Now(),
+								CreatedBy: &api.Actor{
+									Email: "testmail@example.com",
+									Name:  "test tester",
+								},
+								Message: "",
+							},
+						},
 					},
 					"staging-2": &api.ReleaseTrainEnvPrognosis{
 						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
@@ -194,6 +208,17 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 									"potato-app": &api.ReleaseTrainAppPrognosis{
 										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
 											SkipCause: api.ReleaseTrainAppSkipCause_APP_IS_LOCKED,
+										},
+										Locks: []*api.Lock{
+											{
+												LockId:    "staging-1-potato-app-lock",
+												CreatedAt: timestamppb.Now(),
+												CreatedBy: &api.Actor{
+													Email: "testmail@example.com",
+													Name:  "test tester",
+												},
+												Message: "",
+											},
 										},
 									},
 								},
@@ -271,6 +296,17 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 									"potato-app": &api.ReleaseTrainAppPrognosis{
 										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
 											SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
+										},
+										Locks: []*api.Lock{
+											{
+												LockId:    "staging-1-sre-team-lock",
+												CreatedAt: timestamppb.Now(),
+												CreatedBy: &api.Actor{
+													Email: "testmail@example.com",
+													Name:  "test tester",
+												},
+												Message: "",
+											},
 										},
 									},
 								},
@@ -396,8 +432,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			if status.Code(err) != tc.ExpectedError {
 				t.Fatalf("expected error doesn't match actual error, expected %v, got code: %v, error: %v", tc.ExpectedError, status.Code(err), err)
 			}
-			if !proto.Equal(tc.ExpectedResponse, resp) {
-				t.Fatalf("expected respones doesn't match actualy response, expected %v, got %v", tc.ExpectedResponse, resp)
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
+				t.Fatalf("expected response mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
