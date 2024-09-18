@@ -21,7 +21,7 @@ include ../../Makefile.variables
 MAKEFLAGS += --no-builtin-rules
 
 export CGO_ENABLED=1
-IMAGE_REGISTRY?=ghcr.io/freiheit-com/kuberpult
+IMAGE_REGISTRY?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:${VERSION}
 
@@ -64,7 +64,7 @@ build: bin/main
 
 build-pr:
 	echo "build on pull request"
-	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=pr-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 build-main:
 	echo "build on main"

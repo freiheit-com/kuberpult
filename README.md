@@ -53,14 +53,12 @@ Both *environments* and *microservices* can be `locked`.
 ## Public releases of Kuberpult
 
 ### Docker Registries
-Kuberpult's docker images are currently available in 2 docker registries: (Example with version 0.4.55)
+Kuberpult's docker images are currently available in one docker registry: (Example with version 0.4.55)
 * `docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for Kuberpult devs](https://console.cloud.google.com/artifacts/docker/fdc-public-docker-registry/europe-west3/kuberpult/kuberpult-frontend-service))
-* `docker pull ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for Kuberpult devs](https://github.com/freiheit-com/kuberpult/pkgs/container/kuberpult%2Fkuberpult-frontend-service))
-And the same applies for the `kuberpult-cd-service` - just replace "frontend" by "cd".
 
-We may deprecate one of the registries in the future for simplicity.
-
-If you're using Kuberpult's helm chart, generally you don't have to worry about that.
+#### Deprecation Notes
+We used to maintain another docker registry on github as well. However, we are not maintaining it anymore and it will be removed in future releases. 
+Please use the google registry to retrieve kuberpult images.
 
 ### GitHub Releases
 
