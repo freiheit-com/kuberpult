@@ -2473,12 +2473,17 @@ func (c *CreateEnvironmentTeamLock) Transform(
 			return "", err
 		}
 		//Write to locks table
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 
 		errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, db.LockMetadata{
 			CreatedByName:  user.Name,
 			CreatedByEmail: user.Email,
 			Message:        c.Message,
 			CiLink:         c.CiLink,
+			CreatedAt:      *now,
 		})
 
 		if errW != nil {
@@ -2490,10 +2495,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		if err != nil {
 			return "", err
 		}
-		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-		if err != nil {
-			return "", fmt.Errorf("could not get transaction timestamp")
-		}
+
 		if allTeamLocks == nil {
 			allTeamLocks = &db.AllTeamLocksGo{
 				Version: 1,
