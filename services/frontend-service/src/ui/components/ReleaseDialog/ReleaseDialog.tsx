@@ -453,12 +453,18 @@ export const EnvironmentGroupLane: React.FC<{
         envGroup.environments.forEach((environment) => {
             addAction({
                 action: {
-                    $case: 'createEnvironmentLock',
-                    createEnvironmentLock: { environment: environment.name, lockId: '', message: '', ciLink: '' },
+                    $case: 'createEnvironmentApplicationLock',
+                    createEnvironmentApplicationLock: {
+                        environment: environment.name,
+                        application: app,
+                        lockId: '',
+                        message: '',
+                        ciLink: '',
+                    },
                 },
             });
         });
-    }, [envGroup]);
+    }, [envGroup, app]);
     const deployAndLockClick = React.useCallback(() => {
         envGroup.environments.forEach((environment) => {
             addAction({
