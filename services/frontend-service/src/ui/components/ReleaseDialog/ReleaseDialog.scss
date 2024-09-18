@@ -232,6 +232,7 @@ button.mdc-button.env-card-deploy-btn {
         display: flex;
         justify-content: space-between;
         padding: $environment-lane-header-padding;
+        padding-right: 5px;
         border-radius: $environment-lane-header-border-radius;
         width: max-content;
 
@@ -241,6 +242,22 @@ button.mdc-button.env-card-deploy-btn {
             align-items: center;
         }
     }
+
+    .release-dialog-environment-group-lane__body__collapsed {
+        position: relative;
+        color: var(--mdc-theme-surface); // will be fixed in SRX-E9D7EE
+        display: flex;
+        justify-content: space-between;
+        padding: $environment-lane-header-padding;
+        border-radius: $environment-lane-header-border-radius;
+        width: 940px;
+        .environment-group__name {
+            @extend .headline1;
+            display: flex;
+            align-items: center;
+        }
+    }
+
     .release-dialog-environment-group-lane__body {
         margin-top: 20px;
         margin-left: 10px;
@@ -308,5 +325,18 @@ button.mdc-button.env-card-deploy-btn {
             display: inline-block;
             margin-left: 8px;
         }
+    }
+}
+
+.collapse-dropdown-arrow-container {
+    display: flex;
+    flex-flow: row-reverse;
+    height: 100%;
+    .collapse-dropdown-arrow {
+        right: 10px;
+        top: 20px;
+        float: left;
+        font-size: xx-large;
+        pointer-events: none;
     }
 }

@@ -28,7 +28,7 @@ import {
     useTeamFromApplication,
 } from '../../utils/store';
 import { Button } from '../button';
-import { Close, Locks } from '../../../images';
+import { Close, Locks, SortAscending, SortDescending } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import {
@@ -176,7 +176,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div
-                className={classNames('env-card-data env-card-data-queue', className)}
+                className={classNames('env-card-data env-card-data-queue', '')}
                 title={
                     'An attempt was made to deploy version ' +
                     queuedVersion +
@@ -443,27 +443,48 @@ export const EnvironmentGroupLane: React.FC<{
     const { environmentGroup, release, app, team } = props;
     // all envs in the same group have the same priority
     const priorityClassName = getPriorityClassName(environmentGroup);
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
+    const collapse = useCallback(() => {
+        setIsCollapsed(!isCollapsed);
+    }, [isCollapsed]);
+
     return (
         <div className="release-dialog-environment-group-lane">
-            <div className={classNames('release-dialog-environment-group-lane__header', priorityClassName)}>
-                <div className="environment-group__name" title={'Name of the environment group'}>
-                    {environmentGroup.environmentGroupName}
+            <div className={'release-dialog-environment-group-lane__header-wrapper'}>
+                <div className={classNames('release-dialog-environment-group-lane__header', priorityClassName)}>
+                    <div className="environment-group__name" title={'Name of the environment group'}>
+                        {environmentGroup.environmentGroupName}
+                    </div>
+                    {isCollapsed ? (
+                        <div className={'collapse-dropdown-arrow-container'}>
+                            <Button onClick={collapse} icon={<SortDescending />} highlightEffect={false} />
+                        </div>
+                    ) : (
+                        <div className={'collapse-dropdown-arrow-container'}>
+                            <Button onClick={collapse} icon={<SortAscending />} highlightEffect={false} />
+                        </div>
+                    )}
                 </div>
             </div>
-            <div className="release-dialog-environment-group-lane__body">
-                {environmentGroup.environments.map((env) => (
-                    <EnvironmentListItem
-                        key={env.name}
-                        env={env}
-                        envGroup={environmentGroup}
-                        app={app}
-                        release={release}
-                        team={team}
-                        className={priorityClassName}
-                        queuedVersion={env.applications[app] ? env.applications[app].queuedVersion : 0}
-                    />
-                ))}
-            </div>
+            {isCollapsed ? (
+                <div className={'release-dialog-environment-group-lane__body__collapsed'}></div>
+            ) : (
+                <div className="release-dialog-environment-group-lane__body">
+                    {environmentGroup.environments.map((env) => (
+                        <EnvironmentListItem
+                            key={env.name}
+                            env={env}
+                            envGroup={environmentGroup}
+                            app={app}
+                            release={release}
+                            team={team}
+                            className={priorityClassName}
+                            queuedVersion={env.applications[app] ? env.applications[app].queuedVersion : 0}
+                        />
+                    ))}
+                </div>
+            )}
+
             {/*I am just here so that we can avoid margin collapsing */}
             <div className={'release-dialog-environment-group-lane__footer'} />
         </div>
