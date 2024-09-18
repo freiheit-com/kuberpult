@@ -1566,7 +1566,7 @@ func createAppEnvReleaseKey(appSelector string, envSelector string, releaseVersi
 	if releaseVersion.Valid {
 		i = releaseVersion.Int64
 	}
-	return fmt.Sprintf("%s_%s_v", appSelector, envSelector, i)
+	return fmt.Sprintf("%s_%s_%v", appSelector, envSelector, i)
 }
 
 func processDeployment(rows *sql.Rows) (*Deployment, error) {
