@@ -176,7 +176,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div
-                className={classNames('env-card-data env-card-data-queue', '')}
+                className={classNames('env-card-data env-card-data-queue')}
                 title={
                     'An attempt was made to deploy version ' +
                     queuedVersion +
