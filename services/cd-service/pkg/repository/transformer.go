@@ -3709,11 +3709,11 @@ func (c *envReleaseTrain) prognosis(
 			sortedKeys := sorting.SortKeys(appLocks)
 			for _, lockId := range sortedKeys {
 				newLock := &api.Lock{
-					Message:   envLocks[lockId].Message,
-					CreatedAt: timestamppb.New(envLocks[lockId].CreatedAt),
+					Message:   appLocks[lockId].Message,
+					CreatedAt: timestamppb.New(appLocks[lockId].CreatedAt),
 					CreatedBy: &api.Actor{
-						Email: envLocks[lockId].CreatedBy.Email,
-						Name:  envLocks[lockId].CreatedBy.Name,
+						Email: appLocks[lockId].CreatedBy.Email,
+						Name:  appLocks[lockId].CreatedBy.Name,
 					},
 					LockId: lockId,
 				}
@@ -3809,14 +3809,14 @@ func (c *envReleaseTrain) prognosis(
 
 			if len(teamLocks) > 0 {
 				locksList := []*api.Lock{}
-				sortedKeys := sorting.SortKeys(appLocks)
+				sortedKeys := sorting.SortKeys(teamLocks)
 				for _, lockId := range sortedKeys {
 					newLock := &api.Lock{
-						Message:   envLocks[lockId].Message,
-						CreatedAt: timestamppb.New(envLocks[lockId].CreatedAt),
+						Message:   teamLocks[lockId].Message,
+						CreatedAt: timestamppb.New(teamLocks[lockId].CreatedAt),
 						CreatedBy: &api.Actor{
-							Email: envLocks[lockId].CreatedBy.Email,
-							Name:  envLocks[lockId].CreatedBy.Name,
+							Email: teamLocks[lockId].CreatedBy.Email,
+							Name:  teamLocks[lockId].CreatedBy.Name,
 						},
 						LockId: lockId,
 					}

@@ -213,8 +213,11 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 											{
 												LockId:    "staging-1-potato-app-lock",
 												CreatedAt: timestamppb.Now(),
-												CreatedBy: &api.Actor{},
-												Message:   "",
+												CreatedBy: &api.Actor{
+													Email: "testmail@example.com",
+													Name:  "test tester",
+												},
+												Message: "",
 											},
 										},
 									},
@@ -293,6 +296,17 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 									"potato-app": &api.ReleaseTrainAppPrognosis{
 										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
 											SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
+										},
+										Locks: []*api.Lock{
+											{
+												LockId:    "staging-1-sre-team-lock",
+												CreatedAt: timestamppb.Now(),
+												CreatedBy: &api.Actor{
+													Email: "testmail@example.com",
+													Name:  "test tester",
+												},
+												Message: "",
+											},
 										},
 									},
 								},
