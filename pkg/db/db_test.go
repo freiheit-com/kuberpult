@@ -2572,7 +2572,7 @@ func TestReadWriteOverviewCache(t *testing.T) {
 							Releases: []*api.Release{
 								{
 									Version:        1,
-									SourceCommitId: "deadbeef",
+									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 									SourceAuthor:   "example <example@example.com>",
 									SourceMessage:  "changed something (#678)",
 									PrNumber:       "678",
@@ -2626,7 +2626,7 @@ func TestReadWriteOverviewCache(t *testing.T) {
 							Releases: []*api.Release{
 								{
 									Version:        1,
-									SourceCommitId: "deadbeef",
+									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 									SourceAuthor:   "example <example@example.com>",
 									SourceMessage:  "changed something (#678)",
 									PrNumber:       "678",
@@ -2675,7 +2675,7 @@ func TestReadWriteOverviewCache(t *testing.T) {
 							Releases: []*api.Release{
 								{
 									Version:        1,
-									SourceCommitId: "deadbeef",
+									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 									SourceAuthor:   "example <example@example.com>",
 									SourceMessage:  "changed something (#678)",
 									PrNumber:       "678",
