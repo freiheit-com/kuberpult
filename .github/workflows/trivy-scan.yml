@@ -45,7 +45,6 @@ jobs:
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
-        echo "IMAGE_TAG_KUBERPULT=$(make version)" >> $GITHUB_ENV
     - name: Run trivy scan
       run: |
         cd trivy
