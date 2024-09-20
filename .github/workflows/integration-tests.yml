@@ -27,7 +27,7 @@ jobs:
       run: |
         if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
           echo "IMAGE_TAG_KUBERPULT=pr-$(make version)" >> $GITHUB_ENV
-        elif [[ ${{ inputs.trigger }} == "main" ]]
+        elif [[ ${{ inputs.trigger }} == "main" ]]; then
           echo "IMAGE_TAG_KUBERPULT=main-$(make version)" >> $GITHUB_ENV
         fi
     - name: Setup environment
