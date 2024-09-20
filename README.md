@@ -57,7 +57,7 @@ Kuberpult's docker images are currently available in one docker registry: (Examp
 * `docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for Kuberpult devs](https://console.cloud.google.com/artifacts/docker/fdc-public-docker-registry/europe-west3/kuberpult/kuberpult-frontend-service))
 
 #### Deprecation Notes
-We used to maintain another docker registry on github as well. However, we are not maintaining it anymore and it will be removed in future releases. 
+We used to maintain another docker registry on github as well: ghcr.io/freiheit-com/kuberpult/ . However, we are not maintaining it anymore and it will be removed in future releases. 
 Please use the google registry to retrieve kuberpult images.
 
 ### GitHub Releases
