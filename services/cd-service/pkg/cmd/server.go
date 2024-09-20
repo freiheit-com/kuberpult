@@ -86,22 +86,26 @@ type Config struct {
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 	AllowLongAppNames        bool          `default:"false" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
-	DbOption                 string        `default:"NO_DB" split_words:"true"`
-	DbLocation               string        `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance       string        `default:"" split_words:"true"`
-	DbName                   string        `default:"" split_words:"true"`
-	DbUserName               string        `default:"" split_words:"true"`
-	DbUserPassword           string        `default:"" split_words:"true"`
-	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
-	DbMigrationsLocation     string        `default:"" split_words:"true"`
-	DexDefaultRoleEnabled    bool          `default:"false" split_words:"true"`
-	DbWriteEslTableOnly      bool          `default:"false" split_words:"true"`
-	ReleaseVersionsLimit     uint          `default:"20" split_words:"true"`
-	DeploymentType           string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
-	CloudRunServer           string        `default:"" split_words:"true"`
-	DbSslMode                string        `default:"verify-full" split_words:"true"`
-	MinorRegexes             string        `default:"" split_words:"true"`
-	AllowedDomains           []string      `split_words:"true"`
+
+	DbOption              string `default:"NO_DB" split_words:"true"`
+	DbLocation            string `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance    string `default:"" split_words:"true"`
+	DbName                string `default:"" split_words:"true"`
+	DbUserName            string `default:"" split_words:"true"`
+	DbUserPassword        string `default:"" split_words:"true"`
+	DbAuthProxyPort       string `default:"5432" split_words:"true"`
+	DbMigrationsLocation  string `default:"" split_words:"true"`
+	DexDefaultRoleEnabled bool   `default:"false" split_words:"true"`
+	DbWriteEslTableOnly   bool   `default:"false" split_words:"true"`
+	DbMaxIdleConnections  uint   `required:"true" split_words:"true"`
+	DbMaxOpenConnections  uint   `required:"true" split_words:"true"`
+
+	ReleaseVersionsLimit uint     `default:"20" split_words:"true"`
+	DeploymentType       string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
+	CloudRunServer       string   `default:"" split_words:"true"`
+	DbSslMode            string   `default:"verify-full" split_words:"true"`
+	MinorRegexes         string   `default:"" split_words:"true"`
+	AllowedDomains       []string `split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -257,6 +261,9 @@ func RunServer() {
 					MigrationsPath: c.DbMigrationsLocation,
 					WriteEslOnly:   c.DbWriteEslTableOnly,
 					SSLMode:        c.DbSslMode,
+
+					MaxIdleConnections: c.DbMaxIdleConnections,
+					MaxOpenConnections: c.DbMaxOpenConnections,
 				}
 			} else if c.DbOption == "sqlite" {
 				dbCfg = db.DBConfig{
@@ -269,6 +276,9 @@ func RunServer() {
 					MigrationsPath: c.DbMigrationsLocation,
 					WriteEslOnly:   c.DbWriteEslTableOnly,
 					SSLMode:        c.DbSslMode,
+
+					MaxIdleConnections: c.DbMaxIdleConnections,
+					MaxOpenConnections: c.DbMaxOpenConnections,
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")

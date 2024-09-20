@@ -220,6 +220,7 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow
       p, role:kuberpult, applications, create, */*, allow
+      p, role:kuberpult, applications, update, */*, allow
       p, role:kuberpult, applications, sync, */*, allow
       p, role:kuberpult, applications, delete, */*, allow
       g, kuberpult, role:kuberpult
@@ -229,11 +230,13 @@ helm install argocd argo-cd/argo-cd --values argocd-values.yml --version 5.36.0
 
 print applying app...
 
+# For now, we are only creating development here
+# This means argo cd will only handle development, including the rollout-status
 kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: test-env
+  name: development
   namespace: ${ARGO_NAMESPACE}
 spec:
   description: test-env

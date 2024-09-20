@@ -45,6 +45,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -467,12 +468,17 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if allApps == nil {
+			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
+			}
+
 			allApps = &db.AllApplicationsGo{
 				Version: 1,
 				AllApplicationsJson: db.AllApplicationsJson{
 					Apps: []string{},
 				},
-				Created: time.Now(),
+				Created: *now,
 			}
 		}
 
@@ -665,6 +671,10 @@ func (c *CreateApplicationVersion) Transform(
 		if c.IsPrepublish {
 			manifestsToKeep = make(map[string]string)
 		}
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
+		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
 			ReleaseNumber: version,
@@ -682,7 +692,7 @@ func (c *CreateApplicationVersion) Transform(
 				CiLink:          c.CiLink,
 				IsPrepublish:    c.IsPrepublish,
 			},
-			Created: time.Now(),
+			Created: *now,
 			Deleted: false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
@@ -694,9 +704,10 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if allReleases == nil {
+
 			allReleases = &db.DBAllReleasesWithMetaData{
 				EslVersion: db.InitialEslVersion - 1,
-				Created:    time.Now(),
+				Created:    *now,
 				App:        c.Application,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{int64(release.ReleaseNumber)},
@@ -1246,6 +1257,10 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if prevRelease != nil {
 			v = prevRelease.EslVersion
 		}
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
 			ReleaseNumber: lastRelease + 1,
@@ -1265,7 +1280,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Created: time.Now(),
+			Created: *now,
 			Deleted: false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
@@ -1279,7 +1294,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if allReleases == nil {
 			allReleases = &db.DBAllReleasesWithMetaData{
 				EslVersion: db.InitialEslVersion - 1,
-				Created:    time.Now(),
+				Created:    *now,
 				App:        c.Application,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{int64(release.ReleaseNumber)},
@@ -1665,11 +1680,15 @@ func (u *DeleteEnvFromApp) Transform(
 					newManifests[envName] = manifest
 				}
 			}
+			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+			if err != nil {
+				return "", fmt.Errorf("could not get transaction timestamp")
+			}
 			newRelease := db.DBReleaseWithMetaData{
 				EslVersion:    dbReleaseWithMetadata.EslVersion + 1,
 				ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
 				App:           dbReleaseWithMetadata.App,
-				Created:       time.Now().UTC(),
+				Created:       *now,
 				Manifests:     db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:      dbReleaseWithMetadata.Metadata,
 				Deleted:       dbReleaseWithMetadata.Deleted,
@@ -1941,6 +1960,7 @@ func (c *CreateEnvironmentLock) Transform(
 			CreatedByName:  user.Name,
 			CreatedByEmail: user.Email,
 			CiLink:         c.CiLink,
+			CreatedAt:      time.Time{}, //will not be used
 		}
 		errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, metadata)
 		if errW != nil {
@@ -1952,14 +1972,17 @@ func (c *CreateEnvironmentLock) Transform(
 		if err != nil {
 			return "", err
 		}
-
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 		if allEnvLocks == nil {
 			allEnvLocks = &db.AllEnvLocksGo{
 				Version: 1,
 				AllEnvLocksJson: db.AllEnvLocksJson{
 					EnvLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 			}
 		}
@@ -2270,6 +2293,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 			CreatedByEmail: user.Email,
 			Message:        c.Message,
 			CiLink:         c.CiLink,
+			CreatedAt:      time.Time{},
 		})
 		if errW != nil {
 			return "", errW
@@ -2280,14 +2304,17 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		if err != nil {
 			return "", err
 		}
-
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 		if allAppLocks == nil {
 			allAppLocks = &db.AllAppLocksGo{
 				Version: 1,
 				AllAppLocksJson: db.AllAppLocksJson{
 					AppLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 				AppName:     c.Application,
 			}
@@ -2446,12 +2473,17 @@ func (c *CreateEnvironmentTeamLock) Transform(
 			return "", err
 		}
 		//Write to locks table
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 
 		errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, db.LockMetadata{
 			CreatedByName:  user.Name,
 			CreatedByEmail: user.Email,
 			Message:        c.Message,
 			CiLink:         c.CiLink,
+			CreatedAt:      *now,
 		})
 
 		if errW != nil {
@@ -2470,7 +2502,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 				AllTeamLocksJson: db.AllTeamLocksJson{
 					TeamLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 				Team:        c.Team,
 			}
@@ -3310,15 +3342,15 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 }
 
 type ReleaseTrainApplicationPrognosis struct {
-	SkipCause        *api.ReleaseTrainAppPrognosis_SkipCause
-	FirstLockMessage string // we just record the first lock's message for now, will be changed in SRX-7CBX2O
-	Version          uint64
+	SkipCause *api.ReleaseTrainAppPrognosis_SkipCause
+	Locks     []*api.Lock
+	Version   uint64
 }
 
 type ReleaseTrainEnvironmentPrognosis struct {
-	SkipCause        *api.ReleaseTrainEnvPrognosis_SkipCause
-	Error            error
-	FirstLockMessage string // we just record the first lock's message for now, will be changed in SRX-7CBX2O
+	SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause
+	Error     error
+	Locks     []*api.Lock
 	// map key is the name of the app
 	AppsPrognoses map[string]ReleaseTrainApplicationPrognosis
 }
@@ -3495,9 +3527,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 			},
-			Error:            nil,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3514,10 +3546,10 @@ func (c *envReleaseTrain) prognosis(
 
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:        nil,
-			Error:            err,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			SkipCause:     nil,
+			Error:         err,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3528,9 +3560,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 			},
-			Error:            nil,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3539,9 +3571,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 			},
-			Error:            nil,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3552,19 +3584,19 @@ func (c *envReleaseTrain) prognosis(
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
 				},
-				Error:            nil,
-				FirstLockMessage: "",
-				AppsPrognoses:    nil,
+				Error:         nil,
+				Locks:         nil,
+				AppsPrognoses: nil,
 			}
 		}
 	}
 	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:        nil,
-			Error:            grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			SkipCause:     nil,
+			Error:         grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3576,39 +3608,45 @@ func (c *envReleaseTrain) prognosis(
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:        nil,
-			Error:            err,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			SkipCause:     nil,
+			Error:         err,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 	sort.Strings(apps)
 
 	appsPrognoses := make(map[string]ReleaseTrainApplicationPrognosis)
 	if len(envLocks) > 0 {
-		// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
-		var firstLock Lock
+		locksList := []*api.Lock{}
 		sortedKeys := sorting.SortKeys(envLocks)
-		for keyIndex := range sortedKeys {
-			key := sortedKeys[keyIndex]
-			firstLock = envLocks[key]
-			break
+		for _, lockId := range sortedKeys {
+			newLock := &api.Lock{
+				Message:   envLocks[lockId].Message,
+				CreatedAt: timestamppb.New(envLocks[lockId].CreatedAt),
+				CreatedBy: &api.Actor{
+					Email: envLocks[lockId].CreatedBy.Email,
+					Name:  envLocks[lockId].CreatedBy.Name,
+				},
+				LockId: lockId,
+			}
+			locksList = append(locksList, newLock)
 		}
 
 		for _, appName := range apps {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				SkipCause:        nil,
-				FirstLockMessage: firstLock.Message,
-				Version:          0,
+				SkipCause: nil,
+				Locks:     locksList,
+				Version:   0,
 			}
 		}
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 			},
-			Error:            nil,
-			FirstLockMessage: firstLock.Message,
-			AppsPrognoses:    appsPrognoses,
+			Error:         nil,
+			Locks:         locksList,
+			AppsPrognoses: appsPrognoses,
 		}
 	}
 
@@ -3616,10 +3654,10 @@ func (c *envReleaseTrain) prognosis(
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            err,
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         err,
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			} else if c.Parent.Team != team {
 				continue
@@ -3629,10 +3667,10 @@ func (c *envReleaseTrain) prognosis(
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:        nil,
-				Error:            grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err)),
-				FirstLockMessage: "",
-				AppsPrognoses:    nil,
+				SkipCause:     nil,
+				Error:         grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err)),
+				Locks:         nil,
+				AppsPrognoses: nil,
 			}
 		}
 
@@ -3647,20 +3685,20 @@ func (c *envReleaseTrain) prognosis(
 			versionToDeploy, err = state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err)),
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err)),
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			}
 		} else {
 			upstreamVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, upstreamEnvName, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err)),
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err)),
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			}
 			if upstreamVersion == nil {
@@ -3668,8 +3706,8 @@ func (c *envReleaseTrain) prognosis(
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
 					},
-					FirstLockMessage: "",
-					Version:          0,
+					Locks:   nil,
+					Version: 0,
 				}
 				continue
 			}
@@ -3680,8 +3718,8 @@ func (c *envReleaseTrain) prognosis(
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
 				},
-				FirstLockMessage: "",
-				Version:          0,
+				Locks:   nil,
+				Version: 0,
 			}
 			continue
 		}
@@ -3690,29 +3728,35 @@ func (c *envReleaseTrain) prognosis(
 
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:        nil,
-				Error:            err,
-				FirstLockMessage: "",
-				AppsPrognoses:    nil,
+				SkipCause:     nil,
+				Error:         err,
+				Locks:         nil,
+				AppsPrognoses: nil,
 			}
 		}
 
 		if len(appLocks) > 0 {
-			// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
-			var firstLock Lock
+			locksList := []*api.Lock{}
 			sortedKeys := sorting.SortKeys(appLocks)
-			for keyIndex := range sortedKeys {
-				key := sortedKeys[keyIndex]
-				firstLock = appLocks[key]
-				break
+			for _, lockId := range sortedKeys {
+				newLock := &api.Lock{
+					Message:   appLocks[lockId].Message,
+					CreatedAt: timestamppb.New(appLocks[lockId].CreatedAt),
+					CreatedBy: &api.Actor{
+						Email: appLocks[lockId].CreatedBy.Email,
+						Name:  appLocks[lockId].CreatedBy.Name,
+					},
+					LockId: lockId,
+				}
+				locksList = append(locksList, newLock)
 			}
 
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_IS_LOCKED,
 				},
-				FirstLockMessage: firstLock.Message,
-				Version:          0,
+				Locks:   locksList,
+				Version: 0,
 			}
 			continue
 		}
@@ -3721,18 +3765,18 @@ func (c *envReleaseTrain) prognosis(
 			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, true)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            err,
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         err,
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			}
 			if release == nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            fmt.Errorf("No release found."),
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         fmt.Errorf("No release found."),
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			}
 
@@ -3743,8 +3787,8 @@ func (c *envReleaseTrain) prognosis(
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 					},
-					FirstLockMessage: "",
-					Version:          0,
+					Locks:   nil,
+					Version: 0,
 				}
 				continue
 			}
@@ -3759,8 +3803,8 @@ func (c *envReleaseTrain) prognosis(
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 					},
-					FirstLockMessage: "",
-					Version:          0,
+					Locks:   nil,
+					Version: 0,
 				}
 				continue
 			}
@@ -3777,8 +3821,8 @@ func (c *envReleaseTrain) prognosis(
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION,
 					},
-					FirstLockMessage: "",
-					Version:          0,
+					Locks:   nil,
+					Version: 0,
 				}
 				continue
 			}
@@ -3787,44 +3831,50 @@ func (c *envReleaseTrain) prognosis(
 
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            err,
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         err,
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			}
 
 			if len(teamLocks) > 0 {
-				// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
-				var firstLock Lock
+				locksList := []*api.Lock{}
 				sortedKeys := sorting.SortKeys(teamLocks)
-				for keyIndex := range sortedKeys {
-					key := sortedKeys[keyIndex]
-					firstLock = teamLocks[key]
-					break
+				for _, lockId := range sortedKeys {
+					newLock := &api.Lock{
+						Message:   teamLocks[lockId].Message,
+						CreatedAt: timestamppb.New(teamLocks[lockId].CreatedAt),
+						CreatedBy: &api.Actor{
+							Email: teamLocks[lockId].CreatedBy.Email,
+							Name:  teamLocks[lockId].CreatedBy.Name,
+						},
+						LockId: lockId,
+					}
+					locksList = append(locksList, newLock)
 				}
 
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
 					},
-					FirstLockMessage: firstLock.Message,
-					Version:          0,
+					Locks:   locksList,
+					Version: 0,
 				}
 				continue
 			}
 		}
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-			SkipCause:        nil,
-			FirstLockMessage: "",
-			Version:          versionToDeploy,
+			SkipCause: nil,
+			Locks:     nil,
+			Version:   versionToDeploy,
 		}
 	}
 	return ReleaseTrainEnvironmentPrognosis{
-		SkipCause:        nil,
-		Error:            nil,
-		FirstLockMessage: "",
-		AppsPrognoses:    appsPrognoses,
+		SkipCause:     nil,
+		Error:         nil,
+		Locks:         nil,
+		AppsPrognoses: appsPrognoses,
 	}
 }
 
@@ -3891,7 +3941,11 @@ func (c *envReleaseTrain) Transform(
 				return "", fmt.Errorf("error getting latest release for app '%s' - %v", appName, err)
 			}
 			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
-			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, prognosis.FirstLockMessage, "environment")
+			eventMessage := ""
+			if len(prognosis.Locks) > 0 {
+				eventMessage = prognosis.Locks[0].Message
+			}
+			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, eventMessage, "environment")
 			if state.DBHandler.ShouldUseOtherTables() {
 				commitID, err := getCommitID(ctx, transaction, state, state.Filesystem, release, releaseDir, appName)
 				if err != nil {
