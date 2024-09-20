@@ -37,6 +37,8 @@ services:
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_DB_SSL_MODE=disable
       - KUBERPULT_MINOR_REGEXES=^.*exampleRegexForMinors:.*$,^secondExampleRegexForMinors:.*$
+      - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=10
+      - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=5
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -69,6 +71,8 @@ services:
       - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
       - KUBERPULT_NETWORK_TIMEOUT_SECONDS=120
       - KUBERPULT_DB_SSL_MODE=disable
+      - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=5
+      - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=1
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database

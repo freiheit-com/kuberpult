@@ -682,6 +682,34 @@ cd:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Allowed domains for CI todo",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  allowedDomains: freiheit.com, github.com
+db:
+  dbOption: "postgreSQL"
+  connections:
+    cd:
+      maxOpen: 777
+      maxIdle: 321
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_MAX_OPEN_CONNECTIONS",
+					Value: "777",
+				},
+				{
+					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
+					Value: "321",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1166,6 +1194,34 @@ db:
 				{
 					Name:  "KUBERPULT_DB_SSL_MODE",
 					Value: "prefer",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "DB max connections",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+  sslMode: prefer
+  connections:
+    manifestRepoExport:
+      maxOpen: 666
+      maxIdle: 123
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_MAX_OPEN_CONNECTIONS",
+					Value: "666",
+				},
+				{
+					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
+					Value: "123",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -1822,10 +1878,6 @@ func makeIngressPrefixPath(path string) networking.HTTPIngressPath {
 }
 func makeIngressExactPath(path string) networking.HTTPIngressPath {
 	pathType := networking.PathType("Exact")
-	return makeIngressPath(path, pathType)
-}
-func makeIngressImplementationSpecificPath(path string) networking.HTTPIngressPath {
-	pathType := networking.PathType("ImplementationSpecific")
 	return makeIngressPath(path, pathType)
 }
 
