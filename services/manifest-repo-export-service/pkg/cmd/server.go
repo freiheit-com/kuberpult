@@ -228,8 +228,8 @@ func Run(ctx context.Context) error {
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
 		Path:           "./repository",
-		CommitterEmail: "noemail@example.com", // TODO will be handled in Ref SRX-PA568W
-		CommitterName:  "noname",
+		CommitterEmail: "kuberpult@freiheit.com",
+		CommitterName:  "kuberpult",
 		Credentials: repository.Credentials{
 			SshKey: gitSshKey,
 		},
