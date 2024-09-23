@@ -45,6 +45,7 @@ import {
 } from '../../api/api';
 import { makeDisplayLock, makeLock } from '../../setupTests';
 import { BrowserRouter } from 'react-router-dom';
+import { ReactNode } from 'react';
 
 describe('Test useLocksSimilarTo', () => {
     type TestDataStore = {
@@ -341,7 +342,7 @@ describe('Test useNavigateWithSearchParams', () => {
     describe.each(testdata)('with', (testcase) => {
         it(testcase.name, () => {
             // given
-            const wrapper = ({ children }: { children: JSX.Element }) => <BrowserRouter>{children}</BrowserRouter>;
+            const wrapper = ({ children }: { children: ReactNode }) => <BrowserRouter>{children}</BrowserRouter>;
             window.history.pushState({}, 'Test page', testcase.currentURL);
             // when
             const result = renderHook(() => useNavigateWithSearchParams(testcase.navigationTo), { wrapper }).result

@@ -29,7 +29,7 @@
     "react-scripts": "5.0.1",
     "react-spinners": "0.13.8",
     "react-tooltip": "5.26.0",
-    "react-use-sub": "3.0.1",
+    "react-use-sub": "4.0.1",
     "rxjs": "7.8.1"
   },
   "scripts": {
@@ -48,7 +48,7 @@
     "@babel/plugin-syntax-flow": "7.24.7",
     "@babel/plugin-transform-react-jsx": "7.25.2",
     "@testing-library/jest-dom": "6.4.0",
-    "@testing-library/react": "14.1.2",
+    "@testing-library/react": "16.0.1",
     "@types/jest": "29.5.12",
     "@types/node": "20.11.10",
     "@types/react": "18.3.3",
