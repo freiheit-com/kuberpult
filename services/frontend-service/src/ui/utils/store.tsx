@@ -60,7 +60,7 @@ export interface DisplayLock {
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
     'dl-' + displayLock.lockId + '-' + displayLock.environment + '-' + displayLock.application;
 
-type EnhancedOverview = GetOverviewResponse & { loaded: boolean };
+type EnhancedOverview = GetOverviewResponse & { [key: string]: unknown; loaded: boolean };
 
 const emptyOverview: EnhancedOverview = {
     applications: {},
@@ -113,7 +113,7 @@ export type ReleaseTrainPrognosisResponse = {
     releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
 };
 
-const emptyBatch: BatchRequest = { actions: [] };
+const emptyBatch: BatchRequest & { [key: string]: unknown } = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
 export const refreshTags = (): void => {
