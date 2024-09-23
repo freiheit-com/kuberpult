@@ -1243,32 +1243,6 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			},
 		},
 		{
-			Name: "Create application with non SHA1 commit ID",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
-				},
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "nonsense",
-					Manifests: map[string]string{
-						envAcceptance: "acceptance",
-					},
-					WriteCommitData: true,
-				},
-				&DeployApplicationVersion{
-					Environment:   envAcceptance,
-					Application:   "app",
-					Version:       1,
-					LockBehaviour: api.LockBehavior_FAIL,
-				},
-			},
-			NonExistentCommitPaths: []string{
-				"commits/no/nsense/applications/app/.gitkeep",
-			},
-		},
-		{
 			Name: "Create application with SHA1 commit ID with uppercase letters",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -5870,7 +5844,7 @@ func TestTransformer(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "test",
 					SourceAuthor:   "test <test@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "changed something",
 					Manifests: map[string]string{
 						"production": "productionmanifest",
@@ -5891,7 +5865,7 @@ func TestTransformer(t *testing.T) {
 					if rel.SourceAuthor != "test <test@example.com>" {
 						t.Errorf("unexpected source Author: expected \"test <test@example.com>\", actual: %q", rel.SourceAuthor)
 					}
-					if rel.SourceCommitId != "deadbeef" {
+					if rel.SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
 						t.Errorf("unexpected source commit id: expected \"deadbeef\", actual: %q", rel.SourceCommitId)
 					}
 					if rel.SourceMessage != "changed something" {

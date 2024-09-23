@@ -141,6 +141,19 @@ db:
   requests:
     cpu: "100m"
     memory: "200Mi"
+  connections:
+    # You need to ensure that your sql server can handle at least
+    # `cd.maxOpen + manifestRepoExport.maxOpen` connections in parallel.
+    cd:
+      # The cd-service may need to respond to many parallel requests,
+      # most notably depending on how often the /release endpoint is called
+      maxOpen: 100
+      maxIdle: 20
+    manifestRepoExport:
+      # The manifest export is for the most part just one go-routine.
+      # It does have grpc endpoints that are very specific for some git operations, which most people will not use.
+      maxOpen: 5
+      maxIdle: 2
 manifestRepoExport:
   image: kuberpult-manifest-repo-export-service
   service:

@@ -203,7 +203,7 @@ export const FiltersDropdown = (props: FiltersDropdownProps): JSX.Element => {
                     <div className={'dropdown-arrow-container'}>
                         <div className={'dropdown-arrow'}>⌄</div>
                         <Button
-                            label="Filters"
+                            label="More Filters"
                             className="dropdown-button"
                             aria-label={'Filters'}
                             disabled={false}

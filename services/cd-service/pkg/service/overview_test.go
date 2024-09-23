@@ -253,7 +253,7 @@ func TestOverviewService(t *testing.T) {
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "changed something (#678)",
 				},
 				&repository.CreateApplicationVersion{
@@ -269,7 +269,7 @@ func TestOverviewService(t *testing.T) {
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "changed something (#678",
 				},
 				&repository.CreateApplicationVersion{
@@ -278,7 +278,7 @@ func TestOverviewService(t *testing.T) {
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "(#678)",
 				},
 				&repository.DeployApplicationVersion{
@@ -501,7 +501,7 @@ func TestOverviewService(t *testing.T) {
 					if test.Releases[0].SourceMessage != "changed something (#678)" {
 						t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
 					}
-					if test.Releases[0].SourceCommitId != "deadbeef" {
+					if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
 						t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
 					}
 				}
@@ -627,7 +627,7 @@ func TestOverviewService(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
@@ -653,7 +653,7 @@ func TestOverviewService(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Authentication:        repository.Authentication{},
 					Version:               1,
-					SourceCommitId:        "deadbeef",
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceAuthor:          "example <example@example.com>",
 					SourceMessage:         "changed something (#678)",
 					Team:                  "team-123",
@@ -669,7 +669,7 @@ func TestOverviewService(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Authentication:        repository.Authentication{},
 					Version:               2,
-					SourceCommitId:        "deadbeef",
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceAuthor:          "example <example@example.com>",
 					SourceMessage:         "changed something (#678)",
 					Team:                  "team-123",
@@ -739,7 +739,7 @@ func TestOverviewService(t *testing.T) {
 					if test.Releases[0].SourceMessage != "changed something (#678)" {
 						t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
 					}
-					if test.Releases[0].SourceCommitId != "deadbeef" {
+					if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
 						t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
 					}
 				}
@@ -854,7 +854,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						},
 
 						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeef",
+						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 						SourceMessage:  "changed something (#678)",
 					},
 				},
@@ -874,7 +874,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 							"development": "dev",
 						},
 						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeef",
+						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 						SourceMessage:  "changed something (#678",
 					},
 				},
@@ -885,7 +885,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 							"development": "dev",
 						},
 						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeef",
+						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 						SourceMessage:  "(#678)",
 					},
 				},

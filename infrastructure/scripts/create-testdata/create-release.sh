@@ -77,6 +77,7 @@ metadata:
 data:
   key: value
   random: "${randomValue}"
+  releaseVersion: "${release_version}"
 ---
 EOF
   echo "wrote file ${file}"

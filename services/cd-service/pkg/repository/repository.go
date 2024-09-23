@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"io"
 	"net/http"
 	"os"
@@ -2365,6 +2366,13 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 		if err != nil {
 			return fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
 		}
+
+		if !valid.SHA1CommitID(repoRelease.SourceCommitId) {
+			//If we are about to import an invalid commit ID, simply log it and write an empty commit.
+			logger.FromContext(ctx).Sugar().Warnf("Source commit ID %s is not valid. Skipping migration for release %d of app %s", repoRelease.SourceCommitId, releaseVersion, app)
+			repoRelease.SourceCommitId = ""
+		}
+
 		var manifestsMap = map[string]string{}
 		for index := range manifests {
 			manifest := manifests[index]

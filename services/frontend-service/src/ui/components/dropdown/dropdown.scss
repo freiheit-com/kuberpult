@@ -46,12 +46,16 @@ div.mdc-select {
 
 .dropdown {
     overflow-y: auto;
-    min-width: 220px;
+    min-width: 280px;
     left: 0;
     top: -5px;
     position: absolute;
     transform: none;
     padding-top: 10px;
+}
+
+.checkbox-wrapper {
+    white-space: nowrap;
 }
 
 .dropdown-arrow-container {

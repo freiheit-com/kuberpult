@@ -94,7 +94,7 @@ jobs:
           ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
           EOF
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
