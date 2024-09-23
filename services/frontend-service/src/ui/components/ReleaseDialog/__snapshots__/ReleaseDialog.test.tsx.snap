@@ -110,13 +110,13 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 class="release-dialog-environment-group-lane__body"
               >
                 <li
-                  class="env-card environment-priority-unrecognized"
+                  class="env-card"
                 >
                   <div
                     class="env-card-header"
                   >
                     <div
-                      class="mdc-evolution-chip release-environment environment-priority-unrecognized"
+                      class="mdc-evolution-chip-release-dialog release-environment"
                       role="row"
                     >
                       <span
@@ -426,13 +426,13 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                 class="release-dialog-environment-group-lane__body"
               >
                 <li
-                  class="env-card environment-priority-unrecognized"
+                  class="env-card"
                 >
                   <div
                     class="env-card-header"
                   >
                     <div
-                      class="mdc-evolution-chip release-environment environment-priority-unrecognized"
+                      class="mdc-evolution-chip-release-dialog release-environment"
                       role="row"
                     >
                       <span
@@ -748,13 +748,13 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 class="release-dialog-environment-group-lane__body"
               >
                 <li
-                  class="env-card environment-priority-unrecognized"
+                  class="env-card"
                 >
                   <div
                     class="env-card-header"
                   >
                     <div
-                      class="mdc-evolution-chip release-environment environment-priority-unrecognized"
+                      class="mdc-evolution-chip-release-dialog release-environment"
                       role="row"
                     >
                       <span
@@ -942,13 +942,13 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   </div>
                 </li>
                 <li
-                  class="env-card environment-priority-unrecognized"
+                  class="env-card"
                 >
                   <div
                     class="env-card-header"
                   >
                     <div
-                      class="mdc-evolution-chip release-environment environment-priority-unrecognized"
+                      class="mdc-evolution-chip-release-dialog release-environment"
                       role="row"
                     >
                       <span

@@ -20,6 +20,11 @@ Copyright freiheit.com*/
         color: white;
     }
 
+    a.env-card-link {
+      color: black;
+      font-size: 17px;
+    }
+
     div.MuiPaper-root {
         background-color: transparent;
         border-radius: $release-dialog-outer-border-radius;
