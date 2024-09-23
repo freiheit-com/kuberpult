@@ -359,7 +359,13 @@ export const EnvironmentList: React.FC<{
     return (
         <div className="release-env-group-list">
             {allEnvGroups.map((envGroup) => (
-                <EnvironmentGroupLane environmentGroup={envGroup} app={app} release={release} team={team} />
+                <EnvironmentGroupLane
+                    key={envGroup.environmentGroupName}
+                    environmentGroup={envGroup}
+                    app={app}
+                    release={release}
+                    team={team}
+                />
             ))}
         </div>
     );
