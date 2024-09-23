@@ -108,25 +108,8 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 <div
                   class="env-group-card-buttons"
                 >
-                  <button
-                    aria-label="Add lock"
-                    class="mdc-button env-card-add-lock-btn highlight"
-                  >
-                    <div
-                      class="mdc-button__ripple"
-                    />
-                    <svg
-                      class="icon"
-                    >
-                      Locks.svg
-                    </svg>
-                    <span
-                      class="mdc-button__label"
-                    >
-                      Add lock
-                    </span>
-                  </button>
                   <div
+                    class="env-group-expand-button"
                     title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
@@ -486,25 +469,8 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                 <div
                   class="env-group-card-buttons"
                 >
-                  <button
-                    aria-label="Add lock"
-                    class="mdc-button env-card-add-lock-btn highlight"
-                  >
-                    <div
-                      class="mdc-button__ripple"
-                    />
-                    <svg
-                      class="icon"
-                    >
-                      Locks.svg
-                    </svg>
-                    <span
-                      class="mdc-button__label"
-                    >
-                      Add lock
-                    </span>
-                  </button>
                   <div
+                    class="env-group-expand-button"
                     title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
@@ -870,25 +836,8 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 <div
                   class="env-group-card-buttons"
                 >
-                  <button
-                    aria-label="Add lock"
-                    class="mdc-button env-card-add-lock-btn highlight"
-                  >
-                    <div
-                      class="mdc-button__ripple"
-                    />
-                    <svg
-                      class="icon"
-                    >
-                      Locks.svg
-                    </svg>
-                    <span
-                      class="mdc-button__label"
-                    >
-                      Add lock
-                    </span>
-                  </button>
                   <div
+                    class="env-group-expand-button"
                     title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
@@ -1443,25 +1392,8 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                 <div
                   class="env-group-card-buttons"
                 >
-                  <button
-                    aria-label="Add lock"
-                    class="mdc-button env-card-add-lock-btn highlight"
-                  >
-                    <div
-                      class="mdc-button__ripple"
-                    />
-                    <svg
-                      class="icon"
-                    >
-                      Locks.svg
-                    </svg>
-                    <span
-                      class="mdc-button__label"
-                    >
-                      Add lock
-                    </span>
-                  </button>
                   <div
+                    class="env-group-expand-button"
                     title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
