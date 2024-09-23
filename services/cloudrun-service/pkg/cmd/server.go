@@ -19,7 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -44,27 +44,35 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Fatal("Failed to initialize cloud run service", zap.Error(err))
 	}
 
-	dbLocation, err := readEnvVar("KUBERPULT_DB_LOCATION")
+	dbLocation, err := valid.ReadEnvVar("KUBERPULT_DB_LOCATION")
 	if err != nil {
 		return err
 	}
-	dbAuthProxyPort, err := readEnvVar("KUBERPULT_DB_AUTH_PROXY_PORT")
+	dbAuthProxyPort, err := valid.ReadEnvVar("KUBERPULT_DB_AUTH_PROXY_PORT")
 	if err != nil {
 		return err
 	}
-	dbName, err := readEnvVar("KUBERPULT_DB_NAME")
+	dbName, err := valid.ReadEnvVar("KUBERPULT_DB_NAME")
 	if err != nil {
 		return err
 	}
-	dbOption, err := readEnvVar("KUBERPULT_DB_OPTION")
+	dbOption, err := valid.ReadEnvVar("KUBERPULT_DB_OPTION")
 	if err != nil {
 		return err
 	}
-	dbUserName, err := readEnvVar("KUBERPULT_DB_USER_NAME")
+	dbUserName, err := valid.ReadEnvVar("KUBERPULT_DB_USER_NAME")
 	if err != nil {
 		return err
 	}
-	dbPassword, err := readEnvVar("KUBERPULT_DB_USER_PASSWORD")
+	dbPassword, err := valid.ReadEnvVar("KUBERPULT_DB_USER_PASSWORD")
+	if err != nil {
+		return err
+	}
+	dbMaxOpen, err := valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_OPEN_CONNECTIONS")
+	if err != nil {
+		return err
+	}
+	dbMaxIdle, err := valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_IDLE_CONNECTIONS")
 	if err != nil {
 		return err
 	}
@@ -81,6 +89,9 @@ func runServer(ctx context.Context) error {
 			MigrationsPath: "",
 			WriteEslOnly:   false,
 			SSLMode:        "verify-full",
+
+			MaxIdleConnections: dbMaxIdle,
+			MaxOpenConnections: dbMaxOpen,
 		}
 	} else {
 		logger.FromContext(ctx).Fatal("unsupported value", zap.String("dbOption", dbOption))
@@ -114,14 +125,6 @@ func runServer(ctx context.Context) error {
 	})
 
 	return nil
-}
-
-func readEnvVar(envName string) (string, error) {
-	envValue, ok := os.LookupEnv(envName)
-	if !ok {
-		return "", fmt.Errorf("could not read environment variable '%s'", envName)
-	}
-	return envValue, nil
 }
 
 func processDeploymentEvents(ctx context.Context, dbHandler *db.DBHandler) error {

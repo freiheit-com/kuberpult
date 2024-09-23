@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"strconv"
 	"time"
 
@@ -60,59 +61,67 @@ func Run(ctx context.Context) error {
 
 	logger.FromContext(ctx).Info("Startup")
 
-	dbLocation, err := readEnvVar("KUBERPULT_DB_LOCATION")
+	dbLocation, err := valid.ReadEnvVar("KUBERPULT_DB_LOCATION")
 	if err != nil {
 		return err
 	}
-	dbName, err := readEnvVar("KUBERPULT_DB_NAME")
+	dbName, err := valid.ReadEnvVar("KUBERPULT_DB_NAME")
 	if err != nil {
 		return err
 	}
-	dbOption, err := readEnvVar("KUBERPULT_DB_OPTION")
+	dbOption, err := valid.ReadEnvVar("KUBERPULT_DB_OPTION")
 	if err != nil {
 		return err
 	}
-	dbUserName, err := readEnvVar("KUBERPULT_DB_USER_NAME")
+	dbUserName, err := valid.ReadEnvVar("KUBERPULT_DB_USER_NAME")
 	if err != nil {
 		return err
 	}
-	dbPassword, err := readEnvVar("KUBERPULT_DB_USER_PASSWORD")
+	dbPassword, err := valid.ReadEnvVar("KUBERPULT_DB_USER_PASSWORD")
 	if err != nil {
 		return err
 	}
-	dbAuthProxyPort, err := readEnvVar("KUBERPULT_DB_AUTH_PROXY_PORT")
+	dbAuthProxyPort, err := valid.ReadEnvVar("KUBERPULT_DB_AUTH_PROXY_PORT")
 	if err != nil {
 		return err
 	}
-	sslMode, err := readEnvVar("KUBERPULT_DB_SSL_MODE")
+	dbMaxOpen, err := valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_OPEN_CONNECTIONS")
 	if err != nil {
 		return err
 	}
-	gitUrl, err := readEnvVar("KUBERPULT_GIT_URL")
+	dbMaxIdle, err := valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_IDLE_CONNECTIONS")
 	if err != nil {
 		return err
 	}
-	gitBranch, err := readEnvVar("KUBERPULT_GIT_BRANCH")
+	sslMode, err := valid.ReadEnvVar("KUBERPULT_DB_SSL_MODE")
 	if err != nil {
 		return err
 	}
-	gitSshKey, err := readEnvVar("KUBERPULT_GIT_SSH_KEY")
+	gitUrl, err := valid.ReadEnvVar("KUBERPULT_GIT_URL")
 	if err != nil {
 		return err
 	}
-	gitSshKnownHosts, err := readEnvVar("KUBERPULT_GIT_SSH_KNOWN_HOSTS")
+	gitBranch, err := valid.ReadEnvVar("KUBERPULT_GIT_BRANCH")
+	if err != nil {
+		return err
+	}
+	gitSshKey, err := valid.ReadEnvVar("KUBERPULT_GIT_SSH_KEY")
+	if err != nil {
+		return err
+	}
+	gitSshKnownHosts, err := valid.ReadEnvVar("KUBERPULT_GIT_SSH_KNOWN_HOSTS")
 	if err != nil {
 		return err
 	}
 
-	enableMetricsString, err := readEnvVar("KUBERPULT_ENABLE_METRICS")
+	enableMetricsString, err := valid.ReadEnvVar("KUBERPULT_ENABLE_METRICS")
 	if err != nil {
 		log.Info("datadog metrics are disabled")
 	}
 	enableMetrics := enableMetricsString == "true"
 	dataDogStatsAddr := "127.0.0.1:8125"
 	if enableMetrics {
-		dataDogStatsAddrEnv, err := readEnvVar("KUBERPULT_DOGSTATSD_ADDR")
+		dataDogStatsAddrEnv, err := valid.ReadEnvVar("KUBERPULT_DOGSTATSD_ADDR")
 		if err != nil {
 			log.Infof("using default dogStatsAddr: %s", dataDogStatsAddr)
 		} else {
@@ -120,7 +129,7 @@ func Run(ctx context.Context) error {
 		}
 	}
 
-	enableTracesString, err := readEnvVar("KUBERPULT_ENABLE_TRACING")
+	enableTracesString, err := valid.ReadEnvVar("KUBERPULT_ENABLE_TRACING")
 	if err != nil {
 		log.Info("datadog traces are disabled")
 	}
@@ -130,7 +139,7 @@ func Run(ctx context.Context) error {
 		defer tracer.Stop()
 	}
 
-	releaseVersionLimitStr, err := readEnvVar("KUBERPULT_RELEASE_VERSIONS_LIMIT")
+	releaseVersionLimitStr, err := valid.ReadEnvVar("KUBERPULT_RELEASE_VERSIONS_LIMIT")
 	if err != nil {
 		return err
 	}
@@ -155,7 +164,7 @@ func Run(ctx context.Context) error {
 		}
 	}
 
-	networkTimeoutSecondsStr, err := readEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
+	networkTimeoutSecondsStr, err := valid.ReadEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
 	if err != nil {
 		return err
 	}
@@ -164,7 +173,7 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("error parsing KUBERPULT_NETWORK_TIMEOUT_SECONDS, error: %w", err)
 	}
 
-	argoCdGenerateFilesString, err := readEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
+	argoCdGenerateFilesString, err := valid.ReadEnvVar("KUBERPULT_ARGO_CD_GENERATE_FILES")
 	if err != nil {
 		return err
 	}
@@ -182,6 +191,9 @@ func Run(ctx context.Context) error {
 			MigrationsPath: "",
 			WriteEslOnly:   false,
 			SSLMode:        sslMode,
+
+			MaxIdleConnections: dbMaxIdle,
+			MaxOpenConnections: dbMaxOpen,
 		}
 	} else if dbOption == "sqlite" {
 		dbCfg = db.DBConfig{
@@ -194,6 +206,9 @@ func Run(ctx context.Context) error {
 			MigrationsPath: "",
 			WriteEslOnly:   false,
 			SSLMode:        sslMode,
+
+			MaxIdleConnections: dbMaxIdle,
+			MaxOpenConnections: dbMaxOpen,
 		}
 	} else {
 		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
@@ -213,8 +228,8 @@ func Run(ctx context.Context) error {
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
 		Path:           "./repository",
-		CommitterEmail: "noemail@example.com", // TODO will be handled in Ref SRX-PA568W
-		CommitterName:  "noname",
+		CommitterEmail: "kuberpult@freiheit.com",
+		CommitterName:  "kuberpult",
 		Credentials: repository.Credentials{
 			SshKey: gitSshKey,
 		},
@@ -522,14 +537,6 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 		return &repository.UndeployApplication{}, nil
 	}
 	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
-}
-
-func readEnvVar(envName string) (string, error) {
-	envValue, ok := os.LookupEnv(envName)
-	if !ok {
-		return "", fmt.Errorf("could not read environment variable '%s'", envName)
-	}
-	return envValue, nil
 }
 
 func checkReleaseVersionLimit(limit uint) error {
