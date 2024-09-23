@@ -505,7 +505,7 @@ export const EnvironmentGroupLane: React.FC<{
                 },
             });
         });
-    }, [release.version, app, envGroup]);
+    }, [release.version, app, envGroup, allReleases]);
 
     React.useEffect(() => {
         if (allReleases === undefined) {
