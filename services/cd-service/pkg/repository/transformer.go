@@ -2873,24 +2873,27 @@ func (c *DeployApplicationVersion) Transform(
 					}
 
 				}
-				ev := createLockPreventedDeploymentEvent(c.Application, c.Environment, lockMsg, lockType)
-				if state.DBHandler.ShouldUseOtherTables() {
-					newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
-					if err != nil {
-						logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
-					} else {
-						gen := getGenerator(ctx)
-						eventUuid := gen.Generate()
-						err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, newReleaseCommitId, ev)
+				if c.WriteCommitData {
+					ev := createLockPreventedDeploymentEvent(c.Application, c.Environment, lockMsg, lockType)
+					if state.DBHandler.ShouldUseOtherTables() {
+						newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
 						if err != nil {
-							return "", GetCreateReleaseGeneralFailure(err)
+							logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+						} else {
+							gen := getGenerator(ctx)
+							eventUuid := gen.Generate()
+							err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, newReleaseCommitId, ev)
+							if err != nil {
+								return "", GetCreateReleaseGeneralFailure(err)
+							}
+						}
+					} else {
+						if err := addEventForRelease(ctx, fs, releaseDir, ev); err != nil {
+							return "", err
 						}
 					}
-				} else {
-					if err := addEventForRelease(ctx, fs, releaseDir, ev); err != nil {
-						return "", err
-					}
 				}
+
 				lockPreventedDeployment = true
 			}
 			switch c.LockBehaviour {
