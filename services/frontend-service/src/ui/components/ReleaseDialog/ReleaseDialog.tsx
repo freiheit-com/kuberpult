@@ -20,6 +20,7 @@ import {
     addAction,
     getPriorityClassName,
     useCloseReleaseDialog,
+    useCurrentlyDeployedAtGroup,
     useEnvironmentGroups,
     useReleaseDifference,
     useReleaseOptional,
@@ -445,9 +446,14 @@ export const EnvironmentGroupLane: React.FC<{
     // all envs in the same group have the same priority
     const priorityClassName = getPriorityClassName(envGroup);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
+    const [allowDeployment, setAllowDeployment] = React.useState(true);
     const collapse = useCallback(() => {
         setIsCollapsed(!isCollapsed);
     }, [isCollapsed]);
+
+    const allReleases = useCurrentlyDeployedAtGroup(app, release.version).filter(
+        (releaseEnvGroup) => releaseEnvGroup.environmentGroupName === envGroup.environmentGroupName
+    );
 
     const createEnvGroupLock = React.useCallback(() => {
         envGroup.environments.forEach((environment) => {
@@ -467,6 +473,13 @@ export const EnvironmentGroupLane: React.FC<{
     }, [envGroup, app]);
     const deployAndLockClick = React.useCallback(() => {
         envGroup.environments.forEach((environment) => {
+            if (
+                allReleases &&
+                allReleases.length !== 0 &&
+                allReleases[0].environments.find((env) => env === environment)
+            ) {
+                return;
+            }
             addAction({
                 action: {
                     $case: 'deploy',
@@ -479,8 +492,33 @@ export const EnvironmentGroupLane: React.FC<{
                     },
                 },
             });
+            addAction({
+                action: {
+                    $case: 'createEnvironmentApplicationLock',
+                    createEnvironmentApplicationLock: {
+                        environment: environment.name,
+                        application: app,
+                        lockId: '',
+                        message: '',
+                        ciLink: '',
+                    },
+                },
+            });
         });
-    }, [release.version, app, envGroup, createEnvGroupLock]);
+    }, [release.version, app, envGroup]);
+
+    React.useEffect(() => {
+        if (allReleases === undefined) {
+            setAllowDeployment(true);
+            return;
+        }
+
+        if (allReleases.length === 0) {
+            setAllowDeployment(true);
+        } else {
+            setAllowDeployment(JSON.stringify(allReleases[0].environments) !== JSON.stringify(envGroup.environments));
+        }
+    }, [allReleases, envGroup]);
 
     return (
         <div className="release-dialog-environment-group-lane">
@@ -499,7 +537,7 @@ export const EnvironmentGroupLane: React.FC<{
                         </div>
                     )}
                 </div>
-                <div className="env-card-buttons">
+                <div className="env-group-card-buttons">
                     <Button
                         className="env-card-add-lock-btn"
                         label="Add lock"
@@ -514,7 +552,7 @@ export const EnvironmentGroupLane: React.FC<{
                         <ExpandButton
                             onClickSubmit={deployAndLockClick}
                             defaultButtonLabel={'Deploy & Lock'}
-                            disabled={false}
+                            disabled={!allowDeployment}
                         />
                     </div>
                 </div>
