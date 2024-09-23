@@ -320,7 +320,6 @@ button.mdc-button.env-card-deploy-btn {
 
 .env-group-card-buttons {
     margin-left: auto;
-    margin-right: 18px;
     margin-bottom: 17px;
     display: flex;
     flex-direction: row;
@@ -338,4 +337,7 @@ button.mdc-button.env-card-deploy-btn {
             margin-right: 9px;
         }
     }
+}
+.env-group-expand-button{
+    margin-left: 85px;
 }
