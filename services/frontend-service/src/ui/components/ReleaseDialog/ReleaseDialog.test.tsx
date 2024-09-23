@@ -460,7 +460,9 @@ describe('Release Dialog', () => {
             // when
             setTheStore(testcase);
             getWrapper(testcase.props);
-            expect(document.querySelector('.release-env-list')?.children).toHaveLength(testcase.envs.length);
+            expect(document.querySelector('.release-dialog-environment-group-lane__body')?.children).toHaveLength(
+                testcase.envs.length
+            );
         });
     });
 

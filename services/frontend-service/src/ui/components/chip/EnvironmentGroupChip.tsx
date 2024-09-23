@@ -55,11 +55,19 @@ export type EnvironmentChipProps = {
     numberEnvsDeployed?: number;
     numberEnvsInGroup?: number;
     smallEnvChip?: boolean;
+    useEnvColor?: boolean;
 };
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const { className, env, envGroup, smallEnvChip, app } = props;
-    const priorityClassName = getPriorityClassName(envGroup);
+
+    let fullClassName;
+    if (props.useEnvColor || props.useEnvColor === undefined) {
+        fullClassName = classNames('mdc-evolution-chip', className, getPriorityClassName(envGroup));
+    } else {
+        fullClassName = classNames('mdc-evolution-chip-release-dialog', className);
+    }
+
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
 
     const namespace = useArgoCDNamespace();
@@ -89,7 +97,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
         )
     );
     return (
-        <div className={classNames('mdc-evolution-chip', className, priorityClassName)} role="row">
+        <div className={fullClassName} role="row">
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
