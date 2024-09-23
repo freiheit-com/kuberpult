@@ -360,7 +360,7 @@ export const EnvironmentList: React.FC<{
     return (
         <div className="release-env-group-list">
             {allEnvGroups.map((envGroup) => (
-                <EnvironmentGroupLane envGroup={envGroup} app={app} release={release} team={team} />
+                <EnvironmentGroupLane environmentGroup={envGroup} app={app} release={release} team={team} />
             ))}
         </div>
     );
@@ -437,14 +437,14 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
 };
 
 export const EnvironmentGroupLane: React.FC<{
-    envGroup: EnvironmentGroup;
+    environmentGroup: EnvironmentGroup;
     release: Release;
     app: string;
     team: string;
 }> = (props) => {
-    const { envGroup, release, app, team } = props;
+    const { environmentGroup, release, app, team } = props;
     // all envs in the same group have the same priority
-    const priorityClassName = getPriorityClassName(envGroup);
+    const priorityClassName = getPriorityClassName(environmentGroup);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
     const [allowDeployment, setAllowDeployment] = React.useState(true);
     const collapse = useCallback(() => {
@@ -452,11 +452,11 @@ export const EnvironmentGroupLane: React.FC<{
     }, [isCollapsed]);
 
     const allReleases = useCurrentlyDeployedAtGroup(app, release.version).filter(
-        (releaseEnvGroup) => releaseEnvGroup.environmentGroupName === envGroup.environmentGroupName
+        (releaseEnvGroup) => releaseEnvGroup.environmentGroupName === environmentGroup.environmentGroupName
     );
 
     const createEnvGroupLock = React.useCallback(() => {
-        envGroup.environments.forEach((environment) => {
+        environmentGroup.environments.forEach((environment) => {
             addAction({
                 action: {
                     $case: 'createEnvironmentApplicationLock',
@@ -470,9 +470,9 @@ export const EnvironmentGroupLane: React.FC<{
                 },
             });
         });
-    }, [envGroup, app]);
+    }, [environmentGroup, app]);
     const deployAndLockClick = React.useCallback(() => {
-        envGroup.environments.forEach((environment) => {
+        environmentGroup.environments.forEach((environment) => {
             if (
                 allReleases &&
                 allReleases.length !== 0 &&
@@ -505,7 +505,7 @@ export const EnvironmentGroupLane: React.FC<{
                 },
             });
         });
-    }, [release.version, app, envGroup, allReleases]);
+    }, [release.version, app, environmentGroup, allReleases]);
 
     React.useEffect(() => {
         if (allReleases === undefined) {
@@ -516,16 +516,18 @@ export const EnvironmentGroupLane: React.FC<{
         if (allReleases.length === 0) {
             setAllowDeployment(true);
         } else {
-            setAllowDeployment(JSON.stringify(allReleases[0].environments) !== JSON.stringify(envGroup.environments));
+            setAllowDeployment(
+                JSON.stringify(allReleases[0].environments) !== JSON.stringify(environmentGroup.environments)
+            );
         }
-    }, [allReleases, envGroup]);
+    }, [allReleases, environmentGroup]);
 
     return (
         <div className="release-dialog-environment-group-lane">
             <div className={'release-dialog-environment-group-lane__header-wrapper'}>
                 <div className={classNames('release-dialog-environment-group-lane__header', priorityClassName)}>
                     <div className="environment-group__name" title={'Name of the environment group'}>
-                        {envGroup.environmentGroupName}
+                        {environmentGroup.environmentGroupName}
                     </div>
                     {isCollapsed ? (
                         <div className={'collapse-dropdown-arrow-container'}>
@@ -561,11 +563,11 @@ export const EnvironmentGroupLane: React.FC<{
                 <div className={'release-dialog-environment-group-lane__body__collapsed'}></div>
             ) : (
                 <div className="release-dialog-environment-group-lane__body">
-                    {envGroup.environments.map((env) => (
+                    {environmentGroup.environments.map((env) => (
                         <EnvironmentListItem
                             key={env.name}
                             env={env}
-                            envGroup={envGroup}
+                            envGroup={environmentGroup}
                             app={app}
                             release={release}
                             team={team}
