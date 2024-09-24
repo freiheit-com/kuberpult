@@ -920,10 +920,12 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 export const useRelease = (application: string, version: number): Release | undefined =>
     useOverview(({ applications }) => applications[application]?.releases?.find((r) => r.version === version));
 
-export const useReleaseOrThrow = (application: string, version: number): Release => {
+export const useReleaseOrLog = (application: string, version: number): Release | undefined => {
     const release = useRelease(application, version);
     if (!release) {
-        throw new Error('Release cannot be found for app ' + application + ' version ' + version);
+        // eslint-disable-next-line no-console
+        console.error('Release cannot be found for app ' + application + ' version ' + version);
+        return undefined;
     }
     return release;
 };
