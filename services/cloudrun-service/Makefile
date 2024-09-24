@@ -20,7 +20,7 @@ MAKEFLAGS += --no-builtin-rules
 
 export CGO_ENABLED=0
 
-IMAGE_REGISTRY?=ghcr.io/freiheit-com/kuberpult
+IMAGE_REGISTRY?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 PKG_GO_FILES := $(shell find ../../pkg/ -type f -name '*.go')
@@ -45,11 +45,11 @@ build: bin/main
 
 build-pr:
 	echo "build on pull request"
-	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=pr-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 build-main:
 	echo "build on main"
-	$(EARTHLY) --push +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --push +build-main --registry=$(IMAGE_REGISTRY) --tag=main-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 .PHONY: cleanup-pr
 cleanup-pr:

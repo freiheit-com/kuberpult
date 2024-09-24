@@ -85,7 +85,7 @@ all-services:
 	earthly +all-services --tag=$(VERSION)
 
 integration-test:
-	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)
+	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT) --charts_version=$(VERSION)
 
 pull-service-image/%:
 	docker pull $(DOCKER_REGISTRY_URI)/$*:$(VERSION)
