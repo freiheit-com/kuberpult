@@ -779,6 +779,7 @@ func (c *CreateApplicationVersion) Transform(
 				Author:                c.SourceAuthor,
 				CiLink:                c.CiLink,
 				TransformerEslVersion: c.TransformerEslVersion,
+				SkipOverview:          false,
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
@@ -1382,6 +1383,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				Author:                "",
 				TransformerEslVersion: c.TransformerEslVersion,
 				CiLink:                "",
+				SkipOverview:          false,
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
@@ -2917,9 +2919,10 @@ func (c *DeployApplicationVersion) Transform(
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
-					Environment: c.Environment,
-					Application: c.Application,
-					Version:     c.Version,
+					Environment:  c.Environment,
+					Application:  c.Application,
+					Version:      c.Version,
+					SkipOverview: c.SkipOverview,
 				}
 				return q.Transform(ctx, state, t, transaction)
 			case api.LockBehavior_FAIL:
