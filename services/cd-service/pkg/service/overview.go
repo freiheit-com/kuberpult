@@ -200,45 +200,6 @@ func (o *OverviewServiceServer) getOverview(
 	return &result, nil
 }
 
-//
-//func UpdateTopLevelApp(ctx context.Context, s *repository.State, transaction *sql.Tx, appName string, result *api.GetOverviewResponse) error {
-//	app := api.Application{
-//		UndeploySummary: 0,
-//		Warnings:        nil,
-//		Name:            appName,
-//		Releases:        []*api.Release{},
-//		SourceRepoUrl:   "",
-//		Team:            "",
-//	}
-//	if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
-//		return err
-//	} else {
-//		for _, id := range rels {
-//			if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
-//				return err
-//			} else {
-//				if rel == nil {
-//					// ignore
-//				} else {
-//					release := rel.ToProto()
-//					release.Version = id
-//					release.UndeployVersion = rel.UndeployVersion
-//					app.Releases = append(app.Releases, release)
-//				}
-//			}
-//		}
-//	}
-//	if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
-//		return err
-//	} else {
-//		app.Team = team
-//	}
-//	app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
-//	app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
-//	result.Applications[appName] = &app
-//	return nil
-//}
-
 func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
 	for _, currentGroup := range groups {
 		if currentGroup.EnvironmentGroupName == groupNameToReturn {
