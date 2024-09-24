@@ -1921,7 +1921,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 }
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
-func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslVersion) error {
+func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslVersion, skipOverview bool) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeployment")
 	defer span.Finish()
 	if h == nil {
@@ -1959,9 +1959,11 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewDeployment(ctx, tx, deployment, *now)
-	if err != nil {
-		return fmt.Errorf("could not update overview table. Error: %w\n", err)
+	if !skipOverview {
+		err = h.UpdateOverviewDeployment(ctx, tx, deployment, *now)
+		if err != nil {
+			return fmt.Errorf("could not update overview table. Error: %w\n", err)
+		}
 	}
 	return nil
 }
@@ -4237,7 +4239,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64) error {
+func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64, skipOverview bool) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -4253,10 +4255,10 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 		Env:        envName,
 		App:        appName,
 		Version:    version,
-	})
+	}, skipOverview)
 }
 
-func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string) error {
+func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, skipOverview bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -4272,10 +4274,10 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		Env:        envName,
 		App:        appName,
 		Version:    nil,
-	})
+	}, skipOverview)
 }
 
-func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment) error {
+func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment, skipOverview bool) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
 	defer span.Finish()
 
@@ -4317,9 +4319,11 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	if err != nil {
 		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewDeploymentAttempt(ctx, tx, deployment)
-	if err != nil {
-		return fmt.Errorf("could not update overview table in DB. Error: %w\n", err)
+	if !skipOverview {
+		err = h.UpdateOverviewDeploymentAttempt(ctx, tx, deployment)
+		if err != nil {
+			return fmt.Errorf("could not update overview table in DB. Error: %w\n", err)
+		}
 	}
 	return nil
 }

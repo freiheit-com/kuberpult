@@ -845,7 +845,7 @@ func TestReleaseTrain(t *testing.T) {
 					Env:           "production",
 					Version:       &v,
 					TransformerID: 5,
-				}, 10)
+				}, 10, false)
 				if err != nil {
 					return err
 				}

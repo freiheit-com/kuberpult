@@ -1505,7 +1505,7 @@ func (u *UndeployApplication) Transform(
 				deployment.Version = nil
 				deployment.Metadata.DeployedByName = user.Name
 				deployment.Metadata.DeployedByEmail = user.Email
-				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion)
+				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion, false)
 				if err != nil {
 					return "", err
 				}
@@ -2721,9 +2721,10 @@ func (c *CreateEnvironment) Transform(
 }
 
 type QueueApplicationVersion struct {
-	Environment string
-	Application string
-	Version     uint64
+	Environment  string
+	Application  string
+	Version      uint64
+	SkipOverview bool
 }
 
 func (c *QueueApplicationVersion) Transform(
@@ -2733,8 +2734,8 @@ func (c *QueueApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	if state.DBHandler.ShouldUseOtherTables() {
-		version := (int64(c.Version))
-		err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, c.Environment, c.Application, &version)
+		version := int64(c.Version)
+		err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, c.Environment, c.Application, &version, c.SkipOverview)
 		if err != nil {
 			return "", err
 		}
@@ -2768,6 +2769,7 @@ type DeployApplicationVersion struct {
 	Author                string                          `json:"author"`
 	CiLink                string                          `json:"cilink"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	SkipOverview          bool                            `json:"-"`
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
@@ -2961,7 +2963,7 @@ func (c *DeployApplicationVersion) Transform(
 		} else {
 			previousVersion = existingDeployment.EslVersion
 		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion, c.SkipOverview)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
@@ -3033,7 +3035,7 @@ func (c *DeployApplicationVersion) Transform(
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 		CloudRunClient:       state.CloudRunClient,
 	}
-	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application)
+	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application, c.SkipOverview)
 	if err != nil {
 		return "", err
 	}
@@ -4003,6 +4005,7 @@ func (c *envReleaseTrain) Transform(
 			Author:                "",
 			TransformerEslVersion: c.TransformerEslVersion,
 			CiLink:                c.CiLink,
+			SkipOverview:          true,
 		}
 		if err := t.Execute(d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
@@ -4023,7 +4026,10 @@ func (c *envReleaseTrain) Transform(
 		if checker.SkipCause != nil {
 			deployedApps += 1
 		}
-
+	}
+	err := state.DBHandler.ForceOverviewRecalculation(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("could not force overview recalculation: %w", err)
 	}
 	return fmt.Sprintf("Release Train to '%s' environment:\n\n"+
 		"The release train deployed %d services from '%s' to '%s'%s",
