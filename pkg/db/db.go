@@ -1797,7 +1797,8 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	if err != nil {
 		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
 	}
-	err = h.ForceOverviewRecalculation(ctx, transaction)
+	//app, err := service.UpdateTopLevelApp(ctx, state, transaction, appName, nil /* TODO SU */)
+	//service.UpdateOneAppEnv(ctx, state, transaction, appName, envName)
 	if err != nil {
 		return fmt.Errorf("could not update overview table. Error: %w\n", err)
 	}
