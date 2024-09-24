@@ -2262,7 +2262,7 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 			}
 			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr, true)
 			if err != nil {
-				var deref = int64(0)
+				var deref int64
 				if versionIntPtr == nil {
 					deref = 0
 				} else {
@@ -2521,7 +2521,7 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 func (s *State) UpdateOneAppEnv(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig) (*api.Environment_Application, error) {
 	var envConfig = configParam
 	if envConfig == nil {
-		var err error = nil
+		var err error
 		envConfig, err = s.GetEnvironmentConfig(ctx, transaction, envName)
 		if err != nil {
 			return nil, fmt.Errorf("could not get environment to update app %s in env %s: %w", appName, envName, err)
