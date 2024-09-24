@@ -516,6 +516,7 @@ export const EnvironmentGroupLane: React.FC<{
     );
 
     React.useEffect(() => {
+        //If current release is deployed on all envs of env group, we disable the groupDeploy button
         if (allReleases === undefined) {
             setAllowGroupDeployment(true);
             return;
