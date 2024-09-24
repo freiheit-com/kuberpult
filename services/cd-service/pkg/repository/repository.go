@@ -2386,7 +2386,8 @@ func (s *State) UpdateTopLevelApp(ctx context.Context, transaction *sql.Tx, appN
 		Team:            "",
 	}
 	if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
-		return err
+		logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
+		// continue, apps are not required to have releases
 	} else {
 		for _, id := range rels {
 			if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
