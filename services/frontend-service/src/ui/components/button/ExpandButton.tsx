@@ -23,89 +23,15 @@ import { PlainDialog } from '../dialog/ConfirmationDialog';
  * Inspired by GitHubs merge button.
  * Displays one normal button on the left, and one arrow on the right to select a different option.
  */
+
 export type ExpandButtonProps = {
-    onClickSubmit: (shouldLockToo: boolean) => void;
-    defaultButtonLabel: string;
-    disabled: boolean;
-};
-
-export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
-    const { onClickSubmit } = props;
-
-    const [expanded, setExpanded] = useState(false);
-
-    const onClickExpand = useCallback(() => {
-        setExpanded(!expanded);
-    }, [setExpanded, expanded]);
-
-    const onClickClose = useCallback(() => {
-        setExpanded(false);
-    }, [setExpanded]);
-
-    const onClickSubmitMain = useCallback(() => {
-        onClickSubmit(true);
-    }, [onClickSubmit]);
-
-    const onClickSubmitAlternative = useCallback(() => {
-        onClickSubmit(false);
-    }, [onClickSubmit]);
-
-    return (
-        <div className={'expand-button'}>
-            <div className={'first-two'}>
-                {/* the main button: */}
-                <Button
-                    onClick={onClickSubmitMain}
-                    disabled={props.disabled}
-                    className={'button-main env-card-deploy-btn mdc-button--unelevated'}
-                    key={'button-first-key'}
-                    label={props.defaultButtonLabel}
-                    highlightEffect={false}
-                />
-                {/* the button to expand the dialog: */}
-                <Button
-                    onClick={onClickExpand}
-                    disabled={props.disabled}
-                    className={'button-expand'}
-                    key={'button-second-key'}
-                    label={''}
-                    icon={<div className={'dropdown-arrow'}>⌄</div>}
-                    highlightEffect={false}
-                />
-            </div>
-            {expanded && (
-                <PlainDialog
-                    open={expanded}
-                    onClose={onClickClose}
-                    classNames={'expand-dialog'}
-                    disableBackground={false}
-                    center={false}>
-                    <>
-                        <div>
-                            <Button
-                                onClick={onClickSubmitAlternative}
-                                className={'button-popup env-card-deploy-btn mdc-button--unelevated'}
-                                key={'button-second-key'}
-                                label={'Deploy only'}
-                                icon={undefined}
-                                highlightEffect={true}
-                            />
-                        </div>
-                    </>
-                </PlainDialog>
-            )}
-        </div>
-    );
-};
-
-export type EnvGroupExpandButtonProps = {
     onClickSubmit: (shouldLockToo: boolean) => void;
     onClickLock: () => void;
     defaultButtonLabel: string;
     disabled: boolean;
 };
 
-export const EnvGroupExpandButton = (props: EnvGroupExpandButtonProps): JSX.Element => {
+export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
     const { onClickSubmit, onClickLock } = props;
 
     const [expanded, setExpanded] = useState(false);
@@ -164,7 +90,7 @@ export const EnvGroupExpandButton = (props: EnvGroupExpandButtonProps): JSX.Elem
                         <div>
                             <Button
                                 onClick={onClickSubmitAlternative}
-                                className={'button-popup env-card-deploy-btn mdc-button--unelevated'}
+                                className={'button-popup-deploy env-card-deploy-btn mdc-button--unelevated'}
                                 key={'button-second-key'}
                                 label={'Deploy only'}
                                 icon={undefined}
@@ -174,8 +100,8 @@ export const EnvGroupExpandButton = (props: EnvGroupExpandButtonProps): JSX.Elem
                         <div>
                             <Button
                                 onClick={onClickSubmitLockOnly}
-                                className={'button-popup env-card-deploy-btn mdc-button--unelevated'}
-                                key={'button-second-key'}
+                                className={'button-popup-lock env-card-lock-btn mdc-button--unelevated'}
+                                key={'button-third-key'}
                                 label={'Lock only'}
                                 icon={undefined}
                                 highlightEffect={true}

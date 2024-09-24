@@ -41,7 +41,7 @@ import {
 } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
-import { EnvGroupExpandButton, ExpandButton } from '../button/ExpandButton';
+import { ExpandButton } from '../button/ExpandButton';
 import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 
 export type ReleaseDialogProps = {
@@ -326,19 +326,13 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">
-                        <Button
-                            className="env-card-add-lock-btn"
-                            label="Add lock"
-                            onClick={createAppLock}
-                            icon={<Locks className="icon" />}
-                            highlightEffect={true}
-                        />
                         <div
                             title={
                                 'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
                             }>
                             <ExpandButton
                                 onClickSubmit={deployAndLockClick}
+                                onClickLock={createAppLock}
                                 defaultButtonLabel={'Deploy & Lock'}
                                 disabled={!allowDeployment}
                             />
@@ -550,7 +544,7 @@ export const EnvironmentGroupLane: React.FC<{
                         title={
                             'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
                         }>
-                        <EnvGroupExpandButton
+                        <ExpandButton
                             onClickSubmit={deployAndLockClick}
                             onClickLock={createEnvGroupLock}
                             defaultButtonLabel={'Deploy & Lock'}
