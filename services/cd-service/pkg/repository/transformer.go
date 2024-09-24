@@ -504,7 +504,8 @@ func (c *CreateApplicationVersion) Transform(
 				}
 				ver = app.EslVersion + 1
 			}
-			err = state.DBHandler.DBInsertApplication(
+
+			err = state.DBHandler.InsertAppFun(
 				ctx,
 				transaction,
 				c.Application,
@@ -512,6 +513,15 @@ func (c *CreateApplicationVersion) Transform(
 				db.AppStateChangeCreate,
 				db.DBAppMetaData{Team: c.Team},
 			)
+
+			//err = state.DBHandler.DBInsertApplication(
+			//	ctx,
+			//	transaction,
+			//	c.Application,
+			//	ver,
+			//	db.AppStateChangeCreate,
+			//	db.DBAppMetaData{Team: c.Team},
+			//)
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app: %v", err))
 			}
@@ -527,7 +537,7 @@ func (c *CreateApplicationVersion) Transform(
 			newMeta := db.DBAppMetaData{Team: c.Team}
 			// only update the app, if something really changed:
 			if !cmp.Equal(newMeta, existingApp.Metadata) {
-				err = state.DBHandler.DBInsertApplication(
+				err = state.DBHandler.InsertAppFun(
 					ctx,
 					transaction,
 					c.Application,
@@ -535,6 +545,14 @@ func (c *CreateApplicationVersion) Transform(
 					db.AppStateChangeUpdate,
 					newMeta,
 				)
+				//err = state.DBHandler.DBInsertApplication(
+				//	ctx,
+				//	transaction,
+				//	c.Application,
+				//	existingApp.EslVersion,
+				//	db.AppStateChangeUpdate,
+				//	newMeta,
+				//)
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update app: %v", err))
 				}
@@ -1573,7 +1591,8 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 		}
-		err = state.DBHandler.DBInsertApplication(ctx, transaction, dbApp.App, dbApp.EslVersion, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
+		err = state.DBHandler.InsertAppFun(ctx, transaction, dbApp.App, dbApp.EslVersion, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
+		//err = state.DBHandler.DBInsertApplication(ctx, transaction, dbApp.App, dbApp.EslVersion, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 		}

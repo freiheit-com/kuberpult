@@ -61,6 +61,9 @@ type DBConfig struct {
 	MaxOpenConnections uint
 }
 
+// GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
+type InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error
+
 type DBHandler struct {
 	DbName         string
 	DriverName     string
@@ -75,6 +78,8 @@ type DBHandler struct {
 		3) DBHandler!=nil && WriteEslOnly==false: write everything to the database.
 	*/
 	WriteEslOnly bool
+
+	InsertAppFun InsertAppFun
 }
 
 type EslVersion int64
@@ -116,6 +121,7 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 		DB:             db,
 		DBDriver:       &driver,
 		WriteEslOnly:   cfg.WriteEslOnly,
+		InsertAppFun:   nil,
 	}, nil
 }
 
@@ -1796,11 +1802,6 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	)
 	if err != nil {
 		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
-	}
-	//app, err := service.UpdateTopLevelApp(ctx, state, transaction, appName, nil /* TODO SU */)
-	//service.UpdateOneAppEnv(ctx, state, transaction, appName, envName)
-	if err != nil {
-		return fmt.Errorf("could not update overview table. Error: %w\n", err)
 	}
 	return nil
 }
