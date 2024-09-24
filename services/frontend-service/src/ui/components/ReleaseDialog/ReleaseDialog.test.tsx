@@ -14,13 +14,11 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
-import { act, fireEvent, render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { UpdateAction, UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
 import { Environment, EnvironmentGroup, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
-import { SideBar } from '../SideBar/SideBar';
 import { MemoryRouter } from 'react-router-dom';
-import { elementQuerySelectorSafe } from '../../../setupTests';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 
