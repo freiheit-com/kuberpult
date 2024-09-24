@@ -49,7 +49,7 @@ release:
 
 build-pr:
     ARG --required tag
-    ARG registry="ghcr.io/freiheit-com/kuberpult"
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ARG mirror="false"
     ARG mirror_registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
 
@@ -57,7 +57,7 @@ build-pr:
 
 build-main:
     ARG --required tag
-    ARG registry="ghcr.io/freiheit-com/kuberpult"
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ARG mirror="false"
     ARG mirror_registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
 

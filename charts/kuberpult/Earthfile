@@ -45,7 +45,7 @@ chart.yaml:
 
     COPY Chart.yaml.tpl .
 
-    RUN env VERSION=$VERSION envsubst < Chart.yaml.tpl > Chart.yaml
+    RUN env VERSION=$VERSION CHARTS_VERSION=$VERSION envsubst < Chart.yaml.tpl > Chart.yaml
 
     SAVE ARTIFACT Chart.yaml AS LOCAL Chart.yaml
 
