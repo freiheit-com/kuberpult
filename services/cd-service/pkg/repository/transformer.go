@@ -505,6 +505,7 @@ func (c *CreateApplicationVersion) Transform(
 				ver = app.EslVersion + 1
 			}
 
+			// TODO SU FILL insertAppFun in TESTS
 			err = state.DBHandler.InsertAppFun(
 				ctx,
 				transaction,

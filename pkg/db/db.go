@@ -114,15 +114,19 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DBHandler{
+	var handler = &DBHandler{
 		DbName:         cfg.DbName,
 		DriverName:     cfg.DriverName,
 		MigrationsPath: cfg.MigrationsPath,
 		DB:             db,
 		DBDriver:       &driver,
 		WriteEslOnly:   cfg.WriteEslOnly,
-		InsertAppFun:   nil,
-	}, nil
+	}
+	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
+		// by default, we just insert the app
+		return handler.DBInsertApplication(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+	}
+	return handler, nil
 }
 
 func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
