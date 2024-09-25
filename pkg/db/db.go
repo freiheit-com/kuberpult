@@ -2728,6 +2728,8 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 		return fmt.Errorf("DBWriteEnvironmentLockInternal unable to get transaction timestamp: %w", err)
 	}
 
+	envLock.Created = *now
+	
 	jsonToInsert, err := json.Marshal(envLock.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -3417,6 +3419,8 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 		return fmt.Errorf("DBWriteApplicationLockInternal unable to get transaction timestamp: %w", err)
 	}
 
+	appLock.Created = *now
+
 	jsonToInsert, err := json.Marshal(appLock.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -3722,6 +3726,8 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 	if err != nil {
 		return fmt.Errorf("DBWriteTeamLockInternal unable to get transaction timestamp: %w", err)
 	}
+
+	teamLock.Created = *now
 
 	jsonToInsert, err := json.Marshal(teamLock.Metadata)
 	if err != nil {
