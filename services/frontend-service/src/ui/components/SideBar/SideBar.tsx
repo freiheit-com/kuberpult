@@ -30,7 +30,6 @@ import {
     useLocksSimilarTo,
     useRelease,
     useLocksConflictingWithActions,
-    useReleaseDifference,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -192,11 +191,12 @@ export const getActionDetails = (
                 name: 'Deploy',
                 dialogTitle: 'Please be aware:',
                 summary: ((): string => {
-                    const releaseDiff = useReleaseDifference(
-                        action.deploy.version,
-                        action.deploy.application,
-                        action.deploy.environment
-                    );
+                    // const releaseDiff = useReleaseDifference(
+                    //     action.deploy.version,
+                    //     action.deploy.application,
+                    //     action.deploy.environment
+                    // );
+                    const releaseDiff = 0;
                     if (releaseDiff < 0) {
                         return (
                             'Rolling back by ' +
