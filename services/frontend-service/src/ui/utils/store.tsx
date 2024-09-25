@@ -348,9 +348,8 @@ export const addAction = (action: BatchAction): void => {
                         act.action?.$case === 'releaseTrain'
                     // version, lockBehavior and ignoreAllLocks are ignored
                 )
-            ) {
+            )
                 isDuplicate = true;
-            }
 
             break;
         case 'undeploy':
