@@ -867,7 +867,7 @@ func TestReadWriteDeployment(t *testing.T) {
 					Env:           tc.Env,
 					Version:       tc.VersionToDeploy,
 					TransformerID: 0,
-				}, 1)
+				}, 1, false)
 				if err != nil {
 					return err
 				}
@@ -1445,7 +1445,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
 					if err != nil {
 						return err
 					}
@@ -1507,12 +1507,12 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version)
+				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version, false)
 				if err != nil {
 					return err
 				}
 
-				err = dbHandler.DBDeleteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName)
+				err = dbHandler.DBDeleteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, false)
 				if err != nil {
 					return err
 				}
