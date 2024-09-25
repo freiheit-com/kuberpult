@@ -1680,19 +1680,19 @@ func (s *State) GetQueuedVersionFromManifest(environment string, application str
 	return s.readSymlink(environment, application, queueFileName)
 }
 
-func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
-	return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application)
+func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string, skipOverview bool) error {
+	return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application, skipOverview)
 }
 
-func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
+func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string, skipOverview bool) error {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.DeleteQueuedVersionFromDB(ctx, transaction, environment, application)
+		return s.DeleteQueuedVersionFromDB(ctx, transaction, environment, application, skipOverview)
 	}
 	queuedVersion := s.Filesystem.Join("environments", environment, "applications", application, queueFileName)
 	return s.Filesystem.Remove(queuedVersion)
 }
 
-func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
+func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment string, application string, skipOverview bool) error {
 	queuedVersion, err := s.GetQueuedVersion(ctx, transaction, environment, application)
 	if err != nil {
 		return err
@@ -1700,7 +1700,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 	if queuedVersion == nil {
 		return nil // nothing to do
 	}
-	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
+	return s.DeleteQueuedVersion(ctx, transaction, environment, application, skipOverview)
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
@@ -2077,7 +2077,7 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 					CiLink:          "",
 				},
 			}
-			err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0)
+			err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0, true)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %w", deployment.App, deployment.Env, err)
 			}
@@ -2260,10 +2260,16 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 			} else {
 				versionIntPtr = nil
 			}
-			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr)
+			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr, true)
 			if err != nil {
+				var deref int64
+				if versionIntPtr == nil {
+					deref = 0
+				} else {
+					deref = *versionIntPtr
+				}
 				return fmt.Errorf("error writing existing queued application version '%d' to DB for app '%s' on environment '%s': %w",
-					*versionIntPtr, currentApp, envName, err)
+					deref, currentApp, envName, err)
 			}
 		}
 	}
@@ -2328,6 +2334,322 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 		}
 	}
 	return nil
+}
+
+func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
+	h := s.DBHandler
+	err := h.DBInsertApplication(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+	if err != nil {
+		return err
+	}
+
+	cache, err := h.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if cache == nil {
+		logger.FromContext(ctx).Sugar().Warnf("overview was nil, will skip update for app %s", appName)
+		return nil
+	}
+
+	shouldDelete := stateChange == db.AppStateChangeDelete
+	err = s.UpdateTopLevelAppInOverview(ctx, transaction, appName, cache, shouldDelete)
+	if err != nil {
+		return err
+	}
+
+	for envGroupIndex := range cache.EnvironmentGroups {
+		envGroup := cache.EnvironmentGroups[envGroupIndex]
+
+		for i := range envGroup.Environments {
+			env := envGroup.Environments[i]
+
+			if shouldDelete {
+				delete(env.Applications, appName)
+			} else {
+				envApp, err := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, env.Name, nil)
+				if err != nil {
+					return err
+				}
+
+				if env.Applications == nil {
+					env.Applications = map[string]*api.Environment_Application{}
+				}
+				env.Applications[appName] = envApp
+			}
+		}
+	}
+
+	err = h.WriteOverviewCache(ctx, transaction, cache)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool) error {
+	if deleteApp {
+		delete(result.Applications, appName)
+		return nil
+	}
+	app := api.Application{
+		UndeploySummary: 0,
+		Warnings:        nil,
+		Name:            appName,
+		Releases:        []*api.Release{},
+		SourceRepoUrl:   "",
+		Team:            "",
+	}
+	if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
+		// continue, apps are not required to have releases
+	} else {
+		for _, id := range rels {
+			if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
+				return err
+			} else {
+				if rel == nil {
+					// ignore
+				} else {
+					release := rel.ToProto()
+					release.Version = id
+					release.UndeployVersion = rel.UndeployVersion
+					app.Releases = append(app.Releases, release)
+				}
+			}
+		}
+	}
+	if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
+		return err
+	} else {
+		app.Team = team
+	}
+	if result == nil {
+		return nil
+	}
+	app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
+	app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
+	if result.Applications == nil {
+		result.Applications = map[string]*api.Application{}
+	}
+	result.Applications[appName] = &app
+	return nil
+}
+
+func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {
+	for _, currentGroup := range groups {
+		for _, currentEnv := range currentGroup.Environments {
+			if currentEnv.Name == envNameToReturn {
+				return currentEnv
+			}
+		}
+	}
+	return nil
+}
+
+/*
+CalculateWarnings returns warnings for the User to be displayed in the UI.
+For really unusual configurations, these will be logged and not returned.
+*/
+func CalculateWarnings(_ context.Context, appName string, groups []*api.EnvironmentGroup) []*api.Warning {
+	result := make([]*api.Warning, 0)
+	for e := 0; e < len(groups); e++ {
+		group := groups[e]
+		for i := 0; i < len(groups[e].Environments); i++ {
+			env := group.Environments[i]
+			if env == nil || env.Config == nil || env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
+				// if the env has no upstream, there's nothing to warn about
+				continue
+			}
+			upstreamEnvName := env.Config.GetUpstream().Environment
+			upstreamEnv := getEnvironmentByName(groups, *upstreamEnvName)
+			if upstreamEnv == nil {
+				// this is already checked on startup and therefore shouldn't happen here
+				continue
+			}
+
+			appInEnv := env.Applications[appName]
+			if appInEnv == nil {
+				// appName is not deployed here, ignore it
+				continue
+			}
+			versionInEnv := appInEnv.Version
+			appInUpstreamEnv := upstreamEnv.Applications[appName]
+			if appInUpstreamEnv == nil {
+				// appName is not deployed upstream... that's unusual!
+				var warning = api.Warning{
+					WarningType: &api.Warning_UpstreamNotDeployed{
+						UpstreamNotDeployed: &api.UpstreamNotDeployed{
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+				continue
+			}
+			versionInUpstreamEnv := appInUpstreamEnv.Version
+
+			if versionInEnv > versionInUpstreamEnv && len(appInEnv.Locks) == 0 {
+				var warning = api.Warning{
+					WarningType: &api.Warning_UnusualDeploymentOrder{
+						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+							UpstreamVersion:     versionInUpstreamEnv,
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+			}
+		}
+	}
+	return result
+}
+
+func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
+	var allNormal = true
+	var allUndeploy = true
+	for _, group := range groups {
+		for _, environment := range group.Environments {
+			var app, exists = environment.Applications[appName]
+			if !exists {
+				continue
+			}
+			if app.Version == 0 {
+				// if the app exists but nothing is deployed, we ignore this
+				continue
+			}
+			if app.UndeployVersion {
+				allNormal = false
+			} else {
+				allUndeploy = false
+			}
+		}
+	}
+	if allUndeploy {
+		return api.UndeploySummary_UNDEPLOY
+	}
+	if allNormal {
+		return api.UndeploySummary_NORMAL
+	}
+	return api.UndeploySummary_MIXED
+
+}
+
+func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig) (*api.Environment_Application, error) {
+	var envConfig = configParam
+	if envConfig == nil {
+		var err error
+		envConfig, err = s.GetEnvironmentConfig(ctx, transaction, envName)
+		if err != nil {
+			return nil, fmt.Errorf("could not get environment to update app %s in env %s: %w", appName, envName, err)
+		}
+	}
+
+	app := api.Environment_Application{
+		Version:         0,
+		QueuedVersion:   0,
+		UndeployVersion: false,
+		ArgoCd:          nil,
+		Name:            appName,
+		Locks:           map[string]*api.Lock{},
+		TeamLocks:       map[string]*api.Lock{},
+		Team:            "",
+		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+			DeployAuthor: "",
+			DeployTime:   "",
+		},
+	}
+	teamName, err := s.GetTeamName(ctx, transaction, appName)
+	if err == nil {
+		app.Team = teamName
+		if teamLocks, teamErr := s.GetEnvironmentTeamLocks(ctx, transaction, envName, teamName); teamErr != nil {
+			return nil, teamErr
+		} else {
+			for lockId, lock := range teamLocks {
+				app.TeamLocks[lockId] = &api.Lock{
+					Message:   lock.Message,
+					LockId:    lockId,
+					CreatedAt: timestamppb.New(lock.CreatedAt),
+					CreatedBy: &api.Actor{
+						Name:  lock.CreatedBy.Name,
+						Email: lock.CreatedBy.Email,
+					},
+				}
+			}
+		}
+	} // Err != nil means no team name was found so no need to parse team locks
+
+	var version *uint64
+	version, err = s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	} else {
+
+		if version == nil {
+			app.Version = 0
+		} else {
+			app.Version = *version
+		}
+	}
+
+	if queuedVersion, err := s.GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	} else {
+		if queuedVersion == nil {
+			app.QueuedVersion = 0
+		} else {
+			app.QueuedVersion = *queuedVersion
+		}
+	}
+	app.UndeployVersion = false
+	if version != nil {
+		if release, err := s.GetApplicationRelease(ctx, transaction, appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		} else if release != nil {
+			app.UndeployVersion = release.UndeployVersion
+		}
+	}
+
+	if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
+		return nil, err
+	} else {
+		for lockId, lock := range appLocks {
+			app.Locks[lockId] = &api.Lock{
+				Message:   lock.Message,
+				LockId:    lockId,
+				CreatedAt: timestamppb.New(lock.CreatedAt),
+				CreatedBy: &api.Actor{
+					Name:  lock.CreatedBy.Name,
+					Email: lock.CreatedBy.Email,
+				},
+			}
+		}
+	}
+	if envConfig != nil && envConfig.ArgoCd != nil {
+		if syncWindows, err := mapper.TransformSyncWindows(envConfig.ArgoCd.SyncWindows, appName); err != nil {
+			return nil, err
+		} else {
+			app.ArgoCd = &api.Environment_Application_ArgoCD{
+				SyncWindows: syncWindows,
+			}
+		}
+	}
+	deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, transaction, envName, appName)
+	if err != nil {
+		return nil, err
+	}
+	app.DeploymentMetaData.DeployAuthor = deployAuthor
+	if deployTime.IsZero() {
+		app.DeploymentMetaData.DeployTime = ""
+	} else {
+		app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
+	}
+	return &app, nil
 }
 
 func (s *State) GetAppsAndTeams() (map[string]string, error) {
@@ -2835,7 +3157,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
 			// delete queue, it's outdated! But if we can't, that's not really a problem, as it would be overwritten
 			// whenever the next deployment happens:
-			err = s.DeleteQueuedVersion(ctx, transaction, environment, application)
+			err = s.DeleteQueuedVersion(ctx, transaction, environment, application, false)
 			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
 		}
 	}
