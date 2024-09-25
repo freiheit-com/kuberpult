@@ -4070,6 +4070,9 @@ func (c *envReleaseTrain) Transform(
 }
 
 func getEnvOfOverview(overview *api.GetOverviewResponse, envName string) *api.Environment {
+	if overview == nil || overview.EnvironmentGroups == nil {
+		return nil
+	}
 	for i := range overview.EnvironmentGroups {
 		envGroup := overview.EnvironmentGroups[i]
 
