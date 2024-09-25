@@ -505,7 +505,6 @@ func (c *CreateApplicationVersion) Transform(
 				ver = app.EslVersion + 1
 			}
 
-			// TODO SU FILL insertAppFun in TESTS
 			err = state.DBHandler.InsertAppFun(
 				ctx,
 				transaction,
@@ -529,7 +528,17 @@ func (c *CreateApplicationVersion) Transform(
 			newMeta := db.DBAppMetaData{Team: c.Team}
 			// only update the app, if something really changed:
 			if !cmp.Equal(newMeta, existingApp.Metadata) {
-				err = state.DBHandler.InsertAppFun(
+
+				//// TODO SU FILL insertAppFun in TESTS
+				//err = state.DBHandler.InsertAppFun(
+				//	ctx,
+				//	transaction,
+				//	c.Application,
+				//	existingApp.EslVersion,
+				//	db.AppStateChangeUpdate,
+				//	newMeta,
+				//)
+				err = state.DBHandler.DBInsertApplication(
 					ctx,
 					transaction,
 					c.Application,
@@ -4028,7 +4037,7 @@ func (c *envReleaseTrain) Transform(
 		}
 
 		if envOfOverview != nil {
-			err := state.UpdateTopLevelApp(ctx, transaction, appName, overview)
+			err := state.UpdateTopLevelApp(ctx, transaction, appName, overview, false)
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}

@@ -345,6 +345,8 @@ func RunServer() {
 					logger.FromContext(ctx).Fatal("Could not pull repository to perform custom migrations", zap.Error(err))
 				}
 				logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
+
+				// we overwrite InsertApp in order to also update the overview:
 				dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
 					return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
 				}

@@ -2347,8 +2347,13 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	if err != nil {
 		return err
 	}
+	if cache == nil {
+		logger.FromContext(ctx).Sugar().Warnf("overview was nil, will skip update for app %s", appName)
+		return nil
+	}
 
-	err = s.UpdateTopLevelApp(ctx, transaction, appName, cache)
+	shouldDelete := stateChange == db.AppStateChangeDelete
+	err = s.UpdateTopLevelApp(ctx, transaction, appName, cache, shouldDelete)
 	if err != nil {
 		return err
 	}
@@ -2359,12 +2364,19 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 		for i := range envGroup.Environments {
 			env := envGroup.Environments[i]
 
-			envApp, err := s.UpdateOneAppEnv(ctx, transaction, appName, env.Name, nil)
-			if err != nil {
-				return err
-			}
+			if shouldDelete {
+				delete(env.Applications, appName)
+			} else {
+				envApp, err := s.UpdateOneAppEnv(ctx, transaction, appName, env.Name, nil)
+				if err != nil {
+					return err
+				}
 
-			env.Applications[appName] = envApp
+				if env.Applications == nil {
+					env.Applications = map[string]*api.Environment_Application{}
+				}
+				env.Applications[appName] = envApp
+			}
 		}
 	}
 
@@ -2376,7 +2388,11 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	return nil
 }
 
-func (s *State) UpdateTopLevelApp(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse) error {
+func (s *State) UpdateTopLevelApp(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool) error {
+	if deleteApp {
+		delete(result.Applications, appName)
+		return nil
+	}
 	app := api.Application{
 		UndeploySummary: 0,
 		Warnings:        nil,
@@ -2409,8 +2425,14 @@ func (s *State) UpdateTopLevelApp(ctx context.Context, transaction *sql.Tx, appN
 	} else {
 		app.Team = team
 	}
+	if result == nil {
+		return nil
+	}
 	app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
 	app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
+	if result.Applications == nil {
+		result.Applications = map[string]*api.Application{}
+	}
 	result.Applications[appName] = &app
 	return nil
 }
@@ -2436,7 +2458,7 @@ func CalculateWarnings(_ context.Context, appName string, groups []*api.Environm
 		group := groups[e]
 		for i := 0; i < len(groups[e].Environments); i++ {
 			env := group.Environments[i]
-			if env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
+			if env == nil || env.Config == nil || env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
 				// if the env has no upstream, there's nothing to warn about
 				continue
 			}
@@ -2607,7 +2629,7 @@ func (s *State) UpdateOneAppEnv(ctx context.Context, transaction *sql.Tx, appNam
 			}
 		}
 	}
-	if envConfig.ArgoCd != nil {
+	if envConfig != nil && envConfig.ArgoCd != nil {
 		if syncWindows, err := mapper.TransformSyncWindows(envConfig.ArgoCd.SyncWindows, appName); err != nil {
 			return nil, err
 		} else {

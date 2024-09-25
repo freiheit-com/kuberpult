@@ -61,7 +61,6 @@ type DBConfig struct {
 	MaxOpenConnections uint
 }
 
-// GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error
 
 type DBHandler struct {
@@ -79,6 +78,7 @@ type DBHandler struct {
 	*/
 	WriteEslOnly bool
 
+	// InsertAppFun is intended to be used to add more to inserting an app: specifically to update the overview cache
 	InsertAppFun InsertAppFun
 }
 

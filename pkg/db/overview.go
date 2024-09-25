@@ -250,7 +250,7 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 	}
 	app := getApplicationByName(latestOverview.Applications, release.App)
 	if app == nil {
-		return fmt.Errorf("could not find application %s in overview", release.App)
+		return fmt.Errorf("could not find application '%s' in overview", release.App)
 	}
 	apiRelease := &api.Release{
 		PrNumber:        extractPrNumber(release.Metadata.SourceMessage),
@@ -358,6 +358,15 @@ func getApplicationByName(apps map[string]*api.Application, appNameToReturn stri
 		if app.Name == appNameToReturn {
 			return app
 		}
+	}
+	apps[appNameToReturn] = &api.Application{
+		Name:     appNameToReturn,
+		Releases: nil,
+		// TODO SU
+		SourceRepoUrl:   "",
+		Team:            "",
+		UndeploySummary: 0,
+		Warnings:        nil,
 	}
 	return nil
 }
