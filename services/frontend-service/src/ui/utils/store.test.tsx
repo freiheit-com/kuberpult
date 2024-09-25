@@ -20,6 +20,7 @@ import {
     appendAction,
     DisplayLock,
     FlushRolloutStatus,
+    SnackbarStatus,
     UpdateAction,
     updateActions,
     UpdateOverview,
@@ -756,7 +757,8 @@ describe('Test maxActions', () => {
         it(testcase.name, () => {
             // given
             updateActions([]);
-
+            //and
+            UpdateSnackbar.set({ show: false, status: SnackbarStatus.SUCCESS, content: '' });
             // when
             for (let i = 0; i < testcase.inputActionsLen; i++) {
                 appendAction([
@@ -774,6 +776,7 @@ describe('Test maxActions', () => {
                     },
                 ]);
             }
+
             // then
             expect(UpdateSnackbar.get().show).toStrictEqual(testcase.expectedShowError);
             expect(UpdateAction.get().actions.length).toStrictEqual(testcase.expectedLen);

@@ -259,9 +259,8 @@ export const addAction = (action: BatchAction): void => {
                         act.action.createEnvironmentLock.environment === action.action.createEnvironmentLock.environment
                     // lockId and message are ignored
                 )
-            ) {
+            )
                 isDuplicate = true;
-            }
             break;
         case 'deleteEnvironmentLock':
             if (
@@ -304,10 +303,8 @@ export const addAction = (action: BatchAction): void => {
                         act.action.deleteEnvironmentApplicationLock.application ===
                             action.action.deleteEnvironmentApplicationLock.application
                 )
-            ) {
-                showSnackbarSuccess('yeet');
+            )
                 isDuplicate = true;
-            }
             break;
         case 'createEnvironmentTeamLock':
             if (
@@ -351,8 +348,10 @@ export const addAction = (action: BatchAction): void => {
                         act.action?.$case === 'releaseTrain'
                     // version, lockBehavior and ignoreAllLocks are ignored
                 )
-            )
+            ) {
                 isDuplicate = true;
+            }
+
             break;
         case 'undeploy':
             if (
@@ -382,7 +381,7 @@ export const addAction = (action: BatchAction): void => {
                 showSnackbarError(
                     'Can only have one release train action at a time and can not have deploy actions in parrallel'
                 );
-                isDuplicate = true;
+                return;
             }
 
             break;
