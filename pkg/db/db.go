@@ -121,6 +121,7 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 		DB:             db,
 		DBDriver:       &driver,
 		WriteEslOnly:   cfg.WriteEslOnly,
+		InsertAppFun:   nil,
 	}
 	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
 		// by default, we just insert the app
