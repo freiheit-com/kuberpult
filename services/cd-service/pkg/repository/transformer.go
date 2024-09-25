@@ -3990,11 +3990,16 @@ func (c *envReleaseTrain) Transform(
 	}
 	sort.Strings(appNames)
 
-	overview, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while reading overview cache: %w", c.Env, err))
+	var overview *api.GetOverviewResponse
+	var envOfOverview *api.Environment
+	if state.DBHandler.ShouldUseOtherTables() {
+		var err error
+		overview, err = state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+		if err != nil {
+			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while reading overview cache: %w", c.Env, err))
+		}
+		envOfOverview = getEnvOfOverview(overview, c.Env)
 	}
-	envOfOverview := getEnvOfOverview(overview, c.Env)
 
 	for _, appName := range appNames {
 		appPrognosis := prognosis.AppsPrognoses[appName]
@@ -4022,15 +4027,17 @@ func (c *envReleaseTrain) Transform(
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}
 
-		err = state.UpdateTopLevelApp(ctx, transaction, appName, overview)
-		if err != nil {
-			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
+		if envOfOverview != nil {
+			err := state.UpdateTopLevelApp(ctx, transaction, appName, overview)
+			if err != nil {
+				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
+			}
+			envApp, err := state.UpdateOneAppEnv(ctx, transaction, appName, c.Env, &envConfig)
+			if err != nil {
+				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
+			}
+			envOfOverview.Applications[appName] = envApp
 		}
-		envApp, err := state.UpdateOneAppEnv(ctx, transaction, appName, c.Env, &envConfig)
-		if err != nil {
-			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
-		}
-		envOfOverview.Applications[appName] = envApp
 	}
 	teamInfo := ""
 	if c.Parent.Team != "" {
@@ -4048,9 +4055,12 @@ func (c *envReleaseTrain) Transform(
 			deployedApps += 1
 		}
 	}
-	err = state.DBHandler.WriteOverviewCache(ctx, transaction, overview)
-	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while writing overview cache: %w", c.Env, err))
+
+	if state.DBHandler.ShouldUseOtherTables() {
+		err := state.DBHandler.WriteOverviewCache(ctx, transaction, overview)
+		if err != nil {
+			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while writing overview cache: %w", c.Env, err))
+		}
 	}
 
 	return fmt.Sprintf("Release Train to '%s' environment:\n\n"+
