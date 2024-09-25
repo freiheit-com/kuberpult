@@ -359,15 +359,6 @@ func getApplicationByName(apps map[string]*api.Application, appNameToReturn stri
 			return app
 		}
 	}
-	apps[appNameToReturn] = &api.Application{
-		Name:     appNameToReturn,
-		Releases: nil,
-		// TODO SU
-		SourceRepoUrl:   "",
-		Team:            "",
-		UndeploySummary: 0,
-		Warnings:        nil,
-	}
 	return nil
 }
 

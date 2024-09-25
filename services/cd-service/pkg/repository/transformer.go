@@ -528,16 +528,6 @@ func (c *CreateApplicationVersion) Transform(
 			newMeta := db.DBAppMetaData{Team: c.Team}
 			// only update the app, if something really changed:
 			if !cmp.Equal(newMeta, existingApp.Metadata) {
-
-				//// TODO SU FILL insertAppFun in TESTS
-				//err = state.DBHandler.InsertAppFun(
-				//	ctx,
-				//	transaction,
-				//	c.Application,
-				//	existingApp.EslVersion,
-				//	db.AppStateChangeUpdate,
-				//	newMeta,
-				//)
 				err = state.DBHandler.DBInsertApplication(
 					ctx,
 					transaction,
