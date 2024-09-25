@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/testing/protocmp"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -2163,4 +2164,227 @@ func setupRepositoryTestAux(t *testing.T, commits uint) (Repository, error) {
 		t.Fatal(err)
 	}
 	return repo, nil
+}
+
+func TestUpdateOverviewCache(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		InitialCache     *api.GetOverviewResponse
+		StateChange      db.AppStateChange
+		ExpectedOverview *api.GetOverviewResponse
+	}{
+		{
+			Name:         "overview=nil",
+			StateChange:  db.AppStateChangeCreate,
+			InitialCache: nil,
+			ExpectedOverview: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"app1": {
+						Name:            "app1",
+						Releases:        nil,
+						SourceRepoUrl:   "",
+						Team:            "",
+						UndeploySummary: api.UndeploySummary_UNDEPLOY,
+						Warnings:        nil,
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{},
+			},
+		},
+		{
+			Name:        "overview creates new app",
+			StateChange: db.AppStateChangeCreate,
+			InitialCache: &api.GetOverviewResponse{
+				Applications: nil,
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "dev",
+						Environments: []*api.Environment{
+							{
+								Name:               "dev",
+								Config:             nil,
+								Locks:              nil,
+								Applications:       nil,
+								DistanceToUpstream: 0,
+								Priority:           0,
+							},
+						},
+						DistanceToUpstream: 0,
+						Priority:           0,
+					},
+				},
+				GitRevision:     "123",
+				Branch:          "main",
+				ManifestRepoUrl: "https://example.com",
+			},
+			ExpectedOverview: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"app1": {
+						Name:            "app1",
+						Releases:        nil,
+						SourceRepoUrl:   "",
+						Team:            "",
+						UndeploySummary: api.UndeploySummary_UNDEPLOY,
+						Warnings:        nil,
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "dev",
+						Environments: []*api.Environment{
+							{
+								Name:   "dev",
+								Config: nil,
+								Locks:  nil,
+								Applications: map[string]*api.Environment_Application{
+									"app1": {
+										Name:            "app1",
+										Version:         0,
+										Locks:           nil,
+										QueuedVersion:   0,
+										UndeployVersion: false,
+										ArgoCd:          nil,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployAuthor: "",
+											DeployTime:   "",
+										},
+										TeamLocks: nil,
+										Team:      "",
+									},
+								},
+								DistanceToUpstream: 0,
+								Priority:           0,
+							},
+						},
+						DistanceToUpstream: 0,
+						Priority:           0,
+					},
+				},
+				GitRevision:     "123",
+				Branch:          "main",
+				ManifestRepoUrl: "https://example.com",
+			},
+		},
+		{
+			Name:        "overview deletes an app",
+			StateChange: db.AppStateChangeDelete,
+			InitialCache: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"app1": {
+						Name:            "app1",
+						Releases:        nil,
+						SourceRepoUrl:   "",
+						Team:            "",
+						UndeploySummary: api.UndeploySummary_UNDEPLOY,
+						Warnings:        nil,
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "dev",
+						Environments: []*api.Environment{
+							{
+								Name:   "dev",
+								Config: nil,
+								Locks:  nil,
+								Applications: map[string]*api.Environment_Application{
+									"app1": {
+										Name:            "app1",
+										Version:         0,
+										Locks:           nil,
+										QueuedVersion:   0,
+										UndeployVersion: false,
+										ArgoCd:          nil,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployAuthor: "",
+											DeployTime:   "",
+										},
+										TeamLocks: nil,
+										Team:      "",
+									},
+								},
+								DistanceToUpstream: 0,
+								Priority:           0,
+							},
+						},
+						DistanceToUpstream: 0,
+						Priority:           0,
+					},
+				},
+				GitRevision:     "123",
+				Branch:          "main",
+				ManifestRepoUrl: "https://example.com",
+			},
+			ExpectedOverview: &api.GetOverviewResponse{
+				Applications: nil,
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "dev",
+						Environments: []*api.Environment{
+							{
+								Name:               "dev",
+								Config:             nil,
+								Locks:              nil,
+								Applications:       nil,
+								DistanceToUpstream: 0,
+								Priority:           0,
+							},
+						},
+						DistanceToUpstream: 0,
+						Priority:           0,
+					},
+				},
+				GitRevision:     "123",
+				Branch:          "main",
+				ManifestRepoUrl: "https://example.com",
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			repo := SetupRepositoryTestWithDBOptions(t, false)
+			state := repo.State()
+			dbHandler := state.DBHandler
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
+				// GIVEN:
+				err := dbHandler.WriteOverviewCache(
+					ctx,
+					transaction,
+					tc.InitialCache,
+				)
+				if err != nil {
+					return err
+				}
+
+				// WHEN:
+				metaData := db.DBAppMetaData{
+					Team: "",
+				}
+				err = state.DBInsertApplicationWithOverview(ctx, transaction, "app1", db.InitialEslVersion-1, tc.StateChange, metaData)
+				if err != nil {
+					return err
+				}
+
+				actualOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.ExpectedOverview, actualOverview, protocmp.Transform()); diff != "" {
+					t.Fatalf("overview mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
 }

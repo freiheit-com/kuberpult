@@ -1292,7 +1292,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				err2 := state.DeleteQueuedVersion(ctx, transaction, envProduction, testAppName)
+				err2 := state.DeleteQueuedVersion(ctx, transaction, envProduction, testAppName, true)
 				if err2 != nil {
 					t.Fatalf("expected no error, got %v", err2)
 				}
