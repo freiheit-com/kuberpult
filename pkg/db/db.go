@@ -2729,7 +2729,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	}
 
 	envLock.Created = *now
-	
+
 	jsonToInsert, err := json.Marshal(envLock.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
