@@ -175,7 +175,7 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err
 			} else {
 				for _, appName := range apps {
-					app, err2 := s.UpdateOneAppEnv(ctx, transaction, appName, envName, &config)
+					app, err2 := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, envName, &config)
 					if err2 != nil {
 						return nil, err2
 					}
@@ -189,7 +189,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, err
 	} else {
 		for _, appName := range apps {
-			err2 := s.UpdateTopLevelApp(ctx, transaction, appName, &result, false)
+			err2 := s.UpdateTopLevelAppInOverview(ctx, transaction, appName, &result, false)
 			if err2 != nil {
 				return nil, err2
 			}

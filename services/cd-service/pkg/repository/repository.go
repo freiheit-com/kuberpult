@@ -2353,7 +2353,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	}
 
 	shouldDelete := stateChange == db.AppStateChangeDelete
-	err = s.UpdateTopLevelApp(ctx, transaction, appName, cache, shouldDelete)
+	err = s.UpdateTopLevelAppInOverview(ctx, transaction, appName, cache, shouldDelete)
 	if err != nil {
 		return err
 	}
@@ -2367,7 +2367,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 			if shouldDelete {
 				delete(env.Applications, appName)
 			} else {
-				envApp, err := s.UpdateOneAppEnv(ctx, transaction, appName, env.Name, nil)
+				envApp, err := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, env.Name, nil)
 				if err != nil {
 					return err
 				}
@@ -2388,7 +2388,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	return nil
 }
 
-func (s *State) UpdateTopLevelApp(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool) error {
+func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool) error {
 	if deleteApp {
 		delete(result.Applications, appName)
 		return nil
@@ -2540,7 +2540,7 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 
 }
 
-func (s *State) UpdateOneAppEnv(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig) (*api.Environment_Application, error) {
+func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig) (*api.Environment_Application, error) {
 	var envConfig = configParam
 	if envConfig == nil {
 		var err error
@@ -2550,7 +2550,6 @@ func (s *State) UpdateOneAppEnv(ctx context.Context, transaction *sql.Tx, appNam
 		}
 	}
 
-	teamName, err := s.GetTeamName(ctx, transaction, appName)
 	app := api.Environment_Application{
 		Version:         0,
 		QueuedVersion:   0,
@@ -2559,13 +2558,15 @@ func (s *State) UpdateOneAppEnv(ctx context.Context, transaction *sql.Tx, appNam
 		Name:            appName,
 		Locks:           map[string]*api.Lock{},
 		TeamLocks:       map[string]*api.Lock{},
-		Team:            teamName,
+		Team:            "",
 		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
 			DeployAuthor: "",
 			DeployTime:   "",
 		},
 	}
+	teamName, err := s.GetTeamName(ctx, transaction, appName)
 	if err == nil {
+		app.Team = teamName
 		if teamLocks, teamErr := s.GetEnvironmentTeamLocks(ctx, transaction, envName, teamName); teamErr != nil {
 			return nil, teamErr
 		} else {

@@ -4027,11 +4027,11 @@ func (c *envReleaseTrain) Transform(
 		}
 
 		if envOfOverview != nil {
-			err := state.UpdateTopLevelApp(ctx, transaction, appName, overview, false)
+			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false)
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}
-			envApp, err := state.UpdateOneAppEnv(ctx, transaction, appName, c.Env, &envConfig)
+			envApp, err := state.UpdateOneAppEnvInOverview(ctx, transaction, appName, c.Env, &envConfig)
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}
@@ -4072,11 +4072,8 @@ func getEnvOfOverview(overview *api.GetOverviewResponse, envName string) *api.En
 	if overview == nil || overview.EnvironmentGroups == nil {
 		return nil
 	}
-	for i := range overview.EnvironmentGroups {
-		envGroup := overview.EnvironmentGroups[i]
-
-		for i2 := range envGroup.Environments {
-			env := envGroup.Environments[i2]
+	for _, envGroup := range overview.EnvironmentGroups {
+		for _, env := range envGroup.Environments {
 			if env.Name == envName {
 				return env
 			}
