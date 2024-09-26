@@ -164,7 +164,7 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 											DeployTime:   "1",
 										},
 										Team: "team-123",
-										Locks: map[string]*api.Lock{
+										TeamLocks: map[string]*api.Lock{
 											"dev-lock": {
 												Message:   "My lock on dev for my-team",
 												LockId:    "dev-lock",
@@ -197,6 +197,17 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 							},
 						},
 						Team: "team-123",
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UnusualDeploymentOrder{
+									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         12,
+										ThisEnvironment:     "development",
+									},
+								},
+							},
+						},
 					},
 				},
 				GitRevision: "0",
@@ -222,6 +233,7 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
+		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -232,6 +244,14 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				opts := getOverviewIgnoredTypes()
+				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction) //sanity check
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(startingOverview, latestOverview, opts); diff != "" {
+					return fmt.Errorf("starting overviews mismatch (-want +got):\n%s", diff)
+				}
 				err = dbHandler.UpdateOverviewTeamLock(ctx, transaction, tc.NewTeamLock)
 				if err != nil {
 					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
@@ -239,13 +259,13 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 					}
 					return nil
 				}
-				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
+				latestOverview, err = dbHandler.ReadLatestOverviewCache(ctx, transaction)
 				if err != nil {
 					return err
 				}
-				opts := getOverviewIgnoredTypes()
+
 				if diff := cmp.Diff(tc.ExcpectedOverview, latestOverview, opts); diff != "" {
-					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
+					return fmt.Errorf("expected overview and last overview mismatch (-want +got):\n%s", diff)
 				}
 				tc.NewTeamLock.Deleted = true
 				err = dbHandler.UpdateOverviewTeamLock(ctx, transaction, tc.NewTeamLock)
@@ -257,7 +277,7 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 					return err
 				}
 				if diff := cmp.Diff(startingOverview, latestOverview, opts); diff != "" {
-					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
+					return fmt.Errorf("starting overview and last overview mismatch (-want +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -349,6 +369,17 @@ func TestUpdateOverviewEnvironmentLock(t *testing.T) {
 							},
 						},
 						Team: "team-123",
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UnusualDeploymentOrder{
+									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         12,
+										ThisEnvironment:     "development",
+									},
+								},
+							},
+						},
 					},
 				},
 				GitRevision: "0",
@@ -373,6 +404,7 @@ func TestUpdateOverviewEnvironmentLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
+		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -780,6 +812,17 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 							},
 						},
 						Team: "team-123",
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UnusualDeploymentOrder{
+									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         12,
+										ThisEnvironment:     "development",
+									},
+								},
+							},
+						},
 					},
 				},
 				GitRevision: "0",
@@ -822,6 +865,7 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
+		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
