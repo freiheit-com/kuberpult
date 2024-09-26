@@ -23,14 +23,16 @@ import { PlainDialog } from '../dialog/ConfirmationDialog';
  * Inspired by GitHubs merge button.
  * Displays one normal button on the left, and one arrow on the right to select a different option.
  */
+
 export type ExpandButtonProps = {
     onClickSubmit: (shouldLockToo: boolean) => void;
+    onClickLock: () => void;
     defaultButtonLabel: string;
     disabled: boolean;
 };
 
 export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
-    const { onClickSubmit } = props;
+    const { onClickSubmit, onClickLock } = props;
 
     const [expanded, setExpanded] = useState(false);
 
@@ -49,6 +51,10 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
     const onClickSubmitAlternative = useCallback(() => {
         onClickSubmit(false);
     }, [onClickSubmit]);
+
+    const onClickSubmitLockOnly = useCallback(() => {
+        onClickLock();
+    }, [onClickLock]);
 
     return (
         <div className={'expand-button'}>
@@ -84,9 +90,19 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                         <div>
                             <Button
                                 onClick={onClickSubmitAlternative}
-                                className={'button-popup env-card-deploy-btn mdc-button--unelevated'}
+                                className={'button-popup-deploy env-card-deploy-btn mdc-button--unelevated'}
                                 key={'button-second-key'}
                                 label={'Deploy only'}
+                                icon={undefined}
+                                highlightEffect={true}
+                            />
+                        </div>
+                        <div>
+                            <Button
+                                onClick={onClickSubmitLockOnly}
+                                className={'button-popup-lock env-card-lock-btn mdc-button--unelevated'}
+                                key={'button-third-key'}
+                                label={'Lock only'}
                                 icon={undefined}
                                 highlightEffect={true}
                             />

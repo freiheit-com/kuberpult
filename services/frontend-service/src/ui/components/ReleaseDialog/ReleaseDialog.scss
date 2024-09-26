@@ -179,12 +179,11 @@ Copyright freiheit.com*/
 
             .env-card-buttons {
                 margin-left: auto;
-                margin-right: 18px;
                 margin-bottom: 17px;
                 display: flex;
                 flex-direction: row;
                 gap: 20px;
-                min-width: 300px;
+                min-width: 200px;
 
                 .env-card-add-lock-btn {
                     border: 1px solid var(--mdc-theme-primary);
@@ -209,6 +208,10 @@ button.button-lock {
 }
 
 button.mdc-button.env-card-deploy-btn {
+    border-radius: $release-dialog-inner-border-radius;
+    @extend .text-bold;
+}
+button.mdc-button.env-card-lock-btn {
     border-radius: $release-dialog-inner-border-radius;
     @extend .text-bold;
 }
@@ -316,4 +319,28 @@ button.mdc-button.env-card-deploy-btn {
         font-size: xx-large;
         pointer-events: none;
     }
+}
+
+.env-group-card-buttons {
+    margin-left: auto;
+    margin-bottom: 17px;
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    min-width: 300px;
+    padding-top: 9px;
+
+    .env-card-add-lock-btn {
+        border: 1px solid var(--mdc-theme-primary);
+        border-radius: $release-dialog-inner-border-radius;
+        white-space: nowrap;
+        @extend .text-bold;
+
+        .icon {
+            margin-right: 9px;
+        }
+    }
+}
+.env-group-expand-button {
+    margin-left: 85px;
 }
