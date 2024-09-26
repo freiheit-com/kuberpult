@@ -1737,22 +1737,6 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	}
 }
 
-func (s *State) GetLatestDeploymentForAllApps(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
-		if err != nil {
-			return nil, err
-		}
-		if depl == nil || depl.Version == nil {
-			return nil, nil
-		}
-		var v = uint64(*depl.Version)
-		return &v, nil
-	} else {
-		return s.GetEnvironmentApplicationVersionFromManifest(environment, application)
-	}
-}
-
 func (s *State) GetEnvironmentApplicationVersionFromManifest(environment string, application string) (*uint64, error) {
 	return s.readSymlink(environment, application, "version")
 }
@@ -3094,21 +3078,6 @@ func (s *State) GetApplicationReleaseManifestsFromManifest(application string, v
 }
 
 func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
-		if err != nil {
-			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
-		}
-		if app == nil {
-			return "", fmt.Errorf("could not get team of app %s - could not find app", application)
-		}
-		return app.Metadata.Team, nil
-	} else {
-		return s.GetApplicationTeamOwnerFromManifest(application)
-	}
-}
-
-func (s *State) GetAllLatestDeploymentsForApp(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
 		if err != nil {

@@ -1524,7 +1524,7 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 }
 
 func (h *DBHandler) DBSelectAllLatestDeployments(ctx context.Context, tx *sql.Tx, envName string) (map[string]*int64, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeployments")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
