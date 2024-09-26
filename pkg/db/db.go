@@ -1523,6 +1523,78 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 	return processDeployment(rows)
 }
 
+func (h *DBHandler) DBSelectAllLatestDeployments(ctx context.Context, tx *sql.Tx, envName string) (map[string]*int64, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
+	defer span.Finish()
+	fmt.Println(envName)
+	selectQuery := h.AdaptQuery(
+		`SELECT
+ deployments.appname,
+ deployments.releaseVersion
+FROM (
+ SELECT
+   MAX(eslVersion) AS latest,
+   appname,
+   envname
+ FROM
+   deployments
+ GROUP BY
+   envName, appname) AS latest
+JOIN
+ deployments AS deployments
+ON
+ latest.latest=deployments.eslVersion
+ AND latest.appname=deployments.appname
+ AND latest.envName=deployments.envName
+WHERE deployments.envName= ?;
+`)
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		envName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+	return processAllLatestDeployments(rows)
+}
+
+func processAllLatestDeployments(rows *sql.Rows) (map[string]*int64, error) {
+	result := make(map[string]*int64)
+	for rows.Next() {
+		var releaseVersion sql.NullInt64
+		var appName string
+		err := rows.Scan(&appName, &releaseVersion)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+		}
+
+		if releaseVersion.Valid {
+			result[appName] = &releaseVersion.Int64
+		}
+	}
+	err := rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
+	}
+	return result, nil
+}
+
 func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeployment")
 	defer span.Finish()
