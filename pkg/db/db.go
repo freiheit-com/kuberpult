@@ -4596,17 +4596,19 @@ type DBAllEnvironmentsRow struct {
 }
 
 type DBEnvironment struct {
-	Created time.Time
-	Version int64
-	Name    string
-	Config  config.EnvironmentConfig
+	Created      time.Time
+	Version      int64
+	Name         string
+	Config       config.EnvironmentConfig
+	Applications []string
 }
 
 type DBEnvironmentRow struct {
-	Created time.Time
-	Version int64
-	Name    string
-	Config  string
+	Created      time.Time
+	Version      int64
+	Name         string
+	Config       string
+	Applications string
 }
 
 func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironment, error) {
@@ -4618,11 +4620,17 @@ func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironm
 	if err != nil {
 		return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Config, err)
 	}
+	applications := []string{}
+	err = json.Unmarshal([]byte(row.Applications), &applications)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Applications, err)
+	}
 	return &DBEnvironment{
 		Created: row.Created,
 		Version: row.Version,
 		Name:    row.Name,
 		Config:  parsedConfig,
+		Applications: applications,
 	}, nil
 }
 
@@ -4632,7 +4640,7 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 
 	selectQuery := h.AdaptQuery(
 		`
-SELECT created, version, name, json
+SELECT created, version, name, json, applications
 FROM environments
 WHERE name=?
 ORDER BY version DESC
@@ -4661,7 +4669,7 @@ LIMIT 1;
 	if rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -4693,7 +4701,8 @@ SELECT
   environments.created AS created,
   environments.version AS version,
   environments.name AS name,
-  environments.json AS json
+  environments.json AS json,
+  environments.applications AS applications,
 FROM (
   SELECT
     MAX(version) AS latest,
@@ -4739,7 +4748,7 @@ LIMIT ?
 	for rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -4755,8 +4764,8 @@ LIMIT ?
 	return &envs, nil
 }
 
-func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
+func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
 
 	if h == nil {
@@ -4774,6 +4783,10 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
 	}
+	applicationsJson, err := json.Marshal(applications)
+	if err != nil {
+		return fmt.Errorf("could not marshal the application names list %v, error: %w", applicationsJson, err)
+	}
 
 	var existingEnvironmentVersion int64
 	if existingEnvironment == nil {
@@ -4783,7 +4796,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT Into environments (created, version, name, json) VALUES (?, ?, ?, ?);",
+		"INSERT Into environments (created, version, name, json, applications) VALUES (?, ?, ?, ?, ?);",
 	)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -4796,6 +4809,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 		existingEnvironmentVersion+1,
 		environmentName,
 		jsonToInsert,
+		string(applicationsJson),
 	)
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
@@ -4982,10 +4996,16 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 			return fmt.Errorf("could not get environments, error: %w", err)
 		}
 
+		allApplications, err := h.DBSelectAllApplications(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not get all applications, error: %w", err)
+		}
+
 		allEnvironmentNames := make([]string, 0)
 		for envName, config := range allEnvironments {
 			allEnvironmentNames = append(allEnvironmentNames, envName)
-			err = h.DBWriteEnvironment(ctx, transaction, envName, config)
+
+			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allApplications.Apps)
 			if err != nil {
 				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 			}

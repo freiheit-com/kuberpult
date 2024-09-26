@@ -2070,14 +2070,14 @@ func (s *State) GetEnvironmentApplicationsFromManifest(environment string) ([]st
 }
 
 func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
-	applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+	envInfo, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
 	}
-	if applications == nil {
+	if envInfo.Applications == nil {
 		return make([]string, 0), nil
 	}
-	return applications.Apps, nil
+	return envInfo.Applications, nil
 }
 
 // GetApplicationsFromFile returns all apps that exist in any env

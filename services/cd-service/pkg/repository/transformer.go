@@ -724,6 +724,31 @@ func (c *CreateApplicationVersion) Transform(
 	for i := range sortedKeys {
 		env := sortedKeys[i]
 		man := c.Manifests[env]
+		// Add application to the environment if not exist
+		if state.DBHandler.ShouldUseOtherTables() {
+			envInfo, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, env)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+			if envInfo == nil {
+				return "", fmt.Errorf("Attempting to create release for application %s in environment %s, but the environment doesn't exist", c.Application, env)
+			}
+			found := false
+			if envInfo.Applications != nil {
+				for _, app := range envInfo.Applications {
+					if app == c.Application {
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
+				if err != nil {
+					return "", GetCreateReleaseGeneralFailure(err)
+				}
+			}
+		}
 
 		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
 		if err != nil {
@@ -1696,6 +1721,26 @@ func (u *DeleteEnvFromApp) Transform(
 			if err != nil {
 				return "", err
 			}
+		}
+
+		env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, u.Environment)
+		if err != nil {
+			return "", fmt.Errorf("Couldn't read environment: %s from environments table, error: %w", u.Environment, err)
+		}
+		if env == nil {
+			return "", fmt.Errorf("Attempting to delete an environment that doesn't exist in the environments table")
+		}
+		newApps := make([]string, 0)
+		if env.Applications != nil {
+			for _, app := range env.Applications {
+				if app != u.Application {
+					newApps = append(newApps, app)
+				}
+			}
+		}
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config, newApps)
+		if err != nil {
+			return "", fmt.Errorf("Couldn't write environment: %s into environments table, error: %w", u.Environment, err)
 		}
 	} else {
 
@@ -2673,7 +2718,15 @@ func (c *CreateEnvironment) Transform(
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		// write to environments table
-		err := state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config)
+		allApplications, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("unable to read all applications, error: %w", err)
+		}
+		environmentApplications := make([]string, 0)
+		if allApplications != nil {
+			environmentApplications = allApplications.Apps
+		}
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)
 		if err != nil {
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 		}
