@@ -1702,7 +1702,25 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 	}
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application, skipOverview)
 }
-
+func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.DBHandler.DBSelectAllLatestDeployments(ctx, transaction, environment)
+	} else {
+		var result = make(map[string]*int64)
+		for _, appName := range allApps {
+			currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, appName)
+			if err != nil {
+				return nil, err
+			}
+			var v int64
+			if currentlyDeployedVersion != nil {
+				v = int64(*currentlyDeployedVersion)
+			}
+			result[appName] = &v
+		}
+		return result, nil
+	}
+}
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
@@ -3067,6 +3085,7 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 		return s.GetApplicationTeamOwnerFromManifest(application)
 	}
 }
+
 func (s *State) GetApplicationTeamOwnerFromManifest(application string) (string, error) {
 	appDir := applicationDirectory(s.Filesystem, application)
 	appTeam := s.Filesystem.Join(appDir, "team")
