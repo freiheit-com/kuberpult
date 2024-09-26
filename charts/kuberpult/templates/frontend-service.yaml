@@ -153,6 +153,14 @@ spec:
         - name: KUBERPULT_ENABLE_TRACING
           value: "{{ .Values.datadogTracing.enabled }}"
 {{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_PARTIAL_FLUSH_ENABLED
+          value: "{{ .Values.datadogTracing.partialFlushEnabled }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_PARTIAL_FLUSH_MIN_SPANS
+          value: "{{ .Values.datadogTracing.partialFlushMinSpans }}"
+{{- end }}
         - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.auth.dexAuth.enabled }}"
 {{- if .Values.auth.dexAuth.enabled }}
