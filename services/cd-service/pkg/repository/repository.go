@@ -1895,19 +1895,13 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	if dbAllEnvs == nil {
 		return nil, nil
 	}
-	ret := make(map[string]config.EnvironmentConfig)
-	for _, envName := range dbAllEnvs.Environments {
-		dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
-		if err != nil {
-			return nil, fmt.Errorf("unable to retrieve manifest for environment %s from the database, error: %w", envName, err)
-		}
-		if dbEnv == nil {
-			return nil, fmt.Errorf("the all_environments and environments tables are inconsistent in the database, environment %s was listed in the all_environments tables, but is not found in the environments table", envName)
-		}
-		ret[envName] = dbEnv.Config
-	}
+	envs, err := s.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs.Environments)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+	}
+	ret := make(map[string]config.EnvironmentConfig)
+	for _, env := range *envs {
+		ret[env.Name] = env.Config
 	}
 	return ret, nil
 }
