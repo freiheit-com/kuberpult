@@ -3655,18 +3655,18 @@ func (c *envReleaseTrain) prognosis(
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain lastest deploymebts for env %s: %w", c.Env, err)),
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
 			Locks:         nil,
 			AppsPrognoses: nil,
 		}
 	}
 
 	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
-	
+
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain lastest deploymebts for env %s: %w", c.Env, err)),
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
 			Locks:         nil,
 			AppsPrognoses: nil,
 		}
