@@ -1117,6 +1117,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 			}
 		}
 		r.notify.Notify()
+		return nil
 	} else {
 		logger.FromContext(ctx).Info("queue enabled")
 		eCh := r.applyDeferred(ctx, transformers...)
