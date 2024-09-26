@@ -298,6 +298,8 @@ datadogTracing:
   enabled: false
   debugging: false
   environment: "shared"
+  partialFlushEnabled: true
+  partialFlushMinSpans: 200
 
 datadogProfiling:
   # Note that the profiling environment is taken from the field `datadogTracing.environment`
