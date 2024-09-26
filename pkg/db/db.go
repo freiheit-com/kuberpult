@@ -105,6 +105,8 @@ func (h *DBHandler) ShouldUseEslTable() bool {
 	return h != nil
 }
 
+// ShouldUseOtherTables returns true if the db is enabled and WriteEslOnly=false
+// ShouldUseOtherTables should never be used in the manifest-repo-export-service.
 func (h *DBHandler) ShouldUseOtherTables() bool {
 	return h != nil && !h.WriteEslOnly
 }
