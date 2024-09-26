@@ -107,6 +107,8 @@ type Config struct {
 	DbSslMode            string   `default:"verify-full" split_words:"true"`
 	MinorRegexes         string   `default:"" split_words:"true"`
 	AllowedDomains       []string `split_words:"true"`
+
+	DisableQueue bool `required:"true" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -326,6 +328,8 @@ func RunServer() {
 			ArgoCdGenerateFiles:   c.ArgoCdGenerateFiles,
 			DBHandler:             dbHandler,
 			CloudRunClient:        cloudRunClient,
+
+			DisableQueue: c.DisableQueue,
 		}
 
 		repo, repoQueue, err := repository.New2(ctx, cfg)

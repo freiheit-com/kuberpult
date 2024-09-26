@@ -220,6 +220,8 @@ type RepositoryConfig struct {
 
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
+
+	DisableQueue bool
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -563,6 +565,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			})
 
 			if txErr != nil {
+				logger.FromContext(e.ctx).Sugar().Warnf("txError in applyTransformerBatches: %w", txErr)
 				e.finish(txErr)
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 				continue //Skip this batch
@@ -1089,12 +1092,40 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 }
 
 func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
-	eCh := r.applyDeferred(ctx, transformers...)
-	select {
-	case err := <-eCh:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
+	if r.config.DisableQueue && r.DB.ShouldUseOtherTables() {
+		logger.FromContext(ctx).Info("queue disabled")
+		changes, err := db.WithTransactionT(r.DB, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
+			subChanges, applyErr := r.ApplyTransformers(ctx, transaction, transformers...)
+			if applyErr != nil {
+				return nil, applyErr
+			}
+			return subChanges, nil
+		})
+
+		if err != nil {
+			return err
+		}
+		if r.config.DogstatsdEvents {
+			var ddError error
+			if r.DB.ShouldUseEslTable() {
+				ddError = UpdateDatadogMetricsDB(ctx, r.State(), r, changes, time.Now())
+			} else {
+				ddError = UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
+			}
+			if ddError != nil {
+				logger.FromContext(ctx).Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
+			}
+		}
+		r.notify.Notify()
+	} else {
+		logger.FromContext(ctx).Info("queue enabled")
+		eCh := r.applyDeferred(ctx, transformers...)
+		select {
+		case err := <-eCh:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 
