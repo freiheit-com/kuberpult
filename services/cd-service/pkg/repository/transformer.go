@@ -289,7 +289,7 @@ type Transformer interface {
 }
 
 type TransformerContext interface {
-	Execute(t Transformer, transaction *sql.Tx) error
+	Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error
 	AddAppEnv(app string, env string, team string)
 	DeleteEnvFromApp(app string, env string)
 }
@@ -299,11 +299,10 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		ChangedApps:     nil,
 		DeletedRootApps: nil,
 		Commits:         nil,
-		Context:         ctx,
 		State:           s,
 		Stack:           [][]string{nil},
 	}
-	if err := runner.Execute(t, transaction); err != nil {
+	if err := runner.Execute(ctx, t, transaction); err != nil {
 		return "", nil, err
 	}
 	commitMsg := ""
@@ -318,8 +317,8 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 }
 
 type transformerRunner struct {
-	Context context.Context
-	State   *State
+	//Context context.Context
+	State *State
 	// Stores the current stack of commit messages. Each entry of
 	// the outer slice corresponds to a step being executed. Each
 	// entry of the inner slices correspond to a message generated
@@ -330,9 +329,9 @@ type transformerRunner struct {
 	Commits         *CommitIds
 }
 
-func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
+func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
-	msg, err := t.Transform(r.Context, r.State, r, transaction)
+	msg, err := t.Transform(ctx, r.State, r, transaction)
 	if err != nil {
 		return err
 	}
@@ -765,7 +764,7 @@ func (c *CreateApplicationVersion) Transform(
 				TransformerEslVersion: c.TransformerEslVersion,
 				SkipOverview:          false,
 			}
-			err := t.Execute(d, transaction)
+			err := t.Execute(ctx, d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -1369,7 +1368,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				CiLink:                "",
 				SkipOverview:          false,
 			}
-			err := t.Execute(d, transaction)
+			err := t.Execute(ctx, d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -2193,7 +2192,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 			CiLink:                c.CiLink,
 			AllowedDomains:        c.AllowedDomains,
 		}
-		if err := t.Execute(&x, transaction); err != nil {
+		if err := t.Execute(ctx, &x, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -2237,7 +2236,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 			LockId:                c.LockId,
 			TransformerEslVersion: c.TransformerEslVersion,
 		}
-		if err := t.Execute(&x, transaction); err != nil {
+		if err := t.Execute(ctx, &x, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -3050,7 +3049,7 @@ func (c *DeployApplicationVersion) Transform(
 			TransformerEslVersion: c.TransformerEslVersion,
 		}
 
-		if err := t.Execute(d, transaction); err != nil {
+		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -3375,6 +3374,9 @@ func (c *ReleaseTrain) Prognosis(
 ) ReleaseTrainPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
 	defer span.Finish()
+	span.SetTag("targetEnv", c.Target)
+	span.SetTag("targetType", c.TargetType)
+	span.SetTag("team", c.Team)
 
 	var targetGroupName = c.Target
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
@@ -3456,6 +3458,8 @@ func (c *ReleaseTrain) Transform(
 	}
 
 	prognosis := c.Prognosis(ctx, state, transaction, configs)
+	span2, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Apply")
+	defer span2.Finish()
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
@@ -3477,7 +3481,7 @@ func (c *ReleaseTrain) Transform(
 			trainGroup = conversion.FromString(targetGroupName)
 		}
 
-		if err := t.Execute(&envReleaseTrain{
+		if err := t.Execute(ctx, &envReleaseTrain{
 			Parent:                c,
 			Env:                   envName,
 			EnvConfigs:            configs,
@@ -3522,6 +3526,8 @@ func (c *envReleaseTrain) prognosis(
 ) ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	defer span.Finish()
+	span.SetTag("env", c.Env)
+
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -4027,7 +4033,7 @@ func (c *envReleaseTrain) Transform(
 			CiLink:                c.CiLink,
 			SkipOverview:          true,
 		}
-		if err := t.Execute(d, transaction); err != nil {
+		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}
 
@@ -4047,7 +4053,7 @@ func (c *envReleaseTrain) Transform(
 	if c.Parent.Team != "" {
 		teamInfo = " for team '" + c.Parent.Team + "'"
 	}
-	if err := t.Execute(&skippedServices{
+	if err := t.Execute(ctx, &skippedServices{
 		Messages:              skipped,
 		TransformerEslVersion: c.TransformerEslVersion,
 	}, transaction); err != nil {
@@ -4104,7 +4110,7 @@ func (c *skippedServices) SetEslVersion(id db.TransformerID) {
 }
 
 func (c *skippedServices) Transform(
-	_ context.Context,
+	ctx context.Context,
 	_ *State,
 	t TransformerContext,
 	transaction *sql.Tx,
@@ -4113,7 +4119,7 @@ func (c *skippedServices) Transform(
 		return "", nil
 	}
 	for _, msg := range c.Messages {
-		if err := t.Execute(&skippedService{Message: msg, TransformerEslVersion: c.TransformerEslVersion}, transaction); err != nil {
+		if err := t.Execute(ctx, &skippedService{Message: msg, TransformerEslVersion: c.TransformerEslVersion}, transaction); err != nil {
 			return "", err
 		}
 	}

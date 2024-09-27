@@ -726,7 +726,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	if apps, err := state.GetEnvironmentApplications(ctx, transaction, env); err != nil {
 		return err
 	} else {
-		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
+		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
