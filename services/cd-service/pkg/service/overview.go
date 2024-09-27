@@ -189,7 +189,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, err
 	} else {
 		for _, appName := range apps {
-			err2 := s.UpdateTopLevelAppInOverview(ctx, transaction, appName, &result, false)
+			err2 := s.UpdateTopLevelAppInOverview(ctx, transaction, appName, &result, false, map[string][]int64{})
 			if err2 != nil {
 				return nil, err2
 			}
