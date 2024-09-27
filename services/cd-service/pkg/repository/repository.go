@@ -1733,7 +1733,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 	}
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application, skipOverview)
 }
-func (s *State) GetAllEnvironmentApplicationVersions(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
+func (s *State) GetAllLatestDeployment(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		return s.DBHandler.DBSelectAllLatestDeployments(ctx, transaction, environment)
 	} else {

@@ -3654,7 +3654,7 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses: appsPrognoses,
 		}
 	}
-	allLatestDeploymentsTargetEnv, err := state.GetAllEnvironmentApplicationVersions(ctx, transaction, c.Env, apps)
+	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployment(ctx, transaction, c.Env, apps)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:     nil,
@@ -3664,7 +3664,7 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 
-	allLatestDeploymentsUpstreamEnv, err := state.GetAllEnvironmentApplicationVersions(ctx, transaction, upstreamEnvName, apps)
+	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployment(ctx, transaction, upstreamEnvName, apps)
 
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -4009,7 +4009,7 @@ func (c *envReleaseTrain) Transform(
 		envOfOverview = getEnvOfOverview(overview, c.Env)
 	}
 
-	allEnvironmentApplicationVersions, err := state.GetAllEnvironmentApplicationVersions(ctx, transaction, c.Env, appNames)
+	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployment(ctx, transaction, c.Env, appNames)
 	if err != nil {
 		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions"))
 	}
