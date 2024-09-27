@@ -705,8 +705,13 @@ func (h *DBHandler) processAllReleasesForAllAppsRow(ctx context.Context, err err
 		var appName string
 		var jsonReleases string
 
-		rows.Scan(&appName, &jsonReleases)
-
+		err := rows.Scan(&appName, &jsonReleases)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
 		var metaData = DBAllReleaseMetaData{
 			Releases: []int64{},
 		}
