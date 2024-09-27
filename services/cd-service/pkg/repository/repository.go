@@ -2418,7 +2418,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	}
 
 	shouldDelete := stateChange == db.AppStateChangeDelete
-	err = s.UpdateTopLevelAppInOverview(ctx, transaction, appName, cache, shouldDelete)
+	err = s.UpdateTopLevelAppInOverview(ctx, transaction, appName, cache, shouldDelete, map[string][]int64{})
 	if err != nil {
 		return err
 	}
@@ -2453,7 +2453,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	return nil
 }
 
-func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool) error {
+func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool, allReleasesOfAllApps map[string][]int64) error {
 	if deleteApp {
 		delete(result.Applications, appName)
 		return nil
@@ -2466,25 +2466,34 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 		SourceRepoUrl:   "",
 		Team:            "",
 	}
-	if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
-		logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
-		// continue, apps are not required to have releases
+	allReleasesOfApp, found := allReleasesOfAllApps[appName]
+	var rels []uint64
+	if found {
+		for _, id := range allReleasesOfApp {
+			rels = append(rels, uint64(id))
+		}
 	} else {
-		for _, id := range rels {
-			if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
-				return err
+		retrievedReleasesOfApp, err := s.GetAllApplicationReleases(ctx, transaction, appName)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
+		}
+		rels = retrievedReleasesOfApp
+	}
+	for _, id := range rels {
+		if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
+			return err
+		} else {
+			if rel == nil {
+				// ignore
 			} else {
-				if rel == nil {
-					// ignore
-				} else {
-					release := rel.ToProto()
-					release.Version = id
-					release.UndeployVersion = rel.UndeployVersion
-					app.Releases = append(app.Releases, release)
-				}
+				release := rel.ToProto()
+				release.Version = id
+				release.UndeployVersion = rel.UndeployVersion
+				app.Releases = append(app.Releases, release)
 			}
 		}
 	}
+
 	if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 		return err
 	} else {

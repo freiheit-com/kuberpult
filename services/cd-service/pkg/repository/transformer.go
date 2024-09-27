@@ -3418,7 +3418,7 @@ func (c *ReleaseTrain) Prognosis(
 			CiLink:                c.CiLink,
 		}
 
-		envPrognosis, _ := envReleaseTrain.prognosis(ctx, state, transaction)
+		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction)
 
 		if envPrognosis.Error != nil {
 			return ReleaseTrainPrognosis{
@@ -3521,7 +3521,7 @@ func (c *envReleaseTrain) prognosis(
 	ctx context.Context,
 	state *State,
 	transaction *sql.Tx,
-) (ReleaseTrainEnvironmentPrognosis, map[string]*int64) {
+) ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	defer span.Finish()
 	span.SetTag("env", c.Env)
@@ -3535,7 +3535,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         nil,
 			Locks:         nil,
 			AppsPrognoses: nil,
-		}, map[string]*int64{}
+		}
 	}
 
 	err := state.checkUserPermissions(
@@ -3555,7 +3555,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         err,
 			Locks:         nil,
 			AppsPrognoses: nil,
-		}, map[string]*int64{}
+		}
 	}
 
 	upstreamLatest := envConfig.Upstream.Latest
@@ -3568,7 +3568,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         nil,
 			Locks:         nil,
 			AppsPrognoses: nil,
-		}, map[string]*int64{}
+		}
 	}
 
 	if upstreamLatest && upstreamEnvName != "" {
@@ -3579,7 +3579,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         nil,
 			Locks:         nil,
 			AppsPrognoses: nil,
-		}, map[string]*int64{}
+		}
 	}
 
 	if !upstreamLatest {
@@ -3592,7 +3592,7 @@ func (c *envReleaseTrain) prognosis(
 				Error:         nil,
 				Locks:         nil,
 				AppsPrognoses: nil,
-			}, map[string]*int64{}
+			}
 		}
 	}
 	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
@@ -3602,7 +3602,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
 			Locks:         nil,
 			AppsPrognoses: nil,
-		}, map[string]*int64{}
+		}
 	}
 
 	source := upstreamEnvName
@@ -3617,7 +3617,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         err,
 			Locks:         nil,
 			AppsPrognoses: nil,
-		}, map[string]*int64{}
+		}
 	}
 	sort.Strings(apps)
 
@@ -3652,7 +3652,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         nil,
 			Locks:         locksList,
 			AppsPrognoses: appsPrognoses,
-		}, map[string]*int64{}
+		}
 	}
 	allLatestDeploymentsTargetEnv, err := state.GetAllEnvironmentApplicationVersions(ctx, transaction, c.Env, apps)
 	if err != nil {
@@ -3661,7 +3661,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
 			Locks:         nil,
 			AppsPrognoses: nil,
-		}, map[string]*int64{}
+		}
 	}
 
 	allLatestDeploymentsUpstreamEnv, err := state.GetAllEnvironmentApplicationVersions(ctx, transaction, upstreamEnvName, apps)
@@ -3672,7 +3672,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
 			Locks:         nil,
 			AppsPrognoses: nil,
-		}, map[string]*int64{}
+		}
 	}
 
 	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, apps)
@@ -3692,7 +3692,7 @@ func (c *envReleaseTrain) prognosis(
 					Error:         err,
 					Locks:         nil,
 					AppsPrognoses: nil,
-				}, map[string]*int64{}
+				}
 			} else if c.Parent.Team != team {
 				continue
 			}
@@ -3743,7 +3743,7 @@ func (c *envReleaseTrain) prognosis(
 				Error:         err,
 				Locks:         nil,
 				AppsPrognoses: nil,
-			}, map[string]*int64{}
+			}
 		}
 
 		if len(appLocks) > 0 {
@@ -3780,7 +3780,7 @@ func (c *envReleaseTrain) prognosis(
 					Error:         err,
 					Locks:         nil,
 					AppsPrognoses: nil,
-				}, map[string]*int64{}
+				}
 			}
 			if release == nil {
 				return ReleaseTrainEnvironmentPrognosis{
@@ -3788,7 +3788,7 @@ func (c *envReleaseTrain) prognosis(
 					Error:         fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy),
 					Locks:         nil,
 					AppsPrognoses: nil,
-				}, map[string]*int64{}
+				}
 			}
 
 			_, ok := release.Manifests.Manifests[c.Env]
@@ -3846,7 +3846,7 @@ func (c *envReleaseTrain) prognosis(
 					Error:         err,
 					Locks:         nil,
 					AppsPrognoses: nil,
-				}, map[string]*int64{}
+				}
 			}
 
 			if len(teamLocks) > 0 {
@@ -3886,7 +3886,7 @@ func (c *envReleaseTrain) prognosis(
 		Error:         nil,
 		Locks:         nil,
 		AppsPrognoses: appsPrognoses,
-	}, allLatestDeploymentsTargetEnv
+	}
 }
 
 func (c *envReleaseTrain) Transform(
@@ -3937,7 +3937,7 @@ func (c *envReleaseTrain) Transform(
 		}
 	}
 
-	prognosis, allEnvironmentApplicationVersions := c.prognosis(ctx, state, transaction)
+	prognosis := c.prognosis(ctx, state, transaction)
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
@@ -4009,6 +4009,14 @@ func (c *envReleaseTrain) Transform(
 		envOfOverview = getEnvOfOverview(overview, c.Env)
 	}
 
+	allEnvironmentApplicationVersions, err := state.GetAllEnvironmentApplicationVersions(ctx, transaction, c.Env, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions"))
+	}
+	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps"))
+	}
 	for _, appName := range appNames {
 		appPrognosis := prognosis.AppsPrognoses[appName]
 		if appPrognosis.SkipCause != nil {
@@ -4036,7 +4044,7 @@ func (c *envReleaseTrain) Transform(
 		}
 
 		if envOfOverview != nil {
-			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false)
+			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false, allReleasesOfAllApps)
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}
