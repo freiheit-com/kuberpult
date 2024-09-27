@@ -1733,7 +1733,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 	}
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application, skipOverview)
 }
-func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
+func (s *State) GetAllEnvironmentApplicationVersions(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		return s.DBHandler.DBSelectAllLatestDeployments(ctx, transaction, environment)
 	} else {
@@ -2432,7 +2432,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 			if shouldDelete {
 				delete(env.Applications, appName)
 			} else {
-				envApp, err := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, env.Name, nil)
+				envApp, err := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, env.Name, nil, map[string]*int64{})
 				if err != nil {
 					return err
 				}
@@ -2605,7 +2605,7 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 
 }
 
-func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig) (*api.Environment_Application, error) {
+func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig, allEnvironmentApplicationVersions map[string]*int64) (*api.Environment_Application, error) {
 	var envConfig = configParam
 	if envConfig == nil {
 		var err error
@@ -2650,7 +2650,12 @@ func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.
 	} // Err != nil means no team name was found so no need to parse team locks
 
 	var version *uint64
-	version, err = s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
+	allAppsVersion, found := allEnvironmentApplicationVersions[appName]
+	if found {
+		*version = uint64(*allAppsVersion)
+	} else {
+		version, err = s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
+	}
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	} else {

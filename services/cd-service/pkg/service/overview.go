@@ -175,7 +175,7 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err
 			} else {
 				for _, appName := range apps {
-					app, err2 := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, envName, &config)
+					app, err2 := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, envName, &config, map[string]*int64{})
 					if err2 != nil {
 						return nil, err2
 					}
