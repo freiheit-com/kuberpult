@@ -2186,7 +2186,7 @@ func (s *State) WriteAllCurrentlyDeployed(ctx context.Context, transaction *sql.
 
 // WriteCurrentEnvironmentLocks gets all locks on any environment in manifest and writes them to the DB
 func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteCurrentEnvironmentLocks")
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "WriteCurrentEnvironmentLocks")
 	defer ddSpan.Finish()
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
@@ -2236,7 +2236,7 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 }
 
 func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteCurrentApplicationLocks")
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "WriteCurrentApplicationLocks")
 	defer ddSpan.Finish()
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 
@@ -2295,7 +2295,7 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 }
 
 func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
 	defer ddSpan.Finish()
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest()
 
