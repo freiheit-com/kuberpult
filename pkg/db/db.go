@@ -687,7 +687,7 @@ func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx
 }
 
 func (h *DBHandler) processAllReleasesForAllAppsRow(ctx context.Context, err error, rows *sql.Rows) (map[string][]int64, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesRow")
+	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesForAllAppsRow")
 	defer span.Finish()
 
 	if err != nil {
