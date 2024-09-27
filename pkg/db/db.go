@@ -4881,10 +4881,6 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
 	}
-	err = h.ForceOverviewRecalculation(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("error while forcing overview recalculation, error: %w", err)
-	}
 	return nil
 }
 
