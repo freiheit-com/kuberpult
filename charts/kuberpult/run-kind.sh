@@ -20,7 +20,6 @@ cleanup() {
     helm uninstall kuberpult-local || print kuberpult was not installed
     kind delete cluster || print kind cluster was not deleted
 }
-trap cleanup INT TERM
 cleanup
 
 print 'creating kind cluster with a hostpath to share testdata...'

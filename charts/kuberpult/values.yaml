@@ -93,6 +93,10 @@ cd:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
     queueSize: 5
+# Disabling the queue is as of now an experimental feature. It's only possible to use with db.writeEslTableOnly=false.
+# With the queue, the cd-service processes only one request at a time, which is very much required when using git.
+# With the database enabled, this is not required anymore.
+    disableQueue: false
   resources:
     limits:
       cpu: 2
@@ -298,6 +302,8 @@ datadogTracing:
   enabled: false
   debugging: false
   environment: "shared"
+  partialFlushEnabled: true
+  partialFlushMinSpans: 200
 
 datadogProfiling:
   # Note that the profiling environment is taken from the field `datadogTracing.environment`

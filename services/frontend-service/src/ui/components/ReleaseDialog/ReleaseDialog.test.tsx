@@ -18,7 +18,6 @@ import { fireEvent, render } from '@testing-library/react';
 import { UpdateAction, UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
 import { Environment, EnvironmentGroup, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
-import { SideBar } from '../SideBar/SideBar';
 import { MemoryRouter } from 'react-router-dom';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
@@ -566,43 +565,6 @@ describe('Release Dialog', () => {
                     ]);
                 }
             });
-        });
-        it('Test using add lock button click simulation', () => {
-            const testcase = data[0];
-            UpdateAction.set({ actions: [] });
-            setTheStore(testcase);
-
-            getWrapper(testcase.props);
-            render(
-                <EnvironmentListItem
-                    env={testcase.envs[0]}
-                    envGroup={testcase.envGroups[0]}
-                    app={testcase.props.app}
-                    queuedVersion={0}
-                    release={testcase.rels[0]}
-                />
-            );
-            render(<SideBar />);
-            const result = querySelectorSafe('.env-card-add-lock-btn');
-            if (testcase.rels[0].isPrepublish) {
-                expect(result).toBeDisabled();
-            } else {
-                fireEvent.click(result);
-                expect(UpdateAction.get().actions).toEqual([
-                    {
-                        action: {
-                            $case: 'createEnvironmentApplicationLock',
-                            createEnvironmentApplicationLock: {
-                                application: 'test1',
-                                environment: 'prod',
-                                lockId: '',
-                                message: '',
-                                ciLink: '',
-                            },
-                        },
-                    },
-                ]);
-            }
         });
     });
 });

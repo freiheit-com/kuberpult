@@ -2926,7 +2926,8 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 				t.Fatalf("error encountered during setup, but none was expected here, error: %v", err)
 			}
 
-			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State(), nil)
+			configs, _ := repo.State().GetAllEnvironmentConfigs(ctx, nil)
+			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State(), nil, configs)
 			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
 				t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
 			}
@@ -3302,7 +3303,8 @@ skipping "test" because it is already in the version`,
 					}}}},
 			}
 
-			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil)
+			configs, _ := repo.State().GetAllEnvironmentConfigs(ctx, nil)
+			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil, configs)
 
 			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
 				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
