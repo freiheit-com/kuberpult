@@ -1752,6 +1752,28 @@ func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx
 		return result, nil
 	}
 }
+
+func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, allApps []string) (map[string][]int64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
+	} else {
+		var result = make(map[string][]int64)
+		for _, appName := range allApps {
+			releases, err := s.GetAllApplicationReleases(ctx, transaction, appName)
+			if err != nil {
+				return nil, err
+			}
+			//conver to int64
+			var toAdd []int64
+			for _, val := range releases {
+				toAdd = append(toAdd, int64(val))
+			}
+			result[appName] = toAdd
+		}
+		return result, nil
+	}
+}
+
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
