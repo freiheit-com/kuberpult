@@ -3705,8 +3705,6 @@ func (c *envReleaseTrain) prognosis(
 		} else if upstreamLatest {
 			l := len(allLatestReleases[appName])
 			versionToDeploy = uint64(allLatestReleases[appName][int(math.Max(0, float64(l-1)))])
-			//versionToDeploy, err = state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
-
 		} else {
 			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
 
