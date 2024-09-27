@@ -621,7 +621,7 @@ func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *
 	JOIN
 		releases AS releases
 	ON
-		latest.biggestRelease=releases.releaseVersion
+		latest.latestRelease=releases.releaseVersion
 		AND latest.appname=releases.appname;
 `)
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
