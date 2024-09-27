@@ -477,7 +477,7 @@ func (c *DeployApplicationVersion) Transform(
 }
 
 func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
+	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	if !valid.SHA1CommitID(sourceCommitId) {
 		logger.FromContext(ctx).Sugar().Warnf(

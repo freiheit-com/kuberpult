@@ -58,7 +58,7 @@ ON
   latest.latest=deployments.eslVersion
   AND latest.appname=deployments.appname;
 `
-	span, _ := tracer.StartSpanFromContext(ctx, "GetCommitDeploymentInfo")
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetCommitDeploymentInfo")
 	defer span.Finish()
 	span.SetTag("commit_id", in.CommitId)
 
@@ -130,7 +130,6 @@ ON
 }
 
 func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []string, appDeployments []byte) (*api.AppCommitDeploymentStatus, error) {
-
 	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
 	defer span.Finish()
 	span.SetTag("app", app)

@@ -28,7 +28,7 @@ import (
 )
 
 func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBReadCutoff")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadCutoff")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery("SELECT eslVersion FROM cutoff ORDER BY eslVersion DESC LIMIT 1;")
