@@ -4509,7 +4509,7 @@ func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.
 
 // processSingleDeploymentAttemptsRow only processes the row. It assumes that there is an element ready to be processed in rows.
 func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows) (*QueuedDeployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processSingleDeploymentAttemptsRow")
+	span, _ := tracer.StartSpanFromContext(ctx, "processSingleDeploymentAttemptsRow")
 	defer span.Finish()
 
 	//exhaustruct:ignore
@@ -4533,7 +4533,7 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 
 // processSingleDeploymentRow only processes the row. It assumes that there is an element ready to be processed in rows.
 func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Rows) (*Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processSingleDeploymentRow")
+	span, _ := tracer.StartSpanFromContext(ctx, "processSingleDeploymentRow")
 	defer span.Finish()
 	var row = &DBDeployment{
 		EslVersion:     0,
@@ -5340,7 +5340,7 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 }
 
 func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string, timestamp time.Time) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
 	defer span.Finish()
 
 	if h == nil {
