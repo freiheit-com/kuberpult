@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"net/url"
 	"os"
 	"path"
@@ -3669,6 +3670,16 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses: nil,
 		}
 	}
+
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, apps)
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
@@ -3692,15 +3703,10 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 		} else if upstreamLatest {
-			versionToDeploy, err = state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
-			if err != nil {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err)),
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
-			}
+			l := len(allLatestReleases[appName])
+			versionToDeploy = uint64(allLatestReleases[appName][int(math.Max(0, float64(l-1)))])
+			//versionToDeploy, err = state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
+
 		} else {
 			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
 

@@ -658,6 +658,73 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 	return h.processAllReleasesRow(ctx, err, rows)
 }
 
+func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (map[string][]int64, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfAllApps")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`SELECT
+	all_releases.appname,
+		all_releases.metadata
+	FROM (
+		SELECT
+	MAX(eslVersion) AS latest,
+		appname
+	FROM
+		all_releases
+	GROUP BY
+		appname) AS latest
+	JOIN
+		all_releases AS all_releases
+	ON
+		latest.latest=all_releases.eslVersion
+		AND latest.appname=all_releases.appname;`)
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	return h.processAllReleasesForAllAppsRow(ctx, err, rows)
+}
+
+func (h *DBHandler) processAllReleasesForAllAppsRow(ctx context.Context, err error, rows *sql.Rows) (map[string][]int64, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesRow")
+	defer span.Finish()
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+
+	var result = make(map[string][]int64)
+	for rows.Next() {
+		var appName string
+		var jsonReleases string
+
+		rows.Scan(&appName, &jsonReleases)
+
+		var metaData = DBAllReleaseMetaData{
+			Releases: []int64{},
+		}
+
+		err = json.Unmarshal(([]byte)(jsonReleases), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of releases. Error: %w. Data: %s\n", err, jsonReleases)
+		}
+		result[appName] = metaData.Releases
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesRow")
 	defer span.Finish()
