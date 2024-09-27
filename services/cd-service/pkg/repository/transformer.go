@@ -3457,21 +3457,19 @@ func (c *ReleaseTrain) Transform(
 		return "", err
 	}
 
-	prognosis := c.Prognosis(ctx, state, transaction, configs)
-	span2, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Apply")
-	defer span2.Finish()
-
-	if prognosis.Error != nil {
-		return "", prognosis.Error
-	}
-
 	var targetGroupName = c.Target
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
+	if len(envGroupConfigs) == 0 {
+		if c.TargetType == api.ReleaseTrainRequest_ENVIRONMENT.String() || c.TargetType == api.ReleaseTrainRequest_ENVIRONMENTGROUP.String() {
+			return "", grpc.PublicError(ctx, fmt.Errorf("could not find target of type %v and name '%v'", c.TargetType, targetGroupName))
+		}
+		return "", grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
+	}
 
 	// sorting for determinism
-	envNames := make([]string, 0, len(prognosis.EnvironmentPrognoses))
-	for envName := range prognosis.EnvironmentPrognoses {
-		envNames = append(envNames, envName)
+	envNames := make([]string, 0, len(envGroupConfigs))
+	for env := range envGroupConfigs {
+		envNames = append(envNames, env)
 	}
 	sort.Strings(envNames)
 
