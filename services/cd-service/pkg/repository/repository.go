@@ -1093,7 +1093,6 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 
 func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
 	if r.config.DisableQueue && r.DB.ShouldUseOtherTables() {
-		logger.FromContext(ctx).Info("queue disabled")
 		changes, err := db.WithTransactionT(r.DB, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
 			subChanges, applyErr := r.ApplyTransformers(ctx, transaction, transformers...)
 			if applyErr != nil {
@@ -1119,7 +1118,6 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		r.notify.Notify()
 		return nil
 	} else {
-		logger.FromContext(ctx).Info("queue enabled")
 		eCh := r.applyDeferred(ctx, transformers...)
 		select {
 		case err := <-eCh:
