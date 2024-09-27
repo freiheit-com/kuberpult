@@ -229,6 +229,8 @@ spec:
 {{- end }}
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
+        - name: KUBERPULT_DISABLE_QUEUE
+          value: "{{ .Values.cd.backendConfig.disableQueue }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
           value: "{{ .Values.git.enableWritingCommitData }}"
         - name: KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH
