@@ -3043,13 +3043,15 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	d := &CleanupOldApplicationVersions{
-		Application:           c.Application,
-		TransformerEslVersion: c.TransformerEslVersion,
-	}
+	if !c.SkipOverview {
+		d := &CleanupOldApplicationVersions{
+			Application:           c.Application,
+			TransformerEslVersion: c.TransformerEslVersion,
+		}
 
-	if err := t.Execute(d, transaction); err != nil {
-		return "", err
+		if err := t.Execute(d, transaction); err != nil {
+			return "", err
+		}
 	}
 	if c.WriteCommitData { // write the corresponding event
 		newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
