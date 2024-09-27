@@ -3368,18 +3368,10 @@ func (c *ReleaseTrain) Prognosis(
 	ctx context.Context,
 	state *State,
 	transaction *sql.Tx,
+	configs map[string]config.EnvironmentConfig,
 ) ReleaseTrainPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
 	defer span.Finish()
-
-	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-
-	if err != nil {
-		return ReleaseTrainPrognosis{
-			Error:                grpc.InternalError(ctx, err),
-			EnvironmentPrognoses: nil,
-		}
-	}
 
 	var targetGroupName = c.Target
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
@@ -3455,14 +3447,18 @@ func (c *ReleaseTrain) Transform(
 			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 		}
 	}
-	prognosis := c.Prognosis(ctx, state, transaction)
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+	if err != nil {
+		return "", err
+	}
+
+	prognosis := c.Prognosis(ctx, state, transaction, configs)
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
 	}
 
 	var targetGroupName = c.Target
-	configs, _ := state.GetAllEnvironmentConfigs(ctx, transaction)
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
 
 	// sorting for determinism

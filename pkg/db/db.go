@@ -98,6 +98,7 @@ const (
 const (
 	MigrationCommitEventUUID = "00000000-0000-0000-0000-000000000000"
 	MigrationCommitEventHash = "0000000000000000000000000000000000000000"
+	WhereInBatchMax          = 1024
 )
 
 func (h *DBHandler) ShouldUseEslTable() bool {
@@ -4530,6 +4531,23 @@ type DBEnvironmentRow struct {
 	Config  string
 }
 
+func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "EnvironmentFromRow")
+	defer span.Finish()
+	//exhaustruct:ignore
+	parsedConfig := config.EnvironmentConfig{}
+	err := json.Unmarshal([]byte(row.Config), &parsedConfig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Config, err)
+	}
+	return &DBEnvironment{
+		Created: row.Created,
+		Version: row.Version,
+		Name:    row.Name,
+		Config:  parsedConfig,
+	}, nil
+}
+
 func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
 	defer span.Finish()
@@ -4572,30 +4590,91 @@ LIMIT 1;
 			}
 			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
 		}
-
-		//exhaustruct:ignore
-		parsedConfig := config.EnvironmentConfig{}
-		err = json.Unmarshal([]byte(row.Config), &parsedConfig)
+		env, err := EnvironmentFromRow(ctx, &row)
 		if err != nil {
-			return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Config, err)
+			return nil, err
 		}
-		err = closeRows(rows)
-		if err != nil {
-			return nil, fmt.Errorf("error while closing database rows, error: %w", err)
-		}
-
-		return &DBEnvironment{
-			Created: row.Created,
-			Version: row.Version,
-			Name:    environmentName,
-			Config:  parsedConfig,
-		}, nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, fmt.Errorf("errpr while closing database rows, error: %w", err)
+		return env, nil
 	}
 	return nil, nil
+}
+
+func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, environmentNames []string) (*[]DBEnvironment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
+	defer span.Finish()
+	if len(environmentNames) > WhereInBatchMax {
+		return nil, fmt.Errorf("SelectEnvironments is not batching queries for now, make sure to not request more than %d environments.", WhereInBatchMax)
+	}
+	if len(environmentNames) == 0 {
+		return &[]DBEnvironment{}, nil
+	}
+
+	selectQuery := h.AdaptQuery(
+		`
+SELECT
+  environments.created AS created,
+  environments.version AS version,
+  environments.name AS name,
+  environments.json AS json
+FROM (
+  SELECT
+    MAX(version) AS latest,
+    name
+  FROM
+    environments
+  GROUP BY
+    name) AS latest
+JOIN
+  environments
+ON
+  latest.latest=environments.version
+  AND latest.name = environments.name
+WHERE
+  environments.name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
+LIMIT ?
+`,
+	)
+	span.SetTag("query", selectQuery)
+	args := []any{}
+	for _, env := range environmentNames {
+		args = append(args, env)
+	}
+	args = append(args, len(environmentNames))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		args...,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for environments %v, error: %w (query: %s, args: %v)", environmentNames, err, selectQuery, args)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
+		}
+	}(rows)
+
+	envs := []DBEnvironment{}
+	for rows.Next() {
+		//exhaustruct:ignore
+		row := DBEnvironmentRow{}
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
+		}
+		env, err := EnvironmentFromRow(ctx, &row)
+		if err != nil {
+			return nil, err
+		}
+		envs = append(envs, *env)
+	}
+	return &envs, nil
 }
 
 func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig) error {
