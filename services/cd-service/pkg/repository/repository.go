@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"io"
 	"net/http"
 	"os"
@@ -34,6 +33,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"github.com/freiheit-com/kuberpult/pkg/event"
 
@@ -1733,7 +1734,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 	}
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application, skipOverview)
 }
-func (s *State) GetAllLatestDeployment(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
+func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		return s.DBHandler.DBSelectAllLatestDeployments(ctx, transaction, environment)
 	} else {
@@ -2469,9 +2470,7 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 	allReleasesOfApp, found := allReleasesOfAllApps[appName]
 	var rels []uint64
 	if found {
-		for _, id := range allReleasesOfApp {
-			rels = append(rels, uint64(id))
-		}
+		rels = conversion.ToUint64Slice(allReleasesOfApp)
 	} else {
 		retrievedReleasesOfApp, err := s.GetAllApplicationReleases(ctx, transaction, appName)
 		if err != nil {
@@ -2658,7 +2657,7 @@ func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.
 		}
 	} // Err != nil means no team name was found so no need to parse team locks
 
-	var version *uint64
+	var version *uint64 = new(uint64)
 	allAppsVersion, found := allEnvironmentApplicationVersions[appName]
 	if found {
 		*version = uint64(*allAppsVersion)

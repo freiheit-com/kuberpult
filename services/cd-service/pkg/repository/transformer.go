@@ -3654,7 +3654,7 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses: appsPrognoses,
 		}
 	}
-	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployment(ctx, transaction, c.Env, apps)
+	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, apps)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:     nil,
@@ -3664,7 +3664,7 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 
-	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployment(ctx, transaction, upstreamEnvName, apps)
+	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
 
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -4009,14 +4009,6 @@ func (c *envReleaseTrain) Transform(
 		envOfOverview = getEnvOfOverview(overview, c.Env)
 	}
 
-	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployment(ctx, transaction, c.Env, appNames)
-	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions"))
-	}
-	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
-	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps"))
-	}
 	for _, appName := range appNames {
 		appPrognosis := prognosis.AppsPrognoses[appName]
 		if appPrognosis.SkipCause != nil {
@@ -4042,7 +4034,16 @@ func (c *envReleaseTrain) Transform(
 		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}
-
+	}
+	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions"))
+	}
+	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps"))
+	}
+	for _, appName := range appNames {
 		if envOfOverview != nil {
 			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false, allReleasesOfAllApps)
 			if err != nil {
