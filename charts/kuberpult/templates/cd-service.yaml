@@ -192,6 +192,14 @@ spec:
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"
 {{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_PARTIAL_FLUSH_ENABLED
+          value: "{{ .Values.datadogTracing.partialFlushEnabled }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_PARTIAL_FLUSH_MIN_SPANS
+          value: "{{ .Values.datadogTracing.partialFlushMinSpans }}"
+{{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: KUBERPULT_ENABLE_METRICS
           value: "{{ .Values.dogstatsdMetrics.enabled }}"
@@ -221,6 +229,8 @@ spec:
 {{- end }}
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
+        - name: KUBERPULT_DISABLE_QUEUE
+          value: "{{ .Values.cd.backendConfig.disableQueue }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
           value: "{{ .Values.git.enableWritingCommitData }}"
         - name: KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH

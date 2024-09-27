@@ -20,6 +20,7 @@ import {
     addAction,
     getPriorityClassName,
     useCloseReleaseDialog,
+    useCurrentlyDeployedAtGroup,
     useEnvironmentGroups,
     useReleaseDifference,
     useReleaseOptional,
@@ -325,19 +326,13 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">
-                        <Button
-                            className="env-card-add-lock-btn"
-                            label="Add lock"
-                            onClick={createAppLock}
-                            icon={<Locks className="icon" />}
-                            highlightEffect={true}
-                        />
                         <div
                             title={
                                 'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
                             }>
                             <ExpandButton
                                 onClickSubmit={deployAndLockClick}
+                                onClickLock={createAppLock}
                                 defaultButtonLabel={'Deploy & Lock'}
                                 disabled={!allowDeployment}
                             />
@@ -454,9 +449,87 @@ export const EnvironmentGroupLane: React.FC<{
     // all envs in the same group have the same priority
     const priorityClassName = getPriorityClassName(environmentGroup);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
+    const [allowGroupDeployment, setAllowGroupDeployment] = React.useState(true);
     const collapse = useCallback(() => {
         setIsCollapsed(!isCollapsed);
     }, [isCollapsed]);
+
+    const allReleases = useCurrentlyDeployedAtGroup(app, release.version).filter(
+        (releaseEnvGroup) => releaseEnvGroup.environmentGroupName === environmentGroup.environmentGroupName
+    );
+
+    const createEnvGroupLock = React.useCallback(() => {
+        environmentGroup.environments.forEach((environment) => {
+            addAction({
+                action: {
+                    $case: 'createEnvironmentApplicationLock',
+                    createEnvironmentApplicationLock: {
+                        environment: environment.name,
+                        application: app,
+                        lockId: '',
+                        message: '',
+                        ciLink: '',
+                    },
+                },
+            });
+        });
+    }, [environmentGroup, app]);
+    const deployAndLockClick = React.useCallback(
+        (shouldLockToo: boolean) => {
+            environmentGroup.environments.forEach((environment) => {
+                if (
+                    allReleases &&
+                    allReleases.length !== 0 &&
+                    allReleases[0].environments.find((env) => env === environment)
+                ) {
+                    return;
+                }
+                addAction({
+                    action: {
+                        $case: 'deploy',
+                        deploy: {
+                            environment: environment.name,
+                            application: app,
+                            version: release.version,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.IGNORE,
+                        },
+                    },
+                });
+                if (shouldLockToo) {
+                    addAction({
+                        action: {
+                            $case: 'createEnvironmentApplicationLock',
+                            createEnvironmentApplicationLock: {
+                                environment: environment.name,
+                                application: app,
+                                lockId: '',
+                                message: '',
+                                ciLink: '',
+                            },
+                        },
+                    });
+                }
+            });
+        },
+        [release.version, app, environmentGroup, allReleases]
+    );
+
+    React.useEffect(() => {
+        //If current release is deployed on all envs of env group, we disable the groupDeploy button
+        if (allReleases === undefined) {
+            setAllowGroupDeployment(true);
+            return;
+        }
+
+        if (allReleases.length === 0) {
+            setAllowGroupDeployment(true);
+        } else {
+            setAllowGroupDeployment(
+                JSON.stringify(allReleases[0].environments) !== JSON.stringify(environmentGroup.environments)
+            );
+        }
+    }, [allReleases, environmentGroup]);
 
     return (
         <div className="release-dialog-environment-group-lane">
@@ -474,6 +547,20 @@ export const EnvironmentGroupLane: React.FC<{
                             <Button onClick={collapse} icon={<SortAscending />} highlightEffect={false} />
                         </div>
                     )}
+                </div>
+                <div className="env-group-card-buttons">
+                    <div
+                        className={'env-group-expand-button'}
+                        title={
+                            'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
+                        }>
+                        <ExpandButton
+                            onClickSubmit={deployAndLockClick}
+                            onClickLock={createEnvGroupLock}
+                            defaultButtonLabel={'Deploy & Lock'}
+                            disabled={!allowGroupDeployment}
+                        />
+                    </div>
                 </div>
             </div>
             {isCollapsed ? (

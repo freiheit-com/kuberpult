@@ -3043,13 +3043,15 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	d := &CleanupOldApplicationVersions{
-		Application:           c.Application,
-		TransformerEslVersion: c.TransformerEslVersion,
-	}
+	if !c.SkipOverview {
+		d := &CleanupOldApplicationVersions{
+			Application:           c.Application,
+			TransformerEslVersion: c.TransformerEslVersion,
+		}
 
-	if err := t.Execute(d, transaction); err != nil {
-		return "", err
+		if err := t.Execute(d, transaction); err != nil {
+			return "", err
+		}
 	}
 	if c.WriteCommitData { // write the corresponding event
 		newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
@@ -3368,18 +3370,10 @@ func (c *ReleaseTrain) Prognosis(
 	ctx context.Context,
 	state *State,
 	transaction *sql.Tx,
+	configs map[string]config.EnvironmentConfig,
 ) ReleaseTrainPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
 	defer span.Finish()
-
-	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-
-	if err != nil {
-		return ReleaseTrainPrognosis{
-			Error:                grpc.InternalError(ctx, err),
-			EnvironmentPrognoses: nil,
-		}
-	}
 
 	var targetGroupName = c.Target
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
@@ -3455,14 +3449,18 @@ func (c *ReleaseTrain) Transform(
 			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 		}
 	}
-	prognosis := c.Prognosis(ctx, state, transaction)
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+	if err != nil {
+		return "", err
+	}
+
+	prognosis := c.Prognosis(ctx, state, transaction, configs)
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
 	}
 
 	var targetGroupName = c.Target
-	configs, _ := state.GetAllEnvironmentConfigs(ctx, transaction)
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
 
 	// sorting for determinism
@@ -3651,7 +3649,26 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses: appsPrognoses,
 		}
 	}
+	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, apps)
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 
+	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
+
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
@@ -3665,16 +3682,7 @@ func (c *envReleaseTrain) prognosis(
 				continue
 			}
 		}
-
-		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
-		if err != nil {
-			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:     nil,
-				Error:         grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err)),
-				Locks:         nil,
-				AppsPrognoses: nil,
-			}
-		}
+		currentlyDeployedVersion := allLatestDeploymentsTargetEnv[appName]
 
 		var versionToDeploy uint64
 		if overrideVersions != nil {
@@ -3694,15 +3702,8 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 		} else {
-			upstreamVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, upstreamEnvName, appName)
-			if err != nil {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err)),
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
-			}
+			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
+
 			if upstreamVersion == nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
@@ -3713,9 +3714,9 @@ func (c *envReleaseTrain) prognosis(
 				}
 				continue
 			}
-			versionToDeploy = *upstreamVersion
+			versionToDeploy = uint64(*upstreamVersion)
 		}
-		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == versionToDeploy {
+		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == int64(versionToDeploy) {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
@@ -3776,7 +3777,7 @@ func (c *envReleaseTrain) prognosis(
 			if release == nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
-					Error:         fmt.Errorf("No release found."),
+					Error:         fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy),
 					Locks:         nil,
 					AppsPrognoses: nil,
 				}

@@ -20,8 +20,10 @@ import { ExpandButton, ExpandButtonProps } from './ExpandButton';
 
 describe('ExpandButton', () => {
     const mySubmitSpy = jest.fn(() => {});
+    const onClickLockMock = jest.fn(() => {});
     const defaultProps: ExpandButtonProps = {
         onClickSubmit: mySubmitSpy,
+        onClickLock: onClickLockMock,
         disabled: false,
         defaultButtonLabel: 'default-button',
     };
@@ -39,6 +41,7 @@ describe('ExpandButton', () => {
         expectExpanded: boolean;
         expectSubmitCalledTimes: number;
         expectSubmitCalledWith: Object; // only relevant if expectCalledTimes != 0
+        expectLockCalledTimes: number;
     };
 
     const data: TestData[] = [
@@ -49,6 +52,7 @@ describe('ExpandButton', () => {
             expectExpanded: true,
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
         },
         {
             name: 'click expand twice',
@@ -57,6 +61,7 @@ describe('ExpandButton', () => {
             expectExpanded: false,
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
         },
         {
             name: 'click Main button',
@@ -65,14 +70,25 @@ describe('ExpandButton', () => {
             expectExpanded: false,
             expectSubmitCalledTimes: 1,
             expectSubmitCalledWith: true,
+            expectLockCalledTimes: 0,
         },
         {
             name: 'click expand, then alternative button',
             props: {},
-            clickThis: ['.button-expand', '.button-popup'],
+            clickThis: ['.button-expand', '.button-popup-deploy'],
             expectExpanded: true,
             expectSubmitCalledTimes: 1,
             expectSubmitCalledWith: false,
+            expectLockCalledTimes: 0,
+        },
+        {
+            name: 'click expand, then lock button',
+            props: {},
+            clickThis: ['.button-expand', '.button-popup-lock'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: true,
+            expectLockCalledTimes: 1,
         },
     ];
 
@@ -98,6 +114,7 @@ describe('ExpandButton', () => {
             if (testcase.expectSubmitCalledTimes !== 0) {
                 expect(mySubmitSpy).toHaveBeenCalledWith(testcase.expectSubmitCalledWith);
             }
+            expect(onClickLockMock).toHaveBeenCalledTimes(testcase.expectLockCalledTimes);
         });
     });
 });
