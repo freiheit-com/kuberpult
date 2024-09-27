@@ -3782,7 +3782,6 @@ func (c *envReleaseTrain) prognosis(
 
 		if state.DBHandler.ShouldUseOtherTables() {
 			release, exists := allLatestManifests[appName][versionToDeploy]
-			//release, err = state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, true)
 
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
