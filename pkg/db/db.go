@@ -611,7 +611,7 @@ func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *
 		releases.manifests
 	FROM (
 		SELECT
-			MAX(releaseVersion) AS biggestRelease,
+			MAX(releaseVersion) AS latestRelease,
 			appname,
 			releaseversion
 		FROM
