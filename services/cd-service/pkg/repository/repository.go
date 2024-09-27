@@ -1183,6 +1183,9 @@ func (r *repository) afterTransform(ctx context.Context, state State, transactio
 func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig, transaction *sql.Tx) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
+	if !r.config.ArgoCdGenerateFiles {
+		return nil
+	}
 	fs := state.Filesystem
 	if apps, err := state.GetEnvironmentApplications(ctx, transaction, env); err != nil {
 		return err
@@ -1219,22 +1222,20 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 		}
 		spanCollectData.Finish()
 
-		if r.config.ArgoCdGenerateFiles {
-			spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-			defer spanRenderAndWrite.Finish()
-			if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
-				return err
-			} else {
-				spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
-				defer spanWrite.Finish()
-				for apiVersion, content := range manifests {
-					if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-						return err
-					}
-					target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
-					if err := util.WriteFile(fs, target, content, 0666); err != nil {
-						return err
-					}
+		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+		defer spanRenderAndWrite.Finish()
+		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
+			return err
+		} else {
+			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
+			defer spanWrite.Finish()
+			for apiVersion, content := range manifests {
+				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+					return err
+				}
+				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
+				if err := util.WriteFile(fs, target, content, 0666); err != nil {
+					return err
 				}
 			}
 		}
