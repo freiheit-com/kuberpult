@@ -4034,13 +4034,22 @@ func (c *envReleaseTrain) Transform(
 		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}
-
+	}
+	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions: %w", err))
+	}
+	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps: %w", err))
+	}
+	for _, appName := range appNames {
 		if envOfOverview != nil {
-			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false)
+			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false, allReleasesOfAllApps)
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}
-			envApp, err := state.UpdateOneAppEnvInOverview(ctx, transaction, appName, c.Env, &envConfig)
+			envApp, err := state.UpdateOneAppEnvInOverview(ctx, transaction, appName, c.Env, &envConfig, allEnvironmentApplicationVersions)
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}
