@@ -778,6 +778,13 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease, cmpopts.IgnoreFields(db.DBAllReleasesWithMetaData{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
+				environment, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
+				if err4 != nil {
+					return fmt.Errorf("error retrieving environment: %w", err)
+				}
+				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
+				}
 				return nil
 			})
 			if err3 != nil {
@@ -1136,6 +1143,13 @@ func TestMinorFlag(t *testing.T) {
 			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
 					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				})
+				if err != nil {
+					return err
+				}
+				_, state, _, err = repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
+					Environment: "new env",
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				})
 				if err != nil {
@@ -1682,6 +1696,14 @@ func TestEvents(t *testing.T) {
 		{
 			Name: "check if the number of events is equal to pageNumber plus pageSize",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1706,8 +1728,16 @@ func TestEvents(t *testing.T) {
 		},
 		{
 			Name: "Create a single application version and deploy it with DB",
-			// no need to bother with environments here
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Authentication: Authentication{},
+					Environment:    "staging",
+					Config: config.EnvironmentConfig{
+						Upstream:         nil,
+						ArgoCd:           nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1844,7 +1874,7 @@ func TestEvents(t *testing.T) {
 					t.Fatal(err)
 				}
 				if len(rows) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows: %v\n", len(tc.expectedDBEvents), len(rows), rows)
 				}
 				dEvents, err := DBParseToEvents(rows)
 				if err != nil {
@@ -1873,6 +1903,40 @@ func TestEvents(t *testing.T) {
 }
 
 func TestDeleteEnvFromAppWithDB(t *testing.T) {
+	setupTransformers := []Transformer{
+		&CreateEnvironment{
+			Environment: "env",
+			Config: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCd:           nil,
+				EnvironmentGroup: conversion.FromString("mygroup"),
+			},
+		},
+		&CreateEnvironment{
+			Environment: "env1",
+			Config: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCd:           nil,
+				EnvironmentGroup: conversion.FromString("mygroup"),
+			},
+		},
+		&CreateEnvironment{
+			Environment: "env2",
+			Config: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCd:           nil,
+				EnvironmentGroup: conversion.FromString("mygroup"),
+			},
+		},
+		&CreateEnvironment{
+			Environment: "env3",
+			Config: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCd:           nil,
+				EnvironmentGroup: conversion.FromString("mygroup"),
+			},
+		},
+	}
 	firstRelease := db.DBReleaseWithMetaData{
 		EslVersion:    1,
 		ReleaseNumber: 10,
@@ -1958,6 +2022,10 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, setupTransformers...)
+				if err != nil {
+					return err
+				}
 				for _, release := range tc.PrevReleases {
 					repo.State().DBHandler.DBInsertRelease(ctx, transaction, release, 0)
 				}
@@ -1976,6 +2044,17 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					for env, manifest := range tc.ExpectedManifests {
 						if diff := cmp.Diff(manifest, release.Manifests.Manifests[env]); diff != "" {
 							return fmt.Errorf("error mismatch Manifests - want, +got:\n%s", diff)
+						}
+					}
+				}
+				environment, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, tc.Transforms[0].(*DeleteEnvFromApp).Environment)
+				if err2 != nil {
+					return err2
+				}
+				if environment != nil {
+					for _, envApp := range environment.Applications {
+						if envApp == firstRelease.App {
+							return fmt.Errorf("Expected app %s to be deleted from environment %s", firstRelease.App, environment.Name)
 						}
 					}
 				}
@@ -2231,6 +2310,14 @@ func TestUndeployApplicationDB(t *testing.T) {
 		{
 			Name: "Success",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
@@ -2251,6 +2338,14 @@ func TestUndeployApplicationDB(t *testing.T) {
 		{
 			Name: "Create un-deploy Version for un-deployed application should not work",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
@@ -2270,7 +2365,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 			},
 			expectedError: &TransformerBatchApplyError{
-				Index:            3,
+				Index:            4,
 				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
 			},
 			expectedCommitMsg: "",
@@ -2428,6 +2523,14 @@ func TestUndeployApplicationDB(t *testing.T) {
 		{
 			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
@@ -2453,7 +2556,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 			},
 			expectedError: &TransformerBatchApplyError{
-				Index:            3,
+				Index:            4,
 				TransformerError: errMatcher{"UndeployApplication: error last release is not un-deployed application version of 'app1'"},
 			},
 			expectedCommitMsg: "",
@@ -2626,6 +2729,14 @@ func TestCreateUndeployDBState(t *testing.T) {
 		{
 			Name: "Success",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Manifests: map[string]string{
