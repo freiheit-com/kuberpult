@@ -4626,10 +4626,10 @@ func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironm
 		return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Applications, err)
 	}
 	return &DBEnvironment{
-		Created: row.Created,
-		Version: row.Version,
-		Name:    row.Name,
-		Config:  parsedConfig,
+		Created:      row.Created,
+		Version:      row.Version,
+		Name:         row.Name,
+		Config:       parsedConfig,
 		Applications: applications,
 	}, nil
 }
@@ -4702,7 +4702,7 @@ SELECT
   environments.version AS version,
   environments.name AS name,
   environments.json AS json,
-  environments.applications AS applications,
+  environments.applications AS applications
 FROM (
   SELECT
     MAX(version) AS latest,
