@@ -62,6 +62,7 @@ type Repository interface {
 	StateAt(oid *git.Oid) (*State, error)
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
+	GetHeadCommit() (*git.Commit, error)
 }
 
 type TransformerBatchApplyError struct {
@@ -417,6 +418,19 @@ func (r *repository) PushRepo(ctx context.Context) error {
 	return nil
 }
 
+func (r *repository) GetHeadCommit() (*git.Commit, error) {
+	ref, err := r.repository.Head()
+	if err != nil {
+		return nil, fmt.Errorf("Error fetching HEAD: %v", err)
+	}
+	commit, err := r.repository.LookupCommit(ref.Target())
+	if err != nil {
+		return nil, fmt.Errorf("Error transalting into commit: %v", err)
+	}
+	return commit, nil
+
+}
+
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
 	defer span.Finish()
@@ -705,11 +719,14 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env string, config config.EnvironmentConfig) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
+	if !r.config.ArgoCdGenerateFiles {
+		return nil
+	}
 	fs := state.Filesystem
 	if apps, err := state.GetEnvironmentApplications(ctx, transaction, env); err != nil {
 		return err
 	} else {
-		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
+		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
@@ -745,22 +762,20 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 		}
 		spanCollectData.Finish()
 
-		if r.config.ArgoCdGenerateFiles {
-			spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-			defer spanRenderAndWrite.Finish()
-			if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
-				return err
-			} else {
-				spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
-				defer spanWrite.Finish()
-				for apiVersion, content := range manifests {
-					if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-						return err
-					}
-					target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
-					if err := util.WriteFile(fs, target, content, 0666); err != nil {
-						return err
-					}
+		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+		defer spanRenderAndWrite.Finish()
+		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
+			return err
+		} else {
+			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
+			defer spanWrite.Finish()
+			for apiVersion, content := range manifests {
+				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+					return err
+				}
+				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
+				if err := util.WriteFile(fs, target, content, 0666); err != nil {
+					return err
 				}
 			}
 		}
@@ -1139,7 +1154,7 @@ func (s *State) DeleteQueuedVersionIfExists(environment string, application stri
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment, application string) (*uint64, error) {
-	depl, err := s.DBHandler.DBSelectDeployment(ctx, transaction, application, environment)
+	depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 	if err != nil {
 		return nil, err
 	}

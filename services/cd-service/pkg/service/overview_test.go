@@ -50,164 +50,6 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
-func makeApps(apps ...*api.Environment_Application) map[string]*api.Environment_Application {
-	var result map[string]*api.Environment_Application = map[string]*api.Environment_Application{}
-	for i := 0; i < len(apps); i++ {
-		app := apps[i]
-		result[app.Name] = app
-	}
-	return result
-}
-
-func makeEnv(envName string, groupName string, upstream *api.EnvironmentConfig_Upstream, apps map[string]*api.Environment_Application) *api.Environment {
-	return &api.Environment{
-		Name: envName,
-		Config: &api.EnvironmentConfig{
-			Upstream:         upstream,
-			EnvironmentGroup: &groupName,
-		},
-		Locks: map[string]*api.Lock{},
-
-		Applications:       apps,
-		DistanceToUpstream: 0,
-		Priority:           api.Priority_UPSTREAM, // we are 1 away from prod, hence pre-prod
-	}
-}
-
-func makeApp(appName string, version uint64) *api.Environment_Application {
-	return &api.Environment_Application{
-		Name:            appName,
-		Version:         version,
-		Locks:           nil,
-		QueuedVersion:   0,
-		UndeployVersion: false,
-		ArgoCd:          nil,
-	}
-}
-func makeEnvGroup(envGroupName string, environments []*api.Environment) *api.EnvironmentGroup {
-	return &api.EnvironmentGroup{
-		EnvironmentGroupName: envGroupName,
-		Environments:         environments,
-		DistanceToUpstream:   0,
-	}
-}
-
-func makeUpstreamLatest() *api.EnvironmentConfig_Upstream {
-	f := true
-	return &api.EnvironmentConfig_Upstream{
-		Latest: &f,
-	}
-}
-
-func makeUpstreamEnv(upstream string) *api.EnvironmentConfig_Upstream {
-	return &api.EnvironmentConfig_Upstream{
-		Environment: &upstream,
-	}
-}
-
-func TestCalculateWarnings(t *testing.T) {
-	var dev = "dev"
-	tcs := []struct {
-		Name             string
-		AppName          string
-		Groups           []*api.EnvironmentGroup
-		ExpectedWarnings []*api.Warning
-	}{
-		{
-			Name:    "no envs - no warning",
-			AppName: "foo",
-			Groups: []*api.EnvironmentGroup{
-				makeEnvGroup(dev, []*api.Environment{
-					makeEnv("dev-de", dev, makeUpstreamLatest(), nil),
-				})},
-			ExpectedWarnings: []*api.Warning{},
-		},
-		{
-			Name:    "app deployed in higher version on upstream should warn",
-			AppName: "foo",
-			Groups: []*api.EnvironmentGroup{
-				makeEnvGroup(dev, []*api.Environment{
-					makeEnv("prod", dev, makeUpstreamEnv("dev"),
-						makeApps(makeApp("foo", 2))),
-				}),
-				makeEnvGroup(dev, []*api.Environment{
-					makeEnv("dev", dev, makeUpstreamLatest(),
-						makeApps(makeApp("foo", 1))),
-				}),
-			},
-			ExpectedWarnings: []*api.Warning{
-				{
-					WarningType: &api.Warning_UnusualDeploymentOrder{
-						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-							UpstreamVersion:     1,
-							UpstreamEnvironment: "dev",
-							ThisVersion:         2,
-							ThisEnvironment:     "prod",
-						},
-					},
-				},
-			},
-		},
-		{
-			Name:    "app deployed in same version on upstream should not warn",
-			AppName: "foo",
-			Groups: []*api.EnvironmentGroup{
-				makeEnvGroup(dev, []*api.Environment{
-					makeEnv("prod", dev, makeUpstreamEnv("dev"),
-						makeApps(makeApp("foo", 2))),
-				}),
-				makeEnvGroup(dev, []*api.Environment{
-					makeEnv("dev", dev, makeUpstreamLatest(),
-						makeApps(makeApp("foo", 2))),
-				}),
-			},
-			ExpectedWarnings: []*api.Warning{},
-		},
-		{
-			Name:    "app deployed in no version on upstream should warn",
-			AppName: "foo",
-			Groups: []*api.EnvironmentGroup{
-				makeEnvGroup(dev, []*api.Environment{
-					makeEnv("prod", dev, makeUpstreamEnv("dev"),
-						makeApps(makeApp("foo", 1))),
-				}),
-				makeEnvGroup(dev, []*api.Environment{
-					makeEnv("dev", dev, makeUpstreamLatest(),
-						makeApps()),
-				}),
-			},
-			ExpectedWarnings: []*api.Warning{
-				{
-					WarningType: &api.Warning_UpstreamNotDeployed{
-						UpstreamNotDeployed: &api.UpstreamNotDeployed{
-							UpstreamEnvironment: "dev",
-							ThisVersion:         1,
-							ThisEnvironment:     "prod",
-						},
-					},
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			actualWarnings := CalculateWarnings(testutil.MakeTestContext(), tc.AppName, tc.Groups)
-			if len(actualWarnings) != len(tc.ExpectedWarnings) {
-				t.Errorf("Different number of warnings. got: %s\nwant: %s", actualWarnings, tc.ExpectedWarnings)
-			}
-			for i := 0; i < len(actualWarnings); i++ {
-				actualWarning := actualWarnings[i]
-				expectedWarning := tc.ExpectedWarnings[i]
-				if diff := cmp.Diff(actualWarning.String(), expectedWarning.String()); diff != "" {
-					t.Errorf("Different warning at index [%d]:\ngot:  %s\nwant: %s", i, actualWarning, expectedWarning)
-				}
-			}
-		})
-	}
-
-}
-
 func TestOverviewService(t *testing.T) {
 	var dev = "dev"
 	var upstreamLatest = true
@@ -253,7 +95,7 @@ func TestOverviewService(t *testing.T) {
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "changed something (#678)",
 				},
 				&repository.CreateApplicationVersion{
@@ -269,7 +111,7 @@ func TestOverviewService(t *testing.T) {
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "changed something (#678",
 				},
 				&repository.CreateApplicationVersion{
@@ -278,7 +120,7 @@ func TestOverviewService(t *testing.T) {
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "(#678)",
 				},
 				&repository.DeployApplicationVersion{
@@ -501,7 +343,7 @@ func TestOverviewService(t *testing.T) {
 					if test.Releases[0].SourceMessage != "changed something (#678)" {
 						t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
 					}
-					if test.Releases[0].SourceCommitId != "deadbeef" {
+					if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
 						t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
 					}
 				}
@@ -627,7 +469,7 @@ func TestOverviewService(t *testing.T) {
 						Releases: []*api.Release{
 							{
 								Version:        1,
-								SourceCommitId: "deadbeef",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
@@ -653,7 +495,7 @@ func TestOverviewService(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Authentication:        repository.Authentication{},
 					Version:               1,
-					SourceCommitId:        "deadbeef",
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceAuthor:          "example <example@example.com>",
 					SourceMessage:         "changed something (#678)",
 					Team:                  "team-123",
@@ -669,7 +511,7 @@ func TestOverviewService(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Authentication:        repository.Authentication{},
 					Version:               2,
-					SourceCommitId:        "deadbeef",
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceAuthor:          "example <example@example.com>",
 					SourceMessage:         "changed something (#678)",
 					Team:                  "team-123",
@@ -739,7 +581,7 @@ func TestOverviewService(t *testing.T) {
 					if test.Releases[0].SourceMessage != "changed something (#678)" {
 						t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
 					}
-					if test.Releases[0].SourceCommitId != "deadbeef" {
+					if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
 						t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
 					}
 				}
@@ -854,7 +696,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						},
 
 						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeef",
+						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 						SourceMessage:  "changed something (#678)",
 					},
 				},
@@ -874,7 +716,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 							"development": "dev",
 						},
 						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeef",
+						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 						SourceMessage:  "changed something (#678",
 					},
 				},
@@ -885,7 +727,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 							"development": "dev",
 						},
 						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeef",
+						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 						SourceMessage:  "(#678)",
 					},
 				},
@@ -973,153 +815,6 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 				}
 			}
 			close(shutdown)
-		})
-	}
-}
-
-func groupFromEnvs(environments []*api.Environment) []*api.EnvironmentGroup {
-	return []*api.EnvironmentGroup{
-		{
-			EnvironmentGroupName: "group1",
-			Environments:         environments,
-		},
-	}
-}
-
-func TestDeriveUndeploySummary(t *testing.T) {
-	var tcs = []struct {
-		Name           string
-		AppName        string
-		groups         []*api.EnvironmentGroup
-		ExpectedResult api.UndeploySummary
-	}{
-		{
-			Name:           "No Environments",
-			AppName:        "foo",
-			groups:         []*api.EnvironmentGroup{},
-			ExpectedResult: api.UndeploySummary_UNDEPLOY,
-		},
-		{
-			Name:    "one Environment but no Application",
-			AppName: "foo",
-			groups: groupFromEnvs([]*api.Environment{
-				{
-					Applications: map[string]*api.Environment_Application{
-						"bar": { // different app
-							UndeployVersion: true,
-							Version:         666,
-						},
-					},
-				},
-			}),
-			ExpectedResult: api.UndeploySummary_UNDEPLOY,
-		},
-		{
-			Name:    "One Env with undeploy",
-			AppName: "foo",
-			groups: groupFromEnvs([]*api.Environment{
-				{
-					Applications: map[string]*api.Environment_Application{
-						"foo": {
-							UndeployVersion: true,
-							Version:         666,
-						},
-					},
-				},
-			}),
-			ExpectedResult: api.UndeploySummary_UNDEPLOY,
-		},
-		{
-			Name:    "One Env with normal version",
-			AppName: "foo",
-			groups: groupFromEnvs([]*api.Environment{
-				{
-					Applications: map[string]*api.Environment_Application{
-						"foo": {
-							UndeployVersion: false,
-							Version:         666,
-						},
-					},
-				},
-			}),
-			ExpectedResult: api.UndeploySummary_NORMAL,
-		},
-		{
-			Name:    "Two Envs all undeploy",
-			AppName: "foo",
-			groups: groupFromEnvs([]*api.Environment{
-				{
-					Applications: map[string]*api.Environment_Application{
-						"foo": {
-							UndeployVersion: true,
-							Version:         666,
-						},
-					},
-				},
-				{
-					Applications: map[string]*api.Environment_Application{
-						"foo": {
-							UndeployVersion: true,
-							Version:         666,
-						},
-					},
-				},
-			}),
-			ExpectedResult: api.UndeploySummary_UNDEPLOY,
-		},
-		{
-			Name:    "Two Envs all normal",
-			AppName: "foo",
-			groups: groupFromEnvs([]*api.Environment{
-				{
-					Applications: map[string]*api.Environment_Application{
-						"foo": {
-							UndeployVersion: false,
-							Version:         666,
-						},
-					},
-				},
-				{
-					Applications: map[string]*api.Environment_Application{
-						"foo": {
-							UndeployVersion: false,
-							Version:         666,
-						},
-					},
-				},
-			}),
-			ExpectedResult: api.UndeploySummary_NORMAL,
-		},
-		{
-			Name:    "Two Envs all different",
-			AppName: "foo",
-			groups: groupFromEnvs([]*api.Environment{
-				{
-					Applications: map[string]*api.Environment_Application{
-						"foo": {
-							UndeployVersion: true,
-							Version:         666,
-						},
-					},
-				},
-				{
-					Applications: map[string]*api.Environment_Application{
-						"foo": {
-							UndeployVersion: false,
-							Version:         666,
-						},
-					},
-				},
-			}),
-			ExpectedResult: api.UndeploySummary_MIXED,
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			actualResult := deriveUndeploySummary(tc.AppName, tc.groups)
-			if !cmp.Equal(tc.ExpectedResult, actualResult) {
-				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult, actualResult))
-			}
 		})
 	}
 }

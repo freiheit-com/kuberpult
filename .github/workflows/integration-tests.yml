@@ -22,25 +22,31 @@ jobs:
       uses: earthly/actions-setup@v1
       with:
           version: v0.8.13
+    - name: Setup Image tag
+      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
+      run: |
+        if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
+          echo "IMAGE_TAG_KUBERPULT=pr-$(make version)" >> $GITHUB_ENV
+        elif [[ ${{ inputs.trigger }} == "main" ]]; then
+          echo "IMAGE_TAG_KUBERPULT=main-$(make version)" >> $GITHUB_ENV
+        fi
     - name: Setup environment
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
-
-        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT} > /dev/null; then
           echo "No valid images found in the registry for the backend service"
           exit 1
         fi
 
-        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_KUBERPULT} > /dev/null; then
           echo "No valid images found in the registry for the frontend service"
           exit 1
         fi
 
-        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT} > /dev/null; then
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
-        echo "IMAGE_TAG_KUBERPULT=$(make version)" >> $GITHUB_ENV
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY

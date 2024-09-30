@@ -138,6 +138,8 @@ integration-test:
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version
+    ARG --required charts_version
+    ENV CHARTS_VERSION=$charts_version
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
 
     WITH DOCKER --compose docker-compose-k3s.yml

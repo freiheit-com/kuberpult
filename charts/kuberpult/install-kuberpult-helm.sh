@@ -86,8 +86,8 @@ argocd:
   refresh:
     enabled: true
 manageArgoApplications:
-  enabled: false
-  filter: ""
+  enabled: true
+  filter: "sreteam"
 datadogProfiling:
   enabled: false
   apiKey: invalid-3

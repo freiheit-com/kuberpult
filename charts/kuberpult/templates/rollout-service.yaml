@@ -94,11 +94,7 @@ spec:
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_VERSIONSERVER
-{{- if (eq .Values.db.dbOption "NO_DB") }}
           value: kuberpult-cd-service:8443
-{{- else }}
-          value: kuberpult-manifest-repo-export-service:8443
-{{- end }}
         - name: KUBERPULT_ARGOCD_SERVER
           value: {{ .Values.argocd.server | quote }}
         - name: KUBERPULT_ARGOCD_INSECURE
@@ -138,6 +134,14 @@ spec:
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_PARTIAL_FLUSH_ENABLED
+          value: "{{ .Values.datadogTracing.partialFlushEnabled }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_PARTIAL_FLUSH_MIN_SPANS
+          value: "{{ .Values.datadogTracing.partialFlushMinSpans }}"
 {{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: KUBERPULT_ENABLE_METRICS

@@ -42,6 +42,9 @@ jest.mock('../../utils/Links', () => ({
     setOpenEnvironmentConfigDialog: () => mockSetOpenEnvironmentConfigDialog(),
 }));
 
+const mockConsoleErrors = jest.fn();
+jest.spyOn(console, 'error').mockImplementation(mockConsoleErrors);
+
 describe('EnvironmentConfigDialog', () => {
     const getNode = (environmentName: string) => (
         <MemoryRouter>

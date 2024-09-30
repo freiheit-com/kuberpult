@@ -38,7 +38,7 @@ export type DropdownSelectProps = {
 const allTeamsId = 'all-teams';
 
 // A dropdown allowing multiple selections
-export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
+export const TeamsFilterDropdownSelect: React.FC<DropdownSelectProps> = (props) => {
     const { handleChange, allTeams, selectedTeams } = props;
 
     const [open, setOpen] = React.useState(false);
@@ -114,7 +114,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
     );
 };
 
-export const Dropdown = (props: DropdownProps): JSX.Element => {
+export const TeamsFilterDropdown = (props: DropdownProps): JSX.Element => {
     const { className, placeholder, leadingIcon } = props;
     const control = useRef<HTMLDivElement>(null);
     const teams = useTeamNames();
@@ -171,12 +171,76 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
 
     return (
         <div className={allClassName} ref={control}>
-            <DropdownSelect
+            <TeamsFilterDropdownSelect
                 handleChange={handleChange}
                 isEmpty={isEmpty}
                 allTeams={teams}
                 selectedTeams={selectedTeams}
             />
+        </div>
+    );
+};
+
+export type FiltersDropdownProps = {
+    hideWithoutWarningsValue: boolean;
+    hideMinorsValue: boolean;
+    onWarningsFilterClick: () => void;
+    onMinorsFilterClick: () => void;
+};
+
+export const FiltersDropdown = (props: FiltersDropdownProps): JSX.Element => {
+    const { hideWithoutWarningsValue, hideMinorsValue, onWarningsFilterClick, onMinorsFilterClick } = props;
+    const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+
+    const toggleDropdown = useCallback((): void => {
+        setIsDropdownOpen(!isDropdownOpen);
+    }, [isDropdownOpen, setIsDropdownOpen]);
+
+    return (
+        <div className="mdc-top-app-bar__section top-app-bar--narrow-filter">
+            <div className="mdc-select mdc-select--outlined mdc-select--with-leading-icon top-app-bar-search-field">
+                <div className={'dropdown-container'}>
+                    <div className={'dropdown-arrow-container'}>
+                        <div className={'dropdown-arrow'}>⌄</div>
+                        <Button
+                            label="More Filters"
+                            className="dropdown-button"
+                            aria-label={'Filters'}
+                            disabled={false}
+                            onClick={toggleDropdown}
+                            data-testid="filters-dropdown-input"
+                            highlightEffect={false}
+                        />
+                    </div>
+                    <PlainDialog
+                        open={isDropdownOpen}
+                        onClose={toggleDropdown}
+                        classNames={'dropdown'}
+                        disableBackground={true}
+                        center={false}>
+                        <div className="dropdown-content">
+                            <div>
+                                <Checkbox
+                                    enabled={hideWithoutWarningsValue}
+                                    onClick={onWarningsFilterClick}
+                                    id="warningFilter"
+                                    label="Hide apps without warnings"
+                                    classes=""
+                                />
+                            </div>
+                            <div>
+                                <Checkbox
+                                    enabled={hideMinorsValue}
+                                    onClick={onMinorsFilterClick}
+                                    id="minorsFilter"
+                                    label="Hide minor releases"
+                                    classes=""
+                                />
+                            </div>
+                        </div>
+                    </PlainDialog>
+                </div>
+            </div>
         </div>
     );
 };

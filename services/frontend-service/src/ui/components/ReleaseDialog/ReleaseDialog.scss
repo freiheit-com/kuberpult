@@ -14,10 +14,15 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 .release-dialog {
-    min-width: 960px;
+    min-width: 980px;
 
     a {
         color: white;
+    }
+
+    a.env-card-link {
+        color: black;
+        font-size: 17px;
     }
 
     div.MuiPaper-root {
@@ -99,7 +104,7 @@ Copyright freiheit.com*/
             flex-direction: column;
             width: 900px;
             padding: 0 0 10px;
-            margin: 10px 20px 0;
+            margin: 15px 15px 0;
             border-radius: $release-dialog-inner-border-radius;
             gap: 0;
 
@@ -164,16 +169,21 @@ Copyright freiheit.com*/
                 flex-direction: row;
                 padding-left: 27px;
                 @extend .text-medium;
+                .env-card-release-diff-positive {
+                    color: green;
+                }
+                .env-card-release-diff-negative {
+                    color: red;
+                }
             }
 
             .env-card-buttons {
                 margin-left: auto;
-                margin-right: 18px;
                 margin-bottom: 17px;
                 display: flex;
                 flex-direction: row;
                 gap: 20px;
-                min-width: 300px;
+                min-width: 200px;
 
                 .env-card-add-lock-btn {
                     border: 1px solid var(--mdc-theme-primary);
@@ -200,4 +210,137 @@ button.button-lock {
 button.mdc-button.env-card-deploy-btn {
     border-radius: $release-dialog-inner-border-radius;
     @extend .text-bold;
+}
+button.mdc-button.env-card-lock-btn {
+    border-radius: $release-dialog-inner-border-radius;
+    @extend .text-bold;
+}
+
+.release-dialog-environment-group-lane {
+    position: relative;
+    min-width: fit-content;
+    max-width: calc(100vw - $sidebar-width - 100px); // full size minus the planned actions bar minus some buffer
+    background-color: rgba(0, 0, 0, 0.06);
+    border-radius: $environment-lane-header-border-radius;
+    margin-top: 10px;
+    margin-bottom: 10px;
+
+    .release-dialog-environment-group-lane__footer {
+        padding-bottom: 1px; // must not be 0, or margins will collapse
+    }
+
+    .release-dialog-environment-group-lane__header-wrapper {
+        display: flex;
+    }
+
+    .release-dialog-environment-group-lane__header {
+        position: relative;
+        color: var(--mdc-theme-surface); // will be fixed in SRX-E9D7EE
+        display: flex;
+        justify-content: space-between;
+        padding: $environment-lane-header-padding;
+        padding-right: 5px;
+        border-radius: $environment-lane-header-border-radius;
+        width: max-content;
+
+        .environment-group__name {
+            @extend .headline1;
+            display: flex;
+            align-items: center;
+        }
+    }
+
+    .release-dialog-environment-group-lane__body__collapsed {
+        position: relative;
+        color: var(--mdc-theme-surface); // will be fixed in SRX-E9D7EE
+        display: flex;
+        justify-content: space-between;
+        padding: $environment-lane-header-padding;
+        border-radius: $environment-lane-header-border-radius;
+        width: 940px;
+        .environment-group__name {
+            @extend .headline1;
+            display: flex;
+            align-items: center;
+        }
+    }
+
+    .release-dialog-environment-group-lane__body {
+        margin-top: 20px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+    }
+
+    .environment-lane {
+        position: relative;
+        background-color: #eee;
+        border-radius: $environment-lane-border-radius;
+        margin: $environment-lane-margin;
+        overflow: visible;
+
+        .environment-lane__header {
+            position: relative;
+            color: $environment-lane-header-color;
+            display: flex;
+            justify-content: space-between;
+            padding: $environment-lane-header-padding;
+            border-radius: $environment-lane-header-border-radius;
+            width: max-content;
+
+            .environment__name {
+                @extend .headline1;
+                display: flex;
+                align-items: center;
+            }
+        }
+
+        .environment-lane__body {
+            display: flex;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            padding-right: 0px;
+            padding-left: 0px;
+
+            .tooltip-container {
+                min-width: 40px;
+            }
+        }
+    }
+}
+
+.collapse-dropdown-arrow-container {
+    display: flex;
+    flex-flow: row-reverse;
+    height: 100%;
+    .collapse-dropdown-arrow {
+        right: 10px;
+        top: 20px;
+        float: left;
+        font-size: xx-large;
+        pointer-events: none;
+    }
+}
+
+.env-group-card-buttons {
+    margin-left: auto;
+    margin-bottom: 17px;
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    min-width: 300px;
+    padding-top: 9px;
+
+    .env-card-add-lock-btn {
+        border: 1px solid var(--mdc-theme-primary);
+        border-radius: $release-dialog-inner-border-radius;
+        white-space: nowrap;
+        @extend .text-bold;
+
+        .icon {
+            margin-right: 9px;
+        }
+    }
+}
+.env-group-expand-button {
+    margin-left: 85px;
 }

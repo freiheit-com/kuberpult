@@ -60,7 +60,7 @@ export interface DisplayLock {
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
     'dl-' + displayLock.lockId + '-' + displayLock.environment + '-' + displayLock.application;
 
-type EnhancedOverview = GetOverviewResponse & { loaded: boolean };
+type EnhancedOverview = GetOverviewResponse & { [key: string]: unknown; loaded: boolean };
 
 const emptyOverview: EnhancedOverview = {
     applications: {},
@@ -113,7 +113,7 @@ export type ReleaseTrainPrognosisResponse = {
     releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
 };
 
-const emptyBatch: BatchRequest = { actions: [] };
+const emptyBatch: BatchRequest & { [key: string]: unknown } = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
 export const refreshTags = (): void => {
@@ -920,10 +920,12 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 export const useRelease = (application: string, version: number): Release | undefined =>
     useOverview(({ applications }) => applications[application]?.releases?.find((r) => r.version === version));
 
-export const useReleaseOrThrow = (application: string, version: number): Release => {
+export const useReleaseOrLog = (application: string, version: number): Release | undefined => {
     const release = useRelease(application, version);
     if (!release) {
-        throw new Error('Release cannot be found for app ' + application + ' version ' + version);
+        // eslint-disable-next-line no-console
+        console.error('Release cannot be found for app ' + application + ' version ' + version);
+        return undefined;
     }
     return release;
 };
@@ -1014,6 +1016,29 @@ export const useReleasesForApp = (app: string): Release[] =>
 
 // Get all release versions for an app
 export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);
+
+// Calculated release difference between a specific release and currently deployed release on a specific environment
+export const useReleaseDifference = (toDeployVersion: number, application: string, environment: string): number => {
+    const envApplications = useEnvironments().find((env) => env.name === environment)?.applications;
+    const currentDeployedIndex = useReleasesForApp(application)?.findIndex(
+        (rel) => rel.version === envApplications?.[application]?.version
+    );
+    const newVersionIndex = useReleasesForApp(application)?.findIndex((rel) => rel.version === toDeployVersion);
+    if (
+        currentDeployedIndex === undefined ||
+        newVersionIndex === undefined ||
+        currentDeployedIndex === -1 ||
+        newVersionIndex === -1
+    ) {
+        return 0;
+    }
+    return currentDeployedIndex - newVersionIndex;
+};
+// Get all minor releases for an app
+export const useMinorsForApp = (app: string): number[] =>
+    useReleasesForApp(app)
+        .filter((rel) => rel.isMinor)
+        .map((rel) => rel.version);
 
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate
 export const useNavigateWithSearchParams = (to: string): { navURL: string; navCallback: () => void } => {

@@ -16,6 +16,7 @@ Copyright freiheit.com*/
 
 import React from 'react';
 import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl } from './store';
+import classNames from 'classnames';
 
 export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): string | undefined => {
     if (baseUrl) {
@@ -126,6 +127,7 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string; namespace: str
     return (
         <a
             title={'Opens the app in ArgoCd for this environment'}
+            className={classNames('env-card-link')}
             href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
             {env}
         </a>
@@ -240,6 +242,20 @@ export const setHideWithoutWarnings = (params: URLSearchParams, newValue: boolea
         params.set(hideWithoutWarningsParamName, hideWithoutWarningsParamEnabledValue);
     } else {
         params.delete(hideWithoutWarningsParamName);
+    }
+};
+
+const hideMinorsParamName = 'hideMinors';
+const hideMinorsParamEnabledValue = 'Y';
+export const hideMinors = (params: URLSearchParams): boolean => {
+    const hideMinorsParam = params.get(hideMinorsParamName) || '';
+    return hideMinorsParam === hideMinorsParamEnabledValue;
+};
+export const setHideMinors = (params: URLSearchParams, newValue: boolean): void => {
+    if (newValue) {
+        params.set(hideMinorsParamName, hideMinorsParamEnabledValue);
+    } else {
+        params.delete(hideMinorsParamName);
     }
 };
 

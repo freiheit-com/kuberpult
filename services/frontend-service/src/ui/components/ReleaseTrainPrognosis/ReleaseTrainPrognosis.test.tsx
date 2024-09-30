@@ -66,36 +66,42 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
                         },
+                        locks: [],
                     },
                     'env-2': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM,
                         },
+                        locks: [],
                     },
                     'env-3': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
                         },
+                        locks: [],
                     },
                     'env-4': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_IS_LOCKED,
                         },
+                        locks: [],
                     },
                     'env-5': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.UNRECOGNIZED,
                         },
+                        locks: [],
                     },
                     'env-6': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.UPSTREAM_ENV_CONFIG_NOT_FOUND,
                         },
+                        locks: [],
                     },
                     'env-7': {
                         outcome: {
@@ -107,46 +113,54 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_ALREADY_IN_UPSTREAM_VERSION,
                                         },
+                                        locks: [],
                                     },
                                     'app-2': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_DOES_NOT_EXIST_IN_ENV,
                                         },
+                                        locks: [],
                                     },
                                     'app-3': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
                                         },
+                                        locks: [],
                                     },
                                     'app-4': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_IS_LOCKED,
                                         },
+                                        locks: [],
                                     },
                                     'app-5': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_IS_LOCKED_BY_ENV,
                                         },
+                                        locks: [],
                                     },
                                     'app-6': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.TEAM_IS_LOCKED,
                                         },
+                                        locks: [],
                                     },
                                     'app-7': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.UNRECOGNIZED,
                                         },
+                                        locks: [],
                                     },
                                 },
                             },
                         },
+                        locks: [],
                     },
                 },
             },
@@ -285,16 +299,19 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             $case: 'deployedVersion',
                                             deployedVersion: 1,
                                         },
+                                        locks: [],
                                     },
                                     'app-2': {
                                         outcome: {
                                             $case: 'deployedVersion',
                                             deployedVersion: 2,
                                         },
+                                        locks: [],
                                     },
                                 },
                             },
                         },
+                        locks: [],
                     },
                     'env-2': {
                         outcome: {
@@ -306,10 +323,12 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             $case: 'deployedVersion',
                                             deployedVersion: 1,
                                         },
+                                        locks: [],
                                     },
                                 },
                             },
                         },
+                        locks: [],
                     },
                 },
             },

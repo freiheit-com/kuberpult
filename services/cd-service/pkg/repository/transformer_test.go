@@ -43,6 +43,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 
@@ -1238,32 +1240,6 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.gitkeep",
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.gitkeep",
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app3/.gitkeep",
-			},
-		},
-		{
-			Name: "Create application with non SHA1 commit ID",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
-				},
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "nonsense",
-					Manifests: map[string]string{
-						envAcceptance: "acceptance",
-					},
-					WriteCommitData: true,
-				},
-				&DeployApplicationVersion{
-					Environment:   envAcceptance,
-					Application:   "app",
-					Version:       1,
-					LockBehaviour: api.LockBehavior_FAIL,
-				},
-			},
-			NonExistentCommitPaths: []string{
-				"commits/no/nsense/applications/app/.gitkeep",
 			},
 		},
 		{
@@ -2749,17 +2725,37 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
-						Error:            nil,
-						AppsPrognoses:    map[string]ReleaseTrainApplicationPrognosis{},
-						FirstLockMessage: "mA",
+						Error:         nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						Locks: []*api.Lock{
+							{
+								Message:   "mA",
+								LockId:    "IdA",
+								CreatedAt: timestamppb.Now(),
+								CreatedBy: &api.Actor{
+									Email: "testmail@example.com",
+									Name:  "test tester",
+								},
+							},
+						},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
-						Error:            nil,
-						AppsPrognoses:    map[string]ReleaseTrainApplicationPrognosis{},
-						FirstLockMessage: "mB",
+						Error:         nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						Locks: []*api.Lock{
+							{
+								Message:   "mB",
+								LockId:    "IdB",
+								CreatedAt: timestamppb.Now(),
+								CreatedBy: &api.Actor{
+									Email: "testmail@example.com",
+									Name:  "test tester",
+								},
+							},
+						},
 					},
 				},
 			},
@@ -2895,17 +2891,17 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:            nil,
-						FirstLockMessage: "",
-						AppsPrognoses:    nil,
+						Error:         nil,
+						Locks:         nil,
+						AppsPrognoses: nil,
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:            nil,
-						FirstLockMessage: "",
-						AppsPrognoses:    nil,
+						Error:         nil,
+						Locks:         nil,
+						AppsPrognoses: nil,
 					},
 				},
 			},
@@ -2930,9 +2926,9 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 				t.Fatalf("error encountered during setup, but none was expected here, error: %v", err)
 			}
 
-			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State(), nil)
-
-			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses); diff != "" {
+			configs, _ := repo.State().GetAllEnvironmentConfigs(ctx, nil)
+			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State(), nil, configs)
+			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
 				t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
 			}
 			if !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
@@ -3307,7 +3303,8 @@ skipping "test" because it is already in the version`,
 					}}}},
 			}
 
-			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil)
+			configs, _ := repo.State().GetAllEnvironmentConfigs(ctx, nil)
+			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil, configs)
 
 			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
 				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
@@ -5849,7 +5846,7 @@ func TestTransformer(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "test",
 					SourceAuthor:   "test <test@example.com>",
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					SourceMessage:  "changed something",
 					Manifests: map[string]string{
 						"production": "productionmanifest",
@@ -5870,7 +5867,7 @@ func TestTransformer(t *testing.T) {
 					if rel.SourceAuthor != "test <test@example.com>" {
 						t.Errorf("unexpected source Author: expected \"test <test@example.com>\", actual: %q", rel.SourceAuthor)
 					}
-					if rel.SourceCommitId != "deadbeef" {
+					if rel.SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
 						t.Errorf("unexpected source commit id: expected \"deadbeef\", actual: %q", rel.SourceCommitId)
 					}
 					if rel.SourceMessage != "changed something" {

@@ -653,6 +653,7 @@ message ReleaseTrainAppPrognosis {
     ReleaseTrainAppSkipCause skip_cause = 1;
     uint64 deployed_version = 2;
   }
+  repeated Lock locks = 3;
 }
 
 enum ReleaseTrainEnvSkipCause {
@@ -671,6 +672,7 @@ message ReleaseTrainEnvPrognosis {
     ReleaseTrainEnvSkipCause skip_cause = 1;
     AppsPrognosesWrapper apps_prognoses = 2;
   }
+  repeated Lock locks = 3;
 }
 
 message GetReleaseTrainPrognosisResponse {

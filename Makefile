@@ -85,16 +85,16 @@ all-services:
 	earthly +all-services --tag=$(VERSION)
 
 integration-test:
-	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)
+	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT) --charts_version=$(VERSION)
 
 pull-service-image/%:
-	docker pull $(DOCKER_REGISTRY_URI)/$*:$(VERSION)
-	docker pull $(ARTIFACT_REGISTRY_URI)/$*:$(VERSION)-datadog
+	docker pull $(DOCKER_REGISTRY_URI)/$*:main-$(VERSION)
+	docker pull $(ARTIFACT_REGISTRY_URI)/$*:main-$(VERSION)-datadog
 
 tag-service-image/%: pull-service-image/%
-	docker tag $(DOCKER_REGISTRY_URI)/$*:$(VERSION) $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
-	docker tag $(ARTIFACT_REGISTRY_URI)/$*:$(VERSION)-datadog $(ARTIFACT_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
-	docker tag $(ARTIFACT_REGISTRY_URI)/$*:$(VERSION)-datadog $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
+	docker tag $(DOCKER_REGISTRY_URI)/$*:main-$(VERSION) $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
+	docker tag $(ARTIFACT_REGISTRY_URI)/$*:main-$(VERSION)-datadog $(ARTIFACT_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
+	docker tag $(ARTIFACT_REGISTRY_URI)/$*:main-$(VERSION)-datadog $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
 
 push-service-image/%: tag-service-image/%
 	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
@@ -107,10 +107,10 @@ tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i)
 
 # CLI is only stored in gcp docker registry
 pull-cli-image:
-	docker pull $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(VERSION)
+	docker pull $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):main-$(VERSION)
 
 tag-cli-image: pull-cli-image
-	docker tag $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(VERSION) $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(RELEASE_IMAGE_TAG)
+	docker tag $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):main-$(VERSION) $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(RELEASE_IMAGE_TAG)
 
 push-cli-image: tag-cli-image
 	docker push $(DOCKER_REGISTRY_URI)/$(CLI_IMAGE):$(RELEASE_IMAGE_TAG)

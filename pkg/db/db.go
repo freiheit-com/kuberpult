@@ -34,7 +34,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -57,7 +56,12 @@ type DBConfig struct {
 	MigrationsPath string
 	WriteEslOnly   bool
 	SSLMode        string
+
+	MaxIdleConnections uint
+	MaxOpenConnections uint
 }
+
+type InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error
 
 type DBHandler struct {
 	DbName         string
@@ -73,6 +77,9 @@ type DBHandler struct {
 		3) DBHandler!=nil && WriteEslOnly==false: write everything to the database.
 	*/
 	WriteEslOnly bool
+
+	// InsertAppFun is intended to be used to add more to inserting an app: specifically to update the overview cache
+	InsertAppFun InsertAppFun
 }
 
 type EslVersion int64
@@ -91,6 +98,7 @@ const (
 const (
 	MigrationCommitEventUUID = "00000000-0000-0000-0000-000000000000"
 	MigrationCommitEventHash = "0000000000000000000000000000000000000000"
+	WhereInBatchMax          = 1024
 )
 
 func (h *DBHandler) ShouldUseEslTable() bool {
@@ -107,14 +115,20 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DBHandler{
+	var handler = &DBHandler{
 		DbName:         cfg.DbName,
 		DriverName:     cfg.DriverName,
 		MigrationsPath: cfg.MigrationsPath,
 		DB:             db,
 		DBDriver:       &driver,
 		WriteEslOnly:   cfg.WriteEslOnly,
-	}, nil
+		InsertAppFun:   nil,
+	}
+	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
+		// by default, we just insert the app
+		return handler.DBInsertApplication(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+	}
+	return handler, nil
 }
 
 func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
@@ -127,6 +141,8 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 			return nil, fmt.Errorf("sql.Open: %w", err)
 		}
 		dbPool.SetConnMaxLifetime(5 * time.Minute)
+		dbPool.SetMaxOpenConns(int(cfg.MaxOpenConnections))
+		dbPool.SetMaxIdleConns(int(cfg.MaxIdleConnections))
 		return dbPool, nil
 	} else if cfg.DriverName == "sqlite3" {
 		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite?_foreign_keys=on"))
@@ -288,7 +304,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	if tx == nil {
 		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
 	defer span.Finish()
 
 	dataMap, err := convertObjectToMap(data)
@@ -308,10 +324,14 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
 
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteEslEventInternal unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
-		time.Now().UTC(),
+		*now,
 		eventType,
 		jsonToInsert)
 
@@ -408,7 +428,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	if firstRow {
 		sort = "ASC"
 	}
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type , json FROM event_sourcing_light ORDER BY created %s LIMIT 1;", sort))
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type , json FROM event_sourcing_light ORDER BY eslVersion %s LIMIT 1;", sort))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -448,11 +468,11 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 
 // DBReadEslEventLaterThan returns the first row of the esl table that has an eslVersion > the given eslVersion
 func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (*EslEventRow, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBReadEslEventLaterThan")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslEventLaterThan")
 	defer span.Finish()
 
 	sort := "ASC"
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json FROM event_sourcing_light WHERE eslVersion > (?) ORDER BY created %s LIMIT 1;", sort))
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json FROM event_sourcing_light WHERE eslVersion > (?) ORDER BY eslVersion %s LIMIT 1;", sort))
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
@@ -537,7 +557,7 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePr
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
 			" FROM releases " +
 			" LIMIT 1;"))
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyRelease")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyRelease")
 	defer span.Finish()
 	span.SetTag("query", selectQuery)
 
@@ -580,6 +600,84 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 		return nil, nil
 	}
 	return processedRows[0], nil
+}
+
+func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (map[string]map[uint64]DBReleaseManifests, error) {
+	selectQuery := h.AdaptQuery(
+		`
+	SELECT DISTINCT
+		releases.appname,
+		releases.releaseVersion,
+		releases.manifests
+	FROM (
+		SELECT
+			MAX(releaseVersion) AS latestRelease,
+			appname,
+			releaseversion
+		FROM
+			"releases"
+		GROUP BY
+			appname, releaseversion) AS latest
+	JOIN
+		releases AS releases
+	ON
+		latest.latestRelease=releases.releaseVersion
+		AND latest.appname=releases.appname;
+`)
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
+	defer span.Finish()
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+
+	return h.processReleaseManifestRows(ctx, err, rows)
+}
+
+func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (map[string]map[uint64]DBReleaseManifests, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseManifestRows")
+	defer span.Finish()
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var result = make(map[string]map[uint64]DBReleaseManifests)
+	for rows.Next() {
+		var manifestStr string
+		var appName string
+		var releaseVersion uint64
+		err := rows.Scan(&appName, &releaseVersion, &manifestStr)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		var manifestData = DBReleaseManifests{
+			Manifests: map[string]string{},
+		}
+		err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, manifestStr)
+		}
+		if _, exists := result[appName]; !exists {
+			result[appName] = make(map[uint64]DBReleaseManifests)
+		}
+		result[appName][releaseVersion] = manifestData
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool, timestamp time.Time) (*DBReleaseWithMetaData, error) {
@@ -649,7 +747,7 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata " +
@@ -664,6 +762,78 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 		app,
 	)
 	return h.processAllReleasesRow(ctx, err, rows)
+}
+
+func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (map[string][]int64, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfAllApps")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`SELECT
+	all_releases.appname,
+		all_releases.metadata
+	FROM (
+		SELECT
+	MAX(eslVersion) AS latest,
+		appname
+	FROM
+		all_releases
+	GROUP BY
+		appname) AS latest
+	JOIN
+		all_releases AS all_releases
+	ON
+		latest.latest=all_releases.eslVersion
+		AND latest.appname=all_releases.appname;`)
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	return h.processAllReleasesForAllAppsRow(ctx, err, rows)
+}
+
+func (h *DBHandler) processAllReleasesForAllAppsRow(ctx context.Context, err error, rows *sql.Rows) (map[string][]int64, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesForAllAppsRow")
+	defer span.Finish()
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+
+	var result = make(map[string][]int64)
+	for rows.Next() {
+		var appName string
+		var jsonReleases string
+
+		err := rows.Scan(&appName, &jsonReleases)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		var metaData = DBAllReleaseMetaData{
+			Releases: []int64{},
+		}
+
+		err = json.Unmarshal(([]byte)(jsonReleases), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of releases. Error: %w. Data: %s\n", err, jsonReleases)
+		}
+		result[appName] = metaData.Releases
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
@@ -779,7 +949,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 }
 
 func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
 	defer span.Finish()
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
@@ -794,10 +964,14 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
+	}
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		*now,
 		release.ReleaseNumber,
 		release.App,
 		manifestJson,
@@ -825,7 +999,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 }
 
 func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteReleaseFromAllReleases")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteReleaseFromAllReleases")
 	defer span.Finish()
 
 	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
@@ -851,7 +1025,7 @@ func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transact
 
 // DBClearReleases : Sets all_releases for app to empty list and marks every release as deleted
 func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, application string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBClearReleases")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBClearReleases")
 	defer span.Finish()
 
 	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
@@ -873,7 +1047,7 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 }
 
 func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
 	defer span.Finish()
 
 	targetRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, application, releaseToDelete, true)
@@ -894,7 +1068,7 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 }
 
 func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx, app string, allVersions []int64, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertAllReleases")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertAllReleases")
 	defer span.Finish()
 	slices.Sort(allVersions)
 	metadataJson, err := json.Marshal(DBAllReleaseMetaData{
@@ -906,12 +1080,18 @@ func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO all_releases (eslVersion, created, appName, metadata)  VALUES (?, ?, ?, ?);",
 	)
+
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBInsertAllReleases unable to get transaction timestamp: %w", err)
+	}
+
 	span.SetTag("query", insertQuery)
 
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		*now,
 		app,
 		metadataJson,
 	)
@@ -925,7 +1105,7 @@ func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx
 // APPS
 
 func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql.Tx, previousVersion int64, applications []string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
 	defer span.Finish()
 	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, err := json.Marshal(AllApplicationsJson{
@@ -935,11 +1115,15 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllApplications unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now().UTC(),
+		*now,
 		jsonToInsert)
 
 	if err != nil {
@@ -949,10 +1133,16 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 }
 
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "WriteEvent")
+	span, ctx := tracer.StartSpanFromContext(ctx, "WriteEvent")
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
+
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("WriteEvent unable to get transaction timestamp: %w", err)
+	}
+
 	span.SetTag("query", insertQuery)
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
@@ -962,7 +1152,7 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 	_, err = transaction.Exec(
 		insertQuery,
 		rawUUID.String(),
-		uuid2.GetTime(&rawUUID).AsTime(),
+		*now,
 		sourceCommitHash,
 		eventType,
 		eventJson,
@@ -1395,6 +1585,7 @@ type LockMetadata struct {
 	CreatedByEmail string
 	Message        string
 	CiLink         string
+	CreatedAt      time.Time
 }
 
 type ReleaseWithManifest struct {
@@ -1502,8 +1693,8 @@ func (h *DBHandler) RunCustomMigrations(
 	return nil
 }
 
-func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeployment")
+func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
@@ -1528,6 +1719,113 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
 		}
 	}(rows)
+	return processDeployment(rows)
+}
+
+func (h *DBHandler) DBSelectAllLatestDeployments(ctx context.Context, tx *sql.Tx, envName string) (map[string]*int64, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeployments")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		`SELECT
+ deployments.appname,
+ deployments.releaseVersion
+FROM (
+ SELECT
+   MAX(eslVersion) AS latest,
+   appname,
+   envname
+ FROM
+   deployments
+ GROUP BY
+   envName, appname) AS latest
+JOIN
+ deployments AS deployments
+ON
+ latest.latest=deployments.eslVersion
+ AND latest.appname=deployments.appname
+ AND latest.envName=deployments.envName
+WHERE deployments.envName= ?;
+`)
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		envName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+	return processAllLatestDeployments(rows)
+}
+
+func processAllLatestDeployments(rows *sql.Rows) (map[string]*int64, error) {
+	result := make(map[string]*int64)
+	for rows.Next() {
+		var releaseVersion sql.NullInt64
+		var appName string
+		err := rows.Scan(&appName, &releaseVersion)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+		}
+
+		if releaseVersion.Valid {
+			result[appName] = &releaseVersion.Int64
+		}
+	}
+	err := rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
+	}
+	return result, nil
+}
+
+func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeployment")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
+			" FROM deployments " +
+			" WHERE appName=? AND envName=? and releaseVersion=?" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appSelector,
+		envSelector,
+		releaseVersion,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+	return processDeployment(rows)
+}
+
+func processDeployment(rows *sql.Rows) (*Deployment, error) {
+	var releaseVersion sql.NullInt64
 	var row = &DBDeployment{
 		EslVersion:     0,
 		Created:        time.Time{},
@@ -1537,7 +1835,6 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 		Metadata:       "",
 		TransformerID:  0,
 	}
-	var releaseVersion sql.NullInt64
 	//exhaustruct:ignore
 	var resultJson = DeploymentMetadata{}
 	if rows.Next() {
@@ -1557,7 +1854,7 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
 		}
 	}
-	err = rows.Close()
+	err := rows.Close()
 	if err != nil {
 		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
 	}
@@ -1577,7 +1874,7 @@ func (h *DBHandler) DBSelectDeployment(ctx context.Context, tx *sql.Tx, appSelec
 }
 
 func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, limit int) ([]Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistory")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistory")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
@@ -1757,7 +2054,7 @@ type DBAppWithMetaData struct {
 }
 
 func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBInsertApplication")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertApplication")
 	defer span.Finish()
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
@@ -1766,21 +2063,21 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO apps (eslVersion, created, appName, stateChange, metadata)  VALUES (?, ?, ?, ?, ?);",
 	)
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBInsertApplication unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		*now,
 		appName,
 		stateChange,
 		jsonToInsert,
 	)
 	if err != nil {
 		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
-	}
-	err = h.ForceOverviewRecalculation(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("could not update overview table. Error: %w\n", err)
 	}
 	return nil
 }
@@ -1902,8 +2199,8 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 }
 
 // DBWriteDeployment writes one deployment, meaning "what should be deployed"
-func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslVersion) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeployment")
+func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslVersion, skipOverview bool) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeployment")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -1920,13 +2217,17 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteDeployment unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	nullVersion := NewNullInt(deployment.Version)
-	createdTime := time.Now().UTC()
+
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		createdTime,
+		*now,
 		nullVersion,
 		deployment.App,
 		deployment.Env,
@@ -1936,16 +2237,18 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewDeployment(ctx, tx, deployment, createdTime)
-	if err != nil {
-		return fmt.Errorf("could not update overview table. Error: %w\n", err)
+	if !skipOverview {
+		err = h.UpdateOverviewDeployment(ctx, tx, deployment, *now)
+		if err != nil {
+			return fmt.Errorf("could not update overview table. Error: %w\n", err)
+		}
 	}
 	return nil
 }
 
 // DBSelectAllDeploymentsForApp Returns most recent version of deployments for app with name 'appName'
 func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (*AllDeploymentsForApp, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
 	defer span.Finish()
 	if h == nil {
 		return nil, nil
@@ -1992,7 +2295,7 @@ func (h *DBHandler) DBSelectAllDeploymentsTimestamp(ctx context.Context, tx *sql
 
 // DBUpdateAllDeploymentsForApp Updates table entry for application with name 'appName' with 'envName' -> 'version'
 func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName, envName string, version int64) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -2030,7 +2333,7 @@ func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 
 // DBClearAllDeploymentsForApp Clears all deployments map. Used when undeploying an application
 func (h *DBHandler) DBClearAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -2064,7 +2367,7 @@ func (h *DBHandler) DBClearAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 // CUSTOM MIGRATIONS
 
 func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
 	defer span.Finish()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -2108,7 +2411,7 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 }
 
 func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun WriteAllDeploymentsFun) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
 	defer span.Finish()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -2129,7 +2432,7 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 }
 
 func (h *DBHandler) RunCustomMigrationAllDeployments(ctx context.Context, writeAllDeployments WriteAllDeploymentsFun) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
 	defer span.Finish()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -2410,7 +2713,7 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 // For commit_events migrations, we need some transformer to be on the database before we run their migrations.
 func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		span, _ := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
+		span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
 		defer span.Finish()
 
 		needsMigrating, err := h.NeedsEventSourcingLightMigrations(ctx, transaction)
@@ -2465,17 +2768,19 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 		return fmt.Errorf("could not marshal json transformer: %w", err)
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light VALUES (0, ?, ?, ?);")
-
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
+	ts, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
-	_, err = transaction.Exec(
+	_, err2 := transaction.Exec(
 		insertQuery,
-		time.Now().UTC(),
+		ts,
 		EvtMigrationTransformer,
 		jsonToInsert)
-
-	if err != nil {
-		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+	if err2 != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err2)
 	}
 	return nil
 }
@@ -2676,7 +2981,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 }
 
 func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID, environment string, metadata LockMetadata) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -2707,11 +3012,11 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 		Metadata:   metadata,
 		Deleted:    false,
 	}
-	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion, false)
+	return h.DBWriteEnvironmentLockInternal(ctx, tx, envLock, previousVersion)
 }
 
-func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslVersion, useTimeInLock bool) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLockInternal")
+func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.Tx, envLock EnvironmentLock, previousEslVersion EslVersion) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLockInternal")
 	defer span.Finish()
 
 	if h == nil {
@@ -2721,6 +3026,14 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 		return fmt.Errorf("DBWriteEnvironmentLockInternal: no transaction provided")
 	}
 
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+
+	if err != nil {
+		return fmt.Errorf("DBWriteEnvironmentLockInternal unable to get transaction timestamp: %w", err)
+	}
+
+	envLock.Created = *now
+
 	jsonToInsert, err := json.Marshal(envLock.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -2729,17 +3042,11 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?);")
 
-	var timetoInsert time.Time
-	if useTimeInLock {
-		timetoInsert = envLock.Created
-	} else {
-		timetoInsert = time.Now().UTC()
-	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		timetoInsert,
+		*now,
 		envLock.LockID,
 		envLock.Env,
 		envLock.Deleted,
@@ -2757,7 +3064,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 
 // DBSelectEnvLockHistory returns the last N events associated with some lock on some environment. Currently only used in testing.
 func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, environmentName, lockID string, limit int) ([]EnvironmentLock, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvLocks")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLocks")
 	defer span.Finish()
 	if h == nil {
 		return nil, nil
@@ -2893,7 +3200,7 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 }
 
 func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, environment string, lockIDs []string) ([]EnvironmentLock, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentLockSet")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentLockSet")
 	defer span.Finish()
 
 	if len(lockIDs) == 0 {
@@ -2976,7 +3283,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment string, lockIds []string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironmentLocks")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironmentLocks")
 	defer span.Finish()
 	slices.Sort(lockIds) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, err := json.Marshal(AllEnvLocksJson{
@@ -2986,11 +3293,17 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_env_locks (version , created, environment, json)  VALUES (?, ?, ?, ?);")
+
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllEnvironmentLocks unable to get transaction timestamp: %w", err)
+	}
+
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now().UTC(),
+		*now,
 		environment,
 		jsonToInsert)
 	if err != nil {
@@ -3000,7 +3313,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 }
 
 func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -3030,7 +3343,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	}
 
 	existingEnvLock.Deleted = true
-	err = h.DBWriteEnvironmentLockInternal(ctx, tx, *existingEnvLock, previousVersion, false)
+	err = h.DBWriteEnvironmentLockInternal(ctx, tx, *existingEnvLock, previousVersion)
 
 	if err != nil {
 		return fmt.Errorf("could not delete environment lock from DB. Error: %w\n", err)
@@ -3098,7 +3411,7 @@ type DBApplicationLock struct {
 }
 
 func (h *DBHandler) DBWriteAllAppLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment, appName string, lockIds []string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllAppLocks")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllAppLocks")
 	defer span.Finish()
 	slices.Sort(lockIds) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, err := json.Marshal(AllAppLocksJson{
@@ -3108,11 +3421,15 @@ func (h *DBHandler) DBWriteAllAppLocks(ctx context.Context, transaction *sql.Tx,
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_app_locks (version , created, environment, appName, json)  VALUES (?, ?, ?, ?, ?);")
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllAppLocks unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now().UTC(),
+		*now,
 		environment,
 		appName,
 		jsonToInsert)
@@ -3123,7 +3440,7 @@ func (h *DBHandler) DBWriteAllAppLocks(ctx context.Context, transaction *sql.Tx,
 }
 
 func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environment, appName string) (*AllAppLocksGo, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocks")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocks")
 	defer span.Finish()
 	if h == nil {
 		return nil, nil
@@ -3268,7 +3585,7 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 }
 
 func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environment, appName string, lockIDs []string) ([]ApplicationLock, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAppLockSet")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppLockSet")
 	defer span.Finish()
 
 	if len(lockIDs) == 0 {
@@ -3353,7 +3670,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 }
 
 func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lockID, environment, appName string, metadata LockMetadata) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLock")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLock")
 	defer span.Finish()
 
 	if h == nil {
@@ -3386,11 +3703,11 @@ func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lock
 		App:        appName,
 		Deleted:    false,
 	}
-	return h.DBWriteApplicationLockInternal(ctx, tx, appLock, previousVersion, false)
+	return h.DBWriteApplicationLockInternal(ctx, tx, appLock, previousVersion)
 }
 
-func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.Tx, appLock ApplicationLock, previousEslVersion EslVersion, useTimeInLock bool) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLockInternal")
+func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.Tx, appLock ApplicationLock, previousEslVersion EslVersion) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLockInternal")
 	defer span.Finish()
 
 	if h == nil {
@@ -3400,6 +3717,14 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 		return fmt.Errorf("DBWriteApplicationLockInternal: no transaction provided")
 	}
 
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+
+	if err != nil {
+		return fmt.Errorf("DBWriteApplicationLockInternal unable to get transaction timestamp: %w", err)
+	}
+
+	appLock.Created = *now
+
 	jsonToInsert, err := json.Marshal(appLock.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -3408,17 +3733,11 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO app_locks (eslVersion, created, lockID, envName, appName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
 
-	var timetoInsert time.Time
-	if useTimeInLock {
-		timetoInsert = appLock.Created
-	} else {
-		timetoInsert = time.Now().UTC()
-	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		timetoInsert,
+		*now,
 		appLock.LockID,
 		appLock.Env,
 		appLock.App,
@@ -3428,7 +3747,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 	if err != nil {
 		return fmt.Errorf("could not write application lock into DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock, timetoInsert)
+	err = h.UpdateOverviewApplicationLock(ctx, tx, appLock, appLock.Created)
 	if err != nil {
 		return fmt.Errorf("could not update overview application lock. Error: %w\n", err)
 	}
@@ -3436,7 +3755,7 @@ func (h *DBHandler) DBWriteApplicationLockInternal(ctx context.Context, tx *sql.
 }
 
 func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, environment, appName, lockID string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
 	defer span.Finish()
 
 	if h == nil {
@@ -3465,7 +3784,7 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 	}
 
 	existingAppLock.Deleted = true
-	err = h.DBWriteApplicationLockInternal(ctx, tx, *existingAppLock, previousVersion, false)
+	err = h.DBWriteApplicationLockInternal(ctx, tx, *existingAppLock, previousVersion)
 
 	if err != nil {
 		return fmt.Errorf("could not delete application lock from DB. Error: %w\n", err)
@@ -3474,7 +3793,7 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 }
 
 func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*AllAppLocksGo, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
@@ -3530,7 +3849,7 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 
 // DBSelectAppLockHistory returns the last N events associated with some lock on some environment for some app. Currently only used in testing.
 func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, environmentName, appName, lockID string, limit int) ([]ApplicationLock, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAppLockHistory")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppLockHistory")
 	defer span.Finish()
 
 	if h == nil {
@@ -3645,7 +3964,7 @@ type DBTeamLock struct {
 }
 
 func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (*AllTeamLocksGo, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveTeamLock")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveTeamLock")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
@@ -3660,7 +3979,7 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 }
 
 func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, environment, teamName string, metadata LockMetadata) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLock")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteTeamLock")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -3692,11 +4011,11 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, env
 		Team:       teamName,
 		Deleted:    false,
 	}
-	return h.DBWriteTeamLockInternal(ctx, tx, teamLock, previousVersion, false)
+	return h.DBWriteTeamLockInternal(ctx, tx, teamLock, previousVersion)
 }
 
-func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, teamLock TeamLock, previousEslVersion EslVersion, useTimeInLock bool) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteTeamLockInternal")
+func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, teamLock TeamLock, previousEslVersion EslVersion) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteTeamLockInternal")
 	defer span.Finish()
 
 	if h == nil {
@@ -3705,6 +4024,14 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 	if tx == nil {
 		return fmt.Errorf("DBWriteTeamLockInternal: no transaction provided")
 	}
+
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+
+	if err != nil {
+		return fmt.Errorf("DBWriteTeamLockInternal unable to get transaction timestamp: %w", err)
+	}
+
+	teamLock.Created = *now
 
 	jsonToInsert, err := json.Marshal(teamLock.Metadata)
 	if err != nil {
@@ -3715,17 +4042,11 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 		"INSERT INTO team_locks (eslVersion, created, lockID, envName, teamName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?, ?);")
 	span.SetTag("query", insertQuery)
 
-	var timetoInsert time.Time
-	if useTimeInLock {
-		timetoInsert = teamLock.Created
-	} else {
-		timetoInsert = time.Now().UTC()
-	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		timetoInsert,
+		*now,
 		teamLock.LockID,
 		teamLock.Env,
 		teamLock.Team,
@@ -3743,7 +4064,7 @@ func (h *DBHandler) DBWriteTeamLockInternal(ctx context.Context, tx *sql.Tx, tea
 }
 
 func (h *DBHandler) DBWriteAllTeamLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment, teamName string, lockIds []string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllTeamLocks")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllTeamLocks")
 	defer span.Finish()
 	slices.Sort(lockIds) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, err := json.Marshal(AllTeamLocksJson{
@@ -3753,11 +4074,15 @@ func (h *DBHandler) DBWriteAllTeamLocks(ctx context.Context, transaction *sql.Tx
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO all_team_locks (version , created, environment, teamName, json)  VALUES (?, ?, ?, ?, ?);")
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllTeamLocks unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
-		time.Now().UTC(),
+		*now,
 		environment,
 		teamName,
 		jsonToInsert)
@@ -3843,7 +4168,7 @@ func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	return nil, nil // no rows, but also no error
 }
 func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, environment, teamName string) (*AllTeamLocksGo, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocks")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocks")
 	defer span.Finish()
 	if h == nil {
 		return nil, nil
@@ -3860,7 +4185,7 @@ func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, enviro
 }
 
 func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteTeamLock")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteTeamLock")
 	defer span.Finish()
 
 	if h == nil {
@@ -3889,7 +4214,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	}
 
 	existingTeamLock.Deleted = true
-	err = h.DBWriteTeamLockInternal(ctx, tx, *existingTeamLock, previousVersion, false)
+	err = h.DBWriteTeamLockInternal(ctx, tx, *existingTeamLock, previousVersion)
 
 	if err != nil {
 		return fmt.Errorf("could not delete team lock from DB. Error: %w\n", err)
@@ -3990,7 +4315,7 @@ func (h *DBHandler) selectTeamLocks(ctx context.Context, tx *sql.Tx, environment
 
 // DBSelectTeamLockHistory returns the last N events associated with some lock on some environment for some team. Currently only used in testing.
 func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, environmentName, teamName, lockID string, limit int) ([]TeamLock, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockHistory")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockHistory")
 	defer span.Finish()
 
 	if h == nil {
@@ -4149,7 +4474,7 @@ func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx
 }
 
 func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sql.Tx, environmentName, appName string, limit int) ([]QueuedDeployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentAttemptHistory")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentAttemptHistory")
 	defer span.Finish()
 
 	if h == nil {
@@ -4201,7 +4526,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 }
 
 func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName, appName string) (*QueuedDeployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
 	defer span.Finish()
 
 	if h == nil {
@@ -4222,8 +4547,8 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
+func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64, skipOverview bool) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
 	if h == nil {
@@ -4238,10 +4563,10 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 		Env:        envName,
 		App:        appName,
 		Version:    version,
-	})
+	}, skipOverview)
 }
 
-func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string) error {
+func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, skipOverview bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -4257,11 +4582,11 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		Env:        envName,
 		App:        appName,
 		Version:    nil,
-	})
+	}, skipOverview)
 }
 
-func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
+func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment, skipOverview bool) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
 	defer span.Finish()
 
 	if h == nil {
@@ -4286,12 +4611,15 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO deployment_attempts (eslVersion, created, envName, appName, queuedReleaseVersion) VALUES (?, ?, ?, ?, ?);")
-
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("dbWriteDeploymentAttemptInternal unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
-		time.Now().UTC(),
+		*now,
 		deployment.Env,
 		deployment.App,
 		nullVersion)
@@ -4299,15 +4627,17 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	if err != nil {
 		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
 	}
-	err = h.UpdateOverviewDeploymentAttempt(ctx, tx, deployment)
-	if err != nil {
-		return fmt.Errorf("could not update overview table in DB. Error: %w\n", err)
+	if !skipOverview {
+		err = h.UpdateOverviewDeploymentAttempt(ctx, tx, deployment)
+		if err != nil {
+			return fmt.Errorf("could not update overview table in DB. Error: %w\n", err)
+		}
 	}
 	return nil
 }
 
 func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows, err error) (*QueuedDeployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "processDeploymentAttemptsRow")
+	span, ctx := tracer.StartSpanFromContext(ctx, "processDeploymentAttemptsRow")
 	defer span.Finish()
 
 	if err != nil {
@@ -4429,6 +4759,23 @@ type DBEnvironmentRow struct {
 	Config  string
 }
 
+func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "EnvironmentFromRow")
+	defer span.Finish()
+	//exhaustruct:ignore
+	parsedConfig := config.EnvironmentConfig{}
+	err := json.Unmarshal([]byte(row.Config), &parsedConfig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Config, err)
+	}
+	return &DBEnvironment{
+		Created: row.Created,
+		Version: row.Version,
+		Name:    row.Name,
+		Config:  parsedConfig,
+	}, nil
+}
+
 func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
 	defer span.Finish()
@@ -4471,34 +4818,95 @@ LIMIT 1;
 			}
 			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
 		}
-
-		//exhaustruct:ignore
-		parsedConfig := config.EnvironmentConfig{}
-		err = json.Unmarshal([]byte(row.Config), &parsedConfig)
+		env, err := EnvironmentFromRow(ctx, &row)
 		if err != nil {
-			return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Config, err)
+			return nil, err
 		}
-		err = closeRows(rows)
-		if err != nil {
-			return nil, fmt.Errorf("error while closing database rows, error: %w", err)
-		}
-
-		return &DBEnvironment{
-			Created: row.Created,
-			Version: row.Version,
-			Name:    environmentName,
-			Config:  parsedConfig,
-		}, nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, fmt.Errorf("errpr while closing database rows, error: %w", err)
+		return env, nil
 	}
 	return nil, nil
 }
 
+func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, environmentNames []string) (*[]DBEnvironment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
+	defer span.Finish()
+	if len(environmentNames) > WhereInBatchMax {
+		return nil, fmt.Errorf("SelectEnvironments is not batching queries for now, make sure to not request more than %d environments.", WhereInBatchMax)
+	}
+	if len(environmentNames) == 0 {
+		return &[]DBEnvironment{}, nil
+	}
+
+	selectQuery := h.AdaptQuery(
+		`
+SELECT
+  environments.created AS created,
+  environments.version AS version,
+  environments.name AS name,
+  environments.json AS json
+FROM (
+  SELECT
+    MAX(version) AS latest,
+    name
+  FROM
+    environments
+  GROUP BY
+    name) AS latest
+JOIN
+  environments
+ON
+  latest.latest=environments.version
+  AND latest.name = environments.name
+WHERE
+  environments.name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
+LIMIT ?
+`,
+	)
+	span.SetTag("query", selectQuery)
+	args := []any{}
+	for _, env := range environmentNames {
+		args = append(args, env)
+	}
+	args = append(args, len(environmentNames))
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		args...,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for environments %v, error: %w (query: %s, args: %v)", environmentNames, err, selectQuery, args)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
+		}
+	}(rows)
+
+	envs := []DBEnvironment{}
+	for rows.Next() {
+		//exhaustruct:ignore
+		row := DBEnvironmentRow{}
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
+		}
+		env, err := EnvironmentFromRow(ctx, &row)
+		if err != nil {
+			return nil, err
+		}
+		envs = append(envs, *env)
+	}
+	return &envs, nil
+}
+
 func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
 
 	if h == nil {
@@ -4527,11 +4935,14 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	insertQuery := h.AdaptQuery(
 		"INSERT Into environments (created, version, name, json) VALUES (?, ?, ?, ?);",
 	)
-
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteEnvironment unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
-		time.Now(),
+		*now,
 		existingEnvironmentVersion+1,
 		environmentName,
 		jsonToInsert,
@@ -4547,7 +4958,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 }
 
 func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
 	defer span.Finish()
 
 	if h == nil {
@@ -4611,7 +5022,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 }
 
 func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql.Tx, environmentNames []string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironments")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironments")
 	defer span.Finish()
 
 	jsonToInsert, err := json.Marshal(environmentNames)
@@ -4630,10 +5041,14 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO all_environments (created, version, json) VALUES (?, ?, ?)")
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllEnvironments unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
-		time.Now(),
+		*now,
 		previousVersion+1,
 		jsonToInsert,
 	)
@@ -4645,7 +5060,7 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 }
 
 func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DBAllEnvironments, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAnyEnvironment")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEnvironment")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
@@ -4820,7 +5235,7 @@ func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sq
 }
 
 func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx, overviewResponse *api.GetOverviewResponse) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "writeOverviewCache")
+	span, ctx := tracer.StartSpanFromContext(ctx, "writeOverviewCache")
 	defer span.Finish()
 	if h == nil {
 		return fmt.Errorf("writeOverviewCache: DBHandler is nil")
@@ -4832,6 +5247,10 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO overview_cache (timestamp, Json) VALUES (?, ?);",
 	)
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("WriteOverviewCache unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	jsonResponse, err := protojson.Marshal(overviewResponse)
 	if err != nil {
@@ -4839,7 +5258,7 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 	}
 	_, err = transaction.Exec(
 		insertQuery,
-		time.Now().UTC(),
+		*now,
 		jsonResponse,
 	)
 	if err != nil {
@@ -4848,7 +5267,7 @@ func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx,
 	return nil
 }
 func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslEventRow) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -4858,11 +5277,14 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type , json)  VALUES (?, ?, ?);")
-
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteFailedEslEvent unable to get transaction timestamp: %w", err)
+	}
 	span.SetTag("query", insertQuery)
-	_, err := tx.Exec(
+	_, err = tx.Exec(
 		insertQuery,
-		time.Now().UTC(),
+		*now,
 		eslEvent.EventType,
 		eslEvent.EventJson)
 
@@ -4873,7 +5295,7 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 }
 
 func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslEventRow, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
 	defer span.Finish()
 	if h == nil {
 		return nil, nil
@@ -4882,7 +5304,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light_failed ORDER BY eslVersion DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
@@ -4926,7 +5348,7 @@ type AllDeploymentsForApp struct {
 }
 
 func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, prev int, appName string, environmentDeployments map[string]int64) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
 	defer span.Finish()
 
 	if h == nil {
@@ -4939,7 +5361,10 @@ func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO all_deployments (eslVersion, created, appName, json) VALUES (?, ?, ?, ?);",
 	)
-
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteAllDeploymentsForApp unable to get transaction timestamp: %w", err)
+	}
 	jsonDeployments, err := json.Marshal(environmentDeployments)
 	if err != nil {
 		return fmt.Errorf("could not marshall deployments for app: '%s': %v\n", appName, err)
@@ -4949,7 +5374,7 @@ func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx,
 	_, err = tx.Exec(
 		insertQuery,
 		prev+1,
-		time.Now(),
+		*now,
 		appName,
 		jsonDeployments,
 	)
@@ -5007,4 +5432,92 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 		return nil, err
 	}
 	return deployments, nil
+}
+
+func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) (*time.Time, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadTransactionTimestamp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("attempting to read transaction timestamp without a transaction")
+	}
+
+	var query string
+	if h.DriverName == "sqlite3" { //Testing purposes
+		query = "select CURRENT_TIMESTAMP as now;"
+	} else {
+		query = "select now();"
+	}
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(
+		ctx,
+		query,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("DBReadTransactionTimestamp error executing query: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	var now time.Time
+
+	if rows.Next() {
+		if h.DriverName == "sqlite3" { //Testing purposes
+			var nowString string
+			err = rows.Scan(&nowString)
+			if err != nil {
+				return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
+			}
+			now, err = time.Parse(time.DateTime, nowString)
+			if err != nil {
+				return nil, fmt.Errorf("DBReadTransactionTimestamp error converting: %w", err)
+			}
+		} else {
+			err = rows.Scan(&now)
+			if err != nil {
+				return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
+			}
+		}
+
+		now = now.UTC()
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+	}
+	return &now, nil
+}
+
+func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string, timestamp time.Time) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("attempting to write to the commit_transaction_timestamps table without a transaction")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO commit_transaction_timestamps (commitHash, transactionTimestamp) VALUES (?, ?);",
+	)
+
+	span.SetTag("query", insertQuery)
+	_, err := tx.Exec(
+		insertQuery,
+		commitHash,
+		timestamp,
+	)
+	if err != nil {
+		return fmt.Errorf("DBWriteCommitTransactionTimestamp error executing query: %w", err)
+	}
+	return nil
 }

@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -86,22 +87,28 @@ type Config struct {
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 	AllowLongAppNames        bool          `default:"false" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
-	DbOption                 string        `default:"NO_DB" split_words:"true"`
-	DbLocation               string        `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance       string        `default:"" split_words:"true"`
-	DbName                   string        `default:"" split_words:"true"`
-	DbUserName               string        `default:"" split_words:"true"`
-	DbUserPassword           string        `default:"" split_words:"true"`
-	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
-	DbMigrationsLocation     string        `default:"" split_words:"true"`
-	DexDefaultRoleEnabled    bool          `default:"false" split_words:"true"`
-	DbWriteEslTableOnly      bool          `default:"false" split_words:"true"`
-	ReleaseVersionsLimit     uint          `default:"20" split_words:"true"`
-	DeploymentType           string        `default:"k8s" split_words:"true"` // either k8s or cloudrun
-	CloudRunServer           string        `default:"" split_words:"true"`
-	DbSslMode                string        `default:"verify-full" split_words:"true"`
-	MinorRegexes             string        `default:"" split_words:"true"`
-	AllowedDomains           []string      `split_words:"true"`
+
+	DbOption              string `default:"NO_DB" split_words:"true"`
+	DbLocation            string `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance    string `default:"" split_words:"true"`
+	DbName                string `default:"" split_words:"true"`
+	DbUserName            string `default:"" split_words:"true"`
+	DbUserPassword        string `default:"" split_words:"true"`
+	DbAuthProxyPort       string `default:"5432" split_words:"true"`
+	DbMigrationsLocation  string `default:"" split_words:"true"`
+	DexDefaultRoleEnabled bool   `default:"false" split_words:"true"`
+	DbWriteEslTableOnly   bool   `default:"false" split_words:"true"`
+	DbMaxIdleConnections  uint   `required:"true" split_words:"true"`
+	DbMaxOpenConnections  uint   `required:"true" split_words:"true"`
+
+	ReleaseVersionsLimit uint     `default:"20" split_words:"true"`
+	DeploymentType       string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
+	CloudRunServer       string   `default:"" split_words:"true"`
+	DbSslMode            string   `default:"verify-full" split_words:"true"`
+	MinorRegexes         string   `default:"" split_words:"true"`
+	AllowedDomains       []string `split_words:"true"`
+
+	DisableQueue bool `required:"true" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -257,6 +264,9 @@ func RunServer() {
 					MigrationsPath: c.DbMigrationsLocation,
 					WriteEslOnly:   c.DbWriteEslTableOnly,
 					SSLMode:        c.DbSslMode,
+
+					MaxIdleConnections: c.DbMaxIdleConnections,
+					MaxOpenConnections: c.DbMaxOpenConnections,
 				}
 			} else if c.DbOption == "sqlite" {
 				dbCfg = db.DBConfig{
@@ -269,6 +279,9 @@ func RunServer() {
 					MigrationsPath: c.DbMigrationsLocation,
 					WriteEslOnly:   c.DbWriteEslTableOnly,
 					SSLMode:        c.DbSslMode,
+
+					MaxIdleConnections: c.DbMaxIdleConnections,
+					MaxOpenConnections: c.DbMaxOpenConnections,
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
@@ -315,6 +328,8 @@ func RunServer() {
 			ArgoCdGenerateFiles:   c.ArgoCdGenerateFiles,
 			DBHandler:             dbHandler,
 			CloudRunClient:        cloudRunClient,
+
+			DisableQueue: c.DisableQueue,
 		}
 
 		repo, repoQueue, err := repository.New2(ctx, cfg)
@@ -334,6 +349,11 @@ func RunServer() {
 					logger.FromContext(ctx).Fatal("Could not pull repository to perform custom migrations", zap.Error(err))
 				}
 				logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
+
+				// we overwrite InsertApp in order to also update the overview:
+				dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
+					return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+				}
 				migErr := dbHandler.RunCustomMigrations(
 					ctx,
 					repo.State().GetAppsAndTeams,
@@ -404,6 +424,7 @@ func RunServer() {
 						Repository:       repo,
 						RepositoryConfig: cfg,
 						Shutdown:         shutdownCh,
+						Context:          ctx,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv, PageSize: 10})

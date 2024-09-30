@@ -18,9 +18,9 @@ import React from 'react';
 import {
     useCurrentlyDeployedAtGroup,
     useOpenReleaseDialog,
-    useReleaseOrThrow,
     useRolloutStatus,
     EnvironmentGroupExtended,
+    useReleaseOrLog,
 } from '../../utils/store';
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
@@ -136,12 +136,16 @@ const useDeploymentStatus = (
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const { className, app, version } = props;
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
-    const release = useReleaseOrThrow(app, version);
-    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor, isPrepublish } = release;
     const openReleaseDialog = useOpenReleaseDialog(app, version);
     const deployedAt = useCurrentlyDeployedAtGroup(app, version);
 
     const [rolloutEnvs, mostInteresting] = useDeploymentStatus(app, deployedAt);
+
+    const release = useReleaseOrLog(app, version);
+    if (!release) {
+        return null;
+    }
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor, isPrepublish } = release;
 
     const tooltipContents = (
         <div className="mdc-tooltip__title_ release__details">

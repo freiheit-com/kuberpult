@@ -93,6 +93,10 @@ cd:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
     queueSize: 5
+# Disabling the queue is as of now an experimental feature. It's only possible to use with db.writeEslTableOnly=false.
+# With the queue, the cd-service processes only one request at a time, which is very much required when using git.
+# With the database enabled, this is not required anymore.
+    disableQueue: false
   resources:
     limits:
       cpu: 2
@@ -141,6 +145,19 @@ db:
   requests:
     cpu: "100m"
     memory: "200Mi"
+  connections:
+    # You need to ensure that your sql server can handle at least
+    # `cd.maxOpen + manifestRepoExport.maxOpen` connections in parallel.
+    cd:
+      # The cd-service may need to respond to many parallel requests,
+      # most notably depending on how often the /release endpoint is called
+      maxOpen: 100
+      maxIdle: 20
+    manifestRepoExport:
+      # The manifest export is for the most part just one go-routine.
+      # It does have grpc endpoints that are very specific for some git operations, which most people will not use.
+      maxOpen: 5
+      maxIdle: 2
 manifestRepoExport:
   image: kuberpult-manifest-repo-export-service
   service:
@@ -285,6 +302,8 @@ datadogTracing:
   enabled: false
   debugging: false
   environment: "shared"
+  partialFlushEnabled: true
+  partialFlushMinSpans: 200
 
 datadogProfiling:
   # Note that the profiling environment is taken from the field `datadogTracing.environment`

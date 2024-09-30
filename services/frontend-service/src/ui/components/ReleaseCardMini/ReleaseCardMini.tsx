@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import classNames from 'classnames';
 import React from 'react';
-import { useOpenReleaseDialog, useReleaseOrThrow } from '../../utils/store';
+import { useOpenReleaseDialog, useReleaseOrLog } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
@@ -30,11 +30,18 @@ export type ReleaseCardMiniProps = {
 export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
     const { className, app, version } = props;
     // the ReleaseCardMini only displays actual releases, so we can assume that it exists here:
-    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor } = useReleaseOrThrow(app, version);
+    const firstRelease = useReleaseOrLog(app, version);
     const openReleaseDialog = useOpenReleaseDialog(app, version);
+    const release = useReleaseOrLog(app, version);
+    if (!firstRelease) {
+        return null;
+    }
+    if (!release) {
+        return null;
+    }
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor } = firstRelease;
     const displayedMessage = undeployVersion ? 'Undeploy Version' : sourceMessage + (isMinor ? '💤' : '');
     const displayedTitle = undeployVersion ? undeployTooltipExplanation : '';
-    const release = useReleaseOrThrow(app, version);
     return (
         <div className={classNames('release-card-mini', className)} onClick={openReleaseDialog}>
             <div className={classNames('release__details-mini', className)}>

@@ -4,6 +4,7 @@ exports[`ArgoAppEnvLink Renders properly  with url 1`] = `
 <body>
   <div>
     <a
+      class="env-card-link"
       href="https://example.com/argo/applications/tools/dev-foo"
       title="Opens the app in ArgoCd for this environment"
     >

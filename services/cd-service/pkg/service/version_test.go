@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
@@ -115,7 +114,7 @@ func TestVersion(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					SourceCommitId: "deadbeef",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 				},
 			},
 			ExpectedVersions: []expectedVersion{
@@ -124,7 +123,7 @@ func TestVersion(t *testing.T) {
 					Application:            "test",
 					ExpectedVersion:        1,
 					ExpectedDeployedAt:     gotime.Unix(2, 0),
-					ExpectedSourceCommitId: "deadbeef",
+					ExpectedSourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 				},
 			},
 		},
@@ -225,13 +224,7 @@ func TestGetManifests(t *testing.T) {
 				"development": fmt.Sprintf("dev-manifest for %s in release %d", application, release),
 				"staging":     fmt.Sprintf("staging-manifest for %s in release %d", application, release),
 			},
-			SourceCommitId: fmt.Sprintf("%x",
-				md5.Sum(
-					[]byte(
-						fmt.Sprintf("source commit id for app %s and release %d", application, release),
-					),
-				),
-			),
+			SourceCommitId: "",
 		}
 	}
 

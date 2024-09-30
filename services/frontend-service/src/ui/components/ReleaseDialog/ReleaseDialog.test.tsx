@@ -18,7 +18,6 @@ import { fireEvent, render } from '@testing-library/react';
 import { UpdateAction, UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
 import { Environment, EnvironmentGroup, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
-import { SideBar } from '../SideBar/SideBar';
 import { MemoryRouter } from 'react-router-dom';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
@@ -218,7 +217,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 0,
-            data_length: 2,
+            data_length: 3,
             teamName: '',
         },
         {
@@ -272,7 +271,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 0,
-            data_length: 2,
+            data_length: 3,
             teamName: '',
         },
         {
@@ -368,7 +367,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 1,
-            data_length: 5,
+            data_length: 7,
             teamName: 'test me team',
         },
         {
@@ -445,7 +444,7 @@ describe('Release Dialog', () => {
             getWrapper(testcase.props);
             if (testcase.expect_message) {
                 expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
-                    testcase.rels[0].sourceMessage
+                    testcase.rels[testcase.rels.length - 1].sourceMessage
                 );
             } else {
                 expect(document.querySelector('.release-dialog-message') === undefined);
@@ -460,7 +459,9 @@ describe('Release Dialog', () => {
             // when
             setTheStore(testcase);
             getWrapper(testcase.props);
-            expect(document.querySelector('.release-env-list')?.children).toHaveLength(testcase.envs.length);
+            expect(document.querySelector('.release-dialog-environment-group-lane__body')?.children).toHaveLength(
+                testcase.envs.length
+            );
         });
     });
 
@@ -564,43 +565,6 @@ describe('Release Dialog', () => {
                     ]);
                 }
             });
-        });
-        it('Test using add lock button click simulation', () => {
-            const testcase = data[0];
-            UpdateAction.set({ actions: [] });
-            setTheStore(testcase);
-
-            getWrapper(testcase.props);
-            render(
-                <EnvironmentListItem
-                    env={testcase.envs[0]}
-                    envGroup={testcase.envGroups[0]}
-                    app={testcase.props.app}
-                    queuedVersion={0}
-                    release={testcase.rels[0]}
-                />
-            );
-            render(<SideBar />);
-            const result = querySelectorSafe('.env-card-add-lock-btn');
-            if (testcase.rels[0].isPrepublish) {
-                expect(result).toBeDisabled();
-            } else {
-                fireEvent.click(result);
-                expect(UpdateAction.get().actions).toEqual([
-                    {
-                        action: {
-                            $case: 'createEnvironmentApplicationLock',
-                            createEnvironmentApplicationLock: {
-                                application: 'test1',
-                                environment: 'prod',
-                                lockId: '',
-                                message: '',
-                                ciLink: '',
-                            },
-                        },
-                    },
-                ]);
-            }
         });
     });
 });

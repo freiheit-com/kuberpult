@@ -74,197 +74,267 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
           <div
             class="release-env-group-list"
           >
-            <ul
-              class="release-env-list"
+            <div
+              class="release-dialog-environment-group-lane"
             >
-              <li
-                class="env-card"
+              <div
+                class="release-dialog-environment-group-lane__header-wrapper"
               >
                 <div
-                  class="env-card-header"
+                  class="release-dialog-environment-group-lane__header environment-priority-unrecognized"
                 >
                   <div
-                    class="mdc-evolution-chip release-environment environment-priority-unrecognized"
-                    role="row"
+                    class="environment-group__name"
+                    title="Name of the environment group"
                   >
-                    <span
-                      class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
-                      role="gridcell"
-                    >
-                      <span
-                        class="mdc-evolution-chip__text-name"
-                      >
-                        <span>
-                          prod
-                        </span>
-                      </span>
-                       
-                      <span
-                        class="mdc-evolution-chip__text-numbers"
-                      />
-                      <div
-                        class="release-environment env-locks"
-                      >
-                        <div
-                          class="tooltip-container"
-                          data-tooltip-delay-hide="50"
-                          data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
-                          data-tooltip-id="kuberpult-tooltip"
-                          data-tooltip-place="bottom"
-                          id="tooltipenv-group-chip-id-ui-envlock"
-                        >
-                          <div>
-                            <button
-                              aria-label=""
-                              class="mdc-button button-lock"
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <svg
-                                class="env-card-env-lock-icon fixed-size"
-                              >
-                                Locks_White.svg
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </span>
+                    dev
                   </div>
                   <div
-                    class="env-card-locks"
+                    class="collapse-dropdown-arrow-container"
+                  >
+                    <button
+                      aria-label=""
+                      class="mdc-button"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg>
+                        Up_White.svg
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="env-group-card-buttons"
+                >
+                  <div
+                    class="env-group-expand-button"
+                    title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
-                      class="env-card-app-locks"
+                      class="expand-button"
                     >
-                      App:
                       <div
-                        title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                        class="first-two"
                       >
                         <button
-                          aria-label=""
-                          class="mdc-button button-lock"
+                          aria-label="Deploy & Lock"
+                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                          disabled=""
                         >
                           <div
                             class="mdc-button__ripple"
                           />
-                          <svg
-                            class="env-card-app-lock"
+                          <span
+                            class="mdc-button__label"
                           >
-                            Locks.svg
-                          </svg>
+                            Deploy & Lock
+                          </span>
+                        </button>
+                        <button
+                          aria-label=""
+                          class="mdc-button button-expand"
+                          disabled=""
+                        >
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <div
+                            class="dropdown-arrow"
+                          >
+                            ⌄
+                          </div>
                         </button>
                       </div>
                     </div>
-                    <span
-                      class="rollout__description_pending"
-                    >
-                      ⧖ Pending
-                    </span>
                   </div>
                 </div>
-                <div
-                  class="content-area"
+              </div>
+              <div
+                class="release-dialog-environment-group-lane__body"
+              >
+                <li
+                  class="env-card"
                 >
                   <div
-                    class="content-left"
+                    class="env-card-header"
                   >
                     <div
-                      class="env-card-data"
-                      title="Shows the version that is currently deployed on prod. "
+                      class="mdc-evolution-chip-release-dialog release-environment"
+                      role="row"
                     >
-                      <span>
+                      <span
+                        class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
+                        role="gridcell"
+                      >
                         <span
-                          class="release-version__display-version"
-                          title="commit"
+                          class="mdc-evolution-chip__text-name"
                         >
-                          2
+                          <span>
+                            prod
+                          </span>
                         </span>
-                        test1
+                         
+                        <span
+                          class="mdc-evolution-chip__text-numbers"
+                        />
+                        <div
+                          class="release-environment env-locks"
+                        >
+                          <div
+                            class="tooltip-container"
+                            data-tooltip-delay-hide="50"
+                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                            data-tooltip-id="kuberpult-tooltip"
+                            data-tooltip-place="bottom"
+                            id="tooltipenv-group-chip-id-ui-envlock"
+                          >
+                            <div>
+                              <button
+                                aria-label=""
+                                class="mdc-button button-lock"
+                              >
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <svg
+                                  class="env-card-env-lock-icon fixed-size"
+                                >
+                                  Locks_White.svg
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </span>
                     </div>
                     <div
-                      class="env-card-data"
+                      class="env-card-locks"
                     >
-                      <div>
-                        Deployed by &nbsp;unknown
-                         
+                      <div
+                        class="env-card-app-locks"
+                      >
+                        App:
+                        <div
+                          title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                        >
+                          <button
+                            aria-label=""
+                            class="mdc-button button-lock"
+                          >
+                            <div
+                              class="mdc-button__ripple"
+                            />
+                            <svg
+                              class="env-card-app-lock"
+                            >
+                              Locks.svg
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                         
-                      </div>
+                      <span
+                        class="rollout__description_pending"
+                      >
+                        ⧖ Pending
+                      </span>
                     </div>
                   </div>
                   <div
-                    class="content-right"
+                    class="content-area"
                   >
                     <div
-                      class="env-card-buttons"
+                      class="content-left"
                     >
-                      <button
-                        aria-label="Add lock"
-                        class="mdc-button env-card-add-lock-btn highlight"
-                      >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="icon"
-                        >
-                          Locks.svg
-                        </svg>
-                        <span
-                          class="mdc-button__label"
-                        >
-                          Add lock
-                        </span>
-                      </button>
                       <div
-                        title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
+                        class="env-card-data"
+                        title="Shows the version that is currently deployed on prod. "
+                      >
+                        <span>
+                          <span
+                            class="release-version__display-version"
+                            title="commit"
+                          >
+                            2
+                          </span>
+                          test1
+                        </span>
+                      </div>
+                      <div
+                        class="env-card-data"
+                      >
+                        <div>
+                          Deployed by &nbsp;unknown
+                           
+                        </div>
+                        <div>
+                           
+                        </div>
+                      </div>
+                      <div
+                        class="env-card-data"
+                      >
+                        <div>
+                          same version
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="content-right"
+                    >
+                      <div
+                        class="env-card-buttons"
                       >
                         <div
-                          class="expand-button"
+                          title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                         >
                           <div
-                            class="first-two"
+                            class="expand-button"
                           >
-                            <button
-                              aria-label="Deploy & Lock"
-                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
-                              disabled=""
+                            <div
+                              class="first-two"
                             >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <span
-                                class="mdc-button__label"
+                              <button
+                                aria-label="Deploy & Lock"
+                                class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                                disabled=""
                               >
-                                Deploy & Lock
-                              </span>
-                            </button>
-                            <button
-                              aria-label=""
-                              class="mdc-button button-expand"
-                              disabled=""
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <div
-                                class="dropdown-arrow"
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <span
+                                  class="mdc-button__label"
+                                >
+                                  Deploy & Lock
+                                </span>
+                              </button>
+                              <button
+                                aria-label=""
+                                class="mdc-button button-expand"
+                                disabled=""
                               >
-                                ⌄
-                              </div>
-                            </button>
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <div
+                                  class="dropdown-arrow"
+                                >
+                                  ⌄
+                                </div>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </li>
-            </ul>
+                </li>
+              </div>
+              <div
+                class="release-dialog-environment-group-lane__footer"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -347,200 +417,270 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
           <div
             class="release-env-group-list"
           >
-            <ul
-              class="release-env-list"
+            <div
+              class="release-dialog-environment-group-lane"
             >
-              <li
-                class="env-card"
+              <div
+                class="release-dialog-environment-group-lane__header-wrapper"
               >
                 <div
-                  class="env-card-header"
+                  class="release-dialog-environment-group-lane__header environment-priority-unrecognized"
                 >
                   <div
-                    class="mdc-evolution-chip release-environment environment-priority-unrecognized"
-                    role="row"
+                    class="environment-group__name"
+                    title="Name of the environment group"
                   >
-                    <span
-                      class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
-                      role="gridcell"
-                    >
-                      <span
-                        class="mdc-evolution-chip__text-name"
-                      >
-                        <span>
-                          prod
-                        </span>
-                      </span>
-                       
-                      <span
-                        class="mdc-evolution-chip__text-numbers"
-                      />
-                      <div
-                        class="release-environment env-locks"
-                      >
-                        <div
-                          class="tooltip-container"
-                          data-tooltip-delay-hide="50"
-                          data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
-                          data-tooltip-id="kuberpult-tooltip"
-                          data-tooltip-place="bottom"
-                          id="tooltipenv-group-chip-id-ui-envlock"
-                        >
-                          <div>
-                            <button
-                              aria-label=""
-                              class="mdc-button button-lock"
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <svg
-                                class="env-card-env-lock-icon fixed-size"
-                              >
-                                Locks_White.svg
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </span>
+                    dev
                   </div>
                   <div
-                    class="env-card-locks"
+                    class="collapse-dropdown-arrow-container"
+                  >
+                    <button
+                      aria-label=""
+                      class="mdc-button"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg>
+                        Up_White.svg
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="env-group-card-buttons"
+                >
+                  <div
+                    class="env-group-expand-button"
+                    title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
-                      class="env-card-app-locks"
+                      class="expand-button"
                     >
-                      App:
                       <div
-                        title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                        class="first-two"
                       >
                         <button
-                          aria-label=""
-                          class="mdc-button button-lock"
+                          aria-label="Deploy & Lock"
+                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                          disabled=""
                         >
                           <div
                             class="mdc-button__ripple"
                           />
-                          <svg
-                            class="env-card-app-lock"
+                          <span
+                            class="mdc-button__label"
                           >
-                            Locks.svg
-                          </svg>
+                            Deploy & Lock
+                          </span>
+                        </button>
+                        <button
+                          aria-label=""
+                          class="mdc-button button-expand"
+                          disabled=""
+                        >
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <div
+                            class="dropdown-arrow"
+                          >
+                            ⌄
+                          </div>
                         </button>
                       </div>
                     </div>
-                    <span
-                      class="rollout__description_pending"
-                    >
-                      ⧖ Pending
-                    </span>
                   </div>
                 </div>
-                <div
-                  class="content-area"
+              </div>
+              <div
+                class="release-dialog-environment-group-lane__body"
+              >
+                <li
+                  class="env-card"
                 >
                   <div
-                    class="content-left"
+                    class="env-card-header"
                   >
                     <div
-                      class="env-card-data"
-                      title="Shows the version that is currently deployed on prod. "
+                      class="mdc-evolution-chip-release-dialog release-environment"
+                      role="row"
                     >
-                      <span>
+                      <span
+                        class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
+                        role="gridcell"
+                      >
                         <span
-                          class="release-version__display-version"
-                          title="commit"
+                          class="mdc-evolution-chip__text-name"
                         >
-                          2
+                          <span>
+                            prod
+                          </span>
                         </span>
-                        test1
+                         
+                        <span
+                          class="mdc-evolution-chip__text-numbers"
+                        />
+                        <div
+                          class="release-environment env-locks"
+                        >
+                          <div
+                            class="tooltip-container"
+                            data-tooltip-delay-hide="50"
+                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                            data-tooltip-id="kuberpult-tooltip"
+                            data-tooltip-place="bottom"
+                            id="tooltipenv-group-chip-id-ui-envlock"
+                          >
+                            <div>
+                              <button
+                                aria-label=""
+                                class="mdc-button button-lock"
+                              >
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <svg
+                                  class="env-card-env-lock-icon fixed-size"
+                                >
+                                  Locks_White.svg
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </span>
                     </div>
                     <div
-                      class="env-card-data"
+                      class="env-card-locks"
                     >
-                      <div>
-                        Deployed by test 
-                         
-                      </div>
-                      <div>
-                        <div>
-                          some formatted date
+                      <div
+                        class="env-card-app-locks"
+                      >
+                        App:
+                        <div
+                          title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                        >
+                          <button
+                            aria-label=""
+                            class="mdc-button button-lock"
+                          >
+                            <div
+                              class="mdc-button__ripple"
+                            />
+                            <svg
+                              class="env-card-app-lock"
+                            >
+                              Locks.svg
+                            </svg>
+                          </button>
                         </div>
-                         
                       </div>
+                      <span
+                        class="rollout__description_pending"
+                      >
+                        ⧖ Pending
+                      </span>
                     </div>
                   </div>
                   <div
-                    class="content-right"
+                    class="content-area"
                   >
                     <div
-                      class="env-card-buttons"
+                      class="content-left"
                     >
-                      <button
-                        aria-label="Add lock"
-                        class="mdc-button env-card-add-lock-btn highlight"
-                      >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="icon"
-                        >
-                          Locks.svg
-                        </svg>
-                        <span
-                          class="mdc-button__label"
-                        >
-                          Add lock
-                        </span>
-                      </button>
                       <div
-                        title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
+                        class="env-card-data"
+                        title="Shows the version that is currently deployed on prod. "
+                      >
+                        <span>
+                          <span
+                            class="release-version__display-version"
+                            title="commit"
+                          >
+                            2
+                          </span>
+                          test1
+                        </span>
+                      </div>
+                      <div
+                        class="env-card-data"
+                      >
+                        <div>
+                          Deployed by test 
+                           
+                        </div>
+                        <div>
+                          <div>
+                            some formatted date
+                          </div>
+                           
+                        </div>
+                      </div>
+                      <div
+                        class="env-card-data"
+                      >
+                        <div>
+                          same version
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="content-right"
+                    >
+                      <div
+                        class="env-card-buttons"
                       >
                         <div
-                          class="expand-button"
+                          title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                         >
                           <div
-                            class="first-two"
+                            class="expand-button"
                           >
-                            <button
-                              aria-label="Deploy & Lock"
-                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
-                              disabled=""
+                            <div
+                              class="first-two"
                             >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <span
-                                class="mdc-button__label"
+                              <button
+                                aria-label="Deploy & Lock"
+                                class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                                disabled=""
                               >
-                                Deploy & Lock
-                              </span>
-                            </button>
-                            <button
-                              aria-label=""
-                              class="mdc-button button-expand"
-                              disabled=""
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <div
-                                class="dropdown-arrow"
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <span
+                                  class="mdc-button__label"
+                                >
+                                  Deploy & Lock
+                                </span>
+                              </button>
+                              <button
+                                aria-label=""
+                                class="mdc-button button-expand"
+                                disabled=""
                               >
-                                ⌄
-                              </div>
-                            </button>
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <div
+                                  class="dropdown-arrow"
+                                >
+                                  ⌄
+                                </div>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </li>
-            </ul>
+                </li>
+              </div>
+              <div
+                class="release-dialog-environment-group-lane__footer"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -626,390 +766,452 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
           <div
             class="release-env-group-list"
           >
-            <ul
-              class="release-env-list"
+            <div
+              class="release-dialog-environment-group-lane"
             >
-              <li
-                class="env-card"
+              <div
+                class="release-dialog-environment-group-lane__header-wrapper"
               >
                 <div
-                  class="env-card-header"
+                  class="release-dialog-environment-group-lane__header environment-priority-unrecognized"
                 >
                   <div
-                    class="mdc-evolution-chip release-environment environment-priority-unrecognized"
-                    role="row"
+                    class="environment-group__name"
+                    title="Name of the environment group"
                   >
-                    <span
-                      class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
-                      role="gridcell"
-                    >
-                      <span
-                        class="mdc-evolution-chip__text-name"
-                      >
-                        <span>
-                          prod
-                        </span>
-                      </span>
-                       
-                      <span
-                        class="mdc-evolution-chip__text-numbers"
-                      />
-                      <div
-                        class="release-environment env-locks"
-                      >
-                        <div
-                          class="tooltip-container"
-                          data-tooltip-delay-hide="50"
-                          data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
-                          data-tooltip-id="kuberpult-tooltip"
-                          data-tooltip-place="bottom"
-                          id="tooltipenv-group-chip-id-ui-envlock"
-                        >
-                          <div>
-                            <button
-                              aria-label=""
-                              class="mdc-button button-lock"
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <svg
-                                class="env-card-env-lock-icon fixed-size"
-                              >
-                                Locks_White.svg
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </span>
+                    dev
                   </div>
                   <div
-                    class="env-card-locks"
+                    class="collapse-dropdown-arrow-container"
+                  >
+                    <button
+                      aria-label=""
+                      class="mdc-button"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg>
+                        Up_White.svg
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="env-group-card-buttons"
+                >
+                  <div
+                    class="env-group-expand-button"
+                    title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
-                      class="env-card-app-locks"
+                      class="expand-button"
                     >
-                      App:
                       <div
-                        title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                        class="first-two"
                       >
                         <button
-                          aria-label=""
-                          class="mdc-button button-lock"
+                          aria-label="Deploy & Lock"
+                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
                         >
                           <div
                             class="mdc-button__ripple"
                           />
-                          <svg
-                            class="env-card-app-lock"
+                          <span
+                            class="mdc-button__label"
                           >
-                            Locks.svg
-                          </svg>
+                            Deploy & Lock
+                          </span>
                         </button>
-                      </div>
-                    </div>
-                    <span
-                      class="rollout__description_pending"
-                    >
-                      ⧖ Pending
-                    </span>
-                  </div>
-                </div>
-                <div
-                  class="content-area"
-                >
-                  <div
-                    class="content-left"
-                  >
-                    <div
-                      class="env-card-data"
-                      title="Shows the version that is currently deployed on prod. "
-                    >
-                      <span>
-                        <span
-                          class="release-version__display-version"
-                          title="cafe"
-                        >
-                          2
-                        </span>
-                        the other commit message 2
-                      </span>
-                    </div>
-                    <div
-                      class="env-card-data"
-                    >
-                      <div>
-                        Deployed by &nbsp;unknown
-                         
-                      </div>
-                      <div>
-                         
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    class="content-right"
-                  >
-                    <div
-                      class="env-card-buttons"
-                    >
-                      <button
-                        aria-label="Add lock"
-                        class="mdc-button env-card-add-lock-btn highlight"
-                      >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="icon"
-                        >
-                          Locks.svg
-                        </svg>
-                        <span
-                          class="mdc-button__label"
-                        >
-                          Add lock
-                        </span>
-                      </button>
-                      <div
-                        title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
-                      >
-                        <div
-                          class="expand-button"
-                        >
-                          <div
-                            class="first-two"
-                          >
-                            <button
-                              aria-label="Deploy & Lock"
-                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
-                              disabled=""
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <span
-                                class="mdc-button__label"
-                              >
-                                Deploy & Lock
-                              </span>
-                            </button>
-                            <button
-                              aria-label=""
-                              class="mdc-button button-expand"
-                              disabled=""
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <div
-                                class="dropdown-arrow"
-                              >
-                                ⌄
-                              </div>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-              <li
-                class="env-card"
-              >
-                <div
-                  class="env-card-header"
-                >
-                  <div
-                    class="mdc-evolution-chip release-environment environment-priority-unrecognized"
-                    role="row"
-                  >
-                    <span
-                      class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
-                      role="gridcell"
-                    >
-                      <span
-                        class="mdc-evolution-chip__text-name"
-                      >
-                        <span>
-                          dev
-                        </span>
-                      </span>
-                       
-                      <span
-                        class="mdc-evolution-chip__text-numbers"
-                      />
-                      <div
-                        class="release-environment env-locks"
-                      >
-                        <div
-                          class="tooltip-container"
-                          data-tooltip-delay-hide="50"
-                          data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
-                          data-tooltip-id="kuberpult-tooltip"
-                          data-tooltip-place="bottom"
-                          id="tooltipenv-group-chip-id-ui-envlock"
-                        >
-                          <div>
-                            <button
-                              aria-label=""
-                              class="mdc-button button-lock"
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <svg
-                                class="env-card-env-lock-icon fixed-size"
-                              >
-                                Locks_White.svg
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </span>
-                  </div>
-                  <div
-                    class="env-card-locks"
-                  >
-                    <div
-                      class="env-card-app-locks"
-                    >
-                      App:
-                      <div
-                        title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
-                      >
                         <button
                           aria-label=""
-                          class="mdc-button button-lock"
+                          class="mdc-button button-expand"
                         >
                           <div
                             class="mdc-button__ripple"
                           />
-                          <svg
-                            class="env-card-app-lock"
+                          <div
+                            class="dropdown-arrow"
                           >
-                            Locks.svg
-                          </svg>
+                            ⌄
+                          </div>
                         </button>
                       </div>
                     </div>
-                    <span
-                      class="rollout__description_progressing"
-                    >
-                      ↻ In progress
-                    </span>
                   </div>
                 </div>
-                <div
-                  class="content-area"
+              </div>
+              <div
+                class="release-dialog-environment-group-lane__body"
+              >
+                <li
+                  class="env-card"
                 >
                   <div
-                    class="content-left"
+                    class="env-card-header"
                   >
                     <div
-                      class="env-card-data"
-                      title="Shows the version that is currently deployed on dev. "
+                      class="mdc-evolution-chip-release-dialog release-environment"
+                      role="row"
                     >
-                      <span>
+                      <span
+                        class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
+                        role="gridcell"
+                      >
                         <span
-                          class="release-version__display-version"
-                          title="cafe"
+                          class="mdc-evolution-chip__text-name"
                         >
-                          3
+                          <span>
+                            prod
+                          </span>
                         </span>
-                        the other commit message 3
+                         
+                        <span
+                          class="mdc-evolution-chip__text-numbers"
+                        />
+                        <div
+                          class="release-environment env-locks"
+                        >
+                          <div
+                            class="tooltip-container"
+                            data-tooltip-delay-hide="50"
+                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                            data-tooltip-id="kuberpult-tooltip"
+                            data-tooltip-place="bottom"
+                            id="tooltipenv-group-chip-id-ui-envlock"
+                          >
+                            <div>
+                              <button
+                                aria-label=""
+                                class="mdc-button button-lock"
+                              >
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <svg
+                                  class="env-card-env-lock-icon fixed-size"
+                                >
+                                  Locks_White.svg
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </span>
                     </div>
                     <div
-                      class="env-card-data env-card-data-queue"
-                      title="An attempt was made to deploy version 666 either by a release train, or when a new version was created. However, there was a lock present at the time, so kuberpult did not deploy this version. "
+                      class="env-card-locks"
                     >
-                      Version 
-                      666
-                       was not deployed, because of a lock.
-                    </div>
-                    <div
-                      class="env-card-data"
-                    >
-                      <div>
-                        Deployed by &nbsp;unknown
-                         
+                      <div
+                        class="env-card-app-locks"
+                      >
+                        App:
+                        <div
+                          title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                        >
+                          <button
+                            aria-label=""
+                            class="mdc-button button-lock"
+                          >
+                            <div
+                              class="mdc-button__ripple"
+                            />
+                            <svg
+                              class="env-card-app-lock"
+                            >
+                              Locks.svg
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                         
-                      </div>
+                      <span
+                        class="rollout__description_pending"
+                      >
+                        ⧖ Pending
+                      </span>
                     </div>
                   </div>
                   <div
-                    class="content-right"
+                    class="content-area"
                   >
                     <div
-                      class="env-card-buttons"
+                      class="content-left"
                     >
-                      <button
-                        aria-label="Add lock"
-                        class="mdc-button env-card-add-lock-btn highlight"
-                      >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="icon"
-                        >
-                          Locks.svg
-                        </svg>
-                        <span
-                          class="mdc-button__label"
-                        >
-                          Add lock
-                        </span>
-                      </button>
                       <div
-                        title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
+                        class="env-card-data"
+                        title="Shows the version that is currently deployed on prod. "
+                      >
+                        <span>
+                          <span
+                            class="release-version__display-version"
+                            title="cafe"
+                          >
+                            2
+                          </span>
+                          the other commit message 2
+                        </span>
+                      </div>
+                      <div
+                        class="env-card-data"
+                      >
+                        <div>
+                          Deployed by &nbsp;unknown
+                           
+                        </div>
+                        <div>
+                           
+                        </div>
+                      </div>
+                      <div
+                        class="env-card-data"
+                      >
+                        <div>
+                          same version
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="content-right"
+                    >
+                      <div
+                        class="env-card-buttons"
                       >
                         <div
-                          class="expand-button"
+                          title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                         >
                           <div
-                            class="first-two"
+                            class="expand-button"
                           >
-                            <button
-                              aria-label="Deploy & Lock"
-                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                            <div
+                              class="first-two"
                             >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <span
-                                class="mdc-button__label"
+                              <button
+                                aria-label="Deploy & Lock"
+                                class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                                disabled=""
                               >
-                                Deploy & Lock
-                              </span>
-                            </button>
-                            <button
-                              aria-label=""
-                              class="mdc-button button-expand"
-                            >
-                              <div
-                                class="mdc-button__ripple"
-                              />
-                              <div
-                                class="dropdown-arrow"
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <span
+                                  class="mdc-button__label"
+                                >
+                                  Deploy & Lock
+                                </span>
+                              </button>
+                              <button
+                                aria-label=""
+                                class="mdc-button button-expand"
+                                disabled=""
                               >
-                                ⌄
-                              </div>
-                            </button>
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <div
+                                  class="dropdown-arrow"
+                                >
+                                  ⌄
+                                </div>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </li>
-            </ul>
+                </li>
+                <li
+                  class="env-card"
+                >
+                  <div
+                    class="env-card-header"
+                  >
+                    <div
+                      class="mdc-evolution-chip-release-dialog release-environment"
+                      role="row"
+                    >
+                      <span
+                        class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
+                        role="gridcell"
+                      >
+                        <span
+                          class="mdc-evolution-chip__text-name"
+                        >
+                          <span>
+                            dev
+                          </span>
+                        </span>
+                         
+                        <span
+                          class="mdc-evolution-chip__text-numbers"
+                        />
+                        <div
+                          class="release-environment env-locks"
+                        >
+                          <div
+                            class="tooltip-container"
+                            data-tooltip-delay-hide="50"
+                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                            data-tooltip-id="kuberpult-tooltip"
+                            data-tooltip-place="bottom"
+                            id="tooltipenv-group-chip-id-ui-envlock"
+                          >
+                            <div>
+                              <button
+                                aria-label=""
+                                class="mdc-button button-lock"
+                              >
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <svg
+                                  class="env-card-env-lock-icon fixed-size"
+                                >
+                                  Locks_White.svg
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </div>
+                    <div
+                      class="env-card-locks"
+                    >
+                      <div
+                        class="env-card-app-locks"
+                      >
+                        App:
+                        <div
+                          title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                        >
+                          <button
+                            aria-label=""
+                            class="mdc-button button-lock"
+                          >
+                            <div
+                              class="mdc-button__ripple"
+                            />
+                            <svg
+                              class="env-card-app-lock"
+                            >
+                              Locks.svg
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <span
+                        class="rollout__description_progressing"
+                      >
+                        ↻ In progress
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    class="content-area"
+                  >
+                    <div
+                      class="content-left"
+                    >
+                      <div
+                        class="env-card-data"
+                        title="Shows the version that is currently deployed on dev. "
+                      >
+                        <span>
+                          <span
+                            class="release-version__display-version"
+                            title="cafe"
+                          >
+                            3
+                          </span>
+                          the other commit message 3
+                        </span>
+                      </div>
+                      <div
+                        class="env-card-data env-card-data-queue"
+                        title="An attempt was made to deploy version 666 either by a release train, or when a new version was created. However, there was a lock present at the time, so kuberpult did not deploy this version. "
+                      >
+                        Version 
+                        666
+                         was not deployed, because of a lock.
+                      </div>
+                      <div
+                        class="env-card-data"
+                      >
+                        <div>
+                          Deployed by &nbsp;unknown
+                           
+                        </div>
+                        <div>
+                           
+                        </div>
+                      </div>
+                      <div
+                        class="env-card-data"
+                      >
+                        <div>
+                          <span
+                            class="env-card-release-diff-negative"
+                          >
+                            1
+                          </span>
+                           versions behind
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="content-right"
+                    >
+                      <div
+                        class="env-card-buttons"
+                      >
+                        <div
+                          title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
+                        >
+                          <div
+                            class="expand-button"
+                          >
+                            <div
+                              class="first-two"
+                            >
+                              <button
+                                aria-label="Deploy & Lock"
+                                class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              >
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <span
+                                  class="mdc-button__label"
+                                >
+                                  Deploy & Lock
+                                </span>
+                              </button>
+                              <button
+                                aria-label=""
+                                class="mdc-button button-expand"
+                              >
+                                <div
+                                  class="mdc-button__ripple"
+                                />
+                                <div
+                                  class="dropdown-arrow"
+                                >
+                                  ⌄
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </div>
+              <div
+                class="release-dialog-environment-group-lane__footer"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1084,9 +1286,88 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
           <div
             class="release-env-group-list"
           >
-            <ul
-              class="release-env-list"
-            />
+            <div
+              class="release-dialog-environment-group-lane"
+            >
+              <div
+                class="release-dialog-environment-group-lane__header-wrapper"
+              >
+                <div
+                  class="release-dialog-environment-group-lane__header environment-priority-unrecognized"
+                >
+                  <div
+                    class="environment-group__name"
+                    title="Name of the environment group"
+                  >
+                    dev
+                  </div>
+                  <div
+                    class="collapse-dropdown-arrow-container"
+                  >
+                    <button
+                      aria-label=""
+                      class="mdc-button"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg>
+                        Up_White.svg
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="env-group-card-buttons"
+                >
+                  <div
+                    class="env-group-expand-button"
+                    title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
+                  >
+                    <div
+                      class="expand-button"
+                    >
+                      <div
+                        class="first-two"
+                      >
+                        <button
+                          aria-label="Deploy & Lock"
+                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                        >
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <span
+                            class="mdc-button__label"
+                          >
+                            Deploy & Lock
+                          </span>
+                        </button>
+                        <button
+                          aria-label=""
+                          class="mdc-button button-expand"
+                        >
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <div
+                            class="dropdown-arrow"
+                          >
+                            ⌄
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="release-dialog-environment-group-lane__body"
+              />
+              <div
+                class="release-dialog-environment-group-lane__footer"
+              />
+            </div>
           </div>
         </div>
       </div>

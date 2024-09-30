@@ -187,7 +187,7 @@ func TestVersion(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					SourceCommitId:      "deadbeef",
+					SourceCommitId:      "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 					TransformerMetadata: repository.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 			},
@@ -197,7 +197,7 @@ func TestVersion(t *testing.T) {
 					Application:            "test",
 					ExpectedVersion:        1,
 					ExpectedDeployedAt:     gotime.Unix(2, 0),
-					ExpectedSourceCommitId: "deadbeef",
+					ExpectedSourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 				},
 			},
 		},
@@ -241,7 +241,7 @@ func TestVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, 1, "00000000-0000-0000-0000-000000000003", "deadbeef", &event.NewRelease{Environments: map[string]struct{}{"development": {}}})
+				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 1, 1, "00000000-0000-0000-0000-000000000003", "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", &event.NewRelease{Environments: map[string]struct{}{"development": {}}})
 				if err != nil {
 					return err
 				}
@@ -254,7 +254,7 @@ func TestVersion(t *testing.T) {
 					App:     "test",
 					Env:     "development",
 					Version: &version,
-				}, 0)
+				}, 0, false)
 				err = repo.Apply(ctx, transaction, tc.Setup...)
 				if err != nil {
 					return err

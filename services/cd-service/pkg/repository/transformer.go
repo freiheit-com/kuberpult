@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"net/url"
 	"os"
 	"path"
@@ -45,6 +46,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -287,7 +289,7 @@ type Transformer interface {
 }
 
 type TransformerContext interface {
-	Execute(t Transformer, transaction *sql.Tx) error
+	Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error
 	AddAppEnv(app string, env string, team string)
 	DeleteEnvFromApp(app string, env string)
 }
@@ -297,11 +299,10 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		ChangedApps:     nil,
 		DeletedRootApps: nil,
 		Commits:         nil,
-		Context:         ctx,
 		State:           s,
 		Stack:           [][]string{nil},
 	}
-	if err := runner.Execute(t, transaction); err != nil {
+	if err := runner.Execute(ctx, t, transaction); err != nil {
 		return "", nil, err
 	}
 	commitMsg := ""
@@ -316,8 +317,8 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 }
 
 type transformerRunner struct {
-	Context context.Context
-	State   *State
+	//Context context.Context
+	State *State
 	// Stores the current stack of commit messages. Each entry of
 	// the outer slice corresponds to a step being executed. Each
 	// entry of the inner slices correspond to a message generated
@@ -328,9 +329,9 @@ type transformerRunner struct {
 	Commits         *CommitIds
 }
 
-func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
+func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
-	msg, err := t.Transform(r.Context, r.State, r, transaction)
+	msg, err := t.Transform(ctx, r.State, r, transaction)
 	if err != nil {
 		return err
 	}
@@ -467,12 +468,17 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if allApps == nil {
+			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
+			}
+
 			allApps = &db.AllApplicationsGo{
 				Version: 1,
 				AllApplicationsJson: db.AllApplicationsJson{
 					Apps: []string{},
 				},
-				Created: time.Now(),
+				Created: *now,
 			}
 		}
 
@@ -498,7 +504,8 @@ func (c *CreateApplicationVersion) Transform(
 				}
 				ver = app.EslVersion + 1
 			}
-			err = state.DBHandler.DBInsertApplication(
+
+			err = state.DBHandler.InsertAppFun(
 				ctx,
 				transaction,
 				c.Application,
@@ -542,16 +549,12 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	var checkForInvalidCommitId = func(commitId, helperText string) {
-		if !valid.SHA1CommitID(commitId) {
-			logger.FromContext(ctx).
-				Sugar().
-				Warnf("%s commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commitId, helperText)
-		}
+	if c.SourceCommitId != "" && !valid.SHA1CommitID(c.SourceCommitId) {
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", c.SourceCommitId))
 	}
-
-	checkForInvalidCommitId(c.SourceCommitId, "Source")
-	checkForInvalidCommitId(c.PreviousCommit, "Previous")
+	if c.PreviousCommit != "" && !valid.SHA1CommitID(c.PreviousCommit) {
+		logger.FromContext(ctx).Sugar().Warnf("Previous commit ID %s is invalid", c.PreviousCommit)
+	}
 
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
@@ -665,6 +668,10 @@ func (c *CreateApplicationVersion) Transform(
 		if c.IsPrepublish {
 			manifestsToKeep = make(map[string]string)
 		}
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
+		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
 			ReleaseNumber: version,
@@ -682,7 +689,7 @@ func (c *CreateApplicationVersion) Transform(
 				CiLink:          c.CiLink,
 				IsPrepublish:    c.IsPrepublish,
 			},
-			Created: time.Now(),
+			Created: *now,
 			Deleted: false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
@@ -694,9 +701,10 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if allReleases == nil {
+
 			allReleases = &db.DBAllReleasesWithMetaData{
 				EslVersion: db.InitialEslVersion - 1,
-				Created:    time.Now(),
+				Created:    *now,
 				App:        c.Application,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{int64(release.ReleaseNumber)},
@@ -754,8 +762,9 @@ func (c *CreateApplicationVersion) Transform(
 				Author:                c.SourceAuthor,
 				CiLink:                c.CiLink,
 				TransformerEslVersion: c.TransformerEslVersion,
+				SkipOverview:          false,
 			}
-			err := t.Execute(d, transaction)
+			err := t.Execute(ctx, d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -1246,6 +1255,10 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if prevRelease != nil {
 			v = prevRelease.EslVersion
 		}
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 		release := db.DBReleaseWithMetaData{
 			EslVersion:    0,
 			ReleaseNumber: lastRelease + 1,
@@ -1265,7 +1278,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Created: time.Now(),
+			Created: *now,
 			Deleted: false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
@@ -1279,7 +1292,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if allReleases == nil {
 			allReleases = &db.DBAllReleasesWithMetaData{
 				EslVersion: db.InitialEslVersion - 1,
-				Created:    time.Now(),
+				Created:    *now,
 				App:        c.Application,
 				Metadata: db.DBAllReleaseMetaData{
 					Releases: []int64{int64(release.ReleaseNumber)},
@@ -1353,8 +1366,9 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				Author:                "",
 				TransformerEslVersion: c.TransformerEslVersion,
 				CiLink:                "",
+				SkipOverview:          false,
 			}
-			err := t.Execute(d, transaction)
+			err := t.Execute(ctx, d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -1471,7 +1485,7 @@ func (u *UndeployApplication) Transform(
 			return "", err
 		}
 		if state.DBHandler.ShouldUseOtherTables() {
-			deployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, u.Application, env)
+			deployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, u.Application, env)
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' cannot be found", u.Application, env)
 			}
@@ -1494,7 +1508,7 @@ func (u *UndeployApplication) Transform(
 				deployment.Version = nil
 				deployment.Metadata.DeployedByName = user.Name
 				deployment.Metadata.DeployedByEmail = user.Email
-				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion)
+				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion, false)
 				if err != nil {
 					return "", err
 				}
@@ -1562,7 +1576,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 		}
-		err = state.DBHandler.DBInsertApplication(ctx, transaction, dbApp.App, dbApp.EslVersion, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
+		err = state.DBHandler.InsertAppFun(ctx, transaction, dbApp.App, dbApp.EslVersion, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 		}
@@ -1665,11 +1679,15 @@ func (u *DeleteEnvFromApp) Transform(
 					newManifests[envName] = manifest
 				}
 			}
+			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+			if err != nil {
+				return "", fmt.Errorf("could not get transaction timestamp")
+			}
 			newRelease := db.DBReleaseWithMetaData{
 				EslVersion:    dbReleaseWithMetadata.EslVersion + 1,
 				ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
 				App:           dbReleaseWithMetadata.App,
-				Created:       time.Now().UTC(),
+				Created:       *now,
 				Manifests:     db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:      dbReleaseWithMetadata.Metadata,
 				Deleted:       dbReleaseWithMetadata.Deleted,
@@ -1941,6 +1959,7 @@ func (c *CreateEnvironmentLock) Transform(
 			CreatedByName:  user.Name,
 			CreatedByEmail: user.Email,
 			CiLink:         c.CiLink,
+			CreatedAt:      time.Time{}, //will not be used
 		}
 		errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, metadata)
 		if errW != nil {
@@ -1952,14 +1971,17 @@ func (c *CreateEnvironmentLock) Transform(
 		if err != nil {
 			return "", err
 		}
-
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 		if allEnvLocks == nil {
 			allEnvLocks = &db.AllEnvLocksGo{
 				Version: 1,
 				AllEnvLocksJson: db.AllEnvLocksJson{
 					EnvLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 			}
 		}
@@ -2170,7 +2192,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 			CiLink:                c.CiLink,
 			AllowedDomains:        c.AllowedDomains,
 		}
-		if err := t.Execute(&x, transaction); err != nil {
+		if err := t.Execute(ctx, &x, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -2214,7 +2236,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 			LockId:                c.LockId,
 			TransformerEslVersion: c.TransformerEslVersion,
 		}
-		if err := t.Execute(&x, transaction); err != nil {
+		if err := t.Execute(ctx, &x, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -2270,6 +2292,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 			CreatedByEmail: user.Email,
 			Message:        c.Message,
 			CiLink:         c.CiLink,
+			CreatedAt:      time.Time{},
 		})
 		if errW != nil {
 			return "", errW
@@ -2280,14 +2303,17 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		if err != nil {
 			return "", err
 		}
-
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 		if allAppLocks == nil {
 			allAppLocks = &db.AllAppLocksGo{
 				Version: 1,
 				AllAppLocksJson: db.AllAppLocksJson{
 					AppLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 				AppName:     c.Application,
 			}
@@ -2446,12 +2472,17 @@ func (c *CreateEnvironmentTeamLock) Transform(
 			return "", err
 		}
 		//Write to locks table
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp")
+		}
 
 		errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, db.LockMetadata{
 			CreatedByName:  user.Name,
 			CreatedByEmail: user.Email,
 			Message:        c.Message,
 			CiLink:         c.CiLink,
+			CreatedAt:      *now,
 		})
 
 		if errW != nil {
@@ -2470,7 +2501,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 				AllTeamLocksJson: db.AllTeamLocksJson{
 					TeamLocks: []string{},
 				},
-				Created:     time.Now(),
+				Created:     *now,
 				Environment: c.Environment,
 				Team:        c.Team,
 			}
@@ -2693,9 +2724,10 @@ func (c *CreateEnvironment) Transform(
 }
 
 type QueueApplicationVersion struct {
-	Environment string
-	Application string
-	Version     uint64
+	Environment  string
+	Application  string
+	Version      uint64
+	SkipOverview bool
 }
 
 func (c *QueueApplicationVersion) Transform(
@@ -2705,8 +2737,8 @@ func (c *QueueApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	if state.DBHandler.ShouldUseOtherTables() {
-		version := (int64(c.Version))
-		err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, c.Environment, c.Application, &version)
+		version := int64(c.Version)
+		err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, c.Environment, c.Application, &version, c.SkipOverview)
 		if err != nil {
 			return "", err
 		}
@@ -2740,6 +2772,7 @@ type DeployApplicationVersion struct {
 	Author                string                          `json:"author"`
 	CiLink                string                          `json:"cilink"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	SkipOverview          bool                            `json:"-"`
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
@@ -2868,9 +2901,10 @@ func (c *DeployApplicationVersion) Transform(
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
-					Environment: c.Environment,
-					Application: c.Application,
-					Version:     c.Version,
+					Environment:  c.Environment,
+					Application:  c.Application,
+					Version:      c.Version,
+					SkipOverview: c.SkipOverview,
 				}
 				return q.Transform(ctx, state, t, transaction)
 			case api.LockBehavior_FAIL:
@@ -2901,7 +2935,7 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+		existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, c.Environment)
 		if err != nil {
 			return "", err
 		}
@@ -2933,7 +2967,7 @@ func (c *DeployApplicationVersion) Transform(
 		} else {
 			previousVersion = existingDeployment.EslVersion
 		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion)
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion, c.SkipOverview)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
@@ -3005,17 +3039,19 @@ func (c *DeployApplicationVersion) Transform(
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 		CloudRunClient:       state.CloudRunClient,
 	}
-	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application)
+	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application, c.SkipOverview)
 	if err != nil {
 		return "", err
 	}
-	d := &CleanupOldApplicationVersions{
-		Application:           c.Application,
-		TransformerEslVersion: c.TransformerEslVersion,
-	}
+	if !c.SkipOverview {
+		d := &CleanupOldApplicationVersions{
+			Application:           c.Application,
+			TransformerEslVersion: c.TransformerEslVersion,
+		}
 
-	if err := t.Execute(d, transaction); err != nil {
-		return "", err
+		if err := t.Execute(ctx, d, transaction); err != nil {
+			return "", err
+		}
 	}
 	if c.WriteCommitData { // write the corresponding event
 		newReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, c.Version, releaseDir, c.Application)
@@ -3310,15 +3346,15 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 }
 
 type ReleaseTrainApplicationPrognosis struct {
-	SkipCause        *api.ReleaseTrainAppPrognosis_SkipCause
-	FirstLockMessage string // we just record the first lock's message for now, will be changed in SRX-7CBX2O
-	Version          uint64
+	SkipCause *api.ReleaseTrainAppPrognosis_SkipCause
+	Locks     []*api.Lock
+	Version   uint64
 }
 
 type ReleaseTrainEnvironmentPrognosis struct {
-	SkipCause        *api.ReleaseTrainEnvPrognosis_SkipCause
-	Error            error
-	FirstLockMessage string // we just record the first lock's message for now, will be changed in SRX-7CBX2O
+	SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause
+	Error     error
+	Locks     []*api.Lock
 	// map key is the name of the app
 	AppsPrognoses map[string]ReleaseTrainApplicationPrognosis
 }
@@ -3334,18 +3370,13 @@ func (c *ReleaseTrain) Prognosis(
 	ctx context.Context,
 	state *State,
 	transaction *sql.Tx,
+	configs map[string]config.EnvironmentConfig,
 ) ReleaseTrainPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
 	defer span.Finish()
-
-	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-
-	if err != nil {
-		return ReleaseTrainPrognosis{
-			Error:                grpc.InternalError(ctx, err),
-			EnvironmentPrognoses: nil,
-		}
-	}
+	span.SetTag("targetEnv", c.Target)
+	span.SetTag("targetType", c.TargetType)
+	span.SetTag("team", c.Team)
 
 	var targetGroupName = c.Target
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
@@ -3421,20 +3452,24 @@ func (c *ReleaseTrain) Transform(
 			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 		}
 	}
-	prognosis := c.Prognosis(ctx, state, transaction)
-
-	if prognosis.Error != nil {
-		return "", prognosis.Error
+	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+	if err != nil {
+		return "", err
 	}
 
 	var targetGroupName = c.Target
-	configs, _ := state.GetAllEnvironmentConfigs(ctx, transaction)
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
+	if len(envGroupConfigs) == 0 {
+		if c.TargetType == api.ReleaseTrainRequest_ENVIRONMENT.String() || c.TargetType == api.ReleaseTrainRequest_ENVIRONMENTGROUP.String() {
+			return "", grpc.PublicError(ctx, fmt.Errorf("could not find target of type %v and name '%v'", c.TargetType, targetGroupName))
+		}
+		return "", grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
+	}
 
 	// sorting for determinism
-	envNames := make([]string, 0, len(prognosis.EnvironmentPrognoses))
-	for envName := range prognosis.EnvironmentPrognoses {
-		envNames = append(envNames, envName)
+	envNames := make([]string, 0, len(envGroupConfigs))
+	for env := range envGroupConfigs {
+		envNames = append(envNames, env)
 	}
 	sort.Strings(envNames)
 
@@ -3444,7 +3479,7 @@ func (c *ReleaseTrain) Transform(
 			trainGroup = conversion.FromString(targetGroupName)
 		}
 
-		if err := t.Execute(&envReleaseTrain{
+		if err := t.Execute(ctx, &envReleaseTrain{
 			Parent:                c,
 			Env:                   envName,
 			EnvConfigs:            configs,
@@ -3489,15 +3524,17 @@ func (c *envReleaseTrain) prognosis(
 ) ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	defer span.Finish()
+	span.SetTag("env", c.Env)
+
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 			},
-			Error:            nil,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3514,10 +3551,10 @@ func (c *envReleaseTrain) prognosis(
 
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:        nil,
-			Error:            err,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			SkipCause:     nil,
+			Error:         err,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3528,9 +3565,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 			},
-			Error:            nil,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3539,9 +3576,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 			},
-			Error:            nil,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3552,19 +3589,19 @@ func (c *envReleaseTrain) prognosis(
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
 				},
-				Error:            nil,
-				FirstLockMessage: "",
-				AppsPrognoses:    nil,
+				Error:         nil,
+				Locks:         nil,
+				AppsPrognoses: nil,
 			}
 		}
 	}
 	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:        nil,
-			Error:            grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			SkipCause:     nil,
+			Error:         grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3576,65 +3613,103 @@ func (c *envReleaseTrain) prognosis(
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:        nil,
-			Error:            err,
-			FirstLockMessage: "",
-			AppsPrognoses:    nil,
+			SkipCause:     nil,
+			Error:         err,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 	sort.Strings(apps)
 
 	appsPrognoses := make(map[string]ReleaseTrainApplicationPrognosis)
 	if len(envLocks) > 0 {
-		// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
-		var firstLock Lock
+		locksList := []*api.Lock{}
 		sortedKeys := sorting.SortKeys(envLocks)
-		for keyIndex := range sortedKeys {
-			key := sortedKeys[keyIndex]
-			firstLock = envLocks[key]
-			break
+		for _, lockId := range sortedKeys {
+			newLock := &api.Lock{
+				Message:   envLocks[lockId].Message,
+				CreatedAt: timestamppb.New(envLocks[lockId].CreatedAt),
+				CreatedBy: &api.Actor{
+					Email: envLocks[lockId].CreatedBy.Email,
+					Name:  envLocks[lockId].CreatedBy.Name,
+				},
+				LockId: lockId,
+			}
+			locksList = append(locksList, newLock)
 		}
 
 		for _, appName := range apps {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				SkipCause:        nil,
-				FirstLockMessage: firstLock.Message,
-				Version:          0,
+				SkipCause: nil,
+				Locks:     locksList,
+				Version:   0,
 			}
 		}
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 			},
-			Error:            nil,
-			FirstLockMessage: firstLock.Message,
-			AppsPrognoses:    appsPrognoses,
+			Error:         nil,
+			Locks:         locksList,
+			AppsPrognoses: appsPrognoses,
+		}
+	}
+	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, apps)
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
+	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
+
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
+
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, apps)
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
+	var allLatestManifests map[string]map[uint64]db.DBReleaseManifests
+	if state.DBHandler.ShouldUseOtherTables() {
+		allLatestManifests, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
+	}
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            err,
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         err,
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			} else if c.Parent.Team != team {
 				continue
 			}
 		}
-
-		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
-		if err != nil {
-			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:        nil,
-				Error:            grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err)),
-				FirstLockMessage: "",
-				AppsPrognoses:    nil,
-			}
-		}
+		currentlyDeployedVersion := allLatestDeploymentsTargetEnv[appName]
 
 		var versionToDeploy uint64
 		if overrideVersions != nil {
@@ -3644,44 +3719,30 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 		} else if upstreamLatest {
-			versionToDeploy, err = state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
-			if err != nil {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err)),
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
-				}
-			}
+			l := len(allLatestReleases[appName])
+			versionToDeploy = uint64(allLatestReleases[appName][int(math.Max(0, float64(l-1)))])
 		} else {
-			upstreamVersion, err := state.GetEnvironmentApplicationVersion(ctx, transaction, upstreamEnvName, appName)
-			if err != nil {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err)),
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
-				}
-			}
+			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
+
 			if upstreamVersion == nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
 					},
-					FirstLockMessage: "",
-					Version:          0,
+					Locks:   nil,
+					Version: 0,
 				}
 				continue
 			}
-			versionToDeploy = *upstreamVersion
+			versionToDeploy = uint64(*upstreamVersion)
 		}
-		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == versionToDeploy {
+		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == int64(versionToDeploy) {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
 				},
-				FirstLockMessage: "",
-				Version:          0,
+				Locks:   nil,
+				Version: 0,
 			}
 			continue
 		}
@@ -3690,61 +3751,68 @@ func (c *envReleaseTrain) prognosis(
 
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:        nil,
-				Error:            err,
-				FirstLockMessage: "",
-				AppsPrognoses:    nil,
+				SkipCause:     nil,
+				Error:         err,
+				Locks:         nil,
+				AppsPrognoses: nil,
 			}
 		}
 
 		if len(appLocks) > 0 {
-			// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
-			var firstLock Lock
+			locksList := []*api.Lock{}
 			sortedKeys := sorting.SortKeys(appLocks)
-			for keyIndex := range sortedKeys {
-				key := sortedKeys[keyIndex]
-				firstLock = appLocks[key]
-				break
+			for _, lockId := range sortedKeys {
+				newLock := &api.Lock{
+					Message:   appLocks[lockId].Message,
+					CreatedAt: timestamppb.New(appLocks[lockId].CreatedAt),
+					CreatedBy: &api.Actor{
+						Email: appLocks[lockId].CreatedBy.Email,
+						Name:  appLocks[lockId].CreatedBy.Name,
+					},
+					LockId: lockId,
+				}
+				locksList = append(locksList, newLock)
 			}
 
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_IS_LOCKED,
 				},
-				FirstLockMessage: firstLock.Message,
-				Version:          0,
+				Locks:   locksList,
+				Version: 0,
 			}
 			continue
 		}
 
 		if state.DBHandler.ShouldUseOtherTables() {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, true)
+			release, exists := allLatestManifests[appName][versionToDeploy]
+
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            err,
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         err,
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			}
-			if release == nil {
+			if !exists {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            fmt.Errorf("No release found."),
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy),
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			}
 
-			_, ok := release.Manifests.Manifests[c.Env]
+			_, ok := release.Manifests[c.Env]
 
 			if !ok {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 					},
-					FirstLockMessage: "",
-					Version:          0,
+					Locks:   nil,
+					Version: 0,
 				}
 				continue
 			}
@@ -3759,8 +3827,8 @@ func (c *envReleaseTrain) prognosis(
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 					},
-					FirstLockMessage: "",
-					Version:          0,
+					Locks:   nil,
+					Version: 0,
 				}
 				continue
 			}
@@ -3777,8 +3845,8 @@ func (c *envReleaseTrain) prognosis(
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION,
 					},
-					FirstLockMessage: "",
-					Version:          0,
+					Locks:   nil,
+					Version: 0,
 				}
 				continue
 			}
@@ -3787,44 +3855,50 @@ func (c *envReleaseTrain) prognosis(
 
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:        nil,
-					Error:            err,
-					FirstLockMessage: "",
-					AppsPrognoses:    nil,
+					SkipCause:     nil,
+					Error:         err,
+					Locks:         nil,
+					AppsPrognoses: nil,
 				}
 			}
 
 			if len(teamLocks) > 0 {
-				// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
-				var firstLock Lock
+				locksList := []*api.Lock{}
 				sortedKeys := sorting.SortKeys(teamLocks)
-				for keyIndex := range sortedKeys {
-					key := sortedKeys[keyIndex]
-					firstLock = teamLocks[key]
-					break
+				for _, lockId := range sortedKeys {
+					newLock := &api.Lock{
+						Message:   teamLocks[lockId].Message,
+						CreatedAt: timestamppb.New(teamLocks[lockId].CreatedAt),
+						CreatedBy: &api.Actor{
+							Email: teamLocks[lockId].CreatedBy.Email,
+							Name:  teamLocks[lockId].CreatedBy.Name,
+						},
+						LockId: lockId,
+					}
+					locksList = append(locksList, newLock)
 				}
 
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
 					},
-					FirstLockMessage: firstLock.Message,
-					Version:          0,
+					Locks:   locksList,
+					Version: 0,
 				}
 				continue
 			}
 		}
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-			SkipCause:        nil,
-			FirstLockMessage: "",
-			Version:          versionToDeploy,
+			SkipCause: nil,
+			Locks:     nil,
+			Version:   versionToDeploy,
 		}
 	}
 	return ReleaseTrainEnvironmentPrognosis{
-		SkipCause:        nil,
-		Error:            nil,
-		FirstLockMessage: "",
-		AppsPrognoses:    appsPrognoses,
+		SkipCause:     nil,
+		Error:         nil,
+		Locks:         nil,
+		AppsPrognoses: appsPrognoses,
 	}
 }
 
@@ -3891,7 +3965,11 @@ func (c *envReleaseTrain) Transform(
 				return "", fmt.Errorf("error getting latest release for app '%s' - %v", appName, err)
 			}
 			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
-			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, prognosis.FirstLockMessage, "environment")
+			eventMessage := ""
+			if len(prognosis.Locks) > 0 {
+				eventMessage = prognosis.Locks[0].Message
+			}
+			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, eventMessage, "environment")
 			if state.DBHandler.ShouldUseOtherTables() {
 				commitID, err := getCommitID(ctx, transaction, state, state.Filesystem, release, releaseDir, appName)
 				if err != nil {
@@ -3933,6 +4011,17 @@ func (c *envReleaseTrain) Transform(
 	}
 	sort.Strings(appNames)
 
+	var overview *api.GetOverviewResponse
+	var envOfOverview *api.Environment
+	if state.DBHandler.ShouldUseOtherTables() {
+		var err error
+		overview, err = state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+		if err != nil {
+			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while reading overview cache: %w", c.Env, err))
+		}
+		envOfOverview = getEnvOfOverview(overview, c.Env)
+	}
+
 	for _, appName := range appNames {
 		appPrognosis := prognosis.AppsPrognoses[appName]
 		if appPrognosis.SkipCause != nil {
@@ -3953,16 +4042,38 @@ func (c *envReleaseTrain) Transform(
 			Author:                "",
 			TransformerEslVersion: c.TransformerEslVersion,
 			CiLink:                c.CiLink,
+			SkipOverview:          true,
 		}
-		if err := t.Execute(d, transaction); err != nil {
+		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
+		}
+	}
+	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions: %w", err))
+	}
+	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps: %w", err))
+	}
+	for _, appName := range appNames {
+		if envOfOverview != nil {
+			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false, allReleasesOfAllApps)
+			if err != nil {
+				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
+			}
+			envApp, err := state.UpdateOneAppEnvInOverview(ctx, transaction, appName, c.Env, &envConfig, allEnvironmentApplicationVersions)
+			if err != nil {
+				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
+			}
+			envOfOverview.Applications[appName] = envApp
 		}
 	}
 	teamInfo := ""
 	if c.Parent.Team != "" {
 		teamInfo = " for team '" + c.Parent.Team + "'"
 	}
-	if err := t.Execute(&skippedServices{
+	if err := t.Execute(ctx, &skippedServices{
 		Messages:              skipped,
 		TransformerEslVersion: c.TransformerEslVersion,
 	}, transaction); err != nil {
@@ -3973,12 +4084,33 @@ func (c *envReleaseTrain) Transform(
 		if checker.SkipCause != nil {
 			deployedApps += 1
 		}
-
 	}
+
+	if state.DBHandler.ShouldUseOtherTables() {
+		err := state.DBHandler.WriteOverviewCache(ctx, transaction, overview)
+		if err != nil {
+			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while writing overview cache: %w", c.Env, err))
+		}
+	}
+
 	return fmt.Sprintf("Release Train to '%s' environment:\n\n"+
 		"The release train deployed %d services from '%s' to '%s'%s",
 		c.Env, deployedApps, source, c.Env, teamInfo,
 	), nil
+}
+
+func getEnvOfOverview(overview *api.GetOverviewResponse, envName string) *api.Environment {
+	if overview == nil || overview.EnvironmentGroups == nil {
+		return nil
+	}
+	for _, envGroup := range overview.EnvironmentGroups {
+		for _, env := range envGroup.Environments {
+			if env.Name == envName {
+				return env
+			}
+		}
+	}
+	return nil
 }
 
 // skippedServices is a helper Transformer to generate the "skipped
@@ -3998,7 +4130,7 @@ func (c *skippedServices) SetEslVersion(id db.TransformerID) {
 }
 
 func (c *skippedServices) Transform(
-	_ context.Context,
+	ctx context.Context,
 	_ *State,
 	t TransformerContext,
 	transaction *sql.Tx,
@@ -4007,7 +4139,7 @@ func (c *skippedServices) Transform(
 		return "", nil
 	}
 	for _, msg := range c.Messages {
-		if err := t.Execute(&skippedService{Message: msg, TransformerEslVersion: c.TransformerEslVersion}, transaction); err != nil {
+		if err := t.Execute(ctx, &skippedService{Message: msg, TransformerEslVersion: c.TransformerEslVersion}, transaction); err != nil {
 			return "", err
 		}
 	}

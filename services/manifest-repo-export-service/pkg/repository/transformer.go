@@ -437,7 +437,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	t.AddAppEnv(c.Application, c.Environment, teamOwner)
 
-	existingDeployment, err := state.DBHandler.DBSelectDeployment(ctx, transaction, c.Application, c.Environment)
+	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, c.Environment)
 	if err != nil {
 		return "", fmt.Errorf("error while retrieving deployment: %v", err)
 	}
@@ -477,14 +477,15 @@ func (c *DeployApplicationVersion) Transform(
 }
 
 func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
+	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	if !valid.SHA1CommitID(sourceCommitId) {
-		return fmt.Errorf(
-			"no source commit id found - could not write an event for commit '%s' for uuid '%s'",
+		logger.FromContext(ctx).Sugar().Warnf(
+			"could not write an event for commit '%s' for uuid '%s' - commit ID is not valid",
 			sourceCommitId,
 			eventId,
 		)
+		return nil
 	}
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
