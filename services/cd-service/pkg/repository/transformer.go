@@ -4037,11 +4037,11 @@ func (c *envReleaseTrain) Transform(
 	}
 	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, appNames)
 	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions"))
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions: %w", err))
 	}
 	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
 	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps"))
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps: %w", err))
 	}
 	for _, appName := range appNames {
 		if envOfOverview != nil {
