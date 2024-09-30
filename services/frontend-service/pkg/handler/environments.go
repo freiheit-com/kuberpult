@@ -59,7 +59,8 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
-
+	fmt.Println(config)
+	fmt.Println(envConfig.EnvironmentGroup)
 	if signature, ok := form.Value["signature"]; ok {
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader([]byte(config[0])), bytes.NewReader([]byte(signature[0])), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {

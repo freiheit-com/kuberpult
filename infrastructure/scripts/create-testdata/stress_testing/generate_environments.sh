@@ -1,0 +1,51 @@
+#!/bin/bash
+
+
+BASE_ENV_NAME=${1:-qa}
+NUMBER_ENVS=${2:-32}
+while IFS= read -r line ; do
+    if [ "$NUMBER_ENVS" -lt 0 ]; then
+      break
+    fi
+    mkdir -p environments/"$BASE_ENV_NAME"-"$line"
+    NUMBER_ENVS=$((NUMBER_ENVS-1))
+    touch environments/"$BASE_ENV_NAME"-"$line"/config.json
+cat <<EOF > "environments/${BASE_ENV_NAME}-${line}/config.json"
+{
+  "argocd": {
+    "destination": {
+      "server": "https://kubernetes.default.svc",
+      "namespace": "*"
+    },
+    "applicationAnnotations": {
+      "notifications.argoproj.io/subscribe.on-degraded.teams":"",
+      "notifications.argoproj.io/subscribe.on-sync-failed.teams":""
+    },
+    "accessList": [
+      {
+        "group": "*",
+        "kind": "ClusterSecretStore"
+      },
+      {
+        "group": "*",
+        "kind": "ClusterIssuer"
+      }
+    ],
+    "ignoreDifferences": [
+      {
+        "group": "apps",
+        "kind": "Deployment",
+        "jsonPointers": [
+          "/spec/replicas"
+        ]
+      }
+    ]
+  },
+  "upstream": {
+    "environment": "testing"
+  },
+  "environment_group": "${BASE_ENV_NAME}"
+}
+EOF
+done < country_codes.csv
+/bin/bash ./../create-environments.sh stress_testing/environments
