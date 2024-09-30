@@ -3684,6 +3684,18 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses: nil,
 		}
 	}
+	var allLatestManifests map[string]map[uint64]db.DBReleaseManifests
+	if state.DBHandler.ShouldUseOtherTables() {
+		allLatestManifests, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
+	}
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
@@ -3773,7 +3785,8 @@ func (c *envReleaseTrain) prognosis(
 		}
 
 		if state.DBHandler.ShouldUseOtherTables() {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, true)
+			release, exists := allLatestManifests[appName][versionToDeploy]
+
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
@@ -3782,7 +3795,7 @@ func (c *envReleaseTrain) prognosis(
 					AppsPrognoses: nil,
 				}
 			}
-			if release == nil {
+			if !exists {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
 					Error:         fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy),
@@ -3791,7 +3804,7 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 
-			_, ok := release.Manifests.Manifests[c.Env]
+			_, ok := release.Manifests[c.Env]
 
 			if !ok {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{

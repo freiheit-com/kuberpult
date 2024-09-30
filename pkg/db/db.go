@@ -602,6 +602,84 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	return processedRows[0], nil
 }
 
+func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (map[string]map[uint64]DBReleaseManifests, error) {
+	selectQuery := h.AdaptQuery(
+		`
+	SELECT DISTINCT
+		releases.appname,
+		releases.releaseVersion,
+		releases.manifests
+	FROM (
+		SELECT
+			MAX(releaseVersion) AS latestRelease,
+			appname,
+			releaseversion
+		FROM
+			"releases"
+		GROUP BY
+			appname, releaseversion) AS latest
+	JOIN
+		releases AS releases
+	ON
+		latest.latestRelease=releases.releaseVersion
+		AND latest.appname=releases.appname;
+`)
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
+	defer span.Finish()
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+
+	return h.processReleaseManifestRows(ctx, err, rows)
+}
+
+func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (map[string]map[uint64]DBReleaseManifests, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseManifestRows")
+	defer span.Finish()
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var result = make(map[string]map[uint64]DBReleaseManifests)
+	for rows.Next() {
+		var manifestStr string
+		var appName string
+		var releaseVersion uint64
+		err := rows.Scan(&appName, &releaseVersion, &manifestStr)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		var manifestData = DBReleaseManifests{
+			Manifests: map[string]string{},
+		}
+		err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, manifestStr)
+		}
+		if _, exists := result[appName]; !exists {
+			result[appName] = make(map[uint64]DBReleaseManifests)
+		}
+		result[appName][releaseVersion] = manifestData
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
 	defer span.Finish()
