@@ -45,7 +45,7 @@ type VersionServiceServer struct {
 func (o *VersionServiceServer) GetVersion(
 	ctx context.Context,
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "GetVersion")
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetVersion")
 	defer span.Finish()
 
 	state := o.Repository.State()
