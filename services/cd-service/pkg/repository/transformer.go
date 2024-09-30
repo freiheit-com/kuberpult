@@ -730,11 +730,8 @@ func (c *CreateApplicationVersion) Transform(
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
-			if envInfo == nil {
-				return "", fmt.Errorf("Attempting to create release for application %s in environment %s, but the environment doesn't exist", c.Application, env)
-			}
 			found := false
-			if envInfo.Applications != nil {
+			if envInfo != nil && envInfo.Applications != nil {
 				for _, app := range envInfo.Applications {
 					if app == c.Application {
 						found = true
@@ -742,7 +739,7 @@ func (c *CreateApplicationVersion) Transform(
 					}
 				}
 			}
-			if !found {
+			if envInfo != nil && !found {
 				err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)
