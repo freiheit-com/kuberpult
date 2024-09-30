@@ -1497,7 +1497,7 @@ func (h *DBHandler) DBSelectAllApplicationsAtTimestamp(ctx context.Context, tran
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
 	defer span.Finish()
-	query := "SELECT version, created, json FROM all_apps WHERE created <= (?) ORDER BY created DESC LIMIT 1;"
+	query := h.AdaptQuery("SELECT version, created, json FROM all_apps WHERE created <= (?) ORDER BY created DESC LIMIT 1;")
 	span.SetTag("query", query)
 	rows := transaction.QueryRowContext(ctx, query, timestamp)
 	return processAllAppsRow(rows)
@@ -2160,6 +2160,60 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 		ctx,
 		selectQuery,
 		appName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
+		}
+	}(rows)
+
+	//exhaustruct:ignore
+	var row = &DBAppWithMetaData{}
+	if rows.Next() {
+		var metadataStr string
+		err := rows.Scan(&row.EslVersion, &row.App, &row.StateChange, &metadataStr)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
+		}
+		var metaData = DBAppMetaData{Team: ""}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Metadata = metaData
+	} else {
+		row = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+func (h *DBHandler) DBSelectAppAtTimetamp(ctx context.Context, tx *sql.Tx, appName string, timestamp time.Time) (*DBAppWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, appName, stateChange, metadata" +
+			" FROM apps " +
+			" WHERE appName=? AND created <= ?" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appName,
+		timestamp,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)

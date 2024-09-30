@@ -141,21 +141,39 @@ export const ProductVersion: React.FC = () => {
     );
     React.useEffect(() => {
         let tag = searchParams.get('tag');
+
+        let ts = undefined;
         if (tag === null) {
+            // eslint-disable-next-line no-console
+            console.log('tag: ' + tag);
             if (tagsResponse.response.tagData.length === 0) return;
             tag = tagsResponse.response.tagData[0].commitId;
+
             if (tag === null) return;
             setSelectedTag(tag);
+
             searchParams.set('tag', tag);
             setSearchParams(searchParams);
         }
+        ts = tagsResponse.response.tagData.find((currentTag) => currentTag.commitId === tag)?.timestamp;
+        // eslint-disable-next-line no-console
+        console.log(ts);
+        // eslint-disable-next-line no-console
+        console.log(tagsResponse.response.tagData);
+
         const env = splitCombinedGroupName(environment);
         setShowSummary(true);
         setSummaryLoading(true);
+
         useApi
             .gitService()
             .GetProductSummary(
-                { manifestRepoCommitHash: tag, environment: env[0], environmentGroup: env[1] },
+                {
+                    manifestRepoCommitHash: tag,
+                    environment: env[0],
+                    environmentGroup: env[1],
+                    timestamp: ts,
+                },
                 authHeader
             )
             .then((result: GetProductSummaryResponse) => {
