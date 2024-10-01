@@ -2122,6 +2122,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestDeleteEnvFromAppWithDB(t *testing.T) {
+	appName := "app"
 	setupTransformers := []Transformer{
 		&CreateEnvironment{
 			Environment: "env",
@@ -2156,52 +2157,28 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			},
 		},
 	}
-	firstRelease := db.DBReleaseWithMetaData{
-		EslVersion:    1,
-		ReleaseNumber: 10,
-		App:           "app",
-		Manifests: db.DBReleaseManifests{
-			Manifests: map[string]string{
-				"env":  "testenvmanifest",
-				"env2": "testenvmanifest2",
-			},
-		},
-		Metadata: db.DBReleaseMetaData{
-			SourceAuthor:   testAppName,
-			SourceMessage:  testAppName,
-			SourceCommitId: testAppName,
-			DisplayVersion: testAppName,
-		},
-	}
-	secondRelease := db.DBReleaseWithMetaData{
-		EslVersion:    1,
-		ReleaseNumber: 11,
-		App:           "app",
-		Manifests: db.DBReleaseManifests{
-			Manifests: map[string]string{
-				"env1": "testenvmanifest",
-				"env2": "testenvmanifest2",
-			},
-		},
-		Metadata: db.DBReleaseMetaData{
-			SourceAuthor:   testAppName,
-			SourceMessage:  testAppName,
-			SourceCommitId: testAppName,
-			DisplayVersion: testAppName,
-		},
-	}
 	tcs := []struct {
 		Name              string
-		PrevReleases      []db.DBReleaseWithMetaData
 		Transforms        []Transformer
 		ExpectedManifests map[string]string
 	}{
 		{
-			Name:         "Simple Delete Env From App",
-			PrevReleases: []db.DBReleaseWithMetaData{firstRelease},
+			Name: "Simple Delete Env From App",
 			Transforms: []Transformer{
+				&CreateApplicationVersion{
+					Version:     10,
+					Application: appName,
+					Manifests: map[string]string{
+						"env":  "testenvmanifest",
+						"env2": "testenvmanifest2",
+					},
+					SourceCommitId: "0000000000000000000000000000000000000000",
+					SourceAuthor:   "testmail@example.com",
+					SourceMessage:  "test",
+					DisplayVersion: "10",
+				},
 				&DeleteEnvFromApp{
-					Application: firstRelease.App,
+					Application: appName,
 					Environment: "env",
 				},
 			},
@@ -2210,22 +2187,59 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 			},
 		},
 		{
-			Name:         "Delete Env that doesn't exist",
-			PrevReleases: []db.DBReleaseWithMetaData{firstRelease},
+			Name: "Delete Env that doesn't exist",
 			Transforms: []Transformer{
+				&CreateApplicationVersion{
+					Version:     10,
+					Application: appName,
+					Manifests: map[string]string{
+						"env":  "testenvmanifest",
+						"env2": "testenvmanifest2",
+					},
+					SourceCommitId: "0000000000000000000000000000000000000000",
+					SourceAuthor:   "testmail@example.com",
+					SourceMessage:  "test",
+					DisplayVersion: "10",
+				},
 				&DeleteEnvFromApp{
-					Application: firstRelease.App,
+					Application: appName,
 					Environment: "env3",
 				},
 			},
-			ExpectedManifests: firstRelease.Manifests.Manifests,
+			ExpectedManifests: map[string]string{
+				"env":  "testenvmanifest",
+				"env2": "testenvmanifest2",
+			},
 		},
 		{
-			Name:         "Multiple Manifests",
-			PrevReleases: []db.DBReleaseWithMetaData{firstRelease, secondRelease},
+			Name: "Multiple Manifests",
 			Transforms: []Transformer{
+				&CreateApplicationVersion{
+					Version:     10,
+					Application: appName,
+					Manifests: map[string]string{
+						"env":  "testenvmanifest",
+						"env2": "testenvmanifest2",
+					},
+					SourceCommitId: "0000000000000000000000000000000000000000",
+					SourceAuthor:   "testmail@example.com",
+					SourceMessage:  "test",
+					DisplayVersion: "10",
+				},
+				&CreateApplicationVersion{
+					Version:     11,
+					Application: appName,
+					Manifests: map[string]string{
+						"env":  "testenvmanifest",
+						"env2": "testenvmanifest2",
+					},
+					SourceCommitId: "0000000000000000000000000000000000000000",
+					SourceAuthor:   "testmail@example.com",
+					SourceMessage:  "test",
+					DisplayVersion: "10",
+				},
 				&DeleteEnvFromApp{
-					Application: firstRelease.App,
+					Application: appName,
 					Environment: "env",
 				},
 			},
@@ -2245,35 +2259,29 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				for _, release := range tc.PrevReleases {
-					repo.State().DBHandler.DBInsertRelease(ctx, transaction, release, 0)
-				}
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transforms...)
 				if err != nil {
 					return fmt.Errorf("error: %v", err)
 				}
-				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, firstRelease.App, false, true)
+				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, appName, false, true)
 				if err2 != nil {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}
 				for _, release := range releases {
-					if diff := cmp.Diff(firstRelease.EslVersion+1, release.EslVersion); diff != "" {
-						return fmt.Errorf("error mismatch ReleaseNumber - want, +got:\n%s", diff)
-					}
 					for env, manifest := range tc.ExpectedManifests {
 						if diff := cmp.Diff(manifest, release.Manifests.Manifests[env]); diff != "" {
 							return fmt.Errorf("error mismatch Manifests - want, +got:\n%s", diff)
 						}
 					}
 				}
-				environment, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, tc.Transforms[0].(*DeleteEnvFromApp).Environment)
+				environment, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, tc.Transforms[len(tc.Transforms)-1].(*DeleteEnvFromApp).Environment)
 				if err2 != nil {
 					return err2
 				}
 				if environment != nil {
 					for _, envApp := range environment.Applications {
-						if envApp == firstRelease.App {
-							return fmt.Errorf("Expected app %s to be deleted from environment %s", firstRelease.App, environment.Name)
+						if envApp == appName {
+							return fmt.Errorf("Expected app %s to be deleted from environment %s", appName, environment.Name)
 						}
 					}
 				}
