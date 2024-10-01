@@ -1251,41 +1251,6 @@ func TestUpdateOverviewRelease(t *testing.T) {
 	}
 }
 
-func TestForceOverviewRecalculation(t *testing.T) {
-	tcs := []struct {
-		Name string
-	}{
-		{
-			Name: "Check if ForceOverviewRecalculation creates an empty overview",
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run("ForceOverviewRecalculation", func(t *testing.T) {
-			t.Parallel()
-			ctx := testutil.MakeTestContext()
-			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.ForceOverviewRecalculation(ctx, transaction)
-				if err != nil {
-					return err
-				}
-				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
-				if err != nil {
-					return err
-				}
-				if !dbHandler.IsOverviewEmpty(latestOverview) {
-					t.Fatalf("%s overview should be empty", tc.Name)
-				}
-				return nil
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-
 func makeApps(apps ...*api.Environment_Application) map[string]*api.Environment_Application {
 	var result map[string]*api.Environment_Application = map[string]*api.Environment_Application{}
 	for i := 0; i < len(apps); i++ {

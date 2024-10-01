@@ -2748,6 +2748,27 @@ func (c *CreateEnvironment) Transform(
 				return "", fmt.Errorf("unable to write to all_environments table, error: %w", err)
 			}
 		}
+		overview, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+		if overview == nil {
+			overview = &api.GetOverviewResponse{
+				Branch:            "",
+				ManifestRepoUrl:   "",
+				Applications:      map[string]*api.Application{},
+				EnvironmentGroups: []*api.EnvironmentGroup{},
+				GitRevision:       "0000000000000000000000000000000000000000",
+			}
+		}
+		if err != nil {
+			return "", fmt.Errorf("Unable to read overview cache, error: %w", err)
+		}
+		err = state.UpdateEnvironmentsInOverview(ctx, transaction, overview)
+		if err != nil {
+			return "", fmt.Errorf("Unable to udpate overview cache, error: %w", err)
+		}
+		err = state.DBHandler.WriteOverviewCache(ctx, transaction, overview)
+		if err != nil {
+			return "", fmt.Errorf("Unable to write overview cache, error: %w", err)
+		}
 	} else {
 		fs := state.Filesystem
 		envDir := fs.Join("environments", c.Environment)

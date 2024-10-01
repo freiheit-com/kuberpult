@@ -2521,6 +2521,19 @@ func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string
 	return nil
 }
 
+func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
+	for _, currentGroup := range groups {
+		if currentGroup.EnvironmentGroupName == groupNameToReturn {
+			for _, currentEnv := range currentGroup.Environments {
+				if currentEnv.Name == envNameToReturn {
+					return currentEnv
+				}
+			}
+		}
+	}
+	return nil
+}
+
 /*
 CalculateWarnings returns warnings for the User to be displayed in the UI.
 For really unusual configurations, these will be logged and not returned.
@@ -2728,6 +2741,79 @@ func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.
 		app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
 	}
 	return &app, nil
+}
+
+func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse) error {
+	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
+		return err
+	} else {
+		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
+		for envName, config := range envs {
+			var groupName = mapper.DeriveGroupName(config, envName)
+			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
+
+			argocd := &api.EnvironmentConfig_ArgoCD{
+				SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
+				Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+					Name:                 "",
+					Server:               "",
+					Namespace:            nil,
+					AppProjectNamespace:  nil,
+					ApplicationNamespace: nil,
+				},
+				AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+				ApplicationAnnotations: map[string]string{},
+				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
+				SyncOptions:            []string{},
+			}
+			if config.ArgoCd != nil {
+				argocd = mapper.TransformArgocd(*config.ArgoCd)
+			}
+			env := api.Environment{
+				DistanceToUpstream: 0,
+				Priority:           api.Priority_PROD,
+				Name:               envName,
+				Config: &api.EnvironmentConfig{
+					Upstream:         mapper.TransformUpstream(config.Upstream),
+					Argocd:           argocd,
+					EnvironmentGroup: &groupName,
+				},
+				Locks:        map[string]*api.Lock{},
+				Applications: map[string]*api.Environment_Application{},
+			}
+			envInGroup.Config = env.Config
+			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
+				return err
+			} else {
+				for lockId, lock := range locks {
+					env.Locks[lockId] = &api.Lock{
+						Message:   lock.Message,
+						LockId:    lockId,
+						CreatedAt: timestamppb.New(lock.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  lock.CreatedBy.Name,
+							Email: lock.CreatedBy.Email,
+						},
+					}
+				}
+				envInGroup.Locks = env.Locks
+			}
+
+			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
+				return err
+			} else {
+				for _, appName := range apps {
+					app, err2 := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, envName, &config, map[string]*int64{})
+					if err2 != nil {
+						return err
+					}
+					env.Applications[appName] = app
+				}
+			}
+			envInGroup.Applications = env.Applications
+		}
+	}
+	return nil
 }
 
 func (s *State) GetAppsAndTeams() (map[string]string, error) {
