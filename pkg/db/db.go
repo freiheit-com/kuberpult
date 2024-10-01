@@ -4878,29 +4878,59 @@ LIMIT 1;
 	return nil, nil
 }
 
-func (h *DBHandler) DBSelectAllEnvironmentsAtTimestamp(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
+func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx *sql.Tx, environmentNames []string, timestamp time.Time) (*[]DBEnvironment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
 	defer span.Finish()
+	if len(environmentNames) > WhereInBatchMax {
+		return nil, fmt.Errorf("SelectEnvironments is not batching queries for now, make sure to not request more than %d environments.", WhereInBatchMax)
+	}
+	if len(environmentNames) == 0 {
+		return &[]DBEnvironment{}, nil
+	}
 
 	selectQuery := h.AdaptQuery(
 		`
-SELECT created, version, name, json
-FROM environments
-WHERE name=?
-ORDER BY version DESC
-LIMIT 1;
+SELECT
+  environments.created AS created,
+  environments.version AS version,
+  environments.name AS name,
+  environments.json AS json,
+  environments.applications AS applications
+FROM (
+  SELECT
+    MAX(version) AS latest,
+    name
+  FROM
+    environments
+  WHERE created <= (?)
+  GROUP BY
+    name) AS latest
+JOIN
+  environments
+ON
+  latest.latest=environments.version
+  AND latest.name = environments.name
+WHERE
+  environments.name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
+LIMIT ?
 `,
 	)
 	span.SetTag("query", selectQuery)
+	args := []any{}
+	args = append(args, timestamp)
+	for _, env := range environmentNames {
+		args = append(args, env)
+	}
+	args = append(args, len(environmentNames))
 
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
-		environmentName,
+		args...,
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("could not query the environments table for environment %s, error: %w", environmentName, err)
+		return nil, fmt.Errorf("failed to query for environments %v, error: %w (query: %s, args: %v)", environmentNames, err, selectQuery, args)
 	}
 
 	defer func(rows *sql.Rows) {
@@ -4910,10 +4940,11 @@ LIMIT 1;
 		}
 	}(rows)
 
-	if rows.Next() {
+	envs := []DBEnvironment{}
+	for rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -4924,9 +4955,9 @@ LIMIT 1;
 		if err != nil {
 			return nil, err
 		}
-		return env, nil
+		envs = append(envs, *env)
 	}
-	return nil, nil
+	return &envs, nil
 }
 
 func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, environmentNames []string) (*[]DBEnvironment, error) {

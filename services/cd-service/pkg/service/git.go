@@ -123,33 +123,50 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 					fmt.Println("5")
 					state := s.OverviewService.Repository.State()
 					var environmentGroups []*api.EnvironmentGroup
-					if envs, err := state.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
+
+					envs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+					if err != nil {
 						return nil, fmt.Errorf("Could not get environment configs", err)
 					} else {
 						environmentGroups = mapper.MapEnvironmentsToGroups(envs)
+					}
+
+					envList := make([]string, 0, len(envs))
+					for k := range envs {
+						envList = append(envList, k)
+					}
+
+					allEnvs, err := dbHandler.DBSelectEnvironmentsBatchAtTimestamp(ctx, transaction, envList, ts)
+					if err != nil {
+						return nil, fmt.Errorf("Could not get environment configs", err)
 					}
 					for _, group := range environmentGroups {
 						if *in.EnvironmentGroup == group.EnvironmentGroupName {
 							fmt.Printf("Processing environment group: %s\n", group.EnvironmentGroupName)
 							for _, env := range group.Environments {
-								var singleEnvSummary []api.ProductSummary
-								dbHandler.DBSelectEnvironment()
-								for _, app := range env.Applications {
-									singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
-										CommitId:       "",
-										DisplayVersion: "",
-										Team:           "",
-										App:            app.Name,
-										Version:        strconv.FormatUint(app.Version, 10),
-										Environment:    env.Name,
-									})
+								for _, curreEnv := range *allEnvs {
+									if curreEnv.Name == env.Name {
+										var singleEnvSummary []api.ProductSummary
+										apps := curreEnv.Applications
+										for _, app := range apps {
+											currentAppDeployments, _ := dbHandler.DBSelectAllDeploymentsTimestamp(ctx, transaction, currentApp, ts)
+											singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
+												CommitId:       "",
+												DisplayVersion: "",
+												Team:           "",
+												App:            app,
+												Version:        strconv.FormatUint(uint64(currentAppDeployments.Version), 10),
+												Environment:    env.Name,
+											})
+										}
+										sort.Slice(singleEnvSummary, func(i, j int) bool {
+											a := singleEnvSummary[i].App
+											b := singleEnvSummary[j].App
+											return a < b
+										})
+										summaryFromEnv = append(summaryFromEnv, singleEnvSummary...)
+									}
 								}
-								sort.Slice(singleEnvSummary, func(i, j int) bool {
-									a := singleEnvSummary[i].App
-									b := singleEnvSummary[j].App
-									return a < b
-								})
-								summaryFromEnv = append(summaryFromEnv, singleEnvSummary...)
 							}
 						}
 					}
