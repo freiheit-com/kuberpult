@@ -127,7 +127,6 @@ func (o *OverviewServiceServer) getOverview(
 	}
 	result.ManifestRepoUrl = o.RepositoryConfig.URL
 	result.Branch = o.RepositoryConfig.Branch
-	//exhaustruct:ignore
 	err := s.UpdateEnvironmentsInOverview(ctx, transaction, &result)
 	if err != nil {
 		return nil, err
