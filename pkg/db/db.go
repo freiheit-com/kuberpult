@@ -4881,6 +4881,57 @@ LIMIT 1;
 	return nil, nil
 }
 
+func (h *DBHandler) DBSelectAllEnvironmentsAtTimestamp(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		`
+SELECT created, version, name, json
+FROM environments
+WHERE name=?
+ORDER BY version DESC
+LIMIT 1;
+`,
+	)
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query the environments table for environment %s, error: %w", environmentName, err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
+		}
+	}(rows)
+
+	if rows.Next() {
+		//exhaustruct:ignore
+		row := DBEnvironmentRow{}
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
+		}
+		env, err := EnvironmentFromRow(ctx, &row)
+		if err != nil {
+			return nil, err
+		}
+		return env, nil
+	}
+	return nil, nil
+}
+
 func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, environmentNames []string) (*[]DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
 	defer span.Finish()

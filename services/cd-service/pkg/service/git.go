@@ -130,8 +130,10 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 					}
 					for _, group := range environmentGroups {
 						if *in.EnvironmentGroup == group.EnvironmentGroupName {
+							fmt.Printf("Processing environment group: %s\n", group.EnvironmentGroupName)
 							for _, env := range group.Environments {
 								var singleEnvSummary []api.ProductSummary
+								dbHandler.DBSelectEnvironment()
 								for _, app := range env.Applications {
 									singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
 										CommitId:       "",
