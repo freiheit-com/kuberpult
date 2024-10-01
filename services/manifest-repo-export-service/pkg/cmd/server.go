@@ -291,6 +291,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 
 	const transactionRetries = 10
 	needsPushing := false
+	commits := 0
 	defer func(repo repository.Repository) {
 		err2 := repo.PushRepo(ctx)
 		if err2 != nil {
@@ -328,44 +329,46 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			}
 			sleepDuration.Reset()
 		} else {
+			if needsPushing && commits > 20 {
+				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+					err2 := repo.PushRepo(ctx)
+					if err2 != nil {
+						d := sleepDuration.NextBackOff()
+						logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
+						measurePushes(ddMetrics, log, true)
+						time.Sleep(d)
+						return err2
+					} else {
+						measurePushes(ddMetrics, log, false)
+					}
+					return nil
+					////Get latest commit. Write esl timestamp and commit hash.
+					//commit, err := repo.GetHeadCommit()
+					//if err != nil {
+					//	return err
+					//}
+					//return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
+				})
+				if err != nil {
+					err3 := repo.FetchAndReset(ctx)
+					if err3 != nil {
+						d := sleepDuration.NextBackOff()
+						logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
+						time.Sleep(d)
+					}
+				}
+				needsPushing = false
+				commits = 0
+			}
 			if transformer == nil {
 				sleepDuration.Reset()
 				d := sleepDuration.NextBackOff()
 				logger.FromContext(ctx).Sugar().Warnf("event processing skipped, will try again in %v", d)
 				time.Sleep(d)
-				if needsPushing {
-					err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-						err2 := repo.PushRepo(ctx)
-						if err2 != nil {
-							d := sleepDuration.NextBackOff()
-							logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
-							measurePushes(ddMetrics, log, true)
-							time.Sleep(d)
-							return err2
-						} else {
-							measurePushes(ddMetrics, log, false)
-						}
-						return nil
-						////Get latest commit. Write esl timestamp and commit hash.
-						//commit, err := repo.GetHeadCommit()
-						//if err != nil {
-						//	return err
-						//}
-						//return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
-					})
-					if err != nil {
-						err3 := repo.FetchAndReset(ctx)
-						if err3 != nil {
-							d := sleepDuration.NextBackOff()
-							logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
-							time.Sleep(d)
-						}
-					}
-					needsPushing = false
-				}
 				continue
 			}
 			needsPushing = true
+			commits += 1
 			fmt.Println("6")
 			log.Infof("event processed successfully, now writing to cutoff")
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
