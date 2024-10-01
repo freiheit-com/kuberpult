@@ -809,9 +809,6 @@ func (h *DBHandler) processAllReleasesForAllAppsRow(ctx context.Context, err err
 }
 
 func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesRow")
-	defer span.Finish()
-
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -4565,9 +4562,6 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 }
 
 func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows, err error) (*QueuedDeployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processDeploymentAttemptsRow")
-	defer span.Finish()
-
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
 	}
@@ -4593,9 +4587,6 @@ func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.
 
 // processSingleDeploymentAttemptsRow only processes the row. It assumes that there is an element ready to be processed in rows.
 func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows) (*QueuedDeployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "processSingleDeploymentAttemptsRow")
-	defer span.Finish()
-
 	//exhaustruct:ignore
 	var row = QueuedDeployment{}
 	var releaseVersion sql.NullInt64
@@ -4617,8 +4608,6 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 
 // processSingleDeploymentRow only processes the row. It assumes that there is an element ready to be processed in rows.
 func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Rows) (*Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "processSingleDeploymentRow")
-	defer span.Finish()
 	var row = &DBDeployment{
 		EslVersion:     0,
 		Created:        time.Time{},
@@ -5340,9 +5329,6 @@ type DBAllDeploymentsForAppRow struct {
 }
 
 func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (*AllDeploymentsForApp, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllDeploymentRow")
-	defer span.Finish()
-
 	if err != nil {
 		return nil, fmt.Errorf("could not query all_deployments table from DB. Error: %w\n", err)
 	}
