@@ -602,6 +602,84 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	return processedRows[0], nil
 }
 
+func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (map[string]map[uint64]DBReleaseManifests, error) {
+	selectQuery := h.AdaptQuery(
+		`
+	SELECT DISTINCT
+		releases.appname,
+		releases.releaseVersion,
+		releases.manifests
+	FROM (
+		SELECT
+			MAX(releaseVersion) AS latestRelease,
+			appname,
+			releaseversion
+		FROM
+			"releases"
+		GROUP BY
+			appname, releaseversion) AS latest
+	JOIN
+		releases AS releases
+	ON
+		latest.latestRelease=releases.releaseVersion
+		AND latest.appname=releases.appname;
+`)
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
+	defer span.Finish()
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+
+	return h.processReleaseManifestRows(ctx, err, rows)
+}
+
+func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (map[string]map[uint64]DBReleaseManifests, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseManifestRows")
+	defer span.Finish()
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+	//exhaustruct:ignore
+	var result = make(map[string]map[uint64]DBReleaseManifests)
+	for rows.Next() {
+		var manifestStr string
+		var appName string
+		var releaseVersion uint64
+		err := rows.Scan(&appName, &releaseVersion, &manifestStr)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		var manifestData = DBReleaseManifests{
+			Manifests: map[string]string{},
+		}
+		err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, manifestStr)
+		}
+		if _, exists := result[appName]; !exists {
+			result[appName] = make(map[uint64]DBReleaseManifests)
+		}
+		result[appName][releaseVersion] = manifestData
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
 	defer span.Finish()
@@ -731,9 +809,6 @@ func (h *DBHandler) processAllReleasesForAllAppsRow(ctx context.Context, err err
 }
 
 func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesRow")
-	defer span.Finish()
-
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -4487,9 +4562,6 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 }
 
 func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows, err error) (*QueuedDeployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processDeploymentAttemptsRow")
-	defer span.Finish()
-
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
 	}
@@ -4515,9 +4587,6 @@ func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.
 
 // processSingleDeploymentAttemptsRow only processes the row. It assumes that there is an element ready to be processed in rows.
 func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows) (*QueuedDeployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "processSingleDeploymentAttemptsRow")
-	defer span.Finish()
-
 	//exhaustruct:ignore
 	var row = QueuedDeployment{}
 	var releaseVersion sql.NullInt64
@@ -4539,8 +4608,6 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 
 // processSingleDeploymentRow only processes the row. It assumes that there is an element ready to be processed in rows.
 func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Rows) (*Deployment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "processSingleDeploymentRow")
-	defer span.Finish()
 	var row = &DBDeployment{
 		EslVersion:     0,
 		Created:        time.Time{},
@@ -4596,17 +4663,19 @@ type DBAllEnvironmentsRow struct {
 }
 
 type DBEnvironment struct {
-	Created time.Time
-	Version int64
-	Name    string
-	Config  config.EnvironmentConfig
+	Created      time.Time
+	Version      int64
+	Name         string
+	Config       config.EnvironmentConfig
+	Applications []string
 }
 
 type DBEnvironmentRow struct {
-	Created time.Time
-	Version int64
-	Name    string
-	Config  string
+	Created      time.Time
+	Version      int64
+	Name         string
+	Config       string
+	Applications string
 }
 
 func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironment, error) {
@@ -4618,11 +4687,17 @@ func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironm
 	if err != nil {
 		return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Config, err)
 	}
+	applications := []string{}
+	err = json.Unmarshal([]byte(row.Applications), &applications)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Applications, err)
+	}
 	return &DBEnvironment{
-		Created: row.Created,
-		Version: row.Version,
-		Name:    row.Name,
-		Config:  parsedConfig,
+		Created:      row.Created,
+		Version:      row.Version,
+		Name:         row.Name,
+		Config:       parsedConfig,
+		Applications: applications,
 	}, nil
 }
 
@@ -4632,7 +4707,7 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 
 	selectQuery := h.AdaptQuery(
 		`
-SELECT created, version, name, json
+SELECT created, version, name, json, applications
 FROM environments
 WHERE name=?
 ORDER BY version DESC
@@ -4661,7 +4736,7 @@ LIMIT 1;
 	if rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -4693,7 +4768,8 @@ SELECT
   environments.created AS created,
   environments.version AS version,
   environments.name AS name,
-  environments.json AS json
+  environments.json AS json,
+  environments.applications AS applications
 FROM (
   SELECT
     MAX(version) AS latest,
@@ -4739,7 +4815,7 @@ LIMIT ?
 	for rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config)
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -4755,8 +4831,8 @@ LIMIT ?
 	return &envs, nil
 }
 
-func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
+func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
 
 	if h == nil {
@@ -4774,6 +4850,10 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
 	}
+	applicationsJson, err := json.Marshal(applications)
+	if err != nil {
+		return fmt.Errorf("could not marshal the application names list %v, error: %w", applicationsJson, err)
+	}
 
 	var existingEnvironmentVersion int64
 	if existingEnvironment == nil {
@@ -4783,7 +4863,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT Into environments (created, version, name, json) VALUES (?, ?, ?, ?);",
+		"INSERT Into environments (created, version, name, json, applications) VALUES (?, ?, ?, ?, ?);",
 	)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -4796,13 +4876,10 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 		existingEnvironmentVersion+1,
 		environmentName,
 		jsonToInsert,
+		string(applicationsJson),
 	)
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
-	}
-	err = h.ForceOverviewRecalculation(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("error while forcing overview recalculation, error: %w", err)
 	}
 	return nil
 }
@@ -4982,10 +5059,16 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 			return fmt.Errorf("could not get environments, error: %w", err)
 		}
 
+		allApplications, err := h.DBSelectAllApplications(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not get all applications, error: %w", err)
+		}
+
 		allEnvironmentNames := make([]string, 0)
 		for envName, config := range allEnvironments {
 			allEnvironmentNames = append(allEnvironmentNames, envName)
-			err = h.DBWriteEnvironment(ctx, transaction, envName, config)
+
+			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allApplications.Apps)
 			if err != nil {
 				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 			}
@@ -5242,9 +5325,6 @@ type DBAllDeploymentsForAppRow struct {
 }
 
 func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (*AllDeploymentsForApp, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllDeploymentRow")
-	defer span.Finish()
-
 	if err != nil {
 		return nil, fmt.Errorf("could not query all_deployments table from DB. Error: %w\n", err)
 	}

@@ -1818,6 +1818,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 	type EnvAndConfig struct {
 		EnvironmentName   string
 		EnvironmentConfig config.EnvironmentConfig
+		Applications      []string
 	}
 	type TestCase struct {
 		Name          string
@@ -1833,13 +1834,15 @@ func TestReadWriteEnvironment(t *testing.T) {
 				{
 					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
 				},
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version: 1,
-				Name:    "development",
-				Config:  testutil.MakeEnvConfigLatest(nil),
+				Version:      1,
+				Name:         "development",
+				Config:       testutil.MakeEnvConfigLatest(nil),
+				Applications: []string{"app1", "app2", "app3"},
 			},
 		},
 		{
@@ -1848,13 +1851,15 @@ func TestReadWriteEnvironment(t *testing.T) {
 				{
 					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // "elaborate config" being the env group
+					Applications:      []string{"app1"},
 				},
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version: 1,
-				Name:    "development",
-				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+				Version:      1,
+				Name:         "development",
+				Config:       testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+				Applications: []string{"app1"},
 			},
 		},
 		{
@@ -1943,7 +1948,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 
 			for _, envToWrite := range tc.EnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig)
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}

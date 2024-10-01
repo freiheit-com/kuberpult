@@ -250,6 +250,9 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 	}
 	app := getApplicationByName(latestOverview.Applications, release.App)
 	if app == nil {
+		if release.Deleted {
+			return nil
+		}
 		return fmt.Errorf("could not find application '%s' in overview", release.App)
 	}
 	apiRelease := &api.Release{
@@ -279,34 +282,11 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 		app.Releases = append(app.Releases, apiRelease)
 	}
 
-	if release.Metadata.UndeployVersion { //We need to force recalculation as we need to determine undeploySummary
-		err = h.ForceOverviewRecalculation(ctx, transaction)
-	} else {
-		err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	if release.Metadata.UndeployVersion {
+		app.UndeploySummary = deriveUndeploySummary(app.Name, latestOverview.EnvironmentGroups)
 	}
 
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (h *DBHandler) ForceOverviewRecalculation(ctx context.Context, transaction *sql.Tx) error {
-	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	if h.IsOverviewEmpty(latestOverview) {
-		return nil
-	}
-	emptyOverview := &api.GetOverviewResponse{
-		Applications:      map[string]*api.Application{},
-		EnvironmentGroups: []*api.EnvironmentGroup{},
-		GitRevision:       "",
-		Branch:            "",
-		ManifestRepoUrl:   "",
-	}
-	err = h.WriteOverviewCache(ctx, transaction, emptyOverview)
+	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
 	}

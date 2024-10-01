@@ -724,6 +724,28 @@ func (c *CreateApplicationVersion) Transform(
 	for i := range sortedKeys {
 		env := sortedKeys[i]
 		man := c.Manifests[env]
+		// Add application to the environment if not exist
+		if state.DBHandler.ShouldUseOtherTables() {
+			envInfo, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, env)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+			found := false
+			if envInfo != nil && envInfo.Applications != nil {
+				for _, app := range envInfo.Applications {
+					if app == c.Application {
+						found = true
+						break
+					}
+				}
+			}
+			if envInfo != nil && !found {
+				err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
+				if err != nil {
+					return "", GetCreateReleaseGeneralFailure(err)
+				}
+			}
+		}
 
 		err := state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
 		if err != nil {
@@ -1696,6 +1718,26 @@ func (u *DeleteEnvFromApp) Transform(
 			if err != nil {
 				return "", err
 			}
+		}
+
+		env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, u.Environment)
+		if err != nil {
+			return "", fmt.Errorf("Couldn't read environment: %s from environments table, error: %w", u.Environment, err)
+		}
+		if env == nil {
+			return "", fmt.Errorf("Attempting to delete an environment that doesn't exist in the environments table")
+		}
+		newApps := make([]string, 0)
+		if env.Applications != nil {
+			for _, app := range env.Applications {
+				if app != u.Application {
+					newApps = append(newApps, app)
+				}
+			}
+		}
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config, newApps)
+		if err != nil {
+			return "", fmt.Errorf("Couldn't write environment: %s into environments table, error: %w", u.Environment, err)
 		}
 	} else {
 
@@ -2673,7 +2715,15 @@ func (c *CreateEnvironment) Transform(
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		// write to environments table
-		err := state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config)
+		allApplications, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("unable to read all applications, error: %w", err)
+		}
+		environmentApplications := make([]string, 0)
+		if allApplications != nil {
+			environmentApplications = allApplications.Apps
+		}
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)
 		if err != nil {
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 		}
@@ -2697,6 +2747,27 @@ func (c *CreateEnvironment) Transform(
 			if err != nil {
 				return "", fmt.Errorf("unable to write to all_environments table, error: %w", err)
 			}
+		}
+		overview, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+		if overview == nil {
+			overview = &api.GetOverviewResponse{
+				Branch:            "",
+				ManifestRepoUrl:   "",
+				Applications:      map[string]*api.Application{},
+				EnvironmentGroups: []*api.EnvironmentGroup{},
+				GitRevision:       "0000000000000000000000000000000000000000",
+			}
+		}
+		if err != nil {
+			return "", fmt.Errorf("Unable to read overview cache, error: %w", err)
+		}
+		err = state.UpdateEnvironmentsInOverview(ctx, transaction, overview)
+		if err != nil {
+			return "", fmt.Errorf("Unable to udpate overview cache, error: %w", err)
+		}
+		err = state.DBHandler.WriteOverviewCache(ctx, transaction, overview)
+		if err != nil {
+			return "", fmt.Errorf("Unable to write overview cache, error: %w", err)
 		}
 	} else {
 		fs := state.Filesystem
@@ -3457,21 +3528,19 @@ func (c *ReleaseTrain) Transform(
 		return "", err
 	}
 
-	prognosis := c.Prognosis(ctx, state, transaction, configs)
-	span2, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Apply")
-	defer span2.Finish()
-
-	if prognosis.Error != nil {
-		return "", prognosis.Error
-	}
-
 	var targetGroupName = c.Target
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
+	if len(envGroupConfigs) == 0 {
+		if c.TargetType == api.ReleaseTrainRequest_ENVIRONMENT.String() || c.TargetType == api.ReleaseTrainRequest_ENVIRONMENTGROUP.String() {
+			return "", grpc.PublicError(ctx, fmt.Errorf("could not find target of type %v and name '%v'", c.TargetType, targetGroupName))
+		}
+		return "", grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
+	}
 
 	// sorting for determinism
-	envNames := make([]string, 0, len(prognosis.EnvironmentPrognoses))
-	for envName := range prognosis.EnvironmentPrognoses {
-		envNames = append(envNames, envName)
+	envNames := make([]string, 0, len(envGroupConfigs))
+	for env := range envGroupConfigs {
+		envNames = append(envNames, env)
 	}
 	sort.Strings(envNames)
 
@@ -3686,6 +3755,18 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses: nil,
 		}
 	}
+	var allLatestManifests map[string]map[uint64]db.DBReleaseManifests
+	if state.DBHandler.ShouldUseOtherTables() {
+		allLatestManifests, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
+	}
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
@@ -3775,7 +3856,8 @@ func (c *envReleaseTrain) prognosis(
 		}
 
 		if state.DBHandler.ShouldUseOtherTables() {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, true)
+			release, exists := allLatestManifests[appName][versionToDeploy]
+
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
@@ -3784,7 +3866,7 @@ func (c *envReleaseTrain) prognosis(
 					AppsPrognoses: nil,
 				}
 			}
-			if release == nil {
+			if !exists {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
 					Error:         fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy),
@@ -3793,7 +3875,7 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 
-			_, ok := release.Manifests.Manifests[c.Env]
+			_, ok := release.Manifests[c.Env]
 
 			if !ok {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
@@ -4036,13 +4118,22 @@ func (c *envReleaseTrain) Transform(
 		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}
-
+	}
+	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions: %w", err))
+	}
+	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
+	if err != nil {
+		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps: %w", err))
+	}
+	for _, appName := range appNames {
 		if envOfOverview != nil {
-			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false)
+			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false, allReleasesOfAllApps)
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}
-			envApp, err := state.UpdateOneAppEnvInOverview(ctx, transaction, appName, c.Env, &envConfig)
+			envApp, err := state.UpdateOneAppEnvInOverview(ctx, transaction, appName, c.Env, &envConfig, allEnvironmentApplicationVersions)
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}
