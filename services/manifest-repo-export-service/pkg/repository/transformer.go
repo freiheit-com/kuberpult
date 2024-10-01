@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"path"
 	"slices"
 
@@ -329,31 +328,15 @@ func (c *DeployApplicationVersion) Transform(
 
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
-	var manifestContent []byte
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
-	if state.DBHandler.ShouldUseOtherTables() {
-		version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
-		if err != nil {
-			return "", err
-		}
-		if version == nil {
-			return "", fmt.Errorf("release of app %s with version %v not found", c.Application, c.Version)
-		}
-		manifestContent = []byte(version.Manifests.Manifests[c.Environment])
-	} else {
-		// Check that the release exist and fetch manifest
-		manifest := fsys.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
-		if file, err := fsys.Open(manifest); err != nil {
-			return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
-		} else {
-			if content, err := io.ReadAll(file); err != nil {
-				return "", err
-			} else {
-				manifestContent = content
-			}
-			file.Close()
-		}
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
+	if err != nil {
+		return "", err
 	}
+	if version == nil {
+		return "", fmt.Errorf("release of app %s with version %v not found", c.Application, c.Version)
+	}
+	var manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
