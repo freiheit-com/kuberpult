@@ -826,7 +826,7 @@ func TestReleaseTrain(t *testing.T) {
 						Environment: "staging",
 						Latest:      true,
 					},
-				})
+				}, []string{appName})
 				if err != nil {
 					return err
 				}
@@ -834,7 +834,7 @@ func TestReleaseTrain(t *testing.T) {
 					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: "staging",
 					},
-				})
+				}, []string{appName})
 				if err != nil {
 					return err
 				}

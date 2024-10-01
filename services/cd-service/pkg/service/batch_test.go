@@ -678,6 +678,12 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if dbConfig != nil {
+		repo.State().DBHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
+			return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+		}
+	}
 	return repo, nil
 }
 
