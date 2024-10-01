@@ -291,6 +291,12 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 
 	const transactionRetries = 10
 	needsPushing := false
+	defer func(repo repository.Repository) {
+		err2 := repo.PushRepo(ctx)
+		if err2 != nil {
+			log.Errorf("Error pushing: %v", err2)
+		}
+	}(repo)
 	for {
 		var transformer repository.Transformer = nil
 		var esl *db.EslEventRow = nil
@@ -298,7 +304,9 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 
 		err := dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			var err2 error
+			fmt.Println("1")
 			transformer, esl, err2 = handleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
+			fmt.Println("5")
 			return err2
 		})
 		if err != nil {
@@ -358,10 +366,12 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				continue
 			}
 			needsPushing = true
+			fmt.Println("6")
 			log.Infof("event processed successfully, now writing to cutoff")
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 				return db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 			})
+			fmt.Println("7")
 			if err != nil {
 				return err
 			}
@@ -413,6 +423,7 @@ func handleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHa
 		// no event found
 		return nil, nil, nil
 	}
+	fmt.Println("2")
 	transformer, err := processEslEvent(ctx, repo, esl, transaction)
 	return transformer, esl, err
 
@@ -474,19 +485,19 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 		// no error, but also no transformer to process:
 		return nil, nil
 	}
-	logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s\n", esl.EventJson)
+	//logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s\n", esl.EventJson)
 	err = json.Unmarshal(([]byte)(esl.EventJson), &t)
 	if err != nil {
 		return nil, err
 	}
 	t.SetEslVersion(db.TransformerID(esl.EslVersion))
-	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
-
+	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s)", t.GetDBEventType())
+	fmt.Println("3")
 	err = repo.Apply(ctx, tx, t)
 	if err != nil {
 		return nil, fmt.Errorf("error while running repo apply: %v", err)
 	}
-
+	fmt.Println("4")
 	logger.FromContext(ctx).Sugar().Infof("Applied transformer succesfully event=%s", t.GetDBEventType())
 	return t, nil
 }

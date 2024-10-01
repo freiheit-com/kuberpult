@@ -68,7 +68,7 @@ done
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 
-for (( c=0; c<=NUMBER_RELEASES; c++ ))
+for (( c=288; c<=NUMBER_RELEASES; c++ ))
 do
   deployments=$(($RANDOM % $sizeAuthors))
   n_deployments=$((10 + $deployments +1))
@@ -385,12 +385,5 @@ EOF
         "${configuration[@]}" \
         "${manifests[@]}"
         echo Created Version "$d" of "$BASE_APP_NAME-$c"
-    if [ "$d" -eq $run_release_train ];
-    then
-      ./../run-releasetrain.sh qa
-    fi
-  done
-  for t in ${qaEnvs[@]}; do
-    ./../create-app-lock.sh "$BASE_APP_NAME-$c" "$t"
   done
 done
