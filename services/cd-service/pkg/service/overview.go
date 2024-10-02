@@ -93,6 +93,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
 		}
+
 		if retrievedReleasesOfApp != nil {
 			rels = retrievedReleasesOfApp.Metadata.Releases
 		}
@@ -217,6 +218,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
+
 		return result, nil
 	})
 	if err != nil {
@@ -224,7 +226,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 	}
 	response.Application = resultApp
 	return response, nil
-
 }
 
 func (o *OverviewServiceServer) GetOverview(
