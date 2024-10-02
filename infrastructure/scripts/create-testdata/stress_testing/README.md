@@ -42,8 +42,9 @@ For each app, the script also creates a random number of releases, between 10 an
 ### Time
 
 First of all, creating this much data takes a long time. The manifest-repo-export-service takes and increasingly 
-bigger amount of time processing one event the greater the number of apps. This is because of the UpdateArgoApps
-
+bigger amount of time processing one event the greater the number of apps. This is because of the [UpdateArgoApps](https://github.com/freiheit-com/kuberpult/blob/127d6ec37801b0c420688847f0c0ee113459eb77/services/manifest-repo-export-service/pkg/repository/repository.go#L700) steps 
+that is run after each transformer. Our recommendation is to comment out this step if your desire is to simply generate
+a lot of data.
 
 ### Space 
 
