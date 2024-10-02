@@ -1635,10 +1635,6 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err // better wrap the error in a descriptive message?
 	}
-	err = h.RunCustomMigrationEnvironmentApplications(ctx)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
