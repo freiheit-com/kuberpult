@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+set -o pipefail
 
 BASE_ENV_NAME=${1:-qa}
 NUMBER_ENVS=${2:-32}
