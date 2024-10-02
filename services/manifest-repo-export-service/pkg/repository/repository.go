@@ -526,6 +526,7 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, transformer Transformer) (*TransformerResult, *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformer")
 	defer span.Finish()
+
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformer)
 	if applyErr != nil {
 		return nil, applyErr

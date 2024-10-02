@@ -461,6 +461,7 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
+
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 		TransformerMetadata: TransformerMetadata{
@@ -944,6 +945,7 @@ func (c *CreateApplicationVersion) Transform(
 			}
 		}
 	}
+
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 

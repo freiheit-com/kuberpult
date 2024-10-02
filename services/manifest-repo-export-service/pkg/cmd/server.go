@@ -290,19 +290,10 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 	sleepDuration := createBackOffProvider(time.Second * time.Duration(eslProcessingIdleTimeSeconds))
 
 	const transactionRetries = 10
-	needsPushing := false
-	commits := 0
-	defer func(repo repository.Repository) {
-		err2 := repo.PushRepo(ctx)
-		if err2 != nil {
-			log.Errorf("Error pushing: %v", err2)
-		}
-	}(repo)
 	for {
 		var transformer repository.Transformer = nil
 		var esl *db.EslEventRow = nil
 		const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
-
 		err := dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			var err2 error
 			transformer, esl, err2 = handleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
@@ -327,37 +318,6 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			}
 			sleepDuration.Reset()
 		} else {
-			if needsPushing && commits > 20 {
-				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err2 := repo.PushRepo(ctx)
-					if err2 != nil {
-						d := sleepDuration.NextBackOff()
-						logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
-						measurePushes(ddMetrics, log, true)
-						time.Sleep(d)
-						return err2
-					} else {
-						measurePushes(ddMetrics, log, false)
-					}
-					return nil
-					////Get latest commit. Write esl timestamp and commit hash.
-					//commit, err := repo.GetHeadCommit()
-					//if err != nil {
-					//	return err
-					//}
-					//return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
-				})
-				if err != nil {
-					err3 := repo.FetchAndReset(ctx)
-					if err3 != nil {
-						d := sleepDuration.NextBackOff()
-						logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
-						time.Sleep(d)
-					}
-				}
-				needsPushing = false
-				commits = 0
-			}
 			if transformer == nil {
 				sleepDuration.Reset()
 				d := sleepDuration.NextBackOff()
@@ -365,14 +325,37 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				time.Sleep(d)
 				continue
 			}
-			needsPushing = true
-			commits += 1
-			log.Infof("event processed successfully, now writing to cutoff")
+			log.Infof("event processed successfully, now writing to cutoff and pushing...")
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-				return db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+				err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+				if err2 != nil {
+					return err2
+				}
+				err2 = repo.PushRepo(ctx)
+				if err2 != nil {
+					d := sleepDuration.NextBackOff()
+					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
+					measurePushes(ddMetrics, log, true)
+					time.Sleep(d)
+					return err2
+				} else {
+					measurePushes(ddMetrics, log, false)
+				}
+
+				//Get latest commit. Write esl timestamp and commit hash.
+				commit, err := repo.GetHeadCommit()
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
 			})
 			if err != nil {
-				return err
+				err3 := repo.FetchAndReset(ctx)
+				if err3 != nil {
+					d := sleepDuration.NextBackOff()
+					logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
+					time.Sleep(d)
+				}
 			}
 		}
 	}
@@ -483,17 +466,19 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 		// no error, but also no transformer to process:
 		return nil, nil
 	}
-	//logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s\n", esl.EventJson)
+	logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s\n", esl.EventJson)
 	err = json.Unmarshal(([]byte)(esl.EventJson), &t)
 	if err != nil {
 		return nil, err
 	}
 	t.SetEslVersion(db.TransformerID(esl.EslVersion))
-	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s)", t.GetDBEventType())
+	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
+
 	err = repo.Apply(ctx, tx, t)
 	if err != nil {
 		return nil, fmt.Errorf("error while running repo apply: %v", err)
 	}
+
 	logger.FromContext(ctx).Sugar().Infof("Applied transformer succesfully event=%s", t.GetDBEventType())
 	return t, nil
 }
