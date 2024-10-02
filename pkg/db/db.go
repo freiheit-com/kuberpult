@@ -4878,14 +4878,14 @@ LIMIT 1;
 	return nil, nil
 }
 
-func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx *sql.Tx, environmentNames []string, timestamp time.Time) (*[]DBEnvironment, error) {
+func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx *sql.Tx, environmentNames []string, timestamp time.Time) (*map[string]DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
 	defer span.Finish()
 	if len(environmentNames) > WhereInBatchMax {
 		return nil, fmt.Errorf("SelectEnvironments is not batching queries for now, make sure to not request more than %d environments.", WhereInBatchMax)
 	}
 	if len(environmentNames) == 0 {
-		return &[]DBEnvironment{}, nil
+		return &map[string]DBEnvironment{}, nil
 	}
 
 	selectQuery := h.AdaptQuery(
@@ -4940,7 +4940,7 @@ LIMIT ?
 		}
 	}(rows)
 
-	envs := []DBEnvironment{}
+	envs := make(map[string]DBEnvironment)
 	for rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
@@ -4955,7 +4955,7 @@ LIMIT ?
 		if err != nil {
 			return nil, err
 		}
-		envs = append(envs, *env)
+		envs[env.Name] = *env
 	}
 	return &envs, nil
 }
