@@ -20,6 +20,7 @@ import {
     appendAction,
     DisplayLock,
     FlushRolloutStatus,
+    SnackbarStatus,
     UpdateAction,
     updateActions,
     UpdateOverview,
@@ -699,9 +700,12 @@ describe('Test addAction duplicate detection', () => {
         it(testcase.name, () => {
             // given
             updateActions([]);
+            UpdateSnackbar.set({ show: false, status: SnackbarStatus.SUCCESS, content: '' });
 
+            expect(UpdateSnackbar.get().show).toStrictEqual(false);
             // when
             addAction(testcase.firstAction);
+            expect(UpdateSnackbar.get().show).toStrictEqual(false);
             // then
             expect(UpdateAction.get().actions.length).toStrictEqual(1);
 
@@ -709,12 +713,13 @@ describe('Test addAction duplicate detection', () => {
             addAction(testcase.firstAction);
             // then
             expect(UpdateAction.get().actions.length).toStrictEqual(1);
+            //and
+            expect(UpdateSnackbar.get().show).toStrictEqual(true);
 
             // when
             addAction(testcase.differentAction);
             // then
             expect(UpdateAction.get().actions.length).toStrictEqual(2);
-
             // when
             addAction(testcase.differentAction);
             // then
@@ -756,7 +761,8 @@ describe('Test maxActions', () => {
         it(testcase.name, () => {
             // given
             updateActions([]);
-
+            //and
+            UpdateSnackbar.set({ show: false, status: SnackbarStatus.SUCCESS, content: '' });
             // when
             for (let i = 0; i < testcase.inputActionsLen; i++) {
                 appendAction([
@@ -774,6 +780,7 @@ describe('Test maxActions', () => {
                     },
                 ]);
             }
+
             // then
             expect(UpdateSnackbar.get().show).toStrictEqual(testcase.expectedShowError);
             expect(UpdateAction.get().actions.length).toStrictEqual(testcase.expectedLen);

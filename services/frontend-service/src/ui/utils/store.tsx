@@ -247,6 +247,7 @@ export const addAction = (action: BatchAction): void => {
         showSnackbarError('Maximum number of actions is ' + String(maxBatchActions));
         return;
     }
+    let isDuplicate = false;
     // checking for duplicates
     switch (action.action?.$case) {
         case 'createEnvironmentLock':
@@ -259,7 +260,7 @@ export const addAction = (action: BatchAction): void => {
                     // lockId and message are ignored
                 )
             )
-                return;
+                isDuplicate = true;
             break;
         case 'deleteEnvironmentLock':
             if (
@@ -272,7 +273,7 @@ export const addAction = (action: BatchAction): void => {
                         act.action.deleteEnvironmentLock.lockId === action.action.deleteEnvironmentLock.lockId
                 )
             )
-                return;
+                isDuplicate = true;
             break;
         case 'createEnvironmentApplicationLock':
             if (
@@ -287,7 +288,7 @@ export const addAction = (action: BatchAction): void => {
                     // lockId and message are ignored
                 )
             )
-                return;
+                isDuplicate = true;
             break;
         case 'deleteEnvironmentApplicationLock':
             if (
@@ -303,7 +304,7 @@ export const addAction = (action: BatchAction): void => {
                             action.action.deleteEnvironmentApplicationLock.application
                 )
             )
-                return;
+                isDuplicate = true;
             break;
         case 'createEnvironmentTeamLock':
             if (
@@ -319,7 +320,7 @@ export const addAction = (action: BatchAction): void => {
                     // lockId and message are ignored
                 )
             )
-                return;
+                isDuplicate = true;
             break;
         case 'deleteEnvironmentTeamLock':
             if (
@@ -334,7 +335,7 @@ export const addAction = (action: BatchAction): void => {
                         act.action.deleteEnvironmentTeamLock.team === action.action.deleteEnvironmentTeamLock.team
                 )
             )
-                return;
+                isDuplicate = true;
             break;
         case 'deploy':
             if (
@@ -348,7 +349,8 @@ export const addAction = (action: BatchAction): void => {
                     // version, lockBehavior and ignoreAllLocks are ignored
                 )
             )
-                return;
+                isDuplicate = true;
+
             break;
         case 'undeploy':
             if (
@@ -359,7 +361,7 @@ export const addAction = (action: BatchAction): void => {
                         act.action.undeploy.application === action.action.undeploy.application
                 )
             )
-                return;
+                isDuplicate = true;
             break;
         case 'prepareUndeploy':
             if (
@@ -370,7 +372,7 @@ export const addAction = (action: BatchAction): void => {
                         act.action.prepareUndeploy.application === action.action.prepareUndeploy.application
                 )
             )
-                return;
+                isDuplicate = true;
             break;
         case 'releaseTrain':
             // only allow one release train at a time to avoid conflicts or if there are existing deploy actions
@@ -383,7 +385,11 @@ export const addAction = (action: BatchAction): void => {
 
             break;
     }
-    UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+    if (isDuplicate) {
+        showSnackbarSuccess('This action was already added.');
+    } else {
+        UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+    }
 };
 
 export const useOpenReleaseDialog = (app: string, version: number): (() => void) => {

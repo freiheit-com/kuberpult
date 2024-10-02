@@ -30,8 +30,8 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -443,7 +443,9 @@ func TestOverviewService(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
 									EnvironmentGroup: &dev,
 								},
 								Applications: map[string]*api.Environment_Application{
@@ -473,6 +475,16 @@ func TestOverviewService(t *testing.T) {
 								SourceAuthor:   "example <example@example.com>",
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
+								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							},
+							{
+								Version:        2,
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceAuthor:   "example <example@example.com>",
+								SourceMessage:  "changed something (#678)",
+								PrNumber:       "678",
+								IsMinor:        true,
+								IsPrepublish:   true,
 								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
 							},
 						},
@@ -569,8 +581,8 @@ func TestOverviewService(t *testing.T) {
 					if test.Name != "test" {
 						t.Errorf("test applications name is not test but %q", test.Name)
 					}
-					if len(test.Releases) != 1 {
-						t.Errorf("expected one release, got %#v", test.Releases)
+					if len(test.Releases) != 2 {
+						t.Errorf("expected two releases, got %#v", test.Releases)
 					}
 					if test.Releases[0].Version != 1 {
 						t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
@@ -635,12 +647,8 @@ func TestOverviewService(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					cachedResponse.EnvironmentGroups[0].Environments[0].Applications["test"].DeploymentMetaData.DeployTime = "1"
-					cachedResponse.Applications["test"].Releases[0].CreatedAt.Seconds = 1
-					cachedResponse.Applications["test"].Releases[0].CreatedAt.Nanos = 1
 					cachedResponse.GitRevision = "0"
-					opts := cmpopts.IgnoreUnexported(api.GetOverviewResponse{}, api.EnvironmentGroup{}, api.Environment{}, api.Application{}, api.Release{}, timestamppb.Timestamp{}, api.EnvironmentConfig{}, api.EnvironmentConfig_Upstream{}, api.Environment_Application{}, api.Environment_Application_DeploymentMetaData{}, api.EnvironmentConfig_ArgoCD{})
-					if diff := cmp.Diff(tc.ExpectedCachedOverview, cachedResponse, opts); diff != "" {
+					if diff := cmp.Diff(tc.ExpectedCachedOverview, cachedResponse, protocmp.Transform(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Environment_Application_DeploymentMetaData{}, "deploy_time")); diff != "" {
 						t.Errorf("latest overview cache mismatch (-want +got):\n%s", diff)
 					}
 					return nil

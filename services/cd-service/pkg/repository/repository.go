@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"io"
 	"net/http"
 	"os"
@@ -34,6 +33,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"github.com/freiheit-com/kuberpult/pkg/event"
 
@@ -2069,14 +2070,14 @@ func (s *State) GetEnvironmentApplicationsFromManifest(environment string) ([]st
 }
 
 func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
-	applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+	envInfo, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
 	}
-	if applications == nil {
+	if envInfo.Applications == nil {
 		return make([]string, 0), nil
 	}
-	return applications.Apps, nil
+	return envInfo.Applications, nil
 }
 
 // GetApplicationsFromFile returns all apps that exist in any env
@@ -2186,7 +2187,7 @@ func (s *State) WriteAllCurrentlyDeployed(ctx context.Context, transaction *sql.
 
 // WriteCurrentEnvironmentLocks gets all locks on any environment in manifest and writes them to the DB
 func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteCurrentEnvironmentLocks")
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "WriteCurrentEnvironmentLocks")
 	defer ddSpan.Finish()
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 	if err != nil {
@@ -2235,7 +2236,7 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 }
 
 func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteCurrentApplicationLocks")
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "WriteCurrentApplicationLocks")
 	defer ddSpan.Finish()
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
 
@@ -2294,7 +2295,7 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 }
 
 func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, _ := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "GetAllQueuedAppVersions")
 	defer ddSpan.Finish()
 	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest()
 
@@ -2417,7 +2418,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	}
 
 	shouldDelete := stateChange == db.AppStateChangeDelete
-	err = s.UpdateTopLevelAppInOverview(ctx, transaction, appName, cache, shouldDelete)
+	err = s.UpdateTopLevelAppInOverview(ctx, transaction, appName, cache, shouldDelete, map[string][]int64{})
 	if err != nil {
 		return err
 	}
@@ -2431,7 +2432,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 			if shouldDelete {
 				delete(env.Applications, appName)
 			} else {
-				envApp, err := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, env.Name, nil)
+				envApp, err := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, env.Name, nil, map[string]*int64{})
 				if err != nil {
 					return err
 				}
@@ -2452,7 +2453,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	return nil
 }
 
-func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool) error {
+func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool, allReleasesOfAllApps map[string][]int64) error {
 	if deleteApp {
 		delete(result.Applications, appName)
 		return nil
@@ -2465,25 +2466,32 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 		SourceRepoUrl:   "",
 		Team:            "",
 	}
-	if rels, err := s.GetAllApplicationReleases(ctx, transaction, appName); err != nil {
-		logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
-		// continue, apps are not required to have releases
+	allReleasesOfApp, found := allReleasesOfAllApps[appName]
+	var rels []uint64
+	if found {
+		rels = conversion.ToUint64Slice(allReleasesOfApp)
 	} else {
-		for _, id := range rels {
-			if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
-				return err
+		retrievedReleasesOfApp, err := s.GetAllApplicationReleases(ctx, transaction, appName)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
+		}
+		rels = retrievedReleasesOfApp
+	}
+	for _, id := range rels {
+		if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
+			return err
+		} else {
+			if rel == nil {
+				// ignore
 			} else {
-				if rel == nil {
-					// ignore
-				} else {
-					release := rel.ToProto()
-					release.Version = id
-					release.UndeployVersion = rel.UndeployVersion
-					app.Releases = append(app.Releases, release)
-				}
+				release := rel.ToProto()
+				release.Version = id
+				release.UndeployVersion = rel.UndeployVersion
+				app.Releases = append(app.Releases, release)
 			}
 		}
 	}
+
 	if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 		return err
 	} else {
@@ -2506,6 +2514,19 @@ func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string
 		for _, currentEnv := range currentGroup.Environments {
 			if currentEnv.Name == envNameToReturn {
 				return currentEnv
+			}
+		}
+	}
+	return nil
+}
+
+func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
+	for _, currentGroup := range groups {
+		if currentGroup.EnvironmentGroupName == groupNameToReturn {
+			for _, currentEnv := range currentGroup.Environments {
+				if currentEnv.Name == envNameToReturn {
+					return currentEnv
+				}
 			}
 		}
 	}
@@ -2604,7 +2625,7 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 
 }
 
-func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig) (*api.Environment_Application, error) {
+func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig, allEnvironmentApplicationVersions map[string]*int64) (*api.Environment_Application, error) {
 	var envConfig = configParam
 	if envConfig == nil {
 		var err error
@@ -2648,8 +2669,13 @@ func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.
 		}
 	} // Err != nil means no team name was found so no need to parse team locks
 
-	var version *uint64
-	version, err = s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
+	var version *uint64 = new(uint64)
+	allAppsVersion, found := allEnvironmentApplicationVersions[appName]
+	if found {
+		*version = uint64(*allAppsVersion)
+	} else {
+		version, err = s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
+	}
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	} else {
@@ -2714,6 +2740,79 @@ func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.
 		app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
 	}
 	return &app, nil
+}
+
+func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse) error {
+	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
+		return err
+	} else {
+		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
+		for envName, config := range envs {
+			var groupName = mapper.DeriveGroupName(config, envName)
+			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
+
+			argocd := &api.EnvironmentConfig_ArgoCD{
+				SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
+				Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+					Name:                 "",
+					Server:               "",
+					Namespace:            nil,
+					AppProjectNamespace:  nil,
+					ApplicationNamespace: nil,
+				},
+				AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+				ApplicationAnnotations: map[string]string{},
+				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
+				SyncOptions:            []string{},
+			}
+			if config.ArgoCd != nil {
+				argocd = mapper.TransformArgocd(*config.ArgoCd)
+			}
+			env := api.Environment{
+				DistanceToUpstream: 0,
+				Priority:           api.Priority_PROD,
+				Name:               envName,
+				Config: &api.EnvironmentConfig{
+					Upstream:         mapper.TransformUpstream(config.Upstream),
+					Argocd:           argocd,
+					EnvironmentGroup: &groupName,
+				},
+				Locks:        map[string]*api.Lock{},
+				Applications: map[string]*api.Environment_Application{},
+			}
+			envInGroup.Config = env.Config
+			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
+				return err
+			} else {
+				for lockId, lock := range locks {
+					env.Locks[lockId] = &api.Lock{
+						Message:   lock.Message,
+						LockId:    lockId,
+						CreatedAt: timestamppb.New(lock.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  lock.CreatedBy.Name,
+							Email: lock.CreatedBy.Email,
+						},
+					}
+				}
+				envInGroup.Locks = env.Locks
+			}
+
+			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
+				return err
+			} else {
+				for _, appName := range apps {
+					app, err2 := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, envName, &config, map[string]*int64{})
+					if err2 != nil {
+						return err
+					}
+					env.Applications[appName] = app
+				}
+			}
+			envInGroup.Applications = env.Applications
+		}
+	}
+	return nil
 }
 
 func (s *State) GetAppsAndTeams() (map[string]string, error) {
