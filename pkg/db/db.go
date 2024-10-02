@@ -1639,6 +1639,10 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err // better wrap the error in a descriptive message?
 	}
+	err = h.RunCustomMigrationEnvironmentApplications(ctx)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -5094,6 +5098,36 @@ func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction
 		return false, nil
 	}
 	return true, nil
+}
+
+func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Context) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironmentApplications")
+	defer span.Finish()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		allEnvironments, err := h.DBSelectAllEnvironments(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not get environments, error: %w", err)
+		}
+
+		allApplications, err := h.DBSelectAllApplications(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not get all applications, error: %w", err)
+		}
+		for _, envName := range allEnvironments.Environments {
+			env, err := h.DBSelectEnvironment(ctx, transaction, envName)
+			if err != nil {
+				return fmt.Errorf("could not get env: %s, error: %w", envName, err)
+			}
+			if env.Applications == nil || len(env.Applications) == 0 {
+				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allApplications.Apps)
+				if err != nil {
+					return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
+				}
+			}
+		}
+		return nil
+	})
 }
 
 type OverviewCacheRow struct {
