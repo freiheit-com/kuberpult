@@ -526,9 +526,7 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, transformer Transformer) (*TransformerResult, *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformer")
 	defer span.Finish()
-	fmt.Println("Before ApplyTransformersInternal")
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformer)
-	fmt.Println("Before git stuff")
 	if applyErr != nil {
 		return nil, applyErr
 	}
@@ -594,7 +592,6 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	if oldCommitId != nil {
 		result.Commits.Previous = oldCommitId
 	}
-	fmt.Println("After git stuff")
 	return result, nil
 }
 
@@ -702,22 +699,20 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
+
+	configs, err := state.GetEnvironmentConfigs()
+	if err != nil {
+		return err
+	}
+	for env, config := range configs {
+		if config.ArgoCd != nil {
+			err := r.updateArgoCdApps(ctx, transaction, &state, env, config)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
-	//configs, err := state.GetEnvironmentConfigs()
-	//if err != nil {
-	//	return err
-	//}
-	//fmt.Println("Before Argo apps...")
-	//for env, config := range configs {
-	//	if config.ArgoCd != nil {
-	//		err := r.updateArgoCdApps(ctx, transaction, &state, env, config)
-	//		if err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
-	//fmt.Println("After Argo apps...")
-	//return nil
 }
 
 func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env string, config config.EnvironmentConfig) error {

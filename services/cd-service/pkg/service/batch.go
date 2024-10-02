@@ -321,7 +321,6 @@ func (d *BatchServer) processAction(
 			}
 		}
 		upstream := transformUpstreamToConfig(conf.Upstream)
-		fmt.Println(conf.EnvironmentGroup)
 		transformer := &repository.CreateEnvironment{
 			Environment: in.Environment,
 			Config: config.EnvironmentConfig{

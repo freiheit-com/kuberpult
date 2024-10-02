@@ -2201,7 +2201,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 			return err
 		}
 		for lockId, lock := range ls {
-			fmt.Printf("LOCK: %s\n", lock.CreatedAt.String())
 			currentEnv := db.EnvironmentLock{
 				EslVersion: 0,
 				Env:        envName,

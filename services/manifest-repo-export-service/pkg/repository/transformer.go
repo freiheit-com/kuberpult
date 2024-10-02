@@ -461,7 +461,6 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("Before Cleanup")
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 		TransformerMetadata: TransformerMetadata{
@@ -473,7 +472,6 @@ func (c *DeployApplicationVersion) Transform(
 	if err := t.Execute(d, transaction); err != nil {
 		return "", err
 	}
-	fmt.Println("After Cleanup")
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
@@ -784,7 +782,6 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	fmt.Println("Before CreateApplicationVersion")
 	version := c.Version
 	fs := state.Filesystem
 	if !valid.ApplicationName(c.Application) {
@@ -921,7 +918,6 @@ func (c *CreateApplicationVersion) Transform(
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
-			fmt.Println("BEfore DeployApplicationVersion")
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -938,7 +934,6 @@ func (c *CreateApplicationVersion) Transform(
 				},
 			}
 			err := t.Execute(d, transaction)
-			fmt.Println("After DeployApplicationVersion")
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -949,7 +944,6 @@ func (c *CreateApplicationVersion) Transform(
 			}
 		}
 	}
-	fmt.Println("After CreateApplicationVersion")
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
@@ -1410,9 +1404,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	fmt.Println("Before find old")
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
-	fmt.Println("After find old")
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
