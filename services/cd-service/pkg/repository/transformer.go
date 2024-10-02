@@ -740,7 +740,7 @@ func (c *CreateApplicationVersion) Transform(
 				}
 			}
 			if envInfo != nil && !found {
-				err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
+				err = state.DBInsertEnvironmentWithOverview(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)
 				}
@@ -1735,7 +1735,7 @@ func (u *DeleteEnvFromApp) Transform(
 				}
 			}
 		}
-		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config, newApps)
+		err = state.DBInsertEnvironmentWithOverview(ctx, transaction, env.Name, env.Config, newApps)
 		if err != nil {
 			return "", fmt.Errorf("Couldn't write environment: %s into environments table, error: %w", u.Environment, err)
 		}
@@ -2723,7 +2723,7 @@ func (c *CreateEnvironment) Transform(
 		if allApplications != nil {
 			environmentApplications = allApplications.Apps
 		}
-		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)
+		err = state.DBInsertEnvironmentWithOverview(ctx, transaction, c.Environment, c.Config, environmentApplications)
 		if err != nil {
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 		}

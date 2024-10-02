@@ -2454,6 +2454,35 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	return nil
 }
 
+func (s *State) DBInsertEnvironmentWithOverview(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+	h := s.DBHandler
+	err := h.DBWriteEnvironment(ctx, tx, environmentName, environmentConfig, applications)
+	if err != nil {
+		return err
+	}
+
+	cache, err := h.ReadLatestOverviewCache(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if cache == nil {
+		logger.FromContext(ctx).Sugar().Warnf("overview was nil, will skip update for env %s", environmentName)
+		return nil
+	}
+
+	err = s.UpdateEnvironmentsInOverview(ctx, tx, cache)
+	if err != nil {
+		return err
+	}
+
+	err = h.WriteOverviewCache(ctx, tx, cache)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool, allReleasesOfAllApps map[string][]int64) error {
 	if deleteApp {
 		delete(result.Applications, appName)
