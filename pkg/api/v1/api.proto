@@ -377,11 +377,22 @@ service VersionService {
 service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
+
+  rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
 }
 
 service EnvironmentService {
   rpc GetEnvironmentConfig(GetEnvironmentConfigRequest) returns (GetEnvironmentConfigResponse) {}
 }
+
+message GetAppDetailsRequest {
+  string app_name = 1;
+}
+
+message GetAppDetailsResponse {
+  Application application = 1;
+}
+
 
 message GetOverviewRequest {
   // Retrieve the overview at a certain state of the repository. If it's empty, the latest commit will be used.

@@ -47,6 +47,84 @@ type OverviewServiceServer struct {
 	Context  context.Context
 	init     sync.Once
 	response atomic.Value
+
+	DBHandler *db.DBHandler
+}
+
+func (o *OverviewServiceServer) GetAppDetails(
+	ctx context.Context,
+	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
+
+	var appName = in.AppName
+	var result = &api.GetAppDetailsResponse{
+		Application: &api.Application{
+			UndeploySummary: 0,
+			Warnings:        nil,
+			Name:            appName,
+			Releases:        []*api.Release{},
+			SourceRepoUrl:   "",
+			Team:            "",
+		},
+	}
+	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
+		var result = &api.Application{}
+		var rels []int64
+		retrievedReleasesOfApp, err := o.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
+		}
+		rels = retrievedReleasesOfApp.Metadata.Releases
+		for _, id := range rels {
+			uid := uint64(id)
+			// we could optimize this by making one query that does return multiples:
+			if rel, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uid, false); err != nil {
+				return nil, err
+			} else {
+				if rel == nil {
+					// ignore
+				} else {
+					var tmp = &repository.Release{
+						Version:         rel.ReleaseNumber,
+						UndeployVersion: rel.Metadata.UndeployVersion,
+						SourceAuthor:    rel.Metadata.SourceAuthor,
+						SourceCommitId:  rel.Metadata.SourceCommitId,
+						SourceMessage:   rel.Metadata.SourceMessage,
+						CreatedAt:       rel.Created,
+						DisplayVersion:  rel.Metadata.DisplayVersion,
+						IsMinor:         rel.Metadata.IsMinor,
+						IsPrepublish:    rel.Metadata.IsPrepublish,
+					}
+					release := tmp.ToProto()
+					release.Version = uid
+					release.UndeployVersion = tmp.UndeployVersion
+					result.Releases = append(result.Releases, release)
+				}
+			}
+		}
+
+		if team, err := o.DBHandler.DBSelectApp(ctx, transaction, appName); err != nil {
+			return nil, err
+		} else {
+			result.Team = team.Metadata.Team
+		}
+		if result == nil {
+			return nil, fmt.Errorf("app not found: '%s'", appName)
+		}
+		allEnvs, err := o.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+		if err != nil {
+			return nil, fmt.Errorf("could not find environments: %w", err)
+		}
+
+		// result.UndeploySummary = // deriveUndeploySummary(appName, result.EnvironmentGroups)
+		//result.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
+		return result, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	result.Application = resultApp
+	return result, nil
+
 }
 
 func (o *OverviewServiceServer) GetOverview(
