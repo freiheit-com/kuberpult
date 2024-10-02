@@ -93,4 +93,4 @@ cat <<EOF > "environments/${BASE_ENV_NAME}-${line}/config.json"
 }
 EOF
 done < country_codes.csv
-#/bin/bash ./../create-environments.sh stress_testing/environments
+/bin/bash ./../create-environments.sh stress_testing/environments
