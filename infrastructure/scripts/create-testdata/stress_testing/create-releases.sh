@@ -68,7 +68,7 @@ done
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 
-for (( c=373; c<=NUMBER_RELEASES; c++ ))
+for (( c=1; c<=NUMBER_RELEASES; c++ ))
 do
   deployments=$(($RANDOM % $sizeAuthors))
   n_deployments=$((10 + $deployments +1))
