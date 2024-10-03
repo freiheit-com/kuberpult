@@ -37,7 +37,6 @@ services:
       - KUBERPULT_ALLOW_LONG_APP_NAMES=true
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_DB_SSL_MODE=disable
-      - KUBERPULT_MINOR_REGEXES=^.*exampleRegexForMinors:.*$,^secondExampleRegexForMinors:.*$
       - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=10
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=5
     ports:

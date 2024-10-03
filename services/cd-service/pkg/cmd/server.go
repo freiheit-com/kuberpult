@@ -205,13 +205,15 @@ func RunServer() {
 			ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
 		}
 		minorRegexes := []*regexp.Regexp{}
-		for _, minorRegexStr := range strings.Split(c.MinorRegexes, ",") {
-			regex, err := regexp.Compile(minorRegexStr)
-			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("Invalid regex input: %s", minorRegexStr)
-				continue
+		if c.MinorRegexes != "" {
+			for _, minorRegexStr := range strings.Split(c.MinorRegexes, ",") {
+				regex, err := regexp.Compile(minorRegexStr)
+				if err != nil {
+					logger.FromContext(ctx).Sugar().Warnf("Invalid regex input: %s", minorRegexStr)
+					continue
+				}
+				minorRegexes = append(minorRegexes, regex)
 			}
-			minorRegexes = append(minorRegexes, regex)
 		}
 
 		// If the tracer is not started, calling this function is a no-op.
@@ -376,6 +378,11 @@ func RunServer() {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(err))
 			}
 			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because all tables contain data.")
+			err = dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
+			if err != nil {
+				return err
+			}
+			logger.FromContext(ctx).Sugar().Warnf("Applied custom migrations for environment applications")
 		} else {
 			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 		}

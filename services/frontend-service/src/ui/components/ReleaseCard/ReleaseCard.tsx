@@ -159,6 +159,14 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                     <span>Author:</span> {sourceAuthor}
                 </div>
             )}
+            {isMinor && (
+                <div>
+                    <span>
+                        '💤' icon means that this release is a minor release; it has no changes to the manifests
+                        comparing to the previous release.
+                    </span>
+                </div>
+            )}
             {isPrepublish && (
                 <div className="prerelease__description">
                     <span>This is a pre-release. It doesn't have any manifests. It can't be deployed anywhere.</span>
