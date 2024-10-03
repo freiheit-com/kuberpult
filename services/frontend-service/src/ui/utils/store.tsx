@@ -33,6 +33,7 @@ import {
     GetReleaseTrainPrognosisResponse,
     GetFailedEslsResponse,
     Environment_Application,
+    GetAppDetailsResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -90,6 +91,17 @@ export type CommitInfoResponse = {
     commitInfoReady: CommitInfoState;
 };
 
+export type AppDetailsResponse = {
+    response: GetAppDetailsResponse | undefined;
+    appDetailState: AppDetailsState;
+};
+export enum AppDetailsState {
+    LOADING,
+    READY,
+    ERROR,
+    NOTFOUND,
+}
+
 export enum FailedEslsState {
     LOADING,
     READY,
@@ -128,6 +140,32 @@ export const refreshTags = (): void => {
         });
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
+
+//const appDetailsResponse: GetAppDetailsResponse = {};
+
+export const getAppDetails = (appName: string, authHeader: AuthHeader): void => {
+    useApi
+        .overviewService()
+        .GetAppDetails({ appName: appName }, authHeader)
+        .then((result: GetAppDetailsResponse) => {
+            const requestResult: GetAppDetailsResponse = structuredClone(result);
+            UpdateAppDetails.set({ response: requestResult, appDetailState: AppDetailsState.READY });
+        })
+        .catch((e) => {
+            const GrpcErrorNotFound = 5;
+            if (e.code === GrpcErrorNotFound) {
+                UpdateAppDetails.set({ response: undefined, appDetailState: AppDetailsState.NOTFOUND });
+            } else {
+                showSnackbarError(e.message);
+                UpdateAppDetails.set({ response: undefined, appDetailState: AppDetailsState.ERROR });
+            }
+        });
+};
+
+export const [useAppDetails, UpdateAppDetails] = createStore<AppDetailsResponse>({
+    response: undefined,
+    appDetailState: AppDetailsState.LOADING,
+});
 
 export const getCommitInfo = (commitHash: string, pageNumber: number, authHeader: AuthHeader): void => {
     useApi
