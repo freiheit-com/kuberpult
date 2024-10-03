@@ -25,8 +25,8 @@ services:
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
       - KUBERPULT_DB_OPTION=postgreSQL
       - KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false
-      - KUBERPULT_GIT_BRANCH=mc
-      - KUBERPULT_GIT_NETWORK_TIMEOUT=5000s
+      - KUBERPULT_GIT_BRANCH=master
+      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DEX_MOCK=false
       - KUBERPULT_DEX_ENABLED=false
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
@@ -56,13 +56,13 @@ services:
       - KUBERPULT_DB_LOCATION=postgres
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
       - KUBERPULT_DB_OPTION=postgreSQL
-      - KUBERPULT_GIT_NETWORK_TIMEOUT=1000s
+      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
       - KUBERPULT_DB_USER_PASSWORD=mypassword
       - KUBERPULT_DB_AUTH_PROXY_PORT=5432
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
-      - KUBERPULT_GIT_BRANCH=mc
+      - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_SSH_KEY=/etc/ssh/identity
       - KUBERPULT_GIT_SSH_KNOWN_HOSTS=/etc/ssh/ssh_known_hosts
       - KUBERPULT_ENABLE_METRICS=false
@@ -101,7 +101,7 @@ services:
       - KUBERPULT_ARGOCD_NAMESPACE=tools
       - KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
       - KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
-      - KUBERPULT_GIT_BRANCH=mc
+      - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_API_ENABLE_DESPITE_NO_AUTH=true
       - KUBERPULT_BATCH_CLIENT_TIMEOUT=2m
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
