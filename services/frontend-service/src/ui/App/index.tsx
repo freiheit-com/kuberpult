@@ -19,10 +19,12 @@ import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
+    AppDetailsState,
     EnableRolloutStatus,
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
+    UpdateAppDetails,
     UpdateFrontendConfig,
     UpdateOverview,
     UpdateRolloutStatus,
@@ -98,6 +100,10 @@ export const App: React.FC = () => {
                     (result) => {
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
+                        UpdateAppDetails.set({
+                            response: undefined,
+                            appDetailState: AppDetailsState.LOADING,
+                        });
                         PanicOverview.set({ error: '' });
                     },
                     (error) => {
