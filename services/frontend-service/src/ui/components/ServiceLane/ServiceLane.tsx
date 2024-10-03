@@ -15,9 +15,12 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import {
     addAction,
+    AppDetailsState,
     EnvironmentGroupExtended,
+    getAppDetails,
     showSnackbarError,
     showSnackbarWarn,
+    useAppDetails,
     useCurrentlyExistsAtGroup,
     useDeployedReleases,
     useFilteredApplicationLocks,
@@ -30,11 +33,12 @@ import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, Environment, UndeploySummary } from '../../../api/api';
 import * as React from 'react';
+import { useCallback, useState } from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
-import { useCallback, useState } from 'react';
 import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -106,10 +110,19 @@ const deriveUndeployMessage = (undeploySummary: UndeploySummary): string | undef
 
 export const ServiceLane: React.FC<{ application: Application; hideMinors: boolean }> = (props) => {
     const { application, hideMinors } = props;
+    const { authHeader } = useAzureAuthSub((auth) => auth);
     const deployedReleases = useDeployedReleases(application.name);
     const allReleases = useVersionsForApp(application.name);
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
     const prepareUndeployOrUndeployText = deriveUndeployMessage(application.undeploySummary);
+    const appDetails = useAppDetails((res) => res);
+    React.useEffect(() => {
+        if (appDetails.appDetailState !== AppDetailsState.READY) {
+            getAppDetails(application.name, authHeader);
+        }
+        // eslint-disable-next-line no-console
+        console.log(appDetails);
+    }, [appDetails, application.name, authHeader]);
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
         switch (application.undeploySummary) {
@@ -227,28 +240,60 @@ export const ServiceLane: React.FC<{ application: Application; hideMinors: boole
             envSelectionDialog={true}
         />
     );
-
-    return (
-        <div className="service-lane">
-            {dialog}
-            <div className="service-lane__header">
-                <div className="service-lane-wrapper">
-                    {appLocks.length + teamLocks.length >= 1 && (
-                        <div className={'test-app-lock-summary'}>
-                            <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
+    switch (appDetails.appDetailState) {
+        case AppDetailsState.LOADING:
+            return (
+                <div className="service-lane">
+                    {dialog}
+                    <div className="service-lane__header">
+                        <div className="service-lane-wrapper">
+                            {appLocks.length + teamLocks.length >= 1 && (
+                                <div className={'test-app-lock-summary'}>
+                                    <AppLockSummary
+                                        app={application.name}
+                                        numLocks={appLocks.length + teamLocks.length}
+                                    />
+                                </div>
+                            )}
+                            <div className={'service-lane-name'}>
+                                <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
+                                {' | '} <span title={'app name'}> {application.name + 'LOADING'}</span>
+                            </div>
                         </div>
-                    )}
-                    <div className={'service-lane-name'}>
-                        <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
-                        {' | '} <span title={'app name'}> {application.name}</span>
+                        <div className="service__actions__">{dotsMenu}</div>
                     </div>
+                    <div className="service__warnings">
+                        <WarningBoxes application={application} />
+                    </div>
+                    <div className="service__releases">{releases_lane}</div>
                 </div>
-                <div className="service__actions__">{dotsMenu}</div>
-            </div>
-            <div className="service__warnings">
-                <WarningBoxes application={application} />
-            </div>
-            <div className="service__releases">{releases_lane}</div>
-        </div>
-    );
+            );
+        case AppDetailsState.READY:
+            return (
+                <div className="service-lane">
+                    {dialog}
+                    <div className="service-lane__header">
+                        <div className="service-lane-wrapper">
+                            {appLocks.length + teamLocks.length >= 1 && (
+                                <div className={'test-app-lock-summary'}>
+                                    <AppLockSummary
+                                        app={application.name}
+                                        numLocks={appLocks.length + teamLocks.length}
+                                    />
+                                </div>
+                            )}
+                            <div className={'service-lane-name'}>
+                                <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
+                                {' | '} <span title={'app name'}> {application.name + 'READY'}</span>
+                            </div>
+                        </div>
+                        <div className="service__actions__">{dotsMenu}</div>
+                    </div>
+                    <div className="service__warnings">
+                        <WarningBoxes application={application} />
+                    </div>
+                    <div className="service__releases">{releases_lane}</div>
+                </div>
+            );
+    }
 };

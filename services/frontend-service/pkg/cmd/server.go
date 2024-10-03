@@ -662,6 +662,12 @@ func (p *GrpcProxy) GetOverview(
 	return p.OverviewClient.GetOverview(ctx, in)
 }
 
+func (p *GrpcProxy) GetAppDetails(
+	ctx context.Context,
+	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
+	return p.OverviewClient.GetAppDetails(ctx, in)
+}
+
 func (p *GrpcProxy) GetGitTags(
 	ctx context.Context,
 	in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
