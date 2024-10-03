@@ -659,6 +659,169 @@ func TestOverviewService(t *testing.T) {
 	}
 }
 
+func TestGetApplicationDetails(t *testing.T) {
+	var dev = "dev"
+	tcs := []struct {
+		Name                   string
+		Setup                  []repository.Transformer
+		Test                   func(t *testing.T, svc *OverviewServiceServer)
+		DB                     bool
+		AppName                string
+		ExpectedCachedOverview *api.GetAppDetailsResponse
+	}{
+		{
+			Name:    "Test with DB",
+			AppName: "test",
+			DB:      true,
+			ExpectedCachedOverview: &api.GetAppDetailsResponse{
+				Application: &api.Application{
+					Name: "test",
+					Releases: []*api.Release{
+						{
+							Version:        1,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+						},
+						{
+							Version:        2,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							IsMinor:        true,
+							IsPrepublish:   true,
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+						},
+					},
+					Team: "team-123",
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       false,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "test",
+					Manifests: map[string]string{
+						"development": "v1",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       false,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "test",
+					Manifests: map[string]string{
+						"development": "v1",
+					},
+					IsPrepublish: true,
+				},
+			},
+			Test: func(t *testing.T, svc *OverviewServiceServer) {
+				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+					Email: "test-email@example.com",
+					Name:  "overview tester",
+				})
+				resp, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: "test"})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				// Check applications
+				test := resp.Application
+
+				if test.Name != "test" {
+					t.Errorf("test applications name is not test but %q", test.Name)
+				}
+				if len(test.Releases) != 2 {
+					t.Errorf("expected two releases, got %#v", test.Releases)
+				}
+				if test.Releases[0].Version != 1 {
+					t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
+				}
+				if test.Releases[0].SourceAuthor != "example <example@example.com>" {
+					t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
+				}
+				if test.Releases[0].SourceMessage != "changed something (#678)" {
+					t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
+				}
+				if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
+					t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
+				}
+
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+			if tc.DB {
+				migrationsPath, err := testutil.CreateMigrationsPath(4)
+				if err != nil {
+					t.Fatal(err)
+				}
+				dbConfig := &db.DBConfig{
+					DriverName:     "sqlite3",
+					MigrationsPath: migrationsPath,
+					WriteEslOnly:   false,
+				}
+				repo, err = setupRepositoryTestWithDB(t, dbConfig)
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				var err error
+				repo, err = setupRepositoryTest(t)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				RepositoryConfig:
+				Shutdown:   shutdown,
+
+			}
+			tc.Test(t, svc)
+			close(shutdown)
+		})
+	}
+}
+
 func TestOverviewServiceFromCommit(t *testing.T) {
 	type step struct {
 		Transformer repository.Transformer

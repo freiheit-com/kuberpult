@@ -338,6 +338,24 @@ func TransformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string)
 	return envAppSyncWindows, nil
 }
 
+func TransformSyncWindowsForDeployments(syncWindows []config.ArgoCdSyncWindow, appName string) ([]*api.Deployment_ArgoCD_SyncWindow, error) {
+	var envAppSyncWindows []*api.Deployment_ArgoCD_SyncWindow
+	for _, syncWindow := range syncWindows {
+		for _, pattern := range syncWindow.Apps {
+			if match, err := filepath.Match(pattern, appName); err != nil {
+				return nil, fmt.Errorf("failed to match app pattern %s of sync window to %s at %s with duration %s: %w", pattern, syncWindow.Kind, syncWindow.Schedule, syncWindow.Duration, err)
+			} else if match {
+				envAppSyncWindows = append(envAppSyncWindows, &api.Deployment_ArgoCD_SyncWindow{
+					Kind:     syncWindow.Kind,
+					Schedule: syncWindow.Schedule,
+					Duration: syncWindow.Duration,
+				})
+			}
+		}
+	}
+	return envAppSyncWindows, nil
+}
+
 func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConfig_ArgoCD {
 	var syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows
 	var accessList []*api.EnvironmentConfig_ArgoCD_AccessEntry

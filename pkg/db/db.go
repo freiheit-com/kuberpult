@@ -1667,6 +1667,53 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 	return processDeployment(rows)
 }
 
+func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName string) (map[string]Deployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeployments")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		`SELECT
+		deployments.eslVersion,
+		deployments.created,
+		deployments.appname,
+		deployments.releaseVersion,
+		deployments.envName,
+		deployments.metadata
+	FROM (
+		SELECT
+	MAX(eslVersion) AS latest,
+		appname,
+		envname
+	FROM
+		deployments
+	GROUP BY
+		envName, appname) AS latest
+	JOIN
+		deployments AS deployments
+	ON
+		latest.latest=deployments.eslVersion
+		AND latest.appname=deployments.appname
+		AND latest.envName=deployments.envName
+	WHERE deployments.appname = (?) AND deployments.releaseVersion IS NOT NULL ;`)
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+	return processAllLatestDeploymentsForApp(rows)
+}
+
 func (h *DBHandler) DBSelectAllLatestDeployments(ctx context.Context, tx *sql.Tx, envName string) (map[string]*int64, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeployments")
 	defer span.Finish()
@@ -1727,6 +1774,48 @@ func processAllLatestDeployments(rows *sql.Rows) (map[string]*int64, error) {
 		if releaseVersion.Valid {
 			result[appName] = &releaseVersion.Int64
 		}
+	}
+	err := rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
+	}
+	return result, nil
+}
+
+func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, error) {
+	result := make(map[string]Deployment)
+	for rows.Next() {
+		var curr = Deployment{
+			EslVersion: 0,
+			Created:    time.Time{},
+			Env:        "",
+			App:        "",
+			Version:    nil,
+			Metadata: DeploymentMetadata{
+				DeployedByName:  "",
+				DeployedByEmail: "",
+				CiLink:          "",
+			},
+			TransformerID: 0,
+		}
+		var releaseVersion sql.NullInt64
+		var jsonMetadata string
+		err := rows.Scan(&curr.EslVersion, &curr.Created, &curr.App, &releaseVersion, &curr.Env, &jsonMetadata)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
+		}
+
+		if releaseVersion.Valid {
+			curr.Version = &releaseVersion.Int64
+		}
+		result[curr.Env] = curr
 	}
 	err := rows.Close()
 	if err != nil {
@@ -3467,7 +3556,113 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 		return nil, err
 	}
 	return nil, nil // no rows, but also no error
+}
 
+func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql.Tx, appName string) ([]ApplicationLock, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveAppLocksForApp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllActiveAppLocksForApp: no transaction provided")
+	}
+
+	var appLocks []ApplicationLock
+	var rows *sql.Rows
+	defer func(rows *sql.Rows) {
+		if rows == nil {
+			return
+		}
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	//Get the latest change to each lock
+	var err error
+	selectQuery := h.AdaptQuery(
+		`
+			SELECT
+			app_locks.eslversion,
+			app_locks.appname,
+			app_locks.envName,
+			app_locks.lockid,
+			app_locks.deleted,
+			app_locks.created,
+			app_locks.metadata
+		FROM (
+			SELECT
+		MAX(eslVersion) AS latest,
+			appname,
+			envName,
+			lockid
+		FROM
+		"app_locks"
+		GROUP BY
+		envName, appName, lockid) AS latest
+		JOIN
+		app_locks AS app_locks
+		ON
+		latest.latest=app_locks.eslVersion
+		AND latest.appname=app_locks.appname
+		AND latest.envName=app_locks.envName
+		AND latest.lockid=app_locks.lockid
+		WHERE deleted = false
+		AND app_locks.appName = (?);
+		`)
+	rows, err = tx.QueryContext(ctx, selectQuery, appName)
+	if err != nil {
+		return nil, fmt.Errorf("could not query application locks table from DB. Error: %w\n", err)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+
+	for rows.Next() {
+		var row = ApplicationLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			App:        "",
+			Deleted:    false,
+			Metadata: LockMetadata{
+				CreatedAt:      time.Time{},
+				CreatedByEmail: "",
+				CreatedByName:  "",
+			},
+		}
+		var metadataJson string
+		err := rows.Scan(&row.EslVersion, &row.App, &row.Env, &row.LockID, &row.Deleted, &row.Created, &metadataJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+
+		err = json.Unmarshal(([]byte)(metadataJson), &row.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+
+		appLocks = append(appLocks, row)
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return appLocks, nil
 }
 
 func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environment, appName string, lockIDs []string) ([]ApplicationLock, error) {
@@ -3976,6 +4171,113 @@ func (h *DBHandler) DBWriteAllTeamLocks(ctx context.Context, transaction *sql.Tx
 		return fmt.Errorf("could not insert all team locks into DB. Error: %w\n", err)
 	}
 	return nil
+}
+
+func (h *DBHandler) DBSelectAllActiveTeamLocksForApp(ctx context.Context, tx *sql.Tx, appName string) ([]TeamLock, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveAppLocksForApp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllActiveAppLocksForApp: no transaction provided")
+	}
+
+	var appLocks []TeamLock
+	var rows *sql.Rows
+	defer func(rows *sql.Rows) {
+		if rows == nil {
+			return
+		}
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	//Get the latest change to each lock
+	var err error
+	selectQuery := h.AdaptQuery(
+		`
+			SELECT
+			team_locks.eslversion,
+			team_locks.teamName,
+			team_locks.envName,
+			team_locks.lockid,
+			team_locks.deleted,
+			team_locks.created,
+			team_locks.metadata
+		FROM (
+			SELECT
+		MAX(eslVersion) AS latest,
+			teamName,
+			envName,
+			lockid
+		FROM
+		"team_locks"
+		GROUP BY
+		envName, teamName, lockid) AS latest
+		JOIN
+		team_locks AS team_locks
+		ON
+		latest.latest=team_locks.eslVersion
+		AND latest.teamName=team_locks.teamName
+		AND latest.envName=team_locks.envName
+		AND latest.lockid=team_locks.lockid
+		WHERE deleted = false
+		AND team_locks.teamName = (?);
+		`)
+	rows, err = tx.QueryContext(ctx, selectQuery, appName)
+	if err != nil {
+		return nil, fmt.Errorf("could not query application locks table from DB. Error: %w\n", err)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+
+	for rows.Next() {
+		var row = TeamLock{
+			EslVersion: 0,
+			Created:    time.Time{},
+			LockID:     "",
+			Env:        "",
+			Team:       "",
+			Deleted:    false,
+			Metadata: LockMetadata{
+				CreatedAt:      time.Time{},
+				CreatedByEmail: "",
+				CreatedByName:  "",
+			},
+		}
+		var metadataJson string
+		err := rows.Scan(&row.EslVersion, &row.Team, &row.Env, &row.LockID, &row.Deleted, &row.Created, &metadataJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+
+		err = json.Unmarshal(([]byte)(metadataJson), &row.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+		}
+
+		appLocks = append(appLocks, row)
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return appLocks, nil
 }
 
 func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) (*TeamLock, error) {
