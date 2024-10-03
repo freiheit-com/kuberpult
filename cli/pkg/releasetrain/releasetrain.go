@@ -17,17 +17,25 @@ Copyright freiheit.com*/
 package releasetrain
 
 import (
+	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
-	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"net/http"
 	urllib "net/url"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
+
+type ReleaseTrainJsonData struct {
+	CiLink string `json:"ciLink,omitempty"`
+}
 
 type ReleaseTrainParameters struct {
 	TargetEnvironment    string
 	Team                 *string
+	CiLink               *string
 	UseDexAuthentication bool
 }
 
@@ -62,7 +70,19 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 		urlStruct.RawQuery = values.Encode()
 	}
 
-	req, err := http.NewRequest(http.MethodPut, urlStruct.JoinPath(path).String(), nil)
+	var jsonData []byte
+	if parameters.CiLink != nil {
+		d := &ReleaseTrainJsonData{
+			CiLink: *parameters.CiLink,
+		}
+
+		jsonData, err = json.Marshal(d)
+		if err != nil {
+			return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
+		}
+	}
+
+	req, err := http.NewRequest(http.MethodPut, urlStruct.JoinPath(path).String(), bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}

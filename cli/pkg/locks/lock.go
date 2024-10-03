@@ -21,10 +21,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
-	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"net/http"
 	urllib "net/url"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
 
 type LockParameters interface {
@@ -35,6 +36,7 @@ type CreateEnvironmentLockParameters struct {
 	Environment          string
 	LockId               string
 	Message              string
+	CiLink               *string
 	UseDexAuthentication bool
 }
 
@@ -49,6 +51,7 @@ type CreateAppLockParameters struct {
 	LockId               string
 	Message              string
 	Application          string
+	CiLink               *string
 	UseDexAuthentication bool
 }
 type DeleteAppLockParameters struct {
@@ -63,6 +66,7 @@ type CreateTeamLockParameters struct {
 	LockId               string
 	Message              string
 	Team                 string
+	CiLink               *string
 	UseDexAuthentication bool
 }
 
@@ -77,6 +81,7 @@ type CreateEnvironmentGroupLockParameters struct {
 	EnvironmentGroup     string
 	LockId               string
 	Message              string
+	CiLink               *string
 	UseDexAuthentication bool
 }
 type DeleteEnvironmentGroupLockParameters struct {
@@ -87,6 +92,7 @@ type DeleteEnvironmentGroupLockParameters struct {
 
 type LockJsonData struct {
 	Message string `json:"message"`
+	CiLink  string `json:"ciLink,omitempty"`
 }
 
 type HttpInfo struct {
@@ -115,6 +121,10 @@ func HandleLockRequest(requestParams kutil.RequestParameters, authParams kutil.A
 func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
+	}
+
+	if e.CiLink != nil {
+		d.CiLink = *e.CiLink
 	}
 
 	var jsonData, err = json.Marshal(d)
@@ -150,6 +160,11 @@ func (e *CreateAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
+
+	if e.CiLink != nil {
+		d.CiLink = *e.CiLink
+	}
+
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal CreateAppLockParameters data to json: %w\n", err)
@@ -183,6 +198,11 @@ func (e *CreateTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
 	}
+
+	if e.CiLink != nil {
+		d.CiLink = *e.CiLink
+	}
+
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal CreateTeamLockParameters data to json: %w\n", err)
@@ -216,6 +236,11 @@ func (e *CreateEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error)
 	d := LockJsonData{
 		Message: e.Message,
 	}
+
+	if e.CiLink != nil {
+		d.CiLink = *e.CiLink
+	}
+
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal CreateEnvironmentGroupLockParameters data to json: %w\n", err)

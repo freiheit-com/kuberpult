@@ -46,6 +46,7 @@ type commandLineArguments struct {
 	signatures           cli_utils.RepeatedString
 	useDexAuthentication bool
 	isPrepublish         bool
+	ciLink               cli_utils.RepeatedString
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -173,6 +174,10 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string)
 		}
 	}
 
+	if len(cmdArgs.ciLink.Values) > 1 {
+		return false, "the --ci_link arg must be set exactly once"
+	}
+
 	return true, ""
 }
 
@@ -192,6 +197,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	fs.Var(&cmdArgs.sourceMessage, "source_message", "the source commit message (must not be set more than once)")
 	fs.Var(&cmdArgs.version, "version", "the release version (must be a positive integer)")
 	fs.Var(&cmdArgs.displayVersion, "display_version", "display version (must be a string between 1 and characters long)")
+	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the CI run that created this release")
 	fs.BoolVar(&cmdArgs.skipSignatures, "skip_signatures", false, "if set to true, then the command line does not accept the --signature args")
 	fs.Var(&cmdArgs.signatures, "signature", "the name of the file containing the signature of the manifest to be deployed (must be set immediately after --manifest)")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "use /api/release endpoint, if set to true, dex must be enabled and dex token must be provided otherwise the request will be denied")
@@ -258,6 +264,9 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 	}
 	if len(cmdArgs.displayVersion.Values) == 1 {
 		rp.DisplayVersion = &cmdArgs.displayVersion.Values[0]
+	}
+	if len(cmdArgs.ciLink.Values) == 1 {
+		rp.CliLink = &cmdArgs.ciLink.Values[0]
 	}
 	for i := range cmdArgs.environments.Values {
 		manifestFile := cmdArgs.manifests.Values[i]
