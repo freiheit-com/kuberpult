@@ -19,6 +19,7 @@ package locks
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
@@ -43,6 +44,11 @@ func argsValidCreateEnvLock(cmdArgs *CreateEnvLockCommandLineArguments) (result 
 	}
 	if len(cmdArgs.ciLink.Values) > 1 {
 		return false, "the --ci_link arg must be set at most once"
+	} else if len(cmdArgs.ciLink.Values) == 1 {
+		_, err := url.ParseRequestURI(cmdArgs.ciLink.Values[0])
+		if err != nil {
+			return false, fmt.Sprintf("provided invalid --ci_link value '%s'", cmdArgs.ciLink.Values[0])
+		}
 	}
 
 	return true, ""

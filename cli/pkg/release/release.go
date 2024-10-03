@@ -36,7 +36,7 @@ type ReleaseParameters struct {
 	SourceMessage        *string
 	Version              *uint64
 	DisplayVersion       *string
-	CliLink              *string
+	CiLink               *string
 	UseDexAuthentication bool
 	IsPrepublish         bool
 }

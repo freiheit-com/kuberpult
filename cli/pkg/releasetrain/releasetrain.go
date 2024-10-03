@@ -72,7 +72,7 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 
 	var jsonData []byte
 	if parameters.CiLink != nil {
-		d := &ReleaseTrainJsonData{
+		d := ReleaseTrainJsonData{
 			CiLink: *parameters.CiLink,
 		}
 
@@ -83,6 +83,10 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 	}
 
 	req, err := http.NewRequest(http.MethodPut, urlStruct.JoinPath(path).String(), bytes.NewBuffer(jsonData))
+
+	if jsonData != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}

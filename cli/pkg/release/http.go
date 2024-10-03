@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,8 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright freiheit.com*/
-
+Copyright freiheit.com
+*/
 package release
 
 import (
@@ -99,8 +100,8 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 		}
 	}
 
-	if parsedArgs.CliLink != nil {
-		if err := writer.WriteField("ci_link", *parsedArgs.CliLink); err != nil {
+	if parsedArgs.CiLink != nil {
+		if err := writer.WriteField("ci_link", *parsedArgs.CiLink); err != nil {
 			return nil, fmt.Errorf("error writing ci_link field, error: %w", err)
 		}
 	}

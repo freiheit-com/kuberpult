@@ -19,6 +19,7 @@ package release
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -175,7 +176,12 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string)
 	}
 
 	if len(cmdArgs.ciLink.Values) > 1 {
-		return false, "the --ci_link arg must be set exactly once"
+		return false, "the --ci_link arg must be set at most once"
+	} else if len(cmdArgs.ciLink.Values) == 1 {
+		_, err := url.ParseRequestURI(cmdArgs.ciLink.Values[0])
+		if err != nil {
+			return false, fmt.Sprintf("provided invalid --ci_link value '%s'", cmdArgs.ciLink.Values[0])
+		}
 	}
 
 	return true, ""
@@ -266,7 +272,7 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		rp.DisplayVersion = &cmdArgs.displayVersion.Values[0]
 	}
 	if len(cmdArgs.ciLink.Values) == 1 {
-		rp.CliLink = &cmdArgs.ciLink.Values[0]
+		rp.CiLink = &cmdArgs.ciLink.Values[0]
 	}
 	for i := range cmdArgs.environments.Values {
 		manifestFile := cmdArgs.manifests.Values[i]

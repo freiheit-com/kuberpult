@@ -599,6 +599,52 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "--ci_link is specified",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--version", "1234", "--ci_link", "https://localhost:8000"},
+			expectedCmdArgs: &commandLineArguments{
+				skipSignatures: true,
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				version: cli_utils.RepeatedInt{
+					Values: []int64{
+						1234,
+					},
+				},
+				ciLink: cli_utils.RepeatedString{
+					Values: []string{
+						"https://localhost:8000",
+					},
+				},
+			},
+		},
+		{
+			name: "--ci_link is invalid url",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--version", "1234", "--ci_link", "https//localhost:8000"},
+			expectedError: errMatcher{
+				msg: "provided invalid --ci_link value 'https//localhost:8000'",
+			},
+		},
+		{
+			name: "--ci_link is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--version", "1234", "--ci_link", "https://localhost:8000", "--ci_link", "https://localhost:8000"},
+			expectedError: errMatcher{
+				msg: "the --ci_link arg must be set at most once",
+			},
+		},
+		{
 			name: "use_dex_auth is passed",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--use_dex_auth"},
 			expectedCmdArgs: &commandLineArguments{
@@ -808,6 +854,23 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: nil,
 			expectedError: errMatcher{
 				msg: "error while reading command line arguments, error: --signature args are not allowed when --skip_signatures or use_dex_auth are set",
+			},
+		},
+		{
+			setup: []fileCreation{
+				{
+					filename: "production-manifest.yaml",
+					content:  "some production manifest",
+				},
+			},
+			name:    "with environment, manifest and ci link",
+			cmdArgs: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml", "--ci_link", "https://localhost:8000"},
+			expectedParams: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"production": []byte("some production manifest"),
+				},
+				CiLink: strPtr("https://localhost:8000"),
 			},
 		},
 	}
