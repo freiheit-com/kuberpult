@@ -810,11 +810,14 @@ func TestGetApplicationDetails(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			config := repository.RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+			}
 			svc := &OverviewServiceServer{
-				Repository: repo,
-				RepositoryConfig:
-				Shutdown:   shutdown,
-
+				Repository:       repo,
+				RepositoryConfig: config,
+				Shutdown:         shutdown,
 			}
 			tc.Test(t, svc)
 			close(shutdown)
