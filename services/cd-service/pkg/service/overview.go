@@ -222,8 +222,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
-		e, _ := o.DBHandler.DBSelectAllTeamLocks(ctx, transaction, "development", appName)
-		fmt.Println(e)
 		return result, nil
 	})
 	if err != nil {
