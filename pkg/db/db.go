@@ -1672,7 +1672,8 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(
-		`SELECT
+		`
+	SELECT
 		deployments.eslVersion,
 		deployments.created,
 		deployments.appname,

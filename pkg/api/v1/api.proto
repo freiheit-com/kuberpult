@@ -397,14 +397,6 @@ message GetAppDetailsResponse {
 }
 
 message Deployment {
-  message ArgoCD {
-    message SyncWindow {
-      string kind = 1; // "allow" or "deny"
-      string schedule = 2; // crontab format
-      string duration = 3; // duration the window is open (or closed)
-    }
-    repeated SyncWindow sync_windows = 1;
-  }
   message DeploymentMetaData {
     string deploy_author = 1;
     // we use a string here, because the UI cannot handle int64 as a type.
@@ -421,8 +413,7 @@ message Deployment {
   uint64 queued_version = 4;
   // google.protobuf.Timestamp deploy_date = 5; // This is never used
   bool undeploy_version = 6;
-  ArgoCD argo_cd = 7;
-  DeploymentMetaData deployment_meta_data = 8;
+  DeploymentMetaData deployment_meta_data = 7;
 }
 
 

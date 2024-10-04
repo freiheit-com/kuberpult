@@ -102,7 +102,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 				t.Errorf("expected status code %d, got %d", tc.expectedStatusCode, w.Code)
 			}
 			if diff := cmp.Diff(w.Body.String(), tc.expectedResponse); diff != "" {
-				t.Errorf("expected response %s, got %s", tc.expectedResponse, w.Body.String())
+				t.Errorf("response mismatch (-want, +got):\\n%s", diff)
 			}
 		})
 	}

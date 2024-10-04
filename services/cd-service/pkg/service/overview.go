@@ -191,7 +191,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 				Version:         uint64(*currentDeployment.Version),
 				QueuedVersion:   0,
 				UndeployVersion: false,
-				ArgoCd:          nil,
 				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
 					CiLink:       currentDeployment.Metadata.CiLink,
 					DeployAuthor: currentDeployment.Metadata.DeployedByName,
@@ -212,23 +211,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 			} else if release != nil {
 				deployment.UndeployVersion = release.UndeployVersion
 			}
-			envConfig, err := o.Repository.State().GetEnvironmentConfig(ctx, transaction, envName)
-			if err != nil {
-				return nil, fmt.Errorf("could not get environment config for environment: %s. error: %v", envName, err)
-			}
-			if envConfig != nil && envConfig.ArgoCd != nil {
-				if syncWindows, err := mapper.TransformSyncWindowsForDeployments(envConfig.ArgoCd.SyncWindows, appName); err != nil {
-					return nil, err
-				} else {
-					deployment.ArgoCd = &api.Deployment_ArgoCD{
-						SyncWindows: syncWindows,
-					}
-				}
-			}
 			response.Deployments[envName] = deployment
 		}
-		e, _ := o.DBHandler.DBSelectAllTeamLocks(ctx, transaction, "development", appName)
-		fmt.Println(e)
 		return result, nil
 	})
 	if err != nil {
