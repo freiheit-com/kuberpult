@@ -83,7 +83,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 			inputTail:          "123456/",
 			failGrpcCall:       false,
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   "{\"deploymentStatus\":{\"app1\":{\"deploymentStatus\":{\"dev\":\"DEPLOYED\",\"prod\":\"UNKNOWN\",\"stage\":\"PENDING\"}}}}\n",
+			expectedResponse:   "{\"deploymentStatus\":{\"app1\":{\"deploymentStatus\":{\"dev\":\"DEPLOYED\", \"prod\":\"UNKNOWN\", \"stage\":\"PENDING\"}}}}\n",
 		},
 	}
 	for _, tc := range tcs {
@@ -101,7 +101,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 			if w.Code != tc.expectedStatusCode {
 				t.Errorf("expected status code %d, got %d", tc.expectedStatusCode, w.Code)
 			}
-			if diff := cmp.Diff(w.Body.String(), tc.expectedResponse); diff != "" {
+			if diff := cmp.Diff(tc.expectedResponse, w.Body.String()); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\\n%s", diff)
 			}
 		})
