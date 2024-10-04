@@ -791,10 +791,6 @@ func TestGetApplicationDetails(t *testing.T) {
 				ArgoCdGenerateFiles: true,
 				DBHandler:           repo.State().DBHandler,
 			}
-			config := repository.RepositoryConfig{
-				ArgoCdGenerateFiles: true,
-				DBHandler:           repo.State().DBHandler,
-			}
 			svc := &OverviewServiceServer{
 				Repository:       repo,
 				RepositoryConfig: config,
