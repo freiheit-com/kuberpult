@@ -121,6 +121,7 @@ func HandleLockRequest(requestParams kutil.RequestParameters, authParams kutil.A
 func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
+		CiLink:  "",
 	}
 
 	if e.CiLink != nil {
@@ -159,6 +160,7 @@ func (e *DeleteEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 func (e *CreateAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
+		CiLink:  "",
 	}
 
 	if e.CiLink != nil {
@@ -197,6 +199,7 @@ func (e *DeleteAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 func (e *CreateTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
+		CiLink:  "",
 	}
 
 	if e.CiLink != nil {
@@ -235,6 +238,7 @@ func (e *DeleteTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 func (e *CreateEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
 		Message: e.Message,
+		CiLink:  "",
 	}
 
 	if e.CiLink != nil {
