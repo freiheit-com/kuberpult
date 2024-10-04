@@ -172,15 +172,9 @@ func IsRetryablePostgresError(err error) bool {
 }
 
 func UnwrapUntilPostgresError(err error) *pq.Error {
-	for {
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) {
-			return pqErr
-		}
-		err2 := errors.Unwrap(err)
-		if err2 == nil {
-			// cannot unwrap any further
-			return nil
-		}
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		return pqErr
 	}
+	return nil
 }

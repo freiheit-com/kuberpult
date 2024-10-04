@@ -1627,10 +1627,6 @@ func (h *DBHandler) RunCustomMigrations(
 	if err != nil {
 		return err
 	}
-	err = h.RunCustomMigrationQueuedApplicationVersions(ctx, writeAllQueuedVersionsFun)
-	if err != nil {
-		return err
-	}
 	err = h.RunCustomMigrationsCommitEvents(ctx, writeAllEventsFun)
 	if err != nil {
 		return err
@@ -1638,10 +1634,6 @@ func (h *DBHandler) RunCustomMigrations(
 	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
 	if err != nil {
 		return err // better wrap the error in a descriptive message?
-	}
-	err = h.RunCustomMigrationEnvironmentApplications(ctx)
-	if err != nil {
-		return err
 	}
 	return nil
 }
@@ -2570,40 +2562,6 @@ func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction
 	return true, nil
 }
 
-func (h *DBHandler) RunCustomMigrationQueuedApplicationVersions(ctx context.Context, writeAllQueuedVersionsFun WriteAllQueuedVersionsFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationQueuedApplicationVersions")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsQueuedDeploymentsMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-
-		err = writeAllQueuedVersionsFun(ctx, transaction, h)
-		if err != nil {
-			return fmt.Errorf("could not get current queued versions to run custom migrations: %w", err)
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsQueuedDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allTeamLocksDb, err := h.DBSelectAnyDeploymentAttempt(ctx, transaction)
-	if err != nil {
-		return true, err
-	}
-	if allTeamLocksDb != nil {
-		l.Infof("There are already queued deployments in the DB - skipping migrations")
-		return false, nil
-	}
-	return true, nil
-}
-
 // NeedsMigrations: Checks if we need migrations for any table.
 func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "NeedsMigrations")
@@ -2618,7 +2576,6 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 			(*DBHandler).needsEnvLocksMigrations,
 			(*DBHandler).needsAppLocksMigrations,
 			(*DBHandler).needsTeamLocksMigrations,
-			(*DBHandler).needsQueuedDeploymentsMigrations,
 			(*DBHandler).needsCommitEventsMigrations,
 			(*DBHandler).needsEnvironmentsMigrations,
 			(*DBHandler).needsAllDeploymentsMigrations,
@@ -2629,7 +2586,11 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 			if err != nil {
 				return err
 			}
+			if !needs {
+				logger.FromContext(ctx).Sugar().Warnf("migration skipped: %v", i)
+			}
 			if needs {
+				logger.FromContext(ctx).Sugar().Warnf("migration required: %v", i)
 				needsMigration = true
 				return nil
 			}

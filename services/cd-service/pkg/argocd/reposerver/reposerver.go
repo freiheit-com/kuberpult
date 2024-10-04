@@ -259,6 +259,9 @@ func (r *reposerver) ResolveRevision(ctx context.Context, req *argorepo.ResolveR
 		}
 		return nil, err
 	}
+	if state == nil || state.Commit == nil || state.Commit.Id() == nil {
+		return nil, fmt.Errorf("state has no commit when requesting revision: %v", req.AmbiguousRevision)
+	}
 	resp := argorepo.ResolveRevisionResponse{
 		XXX_NoUnkeyedLiteral: struct{}{},
 		XXX_unrecognized:     nil,
