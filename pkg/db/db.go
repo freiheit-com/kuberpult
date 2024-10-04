@@ -2675,7 +2675,11 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 			if err != nil {
 				return err
 			}
+			if !needs {
+				logger.FromContext(ctx).Sugar().Warnf("migration skipped: %v", i)
+			}
 			if needs {
+				logger.FromContext(ctx).Sugar().Warnf("migration required: %v", i)
 				needsMigration = true
 				return nil
 			}
