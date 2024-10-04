@@ -662,6 +662,7 @@ func TestOverviewService(t *testing.T) {
 
 func TestGetApplicationDetails(t *testing.T) {
 	var dev = "dev"
+	var env = "development"
 	var appName = "test-app"
 	tcs := []struct {
 		Name             string
@@ -689,7 +690,7 @@ func TestGetApplicationDetails(t *testing.T) {
 					Team: "team-123",
 				},
 				Deployments: map[string]*api.Deployment{
-					"development": {
+					env: {
 						Version:            1,
 						QueuedVersion:      0,
 						UndeployVersion:    false,
@@ -720,7 +721,7 @@ func TestGetApplicationDetails(t *testing.T) {
 			},
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
-					Environment: "development",
+					Environment: env,
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
@@ -742,19 +743,19 @@ func TestGetApplicationDetails(t *testing.T) {
 					TransformerEslVersion: 1,
 					Application:           appName,
 					Manifests: map[string]string{
-						"development": "v1",
+						env: "v1",
 					},
 				},
 				&repository.CreateEnvironmentTeamLock{
 					Team:        "team-123",
-					Environment: "development",
+					Environment: env,
 					LockId:      "my-team-lock",
 					Message:     "team lock for team 123",
 				},
 
 				&repository.CreateEnvironmentApplicationLock{
 					Application: appName,
-					Environment: "development",
+					Environment: env,
 					LockId:      "my-app-lock",
 					Message:     "app lock for test-app",
 				},
@@ -782,8 +783,8 @@ func TestGetApplicationDetails(t *testing.T) {
 				}
 
 				//Deployments
-				expectedDeployment := expected.Deployments["development"]
-				resultDeployment := resp.Deployments["development"]
+				expectedDeployment := expected.Deployments[env]
+				resultDeployment := resp.Deployments[env]
 
 				if diff := cmp.Diff(expectedDeployment, resultDeployment, cmpopts.IgnoreUnexported(api.Deployment{}), cmpopts.IgnoreUnexported(api.Deployment_DeploymentMetaData{}), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime")); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
