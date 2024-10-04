@@ -1689,12 +1689,16 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", err
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application, false, true)
+		releases, err := state.DBHandler.DBSelectReleasesByAppIncludingDeleted(ctx, transaction, u.Application, true)
 		if err != nil {
 			return "", err
 		}
 
 		for _, dbReleaseWithMetadata := range releases {
+			if dbReleaseWithMetadata.Deleted {
+				// the release is already deleted, so we can skip it
+				continue
+			}
 			newManifests := make(map[string]string)
 			for envName, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
 				if envName != u.Environment {

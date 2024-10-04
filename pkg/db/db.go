@@ -680,6 +680,24 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 	return result, nil
 }
 
+func (h *DBHandler) DBSelectReleasesByAppIncludingDeleted(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted " +
+			" FROM releases " +
+			" WHERE appName=? " +
+			" ORDER BY releaseVersion DESC, eslVersion DESC, created DESC;"))
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+	)
+
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
+}
+
 func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
 	defer span.Finish()
