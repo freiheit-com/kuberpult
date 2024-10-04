@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -100,7 +101,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 			if w.Code != tc.expectedStatusCode {
 				t.Errorf("expected status code %d, got %d", tc.expectedStatusCode, w.Code)
 			}
-			if w.Body.String() != tc.expectedResponse {
+			if diff := cmp.Diff(w.Body.String(), tc.expectedResponse); diff != "" {
 				t.Errorf("expected response %s, got %s", tc.expectedResponse, w.Body.String())
 			}
 		})
