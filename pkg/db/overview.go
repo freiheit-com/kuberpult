@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"regexp"
 	"time"
 
@@ -253,7 +254,8 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 		if release.Deleted {
 			return nil
 		}
-		return fmt.Errorf("could not find application '%s' in overview", release.App)
+		logger.FromContext(ctx).Sugar().Warnf("could not find application '%s' in overview - skipping overview update", release.App)
+		return nil
 	}
 	apiRelease := &api.Release{
 		PrNumber:        extractPrNumber(release.Metadata.SourceMessage),
