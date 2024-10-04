@@ -3639,6 +3639,8 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 				CreatedAt:      time.Time{},
 				CreatedByEmail: "",
 				CreatedByName:  "",
+				Message:        "",
+				CiLink:         "",
 			},
 		}
 		var metadataJson string
@@ -4254,6 +4256,8 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForApp(ctx context.Context, tx *sq
 				CreatedAt:      time.Time{},
 				CreatedByEmail: "",
 				CreatedByName:  "",
+				Message:        "",
+				CiLink:         "",
 			},
 		}
 		var metadataJson string
