@@ -72,6 +72,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		Deployments: make(map[string]*api.Deployment),
 		TeamLocks:   make(map[string]*api.Lock),
 	}
+	if !o.DBHandler.ShouldUseOtherTables() {
+		panic("DB")
+	}
 	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
 		var rels []int64
 		var result = &api.Application{
@@ -89,7 +92,10 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
 		}
-		rels = retrievedReleasesOfApp.Metadata.Releases
+		if retrievedReleasesOfApp != nil {
+			rels = retrievedReleasesOfApp.Metadata.Releases
+		}
+
 		for _, id := range rels {
 			uid := uint64(id)
 			// we could optimize this by making one query that does return multiples:
@@ -121,6 +127,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if app, err := o.DBHandler.DBSelectApp(ctx, transaction, appName); err != nil {
 			return nil, err
 		} else {
+			if app == nil {
+				return nil, fmt.Errorf("could not find app details of app: %s", appName)
+			}
 			result.Team = app.Metadata.Team
 		}
 		if response == nil {
@@ -154,11 +163,11 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 
 		// Team Locks
-		teamLocks, err := o.DBHandler.DBSelectAllActiveTeamLocksForApp(ctx, transaction, appName)
+		teamLocks, err := o.DBHandler.DBSelectAllActiveTeamLocksForTeam(ctx, transaction, result.Team)
 		if err != nil {
 			return nil, fmt.Errorf("could not find team locks for app %s: %w", appName, err)
 		}
-
+		fmt.Println(teamLocks)
 		response.TeamLocks = make(map[string]*api.Lock)
 		for _, currentTeamLock := range teamLocks {
 			response.TeamLocks[currentTeamLock.LockID] = &api.Lock{
@@ -218,7 +227,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
-
+		e, _ := o.DBHandler.DBSelectAllTeamLocks(ctx, transaction, "development", appName)
+		fmt.Println(e)
 		return result, nil
 	})
 	if err != nil {

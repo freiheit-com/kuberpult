@@ -4179,7 +4179,7 @@ func (h *DBHandler) DBWriteAllTeamLocks(ctx context.Context, transaction *sql.Tx
 	return nil
 }
 
-func (h *DBHandler) DBSelectAllActiveTeamLocksForApp(ctx context.Context, tx *sql.Tx, appName string) ([]TeamLock, error) {
+func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *sql.Tx, teamName string) ([]TeamLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveAppLocksForApp")
 	defer span.Finish()
 
@@ -4192,6 +4192,7 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForApp(ctx context.Context, tx *sq
 
 	var appLocks []TeamLock
 	var rows *sql.Rows
+
 	defer func(rows *sql.Rows) {
 		if rows == nil {
 			return
@@ -4215,25 +4216,25 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForApp(ctx context.Context, tx *sq
 			team_locks.metadata
 		FROM (
 			SELECT
-		MAX(eslVersion) AS latest,
-			teamName,
-			envName,
-			lockid
-		FROM
-		"team_locks"
-		GROUP BY
-		envName, teamName, lockid) AS latest
+				MAX(eslVersion) AS latest,
+					teamName,
+					envName,
+					lockid
+			FROM
+				"team_locks"
+			GROUP BY
+				envName, teamName, lockid) AS latest
 		JOIN
-		team_locks AS team_locks
+			team_locks AS team_locks
 		ON
-		latest.latest=team_locks.eslVersion
+			latest.latest=team_locks.eslVersion
 		AND latest.teamName=team_locks.teamName
 		AND latest.envName=team_locks.envName
 		AND latest.lockid=team_locks.lockid
 		WHERE deleted = false
 		AND team_locks.teamName = (?);
 		`)
-	rows, err = tx.QueryContext(ctx, selectQuery, appName)
+	rows, err = tx.QueryContext(ctx, selectQuery, teamName)
 	if err != nil {
 		return nil, fmt.Errorf("could not query application locks table from DB. Error: %w\n", err)
 	}
