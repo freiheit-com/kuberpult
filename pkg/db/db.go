@@ -5121,6 +5121,70 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 	return nil, nil
 }
 
+func (h *DBHandler) DBSelectAllEnvironmentsAtTimestamp(ctx context.Context, transaction *sql.Tx, timestamp time.Time) (*DBAllEnvironments, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("no transaction provided when selecting all environments from all_environments table")
+	}
+
+	selectQuery := h.AdaptQuery(
+		"SELECT created, version, json FROM all_environments WHERE created <= (?) ORDER BY version DESC LIMIT 1;",
+	)
+
+	rows, err := transaction.QueryContext(ctx, selectQuery, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("error while execuring query to get all environments, error: %w", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row on all_environments table, error: %w", err)
+		}
+	}(rows)
+
+	if rows.Next() {
+		//exhaustruct:ignore
+		row := DBAllEnvironmentsRow{}
+
+		err := rows.Scan(&row.Created, &row.Version, &row.Environments)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error while scanning all_environments row, error: %w", err)
+		}
+
+		parsedEnvironments := make([]string, 0)
+		err = json.Unmarshal([]byte(row.Environments), &parsedEnvironments)
+		if err != nil {
+			return nil, fmt.Errorf("error occured during JSON unmarshalling, JSON: %s, error: %w", row.Environments, err)
+		}
+
+		err = closeRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("error while closing rows, error: %w", err)
+		}
+
+		return &DBAllEnvironments{
+			Created:      row.Created,
+			Version:      row.Version,
+			Environments: parsedEnvironments,
+		}, nil
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("error while closing rows, error: %w", err)
+	}
+	return nil, nil
+}
+
 func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql.Tx, environmentNames []string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironments")
 	defer span.Finish()
@@ -5653,4 +5717,56 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 		return fmt.Errorf("DBWriteCommitTransactionTimestamp error executing query: %w", err)
 	}
 	return nil
+}
+
+func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string) (*time.Time, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("attempting to write to the commit_transaction_timestamps table without a transaction")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"SELECT transactionTimestamp FROM commit_transaction_timestamps WHERE commitHash=?;",
+	)
+
+	span.SetTag("query", insertQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		insertQuery,
+		commitHash,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("DBReadCommitHashTransactionTimestamp error executing query: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	var timestamp *time.Time
+
+	if rows.Next() {
+		timestamp = &time.Time{}
+
+		err = rows.Scan(timestamp)
+		if err != nil {
+			return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
+		}
+
+		*timestamp = timestamp.UTC()
+	} else {
+		timestamp = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+	}
+	return timestamp, nil
 }

@@ -64,18 +64,27 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			return nil, fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for")
 		}
 	}
+	if in.ManifestRepoCommitHash == "" {
+		return nil, fmt.Errorf("Must have a commit to get the product summary for")
+	}
 	var summaryFromEnv []api.ProductSummary
 	if s.Config.DBHandler.ShouldUseOtherTables() {
-		if in.Timestamp == nil {
-			return nil, fmt.Errorf("Must have a timestamp to get the product summary when database is enabled")
-		}
 		dbHandler := s.Config.DBHandler
 		response, err := db.WithTransactionT[api.GetProductSummaryResponse](dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetProductSummaryResponse, error) {
 
-			ts := in.Timestamp.AsTime()
+			//Translate a manifest repo commit hash into a DB transaction timestamp.
+			ts, err := dbHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, in.ManifestRepoCommitHash)
+
+			if err != nil {
+				return nil, fmt.Errorf("unable to get manifest repo timestamp that corresponds to provided commit Hash %v", err)
+			}
+
+			if ts == nil {
+				return nil, fmt.Errorf("could not find ts that corresponds to the givebn commit hash")
+			}
 
 			// Get all apps at a certain timestamp
-			allApps, err := dbHandler.DBSelectAllApplicationsAtTimestamp(ctx, transaction, ts)
+			allApps, err := dbHandler.DBSelectAllApplicationsAtTimestamp(ctx, transaction, *ts)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get allApps  %v", err)
 			}
@@ -86,7 +95,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			}
 			// For each app get the deployed version
 			for _, currentApp := range allApps.Apps {
-				currentAppDeployments, err := dbHandler.DBSelectAllDeploymentsTimestamp(ctx, transaction, currentApp, ts)
+				currentAppDeployments, err := dbHandler.DBSelectAllDeploymentsTimestamp(ctx, transaction, currentApp, *ts)
 
 				if err != nil {
 					return nil, fmt.Errorf("unable to get DBSelectAllDeploymentsTimestamp  %v", err)
@@ -130,7 +139,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 						envList = append(envList, k)
 					}
 
-					allEnvs, err := dbHandler.DBSelectEnvironmentsBatchAtTimestamp(ctx, transaction, envList, ts)
+					allEnvs, err := dbHandler.DBSelectEnvironmentsBatchAtTimestamp(ctx, transaction, envList, *ts)
 					if err != nil {
 						return nil, fmt.Errorf("could not get environment configs %v", err)
 					}
@@ -139,7 +148,10 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 							for _, env := range group.Environments {
 								var singleEnvSummary []api.ProductSummary
 								for _, app := range (*allEnvs)[env.Name].Applications {
-									currentAppDeployments, _ := dbHandler.DBSelectAllDeploymentsTimestamp(ctx, transaction, currentApp, ts)
+									currentAppDeployments, err := dbHandler.DBSelectAllDeploymentsTimestamp(ctx, transaction, currentApp, *ts)
+									if err != nil {
+										return nil, fmt.Errorf("could not get deployments for app %s for timestamp: %v", err, *ts)
+									}
 									singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
 										CommitId:       "",
 										DisplayVersion: "",
@@ -171,11 +183,11 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 				if err != nil {
 					return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Version, err)
 				}
-				release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, v, false, ts)
+				release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, v, false, *ts)
 				if err != nil {
 					return nil, fmt.Errorf("error getting release for version")
 				}
-				app, err := dbHandler.DBSelectAppAtTimetamp(ctx, transaction, row.App, ts)
+				app, err := dbHandler.DBSelectAppAtTimetamp(ctx, transaction, row.App, *ts)
 				if err != nil {
 					return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
 				}
@@ -189,9 +201,6 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 		return response, err
 	} else {
 
-		if in.ManifestRepoCommitHash == "" {
-			return nil, fmt.Errorf("Must have a commit to get the product summary for")
-		}
 		response, err := s.OverviewService.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.ManifestRepoCommitHash})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get overview for %s: %v", in.ManifestRepoCommitHash, err)

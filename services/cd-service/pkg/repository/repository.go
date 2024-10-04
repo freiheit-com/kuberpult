@@ -1959,6 +1959,25 @@ func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.Enviro
 	return result, nil
 }
 
+func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, timestamp time.Time) (map[string]config.EnvironmentConfig, error) {
+	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironmentsAtTimestamp(ctx, transaction, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
+	}
+	if dbAllEnvs == nil {
+		return nil, nil
+	}
+	envs, err := s.DBHandler.DBSelectEnvironmentsBatchAtTimestamp(ctx, transaction, dbAllEnvs.Environments, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+	}
+	ret := make(map[string]config.EnvironmentConfig)
+	for _, env := range *envs {
+		ret[env.Name] = env.Config
+	}
+	return ret, nil
+}
+
 func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 	if err != nil {

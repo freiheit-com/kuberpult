@@ -142,7 +142,6 @@ export const ProductVersion: React.FC = () => {
     React.useEffect(() => {
         let tag = searchParams.get('tag');
 
-        let ts = undefined;
         if (tag === null) {
             // eslint-disable-next-line no-console
             console.log('tag: ' + tag);
@@ -155,11 +154,6 @@ export const ProductVersion: React.FC = () => {
             searchParams.set('tag', tag);
             setSearchParams(searchParams);
         }
-        ts = tagsResponse.response.tagData.find((currentTag) => currentTag.commitId === tag)?.timestamp;
-        // eslint-disable-next-line no-console
-        console.log(ts);
-        // eslint-disable-next-line no-console
-        console.log(tagsResponse.response.tagData);
 
         const env = splitCombinedGroupName(environment);
         setShowSummary(true);
@@ -172,7 +166,6 @@ export const ProductVersion: React.FC = () => {
                     manifestRepoCommitHash: tag,
                     environment: env[0],
                     environmentGroup: env[1],
-                    timestamp: ts,
                 },
                 authHeader
             )

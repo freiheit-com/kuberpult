@@ -21,8 +21,9 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -459,7 +460,7 @@ func TestGetProductDB(t *testing.T) {
 			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
 			ctx := testutil.MakeTestContext()
 
-			timestamps := make([]*time.Time, len(tc.SetupStages))
+			var commitHashes []string
 			for idx, steps := range tc.SetupStages {
 				err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, steps...)
@@ -468,15 +469,23 @@ func TestGetProductDB(t *testing.T) {
 					}
 
 					ts, err2 := repo.State().DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-					utcTs := ts.UTC()
-					timestamps[idx] = &utcTs
+					if err2 != nil {
+						return err2
+					}
+
+					currentCommitHash := strings.Repeat(strconv.Itoa(idx), 40)
+
+					commitHashes = append(commitHashes, currentCommitHash)
+					//This table gets written by the export service
+					err2 = repo.State().DBHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, currentCommitHash, ts.UTC())
 					return err2
 				})
-				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on sqlite do not collide when multiple stages are involved
 				if err != nil {
 					t.Fatalf("Error applying transformers step %d: %v", idx, err)
 				}
+				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on sqlite do not collide when multiple stages are involved
 			}
+			fmt.Println(commitHashes)
 			if !sv.Config.DBHandler.ShouldUseOtherTables() {
 				t.Fatal("database is not setup correctly")
 			}
@@ -490,11 +499,11 @@ func TestGetProductDB(t *testing.T) {
 			if len(tc.expectedProductSummary) > 0 {
 				for iter, currentExpectedProductSummary := range tc.expectedProductSummary {
 					var productSummary *api.GetProductSummaryResponse
+					fmt.Printf("Current commit hash: commitHashes[%d]='%s'\n", iter, commitHashes[iter])
 					if tc.givenEnvGroup != nil {
-						productSummary, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "", Environment: nil, EnvironmentGroup: tc.givenEnvGroup, Timestamp: timestamppb.New(*timestamps[iter])})
-
+						productSummary, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: commitHashes[iter], Environment: nil, EnvironmentGroup: tc.givenEnvGroup})
 					} else {
-						productSummary, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup, Timestamp: timestamppb.New(*timestamps[iter])})
+						productSummary, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: commitHashes[iter], Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
 					}
 
 					if err != nil {
@@ -524,11 +533,6 @@ func TestGetProductDBFailureCases(t *testing.T) {
 			Name:        "get Product Overview with no env or envGroup",
 			timestamp:   &ts,
 			expectedErr: fmt.Errorf("Must have an environment or environmentGroup to get the product summary for"),
-		},
-		{
-			Name:        "get Product Overview with no timestamp",
-			givenEnv:    conversion.FromString("testing"),
-			expectedErr: fmt.Errorf("Must have a timestamp to get the product summary when database is enabled"),
 		},
 		{
 			Name:          "get Product Overview with both env and envGroup",
@@ -641,11 +645,19 @@ func TestGetProductDBFailureCases(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			ctx := testutil.MakeTestContext()
+			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := repo.State().DBHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ts.UTC())
+				return err2
+			})
+			if err != nil {
+				t.Error(err)
+			}
 			if tc.timestamp != nil {
-				_, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup, Timestamp: timestamppb.New(*tc.timestamp)})
+				_, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
 
 			} else {
-				_, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup, Timestamp: nil})
+				_, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedErr.Error(), err.Error(), cmpopts.EquateErrors()); diff != "" {
