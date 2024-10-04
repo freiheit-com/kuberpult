@@ -1681,14 +1681,15 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 		deployments.envName,
 		deployments.metadata
 	FROM (
-		SELECT
-	MAX(eslVersion) AS latest,
+	SELECT
+		eslVersion AS latest,
 		appname,
 		envname
 	FROM
 		deployments
 	GROUP BY
-		envName, appname) AS latest
+		envName, appname
+	ORDER BY latest DESC LIMIT 1) AS latest
 	JOIN
 		deployments AS deployments
 	ON
@@ -3599,14 +3600,15 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 			app_locks.metadata
 		FROM (
 			SELECT
-		MAX(eslVersion) AS latest,
+			eslVersion AS latest,
 			appname,
 			envName,
 			lockid
 		FROM
 		"app_locks"
 		GROUP BY
-		envName, appName, lockid) AS latest
+		envName, appName, lockid
+		ORDER BY latest DESC LIMIT 1) AS latest
 		JOIN
 		app_locks AS app_locks
 		ON
@@ -4207,7 +4209,7 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 	var err error
 	selectQuery := h.AdaptQuery(
 		`
-			SELECT
+		SELECT
 			team_locks.eslversion,
 			team_locks.teamName,
 			team_locks.envName,
@@ -4217,14 +4219,15 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 			team_locks.metadata
 		FROM (
 			SELECT
-				MAX(eslVersion) AS latest,
+				    eslVersion AS latest,
 					teamName,
 					envName,
 					lockid
 			FROM
 				"team_locks"
 			GROUP BY
-				envName, teamName, lockid) AS latest
+				envName, teamName, lockid
+			ORDER BY latest DESC LIMIT 1) AS latest
 		JOIN
 			team_locks AS team_locks
 		ON
