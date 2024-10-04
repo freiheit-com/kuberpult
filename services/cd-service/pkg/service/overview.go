@@ -76,6 +76,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 	if !o.DBHandler.ShouldUseOtherTables() {
 		panic("DB")
 	}
+	if !o.DBHandler.ShouldUseOtherTables() {
+		panic("DB")
+	}
 	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
 		var rels []int64
 		var result = &api.Application{
@@ -171,6 +174,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not find team locks for app %s: %w", appName, err)
 		}
+
 		for _, currentTeamLock := range teamLocks {
 			if _, ok := response.TeamLocks[currentTeamLock.Env]; !ok {
 				response.TeamLocks[currentTeamLock.Env] = &api.Locks{Locks: make([]*api.Lock, 0)}
@@ -218,7 +222,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
-
+		e, _ := o.DBHandler.DBSelectAllTeamLocks(ctx, transaction, "development", appName)
+		fmt.Println(e)
 		return result, nil
 	})
 	if err != nil {
