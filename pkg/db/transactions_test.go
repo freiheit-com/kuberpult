@@ -92,3 +92,43 @@ func TestIsNotRetryableError(t *testing.T) {
 		})
 	}
 }
+
+func TestIsNotRetryableErrorEndlessLoop(t *testing.T) {
+	tcs := []struct {
+		InputCode         error
+		ExpectedRetryable bool
+	}{
+		{
+			InputCode:         fmt.Errorf("foobar"),
+			ExpectedRetryable: false,
+		},
+		{
+			InputCode:         fmt.Errorf("foobar1: %w", &pq.Error{Code: pq.ErrorCode("54000")}),
+			ExpectedRetryable: false,
+		},
+		{
+			InputCode:         fmt.Errorf("other1: %w", fmt.Errorf("foobar: %w", &pq.Error{Code: pq.ErrorCode("54000")})),
+			ExpectedRetryable: false,
+		},
+		{
+			InputCode:         fmt.Errorf("foobar2: %w", &pq.Error{Code: pq.ErrorCode("40000")}),
+			ExpectedRetryable: true,
+		},
+		{
+			InputCode:         fmt.Errorf("other2: %w", fmt.Errorf("foobar: %w", &pq.Error{Code: pq.ErrorCode("40000")})),
+			ExpectedRetryable: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(fmt.Sprintf("endless_loop_check_%s", tc.InputCode.Error()), func(t *testing.T) {
+			t.Parallel()
+
+			actualRetryable := IsRetryablePostgresError(tc.InputCode)
+
+			if diff := cmp.Diff(tc.ExpectedRetryable, actualRetryable); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
