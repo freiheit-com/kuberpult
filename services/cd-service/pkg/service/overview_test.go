@@ -694,7 +694,6 @@ func TestGetApplicationDetails(t *testing.T) {
 						Version:            1,
 						QueuedVersion:      0,
 						UndeployVersion:    false,
-						ArgoCd:             nil,
 						DeploymentMetaData: &api.Deployment_DeploymentMetaData{},
 					},
 				},
