@@ -696,23 +696,31 @@ func TestGetApplicationDetails(t *testing.T) {
 						DeploymentMetaData: &api.Deployment_DeploymentMetaData{},
 					},
 				},
-				TeamLocks: map[string]*api.Lock{
-					"my-team-lock": {
-						LockId:  "my-team-lock",
-						Message: "team lock for team 123",
-						CreatedBy: &api.Actor{
-							Name:  "test tester",
-							Email: "testmail@example.com",
+				TeamLocks: map[string]*api.Locks{
+					"development": {
+						Locks: []*api.Lock{
+							{
+								LockId:  "my-team-lock",
+								Message: "team lock for team 123",
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
 						},
 					},
 				},
-				AppLocks: map[string]*api.Lock{
-					"my-app-lock": {
-						LockId:  "my-app-lock",
-						Message: "app lock for test-app",
-						CreatedBy: &api.Actor{
-							Name:  "test tester",
-							Email: "testmail@example.com",
+				AppLocks: map[string]*api.Locks{
+					"development": {
+						Locks: []*api.Lock{
+							{
+								LockId:  "my-app-lock",
+								Message: "app lock for test-app",
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
 						},
 					},
 				},
@@ -792,7 +800,7 @@ func TestGetApplicationDetails(t *testing.T) {
 			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
 				t.Fatal(err)
 			}
-			
+
 			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
 				Email: "app-email@example.com",
 				Name:  "overview tester",
@@ -822,10 +830,10 @@ func TestGetApplicationDetails(t *testing.T) {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			//Locks
-			if diff := cmp.Diff(expected.AppLocks, resp.AppLocks, cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{})); diff != "" {
+			if diff := cmp.Diff(expected.AppLocks, resp.AppLocks, cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{})); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
-			if diff := cmp.Diff(expected.TeamLocks, resp.TeamLocks, cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{})); diff != "" {
+			if diff := cmp.Diff(expected.TeamLocks, resp.TeamLocks, cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{})); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			close(shutdown)
