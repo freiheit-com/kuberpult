@@ -473,6 +473,7 @@ func RunServer() {
 					Shutdown: nil,
 					Name:     "cache cleanup",
 					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
+						reporter.ReportReady("Cache cleanup started")
 						repository.RegularlyCleanupOverviewCache(ctx, repo, 3600, c.CacheTtlHours)
 						return nil
 					},
