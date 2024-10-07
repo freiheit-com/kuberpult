@@ -1089,14 +1089,15 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql
 		return fmt.Errorf("DBWriteAllApplications unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
+	nextVersion := previousVersion + 1
 	_, err = transaction.Exec(
 		insertQuery,
-		previousVersion+1,
+		nextVersion,
 		*now,
 		jsonToInsert)
 
 	if err != nil {
-		return fmt.Errorf("could not insert all apps into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert all apps into DB with version=%d Error: %w\n", nextVersion, err)
 	}
 	return nil
 }
