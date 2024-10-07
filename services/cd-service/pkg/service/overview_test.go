@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"sync"
 	"testing"
 
@@ -653,6 +654,187 @@ func TestOverviewService(t *testing.T) {
 					}
 					return nil
 				})
+			}
+			close(shutdown)
+		})
+	}
+}
+
+func TestGetApplicationDetails(t *testing.T) {
+	var dev = "dev"
+	var env = "development"
+	var appName = "test-app"
+	tcs := []struct {
+		Name             string
+		Setup            []repository.Transformer
+		AppName          string
+		ExpectedResponse *api.GetAppDetailsResponse
+	}{
+		{
+			Name:    "Get App details",
+			AppName: appName,
+			ExpectedResponse: &api.GetAppDetailsResponse{
+				Application: &api.Application{
+					Name: appName,
+					Releases: []*api.Release{
+						{
+							Version:        1,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+						},
+					},
+					Team: "team-123",
+				},
+				Deployments: map[string]*api.Deployment{
+					env: {
+						Version:            1,
+						QueuedVersion:      0,
+						UndeployVersion:    false,
+						DeploymentMetaData: &api.Deployment_DeploymentMetaData{},
+					},
+				},
+				TeamLocks: map[string]*api.Locks{
+					"development": {
+						Locks: []*api.Lock{
+							{
+								LockId:  "my-team-lock",
+								Message: "team lock for team 123",
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+				},
+				AppLocks: map[string]*api.Locks{
+					"development": {
+						Locks: []*api.Lock{
+							{
+								LockId:  "my-app-lock",
+								Message: "app lock for test-app",
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env: "v1",
+					},
+				},
+				&repository.CreateEnvironmentTeamLock{
+					Team:        "team-123",
+					Environment: env,
+					LockId:      "my-team-lock",
+					Message:     "team lock for team 123",
+				},
+
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := repository.RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+			}
+			svc := &OverviewServiceServer{
+				Repository:       repo,
+				RepositoryConfig: config,
+				DBHandler:        repo.State().DBHandler,
+				Shutdown:         shutdown,
+			}
+
+			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+				t.Fatal(err)
+			}
+
+			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+				Email: "app-email@example.com",
+				Name:  "overview tester",
+			})
+
+			resp, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: appName})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			app := resp.Application
+			expected := tc.ExpectedResponse
+			if diff := cmp.Diff(app.Name, expected.Application.Name); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			//Releases
+			if diff := cmp.Diff(expected.Application.Releases, resp.Application.Releases, cmpopts.IgnoreUnexported(api.Release{}), cmpopts.IgnoreFields(api.Release{}, "CreatedAt")); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			//Deployments
+			expectedDeployment := expected.Deployments[env]
+			resultDeployment := resp.Deployments[env]
+
+			if diff := cmp.Diff(expectedDeployment, resultDeployment, cmpopts.IgnoreUnexported(api.Deployment{}), cmpopts.IgnoreUnexported(api.Deployment_DeploymentMetaData{}), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime")); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+			//Locks
+			if diff := cmp.Diff(expected.AppLocks, resp.AppLocks, cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{})); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(expected.TeamLocks, resp.TeamLocks, cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{})); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			close(shutdown)
 		})

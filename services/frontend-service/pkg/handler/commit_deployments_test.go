@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -82,7 +83,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 			inputTail:          "123456/",
 			failGrpcCall:       false,
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   "{\"deploymentStatus\":{\"app1\":{\"deploymentStatus\":{\"dev\":\"DEPLOYED\",\"prod\":\"UNKNOWN\",\"stage\":\"PENDING\"}}}}\n",
+			expectedResponse:   "{\"deploymentStatus\":{\"app1\":{\"deploymentStatus\":{\"dev\":\"DEPLOYED\", \"prod\":\"UNKNOWN\", \"stage\":\"PENDING\"}}}}\n",
 		},
 	}
 	for _, tc := range tcs {
@@ -100,8 +101,8 @@ func TestHandleCommitDeployments(t *testing.T) {
 			if w.Code != tc.expectedStatusCode {
 				t.Errorf("expected status code %d, got %d", tc.expectedStatusCode, w.Code)
 			}
-			if w.Body.String() != tc.expectedResponse {
-				t.Errorf("expected response %s, got %s", tc.expectedResponse, w.Body.String())
+			if diff := cmp.Diff(tc.expectedResponse, w.Body.String()); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\\n%s", diff)
 			}
 		})
 	}

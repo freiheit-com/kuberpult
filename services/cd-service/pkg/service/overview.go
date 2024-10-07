@@ -21,6 +21,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"os"
 	"sync"
 	"sync/atomic"
 
@@ -47,6 +50,180 @@ type OverviewServiceServer struct {
 	Context  context.Context
 	init     sync.Once
 	response atomic.Value
+
+	DBHandler *db.DBHandler
+}
+
+func (o *OverviewServiceServer) GetAppDetails(
+	ctx context.Context,
+	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
+
+	var appName = in.AppName
+	var response = &api.GetAppDetailsResponse{
+		Application: &api.Application{
+			UndeploySummary: 0,
+			Warnings:        nil,
+			Name:            appName,
+			Releases:        []*api.Release{},
+			SourceRepoUrl:   "",
+			Team:            "",
+		},
+		AppLocks:    make(map[string]*api.Locks),
+		Deployments: make(map[string]*api.Deployment),
+		TeamLocks:   make(map[string]*api.Locks),
+	}
+	if !o.DBHandler.ShouldUseOtherTables() {
+		panic("DB")
+	}
+	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
+		var rels []int64
+		var result = &api.Application{
+			UndeploySummary: 0,
+			Warnings:        nil,
+			Name:            appName,
+			Releases:        []*api.Release{},
+			SourceRepoUrl:   "",
+			Team:            "",
+		}
+
+		// Releases
+		result.Name = appName
+		retrievedReleasesOfApp, err := o.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
+		}
+		if retrievedReleasesOfApp != nil {
+			rels = retrievedReleasesOfApp.Metadata.Releases
+		}
+
+		for _, id := range rels {
+			uid := uint64(id)
+			// we could optimize this by making one query that does return multiples:
+			if rel, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uid, false); err != nil {
+				return nil, err
+			} else {
+				if rel == nil {
+					// ignore
+				} else {
+					var tmp = &repository.Release{
+						Version:         rel.ReleaseNumber,
+						UndeployVersion: rel.Metadata.UndeployVersion,
+						SourceAuthor:    rel.Metadata.SourceAuthor,
+						SourceCommitId:  rel.Metadata.SourceCommitId,
+						SourceMessage:   rel.Metadata.SourceMessage,
+						CreatedAt:       rel.Created,
+						DisplayVersion:  rel.Metadata.DisplayVersion,
+						IsMinor:         rel.Metadata.IsMinor,
+						IsPrepublish:    rel.Metadata.IsPrepublish,
+					}
+					release := tmp.ToProto()
+					release.Version = uid
+					release.UndeployVersion = tmp.UndeployVersion
+					result.Releases = append(result.Releases, release)
+				}
+			}
+		}
+
+		if app, err := o.DBHandler.DBSelectApp(ctx, transaction, appName); err != nil {
+			return nil, err
+		} else {
+			if app == nil {
+				return nil, fmt.Errorf("could not find app details of app: %s", appName)
+			}
+			result.Team = app.Metadata.Team
+		}
+		if response == nil {
+			return nil, fmt.Errorf("app not found: '%s'", appName)
+		}
+		envConfigs, err := o.Repository.State().GetAllEnvironmentConfigs(ctx, transaction)
+		if err != nil {
+			return nil, fmt.Errorf("could not find environments: %w", err)
+		}
+		envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
+
+		result.UndeploySummary = deriveUndeploySummary(appName, envGroups)
+		result.Warnings = db.CalculateWarnings(ctx, appName, envGroups)
+
+		// App Locks
+		appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForApp(ctx, transaction, appName)
+		if err != nil {
+			return nil, fmt.Errorf("could not find application locks for app %s: %w", appName, err)
+		}
+		for _, currentLock := range appLocks {
+			if _, ok := response.AppLocks[currentLock.Env]; !ok {
+				response.AppLocks[currentLock.Env] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			}
+			response.AppLocks[currentLock.Env].Locks = append(response.AppLocks[currentLock.Env].Locks, &api.Lock{
+				LockId:    currentLock.LockID,
+				Message:   currentLock.Metadata.Message,
+				CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
+				CreatedBy: &api.Actor{
+					Name:  currentLock.Metadata.CreatedByName,
+					Email: currentLock.Metadata.CreatedByEmail,
+				},
+			})
+		}
+
+		// Team Locks
+		teamLocks, err := o.DBHandler.DBSelectAllActiveTeamLocksForTeam(ctx, transaction, result.Team)
+		if err != nil {
+			return nil, fmt.Errorf("could not find team locks for app %s: %w", appName, err)
+		}
+		for _, currentTeamLock := range teamLocks {
+			if _, ok := response.TeamLocks[currentTeamLock.Env]; !ok {
+				response.TeamLocks[currentTeamLock.Env] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			}
+			response.TeamLocks[currentTeamLock.Env].Locks = append(response.TeamLocks[currentTeamLock.Env].Locks, &api.Lock{
+				LockId:    currentTeamLock.LockID,
+				Message:   currentTeamLock.Metadata.Message,
+				CreatedAt: timestamppb.New(currentTeamLock.Metadata.CreatedAt),
+				CreatedBy: &api.Actor{
+					Name:  currentTeamLock.Metadata.CreatedByName,
+					Email: currentTeamLock.Metadata.CreatedByEmail,
+				},
+			})
+		}
+
+		// Deployments
+		deployments, err := o.DBHandler.DBSelectAllLatestDeploymentsForApplication(ctx, transaction, appName)
+		if err != nil {
+			return nil, fmt.Errorf("could not obtain deployments for app %s: %w", appName, err)
+		}
+		for envName, currentDeployment := range deployments {
+			deployment := &api.Deployment{
+				Version:         uint64(*currentDeployment.Version),
+				QueuedVersion:   0,
+				UndeployVersion: false,
+				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+					CiLink:       currentDeployment.Metadata.CiLink,
+					DeployAuthor: currentDeployment.Metadata.DeployedByName,
+					DeployTime:   currentDeployment.Created.String(),
+				},
+			}
+			if queuedVersion, err := o.Repository.State().GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, err
+			} else {
+				if queuedVersion == nil {
+					deployment.QueuedVersion = 0
+				} else {
+					deployment.QueuedVersion = *queuedVersion
+				}
+			}
+			if release, err := o.Repository.State().GetApplicationRelease(ctx, transaction, appName, uint64(*currentDeployment.Version)); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, err
+			} else if release != nil {
+				deployment.UndeployVersion = release.UndeployVersion
+			}
+			response.Deployments[envName] = deployment
+		}
+		return result, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	response.Application = resultApp
+	return response, nil
+
 }
 
 func (o *OverviewServiceServer) GetOverview(
@@ -203,4 +380,33 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	}
 	o.response.Store(r)
 	o.notify.Notify()
+}
+
+func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
+	var allNormal = true
+	var allUndeploy = true
+	for _, group := range groups {
+		for _, environment := range group.Environments {
+			var app, exists = environment.Applications[appName]
+			if !exists {
+				continue
+			}
+			if app.Version == 0 {
+				// if the app exists but nothing is deployed, we ignore this
+				continue
+			}
+			if app.UndeployVersion {
+				allNormal = false
+			} else {
+				allUndeploy = false
+			}
+		}
+	}
+	if allUndeploy {
+		return api.UndeploySummary_UNDEPLOY
+	}
+	if allNormal {
+		return api.UndeploySummary_NORMAL
+	}
+	return api.UndeploySummary_MIXED
 }
