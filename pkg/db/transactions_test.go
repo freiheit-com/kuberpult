@@ -18,6 +18,7 @@ package db
 
 import (
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"github.com/lib/pq"
 	"testing"
@@ -116,6 +117,10 @@ func TestIsNotRetryableErrorEndlessLoop(t *testing.T) {
 		},
 		{
 			InputCode:         fmt.Errorf("other2: %w", fmt.Errorf("foobar: %w", &pq.Error{Code: pq.ErrorCode("40000")})),
+			ExpectedRetryable: true,
+		},
+		{
+			InputCode:         repository.GetCreateReleaseGeneralFailure(fmt.Errorf("other2: %w", fmt.Errorf("foobar: %w", &pq.Error{Code: pq.ErrorCode("23505")}))),
 			ExpectedRetryable: true,
 		},
 	}

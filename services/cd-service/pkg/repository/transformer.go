@@ -487,7 +487,7 @@ func (c *CreateApplicationVersion) Transform(
 			allApps.Apps = append(allApps.Apps, c.Application)
 			err := state.DBHandler.DBWriteAllApplications(ctx, transaction, allApps.Version, allApps.Apps)
 			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write all apps"))
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write all apps: %w", err))
 			}
 
 			//We need to check that this is not an app that has been previously deleted

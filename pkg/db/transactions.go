@@ -128,6 +128,8 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 				maxRetries: opts.maxRetries - 1,
 				readonly:   opts.readonly,
 			}, f)
+		} else {
+			logger.FromContext(ctx).Sugar().Warnf("%s transaction failed, will NOT retry error: %v", msg, e)
 		}
 		return nil, e
 	}
@@ -168,7 +170,7 @@ func IsRetryablePostgresError(err error) bool {
 	}
 	codeStr := string(pgErr.Code)
 	// for a list of all postgres error codes, see https://www.postgresql.org/docs/9.3/errcodes-appendix.html
-	return strings.HasPrefix(codeStr, "40")
+	return strings.HasPrefix(codeStr, "40") || strings.HasPrefix(codeStr, "23505")
 }
 
 func UnwrapUntilPostgresError(err error) *pq.Error {
