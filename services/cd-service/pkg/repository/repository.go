@@ -339,14 +339,14 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 			if err != nil {
 				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
 			}
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String(), Timestamp: timestamppb.New(tagCommit.Committer().When.UTC())})
 
 		} else {
 			tagCommit, err := repo.LookupCommit(tagRef.TargetId())
 			if err != nil {
 				return nil, fmt.Errorf("unable to lookup tag [%s]: %v", tagObject.Name(), err)
 			}
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String(), Timestamp: timestamppb.New(tagCommit.Committer().When.UTC())})
 		}
 	}
 
@@ -1962,6 +1962,25 @@ func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.Enviro
 		result[env.Name()] = *c
 	}
 	return result, nil
+}
+
+func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, timestamp time.Time) (map[string]config.EnvironmentConfig, error) {
+	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironmentsAtTimestamp(ctx, transaction, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
+	}
+	if dbAllEnvs == nil {
+		return nil, nil
+	}
+	envs, err := s.DBHandler.DBSelectEnvironmentsBatchAtTimestamp(ctx, transaction, dbAllEnvs.Environments, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+	}
+	ret := make(map[string]config.EnvironmentConfig)
+	for _, env := range *envs {
+		ret[env.Name] = env.Config
+	}
+	return ret, nil
 }
 
 func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
