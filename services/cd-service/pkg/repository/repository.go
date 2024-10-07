@@ -115,6 +115,11 @@ func (err *TransformerBatchApplyError) Is(target error) bool {
 	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
+func (e *TransformerBatchApplyError) Unwrap() error {
+	// Return the inner error.
+	return e.TransformerError
+}
+
 func UnwrapUntilTransformerBatchApplyError(err error) *TransformerBatchApplyError {
 	for {
 		var applyErr *TransformerBatchApplyError

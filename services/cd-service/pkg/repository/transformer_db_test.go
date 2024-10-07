@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lib/pq"
 	"regexp"
 	"testing"
 	gotime "time"
@@ -3681,6 +3682,34 @@ func TestTimestampConsistency(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("Err: %v\n", err)
+			}
+		})
+	}
+}
+
+func TestIsCustomErrorRetryable(t *testing.T) {
+	tcs := []struct {
+		InputCode         error
+		ExpectedRetryable bool
+	}{
+		{
+			InputCode:         GetCreateReleaseGeneralFailure(fmt.Errorf("other2: %w", fmt.Errorf("foobar: %w", &pq.Error{Code: pq.ErrorCode("23505")}))),
+			ExpectedRetryable: true,
+		},
+		{
+			InputCode:         GetCreateReleaseGeneralFailure(fmt.Errorf("could not write all apps: %w", &pq.Error{Code: pq.ErrorCode("23505")})),
+			ExpectedRetryable: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(fmt.Sprintf("endless_loop_check_%s", tc.InputCode.Error()), func(t *testing.T) {
+			t.Parallel()
+
+			actualRetryable := db.IsRetryablePostgresError(tc.InputCode)
+
+			if diff := cmp.Diff(tc.ExpectedRetryable, actualRetryable); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

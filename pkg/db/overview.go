@@ -253,7 +253,19 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 		if release.Deleted {
 			return nil
 		}
-		return fmt.Errorf("could not find application '%s' in overview", release.App)
+		selectApp, err := h.DBSelectApp(ctx, transaction, release.App)
+		if err != nil {
+			return fmt.Errorf("could not find application '%s' in apps table: %w", release.App, err)
+		}
+		app = &api.Application{
+			Name:            release.App,
+			Releases:        []*api.Release{},
+			SourceRepoUrl:   "", // TODO
+			Team:            selectApp.Metadata.Team,
+			UndeploySummary: 0,
+			Warnings:        []*api.Warning{},
+		}
+		latestOverview.Applications[release.App] = app
 	}
 	apiRelease := &api.Release{
 		PrNumber:        extractPrNumber(release.Metadata.SourceMessage),

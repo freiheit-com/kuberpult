@@ -22,7 +22,8 @@ import (
 )
 
 type CreateReleaseError struct {
-	response api.CreateReleaseResponse
+	response   api.CreateReleaseResponse
+	innerError error
 }
 
 func (e *CreateReleaseError) Error() string {
@@ -44,11 +45,17 @@ func (e *CreateReleaseError) Is(target error) bool {
 	return proto.Equal(e.Response(), tgt.Response())
 }
 
+func (e *CreateReleaseError) Unwrap() error {
+	// Return the inner error.
+	return e.innerError
+}
+
 func GetCreateReleaseGeneralFailure(err error) *CreateReleaseError {
 	response := api.CreateReleaseResponseGeneralFailure{
 		Message: err.Error(),
 	}
 	return &CreateReleaseError{
+		innerError: err,
 		response: api.CreateReleaseResponse{
 			Response: &api.CreateReleaseResponse_GeneralFailure{
 				GeneralFailure: &response,
@@ -60,6 +67,7 @@ func GetCreateReleaseGeneralFailure(err error) *CreateReleaseError {
 func GetCreateReleaseAlreadyExistsSame() *CreateReleaseError {
 	response := api.CreateReleaseResponseAlreadyExistsSame{}
 	return &CreateReleaseError{
+		innerError: nil,
 		response: api.CreateReleaseResponse{
 			Response: &api.CreateReleaseResponse_AlreadyExistsSame{
 				AlreadyExistsSame: &response,
@@ -74,6 +82,7 @@ func GetCreateReleaseAlreadyExistsDifferent(firstDifferingField api.DifferingFie
 		Diff:                diff,
 	}
 	return &CreateReleaseError{
+		innerError: nil,
 		response: api.CreateReleaseResponse{
 			Response: &api.CreateReleaseResponse_AlreadyExistsDifferent{
 				AlreadyExistsDifferent: &response,
@@ -85,6 +94,7 @@ func GetCreateReleaseAlreadyExistsDifferent(firstDifferingField api.DifferingFie
 func GetCreateReleaseTooOld() *CreateReleaseError {
 	response := api.CreateReleaseResponseTooOld{}
 	return &CreateReleaseError{
+		innerError: nil,
 		response: api.CreateReleaseResponse{
 			Response: &api.CreateReleaseResponse_TooOld{
 				TooOld: &response,
@@ -100,6 +110,7 @@ func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32
 		MaxLen:  maxLen,
 	}
 	return &CreateReleaseError{
+		innerError: nil,
 		response: api.CreateReleaseResponse{
 			Response: &api.CreateReleaseResponse_TooLong{
 				TooLong: &response,
