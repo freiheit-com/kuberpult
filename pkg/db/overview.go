@@ -255,7 +255,10 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 		}
 		selectApp, err := h.DBSelectApp(ctx, transaction, release.App)
 		if err != nil {
-			return fmt.Errorf("could not find application '%s' in apps table: %w", release.App, err)
+			return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", release.App, err)
+		}
+		if selectApp == nil {
+			return fmt.Errorf("could not find application '%s' in apps table: got no result", release.App)
 		}
 		app = &api.Application{
 			Name:            release.App,
