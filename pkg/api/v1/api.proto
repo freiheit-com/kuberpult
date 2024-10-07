@@ -392,8 +392,13 @@ message GetAppDetailsRequest {
 message GetAppDetailsResponse {
   Application application = 1; //General Application information
   map<string, Deployment> deployments = 2; // Env -> Release
-  map<string, Lock> app_locks = 3;
-  map<string, Lock> team_locks= 4;
+  map<string, Locks> app_locks = 3; //EnvName -> []AppLocks
+  map<string, Locks> team_locks= 4; //EnvName -> []TeamLocks
+}
+
+//Wrapper over array of locks
+message Locks {
+  repeated Lock locks = 2;
 }
 
 message Deployment {

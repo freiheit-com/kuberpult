@@ -68,9 +68,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 			SourceRepoUrl:   "",
 			Team:            "",
 		},
-		AppLocks:    make(map[string]*api.Lock),
+		AppLocks:    make(map[string]*api.Locks),
 		Deployments: make(map[string]*api.Deployment),
-		TeamLocks:   make(map[string]*api.Lock),
+		TeamLocks:   make(map[string]*api.Locks),
 	}
 	if !o.DBHandler.ShouldUseOtherTables() {
 		panic("DB")
@@ -149,9 +149,11 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not find application locks for app %s: %w", appName, err)
 		}
-		response.AppLocks = make(map[string]*api.Lock)
 		for _, currentLock := range appLocks {
-			response.AppLocks[currentLock.LockID] = &api.Lock{
+			if _, ok := response.AppLocks[currentLock.Env]; !ok {
+				response.AppLocks[currentLock.Env] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			}
+			response.AppLocks[currentLock.Env].Locks = append(response.AppLocks[currentLock.Env].Locks, &api.Lock{
 				LockId:    currentLock.LockID,
 				Message:   currentLock.Metadata.Message,
 				CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
@@ -159,7 +161,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 					Name:  currentLock.Metadata.CreatedByName,
 					Email: currentLock.Metadata.CreatedByEmail,
 				},
-			}
+			})
 		}
 
 		// Team Locks
@@ -167,9 +169,11 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not find team locks for app %s: %w", appName, err)
 		}
-		response.TeamLocks = make(map[string]*api.Lock)
 		for _, currentTeamLock := range teamLocks {
-			response.TeamLocks[currentTeamLock.LockID] = &api.Lock{
+			if _, ok := response.TeamLocks[currentTeamLock.Env]; !ok {
+				response.TeamLocks[currentTeamLock.Env] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			}
+			response.TeamLocks[currentTeamLock.Env].Locks = append(response.TeamLocks[currentTeamLock.Env].Locks, &api.Lock{
 				LockId:    currentTeamLock.LockID,
 				Message:   currentTeamLock.Metadata.Message,
 				CreatedAt: timestamppb.New(currentTeamLock.Metadata.CreatedAt),
@@ -177,7 +181,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 					Name:  currentTeamLock.Metadata.CreatedByName,
 					Email: currentTeamLock.Metadata.CreatedByEmail,
 				},
-			}
+			})
 		}
 
 		// Deployments
