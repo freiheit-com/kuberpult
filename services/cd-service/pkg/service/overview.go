@@ -73,9 +73,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		Deployments: make(map[string]*api.Deployment),
 		TeamLocks:   make(map[string]*api.Locks),
 	}
-	if !o.DBHandler.ShouldUseOtherTables() {
-		panic("DB")
-	}
+
 	if !o.DBHandler.ShouldUseOtherTables() {
 		panic("DB")
 	}
