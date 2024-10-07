@@ -167,7 +167,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not find team locks for app %s: %w", appName, err)
 		}
-		fmt.Println(teamLocks)
 		response.TeamLocks = make(map[string]*api.Lock)
 		for _, currentTeamLock := range teamLocks {
 			response.TeamLocks[currentTeamLock.LockID] = &api.Lock{
