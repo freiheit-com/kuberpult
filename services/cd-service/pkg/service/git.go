@@ -187,7 +187,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 				if err != nil {
 					return nil, fmt.Errorf("error getting release for version")
 				}
-				app, err := dbHandler.DBSelectAppAtTimetamp(ctx, transaction, row.App, *ts)
+				app, err := dbHandler.DBSelectAppAtTimestamp(ctx, transaction, row.App, *ts)
 				if err != nil {
 					return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
 				}

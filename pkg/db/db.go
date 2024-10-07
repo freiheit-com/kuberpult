@@ -1484,15 +1484,15 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	return processAllAppsRow(rows)
 }
 
-// DBSelectAllApplications returns (nil, nil) if there are no rows
+// DBSelectAllApplicationsAtTimestamp returns (nil, nil) if there are no rows
 func (h *DBHandler) DBSelectAllApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, timestamp time.Time) (*AllApplicationsGo, error) {
 	if h == nil {
 		return nil, nil
 	}
 	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
+		return nil, fmt.Errorf("DBSelectAllApplicationsAtTimestamp: no transaction provided")
 	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplicationsAtTimestamp")
 	defer span.Finish()
 	query := h.AdaptQuery("SELECT version, created, json FROM all_apps WHERE created <= (?) ORDER BY created DESC LIMIT 1;")
 	span.SetTag("query", query)
@@ -2191,8 +2191,8 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	return row, nil
 }
 
-func (h *DBHandler) DBSelectAppAtTimetamp(ctx context.Context, tx *sql.Tx, appName string, timestamp time.Time) (*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
+func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, timestamp time.Time) (*DBAppWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppAtTimestamp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, appName, stateChange, metadata" +
@@ -2316,15 +2316,15 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	return h.processAllDeploymentRow(ctx, err, rows)
 }
 
-// DBSelectAllDeploymentsForApp Returns most recent version of deployments for app with name 'appName'
+// DBSelectAllDeploymentsTimestamp Returns most recent version of deployments for app with name 'appName', at time 'timestamp'
 func (h *DBHandler) DBSelectAllDeploymentsTimestamp(ctx context.Context, tx *sql.Tx, app string, timestamp time.Time) (*AllDeploymentsForApp, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsTimestamp")
 	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBSelectAllDeploymentsForApp: no transaction provided")
+		return nil, fmt.Errorf("DBSelectAllDeploymentsTimestamp: no transaction provided")
 	}
 
 	insertQuery := h.AdaptQuery(
@@ -4844,7 +4844,7 @@ LIMIT 1;
 }
 
 func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx *sql.Tx, environmentNames []string, timestamp time.Time) (*map[string]DBEnvironment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatchAtTimestamp")
 	defer span.Finish()
 	if len(environmentNames) > WhereInBatchMax {
 		return nil, fmt.Errorf("SelectEnvironments is not batching queries for now, make sure to not request more than %d environments.", WhereInBatchMax)
@@ -5122,7 +5122,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 }
 
 func (h *DBHandler) DBSelectAllEnvironmentsAtTimestamp(ctx context.Context, transaction *sql.Tx, timestamp time.Time) (*DBAllEnvironments, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentsAtTimestamp")
 	defer span.Finish()
 
 	if h == nil {
