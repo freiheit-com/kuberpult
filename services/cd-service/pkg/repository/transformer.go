@@ -689,8 +689,9 @@ func (c *CreateApplicationVersion) Transform(
 				CiLink:          c.CiLink,
 				IsPrepublish:    c.IsPrepublish,
 			},
-			Created: *now,
-			Deleted: false,
+			Environments: []string{},
+			Created:      *now,
+			Deleted:      false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
 		if err != nil {
@@ -1300,8 +1301,9 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Created: *now,
-			Deleted: false,
+			Environments: []string{},
+			Created:      *now,
+			Deleted:      false,
 		}
 		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
 		if err != nil {
@@ -1713,6 +1715,7 @@ func (u *DeleteEnvFromApp) Transform(
 				Manifests:     db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:      dbReleaseWithMetadata.Metadata,
 				Deleted:       dbReleaseWithMetadata.Deleted,
+				Environments:  []string{},
 			}
 			err = state.DBHandler.DBInsertRelease(ctx, transaction, newRelease, dbReleaseWithMetadata.EslVersion)
 			if err != nil {
@@ -3755,9 +3758,9 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses: nil,
 		}
 	}
-	var allLatestManifests map[string]map[uint64]db.DBReleaseManifests
+	var allLatestReleaseEnvironments map[string]map[uint64][]string
 	if state.DBHandler.ShouldUseOtherTables() {
-		allLatestManifests, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
+		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
 	}
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
@@ -3856,7 +3859,7 @@ func (c *envReleaseTrain) prognosis(
 		}
 
 		if state.DBHandler.ShouldUseOtherTables() {
-			release, exists := allLatestManifests[appName][versionToDeploy]
+			releaseEnvs, exists := allLatestReleaseEnvironments[appName][versionToDeploy]
 
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
@@ -3875,9 +3878,14 @@ func (c *envReleaseTrain) prognosis(
 				}
 			}
 
-			_, ok := release.Manifests[c.Env]
-
-			if !ok {
+			found := false
+			for _, env := range releaseEnvs {
+				if env == c.Env {
+					found = true
+					break
+				}
+			}
+			if !found {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
