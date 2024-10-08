@@ -319,7 +319,7 @@ func (h *DBHandler) IsOverviewEmpty(overviewResp *api.GetOverviewResponse) bool 
 	return false
 }
 
-func (h *DBHandler) DBDeleteOldOverviews(ctx context.Context, tx *sql.Tx, numberOfToKeepOverviews uint64, timeThreshold time.Time) error {
+func (h *DBHandler) DBDeleteOldOverviews(ctx context.Context, tx *sql.Tx, numberOfOverviewsToKeep uint64, timeThreshold time.Time) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteOldOverviews")
 	defer span.Finish()
 
@@ -342,10 +342,12 @@ AND eslversion NOT IN (
 );
 `)
 	span.SetTag("query", deleteQuery)
+	span.SetTag("numberOfOverviewsToKeep", numberOfOverviewsToKeep)
+	span.SetTag("timeThreshold", timeThreshold)
 	_, err := tx.Exec(
 		deleteQuery,
 		timeThreshold.UTC(),
-		numberOfToKeepOverviews,
+		numberOfOverviewsToKeep,
 	)
 	if err != nil {
 		return fmt.Errorf("DBDeleteOldOverviews error executing query: %w", err)

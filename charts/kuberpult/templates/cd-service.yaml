@@ -165,7 +165,7 @@ spec:
           value: {{ .Values.git.webUrl | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: KUBERPULT_CACHE_TTL_HOURS
-          value: {{ default 24 .Values.cd.cacheTtlHours }}
+          value: {{ .Values.cd.cacheTtlHours }}
         - name: DD_AGENT_HOST
           valueFrom:
             fieldRef:
