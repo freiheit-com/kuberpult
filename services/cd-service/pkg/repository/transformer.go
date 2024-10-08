@@ -740,7 +740,7 @@ func (c *CreateApplicationVersion) Transform(
 				}
 			}
 			if envInfo != nil && !found {
-				err = state.DBInsertEnvironmentWithOverview(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
+				err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)
 				}
