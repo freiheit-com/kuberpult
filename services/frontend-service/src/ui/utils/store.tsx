@@ -34,6 +34,7 @@ import {
     GetFailedEslsResponse,
     Environment_Application,
     GetAppDetailsResponse,
+    OverviewApplication,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -142,36 +143,25 @@ export const refreshTags = (): void => {
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
-//const appDetailsResponse: GetAppDetailsResponse = {};
+const emtpyDetails: { [key: string]: GetAppDetailsResponse } = {};
+export const [useAppDetails, updateAppDetails] = createStore<{ [key: string]: GetAppDetailsResponse }>(emtpyDetails);
 
-export const getAppDetails = (
-    appName: string,
-    authHeader: AuthHeader,
-    setter: React.Dispatch<React.SetStateAction<AppDetailsResponse | undefined>>
-): void => {
+export const getAppDetails = (appName: string, authHeader: AuthHeader): void => {
     useApi
         .overviewService()
         .GetAppDetails({ appName: appName }, authHeader)
         .then((result: GetAppDetailsResponse) => {
-            const requestResult: GetAppDetailsResponse = structuredClone(result);
-            setter({ response: requestResult, appDetailState: AppDetailsState.READY });
-            //UpdateAppDetails.set({ response: requestResult, appDetailState: AppDetailsState.READY });
+            // eslint-disable-next-line no-console
+            console.log('Updating...');
+            const details = updateAppDetails.get();
+            details[appName] = result;
+            updateAppDetails.set(details);
         })
         .catch((e) => {
-            const GrpcErrorNotFound = 5;
-            if (e.code === GrpcErrorNotFound) {
-                setter({ response: undefined, appDetailState: AppDetailsState.NOTFOUND });
-            } else {
-                showSnackbarError(e.message);
-                setter({ response: undefined, appDetailState: AppDetailsState.ERROR });
-            }
+            PanicOverview.set(e);
+            showSnackbarError(e.message);
         });
 };
-
-export const [useAppDetails, UpdateAppDetails] = createStore<AppDetailsResponse>({
-    response: undefined,
-    appDetailState: AppDetailsState.LOADING,
-});
 
 export const getCommitInfo = (commitHash: string, pageNumber: number, authHeader: AuthHeader): void => {
     useApi
@@ -445,6 +435,8 @@ export const useOpenReleaseDialog = (app: string, version: number): (() => void)
     }, [app, params, setParams, version]);
 };
 
+export const useAppDetailsForApp = (app: string): GetAppDetailsResponse => useAppDetails((map) => map[app]);
+
 export const useCloseReleaseDialog = (): (() => void) => {
     const [params, setParams] = useSearchParams();
     return useCallback(() => {
@@ -488,17 +480,17 @@ export const useTeamNames = (): string[] =>
 export const useApplications = (): { [p: string]: Application } => useOverview(({ applications }) => applications);
 
 export const useTeamFromApplication = (app: string): string | undefined =>
-    useOverview(({ applications }) => applications[app]?.team?.trim());
+    useOverview(({ lightweightApps }) => lightweightApps.find((data) => data.Name === app)?.Name);
 
 // returns warnings from all apps
 export const useAllWarnings = (): Warning[] =>
     useOverview(({ applications }) => Object.values(applications).flatMap((app) => app.warnings));
 
 // return warnings from all apps matching the given filtering criteria
-export const useShownWarnings = (teams: string[], nameIncludes: string): Warning[] => {
-    const shownApps = useApplicationsFilteredAndSorted(teams, true, nameIncludes);
-    return shownApps.flatMap((app) => app.warnings);
-};
+export const useShownWarnings = (teams: string[], nameIncludes: string): Warning[] =>
+    // const shownApps = useApplicationsFilteredAndSorted(teams, true, nameIncludes);
+    // return shownApps.flatMap((app) => app.warnings);
+    [];
 
 export const useEnvironmentGroups = (): EnvironmentGroup[] => useOverview(({ environmentGroups }) => environmentGroups);
 
@@ -546,31 +538,31 @@ export const getPriorityClassName = (envOrGroup: Environment | EnvironmentGroup)
     'environment-priority-' + String(Priority[envOrGroup?.priority ?? Priority.UNRECOGNIZED]).toLowerCase();
 
 // filter for apps included in the selected teams
-const applicationsMatchingTeam = (applications: Application[], teams: string[]): Application[] =>
-    applications.filter((app) => teams.length === 0 || teams.includes(app.team.trim() || '<No Team>'));
+const applicationsMatchingTeam = (applications: OverviewApplication[], teams: string[]): OverviewApplication[] =>
+    applications.filter((app) => teams.length === 0 || teams.includes(app.Team.trim() || '<No Team>'));
 
 // filter for all application names that have warnings
-const applicationsWithWarnings = (applications: Application[]): Application[] =>
-    applications.filter((app) => app.warnings.length > 0);
+// const applicationsWithWarnings = (applications: OverviewApplication[]) OverviewApplication[] =>
+//     applications.filter((app) => app.warnings.length > 0);
 
 // filters given apps with the search terms or all for the empty string
-const applicationsMatchingName = (applications: Application[], appNameParam: string): Application[] =>
-    applications.filter((app) => appNameParam === '' || app.name.includes(appNameParam));
+const applicationsMatchingName = (applications: OverviewApplication[], appNameParam: string): OverviewApplication[] =>
+    applications.filter((app) => appNameParam === '' || app.Name.includes(appNameParam));
 
 // sorts given apps by team
-const applicationsSortedByTeam = (applications: Application[]): Application[] =>
-    applications.sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
+const applicationsSortedByTeam = (applications: OverviewApplication[]): OverviewApplication[] =>
+    applications.sort((a, b) => (a.Team === b.Team ? a.Name?.localeCompare(b.Name) : a.Team?.localeCompare(b.Team)));
 
 // returns applications to show on the home page
 export const useApplicationsFilteredAndSorted = (
     teams: string[],
     withWarningsOnly: boolean,
     nameIncludes: string
-): Application[] => {
-    const all = useOverview(({ applications }) => Object.values(applications));
+): OverviewApplication[] => {
+    const all = useOverview(({ lightweightApps }) => Object.values(lightweightApps));
     const allMatchingTeam = applicationsMatchingTeam(all, teams);
-    const allMatchingTeamAndWarnings = withWarningsOnly ? applicationsWithWarnings(allMatchingTeam) : allMatchingTeam;
-    const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
+    //const allMatchingTeamAndWarnings = withWarningsOnly ? applicationsWithWarnings(allMatchingTeam) : allMatchingTeam;
+    const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeam, nameIncludes);
     return applicationsSortedByTeam(allMatchingTeamAndWarningsAndName);
 };
 

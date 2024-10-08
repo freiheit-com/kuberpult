@@ -19,12 +19,11 @@ import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
-    AppDetailsState,
     EnableRolloutStatus,
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
-    UpdateAppDetails,
+    updateAppDetails,
     UpdateFrontendConfig,
     UpdateOverview,
     UpdateRolloutStatus,
@@ -98,13 +97,12 @@ export const App: React.FC = () => {
                 .pipe(retryWhen(retryStrategy(1)))
                 .subscribe(
                     (result) => {
+                        // eslint-disable-next-line no-console
+                        console.log('NewOverview!');
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
-                        UpdateAppDetails.set({
-                            response: undefined,
-                            appDetailState: AppDetailsState.LOADING,
-                        });
                         PanicOverview.set({ error: '' });
+                        updateAppDetails.set({});
                     },
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });
