@@ -650,12 +650,6 @@ func (p *GrpcProxy) GetFailedEsls(
 	return p.EslServiceClient.GetFailedEsls(ctx, in)
 }
 
-func (p *GrpcProxy) GetAppDetails(
-	ctx context.Context,
-	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
-	return p.OverviewClient.GetAppDetails(ctx, in)
-}
-
 func (p *GrpcProxy) GetOverview(
 	ctx context.Context,
 	in *api.GetOverviewRequest) (*api.GetOverviewResponse, error) {
