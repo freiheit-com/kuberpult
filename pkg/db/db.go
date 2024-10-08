@@ -667,7 +667,7 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 	//exhaustruct:ignore
 	var result = make(map[string]map[uint64][]string)
 	for rows.Next() {
-		var environmentsStr string
+		var environmentsStr sql.NullString
 		var appName string
 		var releaseVersion uint64
 		err := rows.Scan(&appName, &releaseVersion, &environmentsStr)
@@ -677,10 +677,12 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
 		}
-		var environments []string
-		err = json.Unmarshal(([]byte)(environmentsStr), &environments)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s\n", err, environmentsStr)
+		environments := make([]string, 0)
+		if environmentsStr.Valid && environmentsStr.String != "" {
+			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
+			if err != nil {
+				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s\n", err, environmentsStr.String)
+			}
 		}
 		if _, exists := result[appName]; !exists {
 			result[appName] = make(map[uint64][]string)
@@ -881,7 +883,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		var row = &DBReleaseWithMetaData{}
 		var metadataStr string
 		var manifestStr string
-		var environmentsStr string
+		var environmentsStr sql.NullString
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -921,10 +923,10 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		}
 		row.Manifests = manifestData
 		environments := make([]string, 0)
-		if environmentsStr != "" {
-			err = json.Unmarshal(([]byte)(environmentsStr), &environments)
+		if environmentsStr.Valid && environmentsStr.String != "" {
+			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s\n", err, environmentsStr)
+				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s\n", err, environmentsStr.String)
 			}
 		}
 		row.Environments = environments
