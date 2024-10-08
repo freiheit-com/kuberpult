@@ -16,9 +16,11 @@ Copyright freiheit.com*/
 import * as React from 'react';
 import { Application, UnusualDeploymentOrder, UpstreamNotDeployed, Warning } from '../../../api/api';
 
-export const WarningBoxes: React.FC<{ application: Application }> = (props) => {
+export const WarningBoxes: React.FC<{ application: Application | undefined }> = (props) => {
     const { application } = props;
-
+    if (application === undefined) {
+        return <div className="warnings"></div>;
+    }
     return (
         <div className="warnings">
             {application.warnings.map((warning: Warning, index: number) => (

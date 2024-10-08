@@ -26,6 +26,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -141,7 +142,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 		envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
 
-		result.UndeploySummary = deriveUndeploySummary(appName, envGroups)
 		result.Warnings = db.CalculateWarnings(ctx, appName, envGroups)
 
 		// App Locks
@@ -216,12 +216,14 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
+		result.UndeploySummary = 0
 		return result, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	response.Application = resultApp
+	time.Sleep(1 * time.Second)
 	return response, nil
 
 }
@@ -301,6 +303,7 @@ func (o *OverviewServiceServer) getOverview(
 		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
+		LightweightApps:   make([]*api.OverviewApplication, 0),
 	}
 	result.ManifestRepoUrl = o.RepositoryConfig.URL
 	result.Branch = o.RepositoryConfig.Branch
@@ -382,24 +385,14 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	o.notify.Notify()
 }
 
-func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
+func deriveUndeploySummary(appName string, deployments map[string]*api.Deployment) api.UndeploySummary {
 	var allNormal = true
 	var allUndeploy = true
-	for _, group := range groups {
-		for _, environment := range group.Environments {
-			var app, exists = environment.Applications[appName]
-			if !exists {
-				continue
-			}
-			if app.Version == 0 {
-				// if the app exists but nothing is deployed, we ignore this
-				continue
-			}
-			if app.UndeployVersion {
-				allNormal = false
-			} else {
-				allUndeploy = false
-			}
+	for _, currentDeployment := range deployments {
+		if currentDeployment.UndeployVersion {
+			allNormal = false
+		} else {
+			allUndeploy = false
 		}
 	}
 	if allUndeploy {
