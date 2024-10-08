@@ -603,7 +603,7 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 	ON
 		latest.latestEslVersion=releases.eslVersion
 		AND latest.releaseVersion=releases.releaseVersion
-		AND latest.appname=releases.appname;
+		AND latest.appname=releases.appname
 	WHERE COALESCE(environments, '') = '' AND COALESCE(manifests, '') != '';
 	`)
 	rows, err := tx.QueryContext(ctx, selectQuery)
