@@ -1169,6 +1169,12 @@ describe('Test Calculate Release Difference', () => {
                 ],
                 gitRevision: '',
                 branch: '',
+                lightweightApps: [
+                    {
+                        Name: 'test',
+                        Team: 'test',
+                    },
+                ],
                 manifestRepoUrl: '',
             },
             inputVersion: 15,
@@ -1238,6 +1244,12 @@ describe('Test Calculate Release Difference', () => {
                 ],
                 gitRevision: '',
                 branch: '',
+                lightweightApps: [
+                    {
+                        Name: 'test',
+                        Team: 'test',
+                    },
+                ],
                 manifestRepoUrl: '',
             },
             inputVersion: 10,
@@ -1308,6 +1320,12 @@ describe('Test Calculate Release Difference', () => {
                 gitRevision: '',
                 branch: '',
                 manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        Name: 'test',
+                        Team: 'test',
+                    },
+                ],
             },
             inputVersion: 11,
             expectedDifference: 0,
@@ -1377,6 +1395,12 @@ describe('Test Calculate Release Difference', () => {
                 gitRevision: '',
                 branch: '',
                 manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        Name: 'test',
+                        Team: 'test',
+                    },
+                ],
             },
             inputVersion: 10,
             expectedDifference: 0,
@@ -1446,6 +1470,12 @@ describe('Test Calculate Release Difference', () => {
                 gitRevision: '',
                 branch: '',
                 manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        Name: 'test',
+                        Team: 'test',
+                    },
+                ],
             },
             inputVersion: 10,
             expectedDifference: 0,
@@ -1514,6 +1544,12 @@ describe('Test Calculate Release Difference', () => {
                 ],
                 gitRevision: '',
                 branch: '',
+                lightweightApps: [
+                    {
+                        Name: 'test',
+                        Team: 'test',
+                    },
+                ],
                 manifestRepoUrl: '',
             },
             inputVersion: 10,

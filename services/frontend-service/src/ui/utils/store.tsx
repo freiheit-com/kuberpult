@@ -65,6 +65,7 @@ type EnhancedOverview = GetOverviewResponse & { [key: string]: unknown; loaded: 
 
 const emptyOverview: EnhancedOverview = {
     applications: {},
+    lightweightApps: [],
     environmentGroups: [],
     gitRevision: '',
     loaded: false,
@@ -75,6 +76,7 @@ const [useOverview, UpdateOverview_] = createStore(emptyOverview);
 export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.
 
 export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => loaded);
+
 type TagsResponse = {
     response: GetGitTagsResponse;
     tagsReady: boolean;
@@ -124,7 +126,6 @@ export type ReleaseTrainPrognosisResponse = {
     response: GetReleaseTrainPrognosisResponse | undefined;
     releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
 };
-
 const emptyBatch: BatchRequest & { [key: string]: unknown } = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
@@ -143,21 +144,26 @@ export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsRes
 
 //const appDetailsResponse: GetAppDetailsResponse = {};
 
-export const getAppDetails = (appName: string, authHeader: AuthHeader): void => {
+export const getAppDetails = (
+    appName: string,
+    authHeader: AuthHeader,
+    setter: React.Dispatch<React.SetStateAction<AppDetailsResponse | undefined>>
+): void => {
     useApi
         .overviewService()
         .GetAppDetails({ appName: appName }, authHeader)
         .then((result: GetAppDetailsResponse) => {
             const requestResult: GetAppDetailsResponse = structuredClone(result);
-            UpdateAppDetails.set({ response: requestResult, appDetailState: AppDetailsState.READY });
+            setter({ response: requestResult, appDetailState: AppDetailsState.READY });
+            //UpdateAppDetails.set({ response: requestResult, appDetailState: AppDetailsState.READY });
         })
         .catch((e) => {
             const GrpcErrorNotFound = 5;
             if (e.code === GrpcErrorNotFound) {
-                UpdateAppDetails.set({ response: undefined, appDetailState: AppDetailsState.NOTFOUND });
+                setter({ response: undefined, appDetailState: AppDetailsState.NOTFOUND });
             } else {
                 showSnackbarError(e.message);
-                UpdateAppDetails.set({ response: undefined, appDetailState: AppDetailsState.ERROR });
+                setter({ response: undefined, appDetailState: AppDetailsState.ERROR });
             }
         });
 };
