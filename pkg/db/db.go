@@ -579,10 +579,33 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePr
 func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx *sql.Tx) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesWithoutEnvironments")
 	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
-			" FROM releases " +
-			" WHERE COALESCE(environments, '') = '' AND COALESCE(manifests, '') != '';"))
+	selectQuery := h.AdaptQuery(`
+	SELECT DISTINCT
+		releases.eslVersion,
+		releases.created,
+		releases.appName,
+		releases.metadata,
+		releases.manifests,
+		releases.releaseVersion,
+		releases.deleted,
+		releases.environments
+	FROM (
+		SELECT
+			MAX(eslVersion) AS latestEslVersion,
+			appname,
+			releaseversion
+		FROM
+			"releases"
+		GROUP BY
+			appname, releaseversion) AS latest
+	JOIN
+		releases AS releases
+	ON
+		latest.latestEslVersion=releases.eslVersion
+		AND latest.releaseVersion=releases.releaseVersion
+		AND latest.appname=releases.appname;
+	WHERE COALESCE(environments, '') = '' AND COALESCE(manifests, '') != '';
+	`)
 	rows, err := tx.QueryContext(ctx, selectQuery)
 	processedRows, err := h.processReleaseRows(ctx, err, rows, true)
 	if err != nil {
