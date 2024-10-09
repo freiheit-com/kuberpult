@@ -604,7 +604,8 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 		latest.latestEslVersion=releases.eslVersion
 		AND latest.releaseVersion=releases.releaseVersion
 		AND latest.appname=releases.appname
-	WHERE COALESCE(environments, '') = '' AND COALESCE(manifests, '') != '';
+	WHERE COALESCE(environments, '') = '' AND COALESCE(manifests, '') != ''
+	LIMIT 100;
 	`)
 	rows, err := tx.QueryContext(ctx, selectQuery)
 	processedRows, err := h.processReleaseRows(ctx, err, rows, true)
@@ -5466,19 +5467,34 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleaseEnvironments")
 	defer span.Finish()
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		releasesWithoutEnvironments, err := h.DBSelectReleasesWithoutEnvironments(ctx, transaction)
-		if err != nil {
-			return fmt.Errorf("could not get releases without environments, error: %w", err)
-		}
-		for _, release := range releasesWithoutEnvironments {
-			err = h.DBInsertRelease(ctx, transaction, *release, release.EslVersion)
-			if err != nil {
-				return fmt.Errorf("could not insert release, error: %w", err)
+	for {
+		shouldContinueMigration := true
+		err := h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			releasesWithoutEnvironments, err := h.DBSelectReleasesWithoutEnvironments(ctx, transaction)
+			if len(releasesWithoutEnvironments) == 0 {
+				shouldContinueMigration = false
+				return nil
 			}
+			if err != nil {
+				return fmt.Errorf("could not get releases without environments, error: %w", err)
+			}
+			logger.FromContext(ctx).Sugar().Infof("updating %d releases environments", len(releasesWithoutEnvironments))
+			for _, release := range releasesWithoutEnvironments {
+				err = h.DBInsertRelease(ctx, transaction, *release, release.EslVersion)
+				if err != nil {
+					return fmt.Errorf("could not insert release, error: %w", err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+		if !shouldContinueMigration {
+			break
+		}
+	}
+	return nil
 }
 
 type OverviewCacheRow struct {
