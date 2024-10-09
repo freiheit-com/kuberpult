@@ -39,6 +39,7 @@ services:
       - KUBERPULT_DB_SSL_MODE=disable
       - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=10
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=5
+      - KUBERPULT_ALLOWED_DOMAINS=localhost
     ports:
       - "8080:8080"
       - "8443:8443"
