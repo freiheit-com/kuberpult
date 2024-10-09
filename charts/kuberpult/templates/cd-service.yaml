@@ -164,6 +164,8 @@ spec:
         - name: KUBERPULT_GIT_WEB_URL
           value: {{ .Values.git.webUrl | quote }}
 {{- if .Values.datadogTracing.enabled }}
+        - name: KUBERPULT_CACHE_TTL_HOURS
+          value: {{ .Values.cd.cacheTtlHours }}
         - name: DD_AGENT_HOST
           valueFrom:
             fieldRef:

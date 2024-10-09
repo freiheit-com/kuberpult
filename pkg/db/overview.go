@@ -25,6 +25,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql.Tx, teamLock TeamLock) error {
@@ -316,6 +317,42 @@ func (h *DBHandler) IsOverviewEmpty(overviewResp *api.GetOverviewResponse) bool 
 		return true
 	}
 	return false
+}
+
+func (h *DBHandler) DBDeleteOldOverviews(ctx context.Context, tx *sql.Tx, numberOfOverviewsToKeep uint64, timeThreshold time.Time) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteOldOverviews")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+
+	if tx == nil {
+		return fmt.Errorf("attempting to delete overview caches without a transaction")
+	}
+
+	deleteQuery := h.AdaptQuery(`
+DELETE FROM overview_cache
+WHERE timestamp < ?
+AND eslversion NOT IN (
+    SELECT eslversion 
+	FROM overview_cache
+	ORDER BY eslversion DESC
+	LIMIT ?
+);
+`)
+	span.SetTag("query", deleteQuery)
+	span.SetTag("numberOfOverviewsToKeep", numberOfOverviewsToKeep)
+	span.SetTag("timeThreshold", timeThreshold)
+	_, err := tx.Exec(
+		deleteQuery,
+		timeThreshold.UTC(),
+		numberOfOverviewsToKeep,
+	)
+	if err != nil {
+		return fmt.Errorf("DBDeleteOldOverviews error executing query: %w", err)
+	}
+	return nil
 }
 
 func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {

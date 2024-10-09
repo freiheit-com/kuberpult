@@ -281,6 +281,26 @@ func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 	}
 }
 
+func RegularlyCleanupOverviewCache(ctx context.Context, repo Repository, interval time.Duration, cacheTtlHours uint) {
+	cleanupEventTimer := time.NewTicker(interval * time.Second)
+	for range cleanupEventTimer.C {
+		logger.FromContext(ctx).Sugar().Warn("Cleaning up old overview caches")
+		s := repo.State()
+		if s.DBHandler.ShouldUseOtherTables() {
+			err := s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := s.DBHandler.DBDeleteOldOverviews(ctx, transaction, 5, time.Now().Add(-time.Duration(cacheTtlHours)*time.Hour))
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
+				panic(err.Error())
+			}
+		}
+	}
+}
+
 // A Transformer updates the files in the worktree
 type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)

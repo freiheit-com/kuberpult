@@ -107,6 +107,7 @@ type Config struct {
 	DbSslMode            string   `default:"verify-full" split_words:"true"`
 	MinorRegexes         string   `default:"" split_words:"true"`
 	AllowedDomains       []string `split_words:"true"`
+	CacheTtlHours        uint     `default:"24" split_words:"true"`
 
 	DisableQueue bool `required:"true" split_words:"true"`
 }
@@ -470,6 +471,15 @@ func RunServer() {
 						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository) {
 							repository.GetRepositoryStateAndUpdateMetrics(ctx, repository2)
 						})
+						return nil
+					},
+				},
+				{
+					Shutdown: nil,
+					Name:     "cache cleanup",
+					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
+						reporter.ReportReady("Cache cleanup started")
+						repository.RegularlyCleanupOverviewCache(ctx, repo, 3600, c.CacheTtlHours)
 						return nil
 					},
 				},
