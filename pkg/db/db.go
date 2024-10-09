@@ -5467,11 +5467,13 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleaseEnvironments")
 	defer span.Finish()
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		for {
+	for {
+		shouldContinueMigration := true
+		err := h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 			releasesWithoutEnvironments, err := h.DBSelectReleasesWithoutEnvironments(ctx, transaction)
 			if len(releasesWithoutEnvironments) == 0 {
-				break
+				shouldContinueMigration = false
+				return nil
 			}
 			if err != nil {
 				return fmt.Errorf("could not get releases without environments, error: %w", err)
@@ -5482,9 +5484,16 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) e
 					return fmt.Errorf("could not insert release, error: %w", err)
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+		if !shouldContinueMigration {
+			break
+		}
+	}
+	return nil
 }
 
 type OverviewCacheRow struct {
