@@ -5478,6 +5478,7 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) e
 			if err != nil {
 				return fmt.Errorf("could not get releases without environments, error: %w", err)
 			}
+                        logger.FromContext(ctx).Sugar().Infof("deleting %d releases", len(releasesWithoutEnvironments))
 			for _, release := range releasesWithoutEnvironments {
 				err = h.DBInsertRelease(ctx, transaction, *release, release.EslVersion)
 				if err != nil {
