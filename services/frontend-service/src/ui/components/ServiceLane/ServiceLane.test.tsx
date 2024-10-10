@@ -258,7 +258,7 @@
 //             <ServiceLane {...overrides} hideMinors={false} />
 //         </MemoryRouter>
 //     );
-//     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+//     const getWrapper = (overrides: { application: OverviewApplication }) => render(getNode(overrides));
 //     describe.each(data)('Service Lane diff number', (testcase) => {
 //         it(testcase.name, () => {
 //             UpdateOverview.set({

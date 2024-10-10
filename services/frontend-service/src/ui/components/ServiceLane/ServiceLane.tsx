@@ -19,7 +19,6 @@ import {
     getAppDetails,
     showSnackbarError,
     showSnackbarWarn,
-    useAppDetails,
     useAppDetailsForApp,
     useCurrentlyExistsAtGroup,
     useMinorsForApp,
@@ -110,14 +109,14 @@ export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinor
     const { authHeader } = useAzureAuthSub((auth) => auth);
     // const deployedReleases = useDeployedReleases(application.name);
     // const allReleases = useVersionsForApp(application.name);
-    // const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
+    //const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.Name);
     // const prepareUndeployOrUndeployText = deriveUndeployMessage(application.undeploySummary);
-    const appDetails = useAppDetails((map) => map[application.Name]);
+    const appDetails = useAppDetailsForApp(application.Name);
     React.useEffect(() => {
-        if (!appDetails) {
-            getAppDetails(application.Name, authHeader);
-        }
-    }, [application, authHeader, appDetails]);
+        // eslint-disable-next-line no-console
+        console.log('getting app details...');
+        getAppDetails(application.Name, authHeader);
+    }, [application, authHeader]);
 
     if (!appDetails) {
         return (
@@ -187,8 +186,10 @@ export const ReadyServiceLane: React.FC<{
                 break;
         }
     }, [application.Name, props.appDetails.application?.undeploySummary]);
-    const minorReleases = useMinorsForApp(application.Name);
-
+    let minorReleases = useMinorsForApp(application.Name);
+    if (!minorReleases) {
+        minorReleases = [];
+    }
     const prepareUndeployOrUndeployText = deriveUndeployMessage(props.appDetails.application?.undeploySummary);
     const releases = [
         ...new Set(

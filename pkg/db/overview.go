@@ -160,6 +160,7 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 		app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
 		app.UndeploySummary = deriveUndeploySummary(app.Name, latestOverview.EnvironmentGroups)
 	}
+
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
@@ -313,63 +314,11 @@ func (h *DBHandler) UpdateOverviewRelease(ctx context.Context, transaction *sql.
 	if h.IsOverviewEmpty(latestOverview) {
 		return nil
 	}
-	app := getApplicationByName(latestOverview.Applications, release.App)
-	if app == nil {
-		if release.Deleted {
-			return nil
-		}
-		selectApp, err := h.DBSelectApp(ctx, transaction, release.App)
-		if err != nil {
-			return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", release.App, err)
-		}
-		if selectApp == nil {
-			return fmt.Errorf("could not find application '%s' in apps table: got no result", release.App)
-		}
-		app = &api.Application{
-			Name:            release.App,
-			Releases:        []*api.Release{},
-			SourceRepoUrl:   "", // TODO
-			Team:            selectApp.Metadata.Team,
-			UndeploySummary: 0,
-			Warnings:        []*api.Warning{},
-		}
-		latestOverview.Applications[release.App] = app
-	}
-	apiRelease := &api.Release{
-		PrNumber:        extractPrNumber(release.Metadata.SourceMessage),
-		Version:         release.ReleaseNumber,
-		UndeployVersion: release.Metadata.UndeployVersion,
-		SourceAuthor:    release.Metadata.SourceAuthor,
-		SourceCommitId:  release.Metadata.SourceCommitId,
-		SourceMessage:   release.Metadata.SourceMessage,
-		CreatedAt:       timestamppb.New(release.Created),
-		DisplayVersion:  release.Metadata.DisplayVersion,
-		IsMinor:         release.Metadata.IsMinor,
-		IsPrepublish:    release.Metadata.IsPrepublish,
-	}
-	foundRelease := false
-	for relIndex, currentRelease := range app.Releases {
-		if currentRelease.Version == release.ReleaseNumber {
-			if release.Deleted {
-				app.Releases = append(app.Releases[:relIndex], app.Releases[relIndex+1:]...)
-			} else {
-				app.Releases[relIndex] = apiRelease
-			}
-			foundRelease = true
-		}
-	}
-	if !foundRelease && !release.Deleted {
-		app.Releases = append(app.Releases, apiRelease)
-	}
 
-	if release.Metadata.UndeployVersion {
-		app.UndeploySummary = deriveUndeploySummary(app.Name, latestOverview.EnvironmentGroups)
-	}
-
-	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
-	if err != nil {
-		return err
-	}
+	//err = h.WriteOverviewCache(ctx, transaction, latestOverview)
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -377,7 +326,7 @@ func (h *DBHandler) IsOverviewEmpty(overviewResp *api.GetOverviewResponse) bool 
 	if overviewResp == nil {
 		return true
 	}
-	if len(overviewResp.Applications) == 0 && len(overviewResp.EnvironmentGroups) == 0 && overviewResp.GitRevision == "" {
+	if len(overviewResp.EnvironmentGroups) == 0 && overviewResp.GitRevision == "" {
 		return true
 	}
 	return false
