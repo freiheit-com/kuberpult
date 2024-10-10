@@ -3119,6 +3119,7 @@ func (s *State) IsUndeployVersionFromManifest(application string, version uint64
 }
 
 func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.Tx, application string, versions []uint64) ([]*Release, error) {
+	var result []*Release
 	if s.DBHandler.ShouldUseOtherTables() {
 		rels, err := s.DBHandler.DBSelectReleasesByVersions(ctx, transaction, application, versions, true)
 		if err != nil {
@@ -3127,7 +3128,6 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 		if rels == nil {
 			return nil, nil
 		}
-		var result []*Release
 		for _, rel := range rels {
 			r := &Release{
 				Version:         rel.ReleaseNumber,
@@ -3142,10 +3142,16 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 			}
 			result = append(result, r)
 		}
-		return result, nil
 	} else {
-		return nil, fmt.Errorf("unsupported operation, need to enable the DB")
+		for i, v := range versions {
+			rel, err := s.GetApplicationRelease(ctx, transaction, application, v)
+			if err != nil {
+				return nil, fmt.Errorf("could not get release of app %s at index %d for version %v: %v", application, i, v, err)
+			}
+			result = append(result, rel)
+		}
 	}
+	return result, nil
 }
 
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
