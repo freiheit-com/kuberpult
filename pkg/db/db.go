@@ -1019,10 +1019,8 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			if err != nil {
 				return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
 			}
-			row.Manifests = manifestData
-		} else {
-			row.Manifests = manifestData
 		}
+		row.Manifests = manifestData
 		environments := make([]string, 0)
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
