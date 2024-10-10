@@ -24,6 +24,9 @@ import {
     Priority,
     Release,
     UndeploySummary,
+    GetAppDetailsResponse,
+    Application,
+    Deployment,
 } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -34,6 +37,52 @@ describe('Release Dialog', () => {
         releases: Release[];
         envGroups: EnvironmentGroup[];
         expectedAppLocksLength: number;
+        appDetails: GetAppDetailsResponse[];
+    };
+    const topLevelApp: Application = {
+        name: 'test',
+        sourceRepoUrl: 'url',
+        undeploySummary: UndeploySummary.NORMAL,
+        team: 'no-team',
+        warnings: [],
+        releases: [
+            {
+                version: 1,
+                sourceMessage: 'test1',
+                sourceAuthor: 'test',
+                sourceCommitId: 'commit',
+                createdAt: new Date('2022-12-04T12:30:12'),
+                undeployVersion: false,
+                prNumber: '666',
+                displayVersion: '1',
+                isMinor: false,
+                isPrepublish: false,
+            },
+            {
+                version: 2,
+                sourceMessage: 'test1',
+                sourceAuthor: 'test',
+                sourceCommitId: 'commit',
+                createdAt: new Date('2022-12-05T12:30:12'),
+                undeployVersion: false,
+                prNumber: '666',
+                displayVersion: '2',
+                isMinor: false,
+                isPrepublish: false,
+            },
+            {
+                version: 3,
+                sourceMessage: 'test1',
+                sourceAuthor: 'test',
+                sourceCommitId: 'commit',
+                createdAt: new Date('2022-12-06T12:30:12'),
+                undeployVersion: false,
+                prNumber: '666',
+                displayVersion: '3',
+                isMinor: false,
+                isPrepublish: false,
+            },
+        ],
     };
     const testAppLock: Lock = {
         lockId: 'testlockId',
@@ -53,6 +102,15 @@ describe('Release Dialog', () => {
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
     };
+    const testApp1Deployment: Deployment = {
+        version: 1,
+        locks: { testlockId: testAppLock },
+        queuedVersion: 0,
+        undeployVersion: false,
+        teamLocks: {},
+        team: 'test-team',
+    };
+
     const testApp1: Environment_Application = {
         name: 'test',
         version: 1,
@@ -109,6 +167,18 @@ describe('Release Dialog', () => {
 
     const data: TestData[] = [
         {
+            appDetails: {
+                application: topLevelApp,
+                deployments: {
+                    dev: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                },
+                appLocks: {},
+                teamLocks: {},
+            },
             name: '3 releases in 3 days',
             dates: 3,
             releases: [

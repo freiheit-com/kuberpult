@@ -714,17 +714,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         undeploySummary: UndeploySummary.NORMAL,
         warnings: [],
     };
-    // const appWith1AppLock: Environment_Application = {
-    //     name: 'test1',
-    //     version: 123,
-    //     queuedVersion: 0,
-    //     undeployVersion: false,
-    //     locks: {
-    //         l1: { message: 'test lock', lockId: '321' },
-    //     },
-    //     teamLocks: {},
-    //     team: 'test-team',
-    // };
     const appWith1AppLock: GetAppDetailsResponse = {
         application: topLevelApp,
         deployments: {
@@ -741,17 +730,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         },
         teamLocks: {},
     };
-    // const appWith1TeamLock: Environment_Application = {
-    //     name: 'test1',
-    //     version: 123,
-    //     queuedVersion: 0,
-    //     undeployVersion: false,
-    //     locks: {},
-    //     teamLocks: {
-    //         l1: { message: 'test team lock', lockId: 't-1000' },
-    //     },
-    //     team: 'test-team',
-    // };
     const appWith1TeamLock: GetAppDetailsResponse = {
         application: topLevelApp,
         deployments: {
@@ -768,19 +746,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             },
         },
     };
-    // const appWith1TeamLock1AppLock: Environment_Application = {
-    //     name: 'test1',
-    //     version: 123,
-    //     queuedVersion: 0,
-    //     undeployVersion: false,
-    //     locks: {
-    //         l1: { message: 'test app lock', lockId: 'a-1' },
-    //     },
-    //     teamLocks: {
-    //         l1: { message: 'test team lock', lockId: 't-1000' },
-    //     },
-    //     team: 'test-team',
-    // };
     const appWith1TeamLock1AppLock: GetAppDetailsResponse = {
         application: topLevelApp,
         deployments: {
