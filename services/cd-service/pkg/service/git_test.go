@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package service
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"testing"
@@ -237,7 +238,7 @@ func TestGetProductOverview(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
+			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown, Context: context.Background()}}
 
 			for _, transformer := range tc.Setup {
 				repo.Apply(testutil.MakeTestContext(), transformer)
@@ -831,7 +832,7 @@ func TestGetCommitInfo(t *testing.T) {
 				DBHandler:           repo.State().DBHandler,
 			}
 			sv := &GitServer{
-				OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown},
+				OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown, Context: context.Background()},
 				Config:          config,
 				PageSize:        uint64(pageSize),
 			}
