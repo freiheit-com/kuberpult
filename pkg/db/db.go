@@ -1040,7 +1040,6 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	if err != nil {
 		return nil, err
 	}
-	logger.FromContext(ctx).Sugar().Warnf("DONE WITH manifests=%v", withManifests)
 	return result, nil
 }
 
