@@ -113,7 +113,28 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 	}
 	appInEnv := getEnvironmentApplicationByName(env.Applications, deployment.App)
 	if appInEnv == nil {
-		return fmt.Errorf("could not find application %s in environment %s in overview", deployment.App, deployment.Env)
+		selectApp, err := h.DBSelectApp(ctx, transaction, deployment.App)
+		if err != nil {
+			return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", deployment.App, err)
+		}
+		if selectApp == nil {
+			return fmt.Errorf("could not find application '%s' in apps table: got no result", deployment.App)
+		}
+		env.Applications[deployment.App] = &api.Environment_Application{
+			Version:         0,
+			QueuedVersion:   0,
+			UndeployVersion: false,
+			ArgoCd:          nil,
+			Name:            deployment.App,
+			Locks:           map[string]*api.Lock{},
+			TeamLocks:       map[string]*api.Lock{},
+			Team:            selectApp.Metadata.Team,
+			DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+				DeployAuthor: "",
+				DeployTime:   "",
+			},
+		}
+		appInEnv = env.Applications[deployment.App]
 	}
 	if deployment.Version == nil {
 		appInEnv.Version = 0
@@ -122,9 +143,6 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 	}
 	appInEnv.DeploymentMetaData.DeployAuthor = deployment.Metadata.DeployedByEmail
 	appInEnv.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", createdTime.Unix())
-
-	app := getApplicationByName(latestOverview.Applications, deployment.App)
-
 	if deployment.Version != nil { //Check if not trying to deploy an undeploy version
 		//Get the undeploy information from the release
 		release, err := h.DBSelectReleaseByVersion(ctx, transaction, appInEnv.Name, appInEnv.Version, true)
@@ -136,8 +154,12 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 		}
 		appInEnv.UndeployVersion = release.Metadata.UndeployVersion
 	}
-	app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
-	app.UndeploySummary = deriveUndeploySummary(app.Name, latestOverview.EnvironmentGroups)
+
+	app := getApplicationByName(latestOverview.Applications, deployment.App)
+	if app != nil {
+		app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
+		app.UndeploySummary = deriveUndeploySummary(app.Name, latestOverview.EnvironmentGroups)
+	}
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
@@ -162,7 +184,28 @@ func (h *DBHandler) UpdateOverviewDeploymentAttempt(ctx context.Context, transac
 	}
 	app := getEnvironmentApplicationByName(env.Applications, queuedDeployment.App)
 	if app == nil {
-		return fmt.Errorf("could not find application %s in environment %s in overview", queuedDeployment.App, queuedDeployment.Env)
+		selectApp, err := h.DBSelectApp(ctx, transaction, queuedDeployment.App)
+		if err != nil {
+			return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", queuedDeployment.App, err)
+		}
+		if selectApp == nil {
+			return fmt.Errorf("could not find application '%s' in apps table: got no result", queuedDeployment.App)
+		}
+		env.Applications[queuedDeployment.App] = &api.Environment_Application{
+			Version:         0,
+			QueuedVersion:   0,
+			UndeployVersion: false,
+			ArgoCd:          nil,
+			Name:            queuedDeployment.App,
+			Locks:           map[string]*api.Lock{},
+			TeamLocks:       map[string]*api.Lock{},
+			Team:            selectApp.Metadata.Team,
+			DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+				DeployAuthor: "",
+				DeployTime:   "",
+			},
+		}
+		app = env.Applications[queuedDeployment.App]
 	}
 	if queuedDeployment.Version != nil {
 		app.QueuedVersion = uint64(*queuedDeployment.Version)
@@ -217,7 +260,28 @@ func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transacti
 	}
 	app := getEnvironmentApplicationByName(env.Applications, applicationLock.App)
 	if app == nil {
-		return fmt.Errorf("could not find application %s in environment %s in overview", applicationLock.App, applicationLock.Env)
+		selectApp, err := h.DBSelectApp(ctx, transaction, applicationLock.App)
+		if err != nil {
+			return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", applicationLock.App, err)
+		}
+		if selectApp == nil {
+			return fmt.Errorf("could not find application '%s' in apps table: got no result", applicationLock.App)
+		}
+		env.Applications[applicationLock.App] = &api.Environment_Application{
+			Version:         0,
+			QueuedVersion:   0,
+			UndeployVersion: false,
+			ArgoCd:          nil,
+			Name:            applicationLock.App,
+			Locks:           map[string]*api.Lock{},
+			TeamLocks:       map[string]*api.Lock{},
+			Team:            selectApp.Metadata.Team,
+			DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+				DeployAuthor: "",
+				DeployTime:   "",
+			},
+		}
+		app = env.Applications[applicationLock.App]
 	}
 	if app.Locks == nil {
 		app.Locks = map[string]*api.Lock{}
