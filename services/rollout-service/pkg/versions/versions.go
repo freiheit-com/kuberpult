@@ -226,85 +226,83 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
 
-			for _, envGroup := range overview.EnvironmentGroups {
-				for _, env := range envGroup.Environments {
-					for _, app := range overview.LightweightApps {
-						appDetails, err := v.overviewClient.GetAppDetails(ctx, &api.GetAppDetailsRequest{
-							AppName: app.Name,
-						})
+			for _, app := range overview.LightweightApps {
+				appDetails, err := v.overviewClient.GetAppDetails(ctx, &api.GetAppDetailsRequest{
+					AppName: app.Name,
+				})
 
-						if err != nil {
-							grpcErr := grpc.UnwrapGRPCStatus(err)
-							if grpcErr != nil {
-								if grpcErr.Code() == codes.Canceled {
-									return nil
-								}
-							}
-							return fmt.Errorf("overview.getAppDetails: %w", err)
+				if err != nil {
+					grpcErr := grpc.UnwrapGRPCStatus(err)
+					if grpcErr != nil {
+						if grpcErr.Code() == codes.Canceled {
+							return nil
 						}
-
-						v.AppDetailsCache.Add(app.Name, appDetails)
-
-						currentDeployment, ok := appDetails.Deployments[env.Name]
-
-						if !ok {
-							continue //no deployment found, continue
-						}
-						dt, err := time.Parse(time.RFC3339, currentDeployment.DeploymentMetaData.DeployTime)
-						if err != nil {
-							return fmt.Errorf("error parsing deployment time: %w", err)
-						}
-						//dt := deployedAt(app)
-						//sc := sourceCommitId(overview, app)
-						sc := sourceCommitIdFromAppDetails(appDetails, appDetails.Deployments[env.Name].Version)
-						tm := team(overview, app.Name)
-
-						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", currentDeployment.Version), zap.Time("deployedAt", dt.UTC()))
-						k := key{env.Name, app.Name}
-						seen[k] = currentDeployment.Version
-						environmentGroups[k] = envGroup.EnvironmentGroupName
-						teams[k] = tm
-						if versions[k] == currentDeployment.Version {
-							continue
-						}
-
-						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-							Application:      app.Name,
-							Environment:      env.Name,
-							EnvironmentGroup: envGroup.EnvironmentGroupName,
-							Team:             tm,
-							IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
-							Version: &VersionInfo{
-								Version:        currentDeployment.Version,
-								SourceCommitId: sc,
-								DeployedAt:     dt,
-							},
-						})
-
 					}
+					return fmt.Errorf("overview.getAppDetails: %w", err)
 				}
-			}
-			l.Info("version.push")
-			v.ArgoProcessor.Push(ctx, overview)
-			// Send events with version 0 for deleted applications so that we can react
-			// to apps getting deleted.
-			for k := range versions {
-				if seen[k] == 0 {
+				for env, v := range appDetails.Deployments {
+					v.AppDetailsCache.Add(app.Name, appDetails)
+
+					currentDeployment, ok := appDetails.Deployments[env.Name]
+
+					if !ok {
+						continue //no deployment found, continue
+					}
+					dt, err := time.Parse(time.RFC3339, currentDeployment.DeploymentMetaData.DeployTime)
+					if err != nil {
+						return fmt.Errorf("error parsing deployment time: %w", err)
+					}
+					//dt := deployedAt(app)
+					//sc := sourceCommitId(overview, app)
+					sc := sourceCommitIdFromAppDetails(appDetails, appDetails.Deployments[env.Name].Version)
+					tm := team(overview, app.Name)
+
+					l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", currentDeployment.Version), zap.Time("deployedAt", dt.UTC()))
+					k := key{env.Name, app.Name}
+					seen[k] = currentDeployment.Version
+					environmentGroups[k] = envGroup.EnvironmentGroupName
+					teams[k] = tm
+					if versions[k] == currentDeployment.Version {
+						continue
+					}
+
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-						IsProduction:     false,
-						Application:      k.Application,
-						Environment:      k.Environment,
-						EnvironmentGroup: environmentGroups[k],
-						Team:             teams[k],
+						Application:      app.Name,
+						Environment:      env.Name,
+						EnvironmentGroup: envGroup.EnvironmentGroupName,
+						Team:             tm,
+						IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
 						Version: &VersionInfo{
-							Version:        0,
-							SourceCommitId: "",
-							DeployedAt:     time.Time{},
+							Version:        currentDeployment.Version,
+							SourceCommitId: sc,
+							DeployedAt:     dt,
 						},
 					})
+
 				}
+				l.Info("version.push")
+				v.ArgoProcessor.Push(ctx, overview)
+				// Send events with version 0 for deleted applications so that we can react
+				// to apps getting deleted.
+				for k := range versions {
+					if seen[k] == 0 {
+						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+							IsProduction:     false,
+							Application:      k.Application,
+							Environment:      k.Environment,
+							EnvironmentGroup: environmentGroups[k],
+							Team:             teams[k],
+							Version: &VersionInfo{
+								Version:        0,
+								SourceCommitId: "",
+								DeployedAt:     time.Time{},
+							},
+						})
+					}
+				}
+				versions = seen
 			}
-			versions = seen
+
 		}
 	})
 }
