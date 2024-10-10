@@ -109,6 +109,46 @@ func TestReadArgsAppLock(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "environment, lockID, application and ciLink are specified",
+			args: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock", "--ci_link", "https://localhost:8000"},
+			expectedCmdArgs: &CreateAppLockCommandLineArguments{
+				environment: cli_utils.RepeatedString{
+					Values: []string{
+						"development",
+					},
+				},
+				lockId: cli_utils.RepeatedString{
+					Values: []string{
+						"my-lock",
+					},
+				},
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"my-app",
+					},
+				},
+				ciLink: cli_utils.RepeatedString{
+					Values: []string{
+						"https://localhost:8000",
+					},
+				},
+			},
+		},
+		{
+			name: "--ci_link is invalid url",
+			args: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock", "--ci_link", "https//localhost:8000"},
+			expectedError: errMatcher{
+				msg: "provided invalid --ci_link value 'https//localhost:8000'",
+			},
+		},
+		{
+			name: "--ci_link is specified twice",
+			args: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock", "--ci_link", "https://localhost:8000", "--ci_link", "https://localhost:8000"},
+			expectedError: errMatcher{
+				msg: "the --ci_link arg must be set at most once",
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -273,6 +313,16 @@ func TestParseArgsCreateAppLock(t *testing.T) {
 				LockId:      "my-lock",
 				Application: "my-app",
 				Message:     "this is a very long message",
+			},
+		},
+		{
+			name:    "with environment, lockID, application and ciLink",
+			cmdArgs: []string{"--environment", "development", "--application", "my-app", "--lockID", "my-lock", "--ci_link", "https://localhost:8000"},
+			expectedParams: &CreateAppLockParameters{
+				Environment: "development",
+				LockId:      "my-lock",
+				Application: "my-app",
+				CiLink:      strPtr("https://localhost:8000"),
 			},
 		},
 	}

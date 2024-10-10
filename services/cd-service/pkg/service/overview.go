@@ -216,14 +216,13 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
-		result.UndeploySummary = 0
+		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
 		return result, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	response.Application = resultApp
-	time.Sleep(1 * time.Second)
 	return response, nil
 
 }

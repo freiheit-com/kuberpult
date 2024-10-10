@@ -18,6 +18,7 @@ package release
 
 import (
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
@@ -35,6 +36,7 @@ type ReleaseParameters struct {
 	SourceMessage        *string
 	Version              *uint64
 	DisplayVersion       *string
+	CiLink               *string
 	UseDexAuthentication bool
 	IsPrepublish         bool
 }

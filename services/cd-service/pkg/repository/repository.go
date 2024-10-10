@@ -2922,7 +2922,8 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Deleted: false,
+			Deleted:      false,
+			Environments: []string{},
 		}
 		err = dbHandler.DBInsertRelease(ctx, transaction, dbRelease, db.InitialEslVersion-1)
 		if err != nil {

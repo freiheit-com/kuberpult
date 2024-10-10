@@ -619,6 +619,30 @@ func TestRequestCreation(t *testing.T) {
 			},
 			responseCode: http.StatusOK,
 		},
+		{
+			name: "one environment manifest with ci_link",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+				},
+				CiLink: strPtr("https://localhost:8000"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
+				"ci_link":     {"https://localhost:8000"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+			},
+
+			responseCode: http.StatusOK,
+		},
 	}
 
 	for _, tc := range tcs {

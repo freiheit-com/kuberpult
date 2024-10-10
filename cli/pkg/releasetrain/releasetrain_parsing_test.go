@@ -114,6 +114,42 @@ func TestReadArgsReleaseTrain(t *testing.T) {
 				useDexAuthentication: true,
 			},
 		},
+		{
+			name: "ci_link is specified",
+			args: []string{"--target-environment", "development", "--team", "test-team", "--ci_link", "https://localhost:8000"},
+			expectedCmdArgs: &ReleaseTrainCommandLineArguments{
+				targetEnvironment: cli_utils.RepeatedString{
+					Values: []string{
+						"development",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"test-team",
+					},
+				},
+				ciLink: cli_utils.RepeatedString{
+					Values: []string{
+						"https://localhost:8000",
+					},
+				},
+				useDexAuthentication: false,
+			},
+		},
+		{
+			name: "--ci_link is invalid url",
+			args: []string{"--target-environment", "development", "--team", "test-team", "--ci_link", "https//localhost:8000"},
+			expectedError: errMatcher{
+				msg: "provided invalid --ci_link value 'https//localhost:8000'",
+			},
+		},
+		{
+			name: "--ci_link is specified twice",
+			args: []string{"--target-environment", "development", "--team", "test-team", "--ci_link", "https//localhost:8000", "--ci_link", "https//localhost:8000"},
+			expectedError: errMatcher{
+				msg: "the --ci_link arg must be set at most once",
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -159,6 +195,16 @@ func TestParseArgsReleaseTrainLock(t *testing.T) {
 				Team:                 makeStringPointer("my-team"),
 				TargetEnvironment:    "development",
 				UseDexAuthentication: false,
+			},
+		},
+		{
+			name:    "target, team and ciLink",
+			cmdArgs: []string{"--target-environment", "development", "--team", "my-team", "--ci_link", "https://localhost:8000"},
+			expectedParams: ReleaseTrainParameters{
+				Team:                 makeStringPointer("my-team"),
+				TargetEnvironment:    "development",
+				UseDexAuthentication: false,
+				CiLink:               makeStringPointer("https://localhost:8000"),
 			},
 		},
 		{

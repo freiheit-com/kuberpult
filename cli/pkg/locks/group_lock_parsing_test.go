@@ -107,6 +107,41 @@ func TestReadGroupLockArgs(t *testing.T) {
 				message: cli_utils.RepeatedString{},
 			},
 		},
+		{
+			name: "environment group, lockID and ciLink are specified",
+			args: []string{"--environment-group", "development", "--lockID", "my-lock", "--ci_link", "https://localhost:8000"},
+			expectedCmdArgs: &CreateEnvGroupLockCommandLineArguments{
+				environmentGroup: cli_utils.RepeatedString{
+					Values: []string{
+						"development",
+					},
+				},
+				lockId: cli_utils.RepeatedString{
+					Values: []string{
+						"my-lock",
+					},
+				},
+				ciLink: cli_utils.RepeatedString{
+					Values: []string{
+						"https://localhost:8000",
+					},
+				},
+			},
+		},
+		{
+			name: "--ci_link is invalid url",
+			args: []string{"--environment-group", "development", "--lockID", "my-lock", "--ci_link", "https//localhost:8000"},
+			expectedError: errMatcher{
+				msg: "provided invalid --ci_link value 'https//localhost:8000'",
+			},
+		},
+		{
+			name: "--ci_link is specified twice",
+			args: []string{"--environment-group", "development", "--lockID", "my-lock", "--ci_link", "https//localhost:8000", "--ci_link", "https//localhost:8000"},
+			expectedError: errMatcher{
+				msg: "the --ci_link arg must be set at most once",
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -242,6 +277,15 @@ func TestParseEnvGroupArgs(t *testing.T) {
 				EnvironmentGroup: "development",
 				LockId:           "my-lock",
 				Message:          "this is a very long message",
+			},
+		},
+		{
+			name:    "with environment, lockID and ciLink",
+			cmdArgs: []string{"--environment-group", "development", "--lockID", "my-lock", "--ci_link", "https://localhost:8000"},
+			expectedParams: &CreateEnvironmentGroupLockParameters{
+				EnvironmentGroup: "development",
+				LockId:           "my-lock",
+				CiLink:           strPtr("https://localhost:8000"),
 			},
 		},
 	}
