@@ -183,6 +183,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
+
 		client, err := v.overviewClient.StreamOverview(ctx, &api.GetOverviewRequest{
 			GitRevision: "",
 		})

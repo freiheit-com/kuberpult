@@ -334,6 +334,36 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 			return nil
 		case <-ch:
 			ov := o.response.Load().(*api.GetOverviewResponse)
+			//o.changedApps.Load()
+			if err := stream.Send(ov); err != nil {
+				// if we don't log this here, the details will be lost - so this is an exception to the rule "either return an error or log it".
+				// for example if there's an invalid encoding, grpc will just give a generic error like
+				// "error while marshaling: string field contains invalid UTF-8"
+				// but it won't tell us which field has the issue. This is then very hard to debug further.
+				logger.FromContext(stream.Context()).Error("error sending overview response:", zap.Error(err), zap.String("overview", fmt.Sprintf("%+v", ov)))
+				return err
+			}
+
+		case <-done:
+			return nil
+		}
+	}
+}
+
+func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
+	stream api.OverviewService_StreamChangedAppsServer) error {
+	ch, unsubscribe := o.subscribeChangedApps()
+	defer unsubscribe()
+	done := stream.Context().Done()
+	for {
+		select {
+		case <-o.Shutdown:
+			return nil
+		case changedApps := <-ch:
+			ov := &api.GetChangedAppsResponse{
+				ChangedApps:  changedApps,
+				FullListApps: []string{},
+			}
 			if err := stream.Send(ov); err != nil {
 				// if we don't log this here, the details will be lost - so this is an exception to the rule "either return an error or log it".
 				// for example if there's an invalid encoding, grpc will just give a generic error like
@@ -372,6 +402,29 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 	return o.notify.Subscribe()
 }
 
+func (o *OverviewServiceServer) subscribeChangedApps() (<-chan []string, notify.Unsubscribe) {
+	o.init.Do(func() {
+		ch, unsub := o.Repository.Notify().SubscribeChangesApps()
+		// Channels obtained from subscribe are by default triggered
+		//
+		// This means, we have to wait here until the first overview is loaded.
+		<-ch
+		o.update(o.Repository.State())
+		go func() {
+			defer unsub()
+			for {
+				select {
+				case <-o.Shutdown:
+					return
+				case changedApps := <-ch:
+					o.notify.NotifyChangedApps(changedApps)
+				}
+			}
+		}()
+	})
+	return o.notify.SubscribeChangesApps()
+}
+
 func (o *OverviewServiceServer) update(s *repository.State) {
 	r, err := o.getOverviewDB(o.Context, s)
 	if err != nil {
@@ -379,6 +432,7 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 		return
 	}
 	o.response.Store(r)
+	//o.changedApps.Store
 	o.notify.Notify()
 }
 

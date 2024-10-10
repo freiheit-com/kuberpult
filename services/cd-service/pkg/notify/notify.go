@@ -19,8 +19,9 @@ package notify
 import "sync"
 
 type Notify struct {
-	mx       sync.Mutex
-	listener map[chan struct{}]struct{}
+	mx                 sync.Mutex
+	listener           map[chan struct{}]struct{}
+	changeAppsListener map[chan []string][]string
 }
 
 type Unsubscribe = func()
@@ -49,6 +50,35 @@ func (n *Notify) Notify() {
 	for ch := range n.listener {
 		select {
 		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (n *Notify) SubscribeChangesApps() (<-chan []string, Unsubscribe) {
+	ch := make(chan []string, 1)
+	ch <- []string{}
+
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	if n.changeAppsListener == nil {
+		n.changeAppsListener = map[chan []string][]string{}
+	}
+
+	n.changeAppsListener[ch] = []string{}
+	return ch, func() {
+		n.mx.Lock()
+		defer n.mx.Unlock()
+		delete(n.changeAppsListener, ch)
+	}
+}
+
+func (n *Notify) NotifyChangedApps(changedApps []string) {
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	for ch := range n.changeAppsListener {
+		select {
+		case ch <- changedApps:
 		default:
 		}
 	}

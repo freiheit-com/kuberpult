@@ -794,6 +794,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	ddSpan.Finish()
 
 	r.notify.Notify()
+	r.notify.NotifyChangedApps()
 }
 
 func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
@@ -2207,7 +2208,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 			return err
 		}
 		for lockId, lock := range ls {
-			fmt.Printf("LOCK: %s\n", lock.CreatedAt.String())
 			currentEnv := db.EnvironmentLock{
 				EslVersion: 0,
 				Env:        envName,
