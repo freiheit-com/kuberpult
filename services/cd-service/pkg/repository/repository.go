@@ -2079,6 +2079,9 @@ func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transactio
 	if err != nil {
 		return nil, err
 	}
+	if envInfo == nil {
+		return nil, fmt.Errorf("environment %s not found", environment)
+	}
 	if envInfo.Applications == nil {
 		return make([]string, 0), nil
 	}
