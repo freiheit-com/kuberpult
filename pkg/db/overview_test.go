@@ -548,7 +548,7 @@ func TestUpdateOverviewDeployment(t *testing.T) {
 				},
 				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
 			},
-			ExpectedError: errMatcher{"could not find application does-not-exists in environment development in overview"},
+			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
 		},
 	}
 
@@ -678,7 +678,7 @@ func TestUpdateOverviewDeploymentAttempt(t *testing.T) {
 				Version:    &version,
 				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
 			},
-			ExpectedError: errMatcher{"could not find application does-not-exists in environment development in overview"},
+			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
 		},
 		{
 			Name: "env does not exists",
@@ -860,7 +860,7 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 				},
 				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
 			},
-			ExpectedError: errMatcher{"could not find application does-not-exists in environment development in overview"},
+			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
 		},
 	}
 
