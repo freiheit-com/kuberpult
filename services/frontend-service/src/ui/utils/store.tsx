@@ -15,7 +15,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { createStore } from 'react-use-sub';
 import {
-    Application,
     BatchAction,
     BatchRequest,
     Environment,
@@ -450,9 +449,12 @@ export const useReleaseDialogParams = (): { app: string | null; version: number 
     const [params] = useSearchParams();
     const app = params.get('dialog-app') ?? '';
     const version = +(params.get('dialog-version') ?? '');
-    const valid = useOverview(({ applications }) =>
-        applications[app] ? !!applications[app].releases.find((r) => r.version === version) : false
-    );
+
+    const appDetails = useAppDetailsForApp(app);
+    if (!appDetails) {
+        return { app: null, version: null };
+    }
+    const valid = !!appDetails.application?.releases.find((r) => r.version === version);
     return valid ? { app, version } : { app: null, version: null };
 };
 
@@ -470,21 +472,21 @@ export const deleteAction = (action: BatchAction): void => {
 // doesn't return empty team names (i.e.: '')
 // doesn't return repeated team names
 export const useTeamNames = (): string[] =>
-    useOverview(({ applications }) => [
+    useOverview(({ lightweightApps }) => [
         ...new Set(
-            Object.values(applications)
-                .map((app: Application) => app.team.trim() || '<No Team>')
+            Object.values(lightweightApps)
+                .map((app: OverviewApplication) => app.Team.trim() || '<No Team>')
                 .sort((a, b) => a.localeCompare(b))
         ),
     ]);
-export const useApplications = (): { [p: string]: Application } => useOverview(({ applications }) => applications);
+export const useApplications = (): OverviewApplication[] => useOverview(({ lightweightApps }) => lightweightApps);
 
 export const useTeamFromApplication = (app: string): string | undefined =>
     useOverview(({ lightweightApps }) => lightweightApps.find((data) => data.Name === app)?.Name);
 
 // returns warnings from all apps
-export const useAllWarnings = (): Warning[] =>
-    useOverview(({ applications }) => Object.values(applications).flatMap((app) => app.warnings));
+export const useAllWarnings = (): Warning[] => [];
+// useOverview(({ applications }) => Object.values(applications).flatMap((app) => app.warnings));
 
 // return warnings from all apps matching the given filtering criteria
 export const useShownWarnings = (teams: string[], nameIncludes: string): Warning[] =>
@@ -536,6 +538,35 @@ export const useTeamLocks = (): DisplayLock[] =>
  */
 export const getPriorityClassName = (envOrGroup: Environment | EnvironmentGroup): string =>
     'environment-priority-' + String(Priority[envOrGroup?.priority ?? Priority.UNRECOGNIZED]).toLowerCase();
+
+export const useNewTeamLocks = (app: string, team: string): DisplayLock[] => {
+    const teamLocks = useAppDetailsForApp(app).teamLocks;
+    return Object.values(useEnvironments())
+        .map((env) =>
+            teamLocks[env.name].locks
+                .map((currentTeamLock) =>
+                    Object.values(currentTeamLock).map((lock) => ({
+                        date: lock.createdAt,
+                        environment: env.name,
+                        team: team,
+                        lockId: lock.lockId,
+                        message: lock.message,
+                        authorName: lock.createdBy?.name,
+                        authorEmail: lock.createdBy?.email,
+                    }))
+                )
+                .flat()
+        )
+        .flat()
+        .filter(
+            (value: DisplayLock, index: number, self: DisplayLock[]) =>
+                index ===
+                self.findIndex(
+                    (t: DisplayLock) =>
+                        t.lockId === value.lockId && t.team === value.team && t.environment === value.environment
+                )
+        );
+};
 
 // filter for apps included in the selected teams
 const applicationsMatchingTeam = (applications: OverviewApplication[], teams: string[]): OverviewApplication[] =>
@@ -675,7 +706,7 @@ export const useLocksConflictingWithActions = (): AllLocks => {
                 if (action.action?.$case === 'deploy') {
                     const app = action.action.deploy.application;
                     const env = action.action.deploy.environment;
-                    const appTeam = appMap[app].team;
+                    const appTeam = appMap.find((curr) => curr.Name === app)?.Team;
                     if (teamLock.environment === env && teamLock.team === appTeam) {
                         // found a team lock that matches
                         return true;
@@ -960,7 +991,7 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 
 // returns the release number {$version} of {$application}
 export const useRelease = (application: string, version: number): Release | undefined =>
-    useOverview(({ applications }) => applications[application]?.releases?.find((r) => r.version === version));
+    useAppDetailsForApp(application).application?.releases.find((r) => r.version === version);
 
 export const useReleaseOrLog = (application: string, version: number): Release | undefined => {
     const release = useRelease(application, version);
@@ -973,15 +1004,10 @@ export const useReleaseOrLog = (application: string, version: number): Release |
 };
 
 export const useReleaseOptional = (application: string, env: Environment): Release | undefined => {
-    const x = env.applications[application];
-    return useOverview(({ applications }) => {
-        const version = x ? x.version : 0;
-        const res = applications[application].releases.find((r) => r.version === version);
-        if (!x) {
-            return undefined;
-        }
-        return res;
-    });
+    const appDetails = useAppDetailsForApp(application);
+    const deployment = appDetails.deployments[env.name];
+    if (!deployment) return undefined;
+    return appDetails.application?.releases.find((r) => r.version === deployment.version);
 };
 
 // returns the release versions that are currently deployed to at least one environment
@@ -1053,11 +1079,17 @@ export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroup
 };
 
 // Get all releases for an app
-export const useReleasesForApp = (app: string): Release[] =>
-    useOverview(({ applications }) => applications[app]?.releases?.sort((a, b) => b.version - a.version));
+export const useReleasesForApp = (app: string): Release[] => {
+    const appDetails = useAppDetailsForApp(app);
+    if (!appDetails.application?.releases) {
+        return [];
+    } else {
+        return appDetails.application?.releases;
+    }
+};
 
-// Get all release versions for an app
-export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);
+// // Get all release versions for an app
+// export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);
 
 // Calculated release difference between a specific release and currently deployed release on a specific environment
 export const useReleaseDifference = (toDeployVersion: number, application: string, environment: string): number => {
@@ -1077,10 +1109,12 @@ export const useReleaseDifference = (toDeployVersion: number, application: strin
     return currentDeployedIndex - newVersionIndex;
 };
 // Get all minor releases for an app
-export const useMinorsForApp = (app: string): number[] =>
-    useReleasesForApp(app)
-        .filter((rel) => rel.isMinor)
+export const useMinorsForApp = (app: string): number[] | undefined =>
+    useAppDetailsForApp(app)
+        .application?.releases.filter((rel) => rel.isMinor)
         .map((rel) => rel.version);
+// .application?.releases.filter((rel) => rel.isMinor)
+// .map((rel) => rel.version);
 
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate
 export const useNavigateWithSearchParams = (to: string): { navURL: string; navCallback: () => void } => {
