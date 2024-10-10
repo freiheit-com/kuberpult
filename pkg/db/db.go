@@ -566,7 +566,7 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePr
 		ctx,
 		selectQuery,
 	)
-	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
 	if err != nil {
 		return nil, err
 	}
@@ -822,7 +822,7 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 		deleted,
 	)
 
-	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
