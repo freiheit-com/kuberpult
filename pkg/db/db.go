@@ -615,6 +615,48 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 	return processedRows, nil
 }
 
+func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrePublishes bool) ([]*DBReleaseWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersions")
+	defer span.Finish()
+
+	if len(releaseVersions) == 0 {
+		return []*DBReleaseWithMetaData{}, nil
+	}
+	repeatedQuestionMarks := strings.Repeat(",?", len(releaseVersions)-1)
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		`
+SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments
+FROM releases
+WHERE appName=? AND releaseVersion IN (?` + repeatedQuestionMarks + `)
+ORDER BY eslVersion DESC
+LIMIT ?;
+`))
+
+	span.SetTag("query", selectQuery)
+
+	args := []any{}
+	args = append(args, app)
+	for _, version := range releaseVersions {
+		args = append(args, version)
+	}
+	args = append(args, uint64(len(releaseVersions)))
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		args...,
+	)
+
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrePublishes)
+	if err != nil {
+		return nil, err
+	}
+	if len(processedRows) == 0 {
+		return nil, nil
+	}
+	return processedRows, nil
+}
+
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
@@ -887,6 +929,7 @@ func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *
 	}
 	return row, nil
 }
+
 func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseRows")
 	defer span.Finish()

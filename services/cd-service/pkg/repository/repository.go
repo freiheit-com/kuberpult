@@ -2512,16 +2512,15 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 		}
 		rels = retrievedReleasesOfApp
 	}
-	for _, id := range rels {
-		if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
-			return err
-		} else {
+
+	if releasesInDb, err := s.GetApplicationReleasesDB(ctx, transaction, appName, rels); err != nil {
+		return err
+	} else {
+		for _, rel := range releasesInDb {
 			if rel == nil {
 				// ignore
 			} else {
 				release := rel.ToProto()
-				release.Version = id
-				release.UndeployVersion = rel.UndeployVersion
 				app.Releases = append(app.Releases, release)
 			}
 		}
@@ -3117,6 +3116,36 @@ func (s *State) IsUndeployVersionFromManifest(application string, version uint64
 		return false, nil
 	}
 	return true, nil
+}
+
+func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.Tx, application string, versions []uint64) ([]*Release, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		rels, err := s.DBHandler.DBSelectReleasesByVersions(ctx, transaction, application, versions, true)
+		if err != nil {
+			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
+		}
+		if rels == nil {
+			return nil, nil
+		}
+		var result []*Release
+		for _, rel := range rels {
+			r := &Release{
+				Version:         rel.ReleaseNumber,
+				UndeployVersion: rel.Metadata.UndeployVersion,
+				SourceAuthor:    rel.Metadata.SourceAuthor,
+				SourceCommitId:  rel.Metadata.SourceCommitId,
+				SourceMessage:   rel.Metadata.SourceMessage,
+				CreatedAt:       rel.Created,
+				DisplayVersion:  rel.Metadata.DisplayVersion,
+				IsMinor:         rel.Metadata.IsMinor,
+				IsPrepublish:    rel.Metadata.IsPrepublish,
+			}
+			result = append(result, r)
+		}
+		return result, nil
+	} else {
+		return nil, fmt.Errorf("unsupported operation, need to enable the DB")
+	}
 }
 
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
