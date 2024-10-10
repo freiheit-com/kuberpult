@@ -623,15 +623,6 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 		return []*DBReleaseWithMetaData{}, nil
 	}
 	repeatedQuestionMarks := strings.Repeat(",?", len(releaseVersions)-1)
-	//	selectQuery := h.AdaptQuery(fmt.Sprintf(
-	//		`
-	//SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments
-	//FROM releases
-	//WHERE appName=? AND releaseVersion IN (?` + repeatedQuestionMarks + `)
-	//ORDER BY eslVersion DESC
-	//LIMIT ?;
-	//`))
-
 	selectQuery := h.AdaptQuery(`
 
 	SELECT DISTINCT
@@ -639,7 +630,6 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 		releases.created,
 		releases.appName,
 		releases.metadata,
--- 		releases.manifests,
 		releases.releaseVersion,
 		releases.deleted,
 		releases.environments
