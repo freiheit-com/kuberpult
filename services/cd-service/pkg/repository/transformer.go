@@ -3181,15 +3181,21 @@ func (c *DeployApplicationVersion) Transform(
 			} else {
 				ev := createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)
 				if s.DBHandler.ShouldUseOtherTables() {
-					gen := getGenerator(ctx)
-					eventUuid := gen.Generate()
-					oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, uint64(*oldVersion), oldReleaseDir, c.Application)
-					if err != nil {
-						return "", GetCreateReleaseGeneralFailure(err)
-					}
-					err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
-					if err != nil {
-						return "", err
+					if oldVersion == nil {
+						logger.FromContext(ctx).Sugar().Errorf("did not find old version of app %s - skipping replaced-by event", c.Application)
+					} else {
+						gen := getGenerator(ctx)
+						eventUuid := gen.Generate()
+						v := uint64(*oldVersion)
+						oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, v, oldReleaseDir, c.Application)
+						if err != nil {
+							logger.FromContext(ctx).Sugar().Warnf("could not find commit for release %d of app %s - skipping replaced-by event", v, c.Application)
+						} else {
+							err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
+							if err != nil {
+								return "", err
+							}
+						}
 					}
 				} else {
 					if err := addEventForRelease(ctx, fs, oldReleaseDir, ev); err != nil {
