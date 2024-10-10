@@ -18,9 +18,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -32,9 +35,21 @@ type BatchServiceWithDefaultTimeout struct {
 func (b *BatchServiceWithDefaultTimeout) ProcessBatch(ctx context.Context, req *api.BatchRequest, options ...grpc.CallOption) (*api.BatchResponse, error) {
 	var cancel context.CancelFunc
 	_, hasDeadline := ctx.Deadline()
+	kuberpultTimeoutError := errors.New("kuberpult batch client timeout exceeded")
 	if !hasDeadline {
-		ctx, cancel = context.WithTimeout(ctx, b.DefaultTimeout)
+		ctx, cancel = context.WithTimeoutCause(ctx, b.DefaultTimeout, kuberpultTimeoutError)
 		defer cancel()
 	}
-	return b.Inner.ProcessBatch(ctx, req, options...)
+
+	response, err := b.Inner.ProcessBatch(ctx, req, options...)
+
+	if ctx.Err() != nil {
+		if context.Cause(ctx) == kuberpultTimeoutError {
+			logger.FromContext(ctx).Warn("Context cancelled due to kuberpult timeout")
+		} else {
+			logger.FromContext(ctx).Warn("Context cancelled due %v", zap.Error(context.Cause(ctx)))
+		}
+	}
+
+	return response, err
 }
