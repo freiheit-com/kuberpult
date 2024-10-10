@@ -50,6 +50,8 @@ describe('ApplicationLockDisplay', () => {
         locks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
+        appLocks: {},
+        teamLocks: {},
     };
     const testEnv2: Environment = {
         name: 'staging',
@@ -57,6 +59,8 @@ describe('ApplicationLockDisplay', () => {
         locks: {},
         distanceToUpstream: 0,
         priority: Priority.OTHER,
+        appLocks: {},
+        teamLocks: {},
     };
     const testEnvGroup1: EnvironmentGroup = {
         environmentGroupName: 'development',

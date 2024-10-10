@@ -50,10 +50,11 @@ type VersionClient interface {
 }
 
 type versionClient struct {
-	overviewClient api.OverviewServiceClient
-	versionClient  api.VersionServiceClient
-	cache          *lru.Cache
-	ArgoProcessor  argo.ArgoAppProcessor
+	overviewClient  api.OverviewServiceClient
+	versionClient   api.VersionServiceClient
+	cache           *lru.Cache
+	AppDetailsCache *lru.Cache
+	ArgoProcessor   argo.ArgoAppProcessor
 }
 
 type VersionInfo struct {
@@ -99,28 +100,27 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 
 // Tries getting the version from cache
 func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
-	var overview *api.GetOverviewResponse
-	entry, ok := v.cache.Get(revision)
-	if !ok {
-		return nil, ErrNotFound
-	}
-	overview = entry.(*api.GetOverviewResponse)
-	for _, group := range overview.GetEnvironmentGroups() {
-		for _, env := range group.GetEnvironments() {
-			if env.Name == environment {
-				app := env.Applications[application]
-				if app == nil {
-					return &ZeroVersion, nil
-				}
-				return &VersionInfo{
-					Version:        app.Version,
-					SourceCommitId: sourceCommitId(overview, app),
-					DeployedAt:     deployedAt(app),
-				}, nil
+
+	//Check if we have appDetails
+	appDetailsEntry, ok := v.AppDetailsCache.Get(application)
+	if ok {
+		entry := appDetailsEntry.(*api.GetAppDetailsResponse)
+
+		if deployment, ok := entry.Deployments[environment]; ok {
+			dt, err := time.Parse(time.RFC3339, deployment.DeploymentMetaData.DeployTime)
+			if err != nil {
+				return nil, err
 			}
+			return &VersionInfo{
+				Version:        deployment.Version,
+				SourceCommitId: sourceCommitIdFromAppDetails(entry, deployment.Version),
+				DeployedAt:     dt,
+			}, nil
+		} else {
+			return &ZeroVersion, nil
 		}
 	}
-	return &ZeroVersion, nil
+	return nil, ErrNotFound
 }
 
 func deployedAt(app *api.Environment_Application) time.Time {
@@ -139,20 +139,34 @@ func deployedAt(app *api.Environment_Application) time.Time {
 }
 
 func team(overview *api.GetOverviewResponse, app string) string {
-	a := overview.Applications[app]
-	if a == nil {
-		return ""
+	for _, curr := range overview.LightweightApps {
+		if curr.Name == app {
+			return curr.Team
+		}
 	}
-	return a.Team
+	return ""
 }
 
-func sourceCommitId(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
-	a := overview.Applications[app.Name]
+//func sourceCommitId(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
+//	a := overview.Applications[app.Name]
+//	if a == nil {
+//		return ""
+//	}
+//	for _, rel := range a.Releases {
+//		if rel.Version == app.Version {
+//			return rel.SourceCommitId
+//		}
+//	}
+//	return ""
+//}
+
+func sourceCommitIdFromAppDetails(details *api.GetAppDetailsResponse, version uint64) string {
+	a := details.Application
 	if a == nil {
 		return ""
 	}
 	for _, rel := range a.Releases {
-		if rel.Version == app.Version {
+		if rel.Version == version {
 			return rel.SourceCommitId
 		}
 	}
@@ -186,6 +200,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 		client, err := v.overviewClient.StreamOverview(ctx, &api.GetOverviewRequest{
 			GitRevision: "",
 		})
+
 		if err != nil {
 			return fmt.Errorf("overview.connect: %w", err)
 		}
@@ -210,19 +225,46 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			v.cache.Add(overview.GitRevision, overview)
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
+
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
-					for _, app := range env.Applications {
-						dt := deployedAt(app)
-						sc := sourceCommitId(overview, app)
+					for _, app := range overview.LightweightApps {
+						appDetails, err := v.overviewClient.GetAppDetails(ctx, &api.GetAppDetailsRequest{
+							AppName: app.Name,
+						})
+
+						if err != nil {
+							grpcErr := grpc.UnwrapGRPCStatus(err)
+							if grpcErr != nil {
+								if grpcErr.Code() == codes.Canceled {
+									return nil
+								}
+							}
+							return fmt.Errorf("overview.getAppDetails: %w", err)
+						}
+
+						v.AppDetailsCache.Add(app.Name, appDetails)
+
+						currentDeployment, ok := appDetails.Deployments[env.Name]
+
+						if !ok {
+							continue //no deployment found, continue
+						}
+						dt, err := time.Parse(time.RFC3339, currentDeployment.DeploymentMetaData.DeployTime)
+						if err != nil {
+							return fmt.Errorf("error parsing deployment time: %w", err)
+						}
+						//dt := deployedAt(app)
+						//sc := sourceCommitId(overview, app)
+						sc := sourceCommitIdFromAppDetails(appDetails, appDetails.Deployments[env.Name].Version)
 						tm := team(overview, app.Name)
 
-						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
+						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", currentDeployment.Version), zap.Time("deployedAt", dt.UTC()))
 						k := key{env.Name, app.Name}
-						seen[k] = app.Version
+						seen[k] = currentDeployment.Version
 						environmentGroups[k] = envGroup.EnvironmentGroupName
 						teams[k] = tm
-						if versions[k] == app.Version {
+						if versions[k] == currentDeployment.Version {
 							continue
 						}
 
@@ -233,7 +275,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							Team:             tm,
 							IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
 							Version: &VersionInfo{
-								Version:        app.Version,
+								Version:        currentDeployment.Version,
 								SourceCommitId: sc,
 								DeployedAt:     dt,
 							},
@@ -269,10 +311,11 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) VersionClient {
 	result := &versionClient{
-		cache:          lru.New(20),
-		overviewClient: oclient,
-		versionClient:  vclient,
-		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
+		cache:           lru.New(20),
+		AppDetailsCache: lru.New(500),
+		overviewClient:  oclient,
+		versionClient:   vclient,
+		ArgoProcessor:   argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
 	}
 	return result
 }

@@ -21,16 +21,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
-
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"go.uber.org/zap"
 
 	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
@@ -74,7 +72,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		TeamLocks:   make(map[string]*api.Locks),
 	}
 	if !o.DBHandler.ShouldUseOtherTables() {
-		panic("DB")
+		return nil, fmt.Errorf("the GetAppDetails endpoint is only available when the database is enabled")
 	}
 	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
 		var rels []int64
@@ -130,6 +128,10 @@ func (o *OverviewServiceServer) GetAppDetails(
 		} else {
 			if app == nil {
 				return nil, fmt.Errorf("could not find app details of app: %s", appName)
+			}
+
+			if app.StateChange == db.AppStateChangeDelete {
+				return nil, fmt.Errorf("this app has already been deleted: %s", appName)
 			}
 			result.Team = app.Metadata.Team
 		}
@@ -216,14 +218,13 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
-		result.UndeploySummary = 0
+		result.UndeploySummary = deriveUndeploySummary(response.Deployments)
 		return result, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	response.Application = resultApp
-	time.Sleep(1 * time.Second)
 	return response, nil
 
 }
@@ -300,8 +301,8 @@ func (o *OverviewServiceServer) getOverview(
 	result := api.GetOverviewResponse{
 		Branch:            "",
 		ManifestRepoUrl:   "",
-		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
+		Applications:      map[string]*api.Application{},
 		GitRevision:       rev,
 		LightweightApps:   make([]*api.OverviewApplication, 0),
 	}
@@ -385,7 +386,7 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	o.notify.Notify()
 }
 
-func deriveUndeploySummary(appName string, deployments map[string]*api.Deployment) api.UndeploySummary {
+func deriveUndeploySummary(deployments map[string]*api.Deployment) api.UndeploySummary {
 	var allNormal = true
 	var allUndeploy = true
 	for _, currentDeployment := range deployments {

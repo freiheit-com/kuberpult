@@ -434,7 +434,6 @@ message OverviewApplication {
 }
 
 message GetOverviewResponse {
-  map<string, Application> applications = 2;
   repeated EnvironmentGroup environment_groups = 3;
   string git_revision = 4;
   string branch = 5;
@@ -591,10 +590,12 @@ message Environment {
 
   string name = 1;
   EnvironmentConfig config = 2;
-  map<string, Lock> locks = 3;
+  map<string, Lock> locks = 3; //Environment Locks. Lock ID -> Lock
   map<string, Application> applications = 4;
   uint32 distance_to_upstream = 5;
   Priority priority = 6;
+  map<string, Locks> app_locks = 7;  //Application Locks. AppName -> []Locks
+  map<string, Locks> team_locks = 8; //Team Locks. TeamName -> []Locks
 }
 
 message Release {

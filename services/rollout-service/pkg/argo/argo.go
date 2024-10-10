@@ -380,11 +380,12 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 }
 
 func team(overview *api.GetOverviewResponse, app string) string {
-	a := overview.Applications[app]
-	if a == nil {
-		return ""
+	for _, curr := range overview.LightweightApps {
+		if curr.Name == app {
+			return curr.Team
+		}
 	}
-	return a.Team
+	return ""
 }
 
 func getEnvironmentAndName(annotations map[string]string) (string, string) {

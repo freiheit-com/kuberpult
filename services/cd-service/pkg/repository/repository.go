@@ -2489,58 +2489,17 @@ func (s *State) DBInsertEnvironmentWithOverview(ctx context.Context, tx *sql.Tx,
 
 func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool, allReleasesOfAllApps map[string][]int64) error {
 	if deleteApp {
-		delete(result.Applications, appName)
 		return nil
 	}
-	app := api.Application{
-		UndeploySummary: 0,
-		Warnings:        nil,
-		Name:            appName,
-		Releases:        []*api.Release{},
-		SourceRepoUrl:   "",
-		Team:            "",
-	}
-	allReleasesOfApp, found := allReleasesOfAllApps[appName]
-	var rels []uint64
-	if found {
-		rels = conversion.ToUint64Slice(allReleasesOfApp)
-	} else {
-		retrievedReleasesOfApp, err := s.GetAllApplicationReleases(ctx, transaction, appName)
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
-		}
-		rels = retrievedReleasesOfApp
-	}
-	for _, id := range rels {
-		if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
-			return err
-		} else {
-			if rel == nil {
-				// ignore
-			} else {
-				release := rel.ToProto()
-				release.Version = id
-				release.UndeployVersion = rel.UndeployVersion
-				app.Releases = append(app.Releases, release)
-			}
-		}
-	}
-
-	if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
+	var team string
+	var err error
+	if team, err = s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
 		return err
-	} else {
-		app.Team = team
 	}
 	if result == nil {
 		return nil
 	}
-	app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
-	app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
-	if result.Applications == nil {
-		result.Applications = map[string]*api.Application{}
-	}
-	result.Applications[appName] = &app
-	result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: app.Team})
+	result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 	return nil
 }
 
@@ -2814,6 +2773,8 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 				},
 				Locks:        map[string]*api.Lock{},
 				Applications: map[string]*api.Environment_Application{},
+				AppLocks:     make(map[string]*api.Locks),
+				TeamLocks:    make(map[string]*api.Locks),
 			}
 			envInGroup.Config = env.Config
 			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
@@ -2842,6 +2803,45 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 						return err
 					}
 					env.Applications[appName] = app
+					apiAppLocks := api.Locks{
+						Locks: make([]*api.Lock, 0),
+					}
+					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
+						return err
+					} else {
+						for lockId, lock := range appLocks {
+							apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
+							})
+						}
+						env.AppLocks[appName] = &apiAppLocks
+					}
+
+					apiTeamLocks := api.Locks{
+						Locks: make([]*api.Lock, 0),
+					}
+					if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, app.Team); err != nil {
+						return err
+					} else {
+						for lockId, lock := range teamLocks {
+							apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
+							})
+						}
+						env.TeamLocks[app.Team] = &apiTeamLocks
+					}
 				}
 			}
 			envInGroup.Applications = env.Applications
