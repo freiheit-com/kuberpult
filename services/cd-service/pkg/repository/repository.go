@@ -2207,7 +2207,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 			return err
 		}
 		for lockId, lock := range ls {
-			fmt.Printf("LOCK: %s\n", lock.CreatedAt.String())
 			currentEnv := db.EnvironmentLock{
 				EslVersion: 0,
 				Env:        envName,
@@ -2541,6 +2540,7 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 		result.Applications = map[string]*api.Application{}
 	}
 	result.Applications[appName] = &app
+	result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: app.Team})
 	return nil
 }
 
