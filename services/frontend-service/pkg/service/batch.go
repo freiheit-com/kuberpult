@@ -47,7 +47,7 @@ func (b *BatchServiceWithDefaultTimeout) ProcessBatch(ctx context.Context, req *
 		if context.Cause(ctx) == kuberpultTimeoutError {
 			logger.FromContext(ctx).Warn("Context cancelled due to kuberpult timeout")
 		} else {
-			logger.FromContext(ctx).Warn("Context cancelled due %v", zap.Error(context.Cause(ctx)))
+			logger.FromContext(ctx).Sugar().Warnf("Context cancelled due %v", zap.Error(context.Cause(ctx)))
 		}
 	}
 
