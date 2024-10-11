@@ -46,10 +46,11 @@ type OverviewServiceServer struct {
 	RepositoryConfig repository.RepositoryConfig
 	Shutdown         <-chan struct{}
 
-	notify   notify.Notify
-	Context  context.Context
-	init     sync.Once
-	response atomic.Value
+	notify                       notify.Notify
+	Context                      context.Context
+	init                         sync.Once
+	changedAppsStreamingInitFunc sync.Once
+	response                     atomic.Value
 
 	DBHandler *db.DBHandler
 }
@@ -364,6 +365,7 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 				ChangedApps:  changedApps,
 				FullListApps: []string{},
 			}
+			logger.FromContext(stream.Context()).Sugar().Infof("Got changes apps: '%v'\n", changedApps)
 			if err := stream.Send(ov); err != nil {
 				// if we don't log this here, the details will be lost - so this is an exception to the rule "either return an error or log it".
 				// for example if there's an invalid encoding, grpc will just give a generic error like
@@ -403,13 +405,13 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 }
 
 func (o *OverviewServiceServer) subscribeChangedApps() (<-chan []string, notify.Unsubscribe) {
-	o.init.Do(func() {
+	o.changedAppsStreamingInitFunc.Do(func() {
 		ch, unsub := o.Repository.Notify().SubscribeChangesApps()
 		// Channels obtained from subscribe are by default triggered
 		//
 		// This means, we have to wait here until the first overview is loaded.
 		<-ch
-		o.update(o.Repository.State())
+		o.notify.NotifyChangedApps([]string{})
 		go func() {
 			defer unsub()
 			for {

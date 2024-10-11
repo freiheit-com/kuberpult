@@ -16,7 +16,9 @@ Copyright freiheit.com*/
 
 package notify
 
-import "sync"
+import (
+	"sync"
+)
 
 type Notify struct {
 	mx                 sync.Mutex
@@ -64,7 +66,6 @@ func (n *Notify) SubscribeChangesApps() (<-chan []string, Unsubscribe) {
 	if n.changeAppsListener == nil {
 		n.changeAppsListener = map[chan []string][]string{}
 	}
-
 	n.changeAppsListener[ch] = []string{}
 	return ch, func() {
 		n.mx.Lock()

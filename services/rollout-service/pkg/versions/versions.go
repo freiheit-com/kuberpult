@@ -184,9 +184,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
 
-		client, err := v.overviewClient.StreamOverview(ctx, &api.GetOverviewRequest{
-			GitRevision: "",
-		})
+		client, err := v.overviewClient.StreamChangedApps(ctx, &api.GetChangedAppsRequest{})
 		if err != nil {
 			return fmt.Errorf("overview.connect: %w", err)
 		}
@@ -197,7 +195,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				return nil
 			default:
 			}
-			overview, err := client.Recv()
+			changedApps, err := client.Recv()
 			if err != nil {
 				grpcErr := grpc.UnwrapGRPCStatus(err)
 				if grpcErr != nil {
@@ -205,12 +203,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						return nil
 					}
 				}
-				return fmt.Errorf("overview.recv: %w", err)
+				return fmt.Errorf("changedApps.recv: %w", err)
 			}
 			l := logger.FromContext(ctx).With(zap.String("git.revision", overview.GitRevision))
 			v.cache.Add(overview.GitRevision, overview)
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
+			changedApps.ChangedApps
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {
