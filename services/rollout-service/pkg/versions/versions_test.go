@@ -911,6 +911,8 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	if hs.IsReady("versions") != s.ExpectReady {
 		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
 	}
+
+	//Sort this to avoid flakeyness based on order
 	sort.Slice(vp.events, func(i, j int) bool {
 		return vp.events[i].Environment < vp.events[j].Environment
 	})
