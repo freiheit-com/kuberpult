@@ -791,11 +791,16 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 
 	r.notify.Notify()
 	var changedAppNames []string
-
+	var seen = make(map[string]bool)
 	for _, app := range changes.ChangedApps {
-		changedAppNames = append(changedAppNames, app.App)
+		if _, ok := seen[app.App]; !ok {
+			seen[app.App] = true
+			changedAppNames = append(changedAppNames, app.App)
+		}
 	}
-	r.notify.NotifyChangedApps(changedAppNames)
+	if len(changedAppNames) != 0 {
+		r.notify.NotifyChangedApps(changedAppNames)
+	}
 }
 
 func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
@@ -1133,8 +1138,9 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 				changedAppNames = append(changedAppNames, app.App)
 			}
 		}
-
-		r.notify.NotifyChangedApps(changedAppNames)
+		if len(changedAppNames) != 0 {
+			r.notify.NotifyChangedApps(changedAppNames)
+		}
 		return nil
 	} else {
 		eCh := r.applyDeferred(ctx, transformers...)

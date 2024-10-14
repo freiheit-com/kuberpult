@@ -430,12 +430,6 @@ message Deployment {
   DeploymentMetaData deployment_meta_data = 7;
 }
 
-//Lightweight version of application. Only contains name, team and warnings
-message OverviewApplication {
-  string name = 1;
-  string team = 2;
-}
-
 message GetOverviewRequest {
   // Retrieve the overview at a certain state of the repository. If it's empty, the latest commit will be used.
   string git_revision = 1;
