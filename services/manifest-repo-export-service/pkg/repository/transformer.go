@@ -1572,7 +1572,7 @@ type DeleteEnvFromApp struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	Environment           string           `json:"env"`
-	Application           string           `json:"applicatio"`
+	Application           string           `json:"app"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
