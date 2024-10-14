@@ -402,14 +402,8 @@ message GetAppDetailsResponse {
   map<string, Deployment> deployments = 2; // Env -> Release
   map<string, Locks> app_locks = 3; //EnvName -> []AppLocks
   map<string, Locks> team_locks= 4; //EnvName -> []TeamLocks
-  RepositoryMetadata repo_metadata = 6; //Rollout service needs some of these information
 }
 
-message RepositoryMetadata {
-  string git_revision = 1;
-  string branch = 2;
-  string manifest_repo_url = 3;
-}
 
 //Wrapper over array of locks
 message Locks {
