@@ -190,7 +190,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not obtain deployments for app %s: %w", appName, err)
 		}
+
 		for envName, currentDeployment := range deployments {
+
 			deployment := &api.Deployment{
 				Version:         uint64(*currentDeployment.Version),
 				QueuedVersion:   0,

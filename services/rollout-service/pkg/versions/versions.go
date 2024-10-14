@@ -114,8 +114,8 @@ func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment
 				}
 				return &VersionInfo{
 					Version:        app.Version,
-					SourceCommitId: sourceCommitId(overview, app),
-					DeployedAt:     deployedAt(app),
+					SourceCommitId: sourceCommitIdFromOverview(overview, app),
+					DeployedAt:     deployedAtFromApp(app),
 				}, nil
 			}
 		}
@@ -123,7 +123,22 @@ func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment
 	return &ZeroVersion, nil
 }
 
-func deployedAt(app *api.Environment_Application) time.Time {
+func deployedAt(deployment *api.Deployment) time.Time {
+	if deployment.DeploymentMetaData == nil {
+		return time.Time{}
+	}
+	deployTime := deployment.DeploymentMetaData.DeployTime
+	if deployTime != "" {
+		dt, err := strconv.ParseInt(deployTime, 10, 64)
+		if err != nil {
+			return time.Time{}
+		}
+		return time.Unix(dt, 0).UTC()
+	}
+	return time.Time{}
+}
+
+func deployedAtFromApp(app *api.Environment_Application) time.Time {
 	if app.DeploymentMetaData == nil {
 		return time.Time{}
 	}
@@ -146,13 +161,22 @@ func team(overview *api.GetOverviewResponse, app string) string {
 	return a.Team
 }
 
-func sourceCommitId(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
+func sourceCommitId(appReleases []*api.Release, deployment *api.Deployment) string {
+	for _, rel := range appReleases {
+		if rel.Version == deployment.Version {
+			return rel.SourceCommitId
+		}
+	}
+	return ""
+}
+func sourceCommitIdFromOverview(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
 	a := overview.Applications[app.Name]
 	if a == nil {
 		return ""
 	}
 	for _, rel := range a.Releases {
 		if rel.Version == app.Version {
+
 			return rel.SourceCommitId
 		}
 	}
@@ -183,10 +207,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
-
 		client, err := v.overviewClient.StreamChangedApps(ctx, &api.GetChangedAppsRequest{})
+
 		if err != nil {
-			return fmt.Errorf("overview.connect: %w", err)
+			return fmt.Errorf("StreamChangedApps.connect: %w", err)
 		}
 		hr.ReportReady("consuming")
 		for {
@@ -205,45 +229,92 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				}
 				return fmt.Errorf("changedApps.recv: %w", err)
 			}
-			l := logger.FromContext(ctx).With(zap.String("git.revision", overview.GitRevision))
-			v.cache.Add(overview.GitRevision, overview)
+			fmt.Println(">>>>>>>>>>>>>>")
+			fmt.Println(changedApps)
+			ov, err := v.overviewClient.GetOverview(ctx, &api.GetOverviewRequest{
+				GitRevision: "", //TODO: Overview will get smaller in the future, for now there is redundant data between appdetails and overview
+			})
+			fmt.Println(ov)
+			l := logger.FromContext(ctx)
+			v.cache.Add(ov.GitRevision, ov)
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
-			changedApps.ChangedApps
-			for _, envGroup := range overview.EnvironmentGroups {
-				for _, env := range envGroup.Environments {
-					for _, app := range env.Applications {
-						dt := deployedAt(app)
-						sc := sourceCommitId(overview, app)
-						tm := team(overview, app.Name)
 
-						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
-						k := key{env.Name, app.Name}
-						seen[k] = app.Version
-						environmentGroups[k] = envGroup.EnvironmentGroupName
-						teams[k] = tm
-						if versions[k] == app.Version {
-							continue
-						}
-
-						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-							Application:      app.Name,
-							Environment:      env.Name,
-							EnvironmentGroup: envGroup.EnvironmentGroupName,
-							Team:             tm,
-							IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
-							Version: &VersionInfo{
-								Version:        app.Version,
-								SourceCommitId: sc,
-								DeployedAt:     dt,
-							},
-						})
-
-					}
-				}
+			overview := argo.ArgoOverview{
+				Overview:   ov,
+				AppDetails: make(map[string]*api.GetAppDetailsResponse),
 			}
+			for _, appName := range changedApps.ChangedApps {
+				appDetailsResponse, err := v.overviewClient.GetAppDetails(ctx, &api.GetAppDetailsRequest{
+					AppName: appName,
+				})
+				fmt.Println(appDetailsResponse)
+				if err != nil {
+					grpcErr := grpc.UnwrapGRPCStatus(err)
+					if grpcErr != nil {
+						if grpcErr.Code() == codes.Canceled {
+							return nil
+						}
+					}
+					return fmt.Errorf("changedApps.recv: %w", err)
+				}
+
+				overview.AppDetails[appName] = appDetailsResponse
+
+				app := appDetailsResponse.Application
+				for env, deployment := range appDetailsResponse.Deployments {
+					fmt.Println("deployment")
+					dt := deployedAt(deployment)
+					sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
+					tm := appDetailsResponse.Application.Team
+
+					foundEnv := false
+					var envGroup *api.EnvironmentGroup
+					for _, currEnvGroup := range overview.Overview.EnvironmentGroups {
+						for _, currEnv := range currEnvGroup.Environments {
+							fmt.Println(currEnv.Name)
+							if currEnv.Name == env {
+								foundEnv = true
+								envGroup = currEnvGroup
+							}
+						}
+					}
+
+					if !foundEnv {
+						fmt.Println("!exists")
+						return fmt.Errorf("getAppDetails returned information regarding a deployment for app %s on env %s, but did not provide any environment group information about this environment", appName, env)
+					}
+
+					l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt))
+					k := key{env, appName}
+					seen[k] = deployment.Version
+					environmentGroups[k] = envGroup.EnvironmentGroupName
+					teams[k] = tm
+					fmt.Println(versions[k])
+					fmt.Println(deployment.Version)
+					if versions[k] == deployment.Version {
+						fmt.Println("Already seen, skipping event")
+						continue
+					}
+					fmt.Println("New event")
+					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+						Application:      appName,
+						Environment:      env,
+						EnvironmentGroup: envGroup.EnvironmentGroupName,
+						Team:             tm,
+						IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
+						Version: &VersionInfo{
+							Version:        deployment.Version,
+							SourceCommitId: sc,
+							DeployedAt:     dt,
+						},
+					})
+				}
+
+			}
+
 			l.Info("version.push")
-			v.ArgoProcessor.Push(ctx, overview)
+			v.ArgoProcessor.Push(ctx, &overview)
 			// Send events with version 0 for deleted applications so that we can react
 			// to apps getting deleted.
 			for k := range versions {

@@ -402,6 +402,28 @@ message GetAppDetailsResponse {
   map<string, Deployment> deployments = 2; // Env -> Release
   map<string, Locks> app_locks = 3; //EnvName -> []AppLocks
   map<string, Locks> team_locks= 4; //EnvName -> []TeamLocks
+  RepositoryMetadata repo_metadata = 6; //Rollout service needs some of these information
+}
+
+message RepositoryMetadata {
+  string git_revision = 1;
+  string branch = 2;
+  string manifest_repo_url = 3;
+}
+
+message EnvironmentGroupLite {
+  string environment_group_name = 1;
+  // note that the distance_to_upstream should usually be configured to be the same for all envs in this group, but this is not enforced.
+  uint32 distance_to_upstream = 3;
+  /*
+    Even though this field has the same name and type as Environment.priority, it does have difference semantics.
+
+    Environment priority is calculated based on the location of an environment in a chain. Environment group priority is calculated based on the distance to upstream **and** the maximum global distance to upstream.
+    This field therefore characterizes the "layer" of an environment group. The reason it is reusing the name and type of Environment.priority is to keep the calculation of environment colors in the frontend untouched.
+
+    Note: proper calculation of this field assumes there is not more than one environment group hierarchy; that is, there is only one group with distance_to_upstream = 0.
+  */
+  Priority priority = 4;
 }
 
 //Wrapper over array of locks
