@@ -382,14 +382,6 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team stri
 	return deployApp
 }
 
-func team(overview *api.GetOverviewResponse, app string) string {
-	a := overview.Applications[app]
-	if a == nil {
-		return ""
-	}
-	return a.Team
-}
-
 func getEnvironmentAndName(annotations map[string]string) (string, string) {
 	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"]
 }

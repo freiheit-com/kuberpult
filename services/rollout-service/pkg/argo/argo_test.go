@@ -1208,3 +1208,11 @@ type ArgoEvent struct {
 	HealthStatusCode health.HealthStatusCode
 	OperationState   *v1alpha1.OperationState
 }
+
+func team(overview *api.GetOverviewResponse, app string) string {
+	a := overview.Applications[app]
+	if a == nil {
+		return ""
+	}
+	return a.Team
+}
