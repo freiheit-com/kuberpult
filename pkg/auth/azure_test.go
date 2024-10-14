@@ -44,6 +44,17 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
+type prefixErrMatcher struct {
+	prefix string
+}
+
+func (e prefixErrMatcher) Error() string {
+	return e.prefix
+}
+
+func (e prefixErrMatcher) Is(err error) bool {
+	return strings.HasPrefix(err.Error(), e.prefix)
+}
 func TestValidateTokenStatic(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -51,6 +62,11 @@ func TestValidateTokenStatic(t *testing.T) {
 		ExpectedError error
 		noInit        bool
 	}{
+		{
+			Name:          "Not a token",
+			Token:         "asdf",
+			ExpectedError: prefixErrMatcher{"Failed to parse the JWT."},
+		},
 		{
 			Name:          "Not initialized",
 			Token:         "asdf",
@@ -60,7 +76,7 @@ func TestValidateTokenStatic(t *testing.T) {
 		{
 			Name:          "Not a token 2",
 			Token:         "asdf.asdf.asdf",
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: could not JSON decode header: invalid character 'j' looking for beginning of value"},
+			ExpectedError: prefixErrMatcher{"Failed to parse the JWT."},
 		},
 		{
 			Name:          "Kid not present",

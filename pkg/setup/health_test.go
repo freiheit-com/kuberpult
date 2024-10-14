@@ -215,10 +215,12 @@ background_job_ready{name="a"} 0
 type mockBackoff struct {
 	called   uint
 	resetted uint
+	backOffcalled chan bool
 }
 
 func (b *mockBackoff) NextBackOff() time.Duration {
 	b.called = b.called + 1
+	b.backOffcalled <- true
 	return 1 * time.Nanosecond
 }
 
@@ -314,7 +316,9 @@ func TestHealthReporterRetry(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			stepCh := make(chan step)
 			stateChange := make(chan struct{}, len(tc.Steps))
-			bo := &mockBackoff{}
+			bo := &mockBackoff{
+				backOffcalled: make(chan bool, 3),
+			}
 			hs := HealthServer{}
 			hs.BackOffFactory = func() backoff.BackOff { return bo }
 			ctx, cancel := context.WithCancel(context.Background())
@@ -341,7 +345,9 @@ func TestHealthReporterRetry(t *testing.T) {
 			for _, st := range tc.Steps {
 				stepCh <- st
 				<-stateChange
-				time.Sleep(500 * time.Millisecond)
+				if st.ReturnError == nil && !st.ExpectReady {
+					<-bo.backOffcalled
+				}
 				ready := hs.IsReady("a")
 				if st.ExpectReady != ready {
 					t.Errorf("expected ready status to %t but got %t", st.ExpectReady, ready)
