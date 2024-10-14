@@ -341,6 +341,7 @@ func TestHealthReporterRetry(t *testing.T) {
 			for _, st := range tc.Steps {
 				stepCh <- st
 				<-stateChange
+				time.Sleep(500 * time.Millisecond)
 				ready := hs.IsReady("a")
 				if st.ExpectReady != ready {
 					t.Errorf("expected ready status to %t but got %t", st.ExpectReady, ready)

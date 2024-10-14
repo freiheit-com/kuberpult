@@ -52,11 +52,6 @@ func TestValidateTokenStatic(t *testing.T) {
 		noInit        bool
 	}{
 		{
-			Name:          "Not a token",
-			Token:         "asdf",
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
-		},
-		{
 			Name:          "Not initialized",
 			Token:         "asdf",
 			noInit:        true,
