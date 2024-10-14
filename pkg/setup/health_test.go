@@ -213,8 +213,8 @@ background_job_ready{name="a"} 0
 }
 
 type mockBackoff struct {
-	called   uint
-	resetted uint
+	called        uint
+	resetted      uint
 	backOffcalled chan bool
 }
 
@@ -240,14 +240,16 @@ func TestHealthReporterRetry(t *testing.T) {
 		ExpectResetCalled   uint
 	}
 	tcs := []struct {
-		Name string
+		Name              string
+		BackoffChanLength uint
 
 		Steps []step
 
 		ExpectError error
 	}{
 		{
-			Name: "reports healthy",
+			Name:              "reports healthy",
+			BackoffChanLength: 1,
 			Steps: []step{
 				{
 					ReportHealth: HealthReady,
@@ -258,7 +260,8 @@ func TestHealthReporterRetry(t *testing.T) {
 			},
 		},
 		{
-			Name: "reports unhealthy if there is an error",
+			Name:              "reports unhealthy if there is an error",
+			BackoffChanLength: 1,
 			Steps: []step{
 				{
 					ReturnError: fmt.Errorf("no"),
@@ -269,7 +272,8 @@ func TestHealthReporterRetry(t *testing.T) {
 			},
 		},
 		{
-			Name: "doesnt retry permanent errors",
+			Name:              "doesnt retry permanent errors",
+			BackoffChanLength: 1,
 			Steps: []step{
 				{
 					ReturnError: Permanent(fmt.Errorf("no")),
@@ -281,7 +285,8 @@ func TestHealthReporterRetry(t *testing.T) {
 			ExpectError: errMatcher{"no"},
 		},
 		{
-			Name: "retries some times and resets once it's healthy",
+			Name:              "retries some times and resets once it's healthy",
+			BackoffChanLength: 3,
 			Steps: []step{
 				{
 					ReturnError: fmt.Errorf("no"),
@@ -317,7 +322,7 @@ func TestHealthReporterRetry(t *testing.T) {
 			stepCh := make(chan step)
 			stateChange := make(chan struct{}, len(tc.Steps))
 			bo := &mockBackoff{
-				backOffcalled: make(chan bool, 3),
+				backOffcalled: make(chan bool, tc.BackoffChanLength),
 			}
 			hs := HealthServer{}
 			hs.BackOffFactory = func() backoff.BackOff { return bo }
