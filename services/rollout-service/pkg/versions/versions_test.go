@@ -36,7 +36,7 @@ import (
 )
 
 type step struct {
-	Overview            *api.GetChangedAppsResponse
+	ChangedApps         *api.GetChangedAppsResponse
 	ConnectErr          error
 	RecvErr             error
 	CancelContext       bool
@@ -128,7 +128,7 @@ func (m *mockOverviewClient) Recv() (*api.GetChangedAppsResponse, error) {
 	}
 	m.OverviewResponse = reply.OverviewResponse
 	m.AppDetailsResponses = reply.AppDetailsResponses //Endpoint responses at different steps
-	return reply.Overview, reply.RecvErr
+	return reply.ChangedApps, reply.RecvErr
 }
 
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
@@ -324,7 +324,7 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Puts received overviews in the cache",
 			Steps: []step{
 				{
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -420,7 +420,7 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Don't notify twice for the same version",
 			Steps: []step{
 				{
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -465,7 +465,7 @@ func TestVersionClientStream(t *testing.T) {
 					},
 				},
 				{
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -506,7 +506,7 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Notify for apps that are deleted",
 			Steps: []step{
 				{
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -551,7 +551,7 @@ func TestVersionClientStream(t *testing.T) {
 					},
 				},
 				{
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -594,7 +594,7 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Notify for apps that are deleted across reconnects",
 			Steps: []step{
 				{
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -643,7 +643,7 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady: false,
 				},
 				{
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -664,8 +664,7 @@ func TestVersionClientStream(t *testing.T) {
 						},
 					},
 					OverviewResponse: emptyTestOverview,
-
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -686,8 +685,7 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Updates environment groups",
 			Steps: []step{
 				{
-					//Overview: testOverview,
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -731,8 +729,7 @@ func TestVersionClientStream(t *testing.T) {
 					},
 				},
 				{
-					//Overview: testOverviewWithDifferentEnvgroup,
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
@@ -782,12 +779,10 @@ func TestVersionClientStream(t *testing.T) {
 			},
 		},
 		{
-			//Overview: testOverviewWithProdEnvs,
 			Name: "Reports production environments",
-
 			Steps: []step{
 				{
-					Overview: &api.GetChangedAppsResponse{
+					ChangedApps: &api.GetChangedAppsResponse{
 						ChangedApps: []string{
 							"foo",
 						},
