@@ -453,8 +453,8 @@ message Deployment {
 
 //Lightweight version of application. Only contains name, team and warnings
 message OverviewApplication {
-  string Name = 1;
-  string Team = 2;
+  string name = 1;
+  string team = 2;
 }
 
 message GetOverviewRequest {
