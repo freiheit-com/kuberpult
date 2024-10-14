@@ -5043,11 +5043,12 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
 	defer span.Finish()
 
+	fmt.Println("DIOGO MARK")
 	selectQuery := h.AdaptQuery(
 		`
 SELECT created, version, name, json, applications
 FROM environments
-WHERE name=?
+WHERE name=? AND deleted=false
 ORDER BY version DESC
 LIMIT 1;
 `,
@@ -5081,6 +5082,7 @@ LIMIT 1;
 			}
 			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
 		}
+		fmt.Printf("Obtained row:\n%v\n", row)
 		env, err := EnvironmentFromRow(ctx, &row)
 		if err != nil {
 			return nil, err
@@ -5100,6 +5102,8 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 		return &[]DBEnvironment{}, nil
 	}
 
+	fmt.Println("DIOGO MARK")
+	// DIOGO MARK query on environment
 	selectQuery := h.AdaptQuery(
 		`
 SELECT
@@ -5123,6 +5127,7 @@ ON
   AND latest.name = environments.name
 WHERE
   environments.name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
+  AND deleted=false
 LIMIT ?
 `,
 	)
@@ -5160,6 +5165,7 @@ LIMIT ?
 			}
 			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
 		}
+		fmt.Printf("Obtained row:\n%v\n", row)
 		env, err := EnvironmentFromRow(ctx, &row)
 		if err != nil {
 			return nil, err
@@ -5201,7 +5207,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT Into environments (created, version, name, json, applications) VALUES (?, ?, ?, ?, ?);",
+		"INSERT Into environments (created, version, name, json, applications, deleted) VALUES (?, ?, ?, ?, ?, ?);",
 	)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -5215,6 +5221,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 		environmentName,
 		jsonToInsert,
 		string(applicationsJson),
+		false,
 	)
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
@@ -5233,6 +5240,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 		return nil, fmt.Errorf("no transaction provided when selecting all environments from all_environments table")
 	}
 
+	fmt.Println("DIOGO MARK")
 	selectQuery := h.AdaptQuery(
 		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
 	)
@@ -5328,6 +5336,7 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DB
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEnvironment")
 	defer span.Finish()
 
+	fmt.Println("DIOGO MARK")
 	selectQuery := h.AdaptQuery(
 		"SELECT created, version, json FROM all_environments ORDER BY version DESC LIMIT 1;",
 	)

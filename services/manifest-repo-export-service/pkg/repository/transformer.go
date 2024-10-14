@@ -1571,8 +1571,8 @@ func (c *MigrationTransformer) SetEslVersion(eslVersion db.TransformerID) {
 type DeleteEnvFromApp struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string           `json:"environment"`
-	Application           string           `json:"application"`
+	Environment           string           `json:"env"`
+	Application           string           `json:"applicatio"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
