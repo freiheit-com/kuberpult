@@ -102,14 +102,11 @@ describe('Release Dialog', () => {
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
     };
-    const testApp1Deployment: Deployment = {
-        version: 1,
-        locks: { testlockId: testAppLock },
-        queuedVersion: 0,
-        undeployVersion: false,
-        teamLocks: {},
-        team: 'test-team',
-    };
+    // const testApp1Deployment: Deployment = {
+    //     version: 1,
+    //     queuedVersion: 0,
+    //     undeployVersion: false,
+    // };
 
     const testApp1: Environment_Application = {
         name: 'test',
@@ -167,18 +164,20 @@ describe('Release Dialog', () => {
 
     const data: TestData[] = [
         {
-            appDetails: {
-                application: topLevelApp,
-                deployments: {
-                    dev: {
-                        version: 1,
-                        queuedVersion: 0,
-                        undeployVersion: false,
+            appDetails: [
+                {
+                    application: topLevelApp,
+                    deployments: {
+                        dev: {
+                            version: 1,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
                     },
+                    appLocks: {},
+                    teamLocks: {},
                 },
-                appLocks: {},
-                teamLocks: {},
-            },
+            ],
             name: '3 releases in 3 days',
             dates: 3,
             releases: [
@@ -225,6 +224,7 @@ describe('Release Dialog', () => {
         {
             name: '3 releases in 2 days',
             dates: 2,
+            appDetails: [],
             releases: [
                 {
                     version: 1,
@@ -269,6 +269,7 @@ describe('Release Dialog', () => {
         {
             name: 'two application locks without any release',
             dates: 0,
+            appDetails: [],
             releases: [],
             envGroups: [testEnvGroup1, testEnvGroup2],
             expectedAppLocksLength: 2,
