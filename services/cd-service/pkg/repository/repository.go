@@ -601,6 +601,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			}
 		}
 	}
+	
 	return transformerBatches, nil, changes
 }
 
@@ -737,10 +738,12 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 		},
 		RemoteCallbacks: RemoteCallbacks,
 	}
+
 	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
 	if len(transformerBatches) == 0 {
 		return
 	}
+
 	if !r.DB.ShouldUseOtherTables() {
 		logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
 		// Try pushing once
