@@ -221,8 +221,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				}
 				return fmt.Errorf("changedApps.recv: %w", err)
 			}
-			fmt.Println(">>>>>>>>>>>>>>")
-			fmt.Println(changedApps)
+
 			ov, err := v.overviewClient.GetOverview(ctx, &api.GetOverviewRequest{
 				GitRevision: "", //TODO: Overview will get smaller in the future, for now there is redundant data between appdetails and overview
 			})
@@ -235,7 +234,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				}
 				return fmt.Errorf("overviewClient.GetOverview: %w", err)
 			}
-			fmt.Println(ov)
 			l := logger.FromContext(ctx)
 			v.cache.Add(ov.GitRevision, ov)
 			l.Info("overview.get")
@@ -249,7 +247,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				appDetailsResponse, err := v.overviewClient.GetAppDetails(ctx, &api.GetAppDetailsRequest{
 					AppName: appName,
 				})
-				fmt.Println(appDetailsResponse)
 				if err != nil {
 					grpcErr := grpc.UnwrapGRPCStatus(err)
 					if grpcErr != nil {
@@ -263,8 +260,8 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				overview.AppDetails[appName] = appDetailsResponse
 
 				app := appDetailsResponse.Application
+				//Go through every deployment and check if we have seen it. If not, Add it to the pool of events
 				for env, deployment := range appDetailsResponse.Deployments {
-					fmt.Println("deployment")
 					dt := deployedAt(deployment)
 					sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
 					tm := appDetailsResponse.Application.Team
@@ -273,7 +270,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					var envGroup *api.EnvironmentGroup
 					for _, currEnvGroup := range overview.Overview.EnvironmentGroups {
 						for _, currEnv := range currEnvGroup.Environments {
-							fmt.Println(currEnv.Name)
 							if currEnv.Name == env {
 								foundEnv = true
 								envGroup = currEnvGroup
@@ -282,7 +278,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					}
 
 					if !foundEnv {
-						fmt.Println("!exists")
 						return fmt.Errorf("getAppDetails returned information regarding a deployment for app %s on env %s, but did not provide any environment group information about this environment", appName, env)
 					}
 
@@ -291,13 +286,9 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					seen[k] = deployment.Version
 					environmentGroups[k] = envGroup.EnvironmentGroupName
 					teams[k] = tm
-					fmt.Println(versions[k])
-					fmt.Println(deployment.Version)
 					if versions[k] == deployment.Version {
-						fmt.Println("Already seen, skipping event")
 						continue
 					}
-					fmt.Println("New event")
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
 						Application:      appName,
 						Environment:      env,

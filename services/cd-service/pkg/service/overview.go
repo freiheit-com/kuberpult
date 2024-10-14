@@ -436,7 +436,6 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 		return
 	}
 	o.response.Store(r)
-	//o.changedApps.Store
 	o.notify.Notify()
 }
 

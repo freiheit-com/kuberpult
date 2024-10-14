@@ -77,14 +77,14 @@ type mockOverviewClient struct {
 
 // GetOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (*api.GetOverviewResponse, error) {
-	m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
+	//m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
 	return m.OverviewResponse, nil
 	//return nil, status.Error(codes.Unknown, "no")
 }
 
 // GetOverview implements api.GetAppDetails
 func (m *mockOverviewClient) GetAppDetails(ctx context.Context, in *api.GetAppDetailsRequest, opts ...grpc.CallOption) (*api.GetAppDetailsResponse, error) {
-	m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
+	//m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
 	if resp := m.AppDetailsResponses[in.AppName]; resp != nil {
 		return resp, nil
 	}
@@ -320,70 +320,70 @@ func TestVersionClientStream(t *testing.T) {
 				},
 			},
 		},
-		//{
-		//	Name: "Puts received overviews in the cache",
-		//	Steps: []step{
-		//		{
-		//			Overview: &api.GetChangedAppsResponse{
-		//				ChangedApps: []string{
-		//					"foo",
-		//				},
-		//			},
-		//			OverviewResponse: testOverview,
-		//			AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-		//				"foo": {
-		//					Application: &api.Application{
-		//						Team: "footeam",
-		//						Name: "foo",
-		//						Releases: []*api.Release{
-		//							{
-		//								Version:        1,
-		//								SourceCommitId: "00001",
-		//							},
-		//						},
-		//					},
-		//					Deployments: map[string]*api.Deployment{
-		//						"staging": {
-		//							Version: 1,
-		//							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-		//								DeployTime: "123456789",
-		//							},
-		//						},
-		//					},
-		//				},
-		//			},
-		//
-		//			ExpectReady: true,
-		//			ExpectedEvents: []KuberpultEvent{
-		//				{
-		//					Environment:      "staging",
-		//					Application:      "foo",
-		//					EnvironmentGroup: "staging-group",
-		//					Team:             "footeam",
-		//					Version: &VersionInfo{
-		//						Version:        1,
-		//						SourceCommitId: "00001",
-		//						DeployedAt:     time.Unix(123456789, 0).UTC(),
-		//					},
-		//				},
-		//			},
-		//		},
-		//		{
-		//			RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-		//			CancelContext: true,
-		//		},
-		//	},
-		//	ExpectedVersions: []expectedVersion{
-		//		{
-		//			Revision:        "1234",
-		//			Environment:     "staging",
-		//			Application:     "foo",
-		//			DeployedVersion: 1,
-		//			SourceCommitId:  "00001",
-		//			DeployTime:      time.Unix(123456789, 0).UTC(),
-		//		},
-		//	},
-		//},
+		{
+			Name: "Puts received overviews in the cache",
+			Steps: []step{
+				{
+					Overview: &api.GetChangedAppsResponse{
+						ChangedApps: []string{
+							"foo",
+						},
+					},
+					OverviewResponse: testOverview,
+					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
+						"foo": {
+							Application: &api.Application{
+								Team: "footeam",
+								Name: "foo",
+								Releases: []*api.Release{
+									{
+										Version:        1,
+										SourceCommitId: "00001",
+									},
+								},
+							},
+							Deployments: map[string]*api.Deployment{
+								"staging": {
+									Version: 1,
+									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+										DeployTime: "123456789",
+									},
+								},
+							},
+						},
+					},
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Revision:        "1234",
+					Environment:     "staging",
+					Application:     "foo",
+					DeployedVersion: 1,
+					SourceCommitId:  "00001",
+					DeployTime:      time.Unix(123456789, 0).UTC(),
+				},
+			},
+		},
 		{
 			Name: "Can resolve versions from the versions client",
 			Steps: []step{
