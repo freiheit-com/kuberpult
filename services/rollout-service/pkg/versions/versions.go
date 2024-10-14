@@ -153,14 +153,6 @@ func deployedAtFromApp(app *api.Environment_Application) time.Time {
 	return time.Time{}
 }
 
-func team(overview *api.GetOverviewResponse, app string) string {
-	a := overview.Applications[app]
-	if a == nil {
-		return ""
-	}
-	return a.Team
-}
-
 func sourceCommitId(appReleases []*api.Release, deployment *api.Deployment) string {
 	for _, rel := range appReleases {
 		if rel.Version == deployment.Version {
@@ -234,6 +226,15 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			ov, err := v.overviewClient.GetOverview(ctx, &api.GetOverviewRequest{
 				GitRevision: "", //TODO: Overview will get smaller in the future, for now there is redundant data between appdetails and overview
 			})
+			if err != nil {
+				grpcErr := grpc.UnwrapGRPCStatus(err)
+				if grpcErr != nil {
+					if grpcErr.Code() == codes.Canceled {
+						return nil
+					}
+				}
+				return fmt.Errorf("overviewClient.GetOverview: %w", err)
+			}
 			fmt.Println(ov)
 			l := logger.FromContext(ctx)
 			v.cache.Add(ov.GitRevision, ov)
