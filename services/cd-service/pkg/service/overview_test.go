@@ -640,6 +640,7 @@ func TestOverviewService(t *testing.T) {
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
+				Context:    context.Background(),
 			}
 			tc.Test(t, svc)
 			if tc.DB {
@@ -972,6 +973,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
+				Context:    context.Background(),
 			}
 
 			ov, err := svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
