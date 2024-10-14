@@ -3181,15 +3181,21 @@ func (c *DeployApplicationVersion) Transform(
 			} else {
 				ev := createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)
 				if s.DBHandler.ShouldUseOtherTables() {
-					gen := getGenerator(ctx)
-					eventUuid := gen.Generate()
-					oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, uint64(*oldVersion), oldReleaseDir, c.Application)
-					if err != nil {
-						return "", GetCreateReleaseGeneralFailure(err)
-					}
-					err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
-					if err != nil {
-						return "", err
+					if oldVersion == nil {
+						logger.FromContext(ctx).Sugar().Errorf("did not find old version of app %s - skipping replaced-by event", c.Application)
+					} else {
+						gen := getGenerator(ctx)
+						eventUuid := gen.Generate()
+						v := uint64(*oldVersion)
+						oldReleaseCommitId, err := getCommitID(ctx, transaction, state, fs, v, oldReleaseDir, c.Application)
+						if err != nil {
+							logger.FromContext(ctx).Sugar().Warnf("could not find commit for release %d of app %s - skipping replaced-by event", v, c.Application)
+						} else {
+							err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
+							if err != nil {
+								return "", err
+							}
+						}
 					}
 				} else {
 					if err := addEventForRelease(ctx, fs, oldReleaseDir, ev); err != nil {
@@ -3382,7 +3388,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 	return resp, nil
 }
 
-func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sql.Tx, upstreamLatest bool, state *State, upstreamEnvName, source, commitHash string) (apps []string, appVersions []Overview, err error) {
+func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sql.Tx, upstreamLatest bool, state *State, upstreamEnvName, source, commitHash string, targetEnv string) (apps []string, appVersions []Overview, err error) {
 	if commitHash != "" {
 		appVersions, err := getOverrideVersions(ctx, transaction, c.CommitHash, upstreamEnvName, c.Repo)
 		if err != nil {
@@ -3403,7 +3409,9 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 		return apps, appVersions, nil
 	}
 	if upstreamLatest {
-		apps, err = state.GetApplications(ctx, transaction)
+		// For "upstreamlatest" we cannot get the source environment, because it's not a real environment
+		// but since we only care about the names of the apps, we can just get the apps for the target env.
+		apps, err = state.GetEnvironmentApplications(ctx, transaction, targetEnv)
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
 		}
@@ -3704,7 +3712,7 @@ func (c *envReleaseTrain) prognosis(
 		source = "latest"
 	}
 
-	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash)
+	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash, c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
 			SkipCause:     nil,
