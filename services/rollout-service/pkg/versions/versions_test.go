@@ -77,14 +77,11 @@ type mockOverviewClient struct {
 
 // GetOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (*api.GetOverviewResponse, error) {
-	//m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
 	return m.OverviewResponse, nil
-	//return nil, status.Error(codes.Unknown, "no")
 }
 
 // GetOverview implements api.GetAppDetails
 func (m *mockOverviewClient) GetAppDetails(ctx context.Context, in *api.GetAppDetailsRequest, opts ...grpc.CallOption) (*api.GetAppDetailsResponse, error) {
-	//m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
 	if resp := m.AppDetailsResponses[in.AppName]; resp != nil {
 		return resp, nil
 	}
@@ -93,7 +90,6 @@ func (m *mockOverviewClient) GetAppDetails(ctx context.Context, in *api.GetAppDe
 
 // StreamOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (api.OverviewService_StreamOverviewClient, error) {
-
 	return nil, nil
 }
 

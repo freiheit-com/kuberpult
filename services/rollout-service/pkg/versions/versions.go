@@ -223,7 +223,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			}
 
 			ov, err := v.overviewClient.GetOverview(ctx, &api.GetOverviewRequest{
-				GitRevision: "", //TODO: ChangedApps will get smaller in the future, for now there is redundant data between appdetails and overview
+				GitRevision: "",
 			})
 			if err != nil {
 				grpcErr := grpc.UnwrapGRPCStatus(err)
