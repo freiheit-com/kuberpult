@@ -824,9 +824,9 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady: true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "canary",
+							Environment:      "production",
 							Application:      "foo",
-							EnvironmentGroup: "canary",
+							EnvironmentGroup: "production",
 							IsProduction:     true,
 							Team:             "footeam",
 							Version: &VersionInfo{
@@ -836,9 +836,9 @@ func TestVersionClientStream(t *testing.T) {
 							},
 						},
 						{
-							Environment:      "production",
+							Environment:      "canary",
 							Application:      "foo",
-							EnvironmentGroup: "production",
+							EnvironmentGroup: "canary",
 							IsProduction:     true,
 							Team:             "footeam",
 							Version: &VersionInfo{
