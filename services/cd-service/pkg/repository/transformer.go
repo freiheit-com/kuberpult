@@ -3833,6 +3833,10 @@ func (c *envReleaseTrain) prognosis(
 			}
 		} else if upstreamLatest {
 			l := len(allLatestReleases[appName])
+			if allLatestReleases == nil || allLatestReleases[appName] == nil || l == 0 {
+				logger.FromContext(ctx).Sugar().Warnf("app %s appears to have no releases on env=%s, so it is skipped", appName, c.Env)
+				continue
+			}
 			versionToDeploy = uint64(allLatestReleases[appName][int(math.Max(0, float64(l-1)))])
 		} else {
 			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
