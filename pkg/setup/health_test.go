@@ -350,7 +350,7 @@ func TestHealthReporterRetry(t *testing.T) {
 			for _, st := range tc.Steps {
 				stepCh <- st
 				<-stateChange
-				if st.ReturnError == nil && !st.ExpectReady {
+				if st.ReturnError != nil && !st.ExpectReady && tc.ExpectError == nil {
 					<-bo.backOffcalled
 				}
 				ready := hs.IsReady("a")
