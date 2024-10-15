@@ -990,8 +990,12 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 };
 
 // returns the release number {$version} of {$application}
-export const useRelease = (application: string, version: number): Release | undefined =>
-    useAppDetailsForApp(application).application?.releases.find((r) => r.version === version);
+export const useRelease = (application: string, version: number): Release | undefined => {
+    const appDetails = useAppDetailsForApp(application);
+
+    if (!appDetails) return undefined;
+    return appDetails.application?.releases.find((r) => r.version === version);
+};
 
 export const useReleaseOrLog = (application: string, version: number): Release | undefined => {
     const release = useRelease(application, version);
@@ -1081,7 +1085,7 @@ export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroup
 // Get all releases for an app
 export const useReleasesForApp = (app: string): Release[] => {
     const appDetails = useAppDetailsForApp(app);
-    if (!appDetails.application?.releases) {
+    if (!appDetails?.application?.releases) {
         return [];
     } else {
         return appDetails.application?.releases;
