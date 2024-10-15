@@ -81,6 +81,10 @@ kuberpult-earthly: compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose up 
 
+kuberpult-earthly-persist: compose-down
+	earthly +all-services --UID=$(USER_UID)
+	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
+
 all-services:
 	earthly +all-services --tag=$(VERSION)
 
