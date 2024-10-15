@@ -483,22 +483,37 @@ export const useTeamFromApplication = (app: string): string | undefined =>
     useOverview(({ lightweightApps }) => lightweightApps.find((data) => data.Name === app)?.Name);
 
 // returns warnings from all apps
-export const useAllWarnings = (): Warning[] => [];
+export const useAllWarnings = (): Warning[] => {
+    const names = useOverview(({ lightweightApps }) => lightweightApps).map((curr) => curr.Name);
+    const warns = names
+        .map((name) => {
+            const resp = updateAppDetails.get()[name];
+            if (resp === undefined) {
+                return [];
+            } else {
+                const app = resp.application;
+                if (app === undefined) {
+                    return [];
+                } else {
+                    return app.warnings;
+                }
+            }
+        })
+        .flatMap((curr) => curr);
 
-// {
-//     const names = useOverview(({ lightweightApps }) => lightweightApps).map((curr) => curr.Name);
-//     names.forEach((c) => useAppDetailsForApp(c));
-// };
-
-// // returns warnings from all apps
-// export const useAppDetailsForApps = (apps: OverviewApplication[]): []boolean =>
-//     useAppDetails(({ result }) => apps.map((app) => app.Name === result.application?.name));
+    if (warns === undefined) {
+        return [];
+    } else {
+        return warns || [];
+    }
+};
 
 // return warnings from all apps matching the given filtering criteria
-export const useShownWarnings = (teams: string[], nameIncludes: string): Warning[] =>
-    //const shownApps = useApplicationsFilteredAndSorted(teams, true, nameIncludes);
-    // return shownApps.flatMap((app) => app.warnings);
-    [];
+export const useShownWarnings = (teams: string[], nameIncludes: string): Warning[] => [];
+// {
+//     const shownApps = useApplicationsFilteredAndSorted(teams, true, nameIncludes);
+//     return shownApps.flatMap((app) => app.warnings);
+// }
 
 export const useEnvironmentGroups = (): EnvironmentGroup[] => useOverview(({ environmentGroups }) => environmentGroups);
 
@@ -578,9 +593,21 @@ export const useNewTeamLocks = (app: string, team: string): DisplayLock[] => {
 const applicationsMatchingTeam = (applications: OverviewApplication[], teams: string[]): OverviewApplication[] =>
     applications.filter((app) => teams.length === 0 || teams.includes(app.Team.trim() || '<No Team>'));
 
-// filter for all application names that have warnings
-// const applicationsWithWarnings = (applications: OverviewApplication[]) OverviewApplication[] =>
-//     applications.filter((app) => app.warnings.length > 0);
+//filter for all application names that have warnings
+const applicationsWithWarnings = (applications: OverviewApplication[]): OverviewApplication[] =>
+    applications
+        .map((app) => {
+            const d = updateAppDetails.get()[app.Name].application;
+            if (d === undefined) {
+                return [];
+            } else {
+                if (d.warnings.length > 0) {
+                    return [app];
+                }
+                return [];
+            }
+        })
+        .flatMap((curr) => curr);
 
 // filters given apps with the search terms or all for the empty string
 const applicationsMatchingName = (applications: OverviewApplication[], appNameParam: string): OverviewApplication[] =>
@@ -598,8 +625,8 @@ export const useApplicationsFilteredAndSorted = (
 ): OverviewApplication[] => {
     const all = useOverview(({ lightweightApps }) => Object.values(lightweightApps));
     const allMatchingTeam = applicationsMatchingTeam(all, teams);
-    //const allMatchingTeamAndWarnings = withWarningsOnly ? applicationsWithWarnings(allMatchingTeam) : allMatchingTeam;
-    const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeam, nameIncludes);
+    const allMatchingTeamAndWarnings = withWarningsOnly ? applicationsWithWarnings(allMatchingTeam) : allMatchingTeam;
+    const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
     return applicationsSortedByTeam(allMatchingTeamAndWarningsAndName);
 };
 

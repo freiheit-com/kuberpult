@@ -21,9 +21,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	git "github.com/libgit2/git2go/v34"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -32,11 +36,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"time"
 )
 
 type OverviewServiceServer struct {
@@ -219,6 +219,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		result.Warnings = db.CalculateWarnings(ctx, appName, envGroups)
 		fmt.Println("result.Warnings")
 		fmt.Println(result.Warnings)
+		time.Sleep(1 * time.Second)
 		return result, nil
 	})
 	if err != nil {

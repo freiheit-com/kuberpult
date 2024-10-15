@@ -125,10 +125,11 @@ export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinor
                         <SmallSpinner appName={application.Name} key={application.Name} />
                     </div>
                 </div>
-                <div className="service__releases__collapsed"></div>
+                <div className="service__releases" key={application.Name + '-' + application.Team}></div>
             </div>
         );
     }
+
     return (
         <ReadyServiceLane
             application={application}
