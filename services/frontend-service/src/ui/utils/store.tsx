@@ -150,8 +150,6 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
         .overviewService()
         .GetAppDetails({ appName: appName }, authHeader)
         .then((result: GetAppDetailsResponse) => {
-            // eslint-disable-next-line no-console
-            console.log('Updating...');
             const details = updateAppDetails.get();
             details[appName] = result;
             updateAppDetails.set(details);
@@ -486,11 +484,19 @@ export const useTeamFromApplication = (app: string): string | undefined =>
 
 // returns warnings from all apps
 export const useAllWarnings = (): Warning[] => [];
-// useOverview(({ applications }) => Object.values(applications).flatMap((app) => app.warnings));
+
+// {
+//     const names = useOverview(({ lightweightApps }) => lightweightApps).map((curr) => curr.Name);
+//     names.forEach((c) => useAppDetailsForApp(c));
+// };
+
+// // returns warnings from all apps
+// export const useAppDetailsForApps = (apps: OverviewApplication[]): []boolean =>
+//     useAppDetails(({ result }) => apps.map((app) => app.Name === result.application?.name));
 
 // return warnings from all apps matching the given filtering criteria
 export const useShownWarnings = (teams: string[], nameIncludes: string): Warning[] =>
-    // const shownApps = useApplicationsFilteredAndSorted(teams, true, nameIncludes);
+    //const shownApps = useApplicationsFilteredAndSorted(teams, true, nameIncludes);
     // return shownApps.flatMap((app) => app.warnings);
     [];
 
@@ -1097,11 +1103,18 @@ export const useReleasesForApp = (app: string): Release[] => {
 
 // Calculated release difference between a specific release and currently deployed release on a specific environment
 export const useReleaseDifference = (toDeployVersion: number, application: string, environment: string): number => {
-    const envApplications = useEnvironments().find((env) => env.name === environment)?.applications;
-    const currentDeployedIndex = useReleasesForApp(application)?.findIndex(
-        (rel) => rel.version === envApplications?.[application]?.version
+    const appDetails = useAppDetailsForApp(application);
+    if (!appDetails) {
+        return 0;
+    }
+    const deployment = appDetails.deployments[environment];
+    if (!deployment) {
+        return 0;
+    }
+    const currentDeployedIndex = appDetails.application?.releases.findIndex(
+        (rel) => rel.version === deployment.version
     );
-    const newVersionIndex = useReleasesForApp(application)?.findIndex((rel) => rel.version === toDeployVersion);
+    const newVersionIndex = appDetails.application?.releases?.findIndex((rel) => rel.version === toDeployVersion);
     if (
         currentDeployedIndex === undefined ||
         newVersionIndex === undefined ||
@@ -1110,7 +1123,8 @@ export const useReleaseDifference = (toDeployVersion: number, application: strin
     ) {
         return 0;
     }
-    return currentDeployedIndex - newVersionIndex;
+
+    return newVersionIndex - currentDeployedIndex;
 };
 // Get all minor releases for an app
 export const useMinorsForApp = (app: string): number[] | undefined =>

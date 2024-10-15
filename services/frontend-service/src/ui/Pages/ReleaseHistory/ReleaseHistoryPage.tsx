@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import { Releases } from '../../components/Releases/Releases';
-import { getAppDetails, useAppDetailsForApp } from '../../utils/store';
+import { getAppDetails, useAppDetailsForApp, useGlobalLoadingState } from '../../utils/store';
 import React, { useEffect } from 'react';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
@@ -25,12 +25,16 @@ export const ReleaseHistoryPage: React.FC = () => {
     const app_name = url[url.length - 1];
     const appDetails = useAppDetailsForApp(app_name);
     const { authHeader } = useAzureAuthSub((auth) => auth);
+    const element = useGlobalLoadingState();
 
     useEffect(() => {
         getAppDetails(app_name, authHeader);
     }, [app_name, authHeader]);
 
-    if (!appDetails) {
+    if (element) {
+        return element;
+    }
+    if (!appDetails || element) {
         return <Spinner message={'Loading History...'} />;
     }
     return (

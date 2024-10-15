@@ -34,7 +34,6 @@ import {
     useRolloutStatus,
 } from './store';
 import {
-    Application,
     BatchAction,
     Environment,
     EnvironmentGroup,
@@ -1089,69 +1088,197 @@ describe('Test Calculate Release Difference', () => {
     type TestDataStore = {
         name: string;
         inputOverview: GetOverviewResponse;
-        inputAppDetails: GetAppDetailsResponse;
+        inputAppDetails: { [p: string]: GetAppDetailsResponse };
         inputVersion: number;
         expectedDifference: number;
     };
 
-    const appName = 'testApp';
+    const appName = 'differentApp';
     const envName = 'testEnv';
 
     const testdata: TestDataStore[] = [
         {
+            name: 'app does not exist in the app Details',
+            inputAppDetails: {},
+            inputOverview: {
+                applications: {},
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'test',
+                        environments: [
+                            {
+                                name: envName,
+                                locks: {},
+                                applications: {},
+                                distanceToUpstream: 0,
+                                priority: Priority.PROD,
+                            },
+                        ],
+                        distanceToUpstream: 0,
+                        priority: Priority.PROD,
+                    },
+                ],
+                gitRevision: '',
+                branch: '',
+                manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        Name: 'test',
+                        Team: 'test',
+                    },
+                    {
+                        Name: 'example-app',
+                        Team: '',
+                    },
+                ],
+            },
+            inputVersion: 10,
+            expectedDifference: 0,
+        },
+
+        {
+            name: 'environment does not exist in the envs',
+            inputAppDetails: {
+                'example-app': {
+                    application: {
+                        name: 'example-app',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        sourceRepoUrl: '',
+                        team: '',
+                        warnings: [],
+                        releases: [
+                            {
+                                version: 10,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                            {
+                                version: 12,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                    },
+                    deployments: {
+                        test: {
+                            version: 12,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
+            inputOverview: {
+                applications: {},
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'test',
+                        environments: [
+                            {
+                                name: 'exampleEnv',
+                                locks: {},
+                                applications: {
+                                    exampleApp: {
+                                        name: appName,
+                                        version: 12,
+                                        locks: {},
+                                        queuedVersion: 0,
+                                        undeployVersion: false,
+                                        teamLocks: {},
+                                        team: '',
+                                    },
+                                },
+                                distanceToUpstream: 0,
+                                priority: Priority.PROD,
+                            },
+                        ],
+                        distanceToUpstream: 0,
+                        priority: Priority.PROD,
+                    },
+                ],
+                gitRevision: '',
+                branch: '',
+                lightweightApps: [
+                    {
+                        Name: 'test',
+                        Team: 'test',
+                    },
+                ],
+                manifestRepoUrl: '',
+            },
+            inputVersion: 10,
+            expectedDifference: 0,
+        },
+        {
             name: 'Simple diff calculation',
             inputAppDetails: {
-                application: {
-                    name: appName,
-                    undeploySummary: UndeploySummary.NORMAL,
-                    sourceRepoUrl: '',
-                    team: '',
-                    warnings: [],
-                    releases: [
-                        {
-                            version: 10,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                        {
-                            version: 12,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                        {
-                            version: 15,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                    ],
-                },
-                deployments: {
-                    [envName]: {
-                        version: 10,
-                        queuedVersion: 0,
-                        undeployVersion: false,
+                [appName]: {
+                    application: {
+                        name: appName,
+                        undeploySummary: UndeploySummary.NORMAL,
+                        sourceRepoUrl: '',
+                        team: '',
+                        warnings: [],
+                        releases: [
+                            {
+                                version: 10,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                            {
+                                version: 12,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                            {
+                                version: 15,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
                     },
+                    deployments: {
+                        [envName]: {
+                            version: 10,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
                 },
-                appLocks: {},
-                teamLocks: {},
             },
             inputOverview: {
                 applications: {},
@@ -1199,46 +1326,48 @@ describe('Test Calculate Release Difference', () => {
         {
             name: 'negative diff',
             inputAppDetails: {
-                application: {
-                    name: appName,
-                    undeploySummary: UndeploySummary.NORMAL,
-                    sourceRepoUrl: '',
-                    team: '',
-                    warnings: [],
-                    releases: [
-                        {
-                            version: 10,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                        {
-                            version: 12,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                    ],
-                },
-                deployments: {
-                    [envName]: {
-                        version: 12,
-                        queuedVersion: 0,
-                        undeployVersion: false,
+                [appName]: {
+                    application: {
+                        name: appName,
+                        undeploySummary: UndeploySummary.NORMAL,
+                        sourceRepoUrl: '',
+                        team: '',
+                        warnings: [],
+                        releases: [
+                            {
+                                version: 10,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                            {
+                                version: 12,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
                     },
+                    deployments: {
+                        [envName]: {
+                            version: 12,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
                 },
-                appLocks: {},
-                teamLocks: {},
             },
             inputOverview: {
                 applications: {
@@ -1316,46 +1445,48 @@ describe('Test Calculate Release Difference', () => {
         {
             name: 'the input version does not exist',
             inputAppDetails: {
-                application: {
-                    name: appName,
-                    undeploySummary: UndeploySummary.NORMAL,
-                    sourceRepoUrl: '',
-                    team: '',
-                    warnings: [],
-                    releases: [
-                        {
-                            version: 10,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                        {
-                            version: 12,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                    ],
-                },
-                deployments: {
-                    [envName]: {
-                        version: 12,
-                        queuedVersion: 0,
-                        undeployVersion: false,
+                appName: {
+                    application: {
+                        name: appName,
+                        undeploySummary: UndeploySummary.NORMAL,
+                        sourceRepoUrl: '',
+                        team: '',
+                        warnings: [],
+                        releases: [
+                            {
+                                version: 10,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                            {
+                                version: 12,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
                     },
+                    deployments: {
+                        [envName]: {
+                            version: 12,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
                 },
-                appLocks: {},
-                teamLocks: {},
             },
             inputOverview: {
                 applications: {
@@ -1401,7 +1532,7 @@ describe('Test Calculate Release Difference', () => {
                                 applications: {
                                     [appName]: {
                                         name: appName,
-                                        version: 12,
+                                        version: 11,
                                         locks: {},
                                         queuedVersion: 0,
                                         undeployVersion: false,
@@ -1430,250 +1561,14 @@ describe('Test Calculate Release Difference', () => {
             inputVersion: 11,
             expectedDifference: 0,
         },
-        {
-            name: 'app does not exist in the app Details',
-            inputAppDetails: {
-                application: {
-                    name: 'example-app',
-                    undeploySummary: UndeploySummary.NORMAL,
-                    sourceRepoUrl: '',
-                    team: '',
-                    warnings: [],
-                    releases: [
-                        {
-                            version: 10,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                        {
-                            version: 12,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                    ],
-                },
-                deployments: {
-                    [envName]: {
-                        version: 12,
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
-                appLocks: {},
-                teamLocks: {},
-            },
-            inputOverview: {
-                applications: {
-                    exampleApp: {
-                        name: appName,
-                        releases: [
-                            {
-                                version: 10,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 12,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
-                    },
-                },
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'test',
-                        environments: [
-                            {
-                                name: envName,
-                                locks: {},
-                                applications: {
-                                    [appName]: {
-                                        name: appName,
-                                        version: 12,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
-                                distanceToUpstream: 0,
-                                priority: Priority.PROD,
-                            },
-                        ],
-                        distanceToUpstream: 0,
-                        priority: Priority.PROD,
-                    },
-                ],
-                gitRevision: '',
-                branch: '',
-                manifestRepoUrl: '',
-                lightweightApps: [
-                    {
-                        Name: 'test',
-                        Team: 'test',
-                    },
-                    {
-                        Name: 'example-app',
-                        Team: '',
-                    },
-                ],
-            },
-            inputVersion: 10,
-            expectedDifference: 0,
-        },
-        {
-            name: 'environment does not exist in the envs',
-            inputAppDetails: {
-                application: {
-                    name: 'example-app',
-                    undeploySummary: UndeploySummary.NORMAL,
-                    sourceRepoUrl: '',
-                    team: '',
-                    warnings: [],
-                    releases: [
-                        {
-                            version: 10,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                        {
-                            version: 12,
-                            sourceCommitId: '',
-                            sourceAuthor: '',
-                            sourceMessage: '',
-                            undeployVersion: false,
-                            prNumber: '',
-                            displayVersion: '',
-                            isMinor: false,
-                            isPrepublish: false,
-                        },
-                    ],
-                },
-                deployments: {
-                    [envName]: {
-                        version: 12,
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
-                appLocks: {},
-                teamLocks: {},
-            },
-            inputOverview: {
-                applications: {
-                    [appName]: {
-                        name: appName,
-                        releases: [
-                            {
-                                version: 10,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 12,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
-                    },
-                },
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'test',
-                        environments: [
-                            {
-                                name: 'exampleEnv',
-                                locks: {},
-                                applications: {
-                                    exampleApp: {
-                                        name: appName,
-                                        version: 12,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
-                                distanceToUpstream: 0,
-                                priority: Priority.PROD,
-                            },
-                        ],
-                        distanceToUpstream: 0,
-                        priority: Priority.PROD,
-                    },
-                ],
-                gitRevision: '',
-                branch: '',
-                lightweightApps: [
-                    {
-                        Name: 'test',
-                        Team: 'test',
-                    },
-                ],
-                manifestRepoUrl: '',
-            },
-            inputVersion: 10,
-            expectedDifference: 0,
-        },
     ];
     describe.each(testdata)('with', (testcase) => {
+        updateAppDetails.set({});
         it(testcase.name, () => {
             updateActions([]);
+            updateAppDetails.set({});
             UpdateOverview.set(testcase.inputOverview);
-            updateAppDetails.set({ [testcase.inputAppDetails.application?.name || '']: testcase.inputAppDetails });
+            updateAppDetails.set(testcase.inputAppDetails);
             const calculatedDiff = renderHook(() => useReleaseDifference(testcase.inputVersion, appName, envName))
                 .result.current;
             expect(calculatedDiff).toStrictEqual(testcase.expectedDifference);

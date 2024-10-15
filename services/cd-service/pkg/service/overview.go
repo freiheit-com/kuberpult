@@ -24,16 +24,14 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	git "github.com/libgit2/git2go/v34"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
-
-	git "github.com/libgit2/git2go/v34"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -144,8 +142,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 		envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
 
-		result.Warnings = db.CalculateWarnings(ctx, appName, envGroups)
-
 		// App Locks
 		appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForApp(ctx, transaction, appName)
 		if err != nil {
@@ -219,14 +215,16 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
-		result.UndeploySummary = 0
+		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
+		result.Warnings = db.CalculateWarnings(ctx, appName, envGroups)
+		fmt.Println("result.Warnings")
+		fmt.Println(result.Warnings)
 		return result, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	response.Application = resultApp
-	time.Sleep(1 * time.Second)
 	return response, nil
 }
 

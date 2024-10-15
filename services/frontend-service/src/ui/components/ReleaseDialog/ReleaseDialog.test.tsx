@@ -15,8 +15,16 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
-import { UpdateAction, UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
-import { Environment, EnvironmentGroup, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
+import { UpdateAction, updateAppDetails, UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
+import {
+    Environment,
+    EnvironmentGroup,
+    GetAppDetailsResponse,
+    Priority,
+    Release,
+    RolloutStatus,
+    UndeploySummary,
+} from '../../../api/api';
 import { Spy } from 'spy4js';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -33,6 +41,7 @@ describe('Release Dialog', () => {
     interface dataT {
         name: string;
         props: ReleaseDialogProps;
+        appDetails: { [p: string]: GetAppDetailsResponse };
         rels: Release[];
         envs: Environment[];
         envGroups: EnvironmentGroup[];
@@ -52,6 +61,7 @@ describe('Release Dialog', () => {
         props: ReleaseDialogProps;
         rels: Release[];
         envs: Environment[];
+        appDetails: { [p: string]: GetAppDetailsResponse };
         envGroups: EnvironmentGroup[];
         expect_message: boolean;
         expect_queues: number;
@@ -65,6 +75,7 @@ describe('Release Dialog', () => {
                 app: 'test1',
                 version: 2,
             },
+            appDetails: {},
             rels: [
                 {
                     version: 2,
@@ -118,6 +129,7 @@ describe('Release Dialog', () => {
                 app: 'test1',
                 version: 2,
             },
+            appDetails: {},
             rels: [
                 {
                     version: 2,
@@ -173,6 +185,44 @@ describe('Release Dialog', () => {
                 app: 'test1',
                 version: 2,
             },
+            appDetails: {
+                test1: {
+                    application: {
+                        name: 'test1',
+                        releases: [
+                            {
+                                version: 2,
+                                sourceMessage: 'test1',
+                                sourceAuthor: 'test',
+                                sourceCommitId: 'commit',
+                                createdAt: new Date(2002),
+                                undeployVersion: false,
+                                prNumber: '#1337',
+                                displayVersion: '2',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                        sourceRepoUrl: 'http://test2.com',
+                        team: 'example',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    appLocks: {
+                        production: {
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                        },
+                    },
+                    teamLocks: {},
+                    deployments: {
+                        dev: {
+                            version: 1,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                },
+            },
             rels: [
                 {
                     version: 2,
@@ -225,6 +275,44 @@ describe('Release Dialog', () => {
             props: {
                 app: 'test1',
                 version: 2,
+            },
+            appDetails: {
+                test1: {
+                    application: {
+                        name: 'test1',
+                        releases: [
+                            {
+                                version: 2,
+                                sourceMessage: 'test1',
+                                sourceAuthor: 'test',
+                                sourceCommitId: 'commit',
+                                createdAt: new Date(2002),
+                                undeployVersion: false,
+                                prNumber: '#1337',
+                                displayVersion: '2',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                        sourceRepoUrl: 'http://test2.com',
+                        team: 'example',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    appLocks: {
+                        production: {
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                        },
+                    },
+                    teamLocks: {},
+                    deployments: {
+                        dev: {
+                            version: 1,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                },
             },
             rels: [
                 {
@@ -280,6 +368,68 @@ describe('Release Dialog', () => {
                 app: 'test1',
                 version: 2,
             },
+            appDetails: {
+                test1: {
+                    application: {
+                        name: 'test1',
+                        releases: [
+                            {
+                                sourceCommitId: 'cafe',
+                                sourceMessage: 'the other commit message 2',
+                                version: 2,
+                                createdAt: new Date(2002),
+                                undeployVersion: false,
+                                prNumber: 'PR123',
+                                sourceAuthor: 'nobody',
+                                displayVersion: '2',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                            {
+                                sourceCommitId: 'cafe',
+                                sourceMessage: 'the other commit message 3',
+                                version: 3,
+                                createdAt: new Date(2002),
+                                undeployVersion: false,
+                                prNumber: 'PR123',
+                                sourceAuthor: 'nobody',
+                                displayVersion: '3',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                        sourceRepoUrl: 'http://test2.com',
+                        team: 'example',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    appLocks: {
+                        production: {
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                        },
+                        dev: {
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                        },
+                    },
+                    teamLocks: {
+                        dev: {
+                            locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
+                        },
+                    },
+                    deployments: {
+                        prod: {
+                            version: 2,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                        dev: {
+                            version: 3,
+                            queuedVersion: 666,
+                            undeployVersion: false,
+                        },
+                    },
+                },
+            },
             envs: [
                 {
                     name: 'prod',
@@ -328,18 +478,6 @@ describe('Release Dialog', () => {
             rels: [
                 {
                     sourceCommitId: 'cafe',
-                    sourceMessage: 'the other commit message 2',
-                    version: 2,
-                    createdAt: new Date(2002),
-                    undeployVersion: false,
-                    prNumber: 'PR123',
-                    sourceAuthor: 'nobody',
-                    displayVersion: '2',
-                    isMinor: false,
-                    isPrepublish: false,
-                },
-                {
-                    sourceCommitId: 'cafe',
                     sourceMessage: 'the other commit message 3',
                     version: 3,
                     createdAt: new Date(2002),
@@ -347,6 +485,18 @@ describe('Release Dialog', () => {
                     prNumber: 'PR123',
                     sourceAuthor: 'nobody',
                     displayVersion: '3',
+                    isMinor: false,
+                    isPrepublish: false,
+                },
+                {
+                    sourceCommitId: 'cafe',
+                    sourceMessage: 'the other commit message 2',
+                    version: 2,
+                    createdAt: new Date(2002),
+                    undeployVersion: false,
+                    prNumber: 'PR123',
+                    sourceAuthor: 'nobody',
+                    displayVersion: '2',
                     isMinor: false,
                     isPrepublish: false,
                 },
@@ -375,6 +525,34 @@ describe('Release Dialog', () => {
             props: {
                 app: 'test1',
                 version: 4,
+            },
+            appDetails: {
+                test1: {
+                    application: {
+                        name: 'test1',
+                        releases: [
+                            {
+                                version: 4,
+                                sourceAuthor: 'test1',
+                                sourceMessage: '',
+                                sourceCommitId: '',
+                                prNumber: '',
+                                createdAt: new Date(2002),
+                                undeployVersion: true,
+                                displayVersion: '4',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                        sourceRepoUrl: 'http://test2.com',
+                        team: 'example',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                    deployments: {},
+                },
             },
             rels: [
                 {
@@ -424,6 +602,7 @@ describe('Release Dialog', () => {
                 },
             ],
         });
+        updateAppDetails.set(testcase.appDetails);
         const status = testcase.rolloutStatus;
         if (status !== undefined) {
             for (const app of status) {

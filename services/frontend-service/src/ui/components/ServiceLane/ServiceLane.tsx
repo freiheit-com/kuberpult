@@ -107,14 +107,9 @@ const deriveUndeployMessage = (undeploySummary: UndeploySummary | undefined): st
 export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinors: boolean }> = (props) => {
     const { application, hideMinors } = props;
     const { authHeader } = useAzureAuthSub((auth) => auth);
-    // const deployedReleases = useDeployedReleases(application.name);
-    // const allReleases = useVersionsForApp(application.name);
-    //const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.Name);
-    // const prepareUndeployOrUndeployText = deriveUndeployMessage(application.undeploySummary);
+
     const appDetails = useAppDetailsForApp(application.Name);
     React.useEffect(() => {
-        // eslint-disable-next-line no-console
-        console.log('getting app details...');
         getAppDetails(application.Name, authHeader);
     }, [application, authHeader]);
 
@@ -149,7 +144,6 @@ export const ReadyServiceLane: React.FC<{
     appDetails: GetAppDetailsResponse;
 }> = (props) => {
     const { application, hideMinors } = props;
-
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.Name);
 
     const allReleases = [...new Set(props.appDetails?.application?.releases.map((d) => d.version))].sort(
