@@ -19,10 +19,11 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"strconv"
 	"time"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"encoding/json"
 	"fmt"
@@ -342,11 +343,14 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 					measurePushes(ddMetrics, log, false)
 				}
 
+				span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
+				defer span.Finish()
 				//Get latest commit. Write esl timestamp and commit hash.
 				commit, err := repo.GetHeadCommit()
 				if err != nil {
 					return err
 				}
+				span.SetTag("commitHash", commit.Id().String())
 				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
 			})
 			if err != nil {
