@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
