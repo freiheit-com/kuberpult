@@ -555,7 +555,7 @@ type DBAllReleasesWithMetaData struct {
 
 func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
+		"SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments " +
 			" FROM releases " +
 			" LIMIT 1;"))
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyRelease")
@@ -566,7 +566,7 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePr
 		ctx,
 		selectQuery,
 	)
-	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
 	if err != nil {
 		return nil, err
 	}
@@ -608,9 +608,75 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 	LIMIT 100;
 	`)
 	rows, err := tx.QueryContext(ctx, selectQuery)
-	processedRows, err := h.processReleaseRows(ctx, err, rows, true)
+	processedRows, err := h.processReleaseRows(ctx, err, rows, true, true)
 	if err != nil {
 		return nil, err
+	}
+	return processedRows, nil
+}
+
+func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrePublishes bool) ([]*DBReleaseWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersions")
+	defer span.Finish()
+
+	if len(releaseVersions) == 0 {
+		return []*DBReleaseWithMetaData{}, nil
+	}
+	repeatedQuestionMarks := strings.Repeat(",?", len(releaseVersions)-1)
+	selectQuery := h.AdaptQuery(`
+
+	SELECT DISTINCT
+		releases.eslVersion,
+		releases.created,
+		releases.appName,
+		releases.metadata,
+		releases.releaseVersion,
+		releases.deleted,
+		releases.environments
+	FROM 
+		( 	SELECT
+				MAX(eslVersion) AS latestEslVersion,
+				appname,
+				releaseversion
+			FROM
+				"releases"
+    		WHERE
+				appname=?
+          	AND
+				releaseversion IN (?` + repeatedQuestionMarks + `)
+		GROUP BY
+			appname, releaseversion
+      ) AS latest
+	JOIN
+		releases AS releases
+	ON
+		latest.latestEslVersion=releases.eslVersion
+		AND latest.releaseVersion=releases.releaseVersion
+		AND latest.appname=releases.appname
+	LIMIT ?
+	`)
+
+	span.SetTag("query", selectQuery)
+
+	args := []any{}
+	args = append(args, app)
+	for _, version := range releaseVersions {
+		args = append(args, version)
+	}
+	args = append(args, uint64(len(releaseVersions)))
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		args...,
+	)
+
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrePublishes, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(processedRows) == 0 {
+		return nil, nil
 	}
 	return processedRows, nil
 }
@@ -632,7 +698,7 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 		releaseVersion,
 	)
 
-	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
 	if err != nil {
 		return nil, err
 	}
@@ -737,14 +803,14 @@ func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app s
 		deleted,
 	)
 
-	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
 }
 
 func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
+		"SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments " +
 			" FROM releases " +
 			" WHERE appName=? AND deleted=?" +
 			" ORDER BY eslVersion DESC, releaseVersion DESC, created DESC;"))
@@ -756,7 +822,7 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 		deleted,
 	)
 
-	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes)
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
@@ -887,7 +953,8 @@ func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *
 	}
 	return row, nil
 }
-func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+
+func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows, ignorePrepublishes bool, withManifests bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseRows")
 	defer span.Finish()
 
@@ -909,12 +976,17 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		var metadataStr string
 		var manifestStr string
 		var environmentsStr sql.NullString
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
+		var err error
+		if withManifests {
+			err = rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
+		} else {
+			err = rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr /*manifests*/, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
+		}
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning releases row from DB withManifests=%v. Error: %w\n", withManifests, err)
 		}
 		if row.ReleaseNumber != lastSeenRelease {
 			lastSeenRelease = row.ReleaseNumber
@@ -942,9 +1014,11 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		var manifestData = DBReleaseManifests{
 			Manifests: map[string]string{},
 		}
-		err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
+		if withManifests {
+			err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
+			if err != nil {
+				return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
+			}
 		}
 		row.Manifests = manifestData
 		environments := make([]string, 0)
