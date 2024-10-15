@@ -5047,7 +5047,7 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 		`
 SELECT created, version, name, json, applications
 FROM environments
-WHERE name=?
+WHERE name=? AND deleted=false
 ORDER BY version DESC
 LIMIT 1;
 `,
@@ -5123,6 +5123,7 @@ ON
   AND latest.name = environments.name
 WHERE
   environments.name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
+  AND deleted=false
 LIMIT ?
 `,
 	)
@@ -5201,7 +5202,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT Into environments (created, version, name, json, applications) VALUES (?, ?, ?, ?, ?);",
+		"INSERT Into environments (created, version, name, json, applications, deleted) VALUES (?, ?, ?, ?, ?, ?);",
 	)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -5215,6 +5216,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 		environmentName,
 		jsonToInsert,
 		string(applicationsJson),
+		false,
 	)
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
