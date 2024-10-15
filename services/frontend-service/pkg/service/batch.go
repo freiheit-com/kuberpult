@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -45,9 +46,9 @@ func (b *BatchServiceWithDefaultTimeout) ProcessBatch(ctx context.Context, req *
 
 	if ctx.Err() != nil {
 		if context.Cause(ctx) == kuberpultTimeoutError {
-			logger.FromContext(ctx).Warn("Context cancelled due to kuberpult timeout")
+			logger.FromContext(ctx).Warn(fmt.Sprintf("Context cancelled due to %s", kuberpultTimeoutError.Error()))
 		} else {
-			logger.FromContext(ctx).Warn("Context cancelled due", zap.Error(context.Cause(ctx)))
+			logger.FromContext(ctx).Warn("ProcessBatch context cancelled NOT due to kuberpult timeout.", zap.Error(context.Cause(ctx)))
 		}
 	}
 
