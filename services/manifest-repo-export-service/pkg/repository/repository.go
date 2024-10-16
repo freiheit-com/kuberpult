@@ -434,7 +434,7 @@ func (r *repository) GetHeadCommit(ctx context.Context) (*git.Commit, error) {
 			if errorName == nil {
 				msg = msg + fmt.Sprintf("Branch: %v\n", name)
 			} else {
-				msg = msg + fmt.Sprintf("Failed to get a branch name.\n")
+				msg = msg + "Failed to get a branch name.\n"
 			}
 
 			msg += fmt.Sprintf("\tBranchType: %v\n\tBranch Points to: %v\n", branchType, branch.Reference.Target())
