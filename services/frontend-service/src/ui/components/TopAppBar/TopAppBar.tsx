@@ -23,6 +23,7 @@ import classNames from 'classnames';
 import {
     applicationsWithWarnings,
     useAllWarnings,
+    useAllWarningsNow,
     useApplicationsFilteredAndSorted,
     useKuberpultVersion,
 } from '../../utils/store';
@@ -54,7 +55,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
         ?.split('=')[1];
     const decodedToken: any = cookieValue ? jwtDecode(cookieValue) : undefined;
     const loggedInUser = decodedToken?.email || 'Guest';
-
+    useAllWarningsNow();
     const hideWithoutWarningsValue = hideWithoutWarnings(params);
 
     const allWarnings: Warning[] = useAllWarnings();

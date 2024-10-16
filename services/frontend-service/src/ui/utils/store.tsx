@@ -145,6 +145,11 @@ export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsRes
 const emtpyDetails: { [key: string]: GetAppDetailsResponse } = {};
 export const [useAppDetails, updateAppDetails] = createStore<{ [key: string]: GetAppDetailsResponse }>(emtpyDetails);
 
+const emptyWarnings: { [key: string]: Warning[] } = {};
+export const [useWarnings, updateWarnings] = createStore<{ [key: string]: Warning[] }>(emptyWarnings);
+
+export const useAllWarningsNow = (): Warning => useWarnings((map) => map);
+
 export const getAppDetails = (appName: string, authHeader: AuthHeader): void => {
     useApi
         .overviewService()
