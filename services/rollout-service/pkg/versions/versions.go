@@ -243,20 +243,8 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				Overview:   ov,
 				AppDetails: make(map[string]*api.GetAppDetailsResponse),
 			}
-			for _, appName := range changedApps.ChangedApps {
-				appDetailsResponse, err := v.overviewClient.GetAppDetails(ctx, &api.GetAppDetailsRequest{
-					AppName: appName,
-				})
-				if err != nil {
-					grpcErr := grpc.UnwrapGRPCStatus(err)
-					if grpcErr != nil {
-						if grpcErr.Code() == codes.Canceled {
-							return nil
-						}
-					}
-					return fmt.Errorf("changedApps.recv: %w", err)
-				}
-
+			for _, appDetailsResponse := range changedApps.ChangedApps {
+				appName := appDetailsResponse.Application.Name
 				overview.AppDetails[appName] = appDetailsResponse
 
 				app := appDetailsResponse.Application

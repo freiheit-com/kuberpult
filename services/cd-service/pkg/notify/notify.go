@@ -23,7 +23,7 @@ import (
 type Notify struct {
 	mx                 sync.Mutex
 	oveviewListener    map[chan struct{}]struct{}
-	changeAppsListener map[chan ChangedAppNames]ChangedAppNames
+	changeAppsListener map[chan ChangedAppNames]struct{}
 }
 
 type Unsubscribe = func()
@@ -66,9 +66,9 @@ func (n *Notify) SubscribeChangesApps() (<-chan ChangedAppNames, Unsubscribe) {
 	n.mx.Lock()
 	defer n.mx.Unlock()
 	if n.changeAppsListener == nil {
-		n.changeAppsListener = map[chan ChangedAppNames]ChangedAppNames{}
+		n.changeAppsListener = map[chan ChangedAppNames]struct{}{}
 	}
-	n.changeAppsListener[ch] = ChangedAppNames{}
+	n.changeAppsListener[ch] = struct{}{}
 	return ch, func() {
 		n.mx.Lock()
 		defer n.mx.Unlock()
