@@ -117,7 +117,6 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 		span.Finish(tracer.WithError(e))
 		return nil, e
 	}
-	time.Sleep(100 * time.Millisecond)
 
 	retryMaybe := func(msg string, e error, transaction *sql.Tx) ([]T, error) {
 		if opts.maxRetries == 0 {
@@ -127,7 +126,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 			duration := 50 * time.Millisecond
 			logger.FromContext(attempt_ctx).Sugar().Warnf("%s transaction failed, will retry in %v: %v", msg, duration, e)
 			_ = transaction.Rollback()
-			span.Finish()
+			span.Finish(tracer.WithError(e))
 			time.Sleep(duration)
 			// We must use original ctx here so that a retry attempt registers
 			// A DBTransaction span independent from previous DBTransaction
@@ -152,15 +151,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 	}(tx)
 
 	result, err := f(attempt_ctx, tx)
-	fmt.Println("Ouch ", opts.maxRetries)
-	if opts.maxRetries >= 0 {
-		err = &pq.Error{
-			Code:    "40",
-			Message: "Ouch",
-		}
-	}
 	if err != nil {
-		span.Finish(tracer.WithError(err))
 		return retryMaybe("within", err, tx)
 	}
 	err = tx.Commit()
