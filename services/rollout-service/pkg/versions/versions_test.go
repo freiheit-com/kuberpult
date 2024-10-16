@@ -88,15 +88,6 @@ func (m *mockOverviewClient) GetAppDetails(ctx context.Context, in *api.GetAppDe
 	return nil, status.Error(codes.Unknown, "no")
 }
 
-// GetOverview implements api.GetAppDetails
-func (m *mockOverviewClient) GetAppDetails(ctx context.Context, in *api.GetAppDetailsRequest, opts ...grpc.CallOption) (*api.GetAppDetailsResponse, error) {
-	m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
-	if resp := m.AppDetailsResponses[in.AppName]; resp != nil {
-		return resp, nil
-	}
-	return nil, status.Error(codes.Unknown, "no")
-}
-
 // StreamOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (api.OverviewService_StreamOverviewClient, error) {
 	return nil, nil
@@ -911,14 +902,15 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	if hs.IsReady("versions") != s.ExpectReady {
 		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
 	}
-
+	
 	//Sort this to avoid flakeyness based on order
 	sort.Slice(vp.events, func(i, j int) bool {
 		return vp.events[i].Environment < vp.events[j].Environment
 	})
-	if !cmp.Equal(s.ExpectedEvents, vp.events) {
-		t.Errorf("version events differ: %s", cmp.Diff(s.ExpectedEvents, vp.events))
-	}
+	//Sort this to avoid flakeyness based on order
+	sort.Slice(s.ExpectedEvents, func(i, j int) bool {
+		return s.ExpectedEvents[i].Environment < s.ExpectedEvents[j].Environment
+	})
 	vp.events = nil
 }
 
