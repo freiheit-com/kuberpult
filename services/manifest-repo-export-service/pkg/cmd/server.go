@@ -346,7 +346,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
 				defer span.Finish()
 				//Get latest commit. Write esl timestamp and commit hash.
-				commit, err := repo.GetHeadCommit()
+				commit, err := repo.GetHeadCommit(ctx)
 				if err != nil {
 					return err
 				}
