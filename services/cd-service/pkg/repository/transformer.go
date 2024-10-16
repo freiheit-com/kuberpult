@@ -1493,8 +1493,8 @@ func (u *UndeployApplication) GetDBEventType() db.EventType {
 	return db.EvtUndeployApplication
 }
 
-func (c *UndeployApplication) SetEslVersion(id db.TransformerID) {
-	c.TransformerEslVersion = id
+func (u *UndeployApplication) SetEslVersion(id db.TransformerID) {
+	u.TransformerEslVersion = id
 }
 
 func (u *UndeployApplication) Transform(
@@ -1616,10 +1616,11 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not write all apps '%v': '%w'", u.Application, err)
 		}
-		dbApp, err := state.DBHandler.DBSelectApp(ctx, transaction, u.Application)
+		dbApp, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, u.Application)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 		}
+		logger.FromContext(ctx).Sugar().Warnf("before insert app fun")
 		err = state.DBHandler.InsertAppFun(ctx, transaction, dbApp.App, dbApp.EslVersion, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)

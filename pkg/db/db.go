@@ -883,6 +883,33 @@ func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context
 	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
 }
 
+func (h *DBHandler) DBSelectLastReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments " +
+			" FROM releases " +
+			" WHERE appName=? AND deleted=?" +
+			" ORDER BY eslVersion DESC, releaseVersion DESC" +
+			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+		deleted,
+	)
+
+	releases, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(releases) == 0 {
+		return nil, nil
+	}
+	return releases[0], nil
+}
+
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
 	defer span.Finish()
@@ -2287,6 +2314,9 @@ type DBAppWithMetaData struct {
 func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertApplication")
 	defer span.Finish()
+	log := logger.FromContext(ctx).Sugar()
+	log.Warnf("plain dbinsert app: %s/%v", appName, stateChange)
+
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -2419,6 +2449,25 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
 	}
+	return processAppRow(ctx, rows)
+}
+
+func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
+	app, err := h.DBSelectApp(ctx, tx, appName)
+	if err != nil {
+		return nil, err
+	}
+	if app == nil {
+		return nil, nil
+	}
+	if app.StateChange == AppStateChangeDelete {
+		return nil, nil
+	}
+	return app, nil
+}
+
+func processAppRow(ctx context.Context, rows *sql.Rows) (*DBAppWithMetaData, error) {
+	//exhaustruct:ignore
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
@@ -2426,7 +2475,6 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 		}
 	}(rows)
 
-	//exhaustruct:ignore
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
@@ -2446,7 +2494,7 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	} else {
 		row = nil
 	}
-	err = closeRows(rows)
+	err := closeRows(rows)
 	if err != nil {
 		return nil, err
 	}

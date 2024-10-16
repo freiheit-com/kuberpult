@@ -81,22 +81,27 @@ func versionToString(Version uint64) string {
 	return strconv.FormatUint(Version, 10)
 }
 
+// releasesDirectory returns applications/<app>/releases/
 func releasesDirectory(fs billy.Filesystem, application string) string {
 	return fs.Join("applications", application, "releases")
 }
 
+// applicationDirectory returns applications/<app>/
 func applicationDirectory(fs billy.Filesystem, application string) string {
 	return fs.Join("applications", application)
 }
 
+// environmentApplicationDirectory returns environments/<env>/applications/<app>/
 func environmentApplicationDirectory(fs billy.Filesystem, environment, application string) string {
 	return fs.Join("environments", environment, "applications", application)
 }
 
+// releasesDirectoryWithVersion returns applications/<app>/releases/<version>
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version uint64) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
 }
 
+// environmentApplicationDirectory returns applications/<app>/releases/<version>/environments/
 func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application string, version uint64) string {
 	return fs.Join(releasesDirectoryWithVersion(fs, application, version), "environments")
 }
@@ -122,6 +127,8 @@ type TransformerContext interface {
 	Execute(t Transformer, transaction *sql.Tx) error
 	AddAppEnv(app string, env string, team string)
 	DeleteEnvFromApp(app string, env string)
+	ShouldMinimizeGitData() bool
+	ShouldMaximizeGitData() bool
 }
 
 type TransformerMetadata struct {
@@ -133,7 +140,12 @@ func (t *TransformerMetadata) GetMetadata() *TransformerMetadata {
 	return t
 }
 
-func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx) (string, *TransformerResult, error) {
+func GetNoOpMessage(t Transformer) (string, error) {
+	evt := t.GetDBEventType()
+	return fmt.Sprintf("Empty Commit\nNo files changed in %s", evt), nil
+}
+
+func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx, minimizeExportedData bool) (string, *TransformerResult, error) {
 	runner := transformerRunner{
 		ChangedApps:     nil,
 		DeletedRootApps: nil,
@@ -141,6 +153,8 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		Context:         ctx,
 		State:           s,
 		Stack:           [][]string{nil},
+
+		MinimizeGitData: minimizeExportedData,
 	}
 	if err := runner.Execute(t, transaction); err != nil {
 		return "", nil, err
@@ -193,6 +207,8 @@ type transformerRunner struct {
 	ChangedApps     []AppEnv
 	DeletedRootApps []RootApp
 	Commits         *CommitIds
+
+	MinimizeGitData bool
 }
 
 func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
@@ -233,6 +249,14 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env string) {
 	r.DeletedRootApps = append(r.DeletedRootApps, RootApp{
 		Env: env,
 	})
+}
+
+func (r *transformerRunner) ShouldMinimizeGitData() bool {
+	return r.MinimizeGitData
+}
+
+func (r *transformerRunner) ShouldMaximizeGitData() bool {
+	return !r.MinimizeGitData
 }
 
 type RawNode struct{ *yaml3.Node }
@@ -322,7 +346,7 @@ type DeployApplicationVersionSource struct {
 func (c *DeployApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
+	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
 
@@ -340,30 +364,31 @@ func (c *DeployApplicationVersion) Transform(
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
-			envLocks, appLocks, teamLocks map[string]Lock
+			appLocks, envLocks, teamLocks map[string]Lock
 			err                           error
 		)
-		envLocks, err = state.GetEnvironmentLocks(c.Environment)
+		envLocks, err = state.GetEnvironmentLocksFromDB(ctx, transaction, c.Environment)
 		if err != nil {
 			return "", err
 		}
-		appLocks, err = state.GetEnvironmentApplicationLocks(c.Environment, c.Application)
-		if err != nil {
-			return "", err
-		}
-
-		teamName, err := state.GetTeamName(c.Application)
+		appLocks, err = state.GetEnvironmentApplicationLocksFromDB(ctx, transaction, c.Environment, c.Application)
 		if err != nil {
 			return "", err
 		}
 
-		if errors.Is(err, os.ErrNotExist) {
-			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
-		} else {
-			teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, string(teamName))
-			if err != nil {
-				return "", err
-			}
+		app, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, c.Application)
+		if err != nil {
+			return "", err
+		}
+		var teamName = ""
+		if app != nil && app.Metadata.Team != "" {
+			teamName = app.Metadata.Team
+		}
+
+		teamLocks, err = state.GetEnvironmentTeamLocksFromDB(ctx, transaction, c.Environment, teamName)
+		//teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, teamName)
+		if err != nil {
+			return "", err
 		}
 
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
@@ -375,7 +400,7 @@ func (c *DeployApplicationVersion) Transform(
 					Version:               c.Version,
 					TransformerEslVersion: c.TransformerEslVersion,
 				}
-				return q.Transform(ctx, state, t, nil)
+				return q.Transform(ctx, state, tCtx, transaction)
 			case api.LockBehavior_FAIL:
 				return "", &LockedError{
 					EnvironmentApplicationLocks: appLocks,
@@ -386,18 +411,21 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 	applicationDir := fsys.Join("environments", c.Environment, "applications", c.Application)
-	versionFile := fsys.Join(applicationDir, "version")
-
 	// Create a symlink to the release
 	if err := fsys.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
 	}
+	versionFile := fsys.Join(applicationDir, "version")
 	if err := fsys.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
-	if err := fsys.Symlink(fsys.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
-		return "", err
+
+	if tCtx.ShouldMaximizeGitData() {
+		if err := fsys.Symlink(fsys.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
+			return "", err
+		}
 	}
+
 	// Copy the manifest for argocd
 	manifestsDir := fsys.Join(applicationDir, "manifests")
 	if err := fsys.MkdirAll(manifestsDir, 0777); err != nil {
@@ -414,30 +442,33 @@ func (c *DeployApplicationVersion) Transform(
 	if err := util.WriteFile(fsys, manifestFilename, manifestContent, 0666); err != nil {
 		return "", err
 	}
+
 	teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 	if err != nil {
 		return "", err
 	}
-	t.AddAppEnv(c.Application, c.Environment, teamOwner)
+	tCtx.AddAppEnv(c.Application, c.Environment, teamOwner)
 
 	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, c.Environment)
 	if err != nil {
 		return "", fmt.Errorf("error while retrieving deployment: %v", err)
 	}
 
-	logger.FromContext(ctx).Sugar().Warnf("writing deployed name...")
-	if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by"), []byte(existingDeployment.Metadata.DeployedByName), 0666); err != nil {
-		return "", err
-	}
+	if tCtx.ShouldMaximizeGitData() {
+		logger.FromContext(ctx).Sugar().Warnf("writing deployed name...")
+		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by"), []byte(existingDeployment.Metadata.DeployedByName), 0666); err != nil {
+			return "", err
+		}
 
-	logger.FromContext(ctx).Sugar().Warnf("writing deployed email...")
-	if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by_email"), []byte(existingDeployment.Metadata.DeployedByEmail), 0666); err != nil {
-		return "", err
-	}
+		logger.FromContext(ctx).Sugar().Warnf("writing deployed email...")
+		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by_email"), []byte(existingDeployment.Metadata.DeployedByEmail), 0666); err != nil {
+			return "", err
+		}
 
-	logger.FromContext(ctx).Sugar().Warnf("writing deployed at...")
-	if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_at_utc"), []byte(existingDeployment.Created.UTC().String()), 0666); err != nil {
-		return "", err
+		logger.FromContext(ctx).Sugar().Warnf("writing deployed at...")
+		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_at_utc"), []byte(existingDeployment.Created.UTC().String()), 0666); err != nil {
+			return "", err
+		}
 	}
 
 	err = state.DeleteQueuedVersionIfExists(c.Environment, c.Application)
@@ -453,7 +484,7 @@ func (c *DeployApplicationVersion) Transform(
 		},
 		TransformerEslVersion: c.TransformerEslVersion,
 	}
-	if err := t.Execute(d, transaction); err != nil {
+	if err := tCtx.Execute(d, transaction); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
@@ -505,9 +536,12 @@ func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
 func (c *CreateEnvironmentLock) Transform(
 	ctx context.Context,
 	state *State,
-	_ TransformerContext,
+	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	if tCtx.ShouldMinimizeGitData() {
+		return GetNoOpMessage(c)
+	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
@@ -591,9 +625,12 @@ func (c *DeleteEnvironmentLock) GetDBEventType() db.EventType {
 func (c *DeleteEnvironmentLock) Transform(
 	ctx context.Context,
 	state *State,
-	_ TransformerContext,
+	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
+	if tCtx.ShouldMinimizeGitData() {
+		return GetNoOpMessage(c)
+	}
 	fs := state.Filesystem
 	s := State{
 		Commit:               nil,
@@ -644,9 +681,12 @@ func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
 func (c *CreateEnvironmentApplicationLock) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
+	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	if tCtx.ShouldMinimizeGitData() {
+		return GetNoOpMessage(c)
+	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
@@ -706,10 +746,12 @@ func (c *DeleteEnvironmentApplicationLock) SetEslVersion(eslVersion db.Transform
 func (c *DeleteEnvironmentApplicationLock) Transform(
 	ctx context.Context,
 	state *State,
-	_ TransformerContext,
+	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-
+	if tCtx.ShouldMinimizeGitData() {
+		return GetNoOpMessage(c)
+	}
 	fs := state.Filesystem
 	queueMessage := ""
 	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
@@ -763,7 +805,7 @@ func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
 func (c *CreateApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
+	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
 	version := c.Version
@@ -774,8 +816,11 @@ func (c *CreateApplicationVersion) Transform(
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
-	if err := fs.MkdirAll(releaseDir, 0777); err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
+
+	if tCtx.ShouldMaximizeGitData() {
+		if err := fs.MkdirAll(releaseDir, 0777); err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
 	}
 
 	var checkForInvalidCommitId = func(commitId, helperText string) {
@@ -789,54 +834,56 @@ func (c *CreateApplicationVersion) Transform(
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
 
-	if c.SourceCommitId != "" {
-		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-
-	if c.SourceAuthor != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if c.SourceMessage != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if c.DisplayVersion != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
-	}
-
-	if c.Team != "" {
-		//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
-		//team are deployed, team names simply get concatenated. Just remove the file beforehand.
-		//This bug can't be fixed because it is part of the util library
-		teamFileLoc := fs.Join(appDir, fieldTeam)
-		if _, err := fs.Stat(teamFileLoc); err == nil { //If path to file exists
-			err := fs.Remove(teamFileLoc)
-			if err != nil {
+	if tCtx.ShouldMaximizeGitData() {
+		if c.SourceCommitId != "" {
+			c.SourceCommitId = strings.ToLower(c.SourceCommitId)
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
 		}
-		if err := util.WriteFile(fs, teamFileLoc, []byte(c.Team), 0666); err != nil {
+
+		if c.SourceAuthor != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if c.SourceMessage != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if c.DisplayVersion != "" {
+			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
+
+		if c.Team != "" {
+			//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
+			//team are deployed, team names simply get concatenated. Just remove the file beforehand.
+			//This bug can'tCtx be fixed because it is part of the util library
+			teamFileLoc := fs.Join(appDir, fieldTeam)
+			if _, err := fs.Stat(teamFileLoc); err == nil { //If path to file exists
+				err := fs.Remove(teamFileLoc)
+				if err != nil {
+					return "", GetCreateReleaseGeneralFailure(err)
+				}
+			}
+			if err := util.WriteFile(fs, teamFileLoc, []byte(c.Team), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+		}
 	}
-	isLatest, err := isLatestVersion(state, c.Application, version)
+	isLatest, err := isLatestVersion(ctx, state, transaction, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 	if !isLatest {
 		// check that we can actually backfill this version
-		oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
+		oldVersions, err := findOldApplicationVersions(ctx, transaction, state, int(state.ReleaseVersionsLimit), c.Application)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -869,7 +916,7 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 
-	configs, err := state.GetEnvironmentConfigs()
+	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
@@ -878,9 +925,6 @@ func (c *CreateApplicationVersion) Transform(
 		env := sortedKeys[i]
 		man := c.Manifests[env]
 
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]
@@ -889,18 +933,20 @@ func (c *CreateApplicationVersion) Transform(
 			hasUpstream = config.Upstream != nil
 		}
 
-		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+		if tCtx.ShouldMaximizeGitData() {
+			if err = fs.MkdirAll(envDir, 0777); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
 		}
 
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
 		}
-		t.AddAppEnv(c.Application, env, teamOwner)
+		tCtx.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
@@ -917,7 +963,7 @@ func (c *CreateApplicationVersion) Transform(
 					AuthorEmail: "",
 				},
 			}
-			err := t.Execute(d, transaction)
+			err := tCtx.Execute(d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -1002,13 +1048,13 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 	return nil
 }
 
-func isLatestVersion(state *State, application string, version uint64) (bool, error) {
-	rels, err := state.GetApplicationReleasesFromFile(application)
+func isLatestVersion(ctx context.Context, state *State, transaction *sql.Tx, application string, version uint64) (bool, error) {
+	rels, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, application, true)
 	if err != nil {
 		return false, err
 	}
 	for _, r := range rels {
-		if r > version {
+		if r.ReleaseNumber > version {
 			return false, nil
 		}
 	}
@@ -1017,13 +1063,14 @@ func isLatestVersion(state *State, application string, version uint64) (bool, er
 
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
 // Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
-func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
+func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, versionLimit int, appName string) ([]uint64, error) {
 	// 1) get release in each env:
-	envConfigs, err := state.GetEnvironmentConfigs()
+	envConfigs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	//envConfigs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return nil, err
 	}
-	versions, err := state.GetApplicationReleasesFromFile(name)
+	versions, err := state.GetApplicationReleasesFromFile(appName)
 	if err != nil {
 		return nil, err
 	}
@@ -1036,7 +1083,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	// Use the latest version as oldest deployed version
 	oldestDeployedVersion := versions[len(versions)-1]
 	for env := range envConfigs {
-		version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, name)
+		version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
 		if err != nil {
 			return nil, err
 		}
@@ -1050,13 +1097,13 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return versions[i] >= oldestDeployedVersion
 	})
 
-	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
+	if positionOfOldestVersion < (versionLimit - 1) {
 		return nil, nil
 	}
 	indexToKeep := positionOfOldestVersion - 1
 	majorsCount := 0
 	for ; indexToKeep >= 0; indexToKeep-- {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, name, versions[indexToKeep], false)
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versions[indexToKeep], false)
 		if err != nil {
 			return nil, err
 		}
@@ -1066,7 +1113,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		} else if !release.Metadata.IsMinor && !release.Metadata.IsPrepublish {
 			majorsCount += 1
 		}
-		if majorsCount >= int(state.ReleaseVersionsLimit) {
+		if majorsCount >= versionLimit {
 			break
 		}
 	}
@@ -1126,9 +1173,12 @@ func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
 func (c *CreateEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
-	_ TransformerContext,
+	tCtx TransformerContext,
 	tx *sql.Tx,
 ) (string, error) {
+	if tCtx.ShouldMinimizeGitData() {
+		return GetNoOpMessage(c)
+	}
 
 	if !valid.EnvironmentName(c.Environment) {
 		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
@@ -1216,9 +1266,13 @@ func (c *DeleteEnvironmentTeamLock) GetDBEventType() db.EventType {
 func (c *DeleteEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
-	_ TransformerContext,
+	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
+	if tCtx.ShouldMinimizeGitData() {
+		return GetNoOpMessage(c)
+	}
+
 	if !valid.EnvironmentName(c.Environment) {
 		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
 	}
@@ -1270,11 +1324,14 @@ func (c *CreateEnvironment) GetDBEventType() db.EventType {
 }
 
 func (c *CreateEnvironment) Transform(
-	ctx context.Context,
+	_ context.Context,
 	state *State,
-	t TransformerContext,
-	transaction *sql.Tx,
+	tCtx TransformerContext,
+	_ *sql.Tx,
 ) (string, error) {
+	if tCtx.ShouldMinimizeGitData() {
+		return GetNoOpMessage(c)
+	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
@@ -1385,11 +1442,20 @@ func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 func (c *CleanupOldApplicationVersions) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
+	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
+	var versionLimit = int(state.ReleaseVersionsLimit)
+	var err error = nil
+	var oldVersions []uint64
+	if tCtx.ShouldMinimizeGitData() {
+		versionLimit = 0
+		//oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
+		oldVersions, err = state.GetApplicationReleasesFromFile(c.Application)
+	} else {
+		oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
+	}
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
@@ -1479,20 +1545,23 @@ func (u *ReleaseTrain) Transform(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
-	tx *sql.Tx,
+	transaction *sql.Tx,
 ) (string, error) {
 	//Gets deployments generated by the releasetrain with elsVersion u.TransformerEslVersion from the database and simply deploys them
-	deployments, err := state.DBHandler.DBSelectDeploymentsByTransformerID(ctx, tx, u.TransformerEslVersion, 100)
+	deployments, err := state.DBHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, u.TransformerEslVersion, 100)
 	if err != nil {
 		return "", err
 	}
-	skippedDeployments, err := state.DBHandler.DBSelectAllLockPreventedEventsForTransformerID(ctx, tx, u.TransformerEslVersion)
+	skippedDeployments, err := state.DBHandler.DBSelectAllLockPreventedEventsForTransformerID(ctx, transaction, u.TransformerEslVersion)
 	if err != nil {
 		return "", err
 	}
 
 	var targetGroupName = u.Target
-	configs, _ := state.GetEnvironmentConfigs()
+	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	if err != nil {
+		return "", err
+	}
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, u.TargetType)
 	for _, currentDeployment := range deployments {
 		envConfig := envGroupConfigs[currentDeployment.Env]
@@ -1515,7 +1584,7 @@ func (u *ReleaseTrain) Transform(
 			},
 			TransformerEslVersion: u.TransformerEslVersion,
 			Author:                "",
-		}, tx); err != nil {
+		}, transaction); err != nil {
 			return "", err
 		}
 	}
@@ -1559,47 +1628,49 @@ type DeleteEnvFromApp struct {
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
-func (u *DeleteEnvFromApp) GetEslVersion() db.TransformerID {
-	return u.TransformerEslVersion
+func (c *DeleteEnvFromApp) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *DeleteEnvFromApp) SetEslVersion(eslVersion db.TransformerID) {
 	c.TransformerEslVersion = eslVersion
 }
 
-func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
+func (c *DeleteEnvFromApp) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvFromApp
 }
 
-func (u *DeleteEnvFromApp) Transform(
+func (c *DeleteEnvFromApp) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
-	transsaction *sql.Tx,
+	tCtx TransformerContext,
+	_ *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
 
 	thisSprintf := func(format string, a ...any) string {
-		return fmt.Sprintf("DeleteEnvFromApp app '%s' on env '%s': %s", u.Application, u.Environment, fmt.Sprintf(format, a...))
+		return fmt.Sprintf("DeleteEnvFromApp app '%s' on env '%s': %s", c.Application, c.Environment, fmt.Sprintf(format, a...))
 	}
 
-	if u.Application == "" {
+	if c.Application == "" {
 		return "", fmt.Errorf(thisSprintf("Need to provide the application"))
 	}
 
-	if u.Environment == "" {
+	if c.Environment == "" {
 		return "", fmt.Errorf(thisSprintf("Need to provide the environment"))
 	}
 
-	envAppDir := environmentApplicationDirectory(fs, u.Environment, u.Application)
+	envAppDir := environmentApplicationDirectory(fs, c.Environment, c.Application)
 	entries, err := fs.ReadDir(envAppDir)
+	msg := fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist", c.Environment, c.Application)
 	if err != nil {
-		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory. Does the app exist?"))
+		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory"))
 	}
 
 	if entries == nil {
 		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
-		return fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist.", u.Environment, u.Application), nil
+		logger.FromContext(ctx).Warn(msg)
+		return msg, nil
 	}
 
 	err = fs.Remove(envAppDir)
@@ -1607,8 +1678,8 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
 	}
 
-	t.DeleteEnvFromApp(u.Application, u.Environment)
-	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
+	tCtx.DeleteEnvFromApp(c.Application, c.Environment)
+	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", c.Environment, c.Application), nil
 }
 
 type CreateUndeployApplicationVersion struct {
@@ -1619,15 +1690,15 @@ type CreateUndeployApplicationVersion struct {
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
-func (u *CreateUndeployApplicationVersion) GetEslVersion() db.TransformerID {
-	return u.TransformerEslVersion
+func (c *CreateUndeployApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *CreateUndeployApplicationVersion) SetEslVersion(eslVersion db.TransformerID) {
 	c.TransformerEslVersion = eslVersion
 }
 
-func (u *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
+func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
 	return db.EvtCreateUndeployApplicationVersion
 }
 
@@ -1638,20 +1709,23 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := state.GetLastRelease(ctx, fs, c.Application)
+	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false)
+	//lastRelease, err := state.GetLastRelease(ctx, fs, c.Application)
 	if err != nil {
-		return "", fmt.Errorf("Could not get last reelase for app '%v': %v\n", c.Application, err)
+		return "", fmt.Errorf("Could not get last relase for app '%v': %v\n", c.Application, err)
 	}
-	if lastRelease == 0 {
-		return "", fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
+	var nextReleaseNumber uint64 = 0
+	if len(lastRelease) == 0 {
+		return "", fmt.Errorf("cannot undeploy application '%v'", c.Application)
 	}
+	nextReleaseNumber = lastRelease[0].ReleaseNumber
 
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, nextReleaseNumber)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
 		return "", err
 	}
 
-	configs, err := state.GetEnvironmentConfigs()
+	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
@@ -1663,9 +1737,6 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		return "", err
 	}
 	for env := range configs {
-		if err != nil {
-			return "", err
-		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]
@@ -1694,7 +1765,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				SourceTrain: nil,
 				Environment: env,
 				Application: c.Application,
-				Version:     lastRelease + 1,
+				Version:     nextReleaseNumber,
 				// the train should queue deployments, instead of giving up:
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
@@ -1717,7 +1788,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			}
 		}
 	}
-	return fmt.Sprintf("created undeploy-version %d of '%v'", lastRelease+1, c.Application), nil
+	return fmt.Sprintf("created undeploy-version %d of '%v'", nextReleaseNumber, c.Application), nil
 }
 
 type UndeployApplication struct {
@@ -1735,8 +1806,8 @@ func (u *UndeployApplication) GetDBEventType() db.EventType {
 	return db.EvtUndeployApplication
 }
 
-func (c *UndeployApplication) SetEslVersion(id db.TransformerID) {
-	c.TransformerEslVersion = id
+func (u *UndeployApplication) SetEslVersion(id db.TransformerID) {
+	u.TransformerEslVersion = id
 }
 
 func (u *UndeployApplication) Transform(
@@ -1746,29 +1817,23 @@ func (u *UndeployApplication) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := state.GetLastRelease(ctx, fs, u.Application)
+	lastRelease, err := state.DBHandler.DBSelectLastReleasesByApp(ctx, transaction, u.Application, false, true)
 	if err != nil {
 		return "", err
 	}
-	if lastRelease == 0 {
-		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
+	if lastRelease == nil {
+		return "", fmt.Errorf("cannot undeploy application without releases '%v'", u.Application)
 	}
-	isUndeploy, err := state.IsUndeployVersion(u.Application, lastRelease)
-	if err != nil {
-		return "", err
-	}
+	isUndeploy := lastRelease.Metadata.UndeployVersion
 	if !isUndeploy {
-		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
+		return "", fmt.Errorf("UndeployApplication: last release is not un-deployed application version of '%v'", u.Application)
 	}
 	appDir := applicationDirectory(fs, u.Application)
-	configs, err := state.GetEnvironmentConfigs()
+	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction) // we use ALL envs, to be sure
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not get environment configs: %w", err)
 	}
 	for env := range configs {
-		if err != nil {
-			return "", err
-		}
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
 		entries, err := fs.ReadDir(envAppDir)
 		if err != nil {
@@ -1824,14 +1889,15 @@ func (u *UndeployApplication) Transform(
 			}
 		}
 	}
-	if err = fs.Remove(appDir); err != nil {
-		return "", err
+
+	if err = fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", wrapFileError(err, appDir, "UndeployApplication: could not remove application directory")
 	}
 	for env := range configs {
 		appDir := environmentApplicationDirectory(fs, env, u.Application)
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, u.Application)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("could not find team for app %s: %w", u.Application, err)
 		}
 		t.AddAppEnv(u.Application, env, teamOwner)
 		// remove environment application
@@ -1839,6 +1905,7 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
 		}
 	}
+
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 

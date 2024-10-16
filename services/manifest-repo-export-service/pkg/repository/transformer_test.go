@@ -95,7 +95,7 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 		CommitterEmail:      "kuberpult@freiheit.com",
 		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
-		ReleaseVersionLimit: 2,
+		ReleaseVersionLimit: 0,
 	}
 
 	if dbConfig != nil {

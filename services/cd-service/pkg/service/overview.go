@@ -126,7 +126,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		sort.Slice(result.Releases, func(i, j int) bool {
 			return result.Releases[j].Version < result.Releases[i].Version
 		})
-		if app, err := o.DBHandler.DBSelectApp(ctx, transaction, appName); err != nil {
+		if app, err := o.DBHandler.DBSelectExistingApp(ctx, transaction, appName); err != nil {
 			return nil, err
 		} else {
 			if app == nil {
@@ -190,31 +190,47 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("could not obtain deployments for app %s: %w", appName, err)
 		}
 		for envName, currentDeployment := range deployments {
-			deployment := &api.Deployment{
-				Version:         uint64(*currentDeployment.Version),
-				QueuedVersion:   0,
-				UndeployVersion: false,
-				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-					CiLink:       currentDeployment.Metadata.CiLink,
-					DeployAuthor: currentDeployment.Metadata.DeployedByName,
-					DeployTime:   currentDeployment.Created.String(),
-				},
+			environment, err := o.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+			if err != nil {
+				return nil, fmt.Errorf("could not obtain environment %s for app %s: %w", envName, appName, err)
 			}
-			if queuedVersion, err := o.Repository.State().GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return nil, err
-			} else {
-				if queuedVersion == nil {
-					deployment.QueuedVersion = 0
-				} else {
-					deployment.QueuedVersion = *queuedVersion
+			if environment == nil {
+				return nil, fmt.Errorf("could not obtain environment %s for app %s: %w", envName, appName, err)
+			}
+			foundApp := false
+			for _, appInEnv := range environment.Applications {
+				if appInEnv == appName {
+					foundApp = true
+					break
 				}
 			}
+			if foundApp {
+				deployment := &api.Deployment{
+					Version:         uint64(*currentDeployment.Version),
+					QueuedVersion:   0,
+					UndeployVersion: false,
+					DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+						CiLink:       currentDeployment.Metadata.CiLink,
+						DeployAuthor: currentDeployment.Metadata.DeployedByName,
+						DeployTime:   currentDeployment.Created.String(),
+					},
+				}
+				if queuedVersion, err := o.Repository.State().GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+					return nil, err
+				} else {
+					if queuedVersion == nil {
+						deployment.QueuedVersion = 0
+					} else {
+						deployment.QueuedVersion = *queuedVersion
+					}
+				}
 
-			rel := getReleaseFromVersion(releases, uint64(*currentDeployment.Version))
-			if rel != nil {
-				deployment.UndeployVersion = rel.Metadata.UndeployVersion
+				rel := getReleaseFromVersion(releases, uint64(*currentDeployment.Version))
+				if rel != nil {
+					deployment.UndeployVersion = rel.Metadata.UndeployVersion
+				}
+				response.Deployments[envName] = deployment
 			}
-			response.Deployments[envName] = deployment
 		}
 		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
 		result.Warnings = CalculateWarnings(deployments, appLocks, envGroups)
@@ -224,6 +240,11 @@ func (o *OverviewServiceServer) GetAppDetails(
 		return nil, err
 	}
 	response.Application = resultApp
+
+	//span2, ctx := tracer.StartSpanFromContext(ctx, "Delay")
+	//time.Sleep(1000 * time.Millisecond)
+	//defer span2.Finish()
+
 	return response, nil
 }
 
@@ -352,7 +373,17 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 		case <-o.Shutdown:
 			return nil
 		case <-ch:
-			ov := o.response.Load().(*api.GetOverviewResponse)
+			loaded := o.response.Load()
+			var ov *api.GetOverviewResponse = nil
+			if loaded == nil {
+				ov, err := o.getOverviewDB(stream.Context(), o.Repository.State())
+				if err != nil {
+					return fmt.Errorf("could not load overview")
+				}
+				o.response.Store(ov)
+			} else {
+				ov = loaded.(*api.GetOverviewResponse)
+			}
 
 			if err := stream.Send(ov); err != nil {
 				// if we don't log this here, the details will be lost - so this is an exception to the rule "either return an error or log it".
@@ -465,6 +496,10 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	r, err := o.getOverviewDB(o.Context, s)
 	if err != nil {
 		logger.FromContext(o.Context).Error("error getting overview:", zap.Error(err))
+		return
+	}
+	if r == nil {
+		logger.FromContext(o.Context).Error("overview is nil")
 		return
 	}
 	o.response.Store(r)

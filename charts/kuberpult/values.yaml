@@ -67,6 +67,12 @@ git:
   # Values outside of the range will fail the service during startup.
   releaseVersionsLimit: 20
 
+  # When minimizeExportedData==false, all data will be written to git, including meta information that is not relevant for argoCd, like locks.
+  # When true, only the files needed for Argo CD to work are written.
+  # Note that when this option is true, in case of data loss in the database, kuberpult can *not* recover all information from the git repo.
+  # Recommendation: Only activate this option, if frequent database backups are made and if the git repo takes up too many resources.
+  minimizeExportedData: false
+
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 kubernetesEngine: "GKE"
 

@@ -131,9 +131,12 @@ type RepositoryConfig struct {
 	// network timeout
 	NetworkTimeout time.Duration
 
+	DBHandler *db.DBHandler
+
 	ArgoCdGenerateFiles bool
 	ReleaseVersionLimit uint
-	DBHandler           *db.DBHandler
+
+	MinimizeExportedData bool
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -275,7 +278,10 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			}
 
 			// Check configuration for errors and abort early if any:
-			_, err = state.GetEnvironmentConfigsAndValidate(ctx)
+			err = state.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				_, err = state.GetEnvironmentConfigsAndValidate(ctx, transaction)
+				return err
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -443,7 +449,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 			}
 			return nil, nil, nil, &applyErr
 		}
-		if msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction); err != nil {
+		if msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction, r.config.MinimizeExportedData); err != nil {
 			applyErr := TransformerBatchApplyError{
 				TransformerError: err,
 				Index:            0,
@@ -697,7 +703,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
-	configs, err := state.GetEnvironmentConfigs()
+	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return err
 	}
@@ -727,11 +733,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
 		for _, appName := range apps {
-			if err != nil {
-				return err
-			}
-			//team, err := state.DBHandler.DBSelectApp().GetApplicationTeamOwner(ctx, transaction, appName)
-			oneAppData, err := state.DBHandler.DBSelectApp(ctx, transaction, appName)
+			oneAppData, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, appName)
 			if err != nil {
 				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
 			}
@@ -1051,6 +1053,76 @@ func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lo
 		return result, nil
 	}
 }
+
+func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentApplicationLocksFromDB: No transaction provided")
+	}
+	activeLockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
+	if err != nil {
+		return nil, err
+	}
+	var lockIds []string
+	if activeLockIds != nil {
+		lockIds = activeLockIds.AppLocks
+	}
+	locks, err := s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
+
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]Lock, len(locks))
+	for _, lock := range locks {
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt: lock.Created,
+		}
+		result[lock.LockID] = genericLock
+	}
+	return result, nil
+}
+
+func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
+	if team == "" {
+		return map[string]Lock{}, nil
+	}
+
+	if transaction == nil {
+		return nil, fmt.Errorf("GetEnvironmentTeamLocksFromDB: No transaction provided")
+	}
+	activeLockIDs, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
+	if err != nil {
+		return nil, err
+	}
+
+	var lockIds []string
+	if activeLockIDs != nil {
+		lockIds = activeLockIDs.TeamLocks
+	}
+	locks, err := s.DBHandler.DBSelectTeamLockSet(ctx, transaction, environment, team, lockIds)
+
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]Lock, len(locks))
+	for _, lock := range locks {
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt: lock.Created,
+		}
+		result[lock.LockID] = genericLock
+	}
+	return result, nil
+}
+
 func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
@@ -1203,9 +1275,28 @@ func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFo
 	return false
 }
 
-func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
+	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
+	}
+	if dbAllEnvs == nil {
+		return nil, nil
+	}
+	envs, err := s.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs.Environments)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+	}
+	ret := make(map[string]config.EnvironmentConfig)
+	for _, env := range *envs {
+		ret[env.Name] = env.Config
+	}
+	return ret, nil
+}
+
+func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	logger := logger.FromContext(ctx)
-	envConfigs, err := s.GetEnvironmentConfigs()
+	envConfigs, err := s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -1233,22 +1324,22 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 	return envConfigs, err
 }
 
-func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
-	envs, err := s.Filesystem.ReadDir("environments")
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]config.EnvironmentConfig{}
-	for _, env := range envs {
-		c, err := s.GetEnvironmentConfig(env.Name())
-		if err != nil {
-			return nil, err
-
-		}
-		result[env.Name()] = *c
-	}
-	return result, nil
-}
+//func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
+//envs, err := s.Filesystem.ReadDir("environments")
+//if err != nil {
+//	return nil, err
+//}
+//result := map[string]config.EnvironmentConfig{}
+//for _, env := range envs {
+//	c, err := s.GetEnvironmentConfig(env.Name())
+//	if err != nil {
+//		return nil, err
+//
+//	}
+//	result[env.Name()] = *c
+//}
+//return result, nil
+//}
 
 func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {
 	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
@@ -1261,8 +1352,8 @@ func (s *State) GetEnvironmentConfig(environmentName string) (*config.Environmen
 	return &config, nil
 }
 
-func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error) {
-	allEnvConfigs, err := s.GetEnvironmentConfigs()
+func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *sql.Tx, envGroup string) ([]string, error) {
+	allEnvConfigs, err := s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
