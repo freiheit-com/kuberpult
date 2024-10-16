@@ -419,8 +419,6 @@ func (r *repository) PushRepo(ctx context.Context) error {
 }
 
 func (r *repository) GetHeadCommit(ctx context.Context) (*git.Commit, error) {
-	r.repository.Workdir()
-
 	msg := ""
 	ite, err := r.repository.NewBranchIterator(git.BranchAll)
 	if err != nil {
