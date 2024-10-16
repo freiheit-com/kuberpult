@@ -3080,7 +3080,6 @@ func (c *DeployApplicationVersion) Transform(
 		if err != nil {
 			return "", fmt.Errorf("could not write oldest deployment for %v - %v", newDeployment, err)
 		}
-
 	} else {
 		//Check if there is a version of target app already deployed on target environment
 		if _, err := fs.Lstat(versionFile); err == nil {

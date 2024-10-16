@@ -48,7 +48,7 @@ type OverviewServiceServer struct {
 
 	notify                       notify.Notify
 	Context                      context.Context
-	init                         sync.Once
+	overviewStreamingInitFunc    sync.Once
 	changedAppsStreamingInitFunc sync.Once
 	response                     atomic.Value
 
@@ -376,7 +376,7 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 }
 
 func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe) {
-	o.init.Do(func() {
+	o.overviewStreamingInitFunc.Do(func() {
 		ch, unsub := o.Repository.Notify().Subscribe()
 		// Channels obtained from subscribe are by default triggered
 		//
@@ -398,12 +398,12 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 	return o.notify.Subscribe()
 }
 
-func (o *OverviewServiceServer) subscribeChangedApps() (<-chan []string, notify.Unsubscribe) {
+func (o *OverviewServiceServer) subscribeChangedApps() (<-chan notify.ChangedAppNames, notify.Unsubscribe) {
 	o.changedAppsStreamingInitFunc.Do(func() {
 		ch, unsub := o.Repository.Notify().SubscribeChangesApps()
 		// Channels obtained from subscribe are by default triggered
 		//
-		// This means, we have to wait here until the first overview is loaded.
+		// This means, we have to wait here until the changedApps are loaded for the first time.
 		<-ch
 		o.notify.NotifyChangedApps([]string{})
 		go func() {

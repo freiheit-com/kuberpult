@@ -23,7 +23,7 @@ import (
 type Notify struct {
 	mx                 sync.Mutex
 	listener           map[chan struct{}]struct{}
-	changeAppsListener map[chan []string][]string
+	changeAppsListener map[chan ChangedAppNames]ChangedAppNames
 }
 
 type Unsubscribe = func()
@@ -57,16 +57,18 @@ func (n *Notify) Notify() {
 	}
 }
 
-func (n *Notify) SubscribeChangesApps() (<-chan []string, Unsubscribe) {
-	ch := make(chan []string, 1)
-	ch <- []string{}
+type ChangedAppNames []string
+
+func (n *Notify) SubscribeChangesApps() (<-chan ChangedAppNames, Unsubscribe) {
+	ch := make(chan ChangedAppNames, 1)
+	ch <- ChangedAppNames{}
 
 	n.mx.Lock()
 	defer n.mx.Unlock()
 	if n.changeAppsListener == nil {
-		n.changeAppsListener = map[chan []string][]string{}
+		n.changeAppsListener = map[chan ChangedAppNames]ChangedAppNames{}
 	}
-	n.changeAppsListener[ch] = []string{}
+	n.changeAppsListener[ch] = ChangedAppNames{}
 	return ch, func() {
 		n.mx.Lock()
 		defer n.mx.Unlock()
@@ -74,7 +76,7 @@ func (n *Notify) SubscribeChangesApps() (<-chan []string, Unsubscribe) {
 	}
 }
 
-func (n *Notify) NotifyChangedApps(changedApps []string) {
+func (n *Notify) NotifyChangedApps(changedApps ChangedAppNames) {
 	n.mx.Lock()
 	defer n.mx.Unlock()
 	for ch := range n.changeAppsListener {
