@@ -440,7 +440,6 @@ message OverviewApplication {
 }
 
 message GetOverviewResponse {
-  map<string, Application> applications = 2;
   repeated EnvironmentGroup environment_groups = 3;
   string git_revision = 4;
   string branch = 5;

@@ -108,9 +108,9 @@ export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinor
     const { application, hideMinors } = props;
     const { authHeader } = useAzureAuthSub((auth) => auth);
 
-    const appDetails = useAppDetailsForApp(application.Name);
+    const appDetails = useAppDetailsForApp(application.name);
     React.useEffect(() => {
-        getAppDetails(application.Name, authHeader);
+        getAppDetails(application.name, authHeader);
     }, [application, authHeader]);
 
     if (!appDetails) {
@@ -119,13 +119,13 @@ export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinor
                 <div className="service-lane__header">
                     <div className="service-lane-wrapper">
                         <div className={'service-lane-name'}>
-                            <span title={'team name'}>{application.Team ? application.Team : '<No Team> '} </span>
-                            {' | '} <span title={'app name'}> {application.Name}</span>
+                            <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
+                            {' | '} <span title={'app name'}> {application.name}</span>
                         </div>
-                        <SmallSpinner appName={application.Name} key={application.Name} />
+                        <SmallSpinner appName={application.name} key={application.name} />
                     </div>
                 </div>
-                <div className="service__releases" key={application.Name + '-' + application.Team}></div>
+                <div className="service__releases" key={application.name + '-' + application.team}></div>
             </div>
         );
     }
@@ -135,7 +135,7 @@ export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinor
             application={application}
             hideMinors={hideMinors}
             appDetails={appDetails}
-            key={application.Name}></ReadyServiceLane>
+            key={application.name}></ReadyServiceLane>
     );
 };
 
@@ -145,7 +145,7 @@ export const ReadyServiceLane: React.FC<{
     appDetails: GetAppDetailsResponse;
 }> = (props) => {
     const { application, hideMinors } = props;
-    const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.Name);
+    const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
 
     const allReleases = [...new Set(props.appDetails?.application?.releases.map((d) => d.version))].sort(
         (n1, n2) => n2 - n1
@@ -163,7 +163,7 @@ export const ReadyServiceLane: React.FC<{
                 addAction({
                     action: {
                         $case: 'undeploy',
-                        undeploy: { application: application.Name },
+                        undeploy: { application: application.name },
                     },
                 });
                 break;
@@ -171,7 +171,7 @@ export const ReadyServiceLane: React.FC<{
                 addAction({
                     action: {
                         $case: 'prepareUndeploy',
-                        prepareUndeploy: { application: application.Name },
+                        prepareUndeploy: { application: application.name },
                     },
                 });
                 break;
@@ -182,8 +182,8 @@ export const ReadyServiceLane: React.FC<{
                 showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in unknown state.');
                 break;
         }
-    }, [application.Name, props.appDetails.application?.undeploySummary]);
-    let minorReleases = useMinorsForApp(application.Name);
+    }, [application.name, props.appDetails.application?.undeploySummary]);
+    let minorReleases = useMinorsForApp(application.name);
     if (!minorReleases) {
         minorReleases = [];
     }
@@ -203,8 +203,8 @@ export const ReadyServiceLane: React.FC<{
                     ? getNumberOfReleasesBetween(allReleases, rel, releases[index + 1])
                     : getNumberOfReleasesBetween(allReleases, rel, allReleases.slice(-1)[0]) + 1;
             return (
-                <div key={application.Name + '-' + rel} className="service-lane__diff">
-                    <ReleaseCard app={application.Name} version={rel} key={application.Name + '-' + rel} />
+                <div key={application.name + '-' + rel} className="service-lane__diff">
+                    <ReleaseCard app={application.name} version={rel} key={application.name + '-' + rel} />
                     {!!diff && (
                         <DiffElement
                             diff={diff}
@@ -216,7 +216,7 @@ export const ReadyServiceLane: React.FC<{
             );
         });
 
-    const envs: Environment[] = useCurrentlyExistsAtGroup(application.Name).flatMap(
+    const envs: Environment[] = useCurrentlyExistsAtGroup(application.name).flatMap(
         (envGroup: EnvironmentGroupExtended) => envGroup.environments
     );
 
@@ -236,13 +236,13 @@ export const ReadyServiceLane: React.FC<{
                 addAction({
                     action: {
                         $case: 'deleteEnvFromApp',
-                        deleteEnvFromApp: { application: application.Name, environment: env },
+                        deleteEnvFromApp: { application: application.name, environment: env },
                     },
                 });
             });
             setShowEnvSelectionDialog(false);
         },
-        [application.Name, envs]
+        [application.name, envs]
     );
     const buttons: DotsMenuButton[] = [
         {
@@ -269,8 +269,8 @@ export const ReadyServiceLane: React.FC<{
     }
 
     const dotsMenu = <DotsMenu buttons={buttons} />;
-    const appLocks = Object.values(useAppDetailsForApp(application.Name).appLocks);
-    const teamLocks = Object.values(useAppDetailsForApp(application.Name).teamLocks);
+    const appLocks = Object.values(useAppDetailsForApp(application.name).appLocks);
+    const teamLocks = Object.values(useAppDetailsForApp(application.name).teamLocks);
     const dialog = (
         <EnvSelectionDialog
             environments={envs.map((e) => e.name)}
@@ -288,12 +288,12 @@ export const ReadyServiceLane: React.FC<{
                 <div className="service-lane-wrapper">
                     {appLocks.length + teamLocks.length >= 1 && (
                         <div className={'test-app-lock-summary'}>
-                            <AppLockSummary app={application.Name} numLocks={appLocks.length + teamLocks.length} />
+                            <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
                         </div>
                     )}
                     <div className={'service-lane-name'}>
-                        <span title={'team name'}>{application.Team ? application.Team : '<No Team> '} </span>
-                        {' | '} <span title={'app name'}> {application.Name}</span>
+                        <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
+                        {' | '} <span title={'app name'}> {application.name}</span>
                     </div>
                 </div>
                 <div className="service__actions__">{dotsMenu}</div>

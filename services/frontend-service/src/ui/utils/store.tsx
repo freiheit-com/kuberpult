@@ -478,18 +478,18 @@ export const useTeamNames = (): string[] =>
     useOverview(({ lightweightApps }) => [
         ...new Set(
             Object.values(lightweightApps)
-                .map((app: OverviewApplication) => app.Team.trim() || '<No Team>')
+                .map((app: OverviewApplication) => app.team.trim() || '<No Team>')
                 .sort((a, b) => a.localeCompare(b))
         ),
     ]);
 export const useApplications = (): OverviewApplication[] => useOverview(({ lightweightApps }) => lightweightApps);
 
 export const useTeamFromApplication = (app: string): string | undefined =>
-    useOverview(({ lightweightApps }) => lightweightApps.find((data) => data.Name === app)?.Name);
+    useOverview(({ lightweightApps }) => lightweightApps.find((data) => data.name === app)?.name);
 
 // returns warnings from all apps
 export const useAllWarnings = (): Warning[] => {
-    const names = useOverview(({ lightweightApps }) => lightweightApps).map((curr) => curr.Name);
+    const names = useOverview(({ lightweightApps }) => lightweightApps).map((curr) => curr.name);
     const allAppDetails = updateAppDetails.get();
     return names
         .map((name) => {
@@ -584,13 +584,13 @@ export const useNewTeamLocks = (app: string, team: string): DisplayLock[] => {
 
 // filter for apps included in the selected teams
 const applicationsMatchingTeam = (applications: OverviewApplication[], teams: string[]): OverviewApplication[] =>
-    applications.filter((app) => teams.length === 0 || teams.includes(app.Team.trim() || '<No Team>'));
+    applications.filter((app) => teams.length === 0 || teams.includes(app.team.trim() || '<No Team>'));
 
 //filter for all application names that have warnings
 export const applicationsWithWarnings = (applications: OverviewApplication[]): OverviewApplication[] =>
     applications
         .map((app) => {
-            const d = updateAppDetails.get()[app.Name];
+            const d = updateAppDetails.get()[app.name];
             if (d === undefined) {
                 return [];
             } else {
@@ -606,11 +606,11 @@ export const applicationsWithWarnings = (applications: OverviewApplication[]): O
 
 // filters given apps with the search terms or all for the empty string
 const applicationsMatchingName = (applications: OverviewApplication[], appNameParam: string): OverviewApplication[] =>
-    applications.filter((app) => appNameParam === '' || app.Name.includes(appNameParam));
+    applications.filter((app) => appNameParam === '' || app.name.includes(appNameParam));
 
 // sorts given apps by team
 const applicationsSortedByTeam = (applications: OverviewApplication[]): OverviewApplication[] =>
-    applications.sort((a, b) => (a.Team === b.Team ? a.Name?.localeCompare(b.Name) : a.Team?.localeCompare(b.Team)));
+    applications.sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
 
 // returns applications to show on the home page
 export const useApplicationsFilteredAndSorted = (
@@ -734,7 +734,7 @@ export const useLocksConflictingWithActions = (): AllLocks => {
                 if (action.action?.$case === 'deploy') {
                     const app = action.action.deploy.application;
                     const env = action.action.deploy.environment;
-                    const appTeam = appMap.find((curr) => curr.Name === app)?.Team;
+                    const appTeam = appMap.find((curr) => curr.name === app)?.team;
                     if (teamLock.environment === env && teamLock.team === appTeam) {
                         // found a team lock that matches
                         return true;
