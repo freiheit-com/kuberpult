@@ -19,10 +19,11 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"strconv"
 	"time"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"encoding/json"
 	"fmt"
