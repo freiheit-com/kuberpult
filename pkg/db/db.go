@@ -5918,6 +5918,8 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 	)
 
 	span.SetTag("query", insertQuery)
+	span.SetTag("commitHash", commitHash)
+	span.SetTag("timestamp", timestamp)
 	_, err := tx.Exec(
 		insertQuery,
 		commitHash,

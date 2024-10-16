@@ -62,7 +62,7 @@ type Repository interface {
 	StateAt(oid *git.Oid) (*State, error)
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
-	GetHeadCommit(ctx context.Context) (*git.Commit, error)
+	GetHeadCommit() (*git.Commit, error)
 }
 
 type TransformerBatchApplyError struct {
@@ -418,37 +418,8 @@ func (r *repository) PushRepo(ctx context.Context) error {
 	return nil
 }
 
-func (r *repository) GetHeadCommit(ctx context.Context) (*git.Commit, error) {
-	msg := ""
-	ite, err := r.repository.NewBranchIterator(git.BranchAll)
-	if err != nil {
-		return nil, fmt.Errorf("Error looping through branches: %v", err)
-	} else {
-		msg += "Branches Info\n"
-		for {
-			branch, branchType, error := ite.Next()
-			if error != nil {
-				break
-			}
-			name, errorName := branch.Name()
-			if errorName == nil {
-				msg = msg + fmt.Sprintf("Branch: %v\n", name)
-			} else {
-				msg = msg + "Failed to get a branch name.\n"
-			}
-
-			msg += fmt.Sprintf("\tBranchType: %v\n\tBranch Points to: %v\n", branchType, branch.Reference.Target())
-		}
-	}
-
+func (r *repository) GetHeadCommit() (*git.Commit, error) {
 	ref, err := r.repository.Head()
-	name, err := ref.Branch().Name()
-	if err != nil {
-		msg += fmt.Sprintf("Failed to get branch name. %s", err.Error())
-	} else {
-		msg += fmt.Sprintf("Current Branch: %s\n", name)
-	}
-	msg += fmt.Sprintf("Head target: %v\n", ref.Target())
 	if err != nil {
 		return nil, fmt.Errorf("Error fetching HEAD: %v", err)
 	}
@@ -456,8 +427,6 @@ func (r *repository) GetHeadCommit(ctx context.Context) (*git.Commit, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error transalting into commit: %v", err)
 	}
-	msg += fmt.Sprintf("Commit id:   %v\n", commit.Id().String())
-	logger.FromContext(ctx).Warn(msg)
 	return commit, nil
 
 }
