@@ -907,6 +907,10 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	sort.Slice(vp.events, func(i, j int) bool {
 		return vp.events[i].Environment < vp.events[j].Environment
 	})
+	//Sort this to avoid flakeyness based on order
+	sort.Slice(s.ExpectedEvents, func(i, j int) bool {
+		return s.ExpectedEvents[i].Environment < s.ExpectedEvents[j].Environment
+	})
 	if !cmp.Equal(s.ExpectedEvents, vp.events) {
 		t.Errorf("version events differ: %s", cmp.Diff(s.ExpectedEvents, vp.events))
 	}
