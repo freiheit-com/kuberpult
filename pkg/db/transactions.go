@@ -172,7 +172,7 @@ func IsRetryablePostgresError(err error) bool {
 	var pgErr = UnwrapUntilPostgresError(err)
 	if pgErr == nil {
 		// it's not even a postgres error, so we can't check if it's retryable
-		return true
+		return false
 	}
 	codeStr := string(pgErr.Code)
 	// for a list of all postgres error codes, see https://www.postgresql.org/docs/9.3/errcodes-appendix.html
