@@ -75,9 +75,11 @@ builder:
 compose-down:
 	docker compose down
 
-kuberpult: compose-down kuberpult-earthly
+kuberpult: compose-down
+	earthly +all-services --UID=$(USER_UID)
+	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
-kuberpult-earthly: compose-down
+kuberpult-freshdb: compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose up 
 

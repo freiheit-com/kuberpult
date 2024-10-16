@@ -3585,6 +3585,7 @@ func (c *ReleaseTrain) Transform(
 		envNames = append(envNames, env)
 	}
 	sort.Strings(envNames)
+	span.SetTag("environments", len(envNames))
 
 	for _, envName := range envNames {
 		var trainGroup *string
@@ -3809,6 +3810,7 @@ func (c *envReleaseTrain) prognosis(
 			AppsPrognoses: nil,
 		}
 	}
+	span.SetTag("ConsideredApps", len(apps))
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
@@ -3833,6 +3835,10 @@ func (c *envReleaseTrain) prognosis(
 			}
 		} else if upstreamLatest {
 			l := len(allLatestReleases[appName])
+			if allLatestReleases == nil || allLatestReleases[appName] == nil || l == 0 {
+				logger.FromContext(ctx).Sugar().Warnf("app %s appears to have no releases on env=%s, so it is skipped", appName, c.Env)
+				continue
+			}
 			versionToDeploy = uint64(allLatestReleases[appName][int(math.Max(0, float64(l-1)))])
 		} else {
 			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
@@ -3899,15 +3905,6 @@ func (c *envReleaseTrain) prognosis(
 
 		if state.DBHandler.ShouldUseOtherTables() {
 			releaseEnvs, exists := allLatestReleaseEnvironments[appName][versionToDeploy]
-
-			if err != nil {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         err,
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
-			}
 			if !exists {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
@@ -4026,6 +4023,9 @@ func (c *envReleaseTrain) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Transform")
+	defer span.Finish()
+
 	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
@@ -4140,6 +4140,8 @@ func (c *envReleaseTrain) Transform(
 		envOfOverview = getEnvOfOverview(overview, c.Env)
 	}
 
+	span.SetTag("ConsideredApps", len(appNames))
+	var deployCounter uint = 0
 	for _, appName := range appNames {
 		appPrognosis := prognosis.AppsPrognoses[appName]
 		if appPrognosis.SkipCause != nil {
@@ -4165,7 +4167,9 @@ func (c *envReleaseTrain) Transform(
 		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}
+		deployCounter++
 	}
+	span.SetTag("DeployedApps", deployCounter)
 	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, appNames)
 	if err != nil {
 		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions: %w", err))
