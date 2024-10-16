@@ -485,9 +485,10 @@ export const useTeamFromApplication = (app: string): string | undefined =>
 // returns warnings from all apps
 export const useAllWarnings = (): Warning[] => {
     const names = useOverview(({ lightweightApps }) => lightweightApps).map((curr) => curr.Name);
-    const warns = names
+    const allAppDetails = updateAppDetails.get();
+    return names
         .map((name) => {
-            const resp = updateAppDetails.get()[name];
+            const resp = allAppDetails[name];
             if (resp === undefined) {
                 return [];
             } else {
@@ -500,20 +501,7 @@ export const useAllWarnings = (): Warning[] => {
             }
         })
         .flatMap((curr) => curr);
-
-    if (warns === undefined) {
-        return [];
-    } else {
-        return warns || [];
-    }
 };
-
-// return warnings from all apps matching the given filtering criteria
-export const useShownWarnings = (teams: string[], nameIncludes: string): Warning[] => [];
-// {
-//     const shownApps = useApplicationsFilteredAndSorted(teams, true, nameIncludes);
-//     return shownApps.flatMap((app) => app.warnings);
-// }
 
 export const useEnvironmentGroups = (): EnvironmentGroup[] => useOverview(({ environmentGroups }) => environmentGroups);
 
@@ -594,17 +582,19 @@ const applicationsMatchingTeam = (applications: OverviewApplication[], teams: st
     applications.filter((app) => teams.length === 0 || teams.includes(app.Team.trim() || '<No Team>'));
 
 //filter for all application names that have warnings
-const applicationsWithWarnings = (applications: OverviewApplication[]): OverviewApplication[] =>
+export const applicationsWithWarnings = (applications: OverviewApplication[]): OverviewApplication[] =>
     applications
         .map((app) => {
-            const d = updateAppDetails.get()[app.Name].application;
+            const d = updateAppDetails.get()[app.Name];
             if (d === undefined) {
                 return [];
             } else {
-                if (d.warnings.length > 0) {
-                    return [app];
+                const currApp = d.application;
+                if (currApp === undefined) {
+                    return [];
+                } else {
+                    return currApp.warnings.length > 0 ? [app] : [];
                 }
-                return [];
             }
         })
         .flatMap((curr) => curr);

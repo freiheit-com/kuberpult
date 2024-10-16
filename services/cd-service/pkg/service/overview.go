@@ -36,7 +36,6 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type OverviewServiceServer struct {
@@ -216,10 +215,11 @@ func (o *OverviewServiceServer) GetAppDetails(
 			response.Deployments[envName] = deployment
 		}
 		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
-		result.Warnings = db.CalculateWarnings(ctx, appName, envGroups)
-		fmt.Println("result.Warnings")
-		fmt.Println(result.Warnings)
-		time.Sleep(1 * time.Second)
+		warnings, err := CalculateWarnings(ctx, transaction, o.Repository.State(), appName, envGroups)
+		if err != nil {
+			return nil, err
+		}
+		result.Warnings = warnings
 		return result, nil
 	})
 	if err != nil {
@@ -451,4 +451,71 @@ func deriveUndeploySummary(appName string, deployments map[string]*api.Deploymen
 		return api.UndeploySummary_NORMAL
 	}
 	return api.UndeploySummary_MIXED
+}
+
+func CalculateWarnings(ctx context.Context, transaction *sql.Tx, state *repository.State, appName string, groups []*api.EnvironmentGroup) ([]*api.Warning, error) {
+	result := make([]*api.Warning, 0)
+	for e := 0; e < len(groups); e++ {
+		group := groups[e]
+		for i := 0; i < len(groups[e].Environments); i++ {
+			env := group.Environments[i]
+			if env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
+				// if the env has no upstream, there's nothing to warn about
+				continue
+			}
+			upstreamEnvName := env.Config.GetUpstream().Environment
+			if upstreamEnvName == nil {
+				// this is already checked on startup and therefore shouldn't happen here
+				continue
+			}
+
+			versionInEnv, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env.Name, appName)
+			if err != nil {
+				return nil, err
+			}
+
+			if versionInEnv == nil {
+				// appName is not deployed here, ignore it
+				continue
+			}
+
+			versionInUpstreamEnv, err := state.GetEnvironmentApplicationVersion(ctx, transaction, *upstreamEnvName, appName)
+			if err != nil {
+				return nil, err
+			}
+			if versionInUpstreamEnv == nil {
+				// appName is not deployed upstream... that's unusual!
+				var warning = api.Warning{
+					WarningType: &api.Warning_UpstreamNotDeployed{
+						UpstreamNotDeployed: &api.UpstreamNotDeployed{
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         *versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+				continue
+			}
+
+			appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, env.Name, appName)
+			if err != nil {
+				return nil, err
+			}
+			if *versionInEnv > *versionInUpstreamEnv && len(appLocks) == 0 {
+				var warning = api.Warning{
+					WarningType: &api.Warning_UnusualDeploymentOrder{
+						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+							UpstreamVersion:     *versionInUpstreamEnv,
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         *versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+			}
+		}
+	}
+	return result, nil
 }
