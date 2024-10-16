@@ -104,7 +104,7 @@ type transactionOptions struct {
 
 // withTransactionAllOptions offers all options and returns multiple values.
 func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts transactionOptions, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	span, attempt_ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransaction")
 	defer span.Finish()
 	span.SetTag("readonly", opts.readonly)
 	span.SetTag("maxRetries", opts.maxRetries)
@@ -120,7 +120,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 		}
 		if IsRetryablePostgresError(e) {
 			duration := 50 * time.Millisecond
-			logger.FromContext(attempt_ctx).Sugar().Warnf("%s transaction failed, will retry in %v: %v", msg, duration, e)
+			logger.FromContext(ctx).Sugar().Warnf("%s transaction failed, will retry in %v: %v", msg, duration, e)
 			_ = transaction.Rollback()
 			span.Finish()
 			time.Sleep(duration)
@@ -131,12 +131,12 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 				readonly:   opts.readonly,
 			}, f)
 		} else {
-			logger.FromContext(attempt_ctx).Sugar().Warnf("%s transaction failed, will NOT retry error: %v", msg, e)
+			logger.FromContext(ctx).Sugar().Warnf("%s transaction failed, will NOT retry error: %v", msg, e)
 		}
 		return nil, e
 	}
 
-	tx, err := h.BeginTransaction(attempt_ctx, opts.readonly)
+	tx, err := h.BeginTransaction(ctx, opts.readonly)
 	if err != nil {
 		return retryMaybe("beginning", err, tx)
 	}
@@ -146,7 +146,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 		// because it is always set when Commit() was successful
 	}(tx)
 
-	result, err := f(attempt_ctx, tx)
+	result, err := f(ctx, tx)
 	if err != nil {
 		return retryMaybe("within", err, tx)
 	}
