@@ -148,7 +148,7 @@ export const [useAppDetails, updateAppDetails] = createStore<{ [key: string]: Ge
 const emptyWarnings: { [key: string]: Warning[] } = {};
 export const [useWarnings, updateWarnings] = createStore<{ [key: string]: Warning[] }>(emptyWarnings);
 
-export const useAllWarningsNow = (): Warning => useWarnings((map) => map);
+export const useAllWarningsAllApps = (): Warning => useWarnings((map) => map);
 
 export const getAppDetails = (appName: string, authHeader: AuthHeader): void => {
     useApi
