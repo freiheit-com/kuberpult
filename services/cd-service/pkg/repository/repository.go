@@ -601,7 +601,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			}
 		}
 	}
-	
+
 	return transformerBatches, nil, changes
 }
 
@@ -2473,6 +2473,16 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 				env.Applications[appName] = envApp
 			}
 		}
+	}
+	if shouldDelete {
+		lApps := make([]*api.OverviewApplication, len(cache.LightweightApps)-1)
+
+		for _, curr := range cache.LightweightApps {
+			if curr.Name != appName {
+				lApps = append(lApps, curr)
+			}
+		}
+		cache.LightweightApps = lApps
 	}
 
 	err = h.WriteOverviewCache(ctx, transaction, cache)
