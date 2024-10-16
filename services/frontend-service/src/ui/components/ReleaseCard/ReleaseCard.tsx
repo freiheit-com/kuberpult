@@ -201,7 +201,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         </div>
     );
 
-    const firstLine = sourceMessage.split('\n')[0] + (isMinor ? '💤' : '');
+    const firstLine = (isMinor ? '💤' : '') + sourceMessage.split('\n')[0];
     return (
         <Tooltip id={app + version} tooltipContent={tooltipContents}>
             <div className={'release-card__container'}>
