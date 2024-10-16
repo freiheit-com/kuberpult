@@ -22,8 +22,8 @@ import (
 
 type Notify struct {
 	mx                 sync.Mutex
-	listener           map[chan struct{}]struct{}
-	changeAppsListener map[chan []string][]string
+	oveviewListener    map[chan struct{}]struct{}
+	changeAppsListener map[chan ChangedAppNames]struct{}
 }
 
 type Unsubscribe = func()
@@ -34,22 +34,22 @@ func (n *Notify) Subscribe() (<-chan struct{}, Unsubscribe) {
 
 	n.mx.Lock()
 	defer n.mx.Unlock()
-	if n.listener == nil {
-		n.listener = map[chan struct{}]struct{}{}
+	if n.oveviewListener == nil {
+		n.oveviewListener = map[chan struct{}]struct{}{}
 	}
 
-	n.listener[ch] = struct{}{}
+	n.oveviewListener[ch] = struct{}{}
 	return ch, func() {
 		n.mx.Lock()
 		defer n.mx.Unlock()
-		delete(n.listener, ch)
+		delete(n.oveviewListener, ch)
 	}
 }
 
 func (n *Notify) Notify() {
 	n.mx.Lock()
 	defer n.mx.Unlock()
-	for ch := range n.listener {
+	for ch := range n.oveviewListener {
 		select {
 		case ch <- struct{}{}:
 		default:
@@ -57,16 +57,18 @@ func (n *Notify) Notify() {
 	}
 }
 
-func (n *Notify) SubscribeChangesApps() (<-chan []string, Unsubscribe) {
-	ch := make(chan []string, 1)
-	ch <- []string{}
+type ChangedAppNames []string
+
+func (n *Notify) SubscribeChangesApps() (<-chan ChangedAppNames, Unsubscribe) {
+	ch := make(chan ChangedAppNames, 1)
+	ch <- ChangedAppNames{}
 
 	n.mx.Lock()
 	defer n.mx.Unlock()
 	if n.changeAppsListener == nil {
-		n.changeAppsListener = map[chan []string][]string{}
+		n.changeAppsListener = map[chan ChangedAppNames]struct{}{}
 	}
-	n.changeAppsListener[ch] = []string{}
+	n.changeAppsListener[ch] = struct{}{}
 	return ch, func() {
 		n.mx.Lock()
 		defer n.mx.Unlock()
@@ -74,7 +76,7 @@ func (n *Notify) SubscribeChangesApps() (<-chan []string, Unsubscribe) {
 	}
 }
 
-func (n *Notify) NotifyChangedApps(changedApps []string) {
+func (n *Notify) NotifyChangedApps(changedApps ChangedAppNames) {
 	n.mx.Lock()
 	defer n.mx.Unlock()
 	for ch := range n.changeAppsListener {

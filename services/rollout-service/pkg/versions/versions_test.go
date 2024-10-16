@@ -290,12 +290,11 @@ func TestVersionClientStream(t *testing.T) {
 	}
 
 	tcs := []struct {
-		Name                   string
-		Steps                  []step
-		VersionResponses       map[string]mockVersionResponse
-		GetAppDetailsResponses map[string]*api.GetAppDetailsResponse
-		GetOverviewResponses   map[string]*api.GetOverviewResponse
-		ExpectedVersions       []expectedVersion
+		Name                 string
+		Steps                []step
+		VersionResponses     map[string]mockVersionResponse
+		GetOverviewResponses map[string]*api.GetOverviewResponse
+		ExpectedVersions     []expectedVersion
 	}{
 		{
 			Name: "Retries connections and finishes",
@@ -321,35 +320,31 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
 						},
 					},
 					OverviewResponse: testOverview,
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Team: "footeam",
-								Name: "foo",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
-									},
-								},
-							},
-							Deployments: map[string]*api.Deployment{
-								"staging": {
-									Version: 1,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-						},
-					},
-
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -417,35 +412,31 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
 						},
 					},
 					OverviewResponse: testOverview,
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Name: "foo",
-								Team: "footeam",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
-									},
-								},
-							},
-							Deployments: map[string]*api.Deployment{
-								"staging": {
-									Version: 1,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-						},
-					},
-
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -462,35 +453,31 @@ func TestVersionClientStream(t *testing.T) {
 				},
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
 						},
 					},
 					OverviewResponse: testOverview,
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Team: "footeam",
-								Name: "foo",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
-									},
-								},
-							},
-							Deployments: map[string]*api.Deployment{
-								"staging": {
-									Version: 1,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-						},
-					},
-
-					ExpectReady: true,
+					ExpectReady:      true,
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
@@ -503,35 +490,31 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
 						},
 					},
 					OverviewResponse: testOverview,
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Team: "footeam",
-								Name: "foo",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
-									},
-								},
-							},
-							Deployments: map[string]*api.Deployment{
-								"staging": {
-									Version: 1,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-						},
-					},
-
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -548,28 +531,24 @@ func TestVersionClientStream(t *testing.T) {
 				},
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
-						},
-					},
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Name: "foo",
-								Team: "footeam",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
 									},
 								},
+								Deployments: map[string]*api.Deployment{},
 							},
-							Deployments: map[string]*api.Deployment{},
 						},
 					},
 					OverviewResponse: emptyTestOverview,
-
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -591,34 +570,31 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
 						},
 					},
 					OverviewResponse: testOverview,
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Name: "foo",
-								Team: "footeam",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
-									},
-								},
-							},
-							Deployments: map[string]*api.Deployment{
-								"staging": {
-									Version: 1,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-						},
-					},
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -640,23 +616,20 @@ func TestVersionClientStream(t *testing.T) {
 				},
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
-						},
-					},
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Name: "foo",
-								Team: "footeam",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
 									},
 								},
+								Deployments: map[string]*api.Deployment{},
 							},
-							Deployments: map[string]*api.Deployment{},
 						},
 					},
 					OverviewResponse: emptyTestOverview,
@@ -682,34 +655,31 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
 						},
 					},
 					OverviewResponse: testOverview,
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Name: "foo",
-								Team: "footeam",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
-									},
-								},
-							},
-							Deployments: map[string]*api.Deployment{
-								"staging": {
-									Version: 1,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-						},
-					},
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -726,34 +696,31 @@ func TestVersionClientStream(t *testing.T) {
 				},
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
 						},
 					},
 					OverviewResponse: testOverviewWithDifferentEnvgroup,
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Name: "foo",
-								Team: "footeam",
-								Releases: []*api.Release{
-									{
-										Version:        1,
-										SourceCommitId: "00001",
-									},
-								},
-							},
-							Deployments: map[string]*api.Deployment{
-								"staging": {
-									Version: 2,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-						},
-					},
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -779,40 +746,37 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []string{
-							"foo",
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        2,
+											SourceCommitId: "00002",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"production": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+									"canary": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
 						},
 					},
 					OverviewResponse: testOverviewWithProdEnvs,
-					AppDetailsResponses: map[string]*api.GetAppDetailsResponse{
-						"foo": {
-							Application: &api.Application{
-								Name: "foo",
-								Team: "footeam",
-								Releases: []*api.Release{
-									{
-										Version:        2,
-										SourceCommitId: "00002",
-									},
-								},
-							},
-							Deployments: map[string]*api.Deployment{
-								"production": {
-									Version: 2,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-								"canary": {
-									Version: 2,
-									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-						},
-					},
-					ExpectReady: true,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "production",
@@ -902,7 +866,7 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	if hs.IsReady("versions") != s.ExpectReady {
 		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
 	}
-	
+
 	//Sort this to avoid flakeyness based on order
 	sort.Slice(vp.events, func(i, j int) bool {
 		return vp.events[i].Environment < vp.events[j].Environment
@@ -911,6 +875,10 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	sort.Slice(s.ExpectedEvents, func(i, j int) bool {
 		return s.ExpectedEvents[i].Environment < s.ExpectedEvents[j].Environment
 	})
+
+	if !cmp.Equal(s.ExpectedEvents, vp.events) {
+		t.Errorf("version events differ: %s", cmp.Diff(s.ExpectedEvents, vp.events))
+	}
 	vp.events = nil
 }
 
