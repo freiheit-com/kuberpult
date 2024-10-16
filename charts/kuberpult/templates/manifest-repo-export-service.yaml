@@ -234,6 +234,8 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
+        - name: KUBERPULT_MINIMIZE_EXPORTED_DATA
+          value: "{{ .Values.git.minimizeExportedData }}"
         volumeMounts:
         - name: ssh
           mountPath: /etc/ssh
