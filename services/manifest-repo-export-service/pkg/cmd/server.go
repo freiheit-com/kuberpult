@@ -326,7 +326,6 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				time.Sleep(d)
 				continue
 			}
-
 			log.Infof("event processed successfully, now writing to cutoff and pushing...")
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
@@ -351,7 +350,6 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				}
 				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
 			})
-
 			if err != nil {
 				err3 := repo.FetchAndReset(ctx)
 				if err3 != nil {
