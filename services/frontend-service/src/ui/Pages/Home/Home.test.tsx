@@ -463,6 +463,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'gets filtered apps by team - 2 results',
             selectedTeams: ['dummy', 'foo'],
             Overview: {
+                applications: {},
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
@@ -546,6 +547,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'shows both applications of the selected team - 2 results',
             selectedTeams: ['dummy'],
             Overview: {
+                applications: {},
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
@@ -612,6 +614,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'no teams selected (shows every application) - 4 results',
             selectedTeams: [],
             Overview: {
+                applications: {},
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
@@ -682,6 +685,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'selected team has no assigned applications - 0 results',
             selectedTeams: ['thisTeamDoesntExist'],
             Overview: {
+                applications: {},
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
