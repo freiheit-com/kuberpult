@@ -120,7 +120,7 @@ func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment
 			}
 		}
 	}
-	
+
 	return &ZeroVersion, nil
 }
 
