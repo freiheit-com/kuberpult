@@ -5631,6 +5631,8 @@ func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sq
 	}
 	if row != nil {
 		result := &api.GetOverviewResponse{
+			Applications:      map[string]*api.Application{},
+			LightweightApps:   []*api.OverviewApplication{},
 			Branch:            "",
 			ManifestRepoUrl:   "",
 			EnvironmentGroups: []*api.EnvironmentGroup{},
