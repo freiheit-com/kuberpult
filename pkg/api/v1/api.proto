@@ -403,6 +403,7 @@ message GetAppDetailsResponse {
   map<string, Locks> team_locks= 4; //EnvName -> []TeamLocks
 }
 
+
 //Wrapper over array of locks
 message Locks {
   repeated Lock locks = 2;
