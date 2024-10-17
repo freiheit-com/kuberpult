@@ -39,7 +39,7 @@ export const Home: React.FC = () => {
             <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={true} />
             <main className="main-content">
                 {apps.map((app) => (
-                    <ServiceLane application={app} hideMinors={hideMinors(params)} key={app.Name} />
+                    <ServiceLane application={app} hideMinors={hideMinors(params)} key={app.name} />
                 ))}
             </main>
         </div>

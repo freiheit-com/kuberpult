@@ -1101,7 +1101,6 @@ describe('Test Calculate Release Difference', () => {
             name: 'app does not exist in the app Details',
             inputAppDetails: {},
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1123,12 +1122,12 @@ describe('Test Calculate Release Difference', () => {
                 manifestRepoUrl: '',
                 lightweightApps: [
                     {
-                        Name: 'test',
-                        Team: 'test',
+                        name: 'test',
+                        team: 'test',
                     },
                     {
-                        Name: 'example-app',
-                        Team: '',
+                        name: 'example-app',
+                        team: '',
                     },
                 ],
             },
@@ -1183,7 +1182,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1214,8 +1212,8 @@ describe('Test Calculate Release Difference', () => {
                 branch: '',
                 lightweightApps: [
                     {
-                        Name: 'test',
-                        Team: 'test',
+                        name: 'test',
+                        team: 'test',
                     },
                 ],
                 manifestRepoUrl: '',
@@ -1281,7 +1279,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1313,8 +1310,8 @@ describe('Test Calculate Release Difference', () => {
 
                 lightweightApps: [
                     {
-                        Name: 'test',
-                        Team: 'test',
+                        name: 'test',
+                        team: 'test',
                     },
                 ],
                 manifestRepoUrl: '',
@@ -1370,39 +1367,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {
-                    [appName]: {
-                        name: appName,
-                        releases: [
-                            {
-                                version: 10,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 12,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
-                    },
-                },
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1433,8 +1397,8 @@ describe('Test Calculate Release Difference', () => {
                 branch: '',
                 lightweightApps: [
                     {
-                        Name: 'test',
-                        Team: 'test',
+                        name: 'test',
+                        team: 'test',
                     },
                 ],
                 manifestRepoUrl: '',
@@ -1489,39 +1453,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {
-                    [appName]: {
-                        name: appName,
-                        releases: [
-                            {
-                                version: 10,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 12,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
-                    },
-                },
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1553,8 +1484,8 @@ describe('Test Calculate Release Difference', () => {
                 manifestRepoUrl: '',
                 lightweightApps: [
                     {
-                        Name: 'test',
-                        Team: 'test',
+                        name: 'test',
+                        team: 'test',
                     },
                 ],
             },

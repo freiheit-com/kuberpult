@@ -64,8 +64,8 @@ describe('Service Lane', () => {
             warnings: [],
         };
         const sampleLightWeightApp: OverviewApplication = {
-            Name: 'test2',
-            Team: '',
+            name: 'test2',
+            team: '',
         };
         UpdateOverview.set({
             applications: {
@@ -403,8 +403,8 @@ describe('Service Lane Diff', () => {
                 test2: testcase.appDetails,
             });
             const sampleLightweightApp: OverviewApplication = {
-                Name: 'test2',
-                Team: 'test-team',
+                name: 'test2',
+                team: 'test-team',
             };
             const { container } = getWrapper({ application: sampleLightweightApp });
 
@@ -508,8 +508,8 @@ describe('Service Lane Important Releases', () => {
                 warnings: [],
             };
             const sampleOverviewApp: OverviewApplication = {
-                Name: 'test2',
-                Team: 'test2',
+                name: 'test2',
+                team: 'test2',
             };
             UpdateOverview.set({
                 applications: {
@@ -689,7 +689,7 @@ describe('Service Lane ⋮ menu', () => {
             });
 
             const { container } = getWrapper({
-                application: { Name: testcase.renderedApp.name, Team: testcase.renderedApp.team },
+                application: { name: testcase.renderedApp.name, team: testcase.renderedApp.team },
             });
 
             const undeployButton = elementQuerySelectorSafe(container, '.dots-menu-hidden');
@@ -913,8 +913,8 @@ describe('Service Lane AppLockSummary', () => {
 
             const { container } = getWrapper({
                 application: {
-                    Name: testcase.renderedApp.application?.name || '',
-                    Team: testcase.renderedApp.application?.team || '',
+                    name: testcase.renderedApp.application?.name || '',
+                    team: testcase.renderedApp.application?.team || '',
                 },
             });
 

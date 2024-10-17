@@ -55,16 +55,16 @@ describe('App', () => {
             applications: sampleApps,
             lightweightApps: [
                 {
-                    Name: sampleApps.app1.name,
-                    Team: sampleApps.app1.team,
+                    name: sampleApps.app1.name,
+                    team: sampleApps.app1.team,
                 },
                 {
-                    Name: sampleApps.app2.name,
-                    Team: sampleApps.app2.team,
+                    name: sampleApps.app2.name,
+                    team: sampleApps.app2.team,
                 },
                 {
-                    Name: sampleApps.app3.name,
-                    Team: sampleApps.app3.team,
+                    name: sampleApps.app3.name,
+                    team: sampleApps.app3.team,
                 },
             ],
         });
@@ -93,15 +93,15 @@ describe('App', () => {
 
         // then apps are sorted and Service Lane is called
         expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({
-            application: { Name: sampleApps.app1.name, Team: sampleApps.app1.team },
+            application: { name: sampleApps.app1.name, team: sampleApps.app1.team },
             hideMinors: false,
         });
         expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({
-            application: { Name: sampleApps.app2.name, Team: sampleApps.app2.team },
+            application: { name: sampleApps.app2.name, team: sampleApps.app2.team },
             hideMinors: false,
         });
         expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({
-            application: { Name: sampleApps.app3.name, Team: sampleApps.app3.team },
+            application: { name: sampleApps.app3.name, team: sampleApps.app3.team },
             hideMinors: false,
         });
     });
@@ -140,16 +140,16 @@ describe('App', () => {
             applications: sampleApps,
             lightweightApps: [
                 {
-                    Name: sampleApps.app1.name,
-                    Team: sampleApps.app1.team,
+                    name: sampleApps.app1.name,
+                    team: sampleApps.app1.team,
                 },
                 {
-                    Name: sampleApps.app2.name,
-                    Team: sampleApps.app2.team,
+                    name: sampleApps.app2.name,
+                    team: sampleApps.app2.team,
                 },
                 {
-                    Name: sampleApps.app3.name,
-                    Team: sampleApps.app3.team,
+                    name: sampleApps.app3.name,
+                    team: sampleApps.app3.team,
                 },
             ],
         });
@@ -179,15 +179,15 @@ describe('App', () => {
 
         // then apps are sorted and Service Lane is called
         expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({
-            application: { Name: sampleApps.app1.name, Team: sampleApps.app1.team },
+            application: { name: sampleApps.app1.name, team: sampleApps.app1.team },
             hideMinors: false,
         });
         expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({
-            application: { Name: sampleApps.app2.name, Team: sampleApps.app2.team },
+            application: { name: sampleApps.app2.name, team: sampleApps.app2.team },
             hideMinors: false,
         });
         expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({
-            application: { Name: sampleApps.app3.name, Team: sampleApps.app3.team },
+            application: { name: sampleApps.app3.name, team: sampleApps.app3.team },
             hideMinors: false,
         });
     });
@@ -205,56 +205,22 @@ describe('Get teams from application list (useTeamNames)', () => {
         {
             name: 'right amount of teams - 4 sorted results',
             overview: {
-                applications: {
-                    foo: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    bar: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    example: {
-                        name: 'example',
-                        releases: [],
-                        sourceRepoUrl: 'http://example.com',
-                        team: 'test2',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    team: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                },
                 lightweightApps: [
                     {
-                        Name: 'foo',
-                        Team: 'dummy',
+                        name: 'foo',
+                        team: 'dummy',
                     },
                     {
-                        Name: 'bar',
-                        Team: 'test',
+                        name: 'bar',
+                        team: 'test',
                     },
                     {
-                        Name: 'example',
-                        Team: 'test2',
+                        name: 'example',
+                        team: 'test2',
                     },
                     {
-                        Name: 'team',
-                        Team: 'foo',
+                        name: 'team',
+                        team: 'foo',
                     },
                 ],
                 environmentGroups: [],
@@ -321,44 +287,18 @@ describe('Get teams from application list (useTeamNames)', () => {
         {
             name: "doesn't collect duplicate team names - 2 sorted results",
             overview: {
-                applications: {
-                    foo: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    bar: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    team: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                },
                 lightweightApps: [
                     {
-                        Name: 'foo',
-                        Team: 'dummy',
+                        name: 'foo',
+                        team: 'dummy',
                     },
                     {
-                        Name: 'bar',
-                        Team: 'dummy',
+                        name: 'bar',
+                        team: 'dummy',
                     },
                     {
-                        Name: 'team',
-                        Team: 'foo',
+                        name: 'team',
+                        team: 'foo',
                     },
                 ],
                 environmentGroups: [],
@@ -412,56 +352,22 @@ describe('Get teams from application list (useTeamNames)', () => {
         {
             name: "doesn't collect empty team names and adds <No Team> option to dropdown - 2 sorted results",
             overview: {
-                applications: {
-                    foo: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    bar: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    example: {
-                        name: 'example',
-                        releases: [],
-                        sourceRepoUrl: 'http://example.com',
-                        team: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    team: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                },
                 lightweightApps: [
                     {
-                        Name: 'foo',
-                        Team: '',
+                        name: 'foo',
+                        team: '',
                     },
                     {
-                        Name: 'bar',
-                        Team: 'test',
+                        name: 'bar',
+                        team: 'test',
                     },
                     {
-                        Name: 'example',
-                        Team: '',
+                        name: 'example',
+                        team: '',
                     },
                     {
-                        Name: 'team',
-                        Team: 'foo',
+                        name: 'team',
+                        team: 'foo',
                     },
                 ],
                 environmentGroups: [],
@@ -553,60 +459,26 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'gets filtered apps by team - 2 results',
             selectedTeams: ['dummy', 'foo'],
             Overview: {
-                applications: {
-                    foo: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    bar: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    example: {
-                        name: 'example',
-                        releases: [],
-                        sourceRepoUrl: 'http://example.com',
-                        team: 'test2',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    team: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                },
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
                 manifestRepoUrl: '',
                 lightweightApps: [
                     {
-                        Name: 'foo',
-                        Team: 'dummy',
+                        name: 'foo',
+                        team: 'dummy',
                     },
                     {
-                        Name: 'bar',
-                        Team: 'test',
+                        name: 'bar',
+                        team: 'test',
                     },
                     {
-                        Name: 'example',
-                        Team: 'test2',
+                        name: 'example',
+                        team: 'test2',
                     },
                     {
-                        Name: 'team',
-                        Team: 'foo',
+                        name: 'team',
+                        team: 'foo',
                     },
                 ],
             },
@@ -670,48 +542,22 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'shows both applications of the selected team - 2 results',
             selectedTeams: ['dummy'],
             Overview: {
-                applications: {
-                    foo: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    bar: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    team: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                },
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
                 manifestRepoUrl: '',
                 lightweightApps: [
                     {
-                        Name: 'foo',
-                        Team: 'dummy',
+                        name: 'foo',
+                        team: 'dummy',
                     },
                     {
-                        Name: 'bar',
-                        Team: 'dummy',
+                        name: 'bar',
+                        team: 'dummy',
                     },
                     {
-                        Name: 'team',
-                        Team: 'foo',
+                        name: 'team',
+                        team: 'foo',
                     },
                 ],
             },
@@ -762,60 +608,26 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'no teams selected (shows every application) - 4 results',
             selectedTeams: [],
             Overview: {
-                applications: {
-                    foo: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    bar: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    example: {
-                        name: 'example',
-                        releases: [],
-                        sourceRepoUrl: 'http://example.com',
-                        team: 'test2',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    team: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                },
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
                 manifestRepoUrl: '',
                 lightweightApps: [
                     {
-                        Name: 'foo',
-                        Team: 'dummy',
+                        name: 'foo',
+                        team: 'dummy',
                     },
                     {
-                        Name: 'bar',
-                        Team: 'test',
+                        name: 'bar',
+                        team: 'test',
                     },
                     {
-                        Name: 'team',
-                        Team: 'foo',
+                        name: 'team',
+                        team: 'foo',
                     },
                     {
-                        Name: 'example',
-                        Team: 'test2',
+                        name: 'example',
+                        team: 'test2',
                     },
                 ],
             },
@@ -866,36 +678,18 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'selected team has no assigned applications - 0 results',
             selectedTeams: ['thisTeamDoesntExist'],
             Overview: {
-                applications: {
-                    foo: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    bar: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                },
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
                 manifestRepoUrl: '',
                 lightweightApps: [
                     {
-                        Name: 'foo',
-                        Team: 'dummy',
+                        name: 'foo',
+                        team: 'dummy',
                     },
                     {
-                        Name: 'bar',
-                        Team: 'test',
+                        name: 'bar',
+                        team: 'test',
                     },
                 ],
             },

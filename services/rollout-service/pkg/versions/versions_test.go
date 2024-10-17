@@ -867,11 +867,11 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
 	}
 
-	//Sort this to avoid flakeyness based on order
+	//Sort this to avoid flakiness based on order
 	sort.Slice(vp.events, func(i, j int) bool {
 		return vp.events[i].Environment < vp.events[j].Environment
 	})
-	//Sort this to avoid flakeyness based on order
+	//Sort this to avoid flakiness based on order
 	sort.Slice(s.ExpectedEvents, func(i, j int) bool {
 		return s.ExpectedEvents[i].Environment < s.ExpectedEvents[j].Environment
 	})
