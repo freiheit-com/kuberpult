@@ -99,28 +99,28 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 
 // Tries getting the version from cache
 func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
-	//var overview *api.GetOverviewResponse
-	//entry, ok := v.cache.Get(revision)
-	//if !ok {
-	//	return nil, ErrNotFound
-	//}
-	//overview = entry.(*api.GetOverviewResponse)
-	//for _, group := range overview.GetEnvironmentGroups() {
-	//	for _, env := range group.GetEnvironments() {
-	//		if env.Name == environment {
-	//			app := env.Applications[application]
-	//			if app == nil {
-	//				return &ZeroVersion, nil
-	//			}
-	//			return &VersionInfo{
-	//				Version:        app.Version,
-	//				SourceCommitId: sourceCommitIdFromOverview(overview, app),
-	//				DeployedAt:     deployedAtFromApp(app),
-	//			}, nil
-	//		}
-	//	}
-	//}
-	//TODO: Fix caching
+	var overview *api.GetOverviewResponse
+	entry, ok := v.cache.Get(revision)
+	if !ok {
+		return nil, ErrNotFound
+	}
+	overview = entry.(*api.GetOverviewResponse)
+	for _, group := range overview.GetEnvironmentGroups() {
+		for _, env := range group.GetEnvironments() {
+			if env.Name == environment {
+				app := env.Applications[application]
+				if app == nil {
+					return &ZeroVersion, nil
+				}
+				return &VersionInfo{
+					Version:        app.Version,
+					SourceCommitId: sourceCommitIdFromOverview(overview, app),
+					DeployedAt:     deployedAtFromApp(app),
+				}, nil
+			}
+		}
+	}
+	
 	return &ZeroVersion, nil
 }
 
@@ -163,19 +163,19 @@ func sourceCommitId(appReleases []*api.Release, deployment *api.Deployment) stri
 	return ""
 }
 
-//func sourceCommitIdFromOverview(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
-//	a := overview.Applications[app.Name]
-//	if a == nil {
-//		return ""
-//	}
-//	for _, rel := range a.Releases {
-//		if rel.Version == app.Version {
-//
-//			return rel.SourceCommitId
-//		}
-//	}
-//	return ""
-//}
+func sourceCommitIdFromOverview(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
+	a := overview.Applications[app.Name]
+	if a == nil {
+		return ""
+	}
+	for _, rel := range a.Releases {
+		if rel.Version == app.Version {
+
+			return rel.SourceCommitId
+		}
+	}
+	return ""
+}
 
 type KuberpultEvent struct {
 	Environment      string

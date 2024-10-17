@@ -129,19 +129,18 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 	}
 
 	var productVersion []*api.ProductSummary
-	//TODO: Use new implementation
-	//for _, row := range summaryFromEnv { //nolint: govet
-	//	for _, app := range response.Applications {
-	//		if row.App == app.Name {
-	//			for _, release := range app.Releases {
-	//				if strconv.FormatUint(release.Version, 10) == row.Version {
-	//					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion, Environment: row.Environment, Team: app.Team})
-	//					break
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
+	for _, row := range summaryFromEnv { //nolint: govet
+		for _, app := range response.Applications {
+			if row.App == app.Name {
+				for _, release := range app.Releases {
+					if strconv.FormatUint(release.Version, 10) == row.Version {
+						productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion, Environment: row.Environment, Team: app.Team})
+						break
+					}
+				}
+			}
+		}
+	}
 	return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
 }
 

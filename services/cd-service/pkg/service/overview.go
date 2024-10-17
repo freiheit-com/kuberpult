@@ -301,6 +301,7 @@ func (o *OverviewServiceServer) getOverview(
 	result := api.GetOverviewResponse{
 		Branch:            "",
 		ManifestRepoUrl:   "",
+		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
 		LightweightApps:   make([]*api.OverviewApplication, 0),
