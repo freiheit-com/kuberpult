@@ -204,6 +204,7 @@ describe('Get teams from application list (useTeamNames)', () => {
     const data: dataT[] = [
         {
             name: 'right amount of teams - 4 sorted results',
+            applications: {},
             overview: {
                 lightweightApps: [
                     {
@@ -287,6 +288,7 @@ describe('Get teams from application list (useTeamNames)', () => {
         {
             name: "doesn't collect duplicate team names - 2 sorted results",
             overview: {
+                applications: {},
                 lightweightApps: [
                     {
                         name: 'foo',
@@ -352,6 +354,7 @@ describe('Get teams from application list (useTeamNames)', () => {
         {
             name: "doesn't collect empty team names and adds <No Team> option to dropdown - 2 sorted results",
             overview: {
+                applications: {},
                 lightweightApps: [
                     {
                         name: 'foo',

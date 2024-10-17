@@ -154,7 +154,11 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 		}
 		appInEnv.UndeployVersion = release.Metadata.UndeployVersion
 	}
-
+	app := getApplicationByName(latestOverview.Applications, deployment.App)
+	if app != nil {
+		app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
+		app.UndeploySummary = deriveUndeploySummary(app.Name, latestOverview.EnvironmentGroups)
+	}
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
