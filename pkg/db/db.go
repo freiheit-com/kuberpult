@@ -792,7 +792,7 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 // DBSelectReleasesByAppLatestEslVersion returns the latest eslversion
 // for each release of an app. It includes deleted releases and loads manifests.
 func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppLatestEslVersion")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(
 		`SELECT
@@ -836,7 +836,7 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 }
 
 func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppOrderedByEslVersion")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
 		"SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments " +
