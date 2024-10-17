@@ -59,7 +59,12 @@ export interface DisplayLock {
 }
 
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
-    'dl-' + displayLock.lockId + '-' + displayLock.environment + '-' + displayLock.application;
+    'dl-' +
+    displayLock.lockId +
+    '-' +
+    displayLock.environment +
+    '-' +
+    (displayLock.application ? displayLock.application : displayLock.team);
 
 type EnhancedOverview = GetOverviewResponse & { [key: string]: unknown; loaded: boolean };
 
@@ -541,6 +546,27 @@ export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
                 .flat()
         )
         .flat();
+
+export const useAppLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
+    Object.values(useEnvironments())
+        .map((env) =>
+            allApps
+                .map((app) =>
+                    env.appLocks[app.name]
+                        ? env.appLocks[app.name].locks.map((lock) => ({
+                              date: lock.createdAt,
+                              environment: env.name,
+                              application: app.name,
+                              lockId: lock.lockId,
+                              message: lock.message,
+                              authorName: lock.createdBy?.name,
+                              authorEmail: lock.createdBy?.email,
+                          }))
+                        : []
+                )
+                .flat()
+        )
+        .flat();
 /**
  * returns the classname according to the priority of an environment, used to color environments
  */
@@ -795,9 +821,10 @@ export const useTeamLocksFilterByTeam = (team: string): DisplayLock[] => {
 
 export const useAllLocks = (): AllLocks => {
     const envs = useEnvironments();
+    const allApps = useApplications();
+    const teamLocks = useTeamLocks(allApps);
     const environmentLocks: DisplayLock[] = [];
-    const appLocks: DisplayLock[] = [];
-    const teamLocks: DisplayLock[] = [];
+    const appLocks = useAppLocks(allApps);
     envs.forEach((env: Environment) => {
         for (const locksKey in env.locks) {
             const lock = env.locks[locksKey];
@@ -810,44 +837,6 @@ export const useAllLocks = (): AllLocks => {
                 authorEmail: lock.createdBy?.email,
             };
             environmentLocks.push(displayLock);
-        }
-        for (const applicationsKey in env.applications) {
-            const app = env.applications[applicationsKey];
-            for (const locksKey in app.locks) {
-                const lock = app.locks[locksKey];
-                const displayLock: DisplayLock = {
-                    lockId: lock.lockId,
-                    application: app.name,
-                    date: lock.createdAt,
-                    environment: env.name,
-                    message: lock.message,
-                    authorName: lock.createdBy?.name,
-                    authorEmail: lock.createdBy?.email,
-                };
-                appLocks.push(displayLock);
-            }
-            for (const locksKey in app.teamLocks) {
-                const lock = app.teamLocks[locksKey];
-                const displayLock: DisplayLock = {
-                    lockId: lock.lockId,
-                    team: app.team,
-                    date: lock.createdAt,
-                    environment: env.name,
-                    message: lock.message,
-                    authorName: lock.createdBy?.name,
-                    authorEmail: lock.createdBy?.email,
-                };
-                if (
-                    !teamLocks.some(
-                        (l) =>
-                            l.lockId === displayLock.lockId &&
-                            l.environment === displayLock.environment &&
-                            l.team === displayLock.team
-                    ) // 2 Team locks that don't have the same environment or team might, in theory, have the same lock ID, so the lock id does not uniquely identify a lock, but the combination of env + team + ID should.
-                ) {
-                    teamLocks.push(displayLock);
-                }
-            }
         }
     });
     return {

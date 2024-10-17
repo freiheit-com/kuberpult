@@ -313,9 +313,7 @@ func (o *OverviewServiceServer) getOverview(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(result.EnvironmentGroups[0].Environments[0].Locks)
-	fmt.Println(result.EnvironmentGroups[0].Environments[0].TeamLocks)
-	fmt.Println(result.EnvironmentGroups[0].Environments[0].AppLocks)
+
 	if apps, err := s.GetApplications(ctx, transaction); err != nil {
 		return nil, err
 	} else {

@@ -40,12 +40,29 @@ func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", teamLock.Env)
 	}
-	apps := getEnvironmentApplicationsByTeam(env.Applications, teamLock.Team)
-	for _, app := range apps {
-		if app.TeamLocks == nil {
-			app.TeamLocks = map[string]*api.Lock{}
+	if env.TeamLocks == nil {
+		env.TeamLocks = make(map[string]*api.Locks)
+	}
+
+	if teamLock.Deleted {
+		locksToKeep := make([]*api.Lock, max(len(env.TeamLocks[teamLock.Team].Locks)-1, 0))
+		for _, lock := range env.TeamLocks[teamLock.Team].Locks {
+			if lock.LockId != teamLock.LockID {
+				locksToKeep = append(locksToKeep, lock)
+			}
 		}
-		app.TeamLocks[teamLock.LockID] = &api.Lock{
+		if len(locksToKeep) == 0 {
+			delete(env.TeamLocks, teamLock.Team)
+		} else {
+			env.TeamLocks[teamLock.Team].Locks = locksToKeep
+		}
+	} else {
+		if env.TeamLocks[teamLock.Team] == nil {
+			env.TeamLocks[teamLock.Team] = &api.Locks{
+				Locks: make([]*api.Lock, 0),
+			}
+		}
+		env.TeamLocks[teamLock.Team].Locks = append(env.TeamLocks[teamLock.Team].Locks, &api.Lock{
 			Message:   teamLock.Metadata.Message,
 			LockId:    teamLock.LockID,
 			CreatedAt: timestamppb.New(teamLock.Created),
@@ -53,11 +70,9 @@ func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql
 				Name:  teamLock.Metadata.CreatedByName,
 				Email: teamLock.Metadata.CreatedByEmail,
 			},
-		}
-		if teamLock.Deleted {
-			delete(app.TeamLocks, teamLock.LockID)
-		}
+		})
 	}
+
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
@@ -258,45 +273,38 @@ func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transacti
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", applicationLock.Env)
 	}
-	app := getEnvironmentApplicationByName(env.Applications, applicationLock.App)
-	if app == nil {
-		selectApp, err := h.DBSelectApp(ctx, transaction, applicationLock.App)
-		if err != nil {
-			return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", applicationLock.App, err)
-		}
-		if selectApp == nil {
-			return fmt.Errorf("could not find application '%s' in apps table: got no result", applicationLock.App)
-		}
-		env.Applications[applicationLock.App] = &api.Environment_Application{
-			Version:         0,
-			QueuedVersion:   0,
-			UndeployVersion: false,
-			ArgoCd:          nil,
-			Name:            applicationLock.App,
-			Locks:           map[string]*api.Lock{},
-			TeamLocks:       map[string]*api.Lock{},
-			Team:            selectApp.Metadata.Team,
-			DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-				DeployAuthor: "",
-				DeployTime:   "",
-			},
-		}
-		app = env.Applications[applicationLock.App]
+
+	if env.AppLocks == nil {
+		env.AppLocks = make(map[string]*api.Locks)
 	}
-	if app.Locks == nil {
-		app.Locks = map[string]*api.Lock{}
-	}
-	app.Locks[applicationLock.LockID] = &api.Lock{
-		Message:   applicationLock.Metadata.Message,
-		LockId:    applicationLock.LockID,
-		CreatedAt: timestamppb.New(createdTime),
-		CreatedBy: &api.Actor{
-			Name:  applicationLock.Metadata.CreatedByName,
-			Email: applicationLock.Metadata.CreatedByEmail,
-		},
-	}
+
 	if applicationLock.Deleted {
-		delete(app.Locks, applicationLock.LockID)
+		locksToKeep := make([]*api.Lock, max(len(env.AppLocks[applicationLock.App].Locks)-1, 0))
+		for _, lock := range env.AppLocks[applicationLock.App].Locks {
+			if lock.LockId != applicationLock.LockID {
+				locksToKeep = append(locksToKeep, lock)
+			}
+		}
+		if len(locksToKeep) == 0 {
+			delete(env.AppLocks, applicationLock.App)
+		} else {
+			env.AppLocks[applicationLock.App].Locks = locksToKeep
+		}
+	} else {
+		if env.AppLocks[applicationLock.App] == nil {
+			env.AppLocks[applicationLock.App] = &api.Locks{
+				Locks: make([]*api.Lock, 0),
+			}
+		}
+		env.AppLocks[applicationLock.App].Locks = append(env.AppLocks[applicationLock.App].Locks, &api.Lock{
+			Message:   applicationLock.Metadata.Message,
+			LockId:    applicationLock.LockID,
+			CreatedAt: timestamppb.New(applicationLock.Created),
+			CreatedBy: &api.Actor{
+				Name:  applicationLock.Metadata.CreatedByName,
+				Email: applicationLock.Metadata.CreatedByEmail,
+			},
+		})
 	}
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
