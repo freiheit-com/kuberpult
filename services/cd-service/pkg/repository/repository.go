@@ -2467,7 +2467,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 		}
 	}
 	if shouldDelete {
-		lApps := make([]*api.OverviewApplication, len(cache.LightweightApps)-1)
+		lApps := make([]*api.OverviewApplication, max(len(cache.LightweightApps)-1, 0))
 
 		for _, curr := range cache.LightweightApps {
 			if curr.Name != appName {

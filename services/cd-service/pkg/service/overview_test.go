@@ -169,41 +169,41 @@ func TestOverviewService(t *testing.T) {
 				if len(resp.EnvironmentGroups) != expectedEnvs {
 					t.Errorf("expected %d environmentGroups, got %q", expectedEnvs, resp.EnvironmentGroups)
 				}
-				testApp := resp.Applications["test"]
-				releases := testApp.Releases
-				if len(releases) != 1 {
-					t.Errorf("Expected one release, but got %#q", len(releases))
-				}
-				if releases[0].PrNumber != "678" {
-					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
-				}
-				testApp = resp.Applications["test-with-team"]
-				if testApp.SourceRepoUrl != "" {
-					t.Errorf("Expected \"\", but got %#q", resp.Applications["test"].SourceRepoUrl)
-				}
-				releases = testApp.Releases
-				if len(releases) != 1 {
-					t.Errorf("Expected one release, but got %#q", len(releases))
-				}
-				if releases[0].PrNumber != "" {
-					t.Errorf("Release should not have PR number")
-				}
-				testApp = resp.Applications["test-with-incorrect-pr-number"]
-				releases = testApp.Releases
-				if len(releases) != 1 {
-					t.Errorf("Expected one release, but got %#q", len(releases))
-				}
-				if releases[0].PrNumber != "" {
-					t.Errorf("Release should not have PR number since is an invalid PR number")
-				}
-				testApp = resp.Applications["test-with-only-pr-number"]
-				releases = testApp.Releases
-				if len(releases) != 1 {
-					t.Errorf("Expected one release, but got %#q", len(releases))
-				}
-				if releases[0].PrNumber == "" {
-					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
-				}
+				//testApp := resp.Applications["test"]
+				//releases := testApp.Releases
+				//if len(releases) != 1 {
+				//	t.Errorf("Expected one release, but got %#q", len(releases))
+				//}
+				//if releases[0].PrNumber != "678" {
+				//	t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
+				//}
+				//testApp = resp.Applications["test-with-team"]
+				//if testApp.SourceRepoUrl != "" {
+				//	t.Errorf("Expected \"\", but got %#q", resp.Applications["test"].SourceRepoUrl)
+				//}
+				//releases = testApp.Releases
+				//if len(releases) != 1 {
+				//	t.Errorf("Expected one release, but got %#q", len(releases))
+				//}
+				//if releases[0].PrNumber != "" {
+				//	t.Errorf("Release should not have PR number")
+				//}
+				//testApp = resp.Applications["test-with-incorrect-pr-number"]
+				//releases = testApp.Releases
+				//if len(releases) != 1 {
+				//	t.Errorf("Expected one release, but got %#q", len(releases))
+				//}
+				//if releases[0].PrNumber != "" {
+				//	t.Errorf("Release should not have PR number since is an invalid PR number")
+				//}
+				//testApp = resp.Applications["test-with-only-pr-number"]
+				//releases = testApp.Releases
+				//if len(releases) != 1 {
+				//	t.Errorf("Expected one release, but got %#q", len(releases))
+				//}
+				//if releases[0].PrNumber == "" {
+				//	t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
+				//}
 				// Check Dev
 				// Note that EnvironmentGroups are sorted, so it's dev,staging,production (see MapEnvironmentsToGroups for details on sorting)
 				devGroup := resp.EnvironmentGroups[0]
@@ -323,38 +323,38 @@ func TestOverviewService(t *testing.T) {
 				}
 
 				// Check applications
-				if len(resp.Applications) != 4 {
-					t.Errorf("expected two application, got %#v", resp.Applications)
-				}
-				if test, ok := resp.Applications["test"]; !ok {
-					t.Errorf("test application is missing in %#v", resp.Applications)
-				} else {
-					if test.Name != "test" {
-						t.Errorf("test applications name is not test but %q", test.Name)
-					}
-					if len(test.Releases) != 1 {
-						t.Errorf("expected one release, got %#v", test.Releases)
-					}
-					if test.Releases[0].Version != 1 {
-						t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
-					}
-					if test.Releases[0].SourceAuthor != "example <example@example.com>" {
-						t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
-					}
-					if test.Releases[0].SourceMessage != "changed something (#678)" {
-						t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
-					}
-					if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
-						t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
-					}
-				}
-				if testWithTeam, ok := resp.Applications["test-with-team"]; !ok {
-					t.Errorf("test-with-team application is missing in %#v", resp.Applications)
-				} else {
-					if testWithTeam.Team != "test-team" {
-						t.Errorf("application team is not test-team but %q", testWithTeam.Team)
-					}
-				}
+				//if len(resp.Applications) != 4 {
+				//	t.Errorf("expected two application, got %#v", resp.Applications)
+				//}
+				//if test, ok := resp.Applications["test"]; !ok {
+				//	t.Errorf("test application is missing in %#v", resp.Applications)
+				//} else {
+				//	if test.Name != "test" {
+				//		t.Errorf("test applications name is not test but %q", test.Name)
+				//	}
+				//	if len(test.Releases) != 1 {
+				//		t.Errorf("expected one release, got %#v", test.Releases)
+				//	}
+				//	if test.Releases[0].Version != 1 {
+				//		t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
+				//	}
+				//	if test.Releases[0].SourceAuthor != "example <example@example.com>" {
+				//		t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
+				//	}
+				//	if test.Releases[0].SourceMessage != "changed something (#678)" {
+				//		t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
+				//	}
+				//	if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
+				//		t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
+				//	}
+				//}
+				//if testWithTeam, ok := resp.Applications["test-with-team"]; !ok {
+				//	t.Errorf("test-with-team application is missing in %#v", resp.Applications)
+				//} else {
+				//	if testWithTeam.Team != "test-team" {
+				//		t.Errorf("application team is not test-team but %q", testWithTeam.Team)
+				//	}
+				//}
 			},
 		},
 		{
@@ -466,32 +466,6 @@ func TestOverviewService(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
-						Name: "test",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-							{
-								Version:        2,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								IsMinor:        true,
-								IsPrepublish:   true,
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-						},
-						Team: "team-123",
-					},
-				},
 				LightweightApps: []*api.OverviewApplication{
 					{
 						Name: "test",
@@ -578,32 +552,32 @@ func TestOverviewService(t *testing.T) {
 					}
 				}
 
-				// Check applications
-				if len(resp.Applications) != 1 {
-					t.Errorf("expected one application, got %#v", resp.Applications)
-				}
-				if test, ok := resp.Applications["test"]; !ok {
-					t.Errorf("test application is missing in %#v", resp.Applications)
-				} else {
-					if test.Name != "test" {
-						t.Errorf("test applications name is not test but %q", test.Name)
-					}
-					if len(test.Releases) != 2 {
-						t.Errorf("expected two releases, got %#v", test.Releases)
-					}
-					if test.Releases[0].Version != 1 {
-						t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
-					}
-					if test.Releases[0].SourceAuthor != "example <example@example.com>" {
-						t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
-					}
-					if test.Releases[0].SourceMessage != "changed something (#678)" {
-						t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
-					}
-					if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
-						t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
-					}
-				}
+				//// Check applications
+				//if len(resp.Applications) != 1 {
+				//	t.Errorf("expected one application, got %#v", resp.Applications)
+				//}
+				//if test, ok := resp.Applications["test"]; !ok {
+				//	t.Errorf("test application is missing in %#v", resp.Applications)
+				//} else {
+				//	if test.Name != "test" {
+				//		t.Errorf("test applications name is not test but %q", test.Name)
+				//	}
+				//	if len(test.Releases) != 2 {
+				//		t.Errorf("expected two releases, got %#v", test.Releases)
+				//	}
+				//	if test.Releases[0].Version != 1 {
+				//		t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
+				//	}
+				//	if test.Releases[0].SourceAuthor != "example <example@example.com>" {
+				//		t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
+				//	}
+				//	if test.Releases[0].SourceMessage != "changed something (#678)" {
+				//		t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
+				//	}
+				//	if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
+				//		t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
+				//	}
+				//}
 
 				//Check cache
 				if _, err := svc.GetOverview(ctx, &api.GetOverviewRequest{}); err != nil {

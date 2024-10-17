@@ -78,7 +78,7 @@ var ZeroVersion VersionInfo
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-	tr, err := v.tryGetVersion(ctx, revision, environment, application)
+	tr, err := v.tryGetVersion(environment, application)
 	if err == nil {
 		return tr, nil
 	}
@@ -98,27 +98,21 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 }
 
 // Tries getting the version from cache
-func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
-	var overview *api.GetOverviewResponse
-	entry, ok := v.cache.Get(revision)
+func (v *versionClient) tryGetVersion(environment, application string) (*VersionInfo, error) {
+	var appDetails *api.GetAppDetailsResponse
+	entry, ok := v.cache.Get(application)
 	if !ok {
 		return nil, ErrNotFound
 	}
-	overview = entry.(*api.GetOverviewResponse)
-	for _, group := range overview.GetEnvironmentGroups() {
-		for _, env := range group.GetEnvironments() {
-			if env.Name == environment {
-				app := env.Applications[application]
-				if app == nil {
-					return &ZeroVersion, nil
-				}
-				return &VersionInfo{
-					Version:        app.Version,
-					SourceCommitId: sourceCommitIdFromOverview(overview, app),
-					DeployedAt:     deployedAtFromApp(app),
-				}, nil
-			}
-		}
+	appDetails = entry.(*api.GetAppDetailsResponse)
+
+	if deployment, exists := appDetails.Deployments[environment]; exists {
+		deployedVersion := deployment.Version
+		return &VersionInfo{
+			Version:        deployedVersion,
+			SourceCommitId: sourceCommitId(appDetails.Application.Releases, deployment),
+			DeployedAt:     deployedAtFromApp(deployment),
+		}, nil
 	}
 	return &ZeroVersion, nil
 }
@@ -138,11 +132,11 @@ func deployedAt(deployment *api.Deployment) time.Time {
 	return time.Time{}
 }
 
-func deployedAtFromApp(app *api.Environment_Application) time.Time {
-	if app.DeploymentMetaData == nil {
+func deployedAtFromApp(deployment *api.Deployment) time.Time {
+	if deployment.DeploymentMetaData == nil {
 		return time.Time{}
 	}
-	deployTime := app.DeploymentMetaData.DeployTime
+	deployTime := deployment.DeploymentMetaData.DeployTime
 	if deployTime != "" {
 		dt, err := strconv.ParseInt(deployTime, 10, 64)
 		if err != nil {
@@ -235,7 +229,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				return fmt.Errorf("overviewClient.GetOverview: %w", err)
 			}
 			l := logger.FromContext(ctx)
-			v.cache.Add(ov.GitRevision, ov)
+
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
 
@@ -246,6 +240,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			for _, appDetailsResponse := range changedApps.ChangedApps {
 				appName := appDetailsResponse.Application.Name
 				overview.AppDetails[appName] = appDetailsResponse
+				v.cache.Add(appName, appDetailsResponse) // Update cache of app details
 
 				app := appDetailsResponse.Application
 				//Go through every deployment and check if we have seen it. If not, Add it to the pool of events
