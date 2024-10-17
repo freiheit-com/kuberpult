@@ -2792,6 +2792,17 @@ func (c *CreateEnvironment) Transform(
 		if err != nil {
 			return "", fmt.Errorf("Unable to write overview cache, error: %w", err)
 		}
+
+		//Should be empty on new environments
+		envApps, err := state.GetEnvironmentApplications(ctx, transaction, c.Environment)
+		if err != nil {
+			return "", fmt.Errorf("Unable to read environment, error: %w", err)
+
+		}
+		for _, app := range envApps {
+			t.AddAppEnv(app, c.Environment, "")
+		}
+
 	} else {
 		fs := state.Filesystem
 		envDir := fs.Join("environments", c.Environment)
@@ -3107,11 +3118,6 @@ func (c *DeployApplicationVersion) Transform(
 		if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 			return "", err
 		}
-		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
-		if err != nil {
-			return "", err
-		}
-		t.AddAppEnv(c.Application, c.Environment, teamOwner)
 
 		if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(user.Name), 0666); err != nil {
 			return "", err
@@ -3124,7 +3130,11 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 	}
-
+	teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+	if err != nil {
+		return "", err
+	}
+	t.AddAppEnv(c.Application, c.Environment, teamOwner)
 	s := State{
 		Commit:               nil,
 		MinorRegexes:         state.MinorRegexes,
