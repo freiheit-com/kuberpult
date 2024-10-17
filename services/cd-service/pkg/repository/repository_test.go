@@ -2178,16 +2178,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 			StateChange:  db.AppStateChangeCreate,
 			InitialCache: nil,
 			ExpectedOverview: &api.GetOverviewResponse{
-				Applications: map[string]*api.Application{
-					"app1": {
-						Name:            "app1",
-						Releases:        nil,
-						SourceRepoUrl:   "",
-						Team:            "",
-						UndeploySummary: api.UndeploySummary_UNDEPLOY,
-						Warnings:        nil,
-					},
-				},
 				LightweightApps: []*api.OverviewApplication{
 					{
 						Name: "app1",
@@ -2201,7 +2191,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 			Name:        "overview creates new app",
 			StateChange: db.AppStateChangeCreate,
 			InitialCache: &api.GetOverviewResponse{
-				Applications: nil,
 				EnvironmentGroups: []*api.EnvironmentGroup{
 					{
 						EnvironmentGroupName: "dev",
@@ -2224,16 +2213,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 				ManifestRepoUrl: "https://example.com",
 			},
 			ExpectedOverview: &api.GetOverviewResponse{
-				Applications: map[string]*api.Application{
-					"app1": {
-						Name:            "app1",
-						Releases:        nil,
-						SourceRepoUrl:   "",
-						Team:            "",
-						UndeploySummary: api.UndeploySummary_UNDEPLOY,
-						Warnings:        nil,
-					},
-				},
 				LightweightApps: []*api.OverviewApplication{
 					{
 						Name: "app1",
@@ -2281,16 +2260,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 			Name:        "overview deletes an app",
 			StateChange: db.AppStateChangeDelete,
 			InitialCache: &api.GetOverviewResponse{
-				Applications: map[string]*api.Application{
-					"app1": {
-						Name:            "app1",
-						Releases:        nil,
-						SourceRepoUrl:   "",
-						Team:            "",
-						UndeploySummary: api.UndeploySummary_UNDEPLOY,
-						Warnings:        nil,
-					},
-				},
 				EnvironmentGroups: []*api.EnvironmentGroup{
 					{
 						EnvironmentGroupName: "dev",
@@ -2334,7 +2303,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 				ManifestRepoUrl: "https://example.com",
 			},
 			ExpectedOverview: &api.GetOverviewResponse{
-				Applications: nil,
 				EnvironmentGroups: []*api.EnvironmentGroup{
 					{
 						EnvironmentGroupName: "dev",
