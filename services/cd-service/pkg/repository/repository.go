@@ -2839,6 +2839,8 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 				},
 				Locks:        map[string]*api.Lock{},
 				Applications: map[string]*api.Environment_Application{},
+				AppLocks:     make(map[string]*api.Locks),
+				TeamLocks:    make(map[string]*api.Locks),
 			}
 			envInGroup.Config = env.Config
 			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
@@ -2867,11 +2869,59 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 						return err
 					}
 					env.Applications[appName] = app
+
+					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
+						return err
+					} else {
+						apiAppLocks := api.Locks{
+							Locks: make([]*api.Lock, 0),
+						}
+						for lockId, lock := range appLocks {
+							apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
+							})
+
+						}
+						if len(apiAppLocks.Locks) > 0 {
+							env.AppLocks[appName] = &apiAppLocks
+						}
+					}
+
+					if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, app.Team); err != nil {
+						return err
+					} else {
+						apiTeamLocks := api.Locks{
+							Locks: make([]*api.Lock, 0),
+						}
+						for lockId, lock := range teamLocks {
+							apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
+							})
+						}
+						if len(apiTeamLocks.Locks) > 0 {
+							env.TeamLocks[appName] = &apiTeamLocks
+						}
+					}
 				}
 			}
 			envInGroup.Applications = env.Applications
+			envInGroup.TeamLocks = env.TeamLocks
+			envInGroup.AppLocks = env.AppLocks
 		}
 	}
+
 	return nil
 }
 

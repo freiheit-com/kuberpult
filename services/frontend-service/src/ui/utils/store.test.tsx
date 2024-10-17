@@ -98,6 +98,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
+                            appLocks: {},
+                            teamLocks: {},
                             applications: {},
                         },
                     ],
@@ -133,6 +135,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
+                            appLocks: {},
+                            teamLocks: {},
                             applications: {},
                         },
                         {
@@ -142,6 +146,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
+                            appLocks: {},
+                            teamLocks: {},
                             applications: {},
                         },
                     ],
@@ -182,6 +188,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
+                            teamLocks: {},
+                            appLocks: {},
                             applications: {
                                 app1: {
                                     name: 'betty',
@@ -238,6 +246,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
+                            appLocks: {},
+                            teamLocks: {},
                             applications: {
                                 app1: {
                                     name: 'betty',
@@ -260,6 +270,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
+                            appLocks: {},
+                            teamLocks: {},
                             applications: {},
                         },
                     ],
@@ -832,6 +844,17 @@ describe('Test useLocksConflictingWithActions', () => {
                             lockId: 'my-env-lock1',
                         }),
                     },
+                    appLocks: {
+                        app1: {
+                            locks: [
+                                makeLock({
+                                    lockId: 'app-lock-id',
+                                    message: 'i do not like this app',
+                                }),
+                            ],
+                        },
+                    },
+                    teamLocks: {},
                     applications: {
                         echo: {
                             name: 'app1',
@@ -893,6 +916,17 @@ describe('Test useLocksConflictingWithActions', () => {
                             lockId: 'my-env-lock1',
                         }),
                     },
+                    appLocks: {
+                        anotherapp: {
+                            locks: [
+                                makeLock({
+                                    lockId: 'app-lock-id',
+                                    message: 'i do not like this app',
+                                }),
+                            ],
+                        },
+                    },
+                    teamLocks: {},
                     applications: {
                         echo: {
                             name: 'anotherapp', // this lock differs by app
@@ -1109,6 +1143,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
+                                teamLocks: {},
+                                appLocks: {},
                                 applications: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
@@ -1191,6 +1227,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: 'exampleEnv',
                                 locks: {},
+                                teamLocks: {},
+                                appLocks: {},
                                 applications: {
                                     exampleApp: {
                                         name: appName,
@@ -1289,6 +1327,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
+                                teamLocks: {},
+                                appLocks: {},
                                 applications: {
                                     [appName]: {
                                         name: appName,
@@ -1378,6 +1418,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
+                                teamLocks: {},
+                                appLocks: {},
                                 applications: {
                                     [appName]: {
                                         name: appName,
@@ -1465,6 +1507,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
+                                appLocks: {},
+                                teamLocks: {},
                                 applications: {
                                     [appName]: {
                                         name: appName,

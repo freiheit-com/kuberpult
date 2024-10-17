@@ -199,6 +199,8 @@ describe('Release Card', () => {
                 foo: {
                     name: 'foo',
                     locks: {},
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {
@@ -270,6 +272,8 @@ describe('Release Card', () => {
                 undeployed: {
                     name: 'undeployed',
                     locks: {},
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {
@@ -340,7 +344,8 @@ describe('Release Card', () => {
             environments: {
                 other: {
                     locks: {},
-
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     name: 'other',
@@ -570,6 +575,8 @@ describe('Release Card Rollout Status', () => {
                                 },
                             },
                             locks: {},
+                            appLocks: {},
+                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },
@@ -587,6 +594,8 @@ describe('Release Card Rollout Status', () => {
                                 },
                             },
                             locks: {},
+                            appLocks: {},
+                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },
@@ -611,6 +620,8 @@ describe('Release Card Rollout Status', () => {
                                 },
                             },
                             locks: {},
+                            appLocks: {},
+                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },

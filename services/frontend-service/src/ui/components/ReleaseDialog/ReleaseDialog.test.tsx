@@ -94,6 +94,8 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: {},
+                    appLocks: {},
+                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
@@ -148,6 +150,8 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: {},
+                    appLocks: {},
+                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
@@ -241,6 +245,12 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    appLocks: {
+                        test1: {
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                        },
+                    },
+                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
@@ -332,6 +342,10 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    appLocks: {
+                        test1: { locks: [{ message: 'appLock', lockId: 'ui-applock' }] },
+                    },
+                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
@@ -434,6 +448,12 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    appLocks: {
+                        test1: {
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                        },
+                    },
+                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
@@ -451,6 +471,16 @@ describe('Release Dialog', () => {
                 {
                     name: 'dev',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    appLocks: {
+                        test1: {
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                        },
+                    },
+                    teamLocks: {
+                        test1: {
+                            locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
+                        },
+                    },
                     applications: {
                         test1: {
                             name: 'test1',

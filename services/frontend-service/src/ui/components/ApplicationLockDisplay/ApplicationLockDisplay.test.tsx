@@ -48,6 +48,8 @@ describe('ApplicationLockDisplay', () => {
         name: 'dev',
         applications: { test: testApp },
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     };
@@ -55,6 +57,8 @@ describe('ApplicationLockDisplay', () => {
         name: 'staging',
         applications: { test: testApp },
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.OTHER,
     };
