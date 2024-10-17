@@ -47,7 +47,8 @@ func getOverviewIgnoredTypes() cmp.Option {
 		api.Environment_Application_DeploymentMetaData{},
 		api.EnvironmentConfig_ArgoCD{},
 		api.Lock{},
-		api.Actor{})
+		api.Actor{},
+		api.OverviewApplication{})
 }
 
 func makeTestStartingOverview() *api.GetOverviewResponse {
@@ -84,31 +85,37 @@ func makeTestStartingOverview() *api.GetOverviewResponse {
 				Priority: api.Priority_YOLO,
 			},
 		},
-		Applications: map[string]*api.Application{
-			"test": {
+		//Applications: map[string]*api.Application{
+		//	"test": {
+		//		Name: "test",
+		//		Releases: []*api.Release{
+		//			{
+		//				Version:        1,
+		//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+		//				SourceAuthor:   "example <example@example.com>",
+		//				SourceMessage:  "changed something (#678)",
+		//				PrNumber:       "678",
+		//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+		//			},
+		//		},
+		//		Team: "team-123",
+		//		Warnings: []*api.Warning{
+		//			{
+		//				WarningType: &api.Warning_UnusualDeploymentOrder{
+		//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+		//						UpstreamEnvironment: "staging",
+		//						ThisVersion:         12,
+		//						ThisEnvironment:     "development",
+		//					},
+		//				},
+		//			},
+		//		},
+		//	},
+		//},
+		LightweightApps: []*api.OverviewApplication{
+			{
 				Name: "test",
-				Releases: []*api.Release{
-					{
-						Version:        1,
-						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-						SourceAuthor:   "example <example@example.com>",
-						SourceMessage:  "changed something (#678)",
-						PrNumber:       "678",
-						CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-					},
-				},
 				Team: "team-123",
-				Warnings: []*api.Warning{
-					{
-						WarningType: &api.Warning_UnusualDeploymentOrder{
-							UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-								UpstreamEnvironment: "staging",
-								ThisVersion:         12,
-								ThisEnvironment:     "development",
-							},
-						},
-					},
-				},
 			},
 		},
 		GitRevision: "0",
@@ -183,31 +190,37 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name: "test",
+				//		Releases: []*api.Release{
+				//			{
+				//				Version:        1,
+				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+				//				SourceAuthor:   "example <example@example.com>",
+				//				SourceMessage:  "changed something (#678)",
+				//				PrNumber:       "678",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//		},
+				//		Team: "team-123",
+				//		Warnings: []*api.Warning{
+				//			{
+				//				WarningType: &api.Warning_UnusualDeploymentOrder{
+				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+				//						UpstreamEnvironment: "staging",
+				//						ThisVersion:         12,
+				//						ThisEnvironment:     "development",
+				//					},
+				//				},
+				//			},
+				//		},
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "test",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-						},
 						Team: "team-123",
-						Warnings: []*api.Warning{
-							{
-								WarningType: &api.Warning_UnusualDeploymentOrder{
-									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-										UpstreamEnvironment: "staging",
-										ThisVersion:         12,
-										ThisEnvironment:     "development",
-									},
-								},
-							},
-						},
 					},
 				},
 				GitRevision: "0",
@@ -279,6 +292,7 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 				if diff := cmp.Diff(startingOverview, latestOverview, opts); diff != "" {
 					return fmt.Errorf("starting overview and last overview mismatch (-want +got):\n%s", diff)
 				}
+
 				return nil
 			})
 
@@ -355,31 +369,37 @@ func TestUpdateOverviewEnvironmentLock(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name: "test",
+				//		Releases: []*api.Release{
+				//			{
+				//				Version:        1,
+				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+				//				SourceAuthor:   "example <example@example.com>",
+				//				SourceMessage:  "changed something (#678)",
+				//				PrNumber:       "678",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//		},
+				//		Team: "team-123",
+				//		Warnings: []*api.Warning{
+				//			{
+				//				WarningType: &api.Warning_UnusualDeploymentOrder{
+				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+				//						UpstreamEnvironment: "staging",
+				//						ThisVersion:         12,
+				//						ThisEnvironment:     "development",
+				//					},
+				//				},
+				//			},
+				//		},
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "test",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-						},
 						Team: "team-123",
-						Warnings: []*api.Warning{
-							{
-								WarningType: &api.Warning_UnusualDeploymentOrder{
-									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-										UpstreamEnvironment: "staging",
-										ThisVersion:         12,
-										ThisEnvironment:     "development",
-									},
-								},
-							},
-						},
 					},
 				},
 				GitRevision: "0",
@@ -505,19 +525,25 @@ func TestUpdateOverviewDeployment(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name: "test",
+				//		Releases: []*api.Release{
+				//			{
+				//				Version:        1,
+				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+				//				SourceAuthor:   "example <example@example.com>",
+				//				SourceMessage:  "changed something (#678)",
+				//				PrNumber:       "678",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//		},
+				//		Team: "team-123",
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "test",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-						},
 						Team: "team-123",
 					},
 				},
@@ -639,31 +665,37 @@ func TestUpdateOverviewDeploymentAttempt(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name: "test",
+				//		Releases: []*api.Release{
+				//			{
+				//				Version:        1,
+				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+				//				SourceAuthor:   "example <example@example.com>",
+				//				SourceMessage:  "changed something (#678)",
+				//				PrNumber:       "678",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//		},
+				//		Team: "team-123",
+				//		Warnings: []*api.Warning{
+				//			{
+				//				WarningType: &api.Warning_UnusualDeploymentOrder{
+				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+				//						UpstreamEnvironment: "staging",
+				//						ThisVersion:         12,
+				//						ThisEnvironment:     "development",
+				//					},
+				//				},
+				//			},
+				//		},
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "test",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-						},
 						Team: "team-123",
-						Warnings: []*api.Warning{
-							{
-								WarningType: &api.Warning_UnusualDeploymentOrder{
-									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-										UpstreamEnvironment: "staging",
-										ThisVersion:         12,
-										ThisEnvironment:     "development",
-									},
-								},
-							},
-						},
 					},
 				},
 				GitRevision: "0",
@@ -798,31 +830,37 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name: "test",
+				//		Releases: []*api.Release{
+				//			{
+				//				Version:        1,
+				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+				//				SourceAuthor:   "example <example@example.com>",
+				//				SourceMessage:  "changed something (#678)",
+				//				PrNumber:       "678",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//		},
+				//		Team: "team-123",
+				//		Warnings: []*api.Warning{
+				//			{
+				//				WarningType: &api.Warning_UnusualDeploymentOrder{
+				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+				//						UpstreamEnvironment: "staging",
+				//						ThisVersion:         12,
+				//						ThisEnvironment:     "development",
+				//					},
+				//				},
+				//			},
+				//		},
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "test",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-						},
 						Team: "team-123",
-						Warnings: []*api.Warning{
-							{
-								WarningType: &api.Warning_UnusualDeploymentOrder{
-									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-										UpstreamEnvironment: "staging",
-										ThisVersion:         12,
-										ThisEnvironment:     "development",
-									},
-								},
-							},
-						},
 					},
 				},
 				GitRevision: "0",
@@ -967,27 +1005,33 @@ func TestUpdateOverviewRelease(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name: "test",
+				//		Releases: []*api.Release{
+				//			{
+				//				Version:        1,
+				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+				//				SourceAuthor:   "example <example@example.com>",
+				//				SourceMessage:  "changed something (#678)",
+				//				PrNumber:       "678",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//			{
+				//				Version:        12,
+				//				SourceCommitId: "testcommit",
+				//				SourceAuthor:   "testmail@example.com",
+				//				SourceMessage:  "changed something (#678)",
+				//				PrNumber:       "677",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//		},
+				//		Team: "team-123",
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "test",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-							{
-								Version:        12,
-								SourceCommitId: "testcommit",
-								SourceAuthor:   "testmail@example.com",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "677",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-						},
 						Team: "team-123",
 					},
 				},
@@ -1039,11 +1083,17 @@ func TestUpdateOverviewRelease(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
-						Name:     "test",
-						Releases: []*api.Release{},
-						Team:     "team-123",
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name:     "test",
+				//		Releases: []*api.Release{},
+				//		Team:     "team-123",
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "test",
+						Team: "team-123",
 					},
 				},
 				GitRevision: "0",
@@ -1093,19 +1143,25 @@ func TestUpdateOverviewRelease(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name: "test",
+				//		Releases: []*api.Release{
+				//			{
+				//				Version:        1,
+				//				SourceCommitId: "changedcommitId",
+				//				SourceAuthor:   "changedAuthor",
+				//				SourceMessage:  "changed changed something (#679)",
+				//				PrNumber:       "679",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//		},
+				//		Team: "team-123",
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "test",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "changedcommitId",
-								SourceAuthor:   "changedAuthor",
-								SourceMessage:  "changed changed something (#679)",
-								PrNumber:       "679",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-						},
 						Team: "team-123",
 					},
 				},
@@ -1173,40 +1229,46 @@ func TestUpdateOverviewRelease(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				Applications: map[string]*api.Application{
-					"test": {
+				//Applications: map[string]*api.Application{
+				//	"test": {
+				//		Name: "test",
+				//		Warnings: []*api.Warning{
+				//			{
+				//				WarningType: &api.Warning_UnusualDeploymentOrder{
+				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+				//						UpstreamEnvironment: "staging",
+				//						ThisVersion:         12,
+				//						ThisEnvironment:     "development",
+				//					},
+				//				},
+				//			},
+				//		},
+				//		Releases: []*api.Release{
+				//			{
+				//				Version:        1,
+				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+				//				SourceAuthor:   "example <example@example.com>",
+				//				SourceMessage:  "changed something (#678)",
+				//				PrNumber:       "678",
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+				//			},
+				//			{
+				//				Version:        12,
+				//				SourceCommitId: "testcommit",
+				//				SourceAuthor:   "testmail@example.com",
+				//				SourceMessage:  "changed something (#677)",
+				//				DisplayVersion: "12",
+				//				PrNumber:       "677",
+				//				IsPrepublish:   true,
+				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1720798200, Nanos: 0},
+				//			},
+				//		},
+				//		Team: "team-123",
+				//	},
+				//},
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "test",
-						Warnings: []*api.Warning{
-							{
-								WarningType: &api.Warning_UnusualDeploymentOrder{
-									UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-										UpstreamEnvironment: "staging",
-										ThisVersion:         12,
-										ThisEnvironment:     "development",
-									},
-								},
-							},
-						},
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceAuthor:   "example <example@example.com>",
-								SourceMessage:  "changed something (#678)",
-								PrNumber:       "678",
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							},
-							{
-								Version:        12,
-								SourceCommitId: "testcommit",
-								SourceAuthor:   "testmail@example.com",
-								SourceMessage:  "changed something (#677)",
-								DisplayVersion: "12",
-								PrNumber:       "677",
-								IsPrepublish:   true,
-								CreatedAt:      &timestamppb.Timestamp{Seconds: 1720798200, Nanos: 0},
-							},
-						},
 						Team: "team-123",
 					},
 				},
@@ -1602,19 +1664,25 @@ func TestDBDeleteOldOverview(t *testing.T) {
 							Priority: api.Priority_YOLO,
 						},
 					},
-					Applications: map[string]*api.Application{
-						"test": {
+					//Applications: map[string]*api.Application{
+					//	"test": {
+					//		Name: "test",
+					//		Releases: []*api.Release{
+					//			{
+					//				Version:        1,
+					//				SourceCommitId: "changedcommitId",
+					//				SourceAuthor:   "changedAuthor",
+					//				SourceMessage:  "changed changed something (#679)",
+					//				PrNumber:       "679",
+					//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+					//			},
+					//		},
+					//		Team: "team-123",
+					//	},
+					//},
+					LightweightApps: []*api.OverviewApplication{
+						{
 							Name: "test",
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "changedcommitId",
-									SourceAuthor:   "changedAuthor",
-									SourceMessage:  "changed changed something (#679)",
-									PrNumber:       "679",
-									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-								},
-							},
 							Team: "team-123",
 						},
 					},
@@ -1662,19 +1730,25 @@ func TestDBDeleteOldOverview(t *testing.T) {
 							Priority: api.Priority_YOLO,
 						},
 					},
-					Applications: map[string]*api.Application{
-						"test": {
+					//Applications: map[string]*api.Application{
+					//	"test": {
+					//		Name: "test",
+					//		Releases: []*api.Release{
+					//			{
+					//				Version:        1,
+					//				SourceCommitId: "changedcommitId",
+					//				SourceAuthor:   "changedAuthor",
+					//				SourceMessage:  "changed changed something (#679)",
+					//				PrNumber:       "679",
+					//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+					//			},
+					//		},
+					//		Team: "team-123",
+					//	},
+					//},
+					LightweightApps: []*api.OverviewApplication{
+						{
 							Name: "test",
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "changedcommitId",
-									SourceAuthor:   "changedAuthor",
-									SourceMessage:  "changed changed something (#679)",
-									PrNumber:       "679",
-									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-								},
-							},
 							Team: "team-123",
 						},
 					},
