@@ -823,7 +823,8 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 		AND
 			currentEslReleases.latesteslversion = releases.eslversion
 		AND
-			currentEslReleases.releaseversion 	= releases.releaseversion;`,
+			currentEslReleases.releaseversion 	= releases.releaseversion
+		ORDER BY currentEslReleases.releaseversion DESC;`,
 	)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(

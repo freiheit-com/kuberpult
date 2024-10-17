@@ -25,7 +25,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -2556,9 +2555,6 @@ func TestReadReleasesByApp(t *testing.T) {
 					}
 				}
 				releases, err := dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, tc.AppName, !tc.RetrievePrepublishes)
-				slices.SortFunc(releases, func(r1 *DBReleaseWithMetaData, r2 *DBReleaseWithMetaData) int {
-					return int(r2.ReleaseNumber) - int(r1.ReleaseNumber)
-				})
 				if err != nil {
 					return fmt.Errorf("error while selecting release, error: %w", err)
 				}
