@@ -204,8 +204,9 @@ describe('Get teams from application list (useTeamNames)', () => {
     const data: dataT[] = [
         {
             name: 'right amount of teams - 4 sorted results',
-            applications: {},
+
             overview: {
+                applications: {},
                 lightweightApps: [
                     {
                         name: 'foo',
