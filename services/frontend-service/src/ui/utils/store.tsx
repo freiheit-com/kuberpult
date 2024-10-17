@@ -521,32 +521,26 @@ export const useEnvironments = (): Environment[] =>
  */
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
-export const useTeamLocks = (): DisplayLock[] =>
+export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
     Object.values(useEnvironments())
         .map((env) =>
-            Object.values(env.applications)
+            allApps
                 .map((app) =>
-                    Object.values(app.teamLocks).map((lock) => ({
-                        date: lock.createdAt,
-                        environment: env.name,
-                        team: app.team,
-                        lockId: lock.lockId,
-                        message: lock.message,
-                        authorName: lock.createdBy?.name,
-                        authorEmail: lock.createdBy?.email,
-                    }))
+                    env.teamLocks[app.team]
+                        ? env.teamLocks[app.team].locks.map((lock) => ({
+                              date: lock.createdAt,
+                              environment: env.name,
+                              team: app.team,
+                              lockId: lock.lockId,
+                              message: lock.message,
+                              authorName: lock.createdBy?.name,
+                              authorEmail: lock.createdBy?.email,
+                          }))
+                        : []
                 )
                 .flat()
         )
-        .flat()
-        .filter(
-            (value: DisplayLock, index: number, self: DisplayLock[]) =>
-                index ===
-                self.findIndex(
-                    (t: DisplayLock) =>
-                        t.lockId === value.lockId && t.team === value.team && t.environment === value.environment
-                )
-        );
+        .flat();
 /**
  * returns the classname according to the priority of an environment, used to color environments
  */
