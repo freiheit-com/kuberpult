@@ -601,7 +601,6 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			}
 		}
 	}
-
 	return transformerBatches, nil, changes
 }
 
@@ -740,7 +739,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}
 
 	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
-
 	if len(transformerBatches) == 0 {
 		return
 	}
@@ -794,6 +792,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	ddSpan.Finish()
 
 	r.notify.Notify()
+	r.notifyChangedApps(changes)
 }
 
 func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
@@ -1122,6 +1121,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 			}
 		}
 		r.notify.Notify()
+		r.notifyChangedApps(changes)
 		return nil
 	} else {
 		eCh := r.applyDeferred(ctx, transformers...)
@@ -1131,6 +1131,20 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	}
+}
+
+func (r *repository) notifyChangedApps(changes *TransformerResult) {
+	var changedAppNames []string
+	var seen = make(map[string]bool)
+	for _, app := range changes.ChangedApps {
+		if _, ok := seen[app.App]; !ok {
+			seen[app.App] = true
+			changedAppNames = append(changedAppNames, app.App)
+		}
+	}
+	if len(changedAppNames) != 0 {
+		r.notify.NotifyChangedApps(changedAppNames)
 	}
 }
 
@@ -2210,7 +2224,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 			return err
 		}
 		for lockId, lock := range ls {
-			fmt.Printf("LOCK: %s\n", lock.CreatedAt.String())
 			currentEnv := db.EnvironmentLock{
 				EslVersion: 0,
 				Env:        envName,

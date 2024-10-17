@@ -46,10 +46,11 @@ type OverviewServiceServer struct {
 	RepositoryConfig repository.RepositoryConfig
 	Shutdown         <-chan struct{}
 
-	notify   notify.Notify
-	Context  context.Context
-	init     sync.Once
-	response atomic.Value
+	notify                       notify.Notify
+	Context                      context.Context
+	overviewStreamingInitFunc    sync.Once
+	changedAppsStreamingInitFunc sync.Once
+	response                     atomic.Value
 
 	DBHandler *db.DBHandler
 }
@@ -334,6 +335,7 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 			return nil
 		case <-ch:
 			ov := o.response.Load().(*api.GetOverviewResponse)
+
 			if err := stream.Send(ov); err != nil {
 				// if we don't log this here, the details will be lost - so this is an exception to the rule "either return an error or log it".
 				// for example if there's an invalid encoding, grpc will just give a generic error like
@@ -349,8 +351,48 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 	}
 }
 
+func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
+	stream api.OverviewService_StreamChangedAppsServer) error {
+	ch, unsubscribe := o.subscribeChangedApps()
+	defer unsubscribe()
+	done := stream.Context().Done()
+	for {
+		select {
+		case <-o.Shutdown:
+			return nil
+		case changedAppsNames := <-ch:
+			if len(changedAppsNames) == 0 { //This only happens when a channel is first triggered, so we send all apps
+				allApps, err := o.getAllAppNames(stream.Context())
+				if err != nil {
+					return err
+				}
+				changedAppsNames = allApps
+			}
+			ov := &api.GetChangedAppsResponse{
+				ChangedApps: make([]*api.GetAppDetailsResponse, len(changedAppsNames)),
+			}
+			for idx, appName := range changedAppsNames {
+				response, err := o.GetAppDetails(stream.Context(), &api.GetAppDetailsRequest{AppName: appName})
+				if err != nil {
+					return err
+				}
+				ov.ChangedApps[idx] = response
+			}
+
+			logger.FromContext(stream.Context()).Sugar().Infof("Sending changes apps: '%v'\n", changedAppsNames)
+			if err := stream.Send(ov); err != nil {
+				logger.FromContext(stream.Context()).Error("error sending changed apps  response:", zap.Error(err), zap.String("changedAppsNames", fmt.Sprintf("%+v", ov)))
+				return err
+			}
+
+		case <-done:
+			return nil
+		}
+	}
+}
+
 func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe) {
-	o.init.Do(func() {
+	o.overviewStreamingInitFunc.Do(func() {
 		ch, unsub := o.Repository.Notify().Subscribe()
 		// Channels obtained from subscribe are by default triggered
 		//
@@ -364,12 +406,41 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 				case <-o.Shutdown:
 					return
 				case <-ch:
+
 					o.update(o.Repository.State())
 				}
 			}
 		}()
 	})
 	return o.notify.Subscribe()
+}
+
+func (o *OverviewServiceServer) subscribeChangedApps() (<-chan notify.ChangedAppNames, notify.Unsubscribe) {
+	o.changedAppsStreamingInitFunc.Do(func() {
+		ch, unsub := o.Repository.Notify().SubscribeChangesApps()
+		// Channels obtained from subscribe are by default triggered
+		//
+		// This means, we have to wait here until the changedApps are loaded for the first time.
+		<-ch
+		go func() {
+			defer unsub()
+			for {
+				select {
+				case <-o.Shutdown:
+					return
+				case changedApps := <-ch:
+					o.notify.NotifyChangedApps(changedApps)
+				}
+			}
+		}()
+	})
+	return o.notify.SubscribeChangesApps()
+}
+
+func (o *OverviewServiceServer) getAllAppNames(ctx context.Context) ([]string, error) {
+	return db.WithTransactionMultipleEntriesT(o.DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+		return o.Repository.State().GetApplications(ctx, transaction)
+	})
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {

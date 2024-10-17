@@ -378,11 +378,18 @@ service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
 
+  rpc StreamChangedApps (GetChangedAppsRequest) returns (stream GetChangedAppsResponse) {}
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
 }
 
 service EnvironmentService {
   rpc GetEnvironmentConfig(GetEnvironmentConfigRequest) returns (GetEnvironmentConfigResponse) {}
+}
+
+message GetChangedAppsRequest {}
+
+message GetChangedAppsResponse {
+  repeated GetAppDetailsResponse changed_apps = 1;
 }
 
 message GetAppDetailsRequest {
@@ -395,6 +402,7 @@ message GetAppDetailsResponse {
   map<string, Locks> app_locks = 3; //EnvName -> []AppLocks
   map<string, Locks> team_locks= 4; //EnvName -> []TeamLocks
 }
+
 
 //Wrapper over array of locks
 message Locks {
@@ -420,7 +428,6 @@ message Deployment {
   bool undeploy_version = 6;
   DeploymentMetaData deployment_meta_data = 7;
 }
-
 
 message GetOverviewRequest {
   // Retrieve the overview at a certain state of the repository. If it's empty, the latest commit will be used.
