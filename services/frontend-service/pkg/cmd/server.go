@@ -650,16 +650,16 @@ func (p *GrpcProxy) GetFailedEsls(
 	return p.EslServiceClient.GetFailedEsls(ctx, in)
 }
 
-func (p *GrpcProxy) GetAppDetails(
-	ctx context.Context,
-	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
-	return p.OverviewClient.GetAppDetails(ctx, in)
-}
-
 func (p *GrpcProxy) GetOverview(
 	ctx context.Context,
 	in *api.GetOverviewRequest) (*api.GetOverviewResponse, error) {
 	return p.OverviewClient.GetOverview(ctx, in)
+}
+
+func (p *GrpcProxy) GetAppDetails(
+	ctx context.Context,
+	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
+	return p.OverviewClient.GetAppDetails(ctx, in)
 }
 
 func (p *GrpcProxy) GetGitTags(
@@ -690,6 +690,24 @@ func (p *GrpcProxy) StreamOverview(
 	in *api.GetOverviewRequest,
 	stream api.OverviewService_StreamOverviewServer) error {
 	if resp, err := p.OverviewClient.StreamOverview(stream.Context(), in); err != nil {
+		return err
+	} else {
+		for {
+			if item, err := resp.Recv(); err != nil {
+				return err
+			} else {
+				if err := stream.Send(item); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+func (p *GrpcProxy) StreamChangedApps(
+	in *api.GetChangedAppsRequest,
+	stream api.OverviewService_StreamChangedAppsServer) error {
+	if resp, err := p.OverviewClient.StreamChangedApps(stream.Context(), in); err != nil {
 		return err
 	} else {
 		for {

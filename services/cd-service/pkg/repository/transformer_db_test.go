@@ -1722,16 +1722,10 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 			},
 			ExpectedOverviewCache: &api.GetOverviewResponse{
 				GitRevision: "0000000000000000000000000000000000000000",
-				Applications: map[string]*api.Application{
-					"app": &api.Application{
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "app",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-								CreatedAt:      timestamppb.Now(),
-							},
-						},
+						Team: "",
 					},
 				},
 				EnvironmentGroups: []*api.EnvironmentGroup{

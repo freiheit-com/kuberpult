@@ -252,13 +252,11 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                         title="Shows the version that is currently deployed on prod. "
                       >
                         <span>
-                          <span
-                            class="release-version__display-version"
-                            title="commit"
-                          >
-                            2
-                          </span>
+                          "
                           test1
+                          " has no version deployed on "
+                          prod
+                          "
                         </span>
                       </div>
                       <div
@@ -275,9 +273,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                       <div
                         class="env-card-data"
                       >
-                        <div>
-                          same version
-                        </div>
+                        <div />
                       </div>
                     </div>
                     <div
@@ -298,7 +294,6 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                               <button
                                 aria-label="Deploy & Lock"
                                 class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
-                                disabled=""
                               >
                                 <div
                                   class="mdc-button__ripple"
@@ -312,7 +307,6 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                               <button
                                 aria-label=""
                                 class="mdc-button button-expand"
-                                disabled=""
                               >
                                 <div
                                   class="mdc-button__ripple"
@@ -595,13 +589,11 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                         title="Shows the version that is currently deployed on prod. "
                       >
                         <span>
-                          <span
-                            class="release-version__display-version"
-                            title="commit"
-                          >
-                            2
-                          </span>
+                          "
                           test1
+                          " has no version deployed on "
+                          prod
+                          "
                         </span>
                       </div>
                       <div
@@ -621,9 +613,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                       <div
                         class="env-card-data"
                       >
-                        <div>
-                          same version
-                        </div>
+                        <div />
                       </div>
                     </div>
                     <div
@@ -644,7 +634,6 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                               <button
                                 aria-label="Deploy & Lock"
                                 class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
-                                disabled=""
                               >
                                 <div
                                   class="mdc-button__ripple"
@@ -658,7 +647,6 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                               <button
                                 aria-label=""
                                 class="mdc-button button-expand"
-                                disabled=""
                               >
                                 <div
                                   class="mdc-button__ripple"
@@ -745,9 +733,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 App: 
                 <span>
                   test1
-                </span>
-                <span>
-                  test me team
                 </span>
               </div>
             </div>

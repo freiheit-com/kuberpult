@@ -740,7 +740,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}
 
 	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
-
 	if len(transformerBatches) == 0 {
 		return
 	}
@@ -794,6 +793,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	ddSpan.Finish()
 
 	r.notify.Notify()
+	r.notifyChangedApps(changes)
 }
 
 func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
@@ -1122,6 +1122,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 			}
 		}
 		r.notify.Notify()
+		r.notifyChangedApps(changes)
 		return nil
 	} else {
 		eCh := r.applyDeferred(ctx, transformers...)
@@ -1131,6 +1132,20 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	}
+}
+
+func (r *repository) notifyChangedApps(changes *TransformerResult) {
+	var changedAppNames []string
+	var seen = make(map[string]bool)
+	for _, app := range changes.ChangedApps {
+		if _, ok := seen[app.App]; !ok {
+			seen[app.App] = true
+			changedAppNames = append(changedAppNames, app.App)
+		}
+	}
+	if len(changedAppNames) != 0 {
+		r.notify.NotifyChangedApps(changedAppNames)
 	}
 }
 
@@ -2210,7 +2225,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 			return err
 		}
 		for lockId, lock := range ls {
-			fmt.Printf("LOCK: %s\n", lock.CreatedAt.String())
 			currentEnv := db.EnvironmentLock{
 				EslVersion: 0,
 				Env:        envName,
@@ -2453,6 +2467,16 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 			}
 		}
 	}
+	if shouldDelete {
+		lApps := make([]*api.OverviewApplication, max(len(cache.LightweightApps)-1, 0))
+
+		for _, curr := range cache.LightweightApps {
+			if curr.Name != appName {
+				lApps = append(lApps, curr)
+			}
+		}
+		cache.LightweightApps = lApps
+	}
 
 	err = h.WriteOverviewCache(ctx, transaction, cache)
 	if err != nil {
@@ -2493,57 +2517,26 @@ func (s *State) DBInsertEnvironmentWithOverview(ctx context.Context, tx *sql.Tx,
 
 func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool, allReleasesOfAllApps map[string][]int64) error {
 	if deleteApp {
-		delete(result.Applications, appName)
+		removeOverviewAppFromLightweightApps(result, appName)
 		return nil
 	}
-	app := api.Application{
-		UndeploySummary: 0,
-		Warnings:        nil,
-		Name:            appName,
-		Releases:        []*api.Release{},
-		SourceRepoUrl:   "",
-		Team:            "",
+	team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
+	if err != nil {
+		return fmt.Errorf("could not obtain application team owner to update top level app in overview: %w", err)
 	}
-	allReleasesOfApp, found := allReleasesOfAllApps[appName]
-	var rels []uint64
-	if found {
-		rels = conversion.ToUint64Slice(allReleasesOfApp)
-	} else {
-		retrievedReleasesOfApp, err := s.GetAllApplicationReleases(ctx, transaction, appName)
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
-		}
-		rels = retrievedReleasesOfApp
-	}
-
-	if releasesInDb, err := s.GetApplicationReleasesDB(ctx, transaction, appName, rels); err != nil {
-		return err
-	} else {
-		for _, rel := range releasesInDb {
-			if rel == nil {
-				// ignore
-			} else {
-				release := rel.ToProto()
-				app.Releases = append(app.Releases, release)
-			}
-		}
-	}
-
-	if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
-		return err
-	} else {
-		app.Team = team
-	}
-	if result == nil {
-		return nil
-	}
-	app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
-	app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
-	if result.Applications == nil {
-		result.Applications = map[string]*api.Application{}
-	}
-	result.Applications[appName] = &app
+	result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 	return nil
+}
+
+func removeOverviewAppFromLightweightApps(result *api.GetOverviewResponse, appName string) {
+	lApps := make([]*api.OverviewApplication, len(result.LightweightApps)-1)
+
+	for _, curr := range result.LightweightApps {
+		if curr.Name != appName {
+			lApps = append(lApps, curr)
+		}
+	}
+	result.LightweightApps = lApps
 }
 
 func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {

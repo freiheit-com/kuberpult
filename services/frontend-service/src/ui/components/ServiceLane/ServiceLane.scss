@@ -62,6 +62,7 @@ Copyright freiheit.com*/
         display: flex;
         margin: $service-lane-releases-margin;
         flex-flow: wrap;
+        min-height: 85px;
         width: calc(100vw - 20em - 100px);
     }
 

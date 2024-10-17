@@ -378,11 +378,18 @@ service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
 
+  rpc StreamChangedApps (GetChangedAppsRequest) returns (stream GetChangedAppsResponse) {}
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
 }
 
 service EnvironmentService {
   rpc GetEnvironmentConfig(GetEnvironmentConfigRequest) returns (GetEnvironmentConfigResponse) {}
+}
+
+message GetChangedAppsRequest {}
+
+message GetChangedAppsResponse {
+  repeated GetAppDetailsResponse changed_apps = 1;
 }
 
 message GetAppDetailsRequest {
@@ -421,18 +428,23 @@ message Deployment {
   DeploymentMetaData deployment_meta_data = 7;
 }
 
-
 message GetOverviewRequest {
   // Retrieve the overview at a certain state of the repository. If it's empty, the latest commit will be used.
   string git_revision = 1;
 }
 
+//Lightweight version of application. Only contains name, team and warnings
+message OverviewApplication {
+  string name = 1;
+  string team = 2;
+}
+
 message GetOverviewResponse {
-  map<string, Application> applications = 2;
   repeated EnvironmentGroup environment_groups = 3;
   string git_revision = 4;
   string branch = 5;
   string manifest_repo_url = 6;
+  repeated OverviewApplication lightweight_apps = 7;
 }
 
 message EnvironmentGroup {

@@ -37,7 +37,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type errMatcher struct {
@@ -2585,19 +2584,25 @@ func TestReadWriteOverviewCache(t *testing.T) {
 							Priority: api.Priority_YOLO,
 						},
 					},
-					Applications: map[string]*api.Application{
-						"test": {
+					//Applications: map[string]*api.Application{
+					//	"test": {
+					//		Name: "test",
+					//		Releases: []*api.Release{
+					//			{
+					//				Version:        1,
+					//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					//				SourceAuthor:   "example <example@example.com>",
+					//				SourceMessage:  "changed something (#678)",
+					//				PrNumber:       "678",
+					//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+					//			},
+					//		},
+					//		Team: "team-123",
+					//	},
+					//},
+					LightweightApps: []*api.OverviewApplication{
+						{
 							Name: "test",
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-									SourceAuthor:   "example <example@example.com>",
-									SourceMessage:  "changed something (#678)",
-									PrNumber:       "678",
-									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-								},
-							},
 							Team: "team-123",
 						},
 					},
@@ -2639,19 +2644,25 @@ func TestReadWriteOverviewCache(t *testing.T) {
 							Priority: api.Priority_YOLO,
 						},
 					},
-					Applications: map[string]*api.Application{
-						"test": {
+					//Applications: map[string]*api.Application{
+					//	"test": {
+					//		Name: "test",
+					//		Releases: []*api.Release{
+					//			{
+					//				Version:        1,
+					//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					//				SourceAuthor:   "example <example@example.com>",
+					//				SourceMessage:  "changed something (#678)",
+					//				PrNumber:       "678",
+					//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+					//			},
+					//		},
+					//		Team: "team-123",
+					//	},
+					//},
+					LightweightApps: []*api.OverviewApplication{
+						{
 							Name: "test",
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-									SourceAuthor:   "example <example@example.com>",
-									SourceMessage:  "changed something (#678)",
-									PrNumber:       "678",
-									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-								},
-							},
 							Team: "team-123",
 						},
 					},
@@ -2688,19 +2699,25 @@ func TestReadWriteOverviewCache(t *testing.T) {
 							Priority: api.Priority_CANARY,
 						},
 					},
-					Applications: map[string]*api.Application{
-						"test2": {
+					//Applications: map[string]*api.Application{
+					//	"test2": {
+					//		Name: "test2",
+					//		Releases: []*api.Release{
+					//			{
+					//				Version:        1,
+					//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					//				SourceAuthor:   "example <example@example.com>",
+					//				SourceMessage:  "changed something (#678)",
+					//				PrNumber:       "678",
+					//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+					//			},
+					//		},
+					//		Team: "team-123",
+					//	},
+					//},
+					LightweightApps: []*api.OverviewApplication{
+						{
 							Name: "test2",
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-									SourceAuthor:   "example <example@example.com>",
-									SourceMessage:  "changed something (#678)",
-									PrNumber:       "678",
-									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-								},
-							},
 							Team: "team-123",
 						},
 					},
