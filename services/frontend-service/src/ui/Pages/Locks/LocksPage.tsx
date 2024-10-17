@@ -15,7 +15,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import React, { useMemo } from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
-import { searchCustomFilter, sortLocks, useEnvironments, useGlobalLoadingState, useTeamLocks } from '../../utils/store';
+import {
+    searchCustomFilter,
+    sortLocks,
+    useApplications,
+    useEnvironments,
+    useGlobalLoadingState,
+    useTeamLocks,
+} from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
@@ -37,7 +44,8 @@ export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
     const envs = useEnvironments();
-    let teamLocks = useTeamLocks();
+    const allApps = useApplications();
+    let teamLocks = useTeamLocks(allApps);
     const envLocks = useMemo(
         () =>
             sortLocks(
@@ -60,22 +68,25 @@ export const LocksPage: React.FC = () => {
 
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
 
+    //Goes through all envs and all apps and checks for locks for each app
     const appLocks = useMemo(
         () =>
             sortLocks(
                 Object.values(envs)
                     .map((env) =>
-                        Object.values(env.applications)
+                        allApps
                             .map((app) =>
-                                Object.values(app.locks).map((lock) => ({
-                                    date: lock.createdAt,
-                                    environment: env.name,
-                                    application: app.name,
-                                    lockId: lock.lockId,
-                                    message: lock.message,
-                                    authorName: lock.createdBy?.name,
-                                    authorEmail: lock.createdBy?.email,
-                                }))
+                                env.appLocks[app.name]
+                                    ? env.appLocks[app.name].locks.map((lock) => ({
+                                          date: lock.createdAt,
+                                          environment: env.name,
+                                          application: app.name,
+                                          lockId: lock.lockId,
+                                          message: lock.message,
+                                          authorName: lock.createdBy?.name,
+                                          authorEmail: lock.createdBy?.email,
+                                      }))
+                                    : []
                             )
                             .flat()
                     )
@@ -83,8 +94,9 @@ export const LocksPage: React.FC = () => {
                     .filter((lock) => searchCustomFilter(appNameParam, lock.application)),
                 'oldestToNewest'
             ),
-        [appNameParam, envs]
+        [appNameParam, envs, allApps]
     );
+
     const element = useGlobalLoadingState();
     if (element) {
         return element;
