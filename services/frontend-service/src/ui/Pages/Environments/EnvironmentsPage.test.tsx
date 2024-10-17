@@ -25,6 +25,8 @@ const sampleEnvsA: Environment[] = [
     {
         name: 'foo',
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         applications: {},
         distanceToUpstream: 0,
         priority: Priority.YOLO,
@@ -32,6 +34,8 @@ const sampleEnvsA: Environment[] = [
     {
         name: 'moreTest',
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         applications: {},
         distanceToUpstream: 0,
         priority: Priority.YOLO,
@@ -42,6 +46,8 @@ const sampleEnvsB: Environment[] = [
     {
         name: 'fooB',
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         applications: {},
         distanceToUpstream: 0,
         priority: Priority.YOLO,
@@ -49,6 +55,8 @@ const sampleEnvsB: Environment[] = [
     {
         name: 'moreTestB',
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         applications: {},
         distanceToUpstream: 0,
         priority: Priority.YOLO,

@@ -98,6 +98,8 @@ export const App: React.FC = () => {
                 .subscribe(
                     (result) => {
                         UpdateOverview.set(result);
+                        // eslint-disable-next-line no-console
+                        console.log(result);
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
                         updateAppDetails.set({});

@@ -152,6 +152,8 @@ describe('Release Dialog', () => {
         name: 'dev',
         applications: { test: testApp1, test2: testApp2 },
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     };
@@ -159,6 +161,8 @@ describe('Release Dialog', () => {
         name: 'staging',
         applications: { test: testApp3 },
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.PROD,
     };
