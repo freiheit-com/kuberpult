@@ -1711,7 +1711,7 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", err
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application, false, true)
+		releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, u.Application, true)
 		if err != nil {
 			return "", err
 		}

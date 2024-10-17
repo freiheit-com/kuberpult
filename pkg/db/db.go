@@ -789,26 +789,53 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 	return result, nil
 }
 
-func (h *DBHandler) DBSelectReleasesByApp(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+// DBSelectReleasesByAppLatestEslVersion returns the latest eslversion
+// for each release of an app. It includes deleted releases and loads manifests.
+func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
 	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
-			" FROM releases " +
-			" WHERE appName=? AND deleted=?" +
-			" ORDER BY releaseVersion DESC, eslVersion DESC, created DESC;"))
+	selectQuery := h.AdaptQuery(
+		`SELECT
+			releases.eslVersion,
+			releases.created,
+			releases.appName,
+			releases.metadata,
+			releases.manifests,
+			releases.releaseVersion,
+			releases.deleted,
+			releases.environments
+		FROM (
+			SELECT
+				MAX(eslVersion) AS latestEslVersion,
+				appname,
+				releaseversion
+			FROM
+				releases
+			WHERE 
+				appname=?
+			GROUP BY
+				appname, releaseversion
+		) as currentEslReleases
+		JOIN
+		  releases
+		ON 
+			currentEslReleases.appname 			= releases.appname
+		AND
+			currentEslReleases.latesteslversion = releases.eslversion
+		AND
+			currentEslReleases.releaseversion 	= releases.releaseversion;`,
+	)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		app,
-		deleted,
 	)
 
 	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
 }
 
-func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
