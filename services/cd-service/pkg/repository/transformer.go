@@ -672,7 +672,7 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false, false)
+		prevRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, c.Application, false, false)
 		if err != nil {
 			return "", err
 		}
