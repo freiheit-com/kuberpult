@@ -70,7 +70,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		Deployments: make(map[string]*api.Deployment),
 		TeamLocks:   make(map[string]*api.Locks),
 	}
-
 	if !o.DBHandler.ShouldUseOtherTables() {
 		panic("DB")
 	}
@@ -91,7 +90,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
 		}
-
 		if retrievedReleasesOfApp != nil {
 			rels = retrievedReleasesOfApp.Metadata.Releases
 		}
@@ -166,7 +164,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not find team locks for app %s: %w", appName, err)
 		}
-
 		for _, currentTeamLock := range teamLocks {
 			if _, ok := response.TeamLocks[currentTeamLock.Env]; !ok {
 				response.TeamLocks[currentTeamLock.Env] = &api.Locks{Locks: make([]*api.Lock, 0)}

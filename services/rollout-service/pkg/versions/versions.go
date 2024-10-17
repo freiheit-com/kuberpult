@@ -120,7 +120,6 @@ func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment
 			}
 		}
 	}
-
 	return &ZeroVersion, nil
 }
 
@@ -162,7 +161,6 @@ func sourceCommitId(appReleases []*api.Release, deployment *api.Deployment) stri
 	}
 	return ""
 }
-
 func sourceCommitIdFromOverview(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
 	a := overview.Applications[app.Name]
 	if a == nil {

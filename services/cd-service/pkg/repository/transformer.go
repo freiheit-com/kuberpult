@@ -2774,9 +2774,11 @@ func (c *CreateEnvironment) Transform(
 		overview, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
 		if overview == nil {
 			overview = &api.GetOverviewResponse{
-				Branch:          "",
-				ManifestRepoUrl: "",
-				GitRevision:     "0000000000000000000000000000000000000000",
+				Branch:            "",
+				ManifestRepoUrl:   "",
+				Applications:      map[string]*api.Application{},
+				EnvironmentGroups: []*api.EnvironmentGroup{},
+				GitRevision:       "0000000000000000000000000000000000000000",
 			}
 		}
 		if err != nil {
