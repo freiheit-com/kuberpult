@@ -5634,6 +5634,7 @@ func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sq
 			Branch:            "",
 			ManifestRepoUrl:   "",
 			Applications:      map[string]*api.Application{},
+			LightweightApps:   []*api.OverviewApplication{},
 			EnvironmentGroups: []*api.EnvironmentGroup{},
 			GitRevision:       "",
 		}

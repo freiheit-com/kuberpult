@@ -17,8 +17,9 @@ import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ReleaseHistoryPage } from './ReleaseHistoryPage';
 import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
+import { updateAppDetails } from '../../utils/store';
 
-describe('LocksPage', () => {
+describe('ReleaseHistoryPage', () => {
     const getNode = (): JSX.Element | any => (
         <MemoryRouter>
             <ReleaseHistoryPage />
@@ -81,7 +82,16 @@ describe('LocksPage', () => {
             if (testcase.enableDex) {
                 enableDexAuth(testcase.enableDexValidToken);
             }
+
+            updateAppDetails.set({
+                '': {
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            });
             const { container } = getWrapper();
+
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedNumMainContent);
             expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.expectedNumSpinner);
             expect(

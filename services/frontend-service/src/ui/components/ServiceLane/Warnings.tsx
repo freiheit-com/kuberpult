@@ -15,10 +15,16 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import * as React from 'react';
 import { Application, UnusualDeploymentOrder, UpstreamNotDeployed, Warning } from '../../../api/api';
+import { updateWarnings } from '../../utils/store';
 
-export const WarningBoxes: React.FC<{ application: Application }> = (props) => {
+export const WarningBoxes: React.FC<{ application: Application | undefined }> = (props) => {
     const { application } = props;
-
+    if (application === undefined) {
+        return <div className="warnings"></div>;
+    }
+    const details = updateWarnings.get();
+    details[application.name] = application.warnings;
+    updateWarnings.set(details);
     return (
         <div className="warnings">
             {application.warnings.map((warning: Warning, index: number) => (
