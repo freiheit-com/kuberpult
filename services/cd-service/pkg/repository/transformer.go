@@ -1954,6 +1954,11 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 	if err != nil {
 		return err
 	}
+
+	if config == nil {
+		return fmt.Errorf("config not found for environment: %s", env)
+	}
+
 	group := mapper.DeriveGroupName(*config, env)
 
 	if group == "" {
