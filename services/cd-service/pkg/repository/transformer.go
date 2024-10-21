@@ -202,21 +202,46 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	for i := range envNames {
 		env := envNames[i]
 		GaugeEnvLockMetric(ctx, state, transaction, env)
-		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
-		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
-			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
-			sort.Slice(entries, sortFiles(entries))
-			for _, app := range entries {
-				GaugeEnvAppLockMetric(ctx, state, transaction, env, app.Name())
+		envData, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, env)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Errorf("could not get environment for metrics, skipping metrics: %v", err)
+			continue
+		}
+		if envData == nil {
+			logger.FromContext(ctx).Sugar().Errorf("could not get environment for metrics, it does not exist - skipping metrics")
+			continue
+		}
+		if state.DBHandler.ShouldUseOtherTables() {
+			for _, app := range envData.Applications {
+				GaugeEnvAppLockMetric(ctx, state, transaction, env, app)
 
-				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app)
 				if err != nil {
 					return err
 				}
 				timeDiff := now.Sub(deployedAtTimeUtc)
-				err = GaugeDeploymentMetric(ctx, env, app.Name(), timeDiff.Minutes())
+				err = GaugeDeploymentMetric(ctx, env, app, timeDiff.Minutes())
 				if err != nil {
 					return err
+				}
+			}
+		} else {
+			appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
+			if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
+				// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
+				sort.Slice(entries, sortFiles(entries))
+				for _, app := range entries {
+					GaugeEnvAppLockMetric(ctx, state, transaction, env, app.Name())
+
+					_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
+					if err != nil {
+						return err
+					}
+					timeDiff := now.Sub(deployedAtTimeUtc)
+					err = GaugeDeploymentMetric(ctx, env, app.Name(), timeDiff.Minutes())
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
