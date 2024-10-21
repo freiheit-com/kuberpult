@@ -2656,8 +2656,11 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 							env.AppLocks[appName] = &apiAppLocks
 						}
 					}
-					
-					if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, app.Team); err != nil {
+					team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
+					if err != nil {
+						return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
+					}
+					if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, team); err != nil {
 						return err
 					} else {
 						apiTeamLocks := api.Locks{

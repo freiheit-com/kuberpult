@@ -203,17 +203,6 @@ describe('Release Card', () => {
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        test2: {
-                            version: 2,
-                            queuedVersion: 0,
-                            name: 'test2',
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            undeployVersion: false,
-                        },
-                    },
                 },
             },
         },
@@ -276,17 +265,6 @@ describe('Release Card', () => {
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        test2: {
-                            version: 3,
-                            queuedVersion: 0,
-                            name: 'test2',
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            undeployVersion: false,
-                        },
-                    },
                 },
             },
         },
@@ -349,17 +327,6 @@ describe('Release Card', () => {
                     distanceToUpstream: 0,
                     priority: 0,
                     name: 'other',
-                    applications: {
-                        test3: {
-                            version: 3,
-                            queuedVersion: 0,
-                            name: 'test2',
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            undeployVersion: false,
-                        },
-                    },
                 },
             },
         },
@@ -424,16 +391,6 @@ describe('Release Card', () => {
             mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
             // when
             UpdateOverview.set({
-                applications: {
-                    [testcase.props.app]: {
-                        name: testcase.props.app,
-                        releases: testcase.rels,
-                        sourceRepoUrl: 'url',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        team: 'no-team',
-                        warnings: [],
-                    },
-                },
                 environmentGroups: [],
             });
             updateAppDetails.set(testcase.appDetails);
@@ -563,17 +520,6 @@ describe('Release Card Rollout Status', () => {
                     environments: [
                         {
                             name: 'development',
-                            applications: {
-                                test1: {
-                                    version: 2,
-                                    name: '',
-                                    locks: {},
-                                    teamLocks: {},
-                                    team: 'test-team',
-                                    queuedVersion: 0,
-                                    undeployVersion: false,
-                                },
-                            },
                             locks: {},
                             appLocks: {},
                             teamLocks: {},
@@ -582,17 +528,6 @@ describe('Release Card Rollout Status', () => {
                         },
                         {
                             name: 'development2',
-                            applications: {
-                                test1: {
-                                    version: 2,
-                                    name: '',
-                                    locks: {},
-                                    teamLocks: {},
-                                    team: 'test-team',
-                                    queuedVersion: 0,
-                                    undeployVersion: false,
-                                },
-                            },
                             locks: {},
                             appLocks: {},
                             teamLocks: {},
@@ -608,17 +543,6 @@ describe('Release Card Rollout Status', () => {
                     environments: [
                         {
                             name: 'staging',
-                            applications: {
-                                test1: {
-                                    version: 2,
-                                    name: '',
-                                    locks: {},
-                                    teamLocks: {},
-                                    team: 'test-team',
-                                    queuedVersion: 0,
-                                    undeployVersion: false,
-                                },
-                            },
                             locks: {},
                             appLocks: {},
                             teamLocks: {},
@@ -665,16 +589,6 @@ describe('Release Card Rollout Status', () => {
             mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
             // when
             UpdateOverview.set({
-                applications: {
-                    [testcase.props.app]: {
-                        name: testcase.props.app,
-                        releases: testcase.rels,
-                        sourceRepoUrl: 'url',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        team: 'no-team',
-                        warnings: [],
-                    },
-                },
                 environmentGroups: testcase.environmentGroups,
             });
             updateAppDetails.set(testcase.appDetails);

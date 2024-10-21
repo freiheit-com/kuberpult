@@ -31,7 +31,6 @@ import {
     GetEnvironmentConfigResponse,
     GetReleaseTrainPrognosisResponse,
     GetFailedEslsResponse,
-    Environment_Application,
     GetAppDetailsResponse,
     OverviewApplication,
 } from '../../api/api';
@@ -69,7 +68,6 @@ export const displayLockUniqueId = (displayLock: DisplayLock): string =>
 type EnhancedOverview = GetOverviewResponse & { [key: string]: unknown; loaded: boolean };
 
 const emptyOverview: EnhancedOverview = {
-    applications: {},
     lightweightApps: [],
     environmentGroups: [],
     gitRevision: '',
@@ -545,7 +543,15 @@ export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
                 )
                 .flat()
         )
-        .flat();
+        .flat()
+        .filter(
+            (value: DisplayLock, index: number, self: DisplayLock[]) =>
+                index ===
+                self.findIndex(
+                    (t: DisplayLock) =>
+                        t.lockId === value.lockId && t.team === value.team && t.environment === value.environment
+                )
+        );
 
 export const useAppLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
     Object.values(useEnvironments())
@@ -616,66 +622,38 @@ export const useApplicationsFilteredAndSorted = (
     return applicationsSortedByTeam(allMatchingTeamAndWarningsAndName);
 };
 
-// return all applications locks
-export const useFilteredApplicationLocks = (appNameParam: string | null): DisplayLock[] => {
-    const finalLocks: DisplayLock[] = [];
-    Object.values(useEnvironments())
-        .map((environment) => ({ envName: environment.name, apps: environment.applications }))
-        .forEach((app) => {
-            Object.values(app.apps)
-                .map((myApp) => ({ environment: app.envName, appName: myApp.name, locks: myApp.locks }))
-                .forEach((lock) => {
-                    Object.values(lock.locks).forEach((cena) =>
-                        finalLocks.push({
-                            date: cena.createdAt,
-                            application: lock.appName,
-                            environment: lock.environment,
-                            lockId: cena.lockId,
-                            message: cena.message,
-                            authorName: cena.createdBy?.name,
-                            authorEmail: cena.createdBy?.email,
-                        })
-                    );
-                });
-        });
-    const filteredLocks = finalLocks.filter((val) => appNameParam === val.application);
-    return sortLocks(filteredLocks, 'newestToOldest');
-};
-
 export interface DisplayApplicationLock {
     lock: DisplayLock;
-    application: Environment_Application;
+    application: string;
     environment: Environment;
     environmentGroup: EnvironmentGroup;
 }
 
-export const useDisplayApplicationLocks = (appName: string | null): DisplayApplicationLock[] => {
+export const useDisplayApplicationLocks = (appName: string): DisplayApplicationLock[] => {
     const envGroups = useEnvironmentGroups();
     const finalLocks = useMemo(() => {
         const finalLocks: DisplayApplicationLock[] = [];
         Object.values(envGroups).forEach((envGroup) => {
-            Object.values(envGroup.environments).forEach((env) => {
-                Object.values(env.applications).forEach((app) => {
-                    if (appName && appName === app.name) {
-                        Object.values(app.locks).forEach((lock) =>
-                            finalLocks.push({
-                                lock: {
-                                    date: lock.createdAt,
-                                    application: app.name,
-                                    environment: env.name,
-                                    lockId: lock.lockId,
-                                    message: lock.message,
-                                    authorName: lock.createdBy?.name,
-                                    authorEmail: lock.createdBy?.email,
-                                },
-                                application: app,
-                                environment: env,
-                                environmentGroup: envGroup,
-                            })
-                        );
-                    }
-                });
-            });
+            Object.values(envGroup.environments).forEach((env) =>
+                env.appLocks[appName]
+                    ? Object.values(env.appLocks[appName].locks).forEach((lock) => {
+                          finalLocks.push({
+                              lock: {
+                                  date: lock.createdAt,
+                                  application: appName,
+                                  environment: env.name,
+                                  lockId: lock.lockId,
+                                  message: lock.message,
+                                  authorName: lock.createdBy?.name,
+                                  authorEmail: lock.createdBy?.email,
+                              },
+                              application: appName,
+                              environment: env,
+                              environmentGroup: envGroup,
+                          });
+                      })
+                    : []
+            );
         });
         finalLocks.sort((a: DisplayApplicationLock, b: DisplayApplicationLock) => {
             if ((a.lock.date ?? new Date(0)) < (b.lock.date ?? new Date(0))) return 1;
@@ -784,41 +762,6 @@ export type AllLocks = {
     teamLocks: DisplayLock[];
 };
 
-export const useTeamLocksFilterByTeam = (team: string): DisplayLock[] => {
-    const envs = useEnvironments();
-    const teamLocks: DisplayLock[] = [];
-    envs.forEach((env: Environment) => {
-        for (const applicationsKey in env.applications) {
-            const app = env.applications[applicationsKey];
-            if (team === app.team) {
-                for (const locksKey in app.teamLocks) {
-                    const lock = app.teamLocks[locksKey];
-                    const displayLock: DisplayLock = {
-                        lockId: lock.lockId,
-                        team: app.team,
-                        date: lock.createdAt,
-                        environment: env.name,
-                        message: lock.message,
-                        authorName: lock.createdBy?.name,
-                        authorEmail: lock.createdBy?.email,
-                    };
-                    if (
-                        !teamLocks.some(
-                            (e) =>
-                                e.lockId === displayLock.lockId &&
-                                e.team === displayLock.team &&
-                                e.environment === displayLock.environment
-                        )
-                    ) {
-                        teamLocks.push(displayLock);
-                    }
-                }
-            }
-        }
-    });
-    return teamLocks;
-};
-
 export const useAllLocks = (): AllLocks => {
     const envs = useEnvironments();
     const allApps = useApplications();
@@ -886,7 +829,6 @@ const extractDeleteActionData = (batchAction: BatchAction): DeleteActionData | u
 export const useLocksSimilarTo = (cartItemAction: BatchAction | undefined): AllLocks => {
     const allLocks = useAllLocks();
     const actions = useActions();
-
     if (!cartItemAction) {
         return { appLocks: [], environmentLocks: [], teamLocks: [] };
     }
@@ -997,16 +939,16 @@ export const useReleaseOptional = (application: string, env: Environment): Relea
 };
 
 // returns the release versions that are currently deployed to at least one environment
-export const useDeployedReleases = (application: string): number[] =>
-    [
-        ...new Set(
-            Object.values(useEnvironments())
-                .filter((env) => env.applications[application])
-                .map((env) => env.applications[application].version)
-        ),
-    ]
-        .sort((a, b) => b - a)
-        .filter((version) => version !== 0); // 0 means "not deployed", so we filter those out
+// export const useDeployedReleases = (application: string): number[] =>
+//     [
+//         ...new Set(
+//             Object.values(useEnvironments())
+//                 .filter((env) => env.applications[application])
+//                 .map((env) => env.applications[application].version)
+//         ),
+//     ]
+//         .sort((a, b) => b - a)
+//         .filter((version) => version !== 0); // 0 means "not deployed", so we filter those out
 
 export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
 
@@ -1015,11 +957,15 @@ export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup:
  */
 export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
+    const appDetails = useAppDetailsForApp(application);
     return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
             const envs = group.environments.filter(
-                (env) => env.applications[application] && env.applications[application].version === version
+                (env) =>
+                    appDetails &&
+                    appDetails.deployments[env.name] &&
+                    appDetails.deployments[env.name].version === version
             );
             if (envs.length > 0) {
                 // we need to make a copy of the group here, because we want to remove some envs.
@@ -1035,7 +981,7 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
             }
         });
         return envGroups;
-    }, [environmentGroups, application, version]);
+    }, [environmentGroups, version, appDetails]);
 };
 
 /**
@@ -1043,10 +989,11 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
  */
 export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
+    const appDetails = useAppDetailsForApp(application);
     return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
-            const envs = group.environments.filter((env) => env.applications[application]);
+            const envs = group.environments.filter((env) => appDetails.deployments[env.name]);
             if (envs.length > 0) {
                 // we need to make a copy of the group here, because we want to remove some envs.
                 // but that should not have any effect on the group saved in the store.
@@ -1061,7 +1008,7 @@ export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroup
             }
         });
         return envGroups;
-    }, [environmentGroups, application]);
+    }, [environmentGroups, appDetails]);
 };
 
 // Get all releases for an app

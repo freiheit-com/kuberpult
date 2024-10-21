@@ -23,7 +23,7 @@ import {
     useFilteredEnvironmentLockIDs,
 } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
-import { Environment, Priority } from '../../../api/api';
+import { Environment, OverviewApplication, Priority } from '../../../api/api';
 import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 
 describe('LocksPage', () => {
@@ -88,7 +88,6 @@ describe('Test env locks', () => {
                     locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
                     appLocks: {},
                     teamLocks: {},
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
@@ -108,7 +107,6 @@ describe('Test env locks', () => {
                     },
                     appLocks: {},
                     teamLocks: {},
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
@@ -128,7 +126,6 @@ describe('Test env locks', () => {
                     },
                     appLocks: {},
                     teamLocks: {},
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
@@ -142,6 +139,11 @@ describe('Test env locks', () => {
         it(testcase.name, () => {
             // given
             UpdateOverview.set({
+                lighweightApps: [
+                    {
+                        name: 'app1',
+                    },
+                ],
                 environmentGroups: [
                     {
                         environments: testcase.envs,
@@ -178,7 +180,6 @@ describe('Test env locks', () => {
                 {
                     name: 'integration',
                     locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                    applications: {},
                     appLocks: {},
                     teamLocks: {},
                     distanceToUpstream: 0,
@@ -198,7 +199,6 @@ describe('Test env locks', () => {
                     },
                     appLocks: {},
                     teamLocks: {},
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -210,7 +210,6 @@ describe('Test env locks', () => {
                     },
                     appLocks: {},
                     teamLocks: {},
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -228,7 +227,6 @@ describe('Test env locks', () => {
                     },
                     appLocks: {},
                     teamLocks: {},
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -240,7 +238,6 @@ describe('Test env locks', () => {
                     },
                     appLocks: {},
                     teamLocks: {},
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -254,7 +251,6 @@ describe('Test env locks', () => {
         it(testcase.name, () => {
             // given
             UpdateOverview.set({
-                // environments: testcase.envs,
                 environmentGroups: [
                     {
                         distanceToUpstream: 0,
@@ -294,7 +290,6 @@ describe('Test env locks', () => {
                     },
                     appLocks: {},
                     teamLocks: {},
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -315,7 +310,6 @@ describe('Test env locks', () => {
         it(testcase.name, () => {
             // given
             UpdateOverview.set({
-                applications: {},
                 environmentGroups: [
                     {
                         environments: testcase.envs,
@@ -337,6 +331,7 @@ describe('Test app locks', () => {
     interface dataAppT {
         name: string;
         envs: Environment[];
+        OverviewApps: OverviewApplication[];
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
@@ -345,11 +340,18 @@ describe('Test app locks', () => {
         {
             name: 'no locks',
             envs: [],
+            OverviewApps: [],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
         },
         {
             name: 'get one lock',
+            OverviewApps: [
+                {
+                    name: 'foo',
+                    team: '',
+                },
+            ],
             envs: [
                 {
                     name: 'integration',
@@ -362,17 +364,6 @@ describe('Test app locks', () => {
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        foo: {
-                            name: 'foo',
-                            version: 1337,
-                            locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                            teamLocks: {},
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: true,
-                        },
-                    },
                 },
             ],
             sortOrder: 'oldestToNewest',
@@ -380,6 +371,12 @@ describe('Test app locks', () => {
         },
         {
             name: 'get a few locks (sorted, newestToOldest)',
+            OverviewApps: [
+                {
+                    name: 'foo',
+                    team: '',
+                },
+            ],
             envs: [
                 {
                     name: 'integration',
@@ -387,6 +384,11 @@ describe('Test app locks', () => {
                     appLocks: {
                         foo: {
                             locks: [
+                                {
+                                    message: 'locktest',
+                                    lockId: 'ui-v2-1337',
+                                    createdAt: new Date(1995, 11, 17),
+                                },
                                 {
                                     message: 'lockfoo',
                                     lockId: 'ui-v2-123',
@@ -403,25 +405,6 @@ describe('Test app locks', () => {
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        foo: {
-                            name: 'foo',
-                            version: 1337,
-                            locks: {
-                                locktest: {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                    createdAt: new Date(1995, 11, 17),
-                                },
-                                lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                                lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                            },
-                            teamLocks: {},
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: true,
-                        },
-                    },
                 },
             ],
             sortOrder: 'newestToOldest',
@@ -429,6 +412,16 @@ describe('Test app locks', () => {
         },
         {
             name: 'get a few locks (sorted, oldestToNewest)',
+            OverviewApps: [
+                {
+                    name: 'foo',
+                    team: 'test-team',
+                },
+                {
+                    name: 'bar',
+                    team: 'test-team',
+                },
+            ],
             envs: [
                 {
                     name: 'integration',
@@ -465,35 +458,6 @@ describe('Test app locks', () => {
                     },
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        foo: {
-                            name: 'foo',
-                            version: 1337,
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                            locks: {
-                                lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                            },
-                            teamLocks: {},
-                            team: 'test-team',
-                        },
-                        bar: {
-                            name: 'bar',
-                            version: 420,
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                            locks: {
-                                lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                                locktest: {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                    createdAt: new Date(1995, 11, 17),
-                                },
-                            },
-                            teamLocks: {},
-                            team: 'test-team',
-                        },
-                    },
                 },
             ],
             sortOrder: 'oldestToNewest',
@@ -506,6 +470,7 @@ describe('Test app locks', () => {
             // given
             // UpdateOverview.set({ environmentGroups: testcase.envs });
             UpdateOverview.set({
+                lightweightApps: testcase.OverviewApps,
                 environmentGroups: [
                     {
                         environments: testcase.envs,
@@ -530,6 +495,7 @@ describe('Test Team locks', () => {
         envs: Environment[];
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
+        OverviewApps: OverviewApplication[];
     }
 
     const sampleAppData: dataAppT[] = [
@@ -538,15 +504,22 @@ describe('Test Team locks', () => {
             envs: [],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
+            OverviewApps: [],
         },
         {
             name: 'get one lock',
+            OverviewApps: [
+                {
+                    name: 'bar',
+                    team: 'lock-test',
+                },
+            ],
             envs: [
                 {
                     name: 'integration',
                     locks: {},
                     teamLocks: {
-                        locktest: {
+                        'lock-test': {
                             locks: [
                                 {
                                     message: 'locktest',
@@ -558,17 +531,6 @@ describe('Test Team locks', () => {
                     appLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        foo: {
-                            name: 'foo',
-                            version: 1337,
-                            locks: {},
-                            teamLocks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: true,
-                        },
-                    },
                 },
             ],
             sortOrder: 'oldestToNewest',
@@ -576,6 +538,12 @@ describe('Test Team locks', () => {
         },
         {
             name: 'get a few locks (sorted, newestToOldest)',
+            OverviewApps: [
+                {
+                    name: 'bar',
+                    team: 'test-team',
+                },
+            ],
             envs: [
                 {
                     name: 'integration',
@@ -594,30 +562,16 @@ describe('Test Team locks', () => {
                                     lockId: 'ui-v2-123',
                                     createdAt: new Date(1995, 11, 16),
                                 },
+                                {
+                                    message: 'lockbar',
+                                    lockId: 'ui-v2-321',
+                                    createdAt: new Date(1995, 11, 16),
+                                },
                             ],
                         },
                     },
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        foo: {
-                            name: 'foo',
-                            version: 1337,
-                            locks: {},
-                            teamLocks: {
-                                locktest: {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                    createdAt: new Date(1995, 11, 17),
-                                },
-                                lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                                lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                            },
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: true,
-                        },
-                    },
                 },
             ],
             sortOrder: 'newestToOldest',
@@ -625,6 +579,16 @@ describe('Test Team locks', () => {
         },
         {
             name: 'get a few locks (sorted, oldestToNewest)',
+            OverviewApps: [
+                {
+                    name: 'foo',
+                    team: 'test-team',
+                },
+                {
+                    name: 'bar',
+                    team: 'test-team',
+                },
+            ],
             envs: [
                 {
                     name: 'integration',
@@ -671,47 +635,6 @@ describe('Test Team locks', () => {
                             ],
                         },
                     },
-                    applications: {
-                        foo: {
-                            name: 'foo',
-                            version: 1337,
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                            locks: {
-                                lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                            },
-                            teamLocks: {
-                                lockbar: {
-                                    message: 'team lock 1',
-                                    lockId: 'ui-v2-t-lock-1',
-                                    createdAt: new Date(1995, 11, 15),
-                                },
-                            },
-                            team: 'test-team',
-                        },
-                        bar: {
-                            name: 'bar',
-                            version: 420,
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                            locks: {
-                                lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                                locktest: {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                    createdAt: new Date(1995, 11, 17),
-                                },
-                            },
-                            teamLocks: {
-                                lockbar: {
-                                    message: 'team lock 2',
-                                    lockId: 'ui-v2-t-lock-2',
-                                    createdAt: new Date(1995, 11, 15),
-                                },
-                            },
-                            team: 'test-team',
-                        },
-                    },
                 },
             ],
             sortOrder: 'oldestToNewest',
@@ -723,6 +646,7 @@ describe('Test Team locks', () => {
         it(testcase.name, () => {
             // given
             UpdateOverview.set({
+                lightweightApps: testcase.OverviewApps,
                 environmentGroups: [
                     {
                         environments: testcase.envs,

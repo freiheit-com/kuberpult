@@ -24,7 +24,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -55,78 +54,78 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 }
 
 func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
-	if in.Environment == nil && in.EnvironmentGroup == nil {
-		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
-	}
-	if in.Environment != nil && in.EnvironmentGroup != nil {
-		if *in.Environment != "" && *in.EnvironmentGroup != "" {
-			return nil, fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for")
-		}
-	}
-	if in.ManifestRepoCommitHash == "" {
-		return nil, fmt.Errorf("Must have a commit to get the product summary for")
-	}
-	response, err := s.OverviewService.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.ManifestRepoCommitHash})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get overview for %s: %v", in.ManifestRepoCommitHash, err)
-	}
-
-	var summaryFromEnv []api.ProductSummary
-	if in.Environment != nil && *in.Environment != "" {
-		for _, group := range response.EnvironmentGroups {
-			for _, env := range group.Environments {
-				if env.Name == *in.Environment {
-					for _, app := range env.Applications {
-						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
-							CommitId:       "",
-							DisplayVersion: "",
-							Team:           "",
-							App:            app.Name,
-							Version:        strconv.FormatUint(app.Version, 10),
-							Environment:    *in.Environment,
-						})
-					}
-				}
-			}
-		}
-		if len(summaryFromEnv) == 0 {
-			return &api.GetProductSummaryResponse{
-				ProductSummary: nil,
-			}, nil
-		}
-		sort.Slice(summaryFromEnv, func(i, j int) bool {
-			a := summaryFromEnv[i].App
-			b := summaryFromEnv[j].App
-			return a < b
-		})
-	} else {
-		for _, group := range response.EnvironmentGroups {
-			if *in.EnvironmentGroup == group.EnvironmentGroupName {
-				for _, env := range group.Environments {
-					var singleEnvSummary []api.ProductSummary
-					for _, app := range env.Applications {
-						singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
-							CommitId:       "",
-							DisplayVersion: "",
-							Team:           "",
-							App:            app.Name,
-							Version:        strconv.FormatUint(app.Version, 10),
-							Environment:    env.Name,
-						})
-					}
-					sort.Slice(singleEnvSummary, func(i, j int) bool {
-						a := singleEnvSummary[i].App
-						b := singleEnvSummary[j].App
-						return a < b
-					})
-					summaryFromEnv = append(summaryFromEnv, singleEnvSummary...)
-				}
-			}
-		}
-		if len(summaryFromEnv) == 0 {
-			return nil, nil
-		}
-	}
+	//if in.Environment == nil && in.EnvironmentGroup == nil {
+	//	return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
+	//}
+	//if in.Environment != nil && in.EnvironmentGroup != nil {
+	//	if *in.Environment != "" && *in.EnvironmentGroup != "" {
+	//		return nil, fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for")
+	//	}
+	//}
+	//if in.ManifestRepoCommitHash == "" {
+	//	return nil, fmt.Errorf("Must have a commit to get the product summary for")
+	//}
+	//response, err := s.OverviewService.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.ManifestRepoCommitHash})
+	//if err != nil {
+	//	return nil, fmt.Errorf("unable to get overview for %s: %v", in.ManifestRepoCommitHash, err)
+	//}
+	//
+	//var summaryFromEnv []api.ProductSummary
+	//if in.Environment != nil && *in.Environment != "" {
+	//	for _, group := range response.EnvironmentGroups {
+	//		for _, env := range group.Environments {
+	//			if env.Name == *in.Environment {
+	//				for _, app := range env.Applications {
+	//					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
+	//						CommitId:       "",
+	//						DisplayVersion: "",
+	//						Team:           "",
+	//						App:            app.Name,
+	//						Version:        strconv.FormatUint(app.Version, 10),
+	//						Environment:    *in.Environment,
+	//					})
+	//				}
+	//			}
+	//		}
+	//	}
+	//	if len(summaryFromEnv) == 0 {
+	//		return &api.GetProductSummaryResponse{
+	//			ProductSummary: nil,
+	//		}, nil
+	//	}
+	//	sort.Slice(summaryFromEnv, func(i, j int) bool {
+	//		a := summaryFromEnv[i].App
+	//		b := summaryFromEnv[j].App
+	//		return a < b
+	//	})
+	//} else {
+	//	for _, group := range response.EnvironmentGroups {
+	//		if *in.EnvironmentGroup == group.EnvironmentGroupName {
+	//			for _, env := range group.Environments {
+	//				var singleEnvSummary []api.ProductSummary
+	//				for _, app := range env.Applications {
+	//					singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
+	//						CommitId:       "",
+	//						DisplayVersion: "",
+	//						Team:           "",
+	//						App:            app.Name,
+	//						Version:        strconv.FormatUint(app.Version, 10),
+	//						Environment:    env.Name,
+	//					})
+	//				}
+	//				sort.Slice(singleEnvSummary, func(i, j int) bool {
+	//					a := singleEnvSummary[i].App
+	//					b := singleEnvSummary[j].App
+	//					return a < b
+	//				})
+	//				summaryFromEnv = append(summaryFromEnv, singleEnvSummary...)
+	//			}
+	//		}
+	//	}
+	//	if len(summaryFromEnv) == 0 {
+	//		return nil, nil
+	//	}
+	//}
 
 	var productVersion []*api.ProductSummary
 	for _, row := range summaryFromEnv { //nolint: govet

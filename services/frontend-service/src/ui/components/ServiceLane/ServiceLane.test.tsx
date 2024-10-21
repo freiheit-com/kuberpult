@@ -67,11 +67,7 @@ describe('Service Lane', () => {
             name: 'test2',
             team: '',
         };
-        UpdateOverview.set({
-            applications: {
-                test2: sampleApp,
-            },
-        });
+        UpdateOverview.set({});
         updateAppDetails.set({
             test2: {
                 application: {
@@ -140,17 +136,6 @@ const data: TestDataDiff[] = [
         envs: [
             {
                 name: 'foo',
-                applications: {
-                    test2: {
-                        version: 1,
-                        name: '',
-                        locks: {},
-                        teamLocks: {},
-                        team: 'test-team',
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
                 locks: {},
@@ -159,17 +144,6 @@ const data: TestDataDiff[] = [
             },
             {
                 name: 'foo2',
-                applications: {
-                    test2: {
-                        version: 1,
-                        name: '',
-                        locks: {},
-                        teamLocks: {},
-                        team: 'test-team',
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
                 locks: {},
@@ -209,17 +183,6 @@ const data: TestDataDiff[] = [
         envs: [
             {
                 name: 'foo',
-                applications: {
-                    test2: {
-                        version: 1,
-                        name: '',
-                        locks: {},
-                        teamLocks: {},
-                        team: 'test-team',
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
                 locks: {},
@@ -228,17 +191,6 @@ const data: TestDataDiff[] = [
             },
             {
                 name: 'foo2',
-                applications: {
-                    test2: {
-                        version: 2,
-                        name: '',
-                        locks: {},
-                        teamLocks: {},
-                        team: 'test-team',
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
                 locks: {},
@@ -278,17 +230,6 @@ const data: TestDataDiff[] = [
         envs: [
             {
                 name: 'foo',
-                applications: {
-                    test2: {
-                        name: 'test2',
-                        version: 1,
-                        locks: {},
-                        teamLocks: {},
-                        team: 'test-team',
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
                 locks: {},
                 appLocks: {},
                 teamLocks: {},
@@ -297,17 +238,6 @@ const data: TestDataDiff[] = [
             },
             {
                 name: 'foo2',
-                applications: {
-                    test2: {
-                        name: 'test2',
-                        version: 4,
-                        locks: {},
-                        teamLocks: {},
-                        team: 'test-team',
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
                 locks: {},
                 appLocks: {},
                 teamLocks: {},
@@ -347,17 +277,6 @@ const data: TestDataDiff[] = [
         envs: [
             {
                 name: 'foo',
-                applications: {
-                    test2: {
-                        version: 2,
-                        name: '',
-                        locks: {},
-                        teamLocks: {},
-                        team: 'test-team',
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
                 locks: {},
@@ -366,17 +285,6 @@ const data: TestDataDiff[] = [
             },
             {
                 name: 'foo2',
-                applications: {
-                    test2: {
-                        version: 5,
-                        name: '',
-                        locks: {},
-                        teamLocks: {},
-                        team: 'test-team',
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
                 locks: {},
@@ -397,7 +305,6 @@ describe('Service Lane Diff', () => {
     describe.each(data)('Service Lane diff number', (testcase) => {
         it(testcase.name, () => {
             UpdateOverview.set({
-                applications: {},
                 environmentGroups: [
                     {
                         environments: testcase.envs,
@@ -520,25 +427,11 @@ describe('Service Lane Important Releases', () => {
                 team: 'test2',
             };
             UpdateOverview.set({
-                applications: {
-                    test2: sampleApp,
-                },
                 environmentGroups: [
                     {
                         environments: [
                             {
                                 name: 'foo',
-                                applications: {
-                                    test2: {
-                                        name: 'test2',
-                                        version: testcase.currentlyDeployedVersion,
-                                        locks: {},
-                                        teamLocks: {},
-                                        team: 'test-team',
-                                        undeployVersion: false,
-                                        queuedVersion: 0,
-                                    },
-                                },
                                 distanceToUpstream: 0,
                                 priority: Priority.UPSTREAM,
                                 locks: {},
@@ -619,7 +512,6 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
             envs: [
                 {
                     name: 'foo2',
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -648,7 +540,6 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
             envs: [
                 {
                     name: 'foo2',
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -680,9 +571,6 @@ describe('Service Lane ⋮ menu', () => {
             mock_addAction.addAction.returns(undefined);
 
             UpdateOverview.set({
-                applications: {
-                    test1: testcase.renderedApp,
-                },
                 environmentGroups: [
                     {
                         environments: testcase.envs,
@@ -826,7 +714,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             envs: [
                 {
                     name: 'foo2',
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {
@@ -847,7 +734,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             envs: [
                 {
                     name: 'foo2',
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -863,7 +749,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             envs: [
                 {
                     name: 'foo2',
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -879,7 +764,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             envs: [
                 {
                     name: 'foo2',
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -895,7 +779,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             envs: [
                 {
                     name: 'foo2',
-                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
