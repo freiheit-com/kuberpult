@@ -563,8 +563,6 @@ message UpstreamNotDeployed {
 }
 
 message Environment {
-
-
   string name = 1;
   EnvironmentConfig config = 2;
   map<string, Lock> locks = 3; //Environment Locks. Lock ID -> Lock

@@ -1979,7 +1979,10 @@ func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, e
 			}
 			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
-
+		err = json.Unmarshal(([]byte)(jsonMetadata), &curr.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, jsonMetadata)
+		}
 		if releaseVersion.Valid {
 			curr.Version = &releaseVersion.Int64
 		}
