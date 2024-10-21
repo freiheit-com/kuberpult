@@ -111,8 +111,8 @@ describe('Release Card Mini', () => {
             UpdateOverview.set({
                 lightweightApps: [
                     {
-                        Name: 'test2',
-                        Team: 'example',
+                        name: 'test2',
+                        team: 'example',
                     },
                 ],
                 environmentGroups: [

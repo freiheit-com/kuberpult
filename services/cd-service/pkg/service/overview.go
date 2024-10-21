@@ -91,11 +91,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
 		}
-
 		if retrievedReleasesOfApp != nil {
 			rels = retrievedReleasesOfApp.Metadata.Releases
 		}
-
 		for _, id := range rels {
 			uid := uint64(id)
 			// we could optimize this by making one query that does return multiples:
