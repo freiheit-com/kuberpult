@@ -105,3 +105,11 @@ func ReadEnvVarUInt(envName string) (uint, error) {
 	}
 	return uint(i), nil
 }
+
+func ReadEnvVarBool(envName string) (bool, error) {
+	envValue, err := ReadEnvVar(envName)
+	if err != nil {
+		return false, err
+	}
+	return envValue == "true", nil
+}
