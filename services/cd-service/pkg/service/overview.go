@@ -94,8 +94,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if retrievedReleasesOfApp != nil {
 			rels = retrievedReleasesOfApp.Metadata.Releases
 		}
+		//Highest to lowest
 		sort.Slice(rels, func(i, j int) bool {
-			return rels[i] < rels[j]
+			return rels[j] < rels[i]
 		})
 		for _, id := range rels {
 			uid := uint64(id)

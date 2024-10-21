@@ -77,9 +77,9 @@ describe('Service Lane', () => {
                 application: {
                     name: 'test2',
                     releases: [
-                        extendRelease({ version: 5 }),
                         extendRelease({ version: 2 }),
                         extendRelease({ version: 3 }),
+                        extendRelease({ version: 5 }),
                     ],
                     sourceRepoUrl: 'http://test2.com',
                     team: 'example',
@@ -242,12 +242,12 @@ const data: TestDataDiff[] = [
     {
         name: 'test diff by one',
         diff: '1',
-        releases: [makeRelease(1), makeRelease(4), makeRelease(2)],
+        releases: [makeRelease(1), makeRelease(2), makeRelease(4)],
         appDetails: {
             application: {
                 name: 'test2',
                 team: 'test-team',
-                releases: [makeRelease(1), makeRelease(4), makeRelease(2)],
+                releases: [makeRelease(4), makeRelease(2), makeRelease(1)],
                 sourceRepoUrl: '',
                 undeploySummary: UndeploySummary.MIXED,
                 warnings: [],
@@ -312,7 +312,7 @@ const data: TestDataDiff[] = [
             application: {
                 name: 'test2',
                 team: 'test-team',
-                releases: [makeRelease(2), makeRelease(4), makeRelease(3), makeRelease(5)],
+                releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
                 sourceRepoUrl: '',
                 undeploySummary: UndeploySummary.MIXED,
                 warnings: [],

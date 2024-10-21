@@ -147,9 +147,7 @@ export const ReadyServiceLane: React.FC<{
     const { application, hideMinors } = props;
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
 
-    const allReleases = [...new Set(props.appDetails?.application?.releases.map((d) => d.version))].sort(
-        (n1, n2) => n2 - n1
-    );
+    const allReleases = [...new Set(props.appDetails?.application?.releases.map((d) => d.version))];
     const deployments = props.appDetails?.deployments;
     const allDeployedReleaseNumbers = [];
     for (const prop in deployments) {
