@@ -22,10 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/lib/pq"
 	"regexp"
 	"testing"
 	gotime "time"
+
+	"github.com/lib/pq"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -2270,7 +2271,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("error: %v", err)
 				}
-				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, appName, false, true)
+				releases, err2 := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, appName, true)
 				if err2 != nil {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}
@@ -3655,7 +3656,7 @@ func TestTimestampConsistency(t *testing.T) {
 					t.Fatalf("error mismatch on envAcceptance(-want, +got):\n%s", diff)
 				}
 				//Release
-				releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, testAppName, false, true)
+				releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, testAppName, true)
 				if err != nil {
 					return err
 				}
