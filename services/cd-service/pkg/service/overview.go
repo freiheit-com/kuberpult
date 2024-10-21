@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
+	"sort"
 	"sync"
 	"sync/atomic"
 )
@@ -93,7 +94,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if retrievedReleasesOfApp != nil {
 			rels = retrievedReleasesOfApp.Metadata.Releases
 		}
-
+		sort.Slice(rels, func(i, j int) bool {
+			return rels[i] < rels[j]
+		})
 		for _, id := range rels {
 			uid := uint64(id)
 			// we could optimize this by making one query that does return multiples:
