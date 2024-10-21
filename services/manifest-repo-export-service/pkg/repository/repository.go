@@ -62,7 +62,7 @@ type Repository interface {
 	StateAt(oid *git.Oid) (*State, error)
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
-	GetHeadCommit() (*git.Commit, error)
+	GetHeadCommitId() (*git.Oid, error)
 }
 
 type TransformerBatchApplyError struct {
@@ -418,17 +418,13 @@ func (r *repository) PushRepo(ctx context.Context) error {
 	return nil
 }
 
-func (r *repository) GetHeadCommit() (*git.Commit, error) {
-	ref, err := r.repository.Head()
+func (r *repository) GetHeadCommitId() (*git.Oid, error) {
+	branchHead := fmt.Sprintf("refs/heads/%s", r.config.Branch)
+	ref, err := r.repository.References.Lookup(branchHead)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching HEAD: %v", err)
+		return nil, fmt.Errorf("Error fetching reference \"%s\": %v", branchHead, err)
 	}
-	commit, err := r.repository.LookupCommit(ref.Target())
-	if err != nil {
-		return nil, fmt.Errorf("Error transalting into commit: %v", err)
-	}
-	return commit, nil
-
+	return ref.Target(), nil
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
