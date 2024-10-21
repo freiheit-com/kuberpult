@@ -2596,17 +2596,17 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									Applications: map[string]*api.Environment_Application{
-										"test": {
-											Name:    "test",
-											Version: 1,
-											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-												DeployAuthor: "testmail@example.com",
-												DeployTime:   "1",
-											},
-											Team: "team-123",
-										},
-									},
+									//Applications: map[string]*api.Environment_Application{
+									//	"test": {
+									//		Name:    "test",
+									//		Version: 1,
+									//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									//			DeployAuthor: "testmail@example.com",
+									//			DeployTime:   "1",
+									//		},
+									//		Team: "team-123",
+									//	},
+									//},
 									Priority: api.Priority_YOLO,
 								},
 							},
@@ -2656,17 +2656,17 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									Applications: map[string]*api.Environment_Application{
-										"test": {
-											Name:    "test",
-											Version: 1,
-											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-												DeployAuthor: "testmail@example.com",
-												DeployTime:   "1",
-											},
-											Team: "team-123",
-										},
-									},
+									//Applications: map[string]*api.Environment_Application{
+									//	"test": {
+									//		Name:    "test",
+									//		Version: 1,
+									//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									//			DeployAuthor: "testmail@example.com",
+									//			DeployTime:   "1",
+									//		},
+									//		Team: "team-123",
+									//	},
+									//},
 									Priority: api.Priority_YOLO,
 								},
 							},
@@ -2711,17 +2711,17 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									Applications: map[string]*api.Environment_Application{
-										"test2": {
-											Name:    "test2",
-											Version: 1,
-											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-												DeployAuthor: "testmail2@example.com",
-												DeployTime:   "1",
-											},
-											Team: "team-123",
-										},
-									},
+									//Applications: map[string]*api.Environment_Application{
+									//	"test2": {
+									//		Name:    "test2",
+									//		Version: 1,
+									//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									//			DeployAuthor: "testmail2@example.com",
+									//			DeployTime:   "1",
+									//		},
+									//		Team: "team-123",
+									//	},
+									//},
 									Priority: api.Priority_CANARY,
 								},
 							},

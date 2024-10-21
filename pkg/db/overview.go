@@ -126,11 +126,14 @@ func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *s
 		return fmt.Errorf("could not find environment %s in overview", deployment.Env)
 	}
 
-	app := getApplicationByName(latestOverview.Applications, deployment.App)
-	if app != nil {
-		app.Warnings = CalculateWarnings(ctx, app.Name, latestOverview.EnvironmentGroups)
-		app.UndeploySummary = deriveUndeploySummary(app.Name, latestOverview.EnvironmentGroups)
+	selectApp, err := h.DBSelectApp(ctx, transaction, deployment.App)
+	if err != nil {
+		return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", deployment.App, err)
 	}
+	if selectApp == nil {
+		return fmt.Errorf("could not find application '%s' in apps table: got no result", deployment.App)
+	}
+
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
@@ -153,6 +156,13 @@ func (h *DBHandler) UpdateOverviewDeploymentAttempt(ctx context.Context, transac
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", queuedDeployment.Env)
 	}
+	selectApp, err := h.DBSelectApp(ctx, transaction, queuedDeployment.App)
+	if err != nil {
+		return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", queuedDeployment.App, err)
+	}
+	if selectApp == nil {
+		return fmt.Errorf("could not find application '%s' in apps table: got no result", queuedDeployment.App)
+	}
 	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
 	if err != nil {
 		return err
@@ -172,7 +182,13 @@ func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transacti
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", applicationLock.Env)
 	}
-
+	selectApp, err := h.DBSelectApp(ctx, transaction, applicationLock.App)
+	if err != nil {
+		return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", applicationLock.App, err)
+	}
+	if selectApp == nil {
+		return fmt.Errorf("could not find application '%s' in apps table: got no result", applicationLock.App)
+	}
 	if env.AppLocks == nil {
 		env.AppLocks = make(map[string]*api.Locks)
 	}
