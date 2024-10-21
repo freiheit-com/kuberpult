@@ -20,7 +20,6 @@ import { render } from '@testing-library/react';
 import {
     Application,
     GetAppDetailsResponse,
-    GetOverviewResponse,
     GetReleaseTrainPrognosisResponse,
     ReleaseTrainAppSkipCause,
     ReleaseTrainEnvSkipCause,
