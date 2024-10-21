@@ -192,6 +192,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const otherRelease = useReleaseOptional(app, env);
     const appDetails = useAppDetailsForApp(app);
     const deployment = appDetails.deployments[env.name];
+
     const getDeploymentMetadata = (): [String, JSX.Element] => {
         if (!deployment) {
             return ['', <></>];
@@ -204,7 +205,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         if (deployedUNIX === '') {
             return ['Deployed by &nbsp;' + deployedBy, <></>];
         }
-        const deployedDate = new Date(+deployedUNIX * 1000);
+
+        const deployedDate = new Date(deployedUNIX);
+        // eslint-disable-next-line no-console
+        console.log(deployedDate);
         const returnString = 'Deployed by ' + deployedBy + ' ';
         const time = <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', '')} />;
 
