@@ -62,7 +62,7 @@ Copyright freiheit.com*/
         display: flex;
         margin: $service-lane-releases-margin;
         flex-flow: wrap;
-        min-height: 85px;
+        min-height: 85px; // Ensure that the loading service lane has the same height as the ready one
         width: calc(100vw - 20em - 100px);
     }
 
