@@ -71,7 +71,7 @@ export const ApplicationLockChip = (props: DisplayApplicationLock): JSX.Element 
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
                 <span className="mdc-evolution-chip__text-name">
-                    <ArgoAppEnvLink app={application.name} env={name} namespace={namespace} />
+                    <ArgoAppEnvLink app={application} env={name} namespace={namespace} />
                 </span>{' '}
                 {locks}
             </span>

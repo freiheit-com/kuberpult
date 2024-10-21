@@ -2178,14 +2178,10 @@ func TestUpdateOverviewCache(t *testing.T) {
 			StateChange:  db.AppStateChangeCreate,
 			InitialCache: nil,
 			ExpectedOverview: &api.GetOverviewResponse{
-				Applications: map[string]*api.Application{
-					"app1": {
-						Name:            "app1",
-						Releases:        nil,
-						SourceRepoUrl:   "",
-						Team:            "",
-						UndeploySummary: api.UndeploySummary_UNDEPLOY,
-						Warnings:        nil,
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "app1",
+						Team: "",
 					},
 				},
 				EnvironmentGroups: []*api.EnvironmentGroup{},
@@ -2195,7 +2191,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 			Name:        "overview creates new app",
 			StateChange: db.AppStateChangeCreate,
 			InitialCache: &api.GetOverviewResponse{
-				Applications: nil,
 				EnvironmentGroups: []*api.EnvironmentGroup{
 					{
 						EnvironmentGroupName: "dev",
@@ -2204,7 +2199,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 								Name:               "dev",
 								Config:             nil,
 								Locks:              nil,
-								Applications:       nil,
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},
@@ -2218,14 +2212,10 @@ func TestUpdateOverviewCache(t *testing.T) {
 				ManifestRepoUrl: "https://example.com",
 			},
 			ExpectedOverview: &api.GetOverviewResponse{
-				Applications: map[string]*api.Application{
-					"app1": {
-						Name:            "app1",
-						Releases:        nil,
-						SourceRepoUrl:   "",
-						Team:            "",
-						UndeploySummary: api.UndeploySummary_UNDEPLOY,
-						Warnings:        nil,
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "app1",
+						Team: "",
 					},
 				},
 				EnvironmentGroups: []*api.EnvironmentGroup{
@@ -2236,22 +2226,22 @@ func TestUpdateOverviewCache(t *testing.T) {
 								Name:   "dev",
 								Config: nil,
 								Locks:  nil,
-								Applications: map[string]*api.Environment_Application{
-									"app1": {
-										Name:            "app1",
-										Version:         0,
-										Locks:           nil,
-										QueuedVersion:   0,
-										UndeployVersion: false,
-										ArgoCd:          nil,
-										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-											DeployAuthor: "",
-											DeployTime:   "",
-										},
-										TeamLocks: nil,
-										Team:      "",
-									},
-								},
+								//Applications: map[string]*api.Environment_Application{
+								//	"app1": {
+								//		Name:            "app1",
+								//		Version:         0,
+								//		Locks:           nil,
+								//		QueuedVersion:   0,
+								//		UndeployVersion: false,
+								//		ArgoCd:          nil,
+								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+								//			DeployAuthor: "",
+								//			DeployTime:   "",
+								//		},
+								//		TeamLocks: nil,
+								//		Team:      "",
+								//	},
+								//},
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},
@@ -2269,16 +2259,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 			Name:        "overview deletes an app",
 			StateChange: db.AppStateChangeDelete,
 			InitialCache: &api.GetOverviewResponse{
-				Applications: map[string]*api.Application{
-					"app1": {
-						Name:            "app1",
-						Releases:        nil,
-						SourceRepoUrl:   "",
-						Team:            "",
-						UndeploySummary: api.UndeploySummary_UNDEPLOY,
-						Warnings:        nil,
-					},
-				},
 				EnvironmentGroups: []*api.EnvironmentGroup{
 					{
 						EnvironmentGroupName: "dev",
@@ -2287,28 +2267,34 @@ func TestUpdateOverviewCache(t *testing.T) {
 								Name:   "dev",
 								Config: nil,
 								Locks:  nil,
-								Applications: map[string]*api.Environment_Application{
-									"app1": {
-										Name:            "app1",
-										Version:         0,
-										Locks:           nil,
-										QueuedVersion:   0,
-										UndeployVersion: false,
-										ArgoCd:          nil,
-										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-											DeployAuthor: "",
-											DeployTime:   "",
-										},
-										TeamLocks: nil,
-										Team:      "",
-									},
-								},
+								//Applications: map[string]*api.Environment_Application{
+								//	"app1": {
+								//		Name:            "app1",
+								//		Version:         0,
+								//		Locks:           nil,
+								//		QueuedVersion:   0,
+								//		UndeployVersion: false,
+								//		ArgoCd:          nil,
+								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+								//			DeployAuthor: "",
+								//			DeployTime:   "",
+								//		},
+								//		TeamLocks: nil,
+								//		Team:      "",
+								//	},
+								//},
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},
 						},
 						DistanceToUpstream: 0,
 						Priority:           0,
+					},
+				},
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "app1",
+						Team: "",
 					},
 				},
 				GitRevision:     "123",
@@ -2316,16 +2302,15 @@ func TestUpdateOverviewCache(t *testing.T) {
 				ManifestRepoUrl: "https://example.com",
 			},
 			ExpectedOverview: &api.GetOverviewResponse{
-				Applications: nil,
 				EnvironmentGroups: []*api.EnvironmentGroup{
 					{
 						EnvironmentGroupName: "dev",
 						Environments: []*api.Environment{
 							{
-								Name:               "dev",
-								Config:             nil,
-								Locks:              nil,
-								Applications:       nil,
+								Name:   "dev",
+								Config: nil,
+								Locks:  nil,
+								//Applications:       nil,
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},
@@ -2337,6 +2322,7 @@ func TestUpdateOverviewCache(t *testing.T) {
 				GitRevision:     "123",
 				Branch:          "main",
 				ManifestRepoUrl: "https://example.com",
+				LightweightApps: []*api.OverviewApplication{},
 			},
 		},
 	}

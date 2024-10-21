@@ -307,26 +307,14 @@ func TestArgoConsume(t *testing.T) {
 					},
 				},
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
-							Team: "footeam",
-						},
-					},
 					EnvironmentGroups: []*api.EnvironmentGroup{
 						{
 
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name:         "staging",
-									Applications: map[string]*api.Environment_Application{},
-									Priority:     api.Priority_UPSTREAM,
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
 											Destination: &api.EnvironmentConfig_ArgoCD_Destination{
@@ -335,6 +323,8 @@ func TestArgoConsume(t *testing.T) {
 											},
 										},
 									},
+									TeamLocks: make(map[string]*api.Locks),
+									AppLocks:  make(map[string]*api.Locks),
 								},
 							},
 						},
@@ -378,26 +368,14 @@ func TestArgoConsume(t *testing.T) {
 					},
 				},
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
-							Team: "footeam",
-						},
-					},
 					EnvironmentGroups: []*api.EnvironmentGroup{
 						{
 
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name:         "staging",
-									Applications: map[string]*api.Environment_Application{},
-									Priority:     api.Priority_UPSTREAM,
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
 											Destination: &api.EnvironmentConfig_ArgoCD_Destination{
@@ -406,6 +384,8 @@ func TestArgoConsume(t *testing.T) {
 											},
 										},
 									},
+									TeamLocks: make(map[string]*api.Locks),
+									AppLocks:  make(map[string]*api.Locks),
 								},
 							},
 						},
@@ -466,26 +446,14 @@ func TestArgoConsume(t *testing.T) {
 					},
 				},
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
-							Team: "footeam",
-						},
-					},
 					EnvironmentGroups: []*api.EnvironmentGroup{
 						{
 
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name:         "staging",
-									Applications: map[string]*api.Environment_Application{},
-									Priority:     api.Priority_UPSTREAM,
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
 											Destination: &api.EnvironmentConfig_ArgoCD_Destination{
@@ -494,6 +462,8 @@ func TestArgoConsume(t *testing.T) {
 											},
 										},
 									},
+									TeamLocks: make(map[string]*api.Locks),
+									AppLocks:  make(map[string]*api.Locks),
 								},
 							},
 						},
@@ -555,26 +525,14 @@ func TestArgoConsume(t *testing.T) {
 					},
 				},
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
-							Team: "footeam",
-						},
-					},
 					EnvironmentGroups: []*api.EnvironmentGroup{
 						{
 
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name:         "staging",
-									Applications: map[string]*api.Environment_Application{},
-									Priority:     api.Priority_UPSTREAM,
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
 											Destination: &api.EnvironmentConfig_ArgoCD_Destination{
@@ -583,6 +541,8 @@ func TestArgoConsume(t *testing.T) {
 											},
 										},
 									},
+									TeamLocks: make(map[string]*api.Locks),
+									AppLocks:  make(map[string]*api.Locks),
 								},
 							},
 						},
@@ -663,35 +623,14 @@ func TestArgoConsume(t *testing.T) {
 					},
 				},
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
-							Team: "footeam",
-						},
-						"foo2": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00012",
-								},
-							},
-							Team: "footeam",
-						},
-					},
 					EnvironmentGroups: []*api.EnvironmentGroup{
 						{
 
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name:         "staging",
-									Applications: map[string]*api.Environment_Application{},
-									Priority:     api.Priority_UPSTREAM,
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
 											Destination: &api.EnvironmentConfig_ArgoCD_Destination{
@@ -700,6 +639,8 @@ func TestArgoConsume(t *testing.T) {
 											},
 										},
 									},
+									TeamLocks: make(map[string]*api.Locks),
+									AppLocks:  make(map[string]*api.Locks),
 								},
 							},
 						},
@@ -762,35 +703,14 @@ func TestArgoConsume(t *testing.T) {
 					},
 				},
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
-							Team: "footeam",
-						},
-						"foo2": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00012",
-								},
-							},
-							Team: "footeam",
-						},
-					},
 					EnvironmentGroups: []*api.EnvironmentGroup{
 						{
 
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name:         "staging",
-									Applications: map[string]*api.Environment_Application{},
-									Priority:     api.Priority_UPSTREAM,
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
 											Destination: &api.EnvironmentConfig_ArgoCD_Destination{
@@ -799,6 +719,8 @@ func TestArgoConsume(t *testing.T) {
 											},
 										},
 									},
+									TeamLocks: make(map[string]*api.Locks),
+									AppLocks:  make(map[string]*api.Locks),
 								},
 							},
 						},
@@ -820,26 +742,14 @@ func TestArgoConsume(t *testing.T) {
 			},
 			ArgoOverview: &ArgoOverview{
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
-							Team: "footeam",
-						},
-					},
 					EnvironmentGroups: []*api.EnvironmentGroup{
 						{
 
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name:         "staging",
-									Applications: map[string]*api.Environment_Application{},
-									Priority:     api.Priority_UPSTREAM,
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
 											Destination: &api.EnvironmentConfig_ArgoCD_Destination{
@@ -929,26 +839,25 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 	tcs := []struct {
 		Name              string
 		Overview          *ArgoOverview
-		Application       *api.Environment_Application
 		Environment       *api.Environment
 		AppsKnownToArgo   map[string]*v1alpha1.Application
 		ArgoManageEnabled bool
 		ArgoManageFilter  []string
 		ExpectedOutput    bool
 		ExpectedError     string
+		Application       api.OverviewApplication
 	}{
 		{
 			Name: "when filter has `*` and a team name",
+			Application: api.OverviewApplication{
+				Name: "foo",
+				Team: "footeam",
+			},
 			Overview: &ArgoOverview{
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
+					LightweightApps: []*api.OverviewApplication{
+						{
+							Name: "foo",
 							Team: "footeam",
 						},
 					},
@@ -957,16 +866,7 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name: "staging",
-									Applications: map[string]*api.Environment_Application{
-										"foo": {
-											Name:    "foo",
-											Version: 1,
-											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-												DeployTime: "123456789",
-											},
-										},
-									},
+									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
@@ -983,24 +883,8 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 					GitRevision: "1234",
 				},
 			},
-			Application: &api.Environment_Application{
-				Name:    "foo",
-				Version: 1,
-				DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-					DeployTime: "123456789",
-				},
-			},
 			Environment: &api.Environment{
-				Name: "development",
-				Applications: map[string]*api.Environment_Application{
-					"foo": {
-						Name:    "foo",
-						Version: 1,
-						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-							DeployTime: "123456789",
-						},
-					},
-				},
+				Name:     "development",
 				Priority: api.Priority_UPSTREAM,
 				Config: &api.EnvironmentConfig{
 					Argocd: &api.EnvironmentConfig_ArgoCD{
@@ -1020,26 +904,15 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 			Name: "when filter has `*`",
 			Overview: &ArgoOverview{
 				Overview: &api.GetOverviewResponse{
-					Applications: map[string]*api.Application{
-						"foo": {
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "00001",
-								},
-							},
-							Team: "footeam",
-						},
-					},
 					EnvironmentGroups: []*api.EnvironmentGroup{
 						{
 
 							EnvironmentGroupName: "staging-group",
 							Environments: []*api.Environment{
 								{
-									Name:         "staging",
-									Applications: map[string]*api.Environment_Application{},
-									Priority:     api.Priority_UPSTREAM,
+									Name: "staging",
+									//Applications: map[string]*api.Environment_Application{},
+									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
 										Argocd: &api.EnvironmentConfig_ArgoCD{
 											Destination: &api.EnvironmentConfig_ArgoCD_Destination{
@@ -1055,24 +928,8 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 					GitRevision: "1234",
 				},
 			},
-			Application: &api.Environment_Application{
-				Name:    "foo",
-				Version: 1,
-				DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-					DeployTime: "123456789",
-				},
-			},
 			Environment: &api.Environment{
-				Name: "development",
-				Applications: map[string]*api.Environment_Application{
-					"foo": {
-						Name:    "foo",
-						Version: 1,
-						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-							DeployTime: "123456789",
-						},
-					},
-				},
+				Name:     "development",
 				Priority: api.Priority_UPSTREAM,
 				Config: &api.EnvironmentConfig{
 					Argocd: &api.EnvironmentConfig_ArgoCD{
@@ -1108,7 +965,7 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 
-			isActive, err := IsSelfManagedFilterActive(team(tc.Overview.Overview, tc.Application.Name), argoProcessor)
+			isActive, err := IsSelfManagedFilterActive(tc.Application.Name, argoProcessor)
 			if tc.ExpectedError != "" {
 				if err.Error() != tc.ExpectedError {
 					t.Fatalf("expected error to be %s but got %s", tc.ExpectedError, err.Error())
@@ -1207,12 +1064,4 @@ type ArgoEvent struct {
 	SyncStatusCode   v1alpha1.SyncStatusCode
 	HealthStatusCode health.HealthStatusCode
 	OperationState   *v1alpha1.OperationState
-}
-
-func team(overview *api.GetOverviewResponse, app string) string {
-	a := overview.Applications[app]
-	if a == nil {
-		return ""
-	}
-	return a.Team
 }
