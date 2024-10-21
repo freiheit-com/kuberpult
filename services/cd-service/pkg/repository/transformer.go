@@ -149,10 +149,16 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env 
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to get the number of environment locks: %w\n", err)
+				Warnf("Error when trying to get the number of environment locks: %v\n", err)
 			return
 		}
-		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1) //nolint: errcheck
+		err = ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error when trying to get the number of application locks: %v\n", err)
+			return
+		}
 	}
 }
 func GaugeEnvAppLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env, app string) {
@@ -161,10 +167,21 @@ func GaugeEnvAppLockMetric(ctx context.Context, s *State, transaction *sql.Tx, e
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to get the number of application locks: %w\n", err)
+				Warnf("Error when trying to get the number of application locks: %v\n", err)
 			return
 		}
-		ddMetrics.Gauge("app_lock_count", count, []string{"app:" + app, "env:" + env}, 1) //nolint: errcheck
+		err = ddMetrics.Gauge("app_lock_count", count, []string{"app:" + app, "env:" + env}, 1)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error sending app_lock_count to datadog: %v\n", err)
+		}
+		err = ddMetrics.Gauge("application_lock_count", count, []string{"kuberpult_application:" + app, "kuberpult_environment:" + env}, 1)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error sending application_lock_count to datadog: %v\n", err)
+		}
 	}
 }
 

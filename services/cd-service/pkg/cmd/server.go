@@ -204,6 +204,8 @@ func RunServer() {
 				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 			}
 			ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
+		} else {
+			logger.FromContext(ctx).Info("datadog.metrics.disabled")
 		}
 		minorRegexes := []*regexp.Regexp{}
 		if c.MinorRegexes != "" {

@@ -7684,6 +7684,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 						"envA": "envA-manifest-1",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
@@ -7691,14 +7692,17 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 						"envA": "envA-manifest-2",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 			},
 			expectedGauges: []Gauge{
 				makeGauge("request_queue_size", 0, []string{}, 1),
 				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
+				makeGauge("application_lock_count", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
+				makeGauge("application_lock_count", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
 			},
 		},
@@ -7720,6 +7724,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 						"envB": "envB-manifest-1",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
@@ -7728,19 +7733,24 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 						"envB": "envB-manifest-2",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 			},
 			expectedGauges: []Gauge{
 				makeGauge("request_queue_size", 0, []string{}, 1),
 				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
+				makeGauge("application_lock_count", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
+				makeGauge("application_lock_count", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
 				makeGauge("env_lock_count", 0, []string{"env:envB"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envB"}, 1),
+				makeGauge("application_lock_count", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envB"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envB"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envB"}, 1),
+				makeGauge("application_lock_count", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),
 			},
 		},
@@ -7753,17 +7763,21 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
-			repo := setupRepositoryTest(t)
+			repo := SetupRepositoryTestWithDB(t)
 
-			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.transformers...)
-			if applyErr != nil {
-				t.Fatalf("Expected no error: %v", applyErr)
-			}
+			repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 
-			err := UpdateDatadogMetrics(ctx, nil, state, repo, nil, time.UnixMilli(0))
-			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
-			}
+				_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, tc.transformers...)
+				if applyErr != nil {
+					t.Fatalf("Expected no error: %v", applyErr)
+				}
+
+				err := UpdateDatadogMetrics(ctx, transaction, state, repo, nil, time.UnixMilli(0))
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				return nil
+			})
 
 			if len(tc.expectedGauges) != len(mockClient.gauges) {
 				gaugesString := ""
