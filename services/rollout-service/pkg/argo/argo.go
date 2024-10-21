@@ -73,13 +73,6 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 	}
 }
 
-type Key struct {
-	AppName     string
-	EnvName     string
-	Application *api.Environment_Application
-	Environment *api.Environment
-}
-
 func (a *ArgoAppProcessor) GetManageArgoAppsFilter() []string {
 	return a.ManageArgoAppsFilter
 }

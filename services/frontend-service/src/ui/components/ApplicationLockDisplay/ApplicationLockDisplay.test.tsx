@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import { fireEvent, render } from '@testing-library/react';
-import { Environment, EnvironmentGroup, Environment_Application, Lock, Priority } from '../../../api/api';
+import { Application, Environment, EnvironmentGroup, Lock, Priority, UndeploySummary } from '../../../api/api';
 import { ApplicationLockChip } from './ApplicationLockDisplay';
 import { DisplayApplicationLock } from '../../utils/store';
 import { Spy } from 'spy4js';
@@ -35,18 +35,16 @@ describe('ApplicationLockDisplay', () => {
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
     };
-    const testApp: Environment_Application = {
+    const testApp: Application = {
         name: 'test',
-        version: 1,
-        locks: { testlockId: testAppLock },
-        queuedVersion: 0,
-        undeployVersion: false,
-        teamLocks: {},
         team: 'test-team',
+        releases: [],
+        sourceRepoUrl: 'http://bar.com',
+        undeploySummary: UndeploySummary.NORMAL,
+        warnings: [],
     };
     const testEnv1: Environment = {
         name: 'dev',
-        applications: { test: testApp },
         locks: {},
         appLocks: {},
         teamLocks: {},
@@ -55,7 +53,6 @@ describe('ApplicationLockDisplay', () => {
     };
     const testEnv2: Environment = {
         name: 'staging',
-        applications: { test: testApp },
         locks: {},
         appLocks: {},
         teamLocks: {},
@@ -80,7 +77,7 @@ describe('ApplicationLockDisplay', () => {
             displayLock: {
                 environment: testEnv1,
                 environmentGroup: testEnvGroup1,
-                application: testApp,
+                application: testApp.name,
                 lock: {
                     date: testAppLock.createdAt,
                     environment: testEnv1.name,
@@ -100,7 +97,7 @@ describe('ApplicationLockDisplay', () => {
             displayLock: {
                 environment: testEnv2,
                 environmentGroup: testEnvGroup2,
-                application: testApp,
+                application: testApp.name,
                 lock: {
                     date: testAppLock.createdAt,
                     environment: testEnv2.name,
