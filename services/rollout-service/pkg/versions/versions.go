@@ -216,7 +216,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				return fmt.Errorf("overviewClient.GetOverview: %w", err)
 			}
 			l := logger.FromContext(ctx)
-
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
 
@@ -228,7 +227,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				appName := appDetailsResponse.Application.Name
 				overview.AppDetails[appName] = appDetailsResponse
 				v.cache.Add(appName, appDetailsResponse) // Update cache of app details
-
 				app := appDetailsResponse.Application
 				//Go through every deployment and check if we have seen it. If not, Add it to the pool of events
 				for env, deployment := range appDetailsResponse.Deployments {

@@ -601,7 +601,6 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			}
 		}
 	}
-
 	return transformerBatches, nil, changes
 }
 
