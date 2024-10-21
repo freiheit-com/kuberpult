@@ -19,11 +19,10 @@ package service
 import (
 	"context"
 	"database/sql"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"sync"
 	"testing"
-
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -1006,6 +1005,108 @@ func TestGetApplicationDetails(t *testing.T) {
 	}
 }
 
+func TestDeriveUndeploySummary(t *testing.T) {
+	var tcs = []struct {
+		Name           string
+		AppName        string
+		Deployments    map[string]*api.Deployment
+		ExpectedResult api.UndeploySummary
+	}{
+		{
+			Name:           "No Environments",
+			AppName:        "foo",
+			Deployments:    map[string]*api.Deployment{},
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
+		},
+		{
+			Name:    "one Environment but no Application",
+			AppName: "foo",
+			Deployments: map[string]*api.Deployment{
+				"bar": { // different app
+					UndeployVersion: true,
+					Version:         666,
+				},
+			},
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
+		},
+		{
+			Name:    "One Env with undeploy",
+			AppName: "foo",
+			Deployments: map[string]*api.Deployment{
+				"foo": {
+					UndeployVersion: true,
+					Version:         666,
+				},
+			},
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
+		},
+		{
+			Name:    "One Env with normal version",
+			AppName: "foo",
+			Deployments: map[string]*api.Deployment{
+				"foo": {
+					UndeployVersion: false,
+					Version:         666,
+				},
+			},
+			ExpectedResult: api.UndeploySummary_NORMAL,
+		},
+		{
+			Name:    "Two Envs all undeploy",
+			AppName: "foo",
+			Deployments: map[string]*api.Deployment{
+				"foo": {
+					UndeployVersion: true,
+					Version:         666,
+				},
+				"bar": {
+					UndeployVersion: true,
+					Version:         666,
+				},
+			},
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
+		},
+		{
+			Name:    "Two Envs all normal",
+			AppName: "foo",
+			Deployments: map[string]*api.Deployment{
+				"foo": {
+					UndeployVersion: false,
+					Version:         666,
+				},
+				"bar": {
+					UndeployVersion: false,
+					Version:         666,
+				},
+			},
+			ExpectedResult: api.UndeploySummary_NORMAL,
+		},
+		{
+			Name:    "Two Envs all different",
+			AppName: "foo",
+			Deployments: map[string]*api.Deployment{
+				"foo": {
+					UndeployVersion: false,
+					Version:         666,
+				},
+				"bar": {
+					UndeployVersion: true,
+					Version:         666,
+				},
+			},
+			ExpectedResult: api.UndeploySummary_MIXED,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			actualResult := deriveUndeploySummary(tc.AppName, tc.Deployments)
+			if !cmp.Equal(tc.ExpectedResult, actualResult) {
+				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult, actualResult))
+			}
+		})
+	}
+}
+
 func TestOverviewServiceFromCommit(t *testing.T) {
 	type step struct {
 		Transformer repository.Transformer
@@ -1174,3 +1275,477 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 		})
 	}
 }
+
+//func TestCalculateWarnings(t *testing.T) {
+//	var dev = "dev"
+//	tcs := []struct {
+//		Name             string
+//		AppName          string
+//		Groups           []*api.EnvironmentGroup
+//		ExpectedWarnings []*api.Warning
+//		Deployments      map[string]map[string]*api.Deployment
+//	}{
+//		{
+//			Name:    "no envs - no warning",
+//			AppName: "foo",
+//			Groups: []*api.EnvironmentGroup{
+//				makeEnvGroup(dev, []*api.Environment{
+//					makeEnv("dev-de", dev, makeUpstreamLatest()),
+//				})},
+//			ExpectedWarnings: []*api.Warning{},
+//		},
+//		{
+//			Name:    "app deployed in higher version on upstream should warn",
+//			AppName: "foo",
+//			Groups: []*api.EnvironmentGroup{
+//				makeEnvGroup(dev, []*api.Environment{
+//					makeEnv("prod", dev, makeUpstreamEnv("dev"),
+//						makeApps(makeApp("foo", 2))),
+//				}),
+//				makeEnvGroup(dev, []*api.Environment{
+//					makeEnv("dev", dev, makeUpstreamLatest(),
+//						makeApps(makeApp("foo", 1))),
+//				}),
+//			},
+//			Deployments: map[string]map[string]interface{}{},
+//			ExpectedWarnings: []*api.Warning{
+//				{
+//					WarningType: &api.Warning_UnusualDeploymentOrder{
+//						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+//							UpstreamVersion:     1,
+//							UpstreamEnvironment: "dev",
+//							ThisVersion:         2,
+//							ThisEnvironment:     "prod",
+//						},
+//					},
+//				},
+//			},
+//		},
+//		{
+//			Name:    "app deployed in same version on upstream should not warn",
+//			AppName: "foo",
+//			Groups: []*api.EnvironmentGroup{
+//				makeEnvGroup(dev, []*api.Environment{
+//					makeEnv("prod", dev, makeUpstreamEnv("dev"),
+//						makeApps(makeApp("foo", 2))),
+//				}),
+//				makeEnvGroup(dev, []*api.Environment{
+//					makeEnv("dev", dev, makeUpstreamLatest(),
+//						makeApps(makeApp("foo", 2))),
+//				}),
+//			},
+//
+//			ExpectedWarnings: []*api.Warning{},
+//		},
+//		{
+//			Name:    "app deployed in no version on upstream should warn",
+//			AppName: "foo",
+//			Groups: []*api.EnvironmentGroup{
+//				makeEnvGroup(dev, []*api.Environment{
+//					makeEnv("prod", dev, makeUpstreamEnv("dev"),
+//						makeApps(makeApp("foo", 1))),
+//				}),
+//				makeEnvGroup(dev, []*api.Environment{
+//					makeEnv("dev", dev, makeUpstreamLatest(),
+//						makeApps()),
+//				}),
+//			},
+//			ExpectedWarnings: []*api.Warning{
+//				{
+//					WarningType: &api.Warning_UpstreamNotDeployed{
+//						UpstreamNotDeployed: &api.UpstreamNotDeployed{
+//							UpstreamEnvironment: "dev",
+//							ThisVersion:         1,
+//							ThisEnvironment:     "prod",
+//						},
+//					},
+//				},
+//			},
+//		},
+//	}
+//	for _, tc := range tcs {
+//		tc := tc
+//		t.Run(tc.Name, func(t *testing.T) {
+//			shutdown := make(chan struct{}, 1)
+//			repo, err := setupRepositoryTest(t)
+//			if err != nil {
+//				t.Fatal(err)
+//			}
+//			svc := &OverviewServiceServer{
+//				Repository: repo,
+//				Shutdown:   shutdown,
+//				Context:    context.Background(),
+//			}
+//			err = repo.State().DBHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+//				actualWarnings, err := CalculateWarnings(testutil.MakeTestContext(), transaction, repo.State(), tc.AppName, tc.Groups)
+//				if err != nil {
+//					t.Error(err)
+//				}
+//				if len(actualWarnings) != len(tc.ExpectedWarnings) {
+//					t.Errorf("Different number of warnings. got: %s\nwant: %s", actualWarnings, tc.ExpectedWarnings)
+//				}
+//				for i := 0; i < len(actualWarnings); i++ {
+//					actualWarning := actualWarnings[i]
+//					expectedWarning := tc.ExpectedWarnings[i]
+//					if diff := cmp.Diff(actualWarning.String(), expectedWarning.String()); diff != "" {
+//						t.Errorf("Different warning at index [%d]:\ngot:  %s\nwant: %s", i, actualWarning, expectedWarning)
+//					}
+//				}
+//				return nil
+//			})
+//			if err != nil {
+//				t.Error(err)
+//			}
+//		})
+//	}
+//}
+
+//func makeDeployments(envs ...*api.Environment) map[string]*api.Deployment {
+//	var result map[string]*api.Deployment = map[string]*api.Deployment{}
+//	for i := 0; i < len(envs); i++ {
+//		env := envs[i]
+//		result[env.Name] = api.Deployment{
+//			Version:       i,
+//			QueuedVersion: 0,
+//		}
+//	}
+//	return result
+//}
+
+//func TestUpdateOverviewDeploymentAttempt(t *testing.T) {
+//	var dev = "dev"
+//	var upstreamLatest = true
+//	var version int64 = 12
+//	startingOverview := makeTestStartingOverview()
+//	tcs := []struct {
+//		Name             string
+//		NewDeployment    *QueuedDeployment
+//		ExpectedError    error
+//		ExpectedOverview *api.GetOverviewResponse
+//	}{
+//		{
+//			Name: "Update overview Deployment Attempt",
+//			NewDeployment: &QueuedDeployment{
+//				EslVersion: 1,
+//				Env:        "development",
+//				App:        "test",
+//				Version:    &version,
+//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+//			},
+//			ExpectedOverview: &api.GetOverviewResponse{
+//				EnvironmentGroups: []*api.EnvironmentGroup{
+//					{
+//						EnvironmentGroupName: "dev",
+//						Environments: []*api.Environment{
+//							{
+//								Name: "development",
+//								Config: &api.EnvironmentConfig{
+//									Upstream: &api.EnvironmentConfig_Upstream{
+//										Latest: &upstreamLatest,
+//									},
+//									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+//									EnvironmentGroup: &dev,
+//								},
+//								//Applications: map[string]*api.Environment_Application{
+//								//	"test": {
+//								//		Name:    "test",
+//								//		Version: 1,
+//								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+//								//			DeployAuthor: "testmail@example.com",
+//								//			DeployTime:   "1",
+//								//		},
+//								//		Team:          "team-123",
+//								//		QueuedVersion: 12,
+//								//	},
+//								//},
+//								Priority: api.Priority_YOLO,
+//							},
+//						},
+//						Priority: api.Priority_YOLO,
+//					},
+//				},
+//				//Applications: map[string]*api.Application{
+//				//	"test": {
+//				//		Name: "test",
+//				//		Releases: []*api.Release{
+//				//			{
+//				//				Version:        1,
+//				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+//				//				SourceAuthor:   "example <example@example.com>",
+//				//				SourceMessage:  "changed something (#678)",
+//				//				PrNumber:       "678",
+//				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+//				//			},
+//				//		},
+//				//		Team: "team-123",
+//				//		Warnings: []*api.Warning{
+//				//			{
+//				//				WarningType: &api.Warning_UnusualDeploymentOrder{
+//				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+//				//						UpstreamEnvironment: "staging",
+//				//						ThisVersion:         12,
+//				//						ThisEnvironment:     "development",
+//				//					},
+//				//				},
+//				//			},
+//				//		},
+//				//	},
+//				//},
+//				LightweightApps: []*api.OverviewApplication{
+//					{
+//						Name: "test",
+//						Team: "team-123",
+//					},
+//				},
+//				GitRevision: "0",
+//			},
+//		},
+//		{
+//			Name: "app does not exists",
+//			NewDeployment: &QueuedDeployment{
+//				EslVersion: 1,
+//				Env:        "development",
+//				App:        "does-not-exists",
+//				Version:    &version,
+//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+//			},
+//			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
+//		},
+//		{
+//			Name: "env does not exists",
+//			NewDeployment: &QueuedDeployment{
+//				EslVersion: 1,
+//				Env:        "does-not-exists",
+//				App:        "test",
+//				Version:    &version,
+//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+//			},
+//			ExpectedError: errMatcher{"could not find environment does-not-exists in overview"},
+//		},
+//		{
+//			Name:             "nil queued deployment",
+//			ExpectedOverview: startingOverview,
+//		},
+//	}
+//
+//	for _, tc := range tcs {
+//		t.Run(tc.Name, func(t *testing.T) {
+//			ctx := testutil.MakeTestContext()
+//			dbHandler := setupDB(t)
+//
+//			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+//				err := dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
+//				if err != nil {
+//					return err
+//				}
+//				err = dbHandler.UpdateOverviewDeploymentAttempt(ctx, transaction, tc.NewDeployment)
+//				if err != nil {
+//					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+//						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
+//					}
+//					return nil
+//				}
+//				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
+//				if err != nil {
+//					return err
+//				}
+//				opts := getOverviewIgnoredTypes()
+//				if diff := cmp.Diff(tc.ExpectedOverview, latestOverview, opts); diff != "" {
+//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
+//				}
+//				return nil
+//			})
+//			if err != nil {
+//				t.Fatal(err)
+//			}
+//		})
+//	}
+//}
+//
+//func TestUpdateOverviewApplicationLock(t *testing.T) {
+//	var dev = "dev"
+//	var upstreamLatest = true
+//	startingOverview := makeTestStartingOverview()
+//	tcs := []struct {
+//		Name               string
+//		NewApplicationLock ApplicationLock
+//		ExcpectedOverview  *api.GetOverviewResponse
+//		ExpectedError      error
+//	}{
+//		{
+//			Name: "Update overview",
+//			NewApplicationLock: ApplicationLock{
+//				Env:        "development",
+//				App:        "test",
+//				LockID:     "dev-lock",
+//				EslVersion: 2,
+//				Deleted:    false,
+//				Metadata: LockMetadata{
+//					Message:        "My lock on dev for my-team",
+//					CreatedByName:  "myself",
+//					CreatedByEmail: "myself@example.com",
+//				},
+//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+//			},
+//			ExcpectedOverview: &api.GetOverviewResponse{
+//				EnvironmentGroups: []*api.EnvironmentGroup{
+//					{
+//						EnvironmentGroupName: "dev",
+//						Environments: []*api.Environment{
+//							{
+//								Name: "development",
+//								Config: &api.EnvironmentConfig{
+//									Upstream: &api.EnvironmentConfig_Upstream{
+//										Latest: &upstreamLatest,
+//									},
+//									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+//									EnvironmentGroup: &dev,
+//								},
+//								//Applications: map[string]*api.Environment_Application{
+//								//	"test": {
+//								//		Name:    "test",
+//								//		Version: 1,
+//								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+//								//			DeployAuthor: "testmail@example.com",
+//								//			DeployTime:   "1",
+//								//		},
+//								//		Team: "team-123",
+//								//		Locks: map[string]*api.Lock{
+//								//			"dev-lock": {
+//								//				Message:   "My lock on dev for my-team",
+//								//				LockId:    "dev-lock",
+//								//				CreatedAt: timestamppb.New(time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC)),
+//								//				CreatedBy: &api.Actor{
+//								//					Name:  "myself",
+//								//					Email: "myself@example.com",
+//								//				},
+//								//			},
+//								//		},
+//								//	},
+//								//},
+//								Priority: api.Priority_YOLO,
+//							},
+//						},
+//						Priority: api.Priority_YOLO,
+//					},
+//				},
+//				//Applications: map[string]*api.Application{
+//				//	"test": {
+//				//		Name: "test",
+//				//		Releases: []*api.Release{
+//				//			{
+//				//				Version:        1,
+//				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+//				//				SourceAuthor:   "example <example@example.com>",
+//				//				SourceMessage:  "changed something (#678)",
+//				//				PrNumber:       "678",
+//				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+//				//			},
+//				//		},
+//				//		Team: "team-123",
+//				//		Warnings: []*api.Warning{
+//				//			{
+//				//				WarningType: &api.Warning_UnusualDeploymentOrder{
+//				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+//				//						UpstreamEnvironment: "staging",
+//				//						ThisVersion:         12,
+//				//						ThisEnvironment:     "development",
+//				//					},
+//				//				},
+//				//			},
+//				//		},
+//				//	},
+//				//},
+//				LightweightApps: []*api.OverviewApplication{
+//					{
+//						Name: "test",
+//						Team: "team-123",
+//					},
+//				},
+//				GitRevision: "0",
+//			},
+//		},
+//		{
+//			Name: "env does not exists",
+//			NewApplicationLock: ApplicationLock{
+//				Env:        "does-not-exists",
+//				App:        "test",
+//				LockID:     "dev-lock",
+//				EslVersion: 2,
+//				Deleted:    false,
+//				Metadata: LockMetadata{
+//					Message:        "My lock on dev for my-team",
+//					CreatedByName:  "myself",
+//					CreatedByEmail: "myself@example.com",
+//				},
+//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+//			},
+//			ExpectedError: errMatcher{"could not find environment does-not-exists in overview"},
+//		},
+//		{
+//			Name: "app does not exists",
+//			NewApplicationLock: ApplicationLock{
+//				Env:        "development",
+//				App:        "does-not-exists",
+//				LockID:     "dev-lock",
+//				EslVersion: 2,
+//				Deleted:    false,
+//				Metadata: LockMetadata{
+//					Message:        "My lock on dev for my-team",
+//					CreatedByName:  "myself",
+//					CreatedByEmail: "myself@example.com",
+//				},
+//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
+//			},
+//			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
+//		},
+//	}
+//
+//	for _, tc := range tcs {
+//		tc := tc
+//		t.Run(tc.Name, func(t *testing.T) {
+//			t.Parallel()
+//			ctx := testutil.MakeTestContext()
+//			dbHandler := setupDB(t)
+//
+//			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+//				err := dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
+//				if err != nil {
+//					return err
+//				}
+//				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock, tc.NewApplicationLock.Created)
+//				if err != nil {
+//					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+//						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
+//					}
+//					return nil
+//				}
+//				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
+//				if err != nil {
+//					return err
+//				}
+//				opts := getOverviewIgnoredTypes()
+//				if diff := cmp.Diff(tc.ExcpectedOverview, latestOverview, opts); diff != "" {
+//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
+//				}
+//				tc.NewApplicationLock.Deleted = true
+//				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock, tc.NewApplicationLock.Created)
+//				if err != nil {
+//					return err
+//				}
+//				latestOverview, err = dbHandler.ReadLatestOverviewCache(ctx, transaction)
+//				if err != nil {
+//					return err
+//				}
+//				if diff := cmp.Diff(startingOverview, latestOverview, opts); diff != "" {
+//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
+//				}
+//				return nil
+//			})
+//
+//			if err != nil {
+//				t.Fatal(err)
+//			}
+//		})
+//	}
+//}
