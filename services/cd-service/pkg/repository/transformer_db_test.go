@@ -1735,6 +1735,12 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 						},
 					},
 				},
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "app",
+						Team: "",
+					},
+				},
 				EnvironmentGroups: []*api.EnvironmentGroup{
 					&api.EnvironmentGroup{
 						EnvironmentGroupName: "development",

@@ -434,12 +434,19 @@ message GetOverviewRequest {
   string git_revision = 1;
 }
 
+//Lightweight version of application. Only contains name and team.
+message OverviewApplication {
+  string name = 1;
+  string team = 2;
+}
+
 message GetOverviewResponse {
   map<string, Application> applications = 2;
   repeated EnvironmentGroup environment_groups = 3;
   string git_revision = 4;
   string branch = 5;
   string manifest_repo_url = 6;
+  repeated OverviewApplication lightweight_apps = 7;
 }
 
 message EnvironmentGroup {

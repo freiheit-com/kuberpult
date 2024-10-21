@@ -2779,6 +2779,7 @@ func (c *CreateEnvironment) Transform(
 				Applications:      map[string]*api.Application{},
 				EnvironmentGroups: []*api.EnvironmentGroup{},
 				GitRevision:       "0000000000000000000000000000000000000000",
+				LightweightApps:   make([]*api.OverviewApplication, 0),
 			}
 		}
 		if err != nil {

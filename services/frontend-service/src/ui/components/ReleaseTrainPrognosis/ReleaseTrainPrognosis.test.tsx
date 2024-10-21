@@ -19,12 +19,13 @@ import { ReleaseTrainPrognosis } from '../../components/ReleaseTrainPrognosis/Re
 import { render } from '@testing-library/react';
 import {
     Application,
+    GetAppDetailsResponse,
     GetReleaseTrainPrognosisResponse,
     ReleaseTrainAppSkipCause,
     ReleaseTrainEnvSkipCause,
     UndeploySummary,
 } from '../../../api/api';
-import { UpdateOverview } from '../../utils/store';
+import { updateAppDetails, UpdateOverview } from '../../utils/store';
 
 test('ReleaseTrain component does not render anything if the response is undefined', () => {
     const { container } = render(
@@ -54,11 +55,15 @@ describe('ReleaseTrain component renders release train prognosis when the respon
         applicationsOverview: {
             [key: string]: Application;
         };
+        appDetails: {
+            [key: string]: GetAppDetailsResponse;
+        };
     };
 
     const testCases: TestCase[] = [
         {
             name: 'prognosis with skipped environments and skipped apps',
+            appDetails: {},
             releaseTrainPrognosis: {
                 envsPrognoses: {
                     'env-1': {
@@ -245,6 +250,58 @@ describe('ReleaseTrain component renders release train prognosis when the respon
         },
         {
             name: 'prognosis with some deployed apps',
+            appDetails: {
+                'app-1': {
+                    application: {
+                        name: 'app-1',
+                        sourceRepoUrl: 'some url',
+                        team: 'some team',
+                        undeploySummary: UndeploySummary.UNRECOGNIZED,
+                        warnings: [],
+                        releases: [
+                            {
+                                version: 1,
+                                displayVersion: 'some display version',
+                                prNumber: 'some pr number',
+                                sourceAuthor: 'some source author',
+                                sourceCommitId: 'aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd',
+                                sourceMessage: 'some source message',
+                                undeployVersion: false,
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                    },
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                'app-3': {
+                    application: {
+                        name: 'app-3',
+                        sourceRepoUrl: 'some url',
+                        team: 'some team',
+                        undeploySummary: UndeploySummary.UNRECOGNIZED,
+                        warnings: [],
+                        releases: [
+                            {
+                                version: 1,
+                                displayVersion: 'some display version',
+                                prNumber: 'some pr number',
+                                sourceAuthor: 'some source author',
+                                sourceCommitId: '0000000000111111111122222222223333333333',
+                                sourceMessage: 'some source message',
+                                undeployVersion: false,
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                    },
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
             applicationsOverview: {
                 'app-1': {
                     name: 'app-1',
@@ -397,6 +454,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
             UpdateOverview.set({
                 applications: testCase.applicationsOverview,
             });
+            updateAppDetails.set(testCase.appDetails);
             const { container } = render(
                 <MemoryRouter>
                     <ReleaseTrainPrognosis releaseTrainPrognosis={testCase.releaseTrainPrognosis} />
