@@ -25,6 +25,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     const commitInfo = props.commitInfo;
     const canLoadMore = props.commitInfo?.loadMore;
     const onClick = props.onClick;
+
     if (commitInfo === undefined) {
         return (
             <div>

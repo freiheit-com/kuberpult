@@ -476,6 +476,7 @@ func TestUpdateOverviewDeployment(t *testing.T) {
 		ExcpectedOverview *api.GetOverviewResponse
 		ExpectedError     error
 	}{
+		//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
 		{
 			Name: "Update overview",
 			NewDeployment: Deployment{
@@ -616,6 +617,7 @@ func TestUpdateOverviewRelease(t *testing.T) {
 		ExcpectedOverview *api.GetOverviewResponse
 		ExpectedError     error
 	}{
+		//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
 		{
 			Name: "Update overview add release",
 			NewRelease: DBReleaseWithMetaData{
@@ -968,6 +970,7 @@ func TestUpdateOverviewRelease(t *testing.T) {
 	}
 }
 
+//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
 //func TestCalculateWarnings(t *testing.T) {
 //	var dev = "dev"
 //	tcs := []struct {
@@ -1089,6 +1092,7 @@ func TestDBDeleteOldOverview(t *testing.T) {
 		numberOfOverviewsToKeep            uint64
 		expectedNumberOfRemainingOverviews uint64
 	}{
+		//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
 		{
 			Name: "4 overviews, should keep two",
 			inputOverviews: []*api.GetOverviewResponse{
