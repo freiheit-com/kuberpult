@@ -434,7 +434,7 @@ message GetOverviewRequest {
   string git_revision = 1;
 }
 
-//Lightweight version of application. Only contains name, team and warnings
+//Lightweight version of application. Only contains name and team.
 message OverviewApplication {
   string name = 1;
   string team = 2;
