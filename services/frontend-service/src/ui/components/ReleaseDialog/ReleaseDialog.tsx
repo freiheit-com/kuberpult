@@ -371,7 +371,6 @@ export const undeployTooltipExplanation =
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
-    // the ReleaseDialog is only opened when there is a release, so we can assume that it exists here:
     const appDetails = useAppDetailsForApp(app);
     const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();

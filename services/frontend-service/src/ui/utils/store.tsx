@@ -553,35 +553,6 @@ export const useTeamLocks = (): DisplayLock[] =>
 export const getPriorityClassName = (envOrGroup: Environment | EnvironmentGroup): string =>
     'environment-priority-' + String(Priority[envOrGroup?.priority ?? Priority.UNRECOGNIZED]).toLowerCase();
 
-export const useNewTeamLocks = (app: string, team: string): DisplayLock[] => {
-    const teamLocks = useAppDetailsForApp(app).teamLocks;
-    return Object.values(useEnvironments())
-        .map((env) =>
-            teamLocks[env.name].locks
-                .map((currentTeamLock) =>
-                    Object.values(currentTeamLock).map((lock) => ({
-                        date: lock.createdAt,
-                        environment: env.name,
-                        team: team,
-                        lockId: lock.lockId,
-                        message: lock.message,
-                        authorName: lock.createdBy?.name,
-                        authorEmail: lock.createdBy?.email,
-                    }))
-                )
-                .flat()
-        )
-        .flat()
-        .filter(
-            (value: DisplayLock, index: number, self: DisplayLock[]) =>
-                index ===
-                self.findIndex(
-                    (t: DisplayLock) =>
-                        t.lockId === value.lockId && t.team === value.team && t.environment === value.environment
-                )
-        );
-};
-
 // filter for apps included in the selected teams
 const applicationsMatchingTeam = (applications: OverviewApplication[], teams: string[]): OverviewApplication[] =>
     applications.filter((app) => teams.length === 0 || teams.includes(app.team.trim() || '<No Team>'));
@@ -1120,9 +1091,6 @@ export const useReleasesForApp = (app: string): Release[] => {
     }
 };
 
-// // Get all release versions for an app
-// export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);
-
 // Calculated release difference between a specific release and currently deployed release on a specific environment
 export const useReleaseDifference = (toDeployVersion: number, application: string, environment: string): number => {
     const appDetails = useAppDetailsForApp(application);
@@ -1153,8 +1121,6 @@ export const useMinorsForApp = (app: string): number[] | undefined =>
     useAppDetailsForApp(app)
         .application?.releases.filter((rel) => rel.isMinor)
         .map((rel) => rel.version);
-// .application?.releases.filter((rel) => rel.isMinor)
-// .map((rel) => rel.version);
 
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate
 export const useNavigateWithSearchParams = (to: string): { navURL: string; navCallback: () => void } => {

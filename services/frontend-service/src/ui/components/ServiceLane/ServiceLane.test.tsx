@@ -391,14 +391,6 @@ describe('Service Lane Diff', () => {
                     },
                 ],
             });
-            // const sampleApp: Application = {
-            //     undeploySummary: UndeploySummary.NORMAL,
-            //     name: 'test2',
-            //     releases: [],
-            //     sourceRepoUrl: 'http://test2.com',
-            //     team: 'example',
-            //     warnings: [],
-            // };
             updateAppDetails.set({
                 test2: testcase.appDetails,
             });
