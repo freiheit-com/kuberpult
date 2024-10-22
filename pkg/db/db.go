@@ -710,6 +710,34 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	return processedRows[0], nil
 }
 
+func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
+			" FROM releases " +
+			" WHERE appName=? AND releaseVersion=? AND created <= (?)" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
+	defer span.Finish()
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+		releaseVersion,
+		ts,
+	)
+
+	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
+	if err != nil {
+		return nil, err
+	}
+	if len(processedRows) == 0 {
+		return nil, nil
+	}
+	return processedRows[0], nil
+}
+
 func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (map[string]map[uint64][]string, error) {
 	selectQuery := h.AdaptQuery(
 		`
@@ -2466,6 +2494,30 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	rows, err := tx.Query(
 		insertQuery,
 		appName,
+	)
+
+	return h.processAllDeploymentRow(ctx, err, rows)
+}
+
+// DBSelectAllDeploymentsForAppAtTimestamp Returns most recent version of deployments for app with name 'appName' at timestamp ts
+func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*AllDeploymentsForApp, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForAppAtTimestamp")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllDeploymentsForAppAtTimestamp: no transaction provided")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"SELECT eslVersion, created, appName, json FROM all_deployments WHERE appName = (?) AND created <= (?) ORDER BY eslVersion DESC LIMIT 1;")
+
+	span.SetTag("query", insertQuery)
+	rows, err := tx.Query(
+		insertQuery,
+		appName,
+		ts,
 	)
 
 	return h.processAllDeploymentRow(ctx, err, rows)
@@ -5194,6 +5246,61 @@ LIMIT 1;
 	return nil, nil
 }
 
+func (h *DBHandler) DBSelectEnvironmentAtTimestamp(ctx context.Context, tx *sql.Tx, environmentName string, ts time.Time) (*DBEnvironment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		`
+SELECT created, version, name, json, applications
+FROM environments
+WHERE name=? AND deleted=false AND created <= ? 
+ORDER BY version DESC
+LIMIT 1;
+`,
+	)
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environmentName,
+		ts,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query the environments table for environment %s, error: %w", environmentName, err)
+	}
+	return h.processEnvironmentRow(ctx, rows)
+}
+
+func (h *DBHandler) processEnvironmentRow(ctx context.Context, rows *sql.Rows) (*DBEnvironment, error) {
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
+		}
+	}(rows)
+
+	if rows.Next() {
+		//exhaustruct:ignore
+		row := DBEnvironmentRow{}
+		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
+		}
+		env, err := EnvironmentFromRow(ctx, &row)
+		if err != nil {
+			return nil, err
+		}
+		return env, nil
+	}
+	return nil, nil
+}
+
 func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, environmentNames []string) (*[]DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
 	defer span.Finish()
@@ -5959,4 +6066,56 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 		return fmt.Errorf("DBWriteCommitTransactionTimestamp error executing query: %w", err)
 	}
 	return nil
+}
+
+func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string) (*time.Time, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("attempting to read to the commit_transaction_timestamps table without a transaction")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"SELECT transactionTimestamp FROM commit_transaction_timestamps WHERE commitHash=?;",
+	)
+
+	span.SetTag("query", insertQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		insertQuery,
+		commitHash,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("DBReadCommitHashTransactionTimestamp error executing query: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	var timestamp *time.Time
+
+	if rows.Next() {
+		timestamp = &time.Time{}
+
+		err = rows.Scan(timestamp)
+		if err != nil {
+			return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
+		}
+
+		*timestamp = timestamp.UTC()
+	} else {
+		timestamp = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+	}
+	return timestamp, nil
 }
