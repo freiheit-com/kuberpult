@@ -19,12 +19,12 @@ import { Environment, Environment_Application, EnvironmentGroup, Lock, LockBehav
 import {
     addAction,
     getPriorityClassName,
+    useAppDetailsForApp,
     useCloseReleaseDialog,
     useCurrentlyDeployedAtGroup,
     useEnvironmentGroups,
     useReleaseDifference,
     useReleaseOptional,
-    useReleaseOrLog,
     useRolloutStatus,
     useTeamFromApplication,
 } from '../../utils/store';
@@ -371,10 +371,14 @@ export const undeployTooltipExplanation =
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
-    // the ReleaseDialog is only opened when there is a release, so we can assume that it exists here:
-    const release = useReleaseOrLog(app, version);
+    const appDetails = useAppDetailsForApp(app);
     const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();
+    if (!appDetails) {
+        return null;
+    }
+    const release = appDetails.application?.releases.find((r) => r.version === version);
+
     if (!release) {
         return null;
     }

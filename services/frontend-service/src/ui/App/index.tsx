@@ -23,6 +23,7 @@ import {
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
+    updateAppDetails,
     UpdateFrontendConfig,
     UpdateOverview,
     UpdateRolloutStatus,
@@ -99,6 +100,7 @@ export const App: React.FC = () => {
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
+                        updateAppDetails.set({});
                     },
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });

@@ -20,7 +20,13 @@ import { SideBar } from '../SideBar/SideBar';
 import { useSearchParams } from 'react-router-dom';
 import { TeamsFilterDropdown, FiltersDropdown } from '../dropdown/dropdown';
 import classNames from 'classnames';
-import { useAllWarnings, useKuberpultVersion, useShownWarnings } from '../../utils/store';
+import {
+    applicationsWithWarnings,
+    useAllWarnings,
+    useAllWarningsAllApps,
+    useApplicationsFilteredAndSorted,
+    useKuberpultVersion,
+} from '../../utils/store';
 import { Warning } from '../../../api/api';
 import {
     hideMinors,
@@ -38,7 +44,7 @@ export type TopAppBarProps = {
 
 export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const [params, setParams] = useSearchParams();
-
+    useAllWarningsAllApps();
     const appNameParam = params.get('application') || '';
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
@@ -51,8 +57,13 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const loggedInUser = decodedToken?.email || 'Guest';
 
     const hideWithoutWarningsValue = hideWithoutWarnings(params);
+
     const allWarnings: Warning[] = useAllWarnings();
-    const shownWarnings: Warning[] = useShownWarnings(teamsParam, appNameParam);
+
+    const shownApps = useApplicationsFilteredAndSorted(teamsParam, true, appNameParam);
+
+    const ShownAppsWithWarnings = applicationsWithWarnings(shownApps);
+
     const hideMinorsValue = hideMinors(params);
 
     const onWarningsFilterClick = useCallback((): void => {
@@ -70,7 +81,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             ''
         ) : (
             <div className="service-lane__warning mdc-top-app-bar__section top-app-bar--narrow-filter">
-                {shownWarnings.length} warnings shown ({allWarnings.length} total).
+                {ShownAppsWithWarnings.length} warnings shown ({allWarnings.length} total).
             </div>
         );
 

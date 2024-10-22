@@ -21,24 +21,22 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"os"
-	"sync"
-	"sync/atomic"
-
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"go.uber.org/zap"
-
-	git "github.com/libgit2/git2go/v34"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	git "github.com/libgit2/git2go/v34"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"os"
+	"sort"
+	"sync"
+	"sync/atomic"
 )
 
 type OverviewServiceServer struct {
@@ -96,7 +94,10 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if retrievedReleasesOfApp != nil {
 			rels = retrievedReleasesOfApp.Metadata.Releases
 		}
-
+		//Highest to lowest
+		sort.Slice(rels, func(i, j int) bool {
+			return rels[j] < rels[i]
+		})
 		for _, id := range rels {
 			uid := uint64(id)
 			// we could optimize this by making one query that does return multiples:
@@ -141,9 +142,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("could not find environments: %w", err)
 		}
 		envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
-
-		result.UndeploySummary = deriveUndeploySummary(appName, envGroups)
-		result.Warnings = db.CalculateWarnings(ctx, appName, envGroups)
 
 		// App Locks
 		appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForApp(ctx, transaction, appName)
@@ -217,6 +215,12 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[envName] = deployment
 		}
+		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
+		warnings, err := CalculateWarnings(ctx, transaction, o.Repository.State(), appName, envGroups)
+		if err != nil {
+			return nil, err
+		}
+		result.Warnings = warnings
 		return result, nil
 	})
 	if err != nil {
@@ -224,7 +228,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 	}
 	response.Application = resultApp
 	return response, nil
-
 }
 
 func (o *OverviewServiceServer) GetOverview(
@@ -302,6 +305,7 @@ func (o *OverviewServiceServer) getOverview(
 		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
+		LightweightApps:   make([]*api.OverviewApplication, 0),
 	}
 	result.ManifestRepoUrl = o.RepositoryConfig.URL
 	result.Branch = o.RepositoryConfig.Branch
@@ -453,24 +457,14 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	o.notify.Notify()
 }
 
-func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
+func deriveUndeploySummary(appName string, deployments map[string]*api.Deployment) api.UndeploySummary {
 	var allNormal = true
 	var allUndeploy = true
-	for _, group := range groups {
-		for _, environment := range group.Environments {
-			var app, exists = environment.Applications[appName]
-			if !exists {
-				continue
-			}
-			if app.Version == 0 {
-				// if the app exists but nothing is deployed, we ignore this
-				continue
-			}
-			if app.UndeployVersion {
-				allNormal = false
-			} else {
-				allUndeploy = false
-			}
+	for _, currentDeployment := range deployments {
+		if currentDeployment.UndeployVersion {
+			allNormal = false
+		} else {
+			allUndeploy = false
 		}
 	}
 	if allUndeploy {
@@ -480,4 +474,71 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 		return api.UndeploySummary_NORMAL
 	}
 	return api.UndeploySummary_MIXED
+}
+
+func CalculateWarnings(ctx context.Context, transaction *sql.Tx, state *repository.State, appName string, groups []*api.EnvironmentGroup) ([]*api.Warning, error) {
+	result := make([]*api.Warning, 0)
+	for e := 0; e < len(groups); e++ {
+		group := groups[e]
+		for i := 0; i < len(groups[e].Environments); i++ {
+			env := group.Environments[i]
+			if env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
+				// if the env has no upstream, there's nothing to warn about
+				continue
+			}
+			upstreamEnvName := env.Config.GetUpstream().Environment
+			if upstreamEnvName == nil {
+				// this is already checked on startup and therefore shouldn't happen here
+				continue
+			}
+
+			versionInEnv, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env.Name, appName)
+			if err != nil {
+				return nil, err
+			}
+
+			if versionInEnv == nil {
+				// appName is not deployed here, ignore it
+				continue
+			}
+
+			versionInUpstreamEnv, err := state.GetEnvironmentApplicationVersion(ctx, transaction, *upstreamEnvName, appName)
+			if err != nil {
+				return nil, err
+			}
+			if versionInUpstreamEnv == nil {
+				// appName is not deployed upstream... that's unusual!
+				var warning = api.Warning{
+					WarningType: &api.Warning_UpstreamNotDeployed{
+						UpstreamNotDeployed: &api.UpstreamNotDeployed{
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         *versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+				continue
+			}
+
+			appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, env.Name, appName)
+			if err != nil {
+				return nil, err
+			}
+			if *versionInEnv > *versionInUpstreamEnv && len(appLocks) == 0 {
+				var warning = api.Warning{
+					WarningType: &api.Warning_UnusualDeploymentOrder{
+						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+							UpstreamVersion:     *versionInUpstreamEnv,
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         *versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+			}
+		}
+	}
+	return result, nil
 }

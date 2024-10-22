@@ -2466,6 +2466,16 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 			}
 		}
 	}
+	if shouldDelete {
+		lApps := make([]*api.OverviewApplication, len(cache.LightweightApps)-1)
+
+		for _, curr := range cache.LightweightApps {
+			if curr.Name != appName {
+				lApps = append(lApps, curr)
+			}
+		}
+		cache.LightweightApps = lApps
+	}
 
 	err = h.WriteOverviewCache(ctx, transaction, cache)
 	if err != nil {
@@ -2528,7 +2538,6 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 		}
 		rels = retrievedReleasesOfApp
 	}
-
 	if releasesInDb, err := s.GetApplicationReleasesDB(ctx, transaction, appName, rels); err != nil {
 		return err
 	} else {
@@ -2556,6 +2565,7 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 		result.Applications = map[string]*api.Application{}
 	}
 	result.Applications[appName] = &app
+	result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: app.Team})
 	return nil
 }
 
