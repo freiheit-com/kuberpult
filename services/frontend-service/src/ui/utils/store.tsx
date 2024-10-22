@@ -472,6 +472,7 @@ export const deleteAction = (action: BatchAction): void => {
     UpdateAction.set(({ actions }) => ({
         // create comparison function
         actions: actions.filter((act) => JSON.stringify(act).localeCompare(JSON.stringify(action))),
+        //actions: [],
     }));
 };
 // returns all application names
@@ -937,18 +938,6 @@ export const useReleaseOptional = (application: string, env: Environment): Relea
     if (!deployment) return undefined;
     return appDetails.application?.releases.find((r) => r.version === deployment.version);
 };
-
-// returns the release versions that are currently deployed to at least one environment
-// export const useDeployedReleases = (application: string): number[] =>
-//     [
-//         ...new Set(
-//             Object.values(useEnvironments())
-//                 .filter((env) => env.applications[application])
-//                 .map((env) => env.applications[application].version)
-//         ),
-//     ]
-//         .sort((a, b) => b - a)
-//         .filter((version) => version !== 0); // 0 means "not deployed", so we filter those out
 
 export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
 

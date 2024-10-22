@@ -317,6 +317,7 @@ func TestOverviewService(t *testing.T) {
 				GitRevision: "0",
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
+				//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
 				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
 					Email: "test-email@example.com",
 					Name:  "overview tester",

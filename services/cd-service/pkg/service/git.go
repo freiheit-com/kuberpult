@@ -177,7 +177,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 		})
 		return response, err
 	}
-	return &api.GetProductSummaryResponse{}, nil
+	return &api.GetProductSummaryResponse{ProductSummary: nil}, nil
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {

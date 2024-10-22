@@ -68,50 +68,12 @@ func makeTestStartingOverview() *api.GetOverviewResponse {
 							Argocd:           &api.EnvironmentConfig_ArgoCD{},
 							EnvironmentGroup: &dev,
 						},
-						//Applications: map[string]*api.Environment_Application{
-						//	"test": {
-						//		Name:    "test",
-						//		Version: 1,
-						//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-						//			DeployAuthor: "testmail@example.com",
-						//			DeployTime:   "1",
-						//		},
-						//		Team: "team-123",
-						//	},
-						//},
 						Priority: api.Priority_YOLO,
 					},
 				},
 				Priority: api.Priority_YOLO,
 			},
 		},
-		//Applications: map[string]*api.Application{
-		//	"test": {
-		//		Name: "test",
-		//		Releases: []*api.Release{
-		//			{
-		//				Version:        1,
-		//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-		//				SourceAuthor:   "example <example@example.com>",
-		//				SourceMessage:  "changed something (#678)",
-		//				PrNumber:       "678",
-		//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-		//			},
-		//		},
-		//		Team: "team-123",
-		//		Warnings: []*api.Warning{
-		//			{
-		//				WarningType: &api.Warning_UnusualDeploymentOrder{
-		//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-		//						UpstreamEnvironment: "staging",
-		//						ThisVersion:         12,
-		//						ThisEnvironment:     "development",
-		//					},
-		//				},
-		//			},
-		//		},
-		//	},
-		//},
 		LightweightApps: []*api.OverviewApplication{
 			{
 				Name: "test",
@@ -183,33 +145,6 @@ func TestUpdateOverviewTeamLock(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				//Applications: map[string]*api.Application{
-				//	"test": {
-				//		Name: "test",
-				//		Releases: []*api.Release{
-				//			{
-				//				Version:        1,
-				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-				//				SourceAuthor:   "example <example@example.com>",
-				//				SourceMessage:  "changed something (#678)",
-				//				PrNumber:       "678",
-				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-				//			},
-				//		},
-				//		Team: "team-123",
-				//		Warnings: []*api.Warning{
-				//			{
-				//				WarningType: &api.Warning_UnusualDeploymentOrder{
-				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-				//						UpstreamEnvironment: "staging",
-				//						ThisVersion:         12,
-				//						ThisEnvironment:     "development",
-				//					},
-				//				},
-				//			},
-				//		},
-				//	},
-				//},
 				LightweightApps: []*api.OverviewApplication{
 					{
 						Name: "test",
@@ -334,17 +269,6 @@ func TestUpdateOverviewEnvironmentLock(t *testing.T) {
 									Argocd:           &api.EnvironmentConfig_ArgoCD{},
 									EnvironmentGroup: &dev,
 								},
-								//Applications: map[string]*api.Environment_Application{
-								//	"test": {
-								//		Name:    "test",
-								//		Version: 1,
-								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-								//			DeployAuthor: "testmail@example.com",
-								//			DeployTime:   "1",
-								//		},
-								//		Team: "team-123",
-								//	},
-								//},
 								Locks: map[string]*api.Lock{
 									"dev-lock": {
 										LockId:    "dev-lock",
@@ -362,33 +286,6 @@ func TestUpdateOverviewEnvironmentLock(t *testing.T) {
 						Priority: api.Priority_YOLO,
 					},
 				},
-				//Applications: map[string]*api.Application{
-				//	"test": {
-				//		Name: "test",
-				//		Releases: []*api.Release{
-				//			{
-				//				Version:        1,
-				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-				//				SourceAuthor:   "example <example@example.com>",
-				//				SourceMessage:  "changed something (#678)",
-				//				PrNumber:       "678",
-				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-				//			},
-				//		},
-				//		Team: "team-123",
-				//		Warnings: []*api.Warning{
-				//			{
-				//				WarningType: &api.Warning_UnusualDeploymentOrder{
-				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-				//						UpstreamEnvironment: "staging",
-				//						ThisVersion:         12,
-				//						ThisEnvironment:     "development",
-				//					},
-				//				},
-				//			},
-				//		},
-				//	},
-				//},
 				LightweightApps: []*api.OverviewApplication{
 					{
 						Name: "test",
