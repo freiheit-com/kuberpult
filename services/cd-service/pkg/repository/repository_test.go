@@ -2188,6 +2188,12 @@ func TestUpdateOverviewCache(t *testing.T) {
 						Warnings:        nil,
 					},
 				},
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "app1",
+						Team: "",
+					},
+				},
 				EnvironmentGroups: []*api.EnvironmentGroup{},
 			},
 		},
@@ -2226,6 +2232,12 @@ func TestUpdateOverviewCache(t *testing.T) {
 						Team:            "",
 						UndeploySummary: api.UndeploySummary_UNDEPLOY,
 						Warnings:        nil,
+					},
+				},
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "app1",
+						Team: "",
 					},
 				},
 				EnvironmentGroups: []*api.EnvironmentGroup{
@@ -2311,6 +2323,12 @@ func TestUpdateOverviewCache(t *testing.T) {
 						Priority:           0,
 					},
 				},
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "app1",
+						Team: "",
+					},
+				},
 				GitRevision:     "123",
 				Branch:          "main",
 				ManifestRepoUrl: "https://example.com",
@@ -2337,6 +2355,7 @@ func TestUpdateOverviewCache(t *testing.T) {
 				GitRevision:     "123",
 				Branch:          "main",
 				ManifestRepoUrl: "https://example.com",
+				LightweightApps: []*api.OverviewApplication{},
 			},
 		},
 	}

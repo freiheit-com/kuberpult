@@ -15,11 +15,12 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
-import { UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
+import { updateAppDetails, UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import {
     Environment,
     EnvironmentGroup,
+    GetAppDetailsResponse,
     Priority,
     Release,
     RolloutStatus,
@@ -46,11 +47,40 @@ describe('Release Card', () => {
         };
         rels: Release[];
         environments: { [key: string]: Environment };
+        appDetails: { [key: string]: GetAppDetailsResponse };
     };
     const data: TestData[] = [
         {
             name: 'using a sample release - useRelease hook',
             props: { app: 'test1', version: 2 },
+            appDetails: {
+                test1: {
+                    application: {
+                        name: 'test1',
+                        releases: [
+                            {
+                                version: 2,
+                                sourceMessage: 'test-rel',
+                                undeployVersion: false,
+                                sourceCommitId: 'commit123',
+                                sourceAuthor: 'author',
+                                prNumber: '666',
+                                createdAt: new Date(2023, 6, 6),
+                                displayVersion: '2',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                        team: 'test-team',
+                        sourceRepoUrl: '',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
             rels: [
                 {
                     version: 2,
@@ -70,6 +100,34 @@ describe('Release Card', () => {
         {
             name: 'using a full release - component test',
             props: { app: 'test2', version: 2 },
+            appDetails: {
+                test2: {
+                    application: {
+                        name: 'test2',
+                        releases: [
+                            {
+                                undeployVersion: false,
+                                version: 2,
+                                sourceMessage: 'test-rel',
+                                sourceCommitId: '12s3',
+                                sourceAuthor: 'test-author',
+                                prNumber: '666',
+                                createdAt: new Date(2002),
+                                displayVersion: '2',
+                                isMinor: true,
+                                isPrepublish: false,
+                            },
+                        ],
+                        team: 'test-team',
+                        sourceRepoUrl: '',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
             rels: [
                 {
                     undeployVersion: false,
@@ -89,6 +147,40 @@ describe('Release Card', () => {
         {
             name: 'using a deployed release - useDeployedAt test',
             props: { app: 'test2', version: 2 },
+            appDetails: {
+                test2: {
+                    application: {
+                        name: 'test2',
+                        releases: [
+                            {
+                                undeployVersion: false,
+                                version: 2,
+                                sourceMessage: 'test-rel',
+                                sourceCommitId: '12s3',
+                                sourceAuthor: 'test-author',
+                                prNumber: '666',
+                                createdAt: new Date(2002),
+                                displayVersion: '2',
+                                isMinor: true,
+                                isPrepublish: false,
+                            },
+                        ],
+                        team: 'test-team',
+                        sourceRepoUrl: '',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {
+                        foo: {
+                            version: 2,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
             rels: [
                 {
                     version: 2,
@@ -126,6 +218,40 @@ describe('Release Card', () => {
         {
             name: 'using an undeployed release - useDeployedAt test',
             props: { app: 'test2', version: 2 },
+            appDetails: {
+                test2: {
+                    application: {
+                        name: 'test2',
+                        releases: [
+                            {
+                                undeployVersion: false,
+                                version: 2,
+                                sourceMessage: 'test-rel',
+                                sourceCommitId: '12s3',
+                                sourceAuthor: 'test-author',
+                                prNumber: '666',
+                                createdAt: new Date(2002),
+                                displayVersion: '2',
+                                isMinor: true,
+                                isPrepublish: false,
+                            },
+                        ],
+                        team: 'test-team',
+                        sourceRepoUrl: '',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {
+                        foo: {
+                            version: 2,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
             rels: [
                 {
                     version: 2,
@@ -163,6 +289,40 @@ describe('Release Card', () => {
         {
             name: 'using another environment - useDeployedAt test',
             props: { app: 'test2', version: 2 },
+            appDetails: {
+                test2: {
+                    application: {
+                        name: 'test2',
+                        releases: [
+                            {
+                                version: 2,
+                                sourceMessage: 'test-rel',
+                                sourceCommitId: 'commit123',
+                                undeployVersion: false,
+                                sourceAuthor: 'test-author',
+                                prNumber: '666',
+                                createdAt: new Date(2023, 6, 6),
+                                displayVersion: '2',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                        team: 'test-team',
+                        sourceRepoUrl: '',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {
+                        foo: {
+                            version: 2,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
             rels: [
                 {
                     version: 2,
@@ -201,6 +361,40 @@ describe('Release Card', () => {
         {
             name: 'using a prepublished release',
             props: { app: 'test2', version: 2 },
+            appDetails: {
+                test2: {
+                    application: {
+                        name: 'test2',
+                        releases: [
+                            {
+                                undeployVersion: false,
+                                version: 2,
+                                sourceMessage: 'test-rel',
+                                sourceCommitId: '12s3',
+                                sourceAuthor: 'test-author',
+                                prNumber: '666',
+                                createdAt: new Date(2002),
+                                displayVersion: '2',
+                                isMinor: true,
+                                isPrepublish: true,
+                            },
+                        ],
+                        team: 'test-team',
+                        sourceRepoUrl: '',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {
+                        foo: {
+                            version: 2,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
             rels: [
                 {
                     undeployVersion: false,
@@ -237,6 +431,7 @@ describe('Release Card', () => {
                 },
                 environmentGroups: [],
             });
+            updateAppDetails.set(testcase.appDetails);
             const { container } = getWrapper(testcase.props);
 
             // then
@@ -293,11 +488,56 @@ describe('Release Card Rollout Status', () => {
         rolloutStatus: StreamStatusResponse[];
         expectedStatusIcon: RolloutStatus;
         expectedRolloutDetails: { [name: string]: RolloutStatus };
+        appDetails: { [key: string]: GetAppDetailsResponse };
     };
     const data: TestData[] = [
         {
             name: 'shows success when it is deployed',
             props: { app: 'test1', version: 2 },
+            appDetails: {
+                test1: {
+                    application: {
+                        name: '',
+                        releases: [
+                            {
+                                version: 2,
+                                sourceMessage: 'test-rel',
+                                undeployVersion: false,
+                                sourceCommitId: 'commit123',
+                                sourceAuthor: 'author',
+                                prNumber: '666',
+                                createdAt: new Date(2023, 6, 6),
+                                displayVersion: '2',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                        team: 'test-team',
+                        sourceRepoUrl: '',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {
+                        development: {
+                            version: 2,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                        development2: {
+                            version: 2,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                        staging: {
+                            version: 2,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
             rels: [
                 {
                     version: 2,
@@ -426,6 +666,8 @@ describe('Release Card Rollout Status', () => {
                 },
                 environmentGroups: testcase.environmentGroups,
             });
+            updateAppDetails.set(testcase.appDetails);
+
             testcase.rolloutStatus.forEach(UpdateRolloutStatus);
             const { container } = getWrapper(testcase.props);
             // then

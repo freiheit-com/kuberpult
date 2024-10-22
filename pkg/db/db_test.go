@@ -2312,6 +2312,35 @@ func TestReadReleasesByApp(t *testing.T) {
 			},
 		},
 		{
+			Name: "Retrieve deleted release",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslVersion:    2,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Deleted:       true,
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName: "app1",
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    2,
+					ReleaseNumber: 10,
+					Deleted:       true,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{"dev"},
+				},
+			},
+		},
+		{
 			Name: "Retrieve multiple releases",
 			Releases: []DBReleaseWithMetaData{
 				{
@@ -2525,7 +2554,7 @@ func TestReadReleasesByApp(t *testing.T) {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
-				releases, err := dbHandler.DBSelectReleasesByApp(ctx, transaction, tc.AppName, false, !tc.RetrievePrepublishes)
+				releases, err := dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, tc.AppName, !tc.RetrievePrepublishes)
 				if err != nil {
 					return fmt.Errorf("error while selecting release, error: %w", err)
 				}

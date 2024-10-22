@@ -23,6 +23,7 @@ import {
     SnackbarStatus,
     UpdateAction,
     updateActions,
+    updateAppDetails,
     UpdateOverview,
     UpdateRolloutStatus,
     UpdateSnackbar,
@@ -36,6 +37,7 @@ import {
     BatchAction,
     Environment,
     EnvironmentGroup,
+    GetAppDetailsResponse,
     GetOverviewResponse,
     LockBehavior,
     Priority,
@@ -1086,20 +1088,151 @@ describe('Test Calculate Release Difference', () => {
     type TestDataStore = {
         name: string;
         inputOverview: GetOverviewResponse;
+        inputAppDetails: { [p: string]: GetAppDetailsResponse };
         inputVersion: number;
         expectedDifference: number;
     };
 
-    const appName = 'testApp';
+    const appName = 'differentApp';
     const envName = 'testEnv';
 
     const testdata: TestDataStore[] = [
         {
-            name: 'Simple diff calculation',
+            name: 'app does not exist in the app Details',
+            inputAppDetails: {},
             inputOverview: {
-                applications: {
-                    [appName]: {
+                applications: {},
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'test',
+                        environments: [
+                            {
+                                name: envName,
+                                locks: {},
+                                applications: {},
+                                distanceToUpstream: 0,
+                                priority: Priority.PROD,
+                            },
+                        ],
+                        distanceToUpstream: 0,
+                        priority: Priority.PROD,
+                    },
+                ],
+                gitRevision: '',
+                branch: '',
+                manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        name: 'test',
+                        team: 'test',
+                    },
+                    {
+                        name: 'example-app',
+                        team: '',
+                    },
+                ],
+            },
+            inputVersion: 10,
+            expectedDifference: 0,
+        },
+
+        {
+            name: 'environment does not exist in the envs',
+            inputAppDetails: {
+                'example-app': {
+                    application: {
+                        name: 'example-app',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        sourceRepoUrl: '',
+                        team: '',
+                        warnings: [],
+                        releases: [
+                            {
+                                version: 10,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                            {
+                                version: 12,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                                prNumber: '',
+                                displayVersion: '',
+                                isMinor: false,
+                                isPrepublish: false,
+                            },
+                        ],
+                    },
+                    deployments: {
+                        test: {
+                            version: 12,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            },
+            inputOverview: {
+                applications: {},
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'test',
+                        environments: [
+                            {
+                                name: 'exampleEnv',
+                                locks: {},
+                                applications: {
+                                    exampleApp: {
+                                        name: appName,
+                                        version: 12,
+                                        locks: {},
+                                        queuedVersion: 0,
+                                        undeployVersion: false,
+                                        teamLocks: {},
+                                        team: '',
+                                    },
+                                },
+                                distanceToUpstream: 0,
+                                priority: Priority.PROD,
+                            },
+                        ],
+                        distanceToUpstream: 0,
+                        priority: Priority.PROD,
+                    },
+                ],
+                gitRevision: '',
+                branch: '',
+                lightweightApps: [
+                    {
+                        name: 'test',
+                        team: 'test',
+                    },
+                ],
+                manifestRepoUrl: '',
+            },
+            inputVersion: 10,
+            expectedDifference: 0,
+        },
+        {
+            name: 'Simple diff calculation',
+            inputAppDetails: {
+                [appName]: {
+                    application: {
                         name: appName,
+                        undeploySummary: UndeploySummary.NORMAL,
+                        sourceRepoUrl: '',
+                        team: '',
+                        warnings: [],
                         releases: [
                             {
                                 version: 10,
@@ -1135,12 +1268,20 @@ describe('Test Calculate Release Difference', () => {
                                 isPrepublish: false,
                             },
                         ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
                     },
+                    deployments: {
+                        [envName]: {
+                            version: 10,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
                 },
+            },
+            inputOverview: {
+                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1169,17 +1310,29 @@ describe('Test Calculate Release Difference', () => {
                 ],
                 gitRevision: '',
                 branch: '',
+
+                lightweightApps: [
+                    {
+                        name: 'test',
+                        team: 'test',
+                    },
+                ],
                 manifestRepoUrl: '',
             },
+
             inputVersion: 15,
             expectedDifference: 2,
         },
         {
             name: 'negative diff',
-            inputOverview: {
-                applications: {
-                    [appName]: {
+            inputAppDetails: {
+                [appName]: {
+                    application: {
                         name: appName,
+                        undeploySummary: UndeploySummary.NORMAL,
+                        sourceRepoUrl: '',
+                        team: '',
+                        warnings: [],
                         releases: [
                             {
                                 version: 10,
@@ -1204,12 +1357,20 @@ describe('Test Calculate Release Difference', () => {
                                 isPrepublish: false,
                             },
                         ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
                     },
+                    deployments: {
+                        [envName]: {
+                            version: 12,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
                 },
+            },
+            inputOverview: {
+                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1238,6 +1399,12 @@ describe('Test Calculate Release Difference', () => {
                 ],
                 gitRevision: '',
                 branch: '',
+                lightweightApps: [
+                    {
+                        name: 'test',
+                        team: 'test',
+                    },
+                ],
                 manifestRepoUrl: '',
             },
             inputVersion: 10,
@@ -1245,10 +1412,14 @@ describe('Test Calculate Release Difference', () => {
         },
         {
             name: 'the input version does not exist',
-            inputOverview: {
-                applications: {
-                    [appName]: {
+            inputAppDetails: {
+                appName: {
+                    application: {
                         name: appName,
+                        undeploySummary: UndeploySummary.NORMAL,
+                        sourceRepoUrl: '',
+                        team: '',
+                        warnings: [],
                         releases: [
                             {
                                 version: 10,
@@ -1273,12 +1444,20 @@ describe('Test Calculate Release Difference', () => {
                                 isPrepublish: false,
                             },
                         ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
                     },
+                    deployments: {
+                        [envName]: {
+                            version: 12,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
                 },
+            },
+            inputOverview: {
+                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1289,7 +1468,7 @@ describe('Test Calculate Release Difference', () => {
                                 applications: {
                                     [appName]: {
                                         name: appName,
-                                        version: 12,
+                                        version: 11,
                                         locks: {},
                                         queuedVersion: 0,
                                         undeployVersion: false,
@@ -1308,223 +1487,24 @@ describe('Test Calculate Release Difference', () => {
                 gitRevision: '',
                 branch: '',
                 manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        name: 'test',
+                        team: 'test',
+                    },
+                ],
             },
             inputVersion: 11,
             expectedDifference: 0,
         },
-        {
-            name: 'app does not exist in the applications',
-            inputOverview: {
-                applications: {
-                    exampleApp: {
-                        name: appName,
-                        releases: [
-                            {
-                                version: 10,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 12,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
-                    },
-                },
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'test',
-                        environments: [
-                            {
-                                name: envName,
-                                locks: {},
-                                applications: {
-                                    [appName]: {
-                                        name: appName,
-                                        version: 12,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
-                                distanceToUpstream: 0,
-                                priority: Priority.PROD,
-                            },
-                        ],
-                        distanceToUpstream: 0,
-                        priority: Priority.PROD,
-                    },
-                ],
-                gitRevision: '',
-                branch: '',
-                manifestRepoUrl: '',
-            },
-            inputVersion: 10,
-            expectedDifference: 0,
-        },
-        {
-            name: 'app does not exist in the environment applications',
-            inputOverview: {
-                applications: {
-                    [appName]: {
-                        name: appName,
-                        releases: [
-                            {
-                                version: 10,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 12,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
-                    },
-                },
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'test',
-                        environments: [
-                            {
-                                name: envName,
-                                locks: {},
-                                applications: {
-                                    exampleApp: {
-                                        name: appName,
-                                        version: 12,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
-                                distanceToUpstream: 0,
-                                priority: Priority.PROD,
-                            },
-                        ],
-                        distanceToUpstream: 0,
-                        priority: Priority.PROD,
-                    },
-                ],
-                gitRevision: '',
-                branch: '',
-                manifestRepoUrl: '',
-            },
-            inputVersion: 10,
-            expectedDifference: 0,
-        },
-        {
-            name: 'environment does not exist in the envs',
-            inputOverview: {
-                applications: {
-                    [appName]: {
-                        name: appName,
-                        releases: [
-                            {
-                                version: 10,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 12,
-                                sourceCommitId: '',
-                                sourceAuthor: '',
-                                sourceMessage: '',
-                                undeployVersion: false,
-                                prNumber: '',
-                                displayVersion: '',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        undeploySummary: UndeploySummary.NORMAL,
-                        sourceRepoUrl: '',
-                        team: '',
-                        warnings: [],
-                    },
-                },
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'test',
-                        environments: [
-                            {
-                                name: 'exampleEnv',
-                                locks: {},
-                                applications: {
-                                    exampleApp: {
-                                        name: appName,
-                                        version: 12,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
-                                distanceToUpstream: 0,
-                                priority: Priority.PROD,
-                            },
-                        ],
-                        distanceToUpstream: 0,
-                        priority: Priority.PROD,
-                    },
-                ],
-                gitRevision: '',
-                branch: '',
-                manifestRepoUrl: '',
-            },
-            inputVersion: 10,
-            expectedDifference: 0,
-        },
     ];
     describe.each(testdata)('with', (testcase) => {
+        updateAppDetails.set({});
         it(testcase.name, () => {
             updateActions([]);
+            updateAppDetails.set({});
             UpdateOverview.set(testcase.inputOverview);
-
+            updateAppDetails.set(testcase.inputAppDetails);
             const calculatedDiff = renderHook(() => useReleaseDifference(testcase.inputVersion, appName, envName))
                 .result.current;
             expect(calculatedDiff).toStrictEqual(testcase.expectedDifference);
