@@ -2455,7 +2455,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 		}
 		cache.LightweightApps = lApps
 	}
-	
+
 	err = h.WriteOverviewCache(ctx, transaction, cache)
 	if err != nil {
 		return err

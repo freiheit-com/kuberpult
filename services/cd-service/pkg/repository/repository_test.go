@@ -2184,7 +2184,7 @@ func TestUpdateOverviewCache(t *testing.T) {
 						Team: "",
 					},
 				},
-				
+
 				EnvironmentGroups: []*api.EnvironmentGroup{},
 			},
 		},
