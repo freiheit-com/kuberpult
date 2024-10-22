@@ -1109,7 +1109,6 @@ describe('Test Calculate Release Difference', () => {
             name: 'app does not exist in the app Details',
             inputAppDetails: {},
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1192,7 +1191,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1281,7 +1279,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1361,7 +1358,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1439,7 +1435,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',

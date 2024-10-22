@@ -206,7 +206,6 @@ describe('Get teams from application list (useTeamNames)', () => {
             name: 'right amount of teams - 4 sorted results',
 
             overview: {
-                applications: {},
                 lightweightApps: [
                     {
                         name: 'foo',
@@ -289,7 +288,6 @@ describe('Get teams from application list (useTeamNames)', () => {
         {
             name: "doesn't collect duplicate team names - 2 sorted results",
             overview: {
-                applications: {},
                 lightweightApps: [
                     {
                         name: 'foo',
@@ -355,7 +353,6 @@ describe('Get teams from application list (useTeamNames)', () => {
         {
             name: "doesn't collect empty team names and adds <No Team> option to dropdown - 2 sorted results",
             overview: {
-                applications: {},
                 lightweightApps: [
                     {
                         name: 'foo',
@@ -463,7 +460,6 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'gets filtered apps by team - 2 results',
             selectedTeams: ['dummy', 'foo'],
             Overview: {
-                applications: {},
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
@@ -547,7 +543,6 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'shows both applications of the selected team - 2 results',
             selectedTeams: ['dummy'],
             Overview: {
-                applications: {},
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
@@ -614,7 +609,6 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'no teams selected (shows every application) - 4 results',
             selectedTeams: [],
             Overview: {
-                applications: {},
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',
@@ -685,7 +679,6 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             name: 'selected team has no assigned applications - 0 results',
             selectedTeams: ['thisTeamDoesntExist'],
             Overview: {
-                applications: {},
                 environmentGroups: [],
                 gitRevision: '',
                 branch: '',

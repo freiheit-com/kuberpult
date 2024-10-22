@@ -1120,10 +1120,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 			previousEslVersion+1,
 			err)
 	}
-	err = h.UpdateOverviewRelease(ctx, transaction, release)
-	if err != nil {
-		return err
-	}
+
 	logger.FromContext(ctx).Sugar().Infof(
 		"inserted release: app '%s' and version '%v' and eslVersion %v",
 		release.App,
@@ -5664,7 +5661,6 @@ func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sq
 		result := &api.GetOverviewResponse{
 			Branch:            "",
 			ManifestRepoUrl:   "",
-			Applications:      map[string]*api.Application{},
 			LightweightApps:   []*api.OverviewApplication{},
 			EnvironmentGroups: []*api.EnvironmentGroup{},
 			GitRevision:       "",

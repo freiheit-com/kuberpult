@@ -2776,7 +2776,6 @@ func (c *CreateEnvironment) Transform(
 			overview = &api.GetOverviewResponse{
 				Branch:            "",
 				ManifestRepoUrl:   "",
-				Applications:      map[string]*api.Application{},
 				EnvironmentGroups: []*api.EnvironmentGroup{},
 				GitRevision:       "0000000000000000000000000000000000000000",
 				LightweightApps:   make([]*api.OverviewApplication, 0),
