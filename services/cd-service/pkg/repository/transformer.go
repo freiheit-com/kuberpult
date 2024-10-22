@@ -672,7 +672,7 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false, false)
+		prevRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, c.Application, false, false)
 		if err != nil {
 			return "", err
 		}
@@ -1711,7 +1711,7 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", err
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application, false, true)
+		releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, u.Application, true)
 		if err != nil {
 			return "", err
 		}
@@ -2779,6 +2779,7 @@ func (c *CreateEnvironment) Transform(
 				Applications:      map[string]*api.Application{},
 				EnvironmentGroups: []*api.EnvironmentGroup{},
 				GitRevision:       "0000000000000000000000000000000000000000",
+				LightweightApps:   make([]*api.OverviewApplication, 0),
 			}
 		}
 		if err != nil {

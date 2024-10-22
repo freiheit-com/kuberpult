@@ -15,13 +15,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ServiceLane, DiffElement } from './ServiceLane';
-import { UpdateOverview } from '../../utils/store';
+import { UpdateOverview, updateAppDetails } from '../../utils/store';
 import { Spy } from 'spy4js';
 import {
     Application,
     BatchAction,
     Environment,
-    Environment_Application,
+    GetAppDetailsResponse,
+    OverviewApplication,
     Priority,
     Release,
     UndeploySummary,
@@ -46,12 +47,12 @@ const extendRelease = (props: Partial<Release>): Release => ({
 });
 
 describe('Service Lane', () => {
-    const getNode = (overrides: { application: Application }) => (
+    const getNode = (overrides: { application: OverviewApplication }) => (
         <MemoryRouter>
             <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
-    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    const getWrapper = (overrides: { application: OverviewApplication }) => render(getNode(overrides));
     it('Renders a row of releases', () => {
         // when
         const sampleApp: Application = {
@@ -62,12 +63,35 @@ describe('Service Lane', () => {
             undeploySummary: UndeploySummary.NORMAL,
             warnings: [],
         };
+        const sampleLightWeightApp: OverviewApplication = {
+            name: 'test2',
+            team: '',
+        };
         UpdateOverview.set({
             applications: {
                 test2: sampleApp,
             },
         });
-        getWrapper({ application: sampleApp });
+        updateAppDetails.set({
+            test2: {
+                application: {
+                    name: 'test2',
+                    releases: [
+                        extendRelease({ version: 2 }),
+                        extendRelease({ version: 3 }),
+                        extendRelease({ version: 5 }),
+                    ],
+                    sourceRepoUrl: 'http://test2.com',
+                    team: 'example',
+                    undeploySummary: UndeploySummary.NORMAL,
+                    warnings: [],
+                },
+                deployments: {},
+                appLocks: {},
+                teamLocks: {},
+            },
+        });
+        getWrapper({ application: sampleLightWeightApp });
 
         // then releases are sorted and Release card is called with props:
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: 5 });
@@ -82,13 +106,37 @@ type TestData = {
     envs: Environment[];
 };
 
-type TestDataDiff = TestData & { diff: string; releases: Release[] };
+type TestDataDiff = TestData & { diff: string; releases: Release[]; appDetails: GetAppDetailsResponse };
 
 const data: TestDataDiff[] = [
     {
         name: 'test same version',
         diff: '-1',
         releases: [makeRelease(1)],
+        appDetails: {
+            application: {
+                name: 'test2',
+                team: 'test-team',
+                releases: [makeRelease(1)],
+                sourceRepoUrl: '',
+                undeploySummary: UndeploySummary.MIXED,
+                warnings: [],
+            },
+            appLocks: {},
+            teamLocks: {},
+            deployments: {
+                foo: {
+                    version: 1,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+                foo2: {
+                    version: 1,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+            },
+        },
         envs: [
             {
                 name: 'foo',
@@ -130,6 +178,30 @@ const data: TestDataDiff[] = [
         name: 'test no diff',
         diff: '0',
         releases: [makeRelease(1), makeRelease(2)],
+        appDetails: {
+            application: {
+                name: 'test2',
+                team: 'test-team',
+                releases: [makeRelease(1), makeRelease(2)],
+                sourceRepoUrl: '',
+                undeploySummary: UndeploySummary.MIXED,
+                warnings: [],
+            },
+            appLocks: {},
+            teamLocks: {},
+            deployments: {
+                foo: {
+                    version: 1,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+                foo2: {
+                    version: 2,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+            },
+        },
         envs: [
             {
                 name: 'foo',
@@ -170,7 +242,31 @@ const data: TestDataDiff[] = [
     {
         name: 'test diff by one',
         diff: '1',
-        releases: [makeRelease(1), makeRelease(4), makeRelease(2)],
+        releases: [makeRelease(1), makeRelease(2), makeRelease(4)],
+        appDetails: {
+            application: {
+                name: 'test2',
+                team: 'test-team',
+                releases: [makeRelease(4), makeRelease(2), makeRelease(1)],
+                sourceRepoUrl: '',
+                undeploySummary: UndeploySummary.MIXED,
+                warnings: [],
+            },
+            appLocks: {},
+            teamLocks: {},
+            deployments: {
+                foo: {
+                    version: 1,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+                foo2: {
+                    version: 4,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+            },
+        },
         envs: [
             {
                 name: 'foo',
@@ -212,6 +308,30 @@ const data: TestDataDiff[] = [
         name: 'test diff by two',
         diff: '2',
         releases: [makeRelease(2), makeRelease(4), makeRelease(3), makeRelease(5)],
+        appDetails: {
+            application: {
+                name: 'test2',
+                team: 'test-team',
+                releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
+                sourceRepoUrl: '',
+                undeploySummary: UndeploySummary.MIXED,
+                warnings: [],
+            },
+            appLocks: {},
+            teamLocks: {},
+            deployments: {
+                foo: {
+                    version: 2,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+                foo2: {
+                    version: 5,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+            },
+        },
         envs: [
             {
                 name: 'foo',
@@ -252,25 +372,16 @@ const data: TestDataDiff[] = [
 ];
 
 describe('Service Lane Diff', () => {
-    const getNode = (overrides: { application: Application }) => (
+    const getNode = (overrides: { application: OverviewApplication }) => (
         <MemoryRouter>
             <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
-    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    const getWrapper = (overrides: { application: OverviewApplication }) => render(getNode(overrides));
     describe.each(data)('Service Lane diff number', (testcase) => {
         it(testcase.name, () => {
             UpdateOverview.set({
-                applications: {
-                    test2: {
-                        releases: testcase.releases,
-                        name: '',
-                        team: '',
-                        sourceRepoUrl: '',
-                        undeploySummary: UndeploySummary.MIXED,
-                        warnings: [],
-                    },
-                },
+                applications: {},
                 environmentGroups: [
                     {
                         environments: testcase.envs,
@@ -280,15 +391,14 @@ describe('Service Lane Diff', () => {
                     },
                 ],
             });
-            const sampleApp: Application = {
-                undeploySummary: UndeploySummary.NORMAL,
+            updateAppDetails.set({
+                test2: testcase.appDetails,
+            });
+            const sampleLightweightApp: OverviewApplication = {
                 name: 'test2',
-                releases: [],
-                sourceRepoUrl: 'http://test2.com',
-                team: 'example',
-                warnings: [],
+                team: 'test-team',
             };
-            const { container } = getWrapper({ application: sampleApp });
+            const { container } = getWrapper({ application: sampleLightweightApp });
 
             // check for the diff between versions
             if (testcase.diff === '-1' || testcase.diff === '0') {
@@ -371,12 +481,12 @@ const dataImportantRels: TestDataImportantRels[] = [
 ];
 
 describe('Service Lane Important Releases', () => {
-    const getNode = (overrides: { application: Application }) => (
+    const getNode = (overrides: { application: OverviewApplication }) => (
         <MemoryRouter>
             <ServiceLane {...overrides} hideMinors={true} />
         </MemoryRouter>
     );
-    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    const getWrapper = (overrides: { application: OverviewApplication }) => render(getNode(overrides));
     describe.each(dataImportantRels)('Service Lane important releases', (testcase) => {
         it(testcase.name, () => {
             // given
@@ -388,6 +498,10 @@ describe('Service Lane Important Releases', () => {
                 sourceRepoUrl: 'test2',
                 undeploySummary: UndeploySummary.MIXED,
                 warnings: [],
+            };
+            const sampleOverviewApp: OverviewApplication = {
+                name: 'test2',
+                team: 'test2',
             };
             UpdateOverview.set({
                 applications: {
@@ -420,8 +534,22 @@ describe('Service Lane Important Releases', () => {
                     },
                 ],
             });
+            updateAppDetails.set({
+                test2: {
+                    application: sampleApp,
+                    deployments: {
+                        foo: {
+                            version: testcase.currentlyDeployedVersion,
+                            undeployVersion: false,
+                            queuedVersion: 0,
+                        },
+                    },
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            });
             // when
-            getWrapper({ application: sampleApp });
+            getWrapper({ application: sampleOverviewApp });
 
             // then - the latest release is always important and is displayed first
             expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0)).toMatchObject({
@@ -519,12 +647,12 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
 })();
 
 describe('Service Lane ⋮ menu', () => {
-    const getNode = (overrides: { application: Application }) => (
+    const getNode = (overrides: { application: OverviewApplication }) => (
         <MemoryRouter>
             <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
-    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    const getWrapper = (overrides: { application: OverviewApplication }) => render(getNode(overrides));
     describe.each(dataUndeploy)('Undeploy Buttons', (testcase) => {
         it(testcase.name, () => {
             mock_addAction.addAction.returns(undefined);
@@ -543,7 +671,18 @@ describe('Service Lane ⋮ menu', () => {
                 ],
             });
 
-            const { container } = getWrapper({ application: testcase.renderedApp });
+            updateAppDetails.set({
+                test1: {
+                    application: testcase.renderedApp,
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+            });
+
+            const { container } = getWrapper({
+                application: { name: testcase.renderedApp.name, team: testcase.renderedApp.team },
+            });
 
             const undeployButton = elementQuerySelectorSafe(container, '.dots-menu-hidden');
             const label = elementQuerySelectorSafe(undeployButton, 'span');
@@ -555,67 +694,112 @@ describe('Service Lane ⋮ menu', () => {
 });
 
 type TestDataAppLockSummary = TestData & {
-    renderedApp: Application;
+    renderedApp: GetAppDetailsResponse;
     expected: string | undefined;
 };
 const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
-    const appWith1AppLock: Environment_Application = {
+    const topLevelApp: Application = {
         name: 'test1',
-        version: 123,
-        queuedVersion: 0,
-        undeployVersion: false,
-        locks: {
-            l1: { message: 'test lock', lockId: '321' },
+        releases: [],
+        sourceRepoUrl: 'http://test2.com',
+        team: 'example',
+        undeploySummary: UndeploySummary.NORMAL,
+        warnings: [],
+    };
+    const appWith1AppLock: GetAppDetailsResponse = {
+        application: topLevelApp,
+        deployments: {
+            foo2: {
+                version: 123,
+                queuedVersion: 0,
+                undeployVersion: false,
+            },
+        },
+        appLocks: {
+            foo2: {
+                locks: [{ message: 'test lock', lockId: '321' }],
+            },
         },
         teamLocks: {},
-        team: 'test-team',
     };
-    const appWith1TeamLock: Environment_Application = {
-        name: 'test1',
-        version: 123,
-        queuedVersion: 0,
-        undeployVersion: false,
-        locks: {},
+    const appWith1TeamLock: GetAppDetailsResponse = {
+        application: topLevelApp,
+        deployments: {
+            foo2: {
+                version: 123,
+                queuedVersion: 0,
+                undeployVersion: false,
+            },
+        },
+        appLocks: {},
         teamLocks: {
-            l1: { message: 'test team lock', lockId: 't-1000' },
+            foo2: {
+                locks: [{ message: 'test team lock', lockId: 't-1000' }],
+            },
         },
-        team: 'test-team',
     };
-    const appWith1TeamLock1AppLock: Environment_Application = {
-        name: 'test1',
-        version: 123,
-        queuedVersion: 0,
-        undeployVersion: false,
-        locks: {
-            l1: { message: 'test app lock', lockId: 'a-1' },
+    const appWith1TeamLock1AppLock: GetAppDetailsResponse = {
+        application: topLevelApp,
+        deployments: {
+            foo2: {
+                version: 123,
+                queuedVersion: 0,
+                undeployVersion: false,
+            },
+        },
+        appLocks: {
+            foo2: {
+                locks: [
+                    { message: 'test lock', lockId: '321' },
+                    { message: 'test app lock', lockId: 'a-1' },
+                ],
+            },
         },
         teamLocks: {
-            l1: { message: 'test team lock', lockId: 't-1000' },
+            foo2: {
+                locks: [{ message: 'test team lock', lockId: 't-1000' }],
+            },
         },
-        team: 'test-team',
     };
-    const appWith2Locks: Environment_Application = {
-        name: 'test1',
-        version: 123,
-        queuedVersion: 0,
-        undeployVersion: false,
-        locks: {
-            l1: { message: 'test lock', lockId: '321' },
-            l2: { message: 'test lock', lockId: '321' },
+
+    const appWith2Locks: GetAppDetailsResponse = {
+        application: topLevelApp,
+        deployments: {
+            foo2: {
+                version: 123,
+                queuedVersion: 0,
+                undeployVersion: false,
+            },
         },
-        teamLocks: {},
-        team: 'test-team',
+        appLocks: {
+            foo2: {
+                locks: [
+                    { message: 'test lock', lockId: '321' },
+                    { message: 'test lock', lockId: '321' },
+                ],
+            },
+        },
+        teamLocks: {
+            foo2: {
+                locks: [{ message: 'test team lock', lockId: 't-1000' }],
+            },
+        },
     };
     const result: TestDataAppLockSummary[] = [
         {
             name: 'test no prepareUndeploy',
             renderedApp: {
-                name: 'test1',
-                releases: [],
-                sourceRepoUrl: 'http://test2.com',
-                team: 'example',
-                undeploySummary: UndeploySummary.NORMAL,
-                warnings: [],
+                application: {
+                    name: 'test1',
+                    releases: [],
+                    sourceRepoUrl: 'http://test2.com',
+                    team: 'example',
+                    undeploySummary: UndeploySummary.NORMAL,
+                    warnings: [],
+                },
+                deployments: {},
+                teamLocks: {},
+                appLocks: {},
             },
             envs: [
                 {
@@ -635,20 +819,11 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         },
         {
             name: 'test one app lock',
-            renderedApp: {
-                name: 'test1',
-                releases: [],
-                sourceRepoUrl: 'http://test2.com',
-                team: 'example',
-                undeploySummary: UndeploySummary.NORMAL,
-                warnings: [],
-            },
+            renderedApp: appWith1AppLock,
             envs: [
                 {
                     name: 'foo2',
-                    applications: {
-                        foo2: appWith1AppLock,
-                    },
+                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -658,20 +833,11 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         },
         {
             name: 'test two app locks',
-            renderedApp: {
-                name: 'test1',
-                releases: [],
-                sourceRepoUrl: 'http://test2.com',
-                team: 'example',
-                undeploySummary: UndeploySummary.NORMAL,
-                warnings: [],
-            },
+            renderedApp: appWith2Locks,
             envs: [
                 {
                     name: 'foo2',
-                    applications: {
-                        foo2: appWith2Locks,
-                    },
+                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -681,20 +847,11 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         },
         {
             name: 'test one team lock',
-            renderedApp: {
-                name: 'test1',
-                releases: [],
-                sourceRepoUrl: 'http://test2.com',
-                team: 'test-team',
-                undeploySummary: UndeploySummary.NORMAL,
-                warnings: [],
-            },
+            renderedApp: appWith1TeamLock,
             envs: [
                 {
                     name: 'foo2',
-                    applications: {
-                        foo2: appWith1TeamLock,
-                    },
+                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -704,20 +861,11 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         },
         {
             name: 'test one team + one app lock',
-            renderedApp: {
-                name: 'test1',
-                releases: [],
-                sourceRepoUrl: 'http://test2.com',
-                team: 'test-team',
-                undeploySummary: UndeploySummary.NORMAL,
-                warnings: [],
-            },
+            renderedApp: appWith1TeamLock1AppLock,
             envs: [
                 {
                     name: 'foo2',
-                    applications: {
-                        foo2: appWith1TeamLock1AppLock,
-                    },
+                    applications: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                     locks: {},
@@ -730,20 +878,17 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
 })();
 
 describe('Service Lane AppLockSummary', () => {
-    const getNode = (overrides: { application: Application }) => (
+    const getNode = (overrides: { application: OverviewApplication }) => (
         <MemoryRouter>
             <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
-    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    const getWrapper = (overrides: { application: OverviewApplication }) => render(getNode(overrides));
     describe.each(dataAppLockSummary)('diff', (testcase) => {
         it(testcase.name, () => {
             mock_addAction.addAction.returns(undefined);
 
             UpdateOverview.set({
-                applications: {
-                    test1: testcase.renderedApp,
-                },
                 environmentGroups: [
                     {
                         environments: testcase.envs,
@@ -754,7 +899,16 @@ describe('Service Lane AppLockSummary', () => {
                 ],
             });
 
-            const { container } = getWrapper({ application: testcase.renderedApp });
+            updateAppDetails.set({
+                test1: testcase.renderedApp,
+            });
+
+            const { container } = getWrapper({
+                application: {
+                    name: testcase.renderedApp.application?.name || '',
+                    team: testcase.renderedApp.application?.team || '',
+                },
+            });
 
             const appLockSummary = container.querySelector('.test-app-lock-summary div');
             expect(appLockSummary?.attributes.getNamedItem('title')?.value).toBe(testcase.expected);
