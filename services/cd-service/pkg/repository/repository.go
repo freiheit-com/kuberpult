@@ -2548,17 +2548,6 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 	return nil
 }
 
-func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {
-	for _, currentGroup := range groups {
-		for _, currentEnv := range currentGroup.Environments {
-			if currentEnv.Name == envNameToReturn {
-				return currentEnv
-			}
-		}
-	}
-	return nil
-}
-
 func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
 	for _, currentGroup := range groups {
 		if currentGroup.EnvironmentGroupName == groupNameToReturn {
