@@ -75,19 +75,10 @@ describe('Release Card Mini', () => {
                 {
                     name: 'other',
                     locks: {},
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        test2: {
-                            version: 2,
-                            queuedVersion: 0,
-                            name: 'test2',
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            undeployVersion: false,
-                        },
-                    },
                 },
             ],
             expectedMessage: 'test2',
@@ -101,19 +92,10 @@ describe('Release Card Mini', () => {
                 {
                     name: 'other',
                     locks: {},
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        test2: {
-                            version: 2,
-                            queuedVersion: 0,
-                            name: 'test2',
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            undeployVersion: false,
-                        },
-                    },
                 },
             ],
             expectedMessage: 'Undeploy Version',
@@ -127,16 +109,12 @@ describe('Release Card Mini', () => {
             mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
             // when
             UpdateOverview.set({
-                applications: {
-                    [testcase.props.app]: {
-                        name: testcase.props.app,
-                        releases: testcase.rels,
-                        sourceRepoUrl: 'url',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        team: 'no-team',
-                        warnings: [],
+                lightweightApps: [
+                    {
+                        name: 'test2',
+                        team: 'example',
                     },
-                },
+                ],
                 environmentGroups: [
                     {
                         environments: testcase.environments,
@@ -158,7 +136,7 @@ describe('Release Card Mini', () => {
                         warnings: [],
                     },
                     deployments: {
-                        test2: {
+                        other: {
                             version: 2,
                             queuedVersion: 0,
                             undeployVersion: false,

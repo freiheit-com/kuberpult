@@ -302,7 +302,6 @@ func (o *OverviewServiceServer) getOverview(
 	result := api.GetOverviewResponse{
 		Branch:            "",
 		ManifestRepoUrl:   "",
-		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
 		LightweightApps:   make([]*api.OverviewApplication, 0),
@@ -313,6 +312,7 @@ func (o *OverviewServiceServer) getOverview(
 	if err != nil {
 		return nil, err
 	}
+
 	if apps, err := s.GetApplications(ctx, transaction); err != nil {
 		return nil, err
 	} else {

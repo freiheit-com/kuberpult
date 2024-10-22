@@ -32,7 +32,8 @@ describe('EnvironmentChip', () => {
         distanceToUpstream: 0,
         priority: Priority.PROD,
         locks: {},
-        applications: {},
+        appLocks: {},
+        teamLocks: {},
     };
     const envGroup: EnvironmentGroup = {
         distanceToUpstream: 0,
@@ -150,9 +151,10 @@ const envGroupPairFromPrios = (
     envGroupPrio: Priority
 ): { env: Environment; envGroup: EnvironmentGroup } => {
     const env: Environment = {
-        applications: {},
         distanceToUpstream: -1, // shouldn't matter, if this value is used an error will be thrown
         locks: {},
+        appLocks: {},
+        teamLocks: {},
         name: 'Test me',
         priority: envPrio,
     };
@@ -236,7 +238,8 @@ const envFromPrio = (prio: Priority): Environment => ({
     distanceToUpstream: 0,
     priority: prio,
     locks: {},
-    applications: {},
+    appLocks: {},
+    teamLocks: {},
 });
 
 const envGroupChipData: Array<TestDataGroups> = [

@@ -40,6 +40,7 @@ import {
     GetAppDetailsResponse,
     GetOverviewResponse,
     LockBehavior,
+    OverviewApplication,
     Priority,
     ReleaseTrainRequest_TargetType,
     RolloutStatus,
@@ -56,6 +57,7 @@ describe('Test useLocksSimilarTo', () => {
         inputEnvGroups: EnvironmentGroup[]; // this just defines what locks generally exist
         inputAction: BatchAction; // the action we are rendering currently in the sidebar
         expectedLocks: AllLocks;
+        OverviewApps: OverviewApplication[];
     };
 
     const testdata: TestDataStore[] = [
@@ -70,6 +72,7 @@ describe('Test useLocksSimilarTo', () => {
                     },
                 },
             },
+            OverviewApps: [],
             inputEnvGroups: [],
             expectedLocks: {
                 appLocks: [],
@@ -88,6 +91,7 @@ describe('Test useLocksSimilarTo', () => {
                     },
                 },
             },
+            OverviewApps: [],
             inputEnvGroups: [
                 {
                     environments: [
@@ -98,7 +102,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            applications: {},
+                            appLocks: {},
+                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -123,6 +128,7 @@ describe('Test useLocksSimilarTo', () => {
                     },
                 },
             },
+            OverviewApps: [],
             inputEnvGroups: [
                 {
                     environments: [
@@ -133,7 +139,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            applications: {},
+                            appLocks: {},
+                            teamLocks: {},
                         },
                         {
                             name: 'staging',
@@ -142,7 +149,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            applications: {},
+                            appLocks: {},
+                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -172,6 +180,7 @@ describe('Test useLocksSimilarTo', () => {
                     },
                 },
             },
+            OverviewApps: [{ name: 'betty', team: '' }],
             inputEnvGroups: [
                 {
                     environments: [
@@ -182,18 +191,10 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            applications: {
-                                app1: {
-                                    name: 'betty',
-                                    locks: {
-                                        l1: makeLock({ lockId: 'l1' }),
-                                    },
-                                    version: 666,
-                                    teamLocks: {},
-                                    team: 'test-team',
-                                    undeployVersion: false,
-                                    queuedVersion: 0,
-                                    argoCd: undefined,
+                            teamLocks: {},
+                            appLocks: {
+                                betty: {
+                                    locks: [makeLock({ lockId: 'l1' })],
                                 },
                             },
                         },
@@ -228,6 +229,12 @@ describe('Test useLocksSimilarTo', () => {
                     },
                 },
             },
+            OverviewApps: [
+                {
+                    name: 'betty',
+                    team: 'test-team',
+                },
+            ],
             inputEnvGroups: [
                 {
                     environments: [
@@ -238,18 +245,14 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            applications: {
-                                app1: {
-                                    name: 'betty',
-                                    locks: {
-                                        l1: makeLock({ lockId: 'l1' }),
-                                    },
-                                    teamLocks: { l1: makeLock({ lockId: 'l1' }) },
-                                    team: 'test-team',
-                                    version: 666,
-                                    undeployVersion: false,
-                                    queuedVersion: 0,
-                                    argoCd: undefined,
+                            appLocks: {
+                                betty: {
+                                    locks: [makeLock({ lockId: 'l1' })],
+                                },
+                            },
+                            teamLocks: {
+                                'test-team': {
+                                    locks: [makeLock({ lockId: 'l1' })],
                                 },
                             },
                         },
@@ -260,7 +263,8 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            applications: {},
+                            appLocks: {},
+                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -306,7 +310,7 @@ describe('Test useLocksSimilarTo', () => {
             // given
             updateActions([]);
             UpdateOverview.set({
-                applications: {},
+                lightweightApps: testcase.OverviewApps,
                 environmentGroups: testcase.inputEnvGroups,
             });
             // when
@@ -797,6 +801,7 @@ describe('Test useLocksConflictingWithActions', () => {
         expectedAppLocks: DisplayLock[];
         expectedEnvLocks: DisplayLock[];
         environments: Environment[];
+        OverviewApps: OverviewApplication[];
     };
 
     const testdata: TestDataStore[] = [
@@ -806,6 +811,7 @@ describe('Test useLocksConflictingWithActions', () => {
             expectedAppLocks: [],
             expectedEnvLocks: [],
             environments: [],
+            OverviewApps: [],
         },
         {
             name: 'deploy action and related app lock and env lock',
@@ -823,6 +829,12 @@ describe('Test useLocksConflictingWithActions', () => {
                     },
                 },
             ],
+            OverviewApps: [
+                {
+                    name: 'app1',
+                    team: '',
+                },
+            ],
             environments: [
                 {
                     name: 'dev',
@@ -832,22 +844,17 @@ describe('Test useLocksConflictingWithActions', () => {
                             lockId: 'my-env-lock1',
                         }),
                     },
-                    applications: {
-                        echo: {
-                            name: 'app1',
-                            version: 0,
-                            locks: {
-                                applock: makeLock({
+                    appLocks: {
+                        app1: {
+                            locks: [
+                                makeLock({
                                     lockId: 'app-lock-id',
                                     message: 'i do not like this app',
                                 }),
-                            },
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                            teamLocks: {},
-                            team: 'test-team',
+                            ],
                         },
                     },
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -870,6 +877,12 @@ describe('Test useLocksConflictingWithActions', () => {
         },
         {
             name: 'deploy action and unrelated locks',
+            OverviewApps: [
+                {
+                    name: 'anotherapp',
+                    team: '',
+                },
+            ],
             actions: [
                 {
                     action: {
@@ -893,22 +906,17 @@ describe('Test useLocksConflictingWithActions', () => {
                             lockId: 'my-env-lock1',
                         }),
                     },
-                    applications: {
-                        echo: {
-                            name: 'anotherapp', // this lock differs by app
-                            version: 0,
-                            locks: {
-                                applock: makeLock({
+                    appLocks: {
+                        anotherapp: {
+                            locks: [
+                                makeLock({
                                     lockId: 'app-lock-id',
                                     message: 'i do not like this app',
                                 }),
-                            },
-                            teamLocks: {},
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: false,
+                            ],
                         },
                     },
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -923,7 +931,7 @@ describe('Test useLocksConflictingWithActions', () => {
             // given
             updateActions(testcase.actions);
             UpdateOverview.set({
-                applications: {},
+                lightweightApps: testcase.OverviewApps,
                 environmentGroups: [
                     {
                         environmentGroupName: 'g1',
@@ -1101,7 +1109,6 @@ describe('Test Calculate Release Difference', () => {
             name: 'app does not exist in the app Details',
             inputAppDetails: {},
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1109,7 +1116,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
-                                applications: {},
+                                teamLocks: {},
+                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1183,7 +1191,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1191,17 +1198,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: 'exampleEnv',
                                 locks: {},
-                                applications: {
-                                    exampleApp: {
-                                        name: appName,
-                                        version: 12,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
+                                teamLocks: {},
+                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1281,7 +1279,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1289,17 +1286,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
-                                applications: {
-                                    [appName]: {
-                                        name: appName,
-                                        version: 10,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
+                                teamLocks: {},
+                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1370,7 +1358,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1378,17 +1365,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
-                                applications: {
-                                    [appName]: {
-                                        name: appName,
-                                        version: 12,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
+                                teamLocks: {},
+                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1457,7 +1435,6 @@ describe('Test Calculate Release Difference', () => {
                 },
             },
             inputOverview: {
-                applications: {},
                 environmentGroups: [
                     {
                         environmentGroupName: 'test',
@@ -1465,17 +1442,8 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
-                                applications: {
-                                    [appName]: {
-                                        name: appName,
-                                        version: 11,
-                                        locks: {},
-                                        queuedVersion: 0,
-                                        undeployVersion: false,
-                                        teamLocks: {},
-                                        team: '',
-                                    },
-                                },
+                                appLocks: {},
+                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },

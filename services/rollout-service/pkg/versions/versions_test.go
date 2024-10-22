@@ -163,17 +163,6 @@ func (m *mockVersionEventProcessor) ProcessKuberpultEvent(ctx context.Context, e
 func TestVersionClientStream(t *testing.T) {
 	t.Parallel()
 	testOverview := &api.GetOverviewResponse{
-		Applications: map[string]*api.Application{
-			"foo": {
-				Releases: []*api.Release{
-					{
-						Version:        1,
-						SourceCommitId: "00001",
-					},
-				},
-				Team: "footeam",
-			},
-		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
 
@@ -182,15 +171,6 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
-						Applications: map[string]*api.Environment_Application{
-							"foo": {
-								Name:    "foo",
-								Version: 1,
-								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									DeployTime: "123456789",
-								},
-							},
-						},
 					},
 				},
 			},
@@ -199,16 +179,6 @@ func TestVersionClientStream(t *testing.T) {
 	}
 
 	testOverviewWithDifferentEnvgroup := &api.GetOverviewResponse{
-		Applications: map[string]*api.Application{
-			"foo": {
-				Releases: []*api.Release{
-					{
-						Version:        2,
-						SourceCommitId: "00002",
-					},
-				},
-			},
-		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
 
@@ -217,15 +187,6 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
-						Applications: map[string]*api.Environment_Application{
-							"foo": {
-								Name:    "foo",
-								Version: 2,
-								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									DeployTime: "123456789",
-								},
-							},
-						},
 					},
 				},
 			},
@@ -233,17 +194,6 @@ func TestVersionClientStream(t *testing.T) {
 		GitRevision: "1234",
 	}
 	testOverviewWithProdEnvs := &api.GetOverviewResponse{
-		Applications: map[string]*api.Application{
-			"foo": {
-				Team: "footeam",
-				Releases: []*api.Release{
-					{
-						Version:        2,
-						SourceCommitId: "00002",
-					},
-				},
-			},
-		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
 				EnvironmentGroupName: "production",
@@ -251,15 +201,6 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "production",
-						Applications: map[string]*api.Environment_Application{
-							"foo": {
-								Name:    "foo",
-								Version: 2,
-								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									DeployTime: "123456789",
-								},
-							},
-						},
 					},
 				},
 			},
@@ -269,15 +210,6 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "canary",
-						Applications: map[string]*api.Environment_Application{
-							"foo": {
-								Name:    "foo",
-								Version: 2,
-								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									DeployTime: "123456789",
-								},
-							},
-						},
 					},
 				},
 			},

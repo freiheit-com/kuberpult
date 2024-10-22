@@ -19,12 +19,12 @@ import { updateAppDetails, UpdateOverview } from '../../utils/store';
 import {
     Environment,
     EnvironmentGroup,
-    Environment_Application,
     Lock,
     Priority,
     Release,
     UndeploySummary,
     GetAppDetailsResponse,
+    OverviewApplication,
 } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -33,6 +33,7 @@ describe('Release Dialog', () => {
         name: string;
         dates: number;
         releases: Release[];
+        OverviewApps: OverviewApplication[];
         envGroups: EnvironmentGroup[];
         expectedAppLocksLength: number;
         appDetails: { [p: string]: GetAppDetailsResponse };
@@ -120,45 +121,30 @@ describe('Release Dialog', () => {
         },
     };
 
-    const testApp1: Environment_Application = {
-        name: 'test',
-        version: 1,
-        locks: { testlockId: testAppLock },
-        queuedVersion: 0,
-        undeployVersion: false,
-        teamLocks: {},
-        team: 'test-team',
-    };
-    const testApp2: Environment_Application = {
-        name: 'test2',
-        version: 1,
-        locks: { testlockId2: testAppLock2 },
-        queuedVersion: 0,
-        undeployVersion: false,
-        teamLocks: {},
-        team: 'test-team',
-    };
-
-    const testApp3: Environment_Application = {
-        name: 'test',
-        version: 2,
-        locks: { testlockId3: testApplock3 },
-        queuedVersion: 0,
-        undeployVersion: false,
-        teamLocks: {},
-        team: 'test-team',
-    };
     const testEnv1: Environment = {
         name: 'dev',
-        applications: { test: testApp1, test2: testApp2 },
         locks: {},
+        appLocks: {
+            test: {
+                locks: [testAppLock],
+            },
+            test2: {
+                locks: [testAppLock2],
+            },
+        },
+        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     };
     const testEnv2: Environment = {
         name: 'staging',
-        applications: { test: testApp3 },
         locks: {},
+        appLocks: {
+            test: {
+                locks: [testApplock3],
+            },
+        },
+        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.PROD,
     };
@@ -180,6 +166,12 @@ describe('Release Dialog', () => {
             appDetails: {
                 test: app1Details,
             },
+            OverviewApps: [
+                {
+                    name: app1Details.application?.name || '',
+                    team: app1Details.application?.team || '',
+                },
+            ],
             name: '3 releases in 3 days',
             dates: 3,
             releases: [
@@ -226,6 +218,12 @@ describe('Release Dialog', () => {
         {
             name: '3 releases in 2 days',
             dates: 2,
+            OverviewApps: [
+                {
+                    name: 'test',
+                    team: 'example',
+                },
+            ],
             appDetails: {
                 test: {
                     application: {
@@ -322,6 +320,12 @@ describe('Release Dialog', () => {
         {
             name: 'two application locks without any release',
             dates: 0,
+            OverviewApps: [
+                {
+                    name: 'test',
+                    team: 'example',
+                },
+            ],
             appDetails: {
                 test: {
                     application: {
@@ -347,7 +351,7 @@ describe('Release Dialog', () => {
         it(testcase.name, () => {
             // when
             UpdateOverview.set({
-                applications: {},
+                lightweightApps: testcase.OverviewApps,
                 environmentGroups: testcase.envGroups,
             });
             updateAppDetails.set(testcase.appDetails);

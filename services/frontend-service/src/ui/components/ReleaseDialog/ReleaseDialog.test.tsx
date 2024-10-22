@@ -94,17 +94,8 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: {},
-                    applications: {
-                        test1: {
-                            name: 'test1',
-                            version: 2,
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                        },
-                    },
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -148,17 +139,8 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: {},
-                    applications: {
-                        test1: {
-                            name: 'test1',
-                            version: 2,
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                        },
-                    },
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -241,17 +223,12 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    applications: {
+                    appLocks: {
                         test1: {
-                            name: 'test1',
-                            version: 2,
-                            locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                            teamLocks: {},
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: false,
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
                         },
                     },
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -332,18 +309,10 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    applications: {
-                        test1: {
-                            name: 'test1',
-                            version: 2,
-                            locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                            teamLocks: {},
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                            deploymentMetaData: { deployAuthor: 'test', deployTime: '1688467491' },
-                        },
+                    appLocks: {
+                        test1: { locks: [{ message: 'appLock', lockId: 'ui-applock' }] },
                     },
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -434,32 +403,26 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    applications: {
+                    appLocks: {
                         test1: {
-                            name: 'test1',
-                            version: 2,
-                            locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                            teamLocks: {},
-                            team: 'test-team',
-                            queuedVersion: 0,
-                            undeployVersion: false,
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
                         },
                     },
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
                 {
                     name: 'dev',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    applications: {
+                    appLocks: {
                         test1: {
-                            name: 'test1',
-                            version: 3,
-                            locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                            teamLocks: { teamLock: { message: 'teamLock', lockId: 'ui-teamlock' } },
-                            team: 'test-team',
-                            queuedVersion: 666,
-                            undeployVersion: false,
+                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                        },
+                    },
+                    teamLocks: {
+                        test1: {
+                            locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
                         },
                     },
                     distanceToUpstream: 0,
@@ -583,16 +546,6 @@ describe('Release Dialog', () => {
             asMap[obj.name] = obj;
         });
         UpdateOverview.set({
-            applications: {
-                [testcase.props.app]: {
-                    name: testcase.props.app,
-                    releases: testcase.rels,
-                    team: testcase.teamName,
-                    sourceRepoUrl: 'url',
-                    undeploySummary: UndeploySummary.NORMAL,
-                    warnings: [],
-                },
-            },
             environmentGroups: [
                 {
                     environmentGroupName: 'dev',

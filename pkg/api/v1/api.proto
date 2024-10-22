@@ -441,7 +441,6 @@ message OverviewApplication {
 }
 
 message GetOverviewResponse {
-  map<string, Application> applications = 2;
   repeated EnvironmentGroup environment_groups = 3;
   string git_revision = 4;
   string branch = 5;
@@ -563,45 +562,13 @@ message UpstreamNotDeployed {
 }
 
 message Environment {
-
-  message Application {
-    message ArgoCD {
-      message SyncWindow {
-        string kind = 1; // "allow" or "deny"
-        string schedule = 2; // crontab format
-        string duration = 3; // duration the window is open (or closed)
-      }
-      repeated SyncWindow sync_windows = 1;
-    }
-    message DeploymentMetaData {
-      string deploy_author = 1;
-      // we use a string here, because the UI cannot handle int64 as a type.
-      // the string contains the unix timestamps in seconds (utc)
-      string deploy_time = 2;
-    }
-
-    string name = 1;
-    // version=0 means "nothing is deployed"
-    uint64 version = 2;
-    map<string, Lock> locks = 3;
-    // "version" describes the currently deployed version. "queuedVersion" describes a version that was to be deployed, but a lock stopped the deployment:
-    // "queuedVersion" has nothing to do with queue.go
-    // queued_version=0 means "nothing is queued"
-    uint64 queued_version = 4;
-    // google.protobuf.Timestamp deploy_date = 5; // This is never used
-    bool undeploy_version = 6;
-    ArgoCD argo_cd = 7;
-    DeploymentMetaData deployment_meta_data = 8;
-    map<string, Lock> team_locks = 9; //Keep in mind that team lock information will be duplicated if there is a team with more than one application (which is usually the case)
-    string team = 10;
-  }
-
   string name = 1;
   EnvironmentConfig config = 2;
-  map<string, Lock> locks = 3;
-  map<string, Application> applications = 4;
+  map<string, Lock> locks = 3; //Environment Locks. Lock ID -> Lock
   uint32 distance_to_upstream = 5;
   Priority priority = 6;
+  map<string, Locks> app_locks = 7;  //Application Locks. AppName -> []Locks
+  map<string, Locks> team_locks = 8; //Team Locks. TeamName -> []Locks
 }
 
 message Release {

@@ -53,6 +53,7 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
     const releases = useAppDetailsForApp(app).application?.releases;
     const displayAppLocks = useDisplayApplicationLocks(app);
+
     const rel = getReleasesForAppGroupByDate(releases);
     return (
         <div className={classNames('timeline', className)}>

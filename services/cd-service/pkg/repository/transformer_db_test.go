@@ -36,11 +36,9 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 var (
@@ -1723,18 +1721,6 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 			},
 			ExpectedOverviewCache: &api.GetOverviewResponse{
 				GitRevision: "0000000000000000000000000000000000000000",
-				Applications: map[string]*api.Application{
-					"app": &api.Application{
-						Name: "app",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-								CreatedAt:      timestamppb.Now(),
-							},
-						},
-					},
-				},
 				LightweightApps: []*api.OverviewApplication{
 					{
 						Name: "app",
@@ -1756,16 +1742,6 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									},
 									EnvironmentGroup: &developmentEnvGroup,
 								},
-								Applications: map[string]*api.Environment_Application{
-									"app": &api.Environment_Application{
-										Name: "app",
-										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-											DeployAuthor: "testmail@example.com",
-											DeployTime:   timestamppb.Now().String(),
-										},
-										Version: uint64(1),
-									},
-								},
 								Priority: api.Priority_YOLO,
 							},
 						},
@@ -1786,12 +1762,6 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									EnvironmentGroup: &stagingEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
-								Applications: map[string]*api.Environment_Application{
-									"app": &api.Environment_Application{
-										Name:               "app",
-										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{},
-									},
-								},
 							},
 						},
 						Priority: api.Priority_YOLO,
@@ -1817,7 +1787,7 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if diff := cmp.Diff(tc.ExpectedOverviewCache, overview, protocmp.Transform(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Environment_Application_DeploymentMetaData{}, "deploy_time")); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedOverviewCache, overview, protocmp.Transform(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Deployment_DeploymentMetaData{}, "deploy_time")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
