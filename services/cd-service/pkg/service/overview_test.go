@@ -642,6 +642,12 @@ func TestOverviewService(t *testing.T) {
 						Team: "team-123",
 					},
 				},
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "test",
+						Team: "team-123",
+					},
+				},
 				GitRevision: "0",
 			},
 			Setup: []repository.Transformer{
