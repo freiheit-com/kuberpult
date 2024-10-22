@@ -2308,10 +2308,9 @@ func TestUpdateOverviewCache(t *testing.T) {
 						EnvironmentGroupName: "dev",
 						Environments: []*api.Environment{
 							{
-								Name:   "dev",
-								Config: nil,
-								Locks:  nil,
-								//Applications:       nil,
+								Name:               "dev",
+								Config:             nil,
+								Locks:              nil,
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},

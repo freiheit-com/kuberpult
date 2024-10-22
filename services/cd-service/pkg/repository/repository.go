@@ -2507,7 +2507,7 @@ func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sq
 }
 
 func removeOverviewAppFromLightweightApps(result *api.GetOverviewResponse, appName string) {
-	lApps := make([]*api.OverviewApplication, len(result.LightweightApps)-1)
+	lApps := make([]*api.OverviewApplication, max(len(result.LightweightApps)-1, 0))
 
 	for _, curr := range result.LightweightApps {
 		if curr.Name != appName {
