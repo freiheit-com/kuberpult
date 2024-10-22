@@ -2184,12 +2184,7 @@ func TestUpdateOverviewCache(t *testing.T) {
 						Team: "",
 					},
 				},
-				LightweightApps: []*api.OverviewApplication{
-					{
-						Name: "app1",
-						Team: "",
-					},
-				},
+				
 				EnvironmentGroups: []*api.EnvironmentGroup{},
 			},
 		},
@@ -2218,12 +2213,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 				ManifestRepoUrl: "https://example.com",
 			},
 			ExpectedOverview: &api.GetOverviewResponse{
-				LightweightApps: []*api.OverviewApplication{
-					{
-						Name: "app1",
-						Team: "",
-					},
-				},
 				LightweightApps: []*api.OverviewApplication{
 					{
 						Name: "app1",
