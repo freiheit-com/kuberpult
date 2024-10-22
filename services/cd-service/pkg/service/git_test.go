@@ -18,9 +18,13 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"database/sql"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
@@ -38,235 +42,235 @@ import (
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
-func TestGetProductOverview(t *testing.T) {
-	tcs := []struct {
-		Name                   string
-		givenEnv               *string
-		givenEnvGroup          *string
-		expectedProductSummary []api.ProductSummary
-		expectedErr            error
-		Setup                  []rp.Transformer
-	}{
-		{
-			Name:        "get Product Overview with no env or envGroup",
-			expectedErr: fmt.Errorf("Must have an environment or environmentGroup to get the product summary for"),
-		},
-		{
-			Name:        "get Product Overview with no commitHash",
-			givenEnv:    conversion.FromString("testing"),
-			expectedErr: fmt.Errorf("Must have a commit to get the product summary for"),
-		},
-		{
-			Name:          "get Product Overview with both env and envGroup",
-			givenEnv:      conversion.FromString("testing"),
-			givenEnvGroup: conversion.FromString("testingGroup"),
-			expectedErr:   fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for"),
-		},
-		{
-			Name:     "get Product Overview as expected with env",
-			givenEnv: conversion.FromString("development"),
-			Setup: []rp.Transformer{
-				&rp.CreateEnvironment{
-					Environment: "development",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-						ArgoCd:           nil,
-						EnvironmentGroup: conversion.FromString("dev"),
-					},
-				},
-				&rp.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"development": "dev",
-					},
-					SourceAuthor:    "example <example@example.com>",
-					SourceCommitId:  "testing25",
-					SourceMessage:   "changed something (#678)",
-					DisplayVersion:  "v1.0.2",
-					Team:            "sre-team",
-					WriteCommitData: true,
-				},
-				&rp.DeployApplicationVersion{
-					Application: "test",
-					Environment: "development",
-					Version:     1,
-				},
-			},
-			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: "sre-team"}},
-		},
-		{
-			Name:     "get Product Overview as expected with env but without team",
-			givenEnv: conversion.FromString("development"),
-			Setup: []rp.Transformer{
-				&rp.CreateEnvironment{
-					Environment: "development",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-						ArgoCd:           nil,
-						EnvironmentGroup: conversion.FromString("dev"),
-					},
-				},
-				&rp.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"development": "dev",
-					},
-					SourceAuthor:    "example <example@example.com>",
-					SourceCommitId:  "testing25",
-					SourceMessage:   "changed something (#678)",
-					DisplayVersion:  "v1.0.2",
-					WriteCommitData: true,
-				},
-				&rp.DeployApplicationVersion{
-					Application: "test",
-					Environment: "development",
-					Version:     1,
-				},
-			},
-			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: ""}},
-		},
-		{
-			Name:     "invalid environment used",
-			givenEnv: conversion.FromString("staging"),
-			Setup: []rp.Transformer{
-				&rp.CreateEnvironment{
-					Environment: "development",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-						ArgoCd:           nil,
-						EnvironmentGroup: conversion.FromString("dev"),
-					},
-				},
-				&rp.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"development": "dev",
-					},
-					SourceAuthor:    "example <example@example.com>",
-					SourceCommitId:  "testing25",
-					SourceMessage:   "changed something (#678)",
-					DisplayVersion:  "v1.0.2",
-					WriteCommitData: true,
-				},
-				&rp.DeployApplicationVersion{
-					Application: "test",
-					Environment: "development",
-					Version:     1,
-				},
-			},
-			expectedProductSummary: []api.ProductSummary{},
-		},
-		{
-			Name:          "get Product Overview as expected with envGroup",
-			givenEnvGroup: conversion.FromString("dev"),
-			Setup: []rp.Transformer{
-				&rp.CreateEnvironment{
-					Environment: "development",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-						ArgoCd:           nil,
-						EnvironmentGroup: conversion.FromString("dev"),
-					},
-				},
-				&rp.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"development": "dev",
-					},
-					SourceAuthor:    "example <example@example.com>",
-					SourceCommitId:  "testing25",
-					SourceMessage:   "changed something (#678)",
-					DisplayVersion:  "v1.0.2",
-					Team:            "sre-team",
-					WriteCommitData: true,
-				},
-				&rp.DeployApplicationVersion{
-					Application: "test",
-					Environment: "development",
-					Version:     1,
-				},
-			},
-			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: "sre-team"}},
-		},
-		{
-			Name:          "invalid envGroup used",
-			givenEnvGroup: conversion.FromString("notDev"),
-			Setup: []rp.Transformer{
-				&rp.CreateEnvironment{
-					Environment: "development",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-						ArgoCd:           nil,
-						EnvironmentGroup: conversion.FromString("dev"),
-					},
-				},
-				&rp.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"development": "dev",
-					},
-					SourceAuthor:    "example <example@example.com>",
-					SourceCommitId:  "testing25",
-					SourceMessage:   "changed something (#678)",
-					DisplayVersion:  "v1.0.2",
-					WriteCommitData: true,
-				},
-				&rp.DeployApplicationVersion{
-					Application: "test",
-					Environment: "development",
-					Version:     1,
-				},
-			},
-			expectedProductSummary: []api.ProductSummary{},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			shutdown := make(chan struct{}, 1)
-			repo, err := setupRepositoryTestWithoutDB(t)
-			if err != nil {
-				t.Fatalf("error setting up repository test: %v", err)
-			}
-			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown, Context: context.Background()}}
-
-			for _, transformer := range tc.Setup {
-				repo.Apply(testutil.MakeTestContext(), transformer)
-			}
-			ov, err := sv.OverviewService.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
-			if err != nil {
-				t.Errorf("expected no error, got %s", err)
-			}
-			productSummary, err := sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: ov.GitRevision, Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
-			if err != nil && tc.expectedErr == nil {
-				t.Fatalf("expected no error, but got [%s]: %v", ov.GitRevision, err)
-			}
-			if err != nil && err.Error() != tc.expectedErr.Error() {
-				t.Fatalf("expected the error [%v] but got [%v]", tc.expectedErr, err)
-			}
-			if productSummary != nil && len(tc.expectedProductSummary) > 0 {
-				for iter := range productSummary.ProductSummary {
-					if productSummary.ProductSummary[iter].App != tc.expectedProductSummary[iter].App {
-						t.Fatalf("expected [%v] for productSummary app name but got [%v]", tc.expectedProductSummary[iter].App, productSummary.ProductSummary[iter].App)
-					}
-					if productSummary.ProductSummary[iter].Version != tc.expectedProductSummary[iter].Version {
-						t.Fatalf("expected [%v] for productSummary app name but got [%v]", tc.expectedProductSummary[iter].Version, productSummary.ProductSummary[iter].Version)
-					}
-				}
-			}
-		})
-	}
-}
+//func TestGetProductOverview(t *testing.T) {
+//	tcs := []struct {
+//		Name                   string
+//		givenEnv               *string
+//		givenEnvGroup          *string
+//		expectedProductSummary []api.ProductSummary
+//		expectedErr            error
+//		Setup                  []rp.Transformer
+//	}{
+//		{
+//			Name:        "get Product Overview with no env or envGroup",
+//			expectedErr: fmt.Errorf("Must have an environment or environmentGroup to get the product summary for"),
+//		},
+//		{
+//			Name:        "get Product Overview with no commitHash",
+//			givenEnv:    conversion.FromString("testing"),
+//			expectedErr: fmt.Errorf("Must have a commit to get the product summary for"),
+//		},
+//		{
+//			Name:          "get Product Overview with both env and envGroup",
+//			givenEnv:      conversion.FromString("testing"),
+//			givenEnvGroup: conversion.FromString("testingGroup"),
+//			expectedErr:   fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for"),
+//		},
+//		{
+//			Name:     "get Product Overview as expected with env",
+//			givenEnv: conversion.FromString("development"),
+//			Setup: []rp.Transformer{
+//				&rp.CreateEnvironment{
+//					Environment: "development",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//						ArgoCd:           nil,
+//						EnvironmentGroup: conversion.FromString("dev"),
+//					},
+//				},
+//				&rp.CreateApplicationVersion{
+//					Application: "test",
+//					Manifests: map[string]string{
+//						"development": "dev",
+//					},
+//					SourceAuthor:    "example <example@example.com>",
+//					SourceCommitId:  "testing25",
+//					SourceMessage:   "changed something (#678)",
+//					DisplayVersion:  "v1.0.2",
+//					Team:            "sre-team",
+//					WriteCommitData: true,
+//				},
+//				&rp.DeployApplicationVersion{
+//					Application: "test",
+//					Environment: "development",
+//					Version:     1,
+//				},
+//			},
+//			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: "sre-team"}},
+//		},
+//		{
+//			Name:     "get Product Overview as expected with env but without team",
+//			givenEnv: conversion.FromString("development"),
+//			Setup: []rp.Transformer{
+//				&rp.CreateEnvironment{
+//					Environment: "development",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//						ArgoCd:           nil,
+//						EnvironmentGroup: conversion.FromString("dev"),
+//					},
+//				},
+//				&rp.CreateApplicationVersion{
+//					Application: "test",
+//					Manifests: map[string]string{
+//						"development": "dev",
+//					},
+//					SourceAuthor:    "example <example@example.com>",
+//					SourceCommitId:  "testing25",
+//					SourceMessage:   "changed something (#678)",
+//					DisplayVersion:  "v1.0.2",
+//					WriteCommitData: true,
+//				},
+//				&rp.DeployApplicationVersion{
+//					Application: "test",
+//					Environment: "development",
+//					Version:     1,
+//				},
+//			},
+//			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: ""}},
+//		},
+//		{
+//			Name:     "invalid environment used",
+//			givenEnv: conversion.FromString("staging"),
+//			Setup: []rp.Transformer{
+//				&rp.CreateEnvironment{
+//					Environment: "development",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//						ArgoCd:           nil,
+//						EnvironmentGroup: conversion.FromString("dev"),
+//					},
+//				},
+//				&rp.CreateApplicationVersion{
+//					Application: "test",
+//					Manifests: map[string]string{
+//						"development": "dev",
+//					},
+//					SourceAuthor:    "example <example@example.com>",
+//					SourceCommitId:  "testing25",
+//					SourceMessage:   "changed something (#678)",
+//					DisplayVersion:  "v1.0.2",
+//					WriteCommitData: true,
+//				},
+//				&rp.DeployApplicationVersion{
+//					Application: "test",
+//					Environment: "development",
+//					Version:     1,
+//				},
+//			},
+//			expectedProductSummary: []api.ProductSummary{},
+//		},
+//		{
+//			Name:          "get Product Overview as expected with envGroup",
+//			givenEnvGroup: conversion.FromString("dev"),
+//			Setup: []rp.Transformer{
+//				&rp.CreateEnvironment{
+//					Environment: "development",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//						ArgoCd:           nil,
+//						EnvironmentGroup: conversion.FromString("dev"),
+//					},
+//				},
+//				&rp.CreateApplicationVersion{
+//					Application: "test",
+//					Manifests: map[string]string{
+//						"development": "dev",
+//					},
+//					SourceAuthor:    "example <example@example.com>",
+//					SourceCommitId:  "testing25",
+//					SourceMessage:   "changed something (#678)",
+//					DisplayVersion:  "v1.0.2",
+//					Team:            "sre-team",
+//					WriteCommitData: true,
+//				},
+//				&rp.DeployApplicationVersion{
+//					Application: "test",
+//					Environment: "development",
+//					Version:     1,
+//				},
+//			},
+//			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: "sre-team"}},
+//		},
+//		{
+//			Name:          "invalid envGroup used",
+//			givenEnvGroup: conversion.FromString("notDev"),
+//			Setup: []rp.Transformer{
+//				&rp.CreateEnvironment{
+//					Environment: "development",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//						ArgoCd:           nil,
+//						EnvironmentGroup: conversion.FromString("dev"),
+//					},
+//				},
+//				&rp.CreateApplicationVersion{
+//					Application: "test",
+//					Manifests: map[string]string{
+//						"development": "dev",
+//					},
+//					SourceAuthor:    "example <example@example.com>",
+//					SourceCommitId:  "testing25",
+//					SourceMessage:   "changed something (#678)",
+//					DisplayVersion:  "v1.0.2",
+//					WriteCommitData: true,
+//				},
+//				&rp.DeployApplicationVersion{
+//					Application: "test",
+//					Environment: "development",
+//					Version:     1,
+//				},
+//			},
+//			expectedProductSummary: []api.ProductSummary{},
+//		},
+//	}
+//	for _, tc := range tcs {
+//		tc := tc
+//		t.Run(tc.Name, func(t *testing.T) {
+//			shutdown := make(chan struct{}, 1)
+//			repo, err := setupRepositoryTestWithoutDB(t)
+//			if err != nil {
+//				t.Fatalf("error setting up repository test: %v", err)
+//			}
+//			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown, Context: context.Background()}}
+//
+//			for _, transformer := range tc.Setup {
+//				repo.Apply(testutil.MakeTestContext(), transformer)
+//			}
+//			ov, err := sv.OverviewService.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
+//			if err != nil {
+//				t.Errorf("expected no error, got %s", err)
+//			}
+//			productSummary, err := sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: ov.GitRevision, Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
+//			if err != nil && tc.expectedErr == nil {
+//				t.Fatalf("expected no error, but got [%s]: %v", ov.GitRevision, err)
+//			}
+//			if err != nil && err.Error() != tc.expectedErr.Error() {
+//				t.Fatalf("expected the error [%v] but got [%v]", tc.expectedErr, err)
+//			}
+//			if productSummary != nil && len(tc.expectedProductSummary) > 0 {
+//				for iter := range productSummary.ProductSummary {
+//					if productSummary.ProductSummary[iter].App != tc.expectedProductSummary[iter].App {
+//						t.Fatalf("expected [%v] for productSummary app name but got [%v]", tc.expectedProductSummary[iter].App, productSummary.ProductSummary[iter].App)
+//					}
+//					if productSummary.ProductSummary[iter].Version != tc.expectedProductSummary[iter].Version {
+//						t.Fatalf("expected [%v] for productSummary app name but got [%v]", tc.expectedProductSummary[iter].Version, productSummary.ProductSummary[iter].Version)
+//					}
+//				}
+//			}
+//		})
+//	}
+//}
 
 func TestGetCommitInfo(t *testing.T) {
 	environmentSetup := []rp.Transformer{
@@ -856,6 +860,398 @@ func TestGetCommitInfo(t *testing.T) {
 
 			if diff := cmp.Diff(tc.expectedResponse, commitInfo, protocmp.Transform()); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestGetProductDB(t *testing.T) {
+	tcs := []struct {
+		Name                   string
+		givenEnv               *string
+		givenEnvGroup          *string
+		expectedProductSummary [][]*api.ProductSummary
+		expectedErr            error
+		SetupStages            [][]rp.Transformer
+	}{
+		{
+			Name:     "get Product Overview as expected with env",
+			givenEnv: conversion.FromString("development"),
+			SetupStages: [][]rp.Transformer{
+				{
+					&rp.CreateEnvironment{
+						Environment: "development",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Latest: true,
+							},
+							ArgoCd:           nil,
+							EnvironmentGroup: conversion.FromString("dev"),
+						},
+					},
+					&rp.CreateApplicationVersion{
+						Application: "test",
+						Manifests: map[string]string{
+							"development": "dev",
+						},
+						SourceAuthor:    "example <example@example.com>",
+						SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+						SourceMessage:   "changed something (#678)",
+						DisplayVersion:  "v1.0.2",
+						Team:            "sre-team",
+						WriteCommitData: true,
+						Version:         1,
+					},
+					&rp.DeployApplicationVersion{
+						Application: "test",
+						Environment: "development",
+						Version:     1,
+					},
+				},
+			},
+			expectedProductSummary: [][]*api.ProductSummary{
+				{
+					{
+						App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "sre-team", Environment: "development",
+					},
+				},
+			},
+		},
+		{
+			Name:     "get Product Overview as expected with env but without team - Multiple stages",
+			givenEnv: conversion.FromString("development"),
+			SetupStages: [][]rp.Transformer{
+				{
+					&rp.CreateEnvironment{
+						Environment: "development",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Latest: true,
+							},
+							ArgoCd:           nil,
+							EnvironmentGroup: conversion.FromString("dev"),
+						},
+					},
+					&rp.CreateApplicationVersion{
+						Application: "test",
+						Manifests: map[string]string{
+							"development": "dev",
+						},
+						SourceAuthor:    "example <example@example.com>",
+						SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+						SourceMessage:   "changed something (#678)",
+						DisplayVersion:  "v1.0.2",
+						WriteCommitData: true,
+						Version:         1,
+					},
+
+					&rp.CreateApplicationVersion{
+						Application: "test",
+						Manifests: map[string]string{
+							"development": "dev",
+						},
+						SourceAuthor:    "example <example@example.com>",
+						SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+						SourceMessage:   "changed something (#678)",
+						DisplayVersion:  "v1.0.2",
+						WriteCommitData: true,
+						Version:         2,
+					},
+					&rp.DeployApplicationVersion{
+						Application: "test",
+						Environment: "development",
+						Version:     1,
+					},
+				},
+				{
+					&rp.DeployApplicationVersion{
+						Application: "test",
+						Environment: "development",
+						Version:     2,
+					},
+				},
+			},
+			expectedProductSummary: [][]*api.ProductSummary{
+				{
+					{
+						App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
+					},
+				},
+				{
+					{
+						App: "test", Version: "2", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
+					},
+				},
+			},
+		},
+		{
+			Name:          "get Product Overview as expected with envGroup",
+			givenEnvGroup: conversion.FromString("dev"),
+			SetupStages: [][]rp.Transformer{
+				{
+					&rp.CreateEnvironment{
+						Environment: "development",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Latest: true,
+							},
+							ArgoCd:           nil,
+							EnvironmentGroup: conversion.FromString("dev"),
+						},
+					},
+					&rp.CreateApplicationVersion{
+						Application: "test",
+						Manifests: map[string]string{
+							"development": "dev",
+						},
+						SourceAuthor:    "example <example@example.com>",
+						SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+						SourceMessage:   "changed something (#678)",
+						DisplayVersion:  "v1.0.2",
+						Team:            "sre-team",
+						WriteCommitData: true,
+						Version:         1,
+					},
+					&rp.DeployApplicationVersion{
+						Application: "test",
+						Environment: "development",
+						Version:     1,
+					},
+				},
+			},
+			expectedProductSummary: [][]*api.ProductSummary{
+				{
+					{
+						App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "sre-team", Environment: "development",
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatalf("error setting up repository test: %v", err)
+			}
+			config := rp.RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+			}
+			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
+			ctx := testutil.MakeTestContext()
+
+			var commitHashes []string
+			for idx, steps := range tc.SetupStages {
+				err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, steps...)
+					if err != nil {
+						return err
+					}
+
+					ts, err2 := repo.State().DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+					if err2 != nil {
+						return err2
+					}
+
+					currentCommitHash := strings.Repeat(strconv.Itoa(idx), 40)
+
+					commitHashes = append(commitHashes, currentCommitHash)
+					//This table gets written by the export service
+					err2 = repo.State().DBHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, currentCommitHash, ts.UTC())
+					return err2
+				})
+				if err != nil {
+					t.Fatalf("Error applying transformers step %d: %v", idx, err)
+				}
+				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on sqlite do not collide when multiple stages are involved
+			}
+			if !sv.Config.DBHandler.ShouldUseOtherTables() {
+				t.Fatal("database is not setup correctly")
+			}
+
+			if err != nil && tc.expectedErr == nil {
+				t.Fatalf("expected no error, but got: %v", err)
+			}
+			if err != nil && err.Error() != tc.expectedErr.Error() {
+				t.Fatalf("expected the error [%v] but got [%v]", tc.expectedErr, err)
+			}
+			if len(tc.expectedProductSummary) > 0 {
+				for iter, currentExpectedProductSummary := range tc.expectedProductSummary {
+					var productSummary *api.GetProductSummaryResponse
+					if tc.givenEnvGroup != nil {
+						productSummary, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: commitHashes[iter], Environment: nil, EnvironmentGroup: tc.givenEnvGroup})
+					} else {
+						productSummary, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: commitHashes[iter], Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
+					}
+
+					if err != nil {
+						t.Fatalf("could not obtain product summary at idx %d:\n%v", iter, err)
+					}
+					if diff := cmp.Diff(currentExpectedProductSummary, productSummary.ProductSummary, cmpopts.IgnoreUnexported(api.ProductSummary{})); diff != "" {
+						t.Fatalf("output mismatch (-want, +got):\n%s", diff)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestGetProductDBFailureCases(t *testing.T) {
+	ts := time.Now()
+	tcs := []struct {
+		Name                   string
+		givenEnv               *string
+		givenEnvGroup          *string
+		expectedProductSummary []*api.ProductSummary
+		expectedErr            error
+		timestamp              *time.Time
+		Setup                  []rp.Transformer
+	}{
+		{
+			Name:        "get Product Overview with no env or envGroup",
+			timestamp:   &ts,
+			expectedErr: errMatcher{"Must have an environment or environmentGroup to get the product summary for"},
+		},
+		{
+			Name:          "get Product Overview with both env and envGroup",
+			givenEnv:      conversion.FromString("testing"),
+			givenEnvGroup: conversion.FromString("testingGroup"),
+			timestamp:     &ts,
+			expectedErr:   errMatcher{"Can not have both an environment and environmentGroup to get the product summary for"},
+		},
+		{
+			Name:      "invalid environment used",
+			givenEnv:  conversion.FromString("staging"),
+			timestamp: &ts,
+			Setup: []rp.Transformer{
+
+				&rp.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: conversion.FromString("dev"),
+					},
+				},
+				&rp.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:    "example <example@example.com>",
+					SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:   "changed something (#678)",
+					DisplayVersion:  "v1.0.2",
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&rp.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+			},
+			expectedErr:            errMatcher{"unable to get applications for environment 'staging': environment staging not found"},
+			expectedProductSummary: []*api.ProductSummary{},
+		},
+		{
+			Name:          "invalid envGroup used",
+			timestamp:     &ts,
+			givenEnvGroup: conversion.FromString("notDev"),
+			Setup: []rp.Transformer{
+
+				&rp.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: conversion.FromString("dev"),
+					},
+				},
+				&rp.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:    "example <example@example.com>",
+					SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:   "changed something (#678)",
+					DisplayVersion:  "v1.0.2",
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&rp.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+			},
+			expectedProductSummary: []*api.ProductSummary{},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatalf("error setting up repository test: %v", err)
+			}
+			config := rp.RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+			}
+			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
+			if !sv.Config.DBHandler.ShouldUseOtherTables() {
+				t.Fatal("database is not setup correctly")
+			}
+			for _, transformer := range tc.Setup {
+				err := repo.Apply(testutil.MakeTestContext(), transformer)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx := testutil.MakeTestContext()
+			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := repo.State().DBHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ts.UTC())
+				return err2
+			})
+			if err != nil {
+				t.Error(err)
+			}
+			if tc.timestamp != nil {
+				_, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
+
+			} else {
+				_, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
+			}
+			if diff := cmp.Diff(tc.expectedErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

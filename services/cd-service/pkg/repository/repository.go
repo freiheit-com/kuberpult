@@ -2132,7 +2132,7 @@ func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context,
 		return nil, err
 	}
 	if envInfo == nil {
-		return nil, fmt.Errorf("environment %s not found for timestamp %v", environment, ts)
+		return nil, fmt.Errorf("environment %s not found", environment)
 	}
 	if envInfo.Applications == nil {
 		return make([]string, 0), nil

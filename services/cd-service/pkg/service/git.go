@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 
 	"os"
@@ -57,35 +56,6 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 	return &api.GetGitTagsResponse{TagData: tags}, nil
 }
 
-func getProductSummaryForEnv(ctx context.Context, transaction *sql.Tx, state *repository.State, overviewService *OverviewServiceServer, envName string, appDetailsCache map[string]*api.GetAppDetailsResponse) ([]api.ProductSummary, error) {
-	var summaryFromEnv []api.ProductSummary
-	appsForEnv, err := state.GetEnvironmentApplications(ctx, transaction, envName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get apps on environment for %s: %v", envName, err)
-	}
-	for _, appName := range appsForEnv {
-		currentAppDetails, err := overviewService.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: appName})
-		if err != nil {
-			return nil, fmt.Errorf("unable to get app details for app: '%s': %w", appName, err)
-		}
-		appDetailsCache[appName] = currentAppDetails
-		if _, ok := currentAppDetails.Deployments[envName]; !ok {
-			//The call state.GetEnvironmentApplications should guarantee us a deployment, but just in case it doesn't, we warn an error and continue
-			logger.FromContext(ctx).Sugar().Warnf("Could not find deployment information for app '%s' on environment '%s'", appName, envName)
-			continue
-		}
-		summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
-			CommitId:       "",
-			DisplayVersion: "",
-			Team:           "",
-			App:            appName,
-			Version:        strconv.FormatUint(currentAppDetails.Deployments[envName].Version, 10),
-			Environment:    envName,
-		})
-	}
-	return summaryFromEnv, nil
-}
-
 func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
 	if in.Environment == nil && in.EnvironmentGroup == nil {
 		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
@@ -111,12 +81,12 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			}
 
 			if ts == nil {
-				return nil, fmt.Errorf("could not find ts that corresponds to the given commit hash")
+				return nil, fmt.Errorf("could not find timestamp that corresponds to the given commit hash")
 			}
 			if in.Environment != nil && *in.Environment != "" {
 				allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, *in.Environment, *ts)
 				if err != nil {
-					return nil, fmt.Errorf("unable to get allApps  %v", err)
+					return nil, fmt.Errorf("unable to get applications for environment '%s': %v", *in.Environment, err)
 				}
 				if allAppsForEnv == nil || len(allAppsForEnv) == 0 {
 					return &api.GetProductSummaryResponse{
@@ -225,7 +195,6 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 		})
 		return response, err
 	}
-
 	return &api.GetProductSummaryResponse{ProductSummary: nil}, nil
 }
 
