@@ -336,7 +336,7 @@ func TestOverviewService(t *testing.T) {
 				}
 				app, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: "test"})
 				if err != nil {
-					t.Errorf("Error fetching information for app test")
+					t.Errorf("Error fetching information for app test: %v", err)
 				}
 				testApp := app.Application
 
