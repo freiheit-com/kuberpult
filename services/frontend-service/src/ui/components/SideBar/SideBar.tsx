@@ -30,7 +30,6 @@ import {
     useLocksSimilarTo,
     useRelease,
     useLocksConflictingWithActions,
-    useReleaseDifference,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
