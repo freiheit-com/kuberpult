@@ -45,7 +45,7 @@ func HandleReleaseTrain(requestParams kutil.RequestParameters, authParams kutil.
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
-	if err := cli_utils.IssueHttpRequest(*req, requestParams.Retries); err != nil {
+	if err := cli_utils.IssueHttpRequest(*req, requestParams.Retries, requestParams.HttpTimeout); err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil

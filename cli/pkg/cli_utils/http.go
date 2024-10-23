@@ -28,10 +28,10 @@ const (
 	HttpDefaultTimeout = 180
 )
 
-func doRequest(request *http.Request) (*http.Response, []byte, error) {
+func doRequest(request *http.Request, timeout int) (*http.Response, []byte, error) {
 	//exhaustruct:ignore
 	client := &http.Client{
-		Timeout: HttpDefaultTimeout * time.Second,
+		Timeout: time.Duration(timeout) * time.Second,
 		// We don't want to follow redirects. If we get a redirect, we want to return the original status code.
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -52,10 +52,10 @@ func doRequest(request *http.Request) (*http.Response, []byte, error) {
 	return resp, body, nil
 }
 
-func IssueHttpRequest(req http.Request, retries uint64) error {
+func IssueHttpRequest(req http.Request, retries uint64, timeout int) error {
 	var i uint64
 	for i = 0; i < retries+1; i++ {
-		response, body, err := doRequest(&req)
+		response, body, err := doRequest(&req, timeout)
 		if err != nil {
 			log.Printf("error issuing http request: %v\n", err)
 		} else if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
@@ -73,8 +73,8 @@ func IssueHttpRequest(req http.Request, retries uint64) error {
 	return fmt.Errorf("could not perform a successful call to kuberpult")
 }
 
-func IssueHttpRequestWithBodyReturn(req http.Request) ([]byte, error) {
-	response, body, err := doRequest(&req)
+func IssueHttpRequestWithBodyReturn(req http.Request, timeout int) ([]byte, error) {
+	response, body, err := doRequest(&req, timeout)
 	if err != nil {
 		return nil, err
 	} else if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
