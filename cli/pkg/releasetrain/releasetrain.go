@@ -36,6 +36,7 @@ type ReleaseTrainParameters struct {
 	TargetEnvironment    string
 	Team                 *string
 	CiLink               *string
+	UseEnvGroupTarget    bool
 	UseDexAuthentication bool
 }
 
@@ -60,6 +61,9 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 
 	if parameters.UseDexAuthentication {
 		prefix = "api/environments"
+		if parameters.UseEnvGroupTarget {
+			prefix = "api/environment-groups"
+		}
 	}
 
 	path := fmt.Sprintf("%s/%s/releasetrain", prefix, parameters.TargetEnvironment)
