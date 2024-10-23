@@ -29,6 +29,7 @@ type ReleaseTrainCommandLineArguments struct {
 	targetEnvironment    cli_utils.RepeatedString
 	team                 cli_utils.RepeatedString
 	ciLink               cli_utils.RepeatedString
+	useEnvGroupTarget    bool
 	useDexAuthentication bool
 }
 
@@ -62,6 +63,7 @@ func readArgs(args []string) (*ReleaseTrainCommandLineArguments, error) {
 	fs.Var(&cmdArgs.team, "team", "the target team. Only specified teams services will be taken into account when conducting the release train")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
 	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the CI run that created this release train")
+	fs.BoolVar(&cmdArgs.useEnvGroupTarget, "use_env_group_target", false, "if set to true, sets target type to environment-group")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -88,6 +90,7 @@ func convertToParams(cmdArgs ReleaseTrainCommandLineArguments) (*ReleaseTrainPar
 		CiLink:               nil,
 		TargetEnvironment:    cmdArgs.targetEnvironment.Values[0],
 		UseDexAuthentication: cmdArgs.useDexAuthentication,
+		UseEnvGroupTarget:    cmdArgs.useEnvGroupTarget,
 	}
 
 	if len(cmdArgs.team.Values) == 1 {
