@@ -75,7 +75,6 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 		response, err := db.WithTransactionT[api.GetProductSummaryResponse](dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetProductSummaryResponse, error) {
 			//Translate a manifest repo commit hash into a DB transaction timestamp.
 			ts, err := dbHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, in.ManifestRepoCommitHash)
-
 			if err != nil {
 				return nil, fmt.Errorf("unable to get manifest repo timestamp that corresponds to provided commit Hash %v", err)
 			}
@@ -84,6 +83,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 				return nil, fmt.Errorf("could not find timestamp that corresponds to the given commit hash")
 			}
 			if in.Environment != nil && *in.Environment != "" {
+				//Single environment
 				allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, *in.Environment, *ts)
 				if err != nil {
 					return nil, fmt.Errorf("unable to get applications for environment '%s': %v", *in.Environment, err)
@@ -121,6 +121,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 					return a < b
 				})
 			} else {
+				//Environment Group
 				var environmentGroups []*api.EnvironmentGroup
 
 				envs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
@@ -135,7 +136,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 							envName := env.Name
 							allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *ts)
 							if err != nil {
-								return nil, fmt.Errorf("unable to get allApps  %v", err)
+								return nil, fmt.Errorf("unable to get all applications for environment '%s': %v", envName, err)
 							}
 							if allAppsForEnv == nil || len(allAppsForEnv) == 0 {
 								return &api.GetProductSummaryResponse{
@@ -194,8 +195,9 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
 		})
 		return response, err
+	} else {
+		return nil, fmt.Errorf("unable to retrive product summary information when the database feature is disabled")
 	}
-	return &api.GetProductSummaryResponse{ProductSummary: nil}, nil
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
