@@ -186,7 +186,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 				if err != nil {
 					return nil, fmt.Errorf("error getting release for version")
 				}
-				team, err := state.GetApplicationTeamOwner(ctx, transaction, row.App)
+				team, err := state.GetApplicationTeamOwnerAtTimestamp(ctx, transaction, row.App, *ts)
 				if err != nil {
 					return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
 				}

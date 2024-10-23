@@ -2391,6 +2391,30 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 		selectQuery,
 		appName,
 	)
+	return h.processAppsRow(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*DBAppWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppAtTimestamp")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(fmt.Sprintf(
+		"SELECT eslVersion, appName, stateChange, metadata" +
+			" FROM apps " +
+			" WHERE appName=? AND created <= ?" +
+			" ORDER BY eslVersion DESC " +
+			" LIMIT 1;"))
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appName,
+		ts,
+	)
+	return h.processAppsRow(ctx, rows, err)
+}
+
+func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err error) (*DBAppWithMetaData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
 	}

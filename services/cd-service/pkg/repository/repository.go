@@ -3147,6 +3147,21 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 	}
 }
 
+func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transaction *sql.Tx, application string, ts time.Time) (string, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		app, err := s.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, application, ts)
+		if err != nil {
+			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
+		}
+		if app == nil {
+			return "", fmt.Errorf("could not get team of app %s - could not find app", application)
+		}
+		return app.Metadata.Team, nil
+	} else {
+		return s.GetApplicationTeamOwnerFromManifest(application)
+	}
+}
+
 func (s *State) GetApplicationTeamOwnerFromManifest(application string) (string, error) {
 	appDir := applicationDirectory(s.Filesystem, application)
 	appTeam := s.Filesystem.Join(appDir, "team")
