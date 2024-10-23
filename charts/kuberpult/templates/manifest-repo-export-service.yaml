@@ -235,6 +235,8 @@ spec:
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
         volumeMounts:
+        - name: repository
+          mountPath: /kp/
         - name: ssh
           mountPath: /etc/ssh
 {{- if .Values.datadogProfiling.enabled }}
@@ -252,7 +254,7 @@ spec:
         # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
         # Because of an issue in gitlib2, this actually happens.
         emptyDir:
-          sizeLimit: 10Gi
+          sizeLimit: 30Gi
       - name: ssh
         secret:
           secretName: kuberpult-ssh
