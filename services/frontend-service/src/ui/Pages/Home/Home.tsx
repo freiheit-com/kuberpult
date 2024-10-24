@@ -26,7 +26,9 @@ export const Home: React.FC = () => {
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
     const searchedApp = useApplicationsFilteredAndSorted(teamsParam, hideWithoutWarnings(params), appNameParam);
+
     const apps = Object.values(searchedApp);
+
     const element = useGlobalLoadingState();
     if (element) {
         return element;

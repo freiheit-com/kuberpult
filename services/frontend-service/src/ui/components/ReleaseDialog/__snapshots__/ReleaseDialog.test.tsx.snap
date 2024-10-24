@@ -226,7 +226,16 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                       <div
                         class="env-card-data"
                         title="Shows the version that is currently deployed on prod. "
-                      />
+                      >
+                        <span>
+                          "
+                          test1
+                          " has no version deployed on "
+                          prod
+                          "
+                        </span>
+                        )
+                      </div>
                       <div
                         class="env-card-data"
                       >
@@ -530,7 +539,16 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                       <div
                         class="env-card-data"
                         title="Shows the version that is currently deployed on prod. "
-                      />
+                      >
+                        <span>
+                          "
+                          test1
+                          " has no version deployed on "
+                          prod
+                          "
+                        </span>
+                        )
+                      </div>
                       <div
                         class="env-card-data"
                       >
@@ -844,6 +862,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           </span>
                           the other commit message 2
                         </span>
+                        )
                       </div>
                       <div
                         class="env-card-data"
@@ -998,6 +1017,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           </span>
                           the other commit message 3
                         </span>
+                        )
                       </div>
                       <div
                         class="env-card-data env-card-data-queue"

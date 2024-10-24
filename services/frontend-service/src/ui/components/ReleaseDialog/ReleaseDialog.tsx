@@ -108,7 +108,7 @@ export type EnvironmentListItemProps = {
 };
 
 type CommitIdProps = {
-    deployment: Deployment;
+    deployment: Deployment | undefined;
     app: string;
     env: Environment;
     otherRelease?: Release;
@@ -290,9 +290,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-                        {deployment && (
-                            <DeployedVersion app={app} env={env} deployment={deployment} otherRelease={otherRelease} />
-                        )}
+                        <DeployedVersion app={app} env={env} deployment={deployment} otherRelease={otherRelease} />
                     </div>
                     {queueInfo}
                     <div className={classNames('env-card-data')}>
