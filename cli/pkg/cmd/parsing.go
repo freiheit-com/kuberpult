@@ -29,6 +29,7 @@ type commandLineArguments struct {
 	authorEmail cli_utils.RepeatedString
 	authorName  cli_utils.RepeatedString
 	retries     cli_utils.RepeatedInt
+	timeout     cli_utils.RepeatedInt
 }
 
 func readArgs(args []string) (*commandLineArguments, []string, error) {
@@ -40,6 +41,7 @@ func readArgs(args []string) (*commandLineArguments, []string, error) {
 	fs.Var(&cmdArgs.authorName, "author_name", "the name of the git author who eventually will write to the manifest repo (must be set at most once)")
 	fs.Var(&cmdArgs.authorEmail, "author_email", "the email of the git author who eventially will write to the manifest repo (must be set at most once)")
 	fs.Var(&cmdArgs.retries, "retries", "number of times the cli will retry http requests to kuberpult upon failure (must be set at most once) - default=3")
+	fs.Var(&cmdArgs.timeout, "timeout", "requests timeout seconds (must be set at most once) - default=180")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
@@ -62,6 +64,9 @@ func argsValid(cmdArgs *commandLineArguments) (bool, string) {
 	}
 	if len(cmdArgs.retries.Values) > 1 {
 		return false, "the --retries arg must be set at most once"
+	}
+	if len(cmdArgs.timeout.Values) > 1 {
+		return false, "the --timeout arg must be set at most once"
 	}
 
 	return true, ""
@@ -91,6 +96,14 @@ func convertToParams(cmdArgs *commandLineArguments) (*kuberpultClientParameters,
 		params.retries = uint64(cmdArgs.retries.Values[0])
 	} else {
 		params.retries = DefaultRetries
+	}
+	if len(cmdArgs.timeout.Values) == 1 {
+		if cmdArgs.timeout.Values[0] <= 0 {
+			return nil, fmt.Errorf("--timeout arg value must be positive")
+		}
+		params.timeout = uint64(cmdArgs.timeout.Values[0])
+	} else {
+		params.timeout = cli_utils.HttpDefaultTimeout
 	}
 
 	return &params, nil
