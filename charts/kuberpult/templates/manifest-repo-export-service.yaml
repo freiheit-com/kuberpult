@@ -239,8 +239,7 @@ spec:
           # The repository volume, an emptyDir, is mounted to the kp directory.
           # The manifest-repo-export-service creates the repository inside this directory in /kp/repository.
           # We mount the volume to the parent because kubernetes volumes belong to root.
-          # This way the container can create /kp/repository himself.
-          # DO NOT USE /kp TO STORE ANYTHING ELSE
+          # This way the container can create /kp/repository itself without any permission issues.
           mountPath: /kp/
         - name: ssh
           mountPath: /etc/ssh
