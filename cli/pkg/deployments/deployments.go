@@ -35,7 +35,7 @@ func HandleGetCommitDeployments(requestParams kutil.RequestParameters, authParam
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
-	body, err := cli_utils.IssueHttpRequestWithBodyReturn(*req)
+	body, err := cli_utils.IssueHttpRequestWithBodyReturn(*req, requestParams.HttpTimeout)
 	if err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
