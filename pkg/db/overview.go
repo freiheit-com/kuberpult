@@ -39,12 +39,13 @@ func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", teamLock.Env)
 	}
+
 	if env.TeamLocks == nil {
 		env.TeamLocks = make(map[string]*api.Locks)
 	}
 
 	if teamLock.Deleted {
-		locksToKeep := make([]*api.Lock, max(len(env.TeamLocks[teamLock.Team].Locks)-1, 0))
+		locksToKeep := make([]*api.Lock, 0)
 		for _, lock := range env.TeamLocks[teamLock.Team].Locks {
 			if lock.LockId != teamLock.LockID {
 				locksToKeep = append(locksToKeep, lock)
@@ -194,7 +195,7 @@ func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transacti
 	}
 
 	if applicationLock.Deleted {
-		locksToKeep := make([]*api.Lock, max(len(env.AppLocks[applicationLock.App].Locks)-1, 0))
+		locksToKeep := make([]*api.Lock, 0)
 		for _, lock := range env.AppLocks[applicationLock.App].Locks {
 			if lock.LockId != applicationLock.LockID {
 				locksToKeep = append(locksToKeep, lock)
