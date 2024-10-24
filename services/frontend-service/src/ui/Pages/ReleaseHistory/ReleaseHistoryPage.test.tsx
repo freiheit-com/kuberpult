@@ -17,7 +17,7 @@ import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ReleaseHistoryPage } from './ReleaseHistoryPage';
 import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
-import { updateAppDetails } from '../../utils/store';
+import { AppDetailsState, updateAppDetails } from '../../utils/store';
 
 describe('ReleaseHistoryPage', () => {
     const getNode = (): JSX.Element | any => (
@@ -85,9 +85,12 @@ describe('ReleaseHistoryPage', () => {
 
             updateAppDetails.set({
                 '': {
-                    deployments: {},
-                    appLocks: {},
-                    teamLocks: {},
+                    response: {
+                        deployments: {},
+                        appLocks: {},
+                        teamLocks: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
                 },
             });
             const { container } = getWrapper();

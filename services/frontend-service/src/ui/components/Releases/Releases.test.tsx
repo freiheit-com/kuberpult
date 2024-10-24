@@ -15,16 +15,15 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Releases } from './Releases';
 import { render } from '@testing-library/react';
-import { updateAppDetails, UpdateOverview } from '../../utils/store';
+import { AppDetailsResponse, AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 import {
     Environment,
     EnvironmentGroup,
     Lock,
+    OverviewApplication,
     Priority,
     Release,
     UndeploySummary,
-    GetAppDetailsResponse,
-    OverviewApplication,
 } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -36,7 +35,7 @@ describe('Release Dialog', () => {
         OverviewApps: OverviewApplication[];
         envGroups: EnvironmentGroup[];
         expectedAppLocksLength: number;
-        appDetails: { [p: string]: GetAppDetailsResponse };
+        appDetails: { [p: string]: AppDetailsResponse };
     };
 
     const releases = [
@@ -97,28 +96,31 @@ describe('Release Dialog', () => {
         createdBy: { name: 'test', email: 'test' },
     };
 
-    const app1Details: GetAppDetailsResponse = {
-        application: {
-            name: 'test',
-            releases: releases,
-            sourceRepoUrl: 'http://test2.com',
-            team: 'example',
-            undeploySummary: UndeploySummary.NORMAL,
-            warnings: [],
-        },
-        appLocks: {
-            dev: {
-                locks: [testAppLock],
+    const app1Details: AppDetailsResponse = {
+        response: {
+            application: {
+                name: 'test',
+                releases: releases,
+                sourceRepoUrl: 'http://test2.com',
+                team: 'example',
+                undeploySummary: UndeploySummary.NORMAL,
+                warnings: [],
+            },
+            appLocks: {
+                dev: {
+                    locks: [testAppLock],
+                },
+            },
+            teamLocks: {},
+            deployments: {
+                dev: {
+                    version: 1,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
             },
         },
-        teamLocks: {},
-        deployments: {
-            dev: {
-                version: 1,
-                queuedVersion: 0,
-                undeployVersion: false,
-            },
-        },
+        appDetailState: AppDetailsState.READY,
     };
 
     const testEnv1: Environment = {
@@ -168,8 +170,8 @@ describe('Release Dialog', () => {
             },
             OverviewApps: [
                 {
-                    name: app1Details.application?.name || '',
-                    team: app1Details.application?.team || '',
+                    name: app1Details.response?.application?.name || '',
+                    team: app1Details.response?.application?.team || '',
                 },
             ],
             name: '3 releases in 3 days',
@@ -226,54 +228,57 @@ describe('Release Dialog', () => {
             ],
             appDetails: {
                 test: {
-                    application: {
-                        name: 'test',
-                        releases: [
-                            {
-                                version: 1,
-                                sourceMessage: 'test1',
-                                sourceAuthor: 'test',
-                                sourceCommitId: 'commit',
-                                createdAt: new Date('2022-12-04T12:30:12'),
-                                undeployVersion: false,
-                                prNumber: '666',
-                                displayVersion: '1',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 2,
-                                sourceMessage: 'test1',
-                                sourceAuthor: 'test',
-                                sourceCommitId: 'commit',
-                                createdAt: new Date('2022-12-04T15:30:12'),
-                                undeployVersion: false,
-                                prNumber: '666',
-                                displayVersion: '2',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                            {
-                                version: 3,
-                                sourceMessage: 'test1',
-                                sourceAuthor: 'test',
-                                sourceCommitId: 'commit',
-                                createdAt: new Date('2022-12-06T12:30:12'),
-                                undeployVersion: false,
-                                prNumber: '666',
-                                displayVersion: '3',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        sourceRepoUrl: 'http://test2.com',
-                        team: 'example',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    response: {
+                        application: {
+                            name: 'test',
+                            releases: [
+                                {
+                                    version: 1,
+                                    sourceMessage: 'test1',
+                                    sourceAuthor: 'test',
+                                    sourceCommitId: 'commit',
+                                    createdAt: new Date('2022-12-04T12:30:12'),
+                                    undeployVersion: false,
+                                    prNumber: '666',
+                                    displayVersion: '1',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                },
+                                {
+                                    version: 2,
+                                    sourceMessage: 'test1',
+                                    sourceAuthor: 'test',
+                                    sourceCommitId: 'commit',
+                                    createdAt: new Date('2022-12-04T15:30:12'),
+                                    undeployVersion: false,
+                                    prNumber: '666',
+                                    displayVersion: '2',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                },
+                                {
+                                    version: 3,
+                                    sourceMessage: 'test1',
+                                    sourceAuthor: 'test',
+                                    sourceCommitId: 'commit',
+                                    createdAt: new Date('2022-12-06T12:30:12'),
+                                    undeployVersion: false,
+                                    prNumber: '666',
+                                    displayVersion: '3',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                },
+                            ],
+                            sourceRepoUrl: 'http://test2.com',
+                            team: 'example',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             releases: [
@@ -328,17 +333,20 @@ describe('Release Dialog', () => {
             ],
             appDetails: {
                 test: {
-                    application: {
-                        name: 'test',
-                        releases: [],
-                        sourceRepoUrl: 'http://test2.com',
-                        team: 'example',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    response: {
+                        application: {
+                            name: 'test',
+                            releases: [],
+                            sourceRepoUrl: 'http://test2.com',
+                            team: 'example',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             releases: [],

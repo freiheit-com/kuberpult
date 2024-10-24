@@ -19,13 +19,12 @@ import { ReleaseTrainPrognosis } from '../../components/ReleaseTrainPrognosis/Re
 import { render } from '@testing-library/react';
 import {
     Application,
-    GetAppDetailsResponse,
     GetReleaseTrainPrognosisResponse,
     ReleaseTrainAppSkipCause,
     ReleaseTrainEnvSkipCause,
     UndeploySummary,
 } from '../../../api/api';
-import { updateAppDetails, UpdateOverview } from '../../utils/store';
+import { AppDetailsResponse, AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 
 test('ReleaseTrain component does not render anything if the response is undefined', () => {
     const { container } = render(
@@ -56,7 +55,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
             [key: string]: Application;
         };
         appDetails: {
-            [key: string]: GetAppDetailsResponse;
+            [key: string]: AppDetailsResponse;
         };
     };
 
@@ -252,54 +251,60 @@ describe('ReleaseTrain component renders release train prognosis when the respon
             name: 'prognosis with some deployed apps',
             appDetails: {
                 'app-1': {
-                    application: {
-                        name: 'app-1',
-                        sourceRepoUrl: 'some url',
-                        team: 'some team',
-                        undeploySummary: UndeploySummary.UNRECOGNIZED,
-                        warnings: [],
-                        releases: [
-                            {
-                                version: 1,
-                                displayVersion: 'some display version',
-                                prNumber: 'some pr number',
-                                sourceAuthor: 'some source author',
-                                sourceCommitId: 'aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd',
-                                sourceMessage: 'some source message',
-                                undeployVersion: false,
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
+                    response: {
+                        application: {
+                            name: 'app-1',
+                            sourceRepoUrl: 'some url',
+                            team: 'some team',
+                            undeploySummary: UndeploySummary.UNRECOGNIZED,
+                            warnings: [],
+                            releases: [
+                                {
+                                    version: 1,
+                                    displayVersion: 'some display version',
+                                    prNumber: 'some pr number',
+                                    sourceAuthor: 'some source author',
+                                    sourceCommitId: 'aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd',
+                                    sourceMessage: 'some source message',
+                                    undeployVersion: false,
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                },
+                            ],
+                        },
+                        deployments: {},
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    deployments: {},
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 'app-3': {
-                    application: {
-                        name: 'app-3',
-                        sourceRepoUrl: 'some url',
-                        team: 'some team',
-                        undeploySummary: UndeploySummary.UNRECOGNIZED,
-                        warnings: [],
-                        releases: [
-                            {
-                                version: 1,
-                                displayVersion: 'some display version',
-                                prNumber: 'some pr number',
-                                sourceAuthor: 'some source author',
-                                sourceCommitId: '0000000000111111111122222222223333333333',
-                                sourceMessage: 'some source message',
-                                undeployVersion: false,
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
+                    response: {
+                        application: {
+                            name: 'app-3',
+                            sourceRepoUrl: 'some url',
+                            team: 'some team',
+                            undeploySummary: UndeploySummary.UNRECOGNIZED,
+                            warnings: [],
+                            releases: [
+                                {
+                                    version: 1,
+                                    displayVersion: 'some display version',
+                                    prNumber: 'some pr number',
+                                    sourceAuthor: 'some source author',
+                                    sourceCommitId: '0000000000111111111122222222223333333333',
+                                    sourceMessage: 'some source message',
+                                    undeployVersion: false,
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                },
+                            ],
+                        },
+                        deployments: {},
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    deployments: {},
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             applicationsOverview: {

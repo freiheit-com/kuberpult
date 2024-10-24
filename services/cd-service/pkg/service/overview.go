@@ -53,10 +53,13 @@ type OverviewServiceServer struct {
 	DBHandler *db.DBHandler
 }
 
+var calls = 0
+
 func (o *OverviewServiceServer) GetAppDetails(
 	ctx context.Context,
 	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
-
+	calls += 1
+	fmt.Println(calls)
 	var appName = in.AppName
 	var response = &api.GetAppDetailsResponse{
 		Application: &api.Application{

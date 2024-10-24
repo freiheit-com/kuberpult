@@ -15,6 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import {
     addAction,
+    AppDetailsState,
     EnvironmentGroupExtended,
     getAppDetails,
     showSnackbarError,
@@ -107,29 +108,18 @@ const deriveUndeployMessage = (undeploySummary: UndeploySummary | undefined): st
 export const ServiceLane: React.FC<{
     application: OverviewApplication;
     hideMinors: boolean;
-    allAppDetails: { [p: string]: GetAppDetailsResponse };
 }> = (props) => {
-    const { application, hideMinors, allAppDetails } = props;
+    const { application, hideMinors } = props;
     const { authHeader } = useAzureAuthSub((auth) => auth);
 
     const appDetails = useAppDetailsForApp(application.name);
-    // React.useEffect(() => {
-    //     getAppDetails(application.name, authHeader);
-    // }, [application, authHeader]);
     const componentRef: React.MutableRefObject<any> = React.useRef();
 
     React.useEffect(() => {
-        if (application.name === 'aaa') {
-            // eslint-disable-next-line no-console
-            console.log(allAppDetails);
-            // eslint-disable-next-line no-console
-            console.log('re-trigger');
-        }
-
         if (componentRef.current !== null) {
             const rect = componentRef.current.getBoundingClientRect();
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                if (!allAppDetails[application.name].application) {
+                if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
                     getAppDetails(application.name, authHeader);
                 }
             }
@@ -138,7 +128,7 @@ export const ServiceLane: React.FC<{
             if (componentRef.current !== null) {
                 const rect = componentRef.current.getBoundingClientRect();
                 if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                    if (!allAppDetails[application.name].application) {
+                    if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
                         getAppDetails(application.name, authHeader);
                     }
                 }
@@ -149,9 +139,9 @@ export const ServiceLane: React.FC<{
         return () => {
             document.getElementsByClassName('mdc-drawer-app-content')[0].removeEventListener('scroll', handleScroll);
         };
-    }, [allAppDetails, appDetails, application, authHeader]);
+    }, [appDetails, application, authHeader]);
 
-    if (!allAppDetails[application.name].application) {
+    if (!appDetails || !appDetails.response) {
         return (
             <div ref={componentRef} className="service-lane">
                 <div className="service-lane__header">
@@ -173,7 +163,7 @@ export const ServiceLane: React.FC<{
             <ReadyServiceLane
                 application={application}
                 hideMinors={hideMinors}
-                appDetails={appDetails}
+                appDetails={appDetails.response}
                 key={application.name}></ReadyServiceLane>
         </div>
     );
@@ -307,8 +297,8 @@ export const ReadyServiceLane: React.FC<{
     }
 
     const dotsMenu = <DotsMenu buttons={buttons} />;
-    const appLocks = Object.values(useAppDetailsForApp(application.name).appLocks);
-    const teamLocks = Object.values(useAppDetailsForApp(application.name).teamLocks);
+    const appLocks = Object.values(props.appDetails.appLocks);
+    const teamLocks = Object.values(props.appDetails.teamLocks);
     const dialog = (
         <EnvSelectionDialog
             environments={envs.map((e) => e.name)}

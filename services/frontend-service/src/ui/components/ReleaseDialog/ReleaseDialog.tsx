@@ -191,7 +191,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         );
     const otherRelease = useReleaseOptional(app, env);
     const appDetails = useAppDetailsForApp(app);
-    const deployment = appDetails.deployments[env.name];
+    const deployment = appDetails.response?.deployments[env.name];
 
     const getDeploymentMetadata = (): [String, JSX.Element] => {
         if (!deployment) {
@@ -290,7 +290,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-                        <DeployedVersion app={app} env={env} deployment={deployment} otherRelease={otherRelease} />
+                        {deployment && (
+                            <DeployedVersion app={app} env={env} deployment={deployment} otherRelease={otherRelease} />
+                        )}
                     </div>
                     {queueInfo}
                     <div className={classNames('env-card-data')}>
@@ -353,7 +355,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     if (!appDetails) {
         return null;
     }
-    const release = appDetails.application?.releases.find((r) => r.version === version);
+    const release = appDetails.response?.application?.releases.find((r) => r.version === version);
 
     if (!release) {
         return null;
@@ -558,7 +560,9 @@ export const EnvironmentGroupLane: React.FC<{
                             team={team}
                             className={priorityClassName}
                             queuedVersion={
-                                appDetails.deployments[env.name] ? appDetails.deployments[env.name].queuedVersion : 0
+                                appDetails.response?.deployments[env.name]
+                                    ? appDetails.response?.deployments[env.name].queuedVersion
+                                    : 0
                             }
                         />
                     ))}

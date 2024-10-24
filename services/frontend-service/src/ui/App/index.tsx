@@ -19,6 +19,8 @@ import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
+    AppDetailsResponse,
+    AppDetailsState,
     EnableRolloutStatus,
     FlushRolloutStatus,
     PanicOverview,
@@ -35,7 +37,7 @@ import { AzureAuthProvider, useAzureAuthSub } from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
 import { mergeMap, retryWhen } from 'rxjs/operators';
 import { Observable, timer } from 'rxjs';
-import { GetAppDetailsResponse, GetFrontendConfigResponse } from '../../api/api';
+import { GetFrontendConfigResponse } from '../../api/api';
 import { EnvironmentConfigDialog } from '../components/EnvironmentConfigDialog/EnvironmentConfigDialog';
 import { getOpenEnvironmentConfigDialog } from '../utils/Links';
 import { useSearchParams } from 'react-router-dom';
@@ -100,18 +102,12 @@ export const App: React.FC = () => {
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
-
-                        // eslint-disable-next-line no-console
-                        console.log('NEW OVERVIEW');
-                        // eslint-disable-next-line no-console
-                        console.log(updateAppDetails.get());
-                        const newDetails: { [p: string]: GetAppDetailsResponse } = {};
+                        const newDetails: { [p: string]: AppDetailsResponse } = {};
                         result.lightweightApps.forEach(
                             (elem) =>
                                 (newDetails[elem.name] = {
-                                    deployments: {},
-                                    appLocks: {},
-                                    teamLocks: {},
+                                    appDetailState: AppDetailsState.NOTREQUESTED,
+                                    response: undefined,
                                 })
                         );
                         updateAppDetails.set(newDetails);
