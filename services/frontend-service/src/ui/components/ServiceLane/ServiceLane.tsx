@@ -15,6 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import {
     addAction,
+    AppDetailsResponse,
     AppDetailsState,
     EnvironmentGroupExtended,
     getAppDetails,
@@ -34,7 +35,7 @@ import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
 import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
-import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
+import { AuthHeader, useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { SmallSpinner } from '../Spinner/Spinner';
 
 // number of releases on home. based on design
@@ -116,23 +117,9 @@ export const ServiceLane: React.FC<{
     const componentRef: React.MutableRefObject<any> = React.useRef();
 
     React.useEffect(() => {
-        if (componentRef.current !== null) {
-            const rect = componentRef.current.getBoundingClientRect();
-            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
-                    getAppDetails(application.name, authHeader);
-                }
-            }
-        }
+        getAppDetailsIfInView(componentRef, appDetails, authHeader, application.name);
         const handleScroll = (): void => {
-            if (componentRef.current !== null) {
-                const rect = componentRef.current.getBoundingClientRect();
-                if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                    if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
-                        getAppDetails(application.name, authHeader);
-                    }
-                }
-            }
+            getAppDetailsIfInView(componentRef, appDetails, authHeader, application.name);
         };
         if (document.getElementsByClassName('mdc-drawer-app-content').length !== 0) {
             document.getElementsByClassName('mdc-drawer-app-content')[0].addEventListener('scroll', handleScroll);
@@ -171,6 +158,22 @@ export const ServiceLane: React.FC<{
         </div>
     );
 };
+
+function getAppDetailsIfInView(
+    componentRef: React.MutableRefObject<any>,
+    appDetails: AppDetailsResponse,
+    authHeader: AuthHeader,
+    appName: string
+): void {
+    if (componentRef.current !== null) {
+        const rect = componentRef.current.getBoundingClientRect();
+        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+            if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
+                getAppDetails(appName, authHeader);
+            }
+        }
+    }
+}
 
 export const ReadyServiceLane: React.FC<{
     application: OverviewApplication;
