@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"os"
 	"sort"
 	"sync"
@@ -56,6 +57,10 @@ type OverviewServiceServer struct {
 func (o *OverviewServiceServer) GetAppDetails(
 	ctx context.Context,
 	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
+	
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAppDetails")
+	defer span.Finish()
+
 	var appName = in.AppName
 	var response = &api.GetAppDetailsResponse{
 		Application: &api.Application{
