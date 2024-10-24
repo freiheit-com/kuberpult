@@ -100,12 +100,6 @@ export type AppDetailsResponse = {
     response: GetAppDetailsResponse | undefined;
     appDetailState: AppDetailsState;
 };
-export enum AppDetailsState {
-    LOADING,
-    READY,
-    ERROR,
-    NOTFOUND,
-}
 
 export enum FailedEslsState {
     LOADING,
@@ -130,6 +124,7 @@ export type ReleaseTrainPrognosisResponse = {
     releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
 };
 const emptyBatch: BatchRequest & { [key: string]: unknown } = { actions: [] };
+
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
 export const refreshTags = (): void => {
@@ -145,8 +140,8 @@ export const refreshTags = (): void => {
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
-const emtpyDetails: { [key: string]: GetAppDetailsResponse } = {};
-export const [useAppDetails, updateAppDetails] = createStore<{ [key: string]: GetAppDetailsResponse }>(emtpyDetails);
+export const emptyDetails: { [key: string]: GetAppDetailsResponse } = {};
+export const [useAppDetails, updateAppDetails] = createStore<{ [key: string]: GetAppDetailsResponse }>(emptyDetails);
 
 const emptyWarnings: { [key: string]: Warning[] } = {};
 export const [useWarnings, updateWarnings] = createStore<{ [key: string]: Warning[] }>(emptyWarnings);

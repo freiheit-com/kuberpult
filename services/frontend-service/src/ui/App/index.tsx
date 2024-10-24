@@ -35,7 +35,7 @@ import { AzureAuthProvider, useAzureAuthSub } from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
 import { mergeMap, retryWhen } from 'rxjs/operators';
 import { Observable, timer } from 'rxjs';
-import { GetFrontendConfigResponse } from '../../api/api';
+import { GetAppDetailsResponse, GetFrontendConfigResponse } from '../../api/api';
 import { EnvironmentConfigDialog } from '../components/EnvironmentConfigDialog/EnvironmentConfigDialog';
 import { getOpenEnvironmentConfigDialog } from '../utils/Links';
 import { useSearchParams } from 'react-router-dom';
@@ -100,7 +100,21 @@ export const App: React.FC = () => {
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
-                        updateAppDetails.set({});
+
+                        // eslint-disable-next-line no-console
+                        console.log('NEW OVERVIEW');
+                        // eslint-disable-next-line no-console
+                        console.log(updateAppDetails.get());
+                        const newDetails: { [p: string]: GetAppDetailsResponse } = {};
+                        result.lightweightApps.forEach(
+                            (elem) =>
+                                (newDetails[elem.name] = {
+                                    deployments: {},
+                                    appLocks: {},
+                                    teamLocks: {},
+                                })
+                        );
+                        updateAppDetails.set(newDetails);
                     },
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });

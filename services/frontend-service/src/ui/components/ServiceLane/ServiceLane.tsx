@@ -104,18 +104,56 @@ const deriveUndeployMessage = (undeploySummary: UndeploySummary | undefined): st
     }
 };
 
-export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinors: boolean }> = (props) => {
-    const { application, hideMinors } = props;
+export const ServiceLane: React.FC<{
+    application: OverviewApplication;
+    hideMinors: boolean;
+    allAppDetails: { [p: string]: GetAppDetailsResponse };
+}> = (props) => {
+    const { application, hideMinors, allAppDetails } = props;
     const { authHeader } = useAzureAuthSub((auth) => auth);
 
     const appDetails = useAppDetailsForApp(application.name);
-    React.useEffect(() => {
-        getAppDetails(application.name, authHeader);
-    }, [application, authHeader]);
+    // React.useEffect(() => {
+    //     getAppDetails(application.name, authHeader);
+    // }, [application, authHeader]);
+    const componentRef: React.MutableRefObject<any> = React.useRef();
 
-    if (!appDetails) {
+    React.useEffect(() => {
+        if (application.name === 'aaa') {
+            // eslint-disable-next-line no-console
+            console.log(allAppDetails);
+            // eslint-disable-next-line no-console
+            console.log('re-trigger');
+        }
+
+        if (componentRef.current !== null) {
+            const rect = componentRef.current.getBoundingClientRect();
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+                if (!allAppDetails[application.name].application) {
+                    getAppDetails(application.name, authHeader);
+                }
+            }
+        }
+        const handleScroll = (): void => {
+            if (componentRef.current !== null) {
+                const rect = componentRef.current.getBoundingClientRect();
+                if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+                    if (!allAppDetails[application.name].application) {
+                        getAppDetails(application.name, authHeader);
+                    }
+                }
+            }
+        };
+
+        document.getElementsByClassName('mdc-drawer-app-content')[0].addEventListener('scroll', handleScroll);
+        return () => {
+            document.getElementsByClassName('mdc-drawer-app-content')[0].removeEventListener('scroll', handleScroll);
+        };
+    }, [allAppDetails, appDetails, application, authHeader]);
+
+    if (!allAppDetails[application.name].application) {
         return (
-            <div className="service-lane">
+            <div ref={componentRef} className="service-lane">
                 <div className="service-lane__header">
                     <div className="service-lane-wrapper">
                         <div className={'service-lane-name'}>
@@ -131,11 +169,13 @@ export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinor
     }
 
     return (
-        <ReadyServiceLane
-            application={application}
-            hideMinors={hideMinors}
-            appDetails={appDetails}
-            key={application.name}></ReadyServiceLane>
+        <div ref={componentRef}>
+            <ReadyServiceLane
+                application={application}
+                hideMinors={hideMinors}
+                appDetails={appDetails}
+                key={application.name}></ReadyServiceLane>
+        </div>
     );
 };
 
