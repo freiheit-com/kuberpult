@@ -16,6 +16,8 @@ Copyright freiheit.com*/
 import { render, renderHook } from '@testing-library/react';
 import { Home } from './Home';
 import {
+    AppDetailsResponse,
+    AppDetailsState,
     searchCustomFilter,
     updateAppDetails,
     UpdateOverview,
@@ -25,7 +27,7 @@ import {
 import { Spy } from 'spy4js';
 import { MemoryRouter } from 'react-router-dom';
 import { Application, GetAppDetailsResponse, GetOverviewResponse, UndeploySummary } from '../../../api/api';
-import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
+import { enableDexAuth, fakeLoadEverything } from '../../../setupTests';
 
 const mock_ServiceLane = Spy.mockReactComponents('../../components/ServiceLane/ServiceLane', 'ServiceLane');
 
@@ -70,22 +72,31 @@ describe('App', () => {
         });
         updateAppDetails.set({
             [sampleApps.app1.name]: {
-                application: sampleApps.app1,
-                deployments: {},
-                appLocks: {},
-                teamLocks: {},
+                details: {
+                    application: sampleApps.app1,
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                appDetailState: AppDetailsState.READY,
             },
             [sampleApps.app2.name]: {
-                application: sampleApps.app2,
-                deployments: {},
-                appLocks: {},
-                teamLocks: {},
+                details: {
+                    application: sampleApps.app2,
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                appDetailState: AppDetailsState.READY,
             },
             [sampleApps.app2.name]: {
-                application: sampleApps.app2,
-                deployments: {},
-                appLocks: {},
-                teamLocks: {},
+                details: {
+                    application: sampleApps.app2,
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                appDetailState: AppDetailsState.READY,
             },
         });
         fakeLoadEverything(true);
@@ -155,22 +166,31 @@ describe('App', () => {
         });
         updateAppDetails.set({
             [sampleApps.app1.name]: {
-                application: sampleApps.app1,
-                deployments: {},
-                appLocks: {},
-                teamLocks: {},
+                details: {
+                    application: sampleApps.app1,
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                appDetailState: AppDetailsState.READY,
             },
             [sampleApps.app2.name]: {
-                application: sampleApps.app2,
-                deployments: {},
-                appLocks: {},
-                teamLocks: {},
+                details: {
+                    application: sampleApps.app2,
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                appDetailState: AppDetailsState.READY,
             },
             [sampleApps.app2.name]: {
-                application: sampleApps.app2,
-                deployments: {},
-                appLocks: {},
-                teamLocks: {},
+                details: {
+                    application: sampleApps.app2,
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                appDetailState: AppDetailsState.READY,
             },
         });
         fakeLoadEverything(true);
@@ -452,7 +472,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
         selectedTeams: string[];
         Overview: GetOverviewResponse;
         expectedNumOfTeams: number;
-        appDetails: { [key: string]: GetAppDetailsResponse };
+        appDetails: { [key: string]: AppDetailsResponse };
     }
 
     const data: dataT[] = [
@@ -485,56 +505,68 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             },
             appDetails: {
                 foo: {
-                    application: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'foo',
+                            releases: [],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 bar: {
-                    application: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'bar',
+                            releases: [],
+                            sourceRepoUrl: 'http://bar.com',
+                            team: 'test',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 example: {
-                    application: {
-                        name: 'example',
-                        releases: [],
-                        sourceRepoUrl: 'http://example.com',
-                        team: 'test2',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'example',
+                            releases: [],
+                            sourceRepoUrl: 'http://example.com',
+                            team: 'test2',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 team: {
-                    application: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'team',
+                            releases: [],
+                            sourceRepoUrl: 'http://team.com',
+                            team: 'foo',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             expectedNumOfTeams: 2,
@@ -565,43 +597,52 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             expectedNumOfTeams: 2,
             appDetails: {
                 foo: {
-                    application: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'foo',
+                            releases: [],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 bar: {
-                    application: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'bar',
+                            releases: [],
+                            sourceRepoUrl: 'http://bar.com',
+                            team: 'test',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 team: {
-                    application: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'team',
+                            releases: [],
+                            sourceRepoUrl: 'http://team.com',
+                            team: 'foo',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
         },
@@ -634,43 +675,52 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             },
             appDetails: {
                 foo: {
-                    application: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'foo',
+                            releases: [],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 bar: {
-                    application: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'bar',
+                            releases: [],
+                            sourceRepoUrl: 'http://bar.com',
+                            team: 'test',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 team: {
-                    application: {
-                        name: 'team',
-                        releases: [],
-                        sourceRepoUrl: 'http://team.com',
-                        team: 'foo',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'team',
+                            releases: [],
+                            sourceRepoUrl: 'http://team.com',
+                            team: 'foo',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             expectedNumOfTeams: 4,
@@ -696,30 +746,36 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             },
             appDetails: {
                 foo: {
-                    application: {
-                        name: 'foo',
-                        releases: [],
-                        sourceRepoUrl: 'http://foo.com',
-                        team: 'dummy',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'foo',
+                            releases: [],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
                 bar: {
-                    application: {
-                        name: 'bar',
-                        releases: [],
-                        sourceRepoUrl: 'http://bar.com',
-                        team: 'test',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'bar',
+                            releases: [],
+                            sourceRepoUrl: 'http://bar.com',
+                            team: 'test',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
-                    deployments: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             expectedNumOfTeams: 0,

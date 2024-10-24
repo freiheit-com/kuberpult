@@ -108,7 +108,7 @@ export type EnvironmentListItemProps = {
 };
 
 type CommitIdProps = {
-    deployment: Deployment;
+    deployment: Deployment | undefined;
     app: string;
     env: Environment;
     otherRelease?: Release;
@@ -191,7 +191,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         );
     const otherRelease = useReleaseOptional(app, env);
     const appDetails = useAppDetailsForApp(app);
-    const deployment = appDetails.deployments[env.name];
+    const deployment = appDetails.details?.deployments[env.name];
 
     const getDeploymentMetadata = (): [String, JSX.Element] => {
         if (!deployment) {
@@ -353,7 +353,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     if (!appDetails) {
         return null;
     }
-    const release = appDetails.application?.releases.find((r) => r.version === version);
+    const release = appDetails.details?.application?.releases.find((r) => r.version === version);
 
     if (!release) {
         return null;
@@ -558,7 +558,9 @@ export const EnvironmentGroupLane: React.FC<{
                             team={team}
                             className={priorityClassName}
                             queuedVersion={
-                                appDetails.deployments[env.name] ? appDetails.deployments[env.name].queuedVersion : 0
+                                appDetails.details?.deployments[env.name]
+                                    ? appDetails.details?.deployments[env.name].queuedVersion
+                                    : 0
                             }
                         />
                     ))}

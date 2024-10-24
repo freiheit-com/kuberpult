@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { ReleaseCardMini, ReleaseCardMiniProps } from './ReleaseCardMini';
 import { render } from '@testing-library/react';
-import { updateAppDetails, UpdateOverview } from '../../utils/store';
+import { AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment, Priority, Release, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
@@ -127,23 +127,26 @@ describe('Release Card Mini', () => {
 
             updateAppDetails.set({
                 test2: {
-                    application: {
-                        name: 'test2',
-                        releases: testcase.rels,
-                        sourceRepoUrl: 'http://test2.com',
-                        team: 'example',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    deployments: {
-                        other: {
-                            version: 2,
-                            queuedVersion: 0,
-                            undeployVersion: false,
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: testcase.rels,
+                            sourceRepoUrl: 'http://test2.com',
+                            team: 'example',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
                         },
+                        deployments: {
+                            other: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             });
             const { container } = getWrapper(testcase.props);

@@ -51,7 +51,7 @@ const getReleasesForAppGroupByDate = (releases: Array<Release> | undefined): [Re
 
 export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
-    const releases = useAppDetailsForApp(app).application?.releases;
+    const releases = useAppDetailsForApp(app).details?.application?.releases;
     const displayAppLocks = useDisplayApplicationLocks(app);
 
     const rel = getReleasesForAppGroupByDate(releases);
