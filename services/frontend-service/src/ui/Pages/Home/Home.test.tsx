@@ -72,7 +72,7 @@ describe('App', () => {
         });
         updateAppDetails.set({
             [sampleApps.app1.name]: {
-                response: {
+                details: {
                     application: sampleApps.app1,
                     deployments: {},
                     appLocks: {},
@@ -81,7 +81,7 @@ describe('App', () => {
                 appDetailState: AppDetailsState.READY,
             },
             [sampleApps.app2.name]: {
-                response: {
+                details: {
                     application: sampleApps.app2,
                     deployments: {},
                     appLocks: {},
@@ -90,7 +90,7 @@ describe('App', () => {
                 appDetailState: AppDetailsState.READY,
             },
             [sampleApps.app2.name]: {
-                response: {
+                details: {
                     application: sampleApps.app2,
                     deployments: {},
                     appLocks: {},
@@ -166,7 +166,7 @@ describe('App', () => {
         });
         updateAppDetails.set({
             [sampleApps.app1.name]: {
-                response: {
+                details: {
                     application: sampleApps.app1,
                     deployments: {},
                     appLocks: {},
@@ -175,7 +175,7 @@ describe('App', () => {
                 appDetailState: AppDetailsState.READY,
             },
             [sampleApps.app2.name]: {
-                response: {
+                details: {
                     application: sampleApps.app2,
                     deployments: {},
                     appLocks: {},
@@ -184,7 +184,7 @@ describe('App', () => {
                 appDetailState: AppDetailsState.READY,
             },
             [sampleApps.app2.name]: {
-                response: {
+                details: {
                     application: sampleApps.app2,
                     deployments: {},
                     appLocks: {},

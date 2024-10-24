@@ -85,7 +85,7 @@ describe('ReleaseHistoryPage', () => {
 
             updateAppDetails.set({
                 '': {
-                    response: {
+                    details: {
                         deployments: {},
                         appLocks: {},
                         teamLocks: {},
