@@ -516,11 +516,11 @@ export const useAllWarnings = (): Warning[] => {
     const allAppDetails = updateAppDetails.get();
     return names
         .map((name) => {
-            const resp = allAppDetails[name].response;
-            if (resp === undefined) {
+            const resp = allAppDetails[name];
+            if (resp === undefined || !allAppDetails[name].response) {
                 return [];
             } else {
-                const app = resp.application;
+                const app = resp.response?.application;
                 if (app === undefined) {
                     return [];
                 } else {
@@ -607,11 +607,11 @@ const applicationsMatchingTeam = (applications: OverviewApplication[], teams: st
 export const applicationsWithWarnings = (applications: OverviewApplication[]): OverviewApplication[] =>
     applications
         .map((app) => {
-            const d = updateAppDetails.get()[app.name].response;
-            if (d === undefined) {
+            const d = updateAppDetails.get()[app.name];
+            if (d === undefined || !updateAppDetails.get()[app.name].response) {
                 return [];
             } else {
-                const currApp = d.application;
+                const currApp = d.response?.application;
                 if (currApp === undefined) {
                     return [];
                 } else {
@@ -1032,10 +1032,11 @@ export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroup
 // Calculated release difference between a specific release and currently deployed release on a specific environment
 export const useReleaseDifference = (toDeployVersion: number, application: string, environment: string): number => {
     const response = useAppDetailsForApp(application);
-    const appDetails = response.response;
-    if (!appDetails) {
+
+    if (!response || !response.response) {
         return 0;
     }
+    const appDetails = response.response;
     const deployment = appDetails.deployments[environment];
     if (!deployment) {
         return 0;

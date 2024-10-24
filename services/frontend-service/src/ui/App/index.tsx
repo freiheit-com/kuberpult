@@ -102,8 +102,9 @@ export const App: React.FC = () => {
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
+
                         const newDetails: { [p: string]: AppDetailsResponse } = {};
-                        result.lightweightApps.forEach(
+                        result.lightweightApps?.forEach(
                             (elem) =>
                                 (newDetails[elem.name] = {
                                     appDetailState: AppDetailsState.NOTREQUESTED,

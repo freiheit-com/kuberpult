@@ -27,7 +27,7 @@ import {
 import { Spy } from 'spy4js';
 import { MemoryRouter } from 'react-router-dom';
 import { Application, GetAppDetailsResponse, GetOverviewResponse, UndeploySummary } from '../../../api/api';
-import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
+import { enableDexAuth, fakeLoadEverything } from '../../../setupTests';
 
 const mock_ServiceLane = Spy.mockReactComponents('../../components/ServiceLane/ServiceLane', 'ServiceLane');
 
@@ -571,191 +571,215 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             },
             expectedNumOfTeams: 2,
         },
-        // {
-        //     name: 'shows both applications of the selected team - 2 results',
-        //     selectedTeams: ['dummy'],
-        //     Overview: {
-        //         environmentGroups: [],
-        //         gitRevision: '',
-        //         branch: '',
-        //         manifestRepoUrl: '',
-        //         lightweightApps: [
-        //             {
-        //                 name: 'foo',
-        //                 team: 'dummy',
-        //             },
-        //             {
-        //                 name: 'bar',
-        //                 team: 'dummy',
-        //             },
-        //             {
-        //                 name: 'team',
-        //                 team: 'foo',
-        //             },
-        //         ],
-        //     },
-        //     expectedNumOfTeams: 2,
-        //     appDetails: {
-        //         foo: {
-        //             application: {
-        //                 name: 'foo',
-        //                 releases: [],
-        //                 sourceRepoUrl: 'http://foo.com',
-        //                 team: 'dummy',
-        //                 undeploySummary: UndeploySummary.NORMAL,
-        //                 warnings: [],
-        //             },
-        //             appLocks: {},
-        //             teamLocks: {},
-        //             deployments: {},
-        //         },
-        //         bar: {
-        //             application: {
-        //                 name: 'bar',
-        //                 releases: [],
-        //                 sourceRepoUrl: 'http://bar.com',
-        //                 team: 'test',
-        //                 undeploySummary: UndeploySummary.NORMAL,
-        //                 warnings: [],
-        //             },
-        //             appLocks: {},
-        //             teamLocks: {},
-        //             deployments: {},
-        //         },
-        //         team: {
-        //             application: {
-        //                 name: 'team',
-        //                 releases: [],
-        //                 sourceRepoUrl: 'http://team.com',
-        //                 team: 'foo',
-        //                 undeploySummary: UndeploySummary.NORMAL,
-        //                 warnings: [],
-        //             },
-        //             appLocks: {},
-        //             teamLocks: {},
-        //             deployments: {},
-        //         },
-        //     },
-        // },
-        // {
-        //     name: 'no teams selected (shows every application) - 4 results',
-        //     selectedTeams: [],
-        //     Overview: {
-        //         environmentGroups: [],
-        //         gitRevision: '',
-        //         branch: '',
-        //         manifestRepoUrl: '',
-        //         lightweightApps: [
-        //             {
-        //                 name: 'foo',
-        //                 team: 'dummy',
-        //             },
-        //             {
-        //                 name: 'bar',
-        //                 team: 'test',
-        //             },
-        //             {
-        //                 name: 'team',
-        //                 team: 'foo',
-        //             },
-        //             {
-        //                 name: 'example',
-        //                 team: 'test2',
-        //             },
-        //         ],
-        //     },
-        //     appDetails: {
-        //         foo: {
-        //             application: {
-        //                 name: 'foo',
-        //                 releases: [],
-        //                 sourceRepoUrl: 'http://foo.com',
-        //                 team: 'dummy',
-        //                 undeploySummary: UndeploySummary.NORMAL,
-        //                 warnings: [],
-        //             },
-        //             appLocks: {},
-        //             teamLocks: {},
-        //             deployments: {},
-        //         },
-        //         bar: {
-        //             application: {
-        //                 name: 'bar',
-        //                 releases: [],
-        //                 sourceRepoUrl: 'http://bar.com',
-        //                 team: 'test',
-        //                 undeploySummary: UndeploySummary.NORMAL,
-        //                 warnings: [],
-        //             },
-        //             appLocks: {},
-        //             teamLocks: {},
-        //             deployments: {},
-        //         },
-        //         team: {
-        //             application: {
-        //                 name: 'team',
-        //                 releases: [],
-        //                 sourceRepoUrl: 'http://team.com',
-        //                 team: 'foo',
-        //                 undeploySummary: UndeploySummary.NORMAL,
-        //                 warnings: [],
-        //             },
-        //             appLocks: {},
-        //             teamLocks: {},
-        //             deployments: {},
-        //         },
-        //     },
-        //     expectedNumOfTeams: 4,
-        // },
-        // {
-        //     name: 'selected team has no assigned applications - 0 results',
-        //     selectedTeams: ['thisTeamDoesntExist'],
-        //     Overview: {
-        //         environmentGroups: [],
-        //         gitRevision: '',
-        //         branch: '',
-        //         manifestRepoUrl: '',
-        //         lightweightApps: [
-        //             {
-        //                 name: 'foo',
-        //                 team: 'dummy',
-        //             },
-        //             {
-        //                 name: 'bar',
-        //                 team: 'test',
-        //             },
-        //         ],
-        //     },
-        //     appDetails: {
-        //         foo: {
-        //             application: {
-        //                 name: 'foo',
-        //                 releases: [],
-        //                 sourceRepoUrl: 'http://foo.com',
-        //                 team: 'dummy',
-        //                 undeploySummary: UndeploySummary.NORMAL,
-        //                 warnings: [],
-        //             },
-        //             appLocks: {},
-        //             teamLocks: {},
-        //             deployments: {},
-        //         },
-        //         bar: {
-        //             application: {
-        //                 name: 'bar',
-        //                 releases: [],
-        //                 sourceRepoUrl: 'http://bar.com',
-        //                 team: 'test',
-        //                 undeploySummary: UndeploySummary.NORMAL,
-        //                 warnings: [],
-        //             },
-        //             appLocks: {},
-        //             teamLocks: {},
-        //             deployments: {},
-        //         },
-        //     },
-        //     expectedNumOfTeams: 0,
-        // },
+        {
+            name: 'shows both applications of the selected team - 2 results',
+            selectedTeams: ['dummy'],
+            Overview: {
+                environmentGroups: [],
+                gitRevision: '',
+                branch: '',
+                manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        name: 'foo',
+                        team: 'dummy',
+                    },
+                    {
+                        name: 'bar',
+                        team: 'dummy',
+                    },
+                    {
+                        name: 'team',
+                        team: 'foo',
+                    },
+                ],
+            },
+            expectedNumOfTeams: 2,
+            appDetails: {
+                foo: {
+                    response: {
+                        application: {
+                            name: 'foo',
+                            releases: [],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
+                bar: {
+                    response: {
+                        application: {
+                            name: 'bar',
+                            releases: [],
+                            sourceRepoUrl: 'http://bar.com',
+                            team: 'test',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
+                team: {
+                    response: {
+                        application: {
+                            name: 'team',
+                            releases: [],
+                            sourceRepoUrl: 'http://team.com',
+                            team: 'foo',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
+            },
+        },
+        {
+            name: 'no teams selected (shows every application) - 4 results',
+            selectedTeams: [],
+            Overview: {
+                environmentGroups: [],
+                gitRevision: '',
+                branch: '',
+                manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        name: 'foo',
+                        team: 'dummy',
+                    },
+                    {
+                        name: 'bar',
+                        team: 'test',
+                    },
+                    {
+                        name: 'team',
+                        team: 'foo',
+                    },
+                    {
+                        name: 'example',
+                        team: 'test2',
+                    },
+                ],
+            },
+            appDetails: {
+                foo: {
+                    response: {
+                        application: {
+                            name: 'foo',
+                            releases: [],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
+                bar: {
+                    response: {
+                        application: {
+                            name: 'bar',
+                            releases: [],
+                            sourceRepoUrl: 'http://bar.com',
+                            team: 'test',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
+                team: {
+                    response: {
+                        application: {
+                            name: 'team',
+                            releases: [],
+                            sourceRepoUrl: 'http://team.com',
+                            team: 'foo',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
+            },
+            expectedNumOfTeams: 4,
+        },
+        {
+            name: 'selected team has no assigned applications - 0 results',
+            selectedTeams: ['thisTeamDoesntExist'],
+            Overview: {
+                environmentGroups: [],
+                gitRevision: '',
+                branch: '',
+                manifestRepoUrl: '',
+                lightweightApps: [
+                    {
+                        name: 'foo',
+                        team: 'dummy',
+                    },
+                    {
+                        name: 'bar',
+                        team: 'test',
+                    },
+                ],
+            },
+            appDetails: {
+                foo: {
+                    response: {
+                        application: {
+                            name: 'foo',
+                            releases: [],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
+                bar: {
+                    response: {
+                        application: {
+                            name: 'bar',
+                            releases: [],
+                            sourceRepoUrl: 'http://bar.com',
+                            team: 'test',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
+            },
+            expectedNumOfTeams: 0,
+        },
     ];
 
     describe.each(data)(`Renders an Application Card`, (testcase) => {
