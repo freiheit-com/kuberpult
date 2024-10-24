@@ -505,7 +505,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             },
             appDetails: {
                 foo: {
-                    response: {
+                    details: {
                         application: {
                             name: 'foo',
                             releases: [],
@@ -521,7 +521,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                     appDetailState: AppDetailsState.READY,
                 },
                 bar: {
-                    response: {
+                    details: {
                         application: {
                             name: 'bar',
                             releases: [],
@@ -537,7 +537,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                     appDetailState: AppDetailsState.READY,
                 },
                 example: {
-                    response: {
+                    details: {
                         application: {
                             name: 'example',
                             releases: [],
@@ -553,7 +553,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                     appDetailState: AppDetailsState.READY,
                 },
                 team: {
-                    response: {
+                    details: {
                         application: {
                             name: 'team',
                             releases: [],
@@ -597,7 +597,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             expectedNumOfTeams: 2,
             appDetails: {
                 foo: {
-                    response: {
+                    details: {
                         application: {
                             name: 'foo',
                             releases: [],
@@ -613,7 +613,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                     appDetailState: AppDetailsState.READY,
                 },
                 bar: {
-                    response: {
+                    details: {
                         application: {
                             name: 'bar',
                             releases: [],
@@ -629,7 +629,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                     appDetailState: AppDetailsState.READY,
                 },
                 team: {
-                    response: {
+                    details: {
                         application: {
                             name: 'team',
                             releases: [],
@@ -675,7 +675,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             },
             appDetails: {
                 foo: {
-                    response: {
+                    details: {
                         application: {
                             name: 'foo',
                             releases: [],
@@ -691,7 +691,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                     appDetailState: AppDetailsState.READY,
                 },
                 bar: {
-                    response: {
+                    details: {
                         application: {
                             name: 'bar',
                             releases: [],
@@ -707,7 +707,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                     appDetailState: AppDetailsState.READY,
                 },
                 team: {
-                    response: {
+                    details: {
                         application: {
                             name: 'team',
                             releases: [],
@@ -746,7 +746,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
             },
             appDetails: {
                 foo: {
-                    response: {
+                    details: {
                         application: {
                             name: 'foo',
                             releases: [],
@@ -762,7 +762,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                     appDetailState: AppDetailsState.READY,
                 },
                 bar: {
-                    response: {
+                    details: {
                         application: {
                             name: 'bar',
                             releases: [],

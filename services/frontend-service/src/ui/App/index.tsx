@@ -108,7 +108,7 @@ export const App: React.FC = () => {
                             (elem) =>
                                 (newDetails[elem.name] = {
                                     appDetailState: AppDetailsState.NOTREQUESTED,
-                                    response: undefined,
+                                    details: undefined,
                                 })
                         );
                         updateAppDetails.set(newDetails);

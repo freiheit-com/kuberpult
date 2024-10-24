@@ -63,7 +63,7 @@ describe('Service Lane', () => {
         // when
         const appDetails = {
             test2: {
-                response: {
+                details: {
                     application: {
                         name: 'test2',
                         releases: [
@@ -120,7 +120,7 @@ const data: TestDataDiff[] = [
         diff: '-1',
         releases: [makeRelease(1)],
         appDetails: {
-            response: {
+            details: {
                 application: {
                     name: 'test2',
                     team: 'test-team',
@@ -170,7 +170,7 @@ const data: TestDataDiff[] = [
         diff: '0',
         releases: [makeRelease(1), makeRelease(2)],
         appDetails: {
-            response: {
+            details: {
                 application: {
                     name: 'test2',
                     team: 'test-team',
@@ -220,7 +220,7 @@ const data: TestDataDiff[] = [
         diff: '1',
         releases: [makeRelease(1), makeRelease(2), makeRelease(4)],
         appDetails: {
-            response: {
+            details: {
                 application: {
                     name: 'test2',
                     team: 'test-team',
@@ -270,7 +270,7 @@ const data: TestDataDiff[] = [
         diff: '2',
         releases: [makeRelease(2), makeRelease(4), makeRelease(3), makeRelease(5)],
         appDetails: {
-            response: {
+            details: {
                 application: {
                     name: 'test2',
                     team: 'test-team',
@@ -469,7 +469,7 @@ describe('Service Lane Important Releases', () => {
             });
             updateAppDetails.set({
                 test2: {
-                    response: {
+                    details: {
                         application: sampleApp,
                         deployments: {
                             foo: {
@@ -608,7 +608,7 @@ describe('Service Lane ⋮ menu', () => {
 
             updateAppDetails.set({
                 test1: {
-                    response: {
+                    details: {
                         application: testcase.renderedApp,
                         deployments: {},
                         appLocks: {},
@@ -844,7 +844,7 @@ describe('Service Lane AppLockSummary', () => {
 
             updateAppDetails.set({
                 test1: {
-                    response: testcase.renderedApp,
+                    details: testcase.renderedApp,
                     appDetailState: AppDetailsState.READY,
                 },
             });

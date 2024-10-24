@@ -234,7 +234,6 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                           prod
                           "
                         </span>
-                        )
                       </div>
                       <div
                         class="env-card-data"
@@ -547,7 +546,6 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                           prod
                           "
                         </span>
-                        )
                       </div>
                       <div
                         class="env-card-data"
@@ -862,7 +860,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           </span>
                           the other commit message 2
                         </span>
-                        )
                       </div>
                       <div
                         class="env-card-data"
@@ -1017,7 +1014,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           </span>
                           the other commit message 3
                         </span>
-                        )
                       </div>
                       <div
                         class="env-card-data env-card-data-queue"

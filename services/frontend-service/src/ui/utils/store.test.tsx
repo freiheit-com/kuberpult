@@ -1149,7 +1149,7 @@ describe('Test Calculate Release Difference', () => {
             name: 'environment does not exist in the envs',
             inputAppDetails: {
                 'example-app': {
-                    response: {
+                    details: {
                         application: {
                             name: 'example-app',
                             undeploySummary: UndeploySummary.NORMAL,
@@ -1229,7 +1229,7 @@ describe('Test Calculate Release Difference', () => {
             name: 'Simple diff calculation',
             inputAppDetails: {
                 [appName]: {
-                    response: {
+                    details: {
                         application: {
                             name: appName,
                             undeploySummary: UndeploySummary.NORMAL,
@@ -1322,7 +1322,7 @@ describe('Test Calculate Release Difference', () => {
             name: 'negative diff',
             inputAppDetails: {
                 [appName]: {
-                    response: {
+                    details: {
                         application: {
                             name: appName,
                             undeploySummary: UndeploySummary.NORMAL,
@@ -1402,7 +1402,7 @@ describe('Test Calculate Release Difference', () => {
             name: 'the input version does not exist',
             inputAppDetails: {
                 appName: {
-                    response: {
+                    details: {
                         application: {
                             name: appName,
                             undeploySummary: UndeploySummary.NORMAL,

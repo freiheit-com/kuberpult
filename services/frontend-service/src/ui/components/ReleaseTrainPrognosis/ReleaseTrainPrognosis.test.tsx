@@ -251,7 +251,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
             name: 'prognosis with some deployed apps',
             appDetails: {
                 'app-1': {
-                    response: {
+                    details: {
                         application: {
                             name: 'app-1',
                             sourceRepoUrl: 'some url',
@@ -279,7 +279,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                     appDetailState: AppDetailsState.READY,
                 },
                 'app-3': {
-                    response: {
+                    details: {
                         application: {
                             name: 'app-3',
                             sourceRepoUrl: 'some url',

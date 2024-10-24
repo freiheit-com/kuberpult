@@ -168,7 +168,7 @@ describe('Release Dialog', () => {
             },
             appDetails: {
                 test1: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test1',
                             releases: [
@@ -257,7 +257,7 @@ describe('Release Dialog', () => {
             },
             appDetails: {
                 test1: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test1',
                             releases: [
@@ -344,7 +344,7 @@ describe('Release Dialog', () => {
             },
             appDetails: {
                 test1: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test1',
                             releases: [
@@ -499,7 +499,7 @@ describe('Release Dialog', () => {
             },
             appDetails: {
                 test1: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test1',
                             releases: [

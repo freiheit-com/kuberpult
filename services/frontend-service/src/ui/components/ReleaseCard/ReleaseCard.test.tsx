@@ -60,7 +60,7 @@ describe('Release Card', () => {
             props: { app: 'test1', version: 2 },
             appDetails: {
                 test1: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test1',
                             releases: [
@@ -110,7 +110,7 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test2',
                             releases: [
@@ -160,7 +160,7 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test2',
                             releases: [
@@ -225,7 +225,7 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test2',
                             releases: [
@@ -290,7 +290,7 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test2',
                             releases: [
@@ -355,7 +355,7 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test2',
                             releases: [
@@ -481,7 +481,7 @@ describe('Release Card Rollout Status', () => {
             props: { app: 'test1', version: 2 },
             appDetails: {
                 test1: {
-                    response: {
+                    details: {
                         application: {
                             name: '',
                             releases: [

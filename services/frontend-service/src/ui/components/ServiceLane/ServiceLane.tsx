@@ -144,7 +144,7 @@ export const ServiceLane: React.FC<{
         }
     }, [appDetails, application, authHeader]);
 
-    if (!appDetails || !appDetails.response) {
+    if (!appDetails || !appDetails.details) {
         return (
             <div ref={componentRef} className="service-lane">
                 <div className="service-lane__header">
@@ -166,7 +166,7 @@ export const ServiceLane: React.FC<{
             <ReadyServiceLane
                 application={application}
                 hideMinors={hideMinors}
-                appDetails={appDetails.response}
+                appDetails={appDetails.details}
                 key={application.name}></ReadyServiceLane>
         </div>
     );

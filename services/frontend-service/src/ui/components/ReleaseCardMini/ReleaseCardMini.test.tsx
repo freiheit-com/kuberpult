@@ -127,7 +127,7 @@ describe('Release Card Mini', () => {
 
             updateAppDetails.set({
                 test2: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test2',
                             releases: testcase.rels,

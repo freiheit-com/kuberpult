@@ -97,7 +97,7 @@ describe('Release Dialog', () => {
     };
 
     const app1Details: AppDetailsResponse = {
-        response: {
+        details: {
             application: {
                 name: 'test',
                 releases: releases,
@@ -170,8 +170,8 @@ describe('Release Dialog', () => {
             },
             OverviewApps: [
                 {
-                    name: app1Details.response?.application?.name || '',
-                    team: app1Details.response?.application?.team || '',
+                    name: app1Details.details?.application?.name || '',
+                    team: app1Details.details?.application?.team || '',
                 },
             ],
             name: '3 releases in 3 days',
@@ -228,7 +228,7 @@ describe('Release Dialog', () => {
             ],
             appDetails: {
                 test: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test',
                             releases: [
@@ -333,7 +333,7 @@ describe('Release Dialog', () => {
             ],
             appDetails: {
                 test: {
-                    response: {
+                    details: {
                         application: {
                             name: 'test',
                             releases: [],
