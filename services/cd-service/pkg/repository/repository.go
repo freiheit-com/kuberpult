@@ -1654,19 +1654,19 @@ func (s *State) GetDeploymentMetaDataFromRepo(environment, application string) (
 	return string(author), deployedAt, nil
 }
 
-func (s *State) DeleteTeamLockIfEmpty(ctx context.Context, environment string, team string) error {
+func (s *State) DeleteTeamLockIfEmpty(_ context.Context, environment string, team string) error {
 	dir := s.GetTeamLocksDir(environment, team)
 	_, err := s.DeleteDirIfEmpty(dir)
 	return err
 }
 
-func (s *State) DeleteAppLockIfEmpty(ctx context.Context, environment string, application string) error {
+func (s *State) DeleteAppLockIfEmpty(_ context.Context, environment string, application string) error {
 	dir := s.GetAppLocksDir(environment, application)
 	_, err := s.DeleteDirIfEmpty(dir)
 	return err
 }
 
-func (s *State) DeleteEnvLockIfEmpty(ctx context.Context, environment string) error {
+func (s *State) DeleteEnvLockIfEmpty(_ context.Context, environment string) error {
 	dir := s.GetEnvLocksDir(environment)
 	_, err := s.DeleteDirIfEmpty(dir)
 	return err
@@ -1998,7 +1998,7 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 }
 
 // for use with custom migrations, otherwise use the two functions above
-func (s *State) GetAllEnvironments(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetAllEnvironments(_ context.Context) (map[string]config.EnvironmentConfig, error) {
 	result := map[string]config.EnvironmentConfig{}
 
 	fs := s.Filesystem
