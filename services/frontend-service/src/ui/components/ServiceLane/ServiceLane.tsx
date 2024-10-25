@@ -117,10 +117,10 @@ export const ServiceLane: React.FC<{
     const componentRef: React.MutableRefObject<any> = React.useRef();
 
     React.useEffect(() => {
-        getAppDetailsIfInView(componentRef, appDetails, authHeader, application.name);
         const handleScroll = (): void => {
             getAppDetailsIfInView(componentRef, appDetails, authHeader, application.name);
         };
+        handleScroll();
         if (document.getElementsByClassName('mdc-drawer-app-content').length !== 0) {
             document.getElementsByClassName('mdc-drawer-app-content')[0].addEventListener('scroll', handleScroll);
             return () => {
