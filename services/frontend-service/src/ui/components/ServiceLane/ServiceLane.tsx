@@ -15,6 +15,8 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import {
     addAction,
+    AppDetailsResponse,
+    AppDetailsState,
     EnvironmentGroupExtended,
     getAppDetails,
     showSnackbarError,
@@ -33,7 +35,7 @@ import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
 import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
-import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
+import { AuthHeader, useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { SmallSpinner } from '../Spinner/Spinner';
 
 // number of releases on home. based on design
@@ -104,18 +106,34 @@ const deriveUndeployMessage = (undeploySummary: UndeploySummary | undefined): st
     }
 };
 
-export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinors: boolean }> = (props) => {
+export const ServiceLane: React.FC<{
+    application: OverviewApplication;
+    hideMinors: boolean;
+}> = (props) => {
     const { application, hideMinors } = props;
     const { authHeader } = useAzureAuthSub((auth) => auth);
 
     const appDetails = useAppDetailsForApp(application.name);
-    React.useEffect(() => {
-        getAppDetails(application.name, authHeader);
-    }, [application, authHeader]);
+    const componentRef: React.MutableRefObject<any> = React.useRef();
 
-    if (!appDetails) {
+    React.useEffect(() => {
+        const handleScroll = (): void => {
+            getAppDetailsIfInView(componentRef, appDetails, authHeader, application.name);
+        };
+        handleScroll();
+        if (document.getElementsByClassName('mdc-drawer-app-content').length !== 0) {
+            document.getElementsByClassName('mdc-drawer-app-content')[0].addEventListener('scroll', handleScroll);
+            return () => {
+                document
+                    .getElementsByClassName('mdc-drawer-app-content')[0]
+                    .removeEventListener('scroll', handleScroll);
+            };
+        }
+    }, [appDetails, application, authHeader]);
+
+    if (!appDetails || !appDetails.details) {
         return (
-            <div className="service-lane">
+            <div ref={componentRef} className="service-lane">
                 <div className="service-lane__header">
                     <div className="service-lane-wrapper">
                         <div className={'service-lane-name'}>
@@ -131,13 +149,31 @@ export const ServiceLane: React.FC<{ application: OverviewApplication; hideMinor
     }
 
     return (
-        <ReadyServiceLane
-            application={application}
-            hideMinors={hideMinors}
-            appDetails={appDetails}
-            key={application.name}></ReadyServiceLane>
+        <div ref={componentRef}>
+            <ReadyServiceLane
+                application={application}
+                hideMinors={hideMinors}
+                appDetails={appDetails.details}
+                key={application.name}></ReadyServiceLane>
+        </div>
     );
 };
+
+function getAppDetailsIfInView(
+    componentRef: React.MutableRefObject<any>,
+    appDetails: AppDetailsResponse,
+    authHeader: AuthHeader,
+    appName: string
+): void {
+    if (componentRef.current !== null) {
+        const rect = componentRef.current.getBoundingClientRect();
+        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+            if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
+                getAppDetails(appName, authHeader);
+            }
+        }
+    }
+}
 
 export const ReadyServiceLane: React.FC<{
     application: OverviewApplication;
@@ -267,8 +303,8 @@ export const ReadyServiceLane: React.FC<{
     }
 
     const dotsMenu = <DotsMenu buttons={buttons} />;
-    const appLocks = Object.values(useAppDetailsForApp(application.name).appLocks);
-    const teamLocks = Object.values(useAppDetailsForApp(application.name).teamLocks);
+    const appLocks = Object.values(props.appDetails.appLocks);
+    const teamLocks = Object.values(props.appDetails.teamLocks);
     const dialog = (
         <EnvSelectionDialog
             environments={envs.map((e) => e.name)}
