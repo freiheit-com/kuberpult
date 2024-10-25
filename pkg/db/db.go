@@ -2439,12 +2439,6 @@ func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deploymen
 	if err != nil {
 		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
 	}
-	if !skipOverview {
-		err = h.UpdateOverviewDeployment(ctx, tx, deployment, *now)
-		if err != nil {
-			return fmt.Errorf("could not update overview table. Error: %w\n", err)
-		}
-	}
 	return nil
 }
 
@@ -4993,12 +4987,6 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 
 	if err != nil {
 		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
-	}
-	if !skipOverview {
-		err = h.UpdateOverviewDeploymentAttempt(ctx, tx, deployment)
-		if err != nil {
-			return fmt.Errorf("could not update overview table in DB. Error: %w\n", err)
-		}
 	}
 	return nil
 }

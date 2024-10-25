@@ -19,20 +19,19 @@ package service
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"sync"
-	"testing"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"sync"
+	"testing"
 )
 
 type mockOverviewService_StreamOverviewServer struct {
@@ -1266,343 +1265,180 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 	}
 }
 
-//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
-//func TestUpdateOverviewDeploymentAttempt(t *testing.T) {
-//	var dev = "dev"
-//	var upstreamLatest = true
-//	var version int64 = 12
-//	startingOverview := makeTestStartingOverview()
-//	tcs := []struct {
-//		Name             string
-//		NewDeployment    *QueuedDeployment
-//		ExpectedError    error
-//		ExpectedOverview *api.GetOverviewResponse
-//	}{
-//		{
-//			Name: "Update overview Deployment Attempt",
-//			NewDeployment: &QueuedDeployment{
-//				EslVersion: 1,
-//				Env:        "development",
-//				App:        "test",
-//				Version:    &version,
-//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedOverview: &api.GetOverviewResponse{
-//				EnvironmentGroups: []*api.EnvironmentGroup{
-//					{
-//						EnvironmentGroupName: "dev",
-//						Environments: []*api.Environment{
-//							{
-//								Name: "development",
-//								Config: &api.EnvironmentConfig{
-//									Upstream: &api.EnvironmentConfig_Upstream{
-//										Latest: &upstreamLatest,
-//									},
-//									Argocd:           &api.EnvironmentConfig_ArgoCD{},
-//									EnvironmentGroup: &dev,
-//								},
-//								//Applications: map[string]*api.Environment_Application{
-//								//	"test": {
-//								//		Name:    "test",
-//								//		Version: 1,
-//								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-//								//			DeployAuthor: "testmail@example.com",
-//								//			DeployTime:   "1",
-//								//		},
-//								//		Team:          "team-123",
-//								//		QueuedVersion: 12,
-//								//	},
-//								//},
-//								Priority: api.Priority_YOLO,
-//							},
-//						},
-//						Priority: api.Priority_YOLO,
-//					},
-//				},
-//				//Applications: map[string]*api.Application{
-//				//	"test": {
-//				//		Name: "test",
-//				//		Releases: []*api.Release{
-//				//			{
-//				//				Version:        1,
-//				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-//				//				SourceAuthor:   "example <example@example.com>",
-//				//				SourceMessage:  "changed something (#678)",
-//				//				PrNumber:       "678",
-//				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-//				//			},
-//				//		},
-//				//		Team: "team-123",
-//				//		Warnings: []*api.Warning{
-//				//			{
-//				//				WarningType: &api.Warning_UnusualDeploymentOrder{
-//				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-//				//						UpstreamEnvironment: "staging",
-//				//						ThisVersion:         12,
-//				//						ThisEnvironment:     "development",
-//				//					},
-//				//				},
-//				//			},
-//				//		},
-//				//	},
-//				//},
-//				LightweightApps: []*api.OverviewApplication{
-//					{
-//						Name: "test",
-//						Team: "team-123",
-//					},
-//				},
-//				GitRevision: "0",
-//			},
-//		},
-//		{
-//			Name: "app does not exists",
-//			NewDeployment: &QueuedDeployment{
-//				EslVersion: 1,
-//				Env:        "development",
-//				App:        "does-not-exists",
-//				Version:    &version,
-//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
-//		},
-//		{
-//			Name: "env does not exists",
-//			NewDeployment: &QueuedDeployment{
-//				EslVersion: 1,
-//				Env:        "does-not-exists",
-//				App:        "test",
-//				Version:    &version,
-//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedError: errMatcher{"could not find environment does-not-exists in overview"},
-//		},
-//		{
-//			Name:             "nil queued deployment",
-//			ExpectedOverview: startingOverview,
-//		},
-//	}
-//
-//	for _, tc := range tcs {
-//		t.Run(tc.Name, func(t *testing.T) {
-//			ctx := testutil.MakeTestContext()
-//			dbHandler := setupDB(t)
-//
-//			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-//				err := dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
-//				if err != nil {
-//					return err
-//				}
-//				err = dbHandler.UpdateOverviewDeploymentAttempt(ctx, transaction, tc.NewDeployment)
-//				if err != nil {
-//					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-//						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
-//					}
-//					return nil
-//				}
-//				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
-//				if err != nil {
-//					return err
-//				}
-//				opts := getOverviewIgnoredTypes()
-//				if diff := cmp.Diff(tc.ExpectedOverview, latestOverview, opts); diff != "" {
-//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
-//				}
-//				return nil
-//			})
-//			if err != nil {
-//				t.Fatal(err)
-//			}
-//		})
-//	}
-//}
-//
+// TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
+func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
+	var dev = "dev"
+	tcs := []struct {
+		Name                   string
+		Setup                  []repository.Transformer
+		AppsNamesToCheck       []string
+		ExpectedCachedOverview *api.GetOverviewResponse
+		ExpectedAppDetails     map[string]*api.GetAppDetailsResponse //appName -> appDetails
+	}{
+		{
+			Name: "Update overview Deployment Attempt",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Environment: "development",
+					Application: "test",
+					LockId:      "manual",
+					Message:     "no",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     2,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					Team:           "test-team",
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			ExpectedAppDetails: map[string]*api.GetAppDetailsResponse{
+				"test": {
+					Application: &api.Application{
+						Name: "test",
+						Releases: []*api.Release{
+							{
+								Version:        2,
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceAuthor:   "example <example@example.com>",
+								SourceMessage:  "changed something (#678)",
+								PrNumber:       "678",
+								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							},
+							{
+								Version:        1,
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceAuthor:   "example <example@example.com>",
+								SourceMessage:  "changed something (#678)",
+								PrNumber:       "678",
+								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							},
+						},
+						Team:     "test-team",
+						Warnings: []*api.Warning{},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							QueuedVersion: 2,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "testmail@example.com",
+								DeployTime:   "1",
+							},
+						},
+					},
+					AppLocks: map[string]*api.Locks{
+						"development": {
+							Locks: []*api.Lock{
+								{
+									Message: "no",
+									LockId:  "manual",
+									CreatedBy: &api.Actor{
+										Name:  "test tester",
+										Email: "testmail@example.com",
+									},
+								},
+							},
+						},
+					},
+					TeamLocks: map[string]*api.Locks{},
+				},
+			},
+			AppsNamesToCheck: []string{"test"},
+		},
+	}
 
-//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
-//func TestUpdateOverviewApplicationLock(t *testing.T) {
-//	var dev = "dev"
-//	var upstreamLatest = true
-//	startingOverview := makeTestStartingOverview()
-//	tcs := []struct {
-//		Name               string
-//		NewApplicationLock ApplicationLock
-//		ExcpectedOverview  *api.GetOverviewResponse
-//		ExpectedError      error
-//	}{
-//		{
-//			Name: "Update overview",
-//			NewApplicationLock: ApplicationLock{
-//				Env:        "development",
-//				App:        "test",
-//				LockID:     "dev-lock",
-//				EslVersion: 2,
-//				Deleted:    false,
-//				Metadata: LockMetadata{
-//					Message:        "My lock on dev for my-team",
-//					CreatedByName:  "myself",
-//					CreatedByEmail: "myself@example.com",
-//				},
-//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExcpectedOverview: &api.GetOverviewResponse{
-//				EnvironmentGroups: []*api.EnvironmentGroup{
-//					{
-//						EnvironmentGroupName: "dev",
-//						Environments: []*api.Environment{
-//							{
-//								Name: "development",
-//								Config: &api.EnvironmentConfig{
-//									Upstream: &api.EnvironmentConfig_Upstream{
-//										Latest: &upstreamLatest,
-//									},
-//									Argocd:           &api.EnvironmentConfig_ArgoCD{},
-//									EnvironmentGroup: &dev,
-//								},
-//								//Applications: map[string]*api.Environment_Application{
-//								//	"test": {
-//								//		Name:    "test",
-//								//		Version: 1,
-//								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-//								//			DeployAuthor: "testmail@example.com",
-//								//			DeployTime:   "1",
-//								//		},
-//								//		Team: "team-123",
-//								//		Locks: map[string]*api.Lock{
-//								//			"dev-lock": {
-//								//				Message:   "My lock on dev for my-team",
-//								//				LockId:    "dev-lock",
-//								//				CreatedAt: timestamppb.New(time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC)),
-//								//				CreatedBy: &api.Actor{
-//								//					Name:  "myself",
-//								//					Email: "myself@example.com",
-//								//				},
-//								//			},
-//								//		},
-//								//	},
-//								//},
-//								Priority: api.Priority_YOLO,
-//							},
-//						},
-//						Priority: api.Priority_YOLO,
-//					},
-//				},
-//				//Applications: map[string]*api.Application{
-//				//	"test": {
-//				//		Name: "test",
-//				//		Releases: []*api.Release{
-//				//			{
-//				//				Version:        1,
-//				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-//				//				SourceAuthor:   "example <example@example.com>",
-//				//				SourceMessage:  "changed something (#678)",
-//				//				PrNumber:       "678",
-//				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-//				//			},
-//				//		},
-//				//		Team: "team-123",
-//				//		Warnings: []*api.Warning{
-//				//			{
-//				//				WarningType: &api.Warning_UnusualDeploymentOrder{
-//				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-//				//						UpstreamEnvironment: "staging",
-//				//						ThisVersion:         12,
-//				//						ThisEnvironment:     "development",
-//				//					},
-//				//				},
-//				//			},
-//				//		},
-//				//	},
-//				//},
-//				LightweightApps: []*api.OverviewApplication{
-//					{
-//						Name: "test",
-//						Team: "team-123",
-//					},
-//				},
-//				GitRevision: "0",
-//			},
-//		},
-//		{
-//			Name: "env does not exists",
-//			NewApplicationLock: ApplicationLock{
-//				Env:        "does-not-exists",
-//				App:        "test",
-//				LockID:     "dev-lock",
-//				EslVersion: 2,
-//				Deleted:    false,
-//				Metadata: LockMetadata{
-//					Message:        "My lock on dev for my-team",
-//					CreatedByName:  "myself",
-//					CreatedByEmail: "myself@example.com",
-//				},
-//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedError: errMatcher{"could not find environment does-not-exists in overview"},
-//		},
-//		{
-//			Name: "app does not exists",
-//			NewApplicationLock: ApplicationLock{
-//				Env:        "development",
-//				App:        "does-not-exists",
-//				LockID:     "dev-lock",
-//				EslVersion: 2,
-//				Deleted:    false,
-//				Metadata: LockMetadata{
-//					Message:        "My lock on dev for my-team",
-//					CreatedByName:  "myself",
-//					CreatedByEmail: "myself@example.com",
-//				},
-//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
-//		},
-//	}
-//
-//	for _, tc := range tcs {
-//		tc := tc
-//		t.Run(tc.Name, func(t *testing.T) {
-//			t.Parallel()
-//			ctx := testutil.MakeTestContext()
-//			dbHandler := setupDB(t)
-//
-//			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-//				err := dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
-//				if err != nil {
-//					return err
-//				}
-//				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock, tc.NewApplicationLock.Created)
-//				if err != nil {
-//					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-//						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
-//					}
-//					return nil
-//				}
-//				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
-//				if err != nil {
-//					return err
-//				}
-//				opts := getOverviewIgnoredTypes()
-//				if diff := cmp.Diff(tc.ExcpectedOverview, latestOverview, opts); diff != "" {
-//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
-//				}
-//				tc.NewApplicationLock.Deleted = true
-//				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock, tc.NewApplicationLock.Created)
-//				if err != nil {
-//					return err
-//				}
-//				latestOverview, err = dbHandler.ReadLatestOverviewCache(ctx, transaction)
-//				if err != nil {
-//					return err
-//				}
-//				if diff := cmp.Diff(startingOverview, latestOverview, opts); diff != "" {
-//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
-//				}
-//				return nil
-//			})
-//
-//			if err != nil {
-//				t.Fatal(err)
-//			}
-//		})
-//	}
-//}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := testutil.MakeTestContext()
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				Shutdown:   shutdown,
+				DBHandler:  repo.State().DBHandler,
+				Context:    context.Background(),
+			}
+			for _, currentAppName := range tc.AppsNamesToCheck {
+				response, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: currentAppName})
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedAppDetails[currentAppName], response, getAppDetailsIgnoredTypes()); diff != "" {
+					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+				}
+			}
+		})
+
+	}
+}
+func getAppDetailsIgnoredTypes() cmp.Option {
+	return cmpopts.IgnoreUnexported(api.GetAppDetailsResponse{},
+		api.Deployment{},
+		api.Application{},
+		api.Locks{},
+		api.Lock{},
+		api.Warning_UnusualDeploymentOrder{},
+		api.UnusualDeploymentOrder{},
+		api.UpstreamNotDeployed{},
+		timestamppb.Timestamp{},
+		api.Warning_UpstreamNotDeployed{},
+		api.Release{},
+		api.Lock{},
+		api.Actor{},
+		api.Deployment_DeploymentMetaData{})
+}
