@@ -14,15 +14,12 @@
 
 # Copyright freiheit.com
 
-{{- if not (or (eq .Values.db.dbOption "postgreSQL") (eq .Values.db.dbOption "NO_DB")) }}
-{{ fail ".Values.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
+{{- if not (eq .Values.db.dbOption "postgreSQL") }}
+{{ fail ".Values.db.dbOption does not contain a valid value (postgreSQL)."}}
 {{ end -}}
 
 # the export service is only enabled, if the DB is enabled
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
-
-{{- if eq .Values.db.writeEslTableOnly false }}
-
 
 ---
 apiVersion: apps/v1
@@ -290,5 +287,4 @@ spec:
     app: kuberpult-manifest-repo-export-service
   type: NodePort
 
-{{- end }}
 {{- end }}
