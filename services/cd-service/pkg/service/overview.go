@@ -326,7 +326,6 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err2
 			}
 		}
-
 	}
 
 	return &result, nil
