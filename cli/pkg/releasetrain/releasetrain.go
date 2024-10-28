@@ -36,6 +36,7 @@ type ReleaseTrainParameters struct {
 	TargetEnvironment    string
 	Team                 *string
 	CiLink               *string
+	UseEnvGroupTarget    bool
 	UseDexAuthentication bool
 }
 
@@ -44,7 +45,7 @@ func HandleReleaseTrain(requestParams kutil.RequestParameters, authParams kutil.
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
-	if err := cli_utils.IssueHttpRequest(*req, requestParams.Retries); err != nil {
+	if err := cli_utils.IssueHttpRequest(*req, requestParams.Retries, requestParams.HttpTimeout); err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil
@@ -60,6 +61,9 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 
 	if parameters.UseDexAuthentication {
 		prefix = "api/environments"
+		if parameters.UseEnvGroupTarget {
+			prefix = "api/environment-groups"
+		}
 	}
 
 	path := fmt.Sprintf("%s/%s/releasetrain", prefix, parameters.TargetEnvironment)

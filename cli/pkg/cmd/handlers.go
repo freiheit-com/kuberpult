@@ -74,7 +74,7 @@ func handleReleaseTrain(kpClientParams kuberpultClientParameters, args []string)
 	requestParameters := kutil.RequestParameters{
 		Url:         &kpClientParams.url,
 		Retries:     kpClientParams.retries,
-		HttpTimeout: cli_utils.HttpDefaultTimeout,
+		HttpTimeout: int(kpClientParams.timeout),
 	}
 
 	if err = releasetrain.HandleReleaseTrain(requestParameters, authParams, *parsedArgs); err != nil {

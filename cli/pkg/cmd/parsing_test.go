@@ -71,6 +71,7 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: &kuberpultClientParameters{
 				url:     "something.somewhere",
 				retries: DefaultRetries,
+				timeout: 180,
 			},
 		},
 		{
@@ -93,6 +94,7 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: &kuberpultClientParameters{
 				url:     "something.somewhere",
 				retries: DefaultRetries,
+				timeout: 180,
 			},
 			expectedOther: []string{"potato", "--tomato"},
 		},
@@ -103,6 +105,7 @@ func TestParseArgs(t *testing.T) {
 				url:        "something.somewhere",
 				authorName: ptrStr("john"),
 				retries:    DefaultRetries,
+				timeout:    180,
 			},
 			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
 		},
@@ -120,6 +123,7 @@ func TestParseArgs(t *testing.T) {
 				url:         "something.somewhere",
 				authorEmail: ptrStr("john"),
 				retries:     DefaultRetries,
+				timeout:     180,
 			},
 			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
 		},
@@ -136,6 +140,7 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: &kuberpultClientParameters{
 				url:     "something.somewhere",
 				retries: DefaultRetries,
+				timeout: 180,
 			},
 			expectedOther: []string{"potato", "--tomato"},
 		},
@@ -145,6 +150,7 @@ func TestParseArgs(t *testing.T) {
 			expectedParams: &kuberpultClientParameters{
 				url:     "something.somewhere",
 				retries: 10,
+				timeout: 180,
 			},
 			expectedOther: []string{"potato", "--tomato"},
 		},
@@ -153,6 +159,23 @@ func TestParseArgs(t *testing.T) {
 			cmdArgs: "--url something.somewhere --retries -1 --author_email john  subcommand --arg1 val1 etc etc",
 			expectedError: errMatcher{
 				msg: "error while creating kuberpult client parameters, error: --retries arg value must be positive",
+			},
+		},
+		{
+			name:    "overriding default timeout",
+			cmdArgs: "--url something.somewhere --retries 10 --timeout 7200 potato --tomato",
+			expectedParams: &kuberpultClientParameters{
+				url:     "something.somewhere",
+				retries: 10,
+				timeout: 7200,
+			},
+			expectedOther: []string{"potato", "--tomato"},
+		},
+		{
+			name:    "--timeout is negative",
+			cmdArgs: "--url something.somewhere --timeout -1 --author_email john subcommand --arg1 val1 etc etc",
+			expectedError: errMatcher{
+				msg: "error while creating kuberpult client parameters, error: --timeout arg value must be positive",
 			},
 		},
 	}

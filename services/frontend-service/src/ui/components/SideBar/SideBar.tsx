@@ -30,7 +30,6 @@ import {
     useLocksSimilarTo,
     useRelease,
     useLocksConflictingWithActions,
-    useReleaseDifference,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -191,45 +190,52 @@ export const getActionDetails = (
                 type: ActionTypes.Deploy,
                 name: 'Deploy',
                 dialogTitle: 'Please be aware:',
-                summary: ((): string => {
-                    const releaseDiff = useReleaseDifference(
-                        action.deploy.version,
-                        action.deploy.application,
-                        action.deploy.environment
-                    );
-                    if (releaseDiff < 0) {
-                        return (
-                            'Rolling back by ' +
-                            releaseDiff * -1 +
-                            ' releases down to version ' +
-                            action.deploy.version +
-                            ' of ' +
-                            action.deploy.application +
-                            ' to ' +
-                            action.deploy.environment
-                        );
-                    } else if (releaseDiff > 0) {
-                        return (
-                            'Advancing by ' +
-                            releaseDiff +
-                            ' releases up to version ' +
-                            action.deploy.version +
-                            ' of ' +
-                            action.deploy.application +
-                            ' to ' +
-                            action.deploy.environment
-                        );
-                    } else {
-                        return (
-                            'Deploy version ' +
-                            action.deploy.version +
-                            ' of "' +
-                            action.deploy.application +
-                            '" to ' +
-                            action.deploy.environment
-                        );
-                    }
-                })(),
+                summary: ((): string =>
+                    'Deploy version ' +
+                    action.deploy.version +
+                    ' of "' +
+                    action.deploy.application +
+                    '" to ' +
+                    action.deploy.environment)(),
+
+                //TODO: The useReleaseDifference Hook is called conditionally. To be fixed in Ref: SRX-41ZF5J.
+                // const releaseDiff = useReleaseDifference(
+                //     action.deploy.version,
+                //     action.deploy.application,
+                //     action.deploy.environment
+                // );
+                // if (releaseDiff < 0) {
+                //     return (
+                //         'Rolling back by ' +
+                //         releaseDiff * -1 +
+                //         ' releases down to version ' +
+                //         action.deploy.version +
+                //         ' of ' +
+                //         action.deploy.application +
+                //         ' to ' +
+                //         action.deploy.environment
+                //     );
+                // } else if (releaseDiff > 0) {
+                //     return (
+                //         'Advancing by ' +
+                //         releaseDiff +
+                //         ' releases up to version ' +
+                //         action.deploy.version +
+                //         ' of ' +
+                //         action.deploy.application +
+                //         ' to ' +
+                //         action.deploy.environment
+                //     );
+                // } else {
+                //     return (
+                //         'Deploy version ' +
+                //         action.deploy.version +
+                //         ' of "' +
+                //         action.deploy.application +
+                //         '" to ' +
+                //         action.deploy.environment
+                //     );
+                // }
                 tooltip: '',
                 environment: action.deploy.environment,
                 application: action.deploy.application,
