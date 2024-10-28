@@ -57,7 +57,7 @@ type OverviewServiceServer struct {
 func (o *OverviewServiceServer) GetAppDetails(
 	ctx context.Context,
 	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
-
+	logger.FromContext(ctx).Sugar().Warnf("GetAppDetailsForApp: %s\n", in.GetAppName())
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetAppDetails")
 	defer span.Finish()
 
@@ -344,7 +344,7 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 			return nil
 		case <-ch:
 			ov := o.response.Load().(*api.GetOverviewResponse)
-
+			logger.FromContext(stream.Context()).Sugar().Warnf("cd-service: responding with: %v\n", ov)
 			if err := stream.Send(ov); err != nil {
 				// if we don't log this here, the details will be lost - so this is an exception to the rule "either return an error or log it".
 				// for example if there's an invalid encoding, grpc will just give a generic error like

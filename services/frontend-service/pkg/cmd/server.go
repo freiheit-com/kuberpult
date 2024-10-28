@@ -689,6 +689,7 @@ func (p *GrpcProxy) GetEnvironmentConfig(
 func (p *GrpcProxy) StreamOverview(
 	in *api.GetOverviewRequest,
 	stream api.OverviewService_StreamOverviewServer) error {
+	logger.FromContext(stream.Context()).Sugar().Warnf("Frontend: StreamOverviewCalled\n")
 	if resp, err := p.OverviewClient.StreamOverview(stream.Context(), in); err != nil {
 		return err
 	} else {

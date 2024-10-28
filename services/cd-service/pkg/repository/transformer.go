@@ -4178,20 +4178,6 @@ func (c *envReleaseTrain) Transform(
 	), nil
 }
 
-func getEnvOfOverview(overview *api.GetOverviewResponse, envName string) *api.Environment {
-	if overview == nil || overview.EnvironmentGroups == nil {
-		return nil
-	}
-	for _, envGroup := range overview.EnvironmentGroups {
-		for _, env := range envGroup.Environments {
-			if env.Name == envName {
-				return env
-			}
-		}
-	}
-	return nil
-}
-
 // skippedServices is a helper Transformer to generate the "skipped
 // services" commit log.
 type skippedServices struct {

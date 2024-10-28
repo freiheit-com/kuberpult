@@ -626,8 +626,8 @@ const applicationsMatchingName = (applications: OverviewApplication[], appNamePa
     applications.filter((app) => appNameParam === '' || app.name.includes(appNameParam));
 
 // sorts given apps by team
-const applicationsSortedByTeam = (applications: OverviewApplication[]): OverviewApplication[] =>
-    applications.sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
+// const applicationsSortedByTeam = (applications: OverviewApplication[]): OverviewApplication[] =>
+//     applications.sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
 
 // returns applications to show on the home page
 export const useApplicationsFilteredAndSorted = (
@@ -635,11 +635,12 @@ export const useApplicationsFilteredAndSorted = (
     withWarningsOnly: boolean,
     nameIncludes: string
 ): OverviewApplication[] => {
-    const all = useOverview(({ lightweightApps }) => Object.values(lightweightApps));
+    const all = useOverview(({ lightweightApps }) => lightweightApps);
     const allMatchingTeam = applicationsMatchingTeam(all, teams);
     const allMatchingTeamAndWarnings = withWarningsOnly ? applicationsWithWarnings(allMatchingTeam) : allMatchingTeam;
-    const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
-    return applicationsSortedByTeam(allMatchingTeamAndWarningsAndName);
+    return applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
+    // const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
+    // return applicationsSortedByTeam(allMatchingTeamAndWarningsAndName);
 };
 
 export interface DisplayApplicationLock {

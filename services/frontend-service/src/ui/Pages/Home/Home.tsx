@@ -25,9 +25,7 @@ export const Home: React.FC = () => {
     const appNameParam = params.get('application') || '';
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
-    const searchedApp = useApplicationsFilteredAndSorted(teamsParam, hideWithoutWarnings(params), appNameParam);
-
-    const apps = Object.values(searchedApp);
+    const searchedApps = useApplicationsFilteredAndSorted(teamsParam, hideWithoutWarnings(params), appNameParam);
 
     const element = useGlobalLoadingState();
     if (element) {
@@ -38,7 +36,7 @@ export const Home: React.FC = () => {
         <div>
             <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={true} />
             <main className="main-content">
-                {apps.map((app) => (
+                {searchedApps.map((app) => (
                     <ServiceLane application={app} hideMinors={hideMinors(params)} key={app.name} />
                 ))}
             </main>
