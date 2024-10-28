@@ -1,0 +1,1 @@
+DELETE FROM overview_cache;
