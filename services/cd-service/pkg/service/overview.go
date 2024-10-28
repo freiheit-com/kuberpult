@@ -296,6 +296,7 @@ func (o *OverviewServiceServer) getOverview(
 	transaction *sql.Tx,
 ) (*api.GetOverviewResponse, error) {
 	var rev string
+	logger.FromContext(ctx).Warn("Calculating overview...")
 	if s.DBHandler.ShouldUseOtherTables() {
 		rev = "0000000000000000000000000000000000000000"
 	} else {
@@ -321,6 +322,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, err
 	} else {
 		for _, appName := range apps {
+
 			team, err := s.GetTeamName(ctx, transaction, appName)
 			if err != nil {
 				return nil, err
@@ -343,6 +345,9 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 		case <-o.Shutdown:
 			return nil
 		case <-ch:
+			if o.response.Load() == nil {
+
+			}
 			ov := o.response.Load().(*api.GetOverviewResponse)
 			logger.FromContext(stream.Context()).Sugar().Warnf("cd-service: responding with: %v\n", ov)
 			if err := stream.Send(ov); err != nil {

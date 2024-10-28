@@ -2514,6 +2514,7 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 	} else {
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
 		for envName, config := range envs {
+			logger.FromContext(ctx).Sugar().Warnf("Overview for env: %s", envName)
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 
