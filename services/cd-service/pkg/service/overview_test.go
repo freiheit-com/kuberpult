@@ -49,6 +49,406 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
+func TestOverviewAndAppDetail(t *testing.T) {
+	var dev = "dev"
+	var development = "development"
+	var staging = "staging"
+	var prod = "production"
+	var upstreamLatest = true
+	tcs := []struct {
+		Name               string
+		Setup              []repository.Transformer
+		Test               func(t *testing.T, svc *OverviewServiceServer)
+		ExpectedOverview   *api.GetOverviewResponse
+		AppNamesToCheck    []string
+		ExpectedAppDetails map[string]*api.GetAppDetailsResponse //appName -> appDetails
+	}{
+		{
+			Name: "A simple overview works",
+			AppNamesToCheck: []string{
+				"test",
+				"test-with-team",
+				"test-with-incorrect-pr-number",
+				"test-with-only-pr-number",
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test-with-team",
+					Version:     2,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					Team: "test-team",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test-with-incorrect-pr-number",
+					Version:     3,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test-with-only-pr-number",
+					Version:     4,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "(#678)",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test-with-team",
+					Environment: "development",
+					Version:     2,
+				},
+				&repository.CreateEnvironmentLock{
+					Environment: "development",
+					LockId:      "manual",
+					Message:     "please",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					LockId:      "manual",
+					Message:     "no",
+				},
+				&repository.CreateEnvironmentTeamLock{
+					Environment: "development",
+					Team:        "test-team",
+					LockId:      "manual-team-lock",
+					Message:     "team lock message",
+				},
+			},
+			ExpectedAppDetails: map[string]*api.GetAppDetailsResponse{
+				"test": {
+					Application: &api.Application{
+						Name:          "test",
+						SourceRepoUrl: "",
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								PrNumber:       "678",
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "changed something (#678)",
+							},
+						},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:         1,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+					},
+					AppLocks: map[string]*api.Locks{
+						prod: {
+							Locks: []*api.Lock{
+								{
+									Message: "no",
+									LockId:  "manual",
+									CreatedBy: &api.Actor{
+										Name:  "test tester",
+										Email: "testmail@example.com",
+									},
+								},
+							},
+						},
+					},
+				},
+				"test-with-team": {
+					Application: &api.Application{
+						Name: "test",
+						Team: "test-team",
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								PrNumber:       "678",
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "changed something (#678)",
+							},
+						},
+					},
+					Deployments: map[string]*api.Deployment{
+						"dev": {
+							Version:            1,
+							QueuedVersion:      0,
+							UndeployVersion:    false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{},
+						},
+					},
+				},
+				"test-with-incorrect-pr-number": {
+					Application: &api.Application{
+						Name: "test-with-incorrect-pr-number",
+						Team: "test-team",
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								PrNumber:       "678",
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "changed something (#678)",
+							},
+						},
+					},
+					Deployments: map[string]*api.Deployment{
+						"prod": {
+							Version:            1,
+							QueuedVersion:      0,
+							UndeployVersion:    false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{},
+						},
+					},
+					AppLocks:  map[string]*api.Locks{},
+					TeamLocks: map[string]*api.Locks{},
+				},
+				"test-with-only-pr-number": {
+					Application: &api.Application{
+						Name: "test-with-only-pr-number",
+						Team: "test-team",
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								PrNumber:       "678",
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "changed something (#678)",
+							},
+						},
+					},
+					Deployments: map[string]*api.Deployment{
+						"dev": {},
+					},
+					AppLocks:  map[string]*api.Locks{},
+					TeamLocks: map[string]*api.Locks{},
+				},
+			},
+			ExpectedOverview: &api.GetOverviewResponse{
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "dev",
+						Environments: []*api.Environment{
+							{
+								Name: development,
+								Locks: map[string]*api.Lock{
+									"manual": {
+										Message: "please",
+										LockId:  "manual",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+								TeamLocks: map[string]*api.Locks{
+									"test-team": {
+										Locks: []*api.Lock{
+											{
+												Message: "team lock message",
+												LockId:  "manual-team-lock",
+												CreatedBy: &api.Actor{
+													Name:  "test tester",
+													Email: "testmail@example.com",
+												},
+											},
+										},
+									},
+								},
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &dev,
+								},
+								Priority: api.Priority_UPSTREAM,
+							},
+						},
+						Priority: api.Priority_UPSTREAM,
+					},
+					{
+						EnvironmentGroupName: staging,
+						Environments: []*api.Environment{
+							{
+								Name: staging,
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Environment: &development,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &staging,
+								},
+								DistanceToUpstream: 1,
+								Priority:           api.Priority_PRE_PROD,
+							},
+						},
+						Priority:           api.Priority_PRE_PROD,
+						DistanceToUpstream: 1,
+					},
+					{
+						EnvironmentGroupName: prod,
+						Environments: []*api.Environment{
+							{
+								Name: prod,
+								AppLocks: map[string]*api.Locks{
+									"test": {
+										Locks: []*api.Lock{
+											{
+												Message: "no",
+												LockId:  "manual",
+												CreatedBy: &api.Actor{
+													Name:  "test tester",
+													Email: "testmail@example.com",
+												},
+											},
+										},
+									},
+								},
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Environment: &staging,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &prod,
+								},
+								DistanceToUpstream: 2,
+								Priority:           api.Priority_PROD,
+							},
+						},
+						Priority:           api.Priority_PROD,
+						DistanceToUpstream: 2,
+					},
+				},
+				LightweightApps: []*api.OverviewApplication{
+					{
+						Name: "test",
+						Team: "",
+					},
+					{
+						Name: "test-with-team",
+						Team: "test-team",
+					},
+					{
+						Name: "test-with-incorrect-pr-number",
+						Team: "",
+					},
+					{
+						Name: "test-with-only-pr-number",
+						Team: "",
+					},
+				},
+				GitRevision: "0000000000000000000000000000000000000000",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx := testutil.MakeTestContext()
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				Shutdown:   shutdown,
+				DBHandler:  repo.State().DBHandler,
+				Context:    context.Background(),
+			}
+			ov, err := svc.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: ""})
+			if err != nil {
+				t.Error(err)
+			}
+			if diff := cmp.Diff(tc.ExpectedOverview, ov, protocmp.Transform(), getOverviewIgnoredTypes(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
+				t.Errorf("overview missmatch (-want, +got): %s\n", diff)
+			}
+			for _, appName := range tc.AppNamesToCheck {
+				appDetails, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: appName})
+				if err != nil {
+					t.Error(err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedAppDetails[appName], appDetails, protocmp.Transform(), getAppDetailsIgnoredTypes(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Lock{}, "created_at"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime")); diff != "" {
+					t.Errorf("appDetails missmatch (-want, +got): %s\n", diff)
+				}
+			}
+		})
+	}
+}
 func TestOverviewService(t *testing.T) {
 	var dev = "dev"
 	var development = "development"
@@ -1699,4 +2099,26 @@ func getAppDetailsIgnoredTypes() cmp.Option {
 		api.Lock{},
 		api.Actor{},
 		api.Deployment_DeploymentMetaData{})
+}
+func getOverviewIgnoredTypes() cmp.Option {
+	return cmpopts.IgnoreUnexported(api.GetOverviewResponse{},
+		api.EnvironmentGroup{},
+		api.Environment{},
+		api.Application{},
+		api.Warning{},
+		api.Warning_UnusualDeploymentOrder{},
+		api.UnusualDeploymentOrder{},
+		api.UpstreamNotDeployed{},
+		api.Warning_UpstreamNotDeployed{},
+		api.Release{},
+		api.EnvironmentConfig_ArgoCD_Destination{},
+		timestamppb.Timestamp{},
+		api.EnvironmentConfig{},
+		api.EnvironmentConfig_Upstream{},
+		api.EnvironmentConfig_ArgoCD{},
+		api.Lock{},
+		api.Actor{},
+		api.OverviewApplication{},
+		api.Deployment{},
+		api.Locks{})
 }
