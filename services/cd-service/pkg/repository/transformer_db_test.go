@@ -22,10 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/lib/pq"
 	"regexp"
 	"testing"
 	gotime "time"
+
+	"github.com/lib/pq"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -35,11 +36,9 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 var (
@@ -1722,16 +1721,10 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 			},
 			ExpectedOverviewCache: &api.GetOverviewResponse{
 				GitRevision: "0000000000000000000000000000000000000000",
-				Applications: map[string]*api.Application{
-					"app": &api.Application{
+				LightweightApps: []*api.OverviewApplication{
+					{
 						Name: "app",
-						Releases: []*api.Release{
-							{
-								Version:        1,
-								SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-								CreatedAt:      timestamppb.Now(),
-							},
-						},
+						Team: "",
 					},
 				},
 				EnvironmentGroups: []*api.EnvironmentGroup{
@@ -1748,16 +1741,6 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
 									},
 									EnvironmentGroup: &developmentEnvGroup,
-								},
-								Applications: map[string]*api.Environment_Application{
-									"app": &api.Environment_Application{
-										Name: "app",
-										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-											DeployAuthor: "testmail@example.com",
-											DeployTime:   timestamppb.Now().String(),
-										},
-										Version: uint64(1),
-									},
 								},
 								Priority: api.Priority_YOLO,
 							},
@@ -1779,12 +1762,6 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									EnvironmentGroup: &stagingEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
-								Applications: map[string]*api.Environment_Application{
-									"app": &api.Environment_Application{
-										Name:               "app",
-										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{},
-									},
-								},
 							},
 						},
 						Priority: api.Priority_YOLO,
@@ -1810,7 +1787,7 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if diff := cmp.Diff(tc.ExpectedOverviewCache, overview, protocmp.Transform(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Environment_Application_DeploymentMetaData{}, "deploy_time")); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedOverviewCache, overview, protocmp.Transform(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Deployment_DeploymentMetaData{}, "deploy_time")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -2264,7 +2241,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("error: %v", err)
 				}
-				releases, err2 := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, appName, false, true)
+				releases, err2 := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, appName, true)
 				if err2 != nil {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}
@@ -3649,7 +3626,7 @@ func TestTimestampConsistency(t *testing.T) {
 					t.Fatalf("error mismatch on envAcceptance(-want, +got):\n%s", diff)
 				}
 				//Release
-				releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, testAppName, false, true)
+				releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, testAppName, true)
 				if err != nil {
 					return err
 				}

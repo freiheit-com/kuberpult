@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import classNames from 'classnames';
 import { Release } from '../../../api/api';
-import { useDisplayApplicationLocks, useReleasesForApp } from '../../utils/store';
+import { useAppDetailsForApp, useDisplayApplicationLocks } from '../../utils/store';
 import { ReleaseCardMini } from '../ReleaseCardMini/ReleaseCardMini';
 import './Releases.scss';
 import { ApplicationLockChip } from '../ApplicationLockDisplay/ApplicationLockDisplay';
@@ -30,7 +30,7 @@ const dateFormat = (date: Date): string => {
     return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
 
-const getReleasesForAppGroupByDate = (releases: Array<Release>): [Release, ...Release[]][] => {
+const getReleasesForAppGroupByDate = (releases: Array<Release> | undefined): [Release, ...Release[]][] => {
     if (releases === undefined) {
         return [];
     }
@@ -51,8 +51,9 @@ const getReleasesForAppGroupByDate = (releases: Array<Release>): [Release, ...Re
 
 export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
-    const releases = useReleasesForApp(app);
+    const releases = useAppDetailsForApp(app).details?.application?.releases;
     const displayAppLocks = useDisplayApplicationLocks(app);
+
     const rel = getReleasesForAppGroupByDate(releases);
     return (
         <div className={classNames('timeline', className)}>

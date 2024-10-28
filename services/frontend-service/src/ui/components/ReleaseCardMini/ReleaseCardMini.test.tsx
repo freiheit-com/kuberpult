@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { ReleaseCardMini, ReleaseCardMiniProps } from './ReleaseCardMini';
 import { render } from '@testing-library/react';
-import { UpdateOverview } from '../../utils/store';
+import { AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment, Priority, Release, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
@@ -75,19 +75,10 @@ describe('Release Card Mini', () => {
                 {
                     name: 'other',
                     locks: {},
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        test2: {
-                            version: 2,
-                            queuedVersion: 0,
-                            name: 'test2',
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            undeployVersion: false,
-                        },
-                    },
                 },
             ],
             expectedMessage: 'test2',
@@ -101,19 +92,10 @@ describe('Release Card Mini', () => {
                 {
                     name: 'other',
                     locks: {},
+                    appLocks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
-                    applications: {
-                        test2: {
-                            version: 2,
-                            queuedVersion: 0,
-                            name: 'test2',
-                            locks: {},
-                            teamLocks: {},
-                            team: 'test-team',
-                            undeployVersion: false,
-                        },
-                    },
                 },
             ],
             expectedMessage: 'Undeploy Version',
@@ -127,16 +109,12 @@ describe('Release Card Mini', () => {
             mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
             // when
             UpdateOverview.set({
-                applications: {
-                    [testcase.props.app]: {
-                        name: testcase.props.app,
-                        releases: testcase.rels,
-                        sourceRepoUrl: 'url',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        team: 'no-team',
-                        warnings: [],
+                lightweightApps: [
+                    {
+                        name: 'test2',
+                        team: 'example',
                     },
-                },
+                ],
                 environmentGroups: [
                     {
                         environments: testcase.environments,
@@ -145,6 +123,31 @@ describe('Release Card Mini', () => {
                         priority: Priority.UNRECOGNIZED,
                     },
                 ],
+            });
+
+            updateAppDetails.set({
+                test2: {
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: testcase.rels,
+                            sourceRepoUrl: 'http://test2.com',
+                            team: 'example',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        deployments: {
+                            other: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
+                },
             });
             const { container } = getWrapper(testcase.props);
             expect(container.querySelector('.release__details-mini')?.textContent).toContain(

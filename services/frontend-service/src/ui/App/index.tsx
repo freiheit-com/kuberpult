@@ -19,10 +19,13 @@ import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
+    AppDetailsResponse,
+    AppDetailsState,
     EnableRolloutStatus,
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
+    updateAppDetails,
     UpdateFrontendConfig,
     UpdateOverview,
     UpdateRolloutStatus,
@@ -99,6 +102,16 @@ export const App: React.FC = () => {
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
+
+                        const newDetails: { [p: string]: AppDetailsResponse } = {};
+                        result.lightweightApps?.forEach(
+                            (elem) =>
+                                (newDetails[elem.name] = {
+                                    appDetailState: AppDetailsState.NOTREQUESTED,
+                                    details: undefined,
+                                })
+                        );
+                        updateAppDetails.set(newDetails);
                     },
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });

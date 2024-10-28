@@ -672,7 +672,7 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false, false)
+		prevRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, c.Application, false, false)
 		if err != nil {
 			return "", err
 		}
@@ -1711,7 +1711,7 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", err
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		releases, err := state.DBHandler.DBSelectReleasesByApp(ctx, transaction, u.Application, false, true)
+		releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, u.Application, true)
 		if err != nil {
 			return "", err
 		}
@@ -2781,9 +2781,9 @@ func (c *CreateEnvironment) Transform(
 			overview = &api.GetOverviewResponse{
 				Branch:            "",
 				ManifestRepoUrl:   "",
-				Applications:      map[string]*api.Application{},
 				EnvironmentGroups: []*api.EnvironmentGroup{},
 				GitRevision:       "0000000000000000000000000000000000000000",
+				LightweightApps:   make([]*api.OverviewApplication, 0),
 			}
 		}
 		if err != nil {
@@ -3378,17 +3378,6 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 			return nil, fmt.Errorf("unable to get EnvironmentApplication for env %s: %w", envName, err)
 		}
 		for _, appName := range apps {
-			app := api.Environment_Application{
-				Version:            0,
-				Locks:              nil,
-				QueuedVersion:      0,
-				UndeployVersion:    false,
-				ArgoCd:             nil,
-				DeploymentMetaData: nil,
-				Name:               appName,
-				TeamLocks:          nil,
-				Team:               "",
-			}
 			version, err := s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, fmt.Errorf("unable to get EnvironmentApplicationVersion for %s: %w", appName, err)
@@ -3396,8 +3385,8 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 			if version == nil {
 				continue
 			}
-			app.Version = *version
-			resp = append(resp, Overview{App: app.Name, Version: app.Version})
+
+			resp = append(resp, Overview{App: appName, Version: *version})
 		}
 	}
 	return resp, nil
@@ -4174,10 +4163,7 @@ func (c *envReleaseTrain) Transform(
 		deployCounter++
 	}
 	span.SetTag("DeployedApps", deployCounter)
-	allEnvironmentApplicationVersions, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, appNames)
-	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all environment application versions: %w", err))
-	}
+
 	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
 	if err != nil {
 		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps: %w", err))
@@ -4188,11 +4174,6 @@ func (c *envReleaseTrain) Transform(
 			if err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
 			}
-			envApp, err := state.UpdateOneAppEnvInOverview(ctx, transaction, appName, c.Env, &envConfig, allEnvironmentApplicationVersions)
-			if err != nil {
-				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
-			}
-			envOfOverview.Applications[appName] = envApp
 		}
 	}
 	teamInfo := ""
