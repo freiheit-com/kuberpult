@@ -1265,7 +1265,6 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 	}
 }
 
-// TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
 func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 	var dev = "dev"
 	tcs := []struct {
@@ -1316,7 +1315,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 					Application: "test",
 					Version:     2,
 					Manifests: map[string]string{
-						"development": "dev",
+						"development": "dev-2",
 					},
 					Team:           "test-team",
 					SourceAuthor:   "example <example@example.com>",
@@ -1351,10 +1350,11 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 					},
 					Deployments: map[string]*api.Deployment{
 						"development": {
+							Version:       1,
 							QueuedVersion: 2,
 							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-								DeployAuthor: "testmail@example.com",
-								DeployTime:   "1",
+								DeployAuthor: "test tester",
+								CiLink:       "",
 							},
 						},
 					},
@@ -1418,7 +1418,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if diff := cmp.Diff(tc.ExpectedAppDetails[currentAppName], response, getAppDetailsIgnoredTypes()); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedAppDetails[currentAppName], response, getAppDetailsIgnoredTypes(), cmpopts.IgnoreFields(api.Release{}, "CreatedAt"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime"), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt")); diff != "" {
 					t.Errorf("response missmatch (-want, +got): %s\n", diff)
 				}
 			}
@@ -1426,12 +1426,270 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 
 	}
 }
+
+func TestCalculateWarnings(t *testing.T) {
+	var dev = "dev"
+	tcs := []struct {
+		Name             string
+		ExpectedWarnings map[string][]*api.Warning //appName -> expected warnings
+		Setup            []repository.Transformer
+		AppsNamesToCheck []string
+	}{
+		{
+			Name:             "no deployments - no warning",
+			AppsNamesToCheck: []string{"test"},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{ //Not upstream latest!
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			ExpectedWarnings: map[string][]*api.Warning{
+				"test": {},
+			},
+		},
+		{
+			Name:             "app deployed in higher version on upstream should warn",
+			AppsNamesToCheck: []string{"test"},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+						"staging":     "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     2,
+					Manifests: map[string]string{
+						"development": "dev-2",
+						"staging":     "staging-2",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "staging",
+					Version:     2,
+				},
+			},
+			ExpectedWarnings: map[string][]*api.Warning{
+				"test": {
+					{
+						WarningType: &api.Warning_UnusualDeploymentOrder{
+							UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+								UpstreamVersion:     1,
+								UpstreamEnvironment: "development",
+								ThisVersion:         2,
+								ThisEnvironment:     "staging",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:             "app deployed in same version on upstream should not warn",
+			AppsNamesToCheck: []string{"test"},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+						"staging":     "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     2,
+					Manifests: map[string]string{
+						"development": "dev-2",
+						"staging":     "staging-2",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "staging",
+					Version:     2,
+				},
+			},
+			ExpectedWarnings: map[string][]*api.Warning{
+				"test": {},
+			},
+		},
+		{
+			Name:             "app deployed in no version on upstream should warn",
+			AppsNamesToCheck: []string{"test"},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+						"staging":     "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "staging",
+					Version:     1,
+				},
+			},
+			ExpectedWarnings: map[string][]*api.Warning{
+				"test": {
+					{
+						WarningType: &api.Warning_UpstreamNotDeployed{
+							UpstreamNotDeployed: &api.UpstreamNotDeployed{
+								UpstreamEnvironment: "development",
+								ThisVersion:         1,
+								ThisEnvironment:     "staging",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				Shutdown:   shutdown,
+				DBHandler:  repo.State().DBHandler,
+				Context:    context.Background(),
+			}
+
+			for _, appName := range tc.AppsNamesToCheck {
+				appDetails, err := svc.GetAppDetails(testutil.MakeTestContext(), &api.GetAppDetailsRequest{AppName: appName})
+				if err != nil {
+					t.Error(err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedWarnings[appName], appDetails.Application.Warnings, getAppDetailsIgnoredTypes()); diff != "" {
+					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+				}
+			}
+		})
+	}
+}
+
 func getAppDetailsIgnoredTypes() cmp.Option {
 	return cmpopts.IgnoreUnexported(api.GetAppDetailsResponse{},
 		api.Deployment{},
 		api.Application{},
 		api.Locks{},
 		api.Lock{},
+		api.Warning{},
 		api.Warning_UnusualDeploymentOrder{},
 		api.UnusualDeploymentOrder{},
 		api.UpstreamNotDeployed{},

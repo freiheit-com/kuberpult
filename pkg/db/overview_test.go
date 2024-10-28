@@ -362,118 +362,6 @@ func TestUpdateOverviewEnvironmentLock(t *testing.T) {
 	}
 }
 
-//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
-//func TestCalculateWarnings(t *testing.T) {
-//	var dev = "dev"
-//	tcs := []struct {
-//		Name             string
-//		AppName          string
-//		Groups           []*api.EnvironmentGroup
-//		ExpectedWarnings []*api.Warning
-//	}{
-//		{
-//			Name:    "no envs - no warning",
-//			AppName: "foo",
-//			Groups: []*api.EnvironmentGroup{
-//				makeEnvGroup(dev, []*api.Environment{
-//					makeEnv("dev-de", dev, makeUpstreamLatest(), nil),
-//				})},
-//			ExpectedWarnings: []*api.Warning{},
-//		},
-//		{
-//			Name:    "app deployed in higher version on upstream should warn",
-//			AppName: "foo",
-//			Groups: []*api.EnvironmentGroup{
-//				makeEnvGroup(dev, []*api.Environment{
-//					makeEnv("prod", dev, makeUpstreamEnv("dev"),
-//						makeApps(makeApp("foo", 2))),
-//				}),
-//				makeEnvGroup(dev, []*api.Environment{
-//					makeEnv("dev", dev, makeUpstreamLatest(),
-//						makeApps(makeApp("foo", 1))),
-//				}),
-//			},
-//			ExpectedWarnings: []*api.Warning{
-//				{
-//					WarningType: &api.Warning_UnusualDeploymentOrder{
-//						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-//							UpstreamVersion:     1,
-//							UpstreamEnvironment: "dev",
-//							ThisVersion:         2,
-//							ThisEnvironment:     "prod",
-//						},
-//					},
-//				},
-//			},
-//		},
-//		{
-//			Name:    "app deployed in same version on upstream should not warn",
-//			AppName: "foo",
-//			Groups: []*api.EnvironmentGroup{
-//				makeEnvGroup(dev, []*api.Environment{
-//					makeEnv("prod", dev, makeUpstreamEnv("dev"),
-//						makeApps(makeApp("foo", 2))),
-//				}),
-//				makeEnvGroup(dev, []*api.Environment{
-//					makeEnv("dev", dev, makeUpstreamLatest(),
-//						makeApps(makeApp("foo", 2))),
-//				}),
-//			},
-//			ExpectedWarnings: []*api.Warning{},
-//		},
-//		{
-//			Name:    "app deployed in no version on upstream should warn",
-//			AppName: "foo",
-//			Groups: []*api.EnvironmentGroup{
-//				makeEnvGroup(dev, []*api.Environment{
-//					makeEnv("prod", dev, makeUpstreamEnv("dev"),
-//						makeApps(makeApp("foo", 1))),
-//				}),
-//				makeEnvGroup(dev, []*api.Environment{
-//					makeEnv("dev", dev, makeUpstreamLatest(),
-//						makeApps()),
-//				}),
-//			},
-//			ExpectedWarnings: []*api.Warning{
-//				{
-//					WarningType: &api.Warning_UpstreamNotDeployed{
-//						UpstreamNotDeployed: &api.UpstreamNotDeployed{
-//							UpstreamEnvironment: "dev",
-//							ThisVersion:         1,
-//							ThisEnvironment:     "prod",
-//						},
-//					},
-//				},
-//			},
-//		},
-//	}
-//	for _, tc := range tcs {
-//		tc := tc
-//		t.Run(tc.Name, func(t *testing.T) {
-//			actualWarnings := CalculateWarnings(testutil.MakeTestContext(), tc.AppName, tc.Groups)
-//			if len(actualWarnings) != len(tc.ExpectedWarnings) {
-//				t.Errorf("Different number of warnings. got: %s\nwant: %s", actualWarnings, tc.ExpectedWarnings)
-//			}
-//			for i := 0; i < len(actualWarnings); i++ {
-//				actualWarning := actualWarnings[i]
-//				expectedWarning := tc.ExpectedWarnings[i]
-//				if diff := cmp.Diff(actualWarning.String(), expectedWarning.String()); diff != "" {
-//					t.Errorf("Different warning at index [%d]:\ngot:  %s\nwant: %s", i, actualWarning, expectedWarning)
-//				}
-//			}
-//		})
-//	}
-//}
-//
-//func groupFromEnvs(environments []*api.Environment) []*api.EnvironmentGroup {
-//	return []*api.EnvironmentGroup{
-//		{
-//			EnvironmentGroupName: "group1",
-//			Environments:         environments,
-//		},
-//	}
-//}
-
 func TestDBDeleteOldOverview(t *testing.T) {
 	upstreamLatest := true
 	dev := "dev"
@@ -484,7 +372,6 @@ func TestDBDeleteOldOverview(t *testing.T) {
 		numberOfOverviewsToKeep            uint64
 		expectedNumberOfRemainingOverviews uint64
 	}{
-		//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
 		{
 			Name: "4 overviews, should keep two",
 			inputOverviews: []*api.GetOverviewResponse{
@@ -643,7 +530,6 @@ func calculateNumberOfOverviews(h *DBHandler, ctx context.Context, tx *sql.Tx) (
 	return uint64(result), nil
 }
 
-// TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
 func TestUpdateOverviewApplicationLock(t *testing.T) {
 	var dev = "dev"
 	var upstreamLatest = true
