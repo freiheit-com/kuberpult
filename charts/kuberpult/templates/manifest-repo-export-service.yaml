@@ -14,15 +14,12 @@
 
 # Copyright freiheit.com
 
-{{- if not (or (eq .Values.db.dbOption "postgreSQL") (eq .Values.db.dbOption "NO_DB")) }}
-{{ fail ".Values.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
+{{- if not (eq .Values.db.dbOption "postgreSQL") }}
+{{ fail ".Values.db.dbOption does not contain a valid value (postgreSQL)."}}
 {{ end -}}
 
 # the export service is only enabled, if the DB is enabled
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
-
-{{- if eq .Values.db.writeEslTableOnly false }}
-
 
 ---
 apiVersion: apps/v1
@@ -235,6 +232,12 @@ spec:
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
         volumeMounts:
+        - name: repository
+          # The repository volume, an emptyDir, is mounted to the kp directory.
+          # The manifest-repo-export-service creates the repository inside this directory in /kp/repository.
+          # We mount the volume to the parent because kubernetes volumes belong to root.
+          # This way the container can create /kp/repository itself without any permission issues.
+          mountPath: /kp/
         - name: ssh
           mountPath: /etc/ssh
 {{- if .Values.datadogProfiling.enabled }}
@@ -252,7 +255,7 @@ spec:
         # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
         # Because of an issue in gitlib2, this actually happens.
         emptyDir:
-          sizeLimit: 10Gi
+          sizeLimit: 30Gi
       - name: ssh
         secret:
           secretName: kuberpult-ssh
@@ -284,5 +287,4 @@ spec:
     app: kuberpult-manifest-repo-export-service
   type: NodePort
 
-{{- end }}
 {{- end }}

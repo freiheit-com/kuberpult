@@ -15,12 +15,17 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
-import { updateAppDetails, UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
+import {
+    AppDetailsResponse,
+    AppDetailsState,
+    updateAppDetails,
+    UpdateOverview,
+    UpdateRolloutStatus,
+} from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import {
     Environment,
     EnvironmentGroup,
-    GetAppDetailsResponse,
     Priority,
     Release,
     RolloutStatus,
@@ -47,7 +52,7 @@ describe('Release Card', () => {
         };
         rels: Release[];
         environments: { [key: string]: Environment };
-        appDetails: { [key: string]: GetAppDetailsResponse };
+        appDetails: { [key: string]: AppDetailsResponse };
     };
     const data: TestData[] = [
         {
@@ -55,30 +60,33 @@ describe('Release Card', () => {
             props: { app: 'test1', version: 2 },
             appDetails: {
                 test1: {
-                    application: {
-                        name: 'test1',
-                        releases: [
-                            {
-                                version: 2,
-                                sourceMessage: 'test-rel',
-                                undeployVersion: false,
-                                sourceCommitId: 'commit123',
-                                sourceAuthor: 'author',
-                                prNumber: '666',
-                                createdAt: new Date(2023, 6, 6),
-                                displayVersion: '2',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        team: 'test-team',
-                        sourceRepoUrl: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'test1',
+                            releases: [
+                                {
+                                    version: 2,
+                                    sourceMessage: 'test-rel',
+                                    undeployVersion: false,
+                                    sourceCommitId: 'commit123',
+                                    sourceAuthor: 'author',
+                                    prNumber: '666',
+                                    createdAt: new Date(2023, 6, 6),
+                                    displayVersion: '2',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                },
+                            ],
+                            team: 'test-team',
+                            sourceRepoUrl: '',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        deployments: {},
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    deployments: {},
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             rels: [
@@ -102,30 +110,33 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    application: {
-                        name: 'test2',
-                        releases: [
-                            {
-                                undeployVersion: false,
-                                version: 2,
-                                sourceMessage: 'test-rel',
-                                sourceCommitId: '12s3',
-                                sourceAuthor: 'test-author',
-                                prNumber: '666',
-                                createdAt: new Date(2002),
-                                displayVersion: '2',
-                                isMinor: true,
-                                isPrepublish: false,
-                            },
-                        ],
-                        team: 'test-team',
-                        sourceRepoUrl: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: [
+                                {
+                                    undeployVersion: false,
+                                    version: 2,
+                                    sourceMessage: 'test-rel',
+                                    sourceCommitId: '12s3',
+                                    sourceAuthor: 'test-author',
+                                    prNumber: '666',
+                                    createdAt: new Date(2002),
+                                    displayVersion: '2',
+                                    isMinor: true,
+                                    isPrepublish: false,
+                                },
+                            ],
+                            team: 'test-team',
+                            sourceRepoUrl: '',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        deployments: {},
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    deployments: {},
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             rels: [
@@ -149,36 +160,39 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    application: {
-                        name: 'test2',
-                        releases: [
-                            {
-                                undeployVersion: false,
-                                version: 2,
-                                sourceMessage: 'test-rel',
-                                sourceCommitId: '12s3',
-                                sourceAuthor: 'test-author',
-                                prNumber: '666',
-                                createdAt: new Date(2002),
-                                displayVersion: '2',
-                                isMinor: true,
-                                isPrepublish: false,
-                            },
-                        ],
-                        team: 'test-team',
-                        sourceRepoUrl: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    deployments: {
-                        foo: {
-                            version: 2,
-                            queuedVersion: 0,
-                            undeployVersion: false,
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: [
+                                {
+                                    undeployVersion: false,
+                                    version: 2,
+                                    sourceMessage: 'test-rel',
+                                    sourceCommitId: '12s3',
+                                    sourceAuthor: 'test-author',
+                                    prNumber: '666',
+                                    createdAt: new Date(2002),
+                                    displayVersion: '2',
+                                    isMinor: true,
+                                    isPrepublish: false,
+                                },
+                            ],
+                            team: 'test-team',
+                            sourceRepoUrl: '',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
                         },
+                        deployments: {
+                            foo: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             rels: [
@@ -211,36 +225,39 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    application: {
-                        name: 'test2',
-                        releases: [
-                            {
-                                undeployVersion: false,
-                                version: 2,
-                                sourceMessage: 'test-rel',
-                                sourceCommitId: '12s3',
-                                sourceAuthor: 'test-author',
-                                prNumber: '666',
-                                createdAt: new Date(2002),
-                                displayVersion: '2',
-                                isMinor: true,
-                                isPrepublish: false,
-                            },
-                        ],
-                        team: 'test-team',
-                        sourceRepoUrl: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    deployments: {
-                        foo: {
-                            version: 2,
-                            queuedVersion: 0,
-                            undeployVersion: false,
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: [
+                                {
+                                    undeployVersion: false,
+                                    version: 2,
+                                    sourceMessage: 'test-rel',
+                                    sourceCommitId: '12s3',
+                                    sourceAuthor: 'test-author',
+                                    prNumber: '666',
+                                    createdAt: new Date(2002),
+                                    displayVersion: '2',
+                                    isMinor: true,
+                                    isPrepublish: false,
+                                },
+                            ],
+                            team: 'test-team',
+                            sourceRepoUrl: '',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
                         },
+                        deployments: {
+                            foo: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             rels: [
@@ -273,36 +290,39 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    application: {
-                        name: 'test2',
-                        releases: [
-                            {
-                                version: 2,
-                                sourceMessage: 'test-rel',
-                                sourceCommitId: 'commit123',
-                                undeployVersion: false,
-                                sourceAuthor: 'test-author',
-                                prNumber: '666',
-                                createdAt: new Date(2023, 6, 6),
-                                displayVersion: '2',
-                                isMinor: false,
-                                isPrepublish: false,
-                            },
-                        ],
-                        team: 'test-team',
-                        sourceRepoUrl: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    deployments: {
-                        foo: {
-                            version: 2,
-                            queuedVersion: 0,
-                            undeployVersion: false,
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: [
+                                {
+                                    version: 2,
+                                    sourceMessage: 'test-rel',
+                                    sourceCommitId: 'commit123',
+                                    undeployVersion: false,
+                                    sourceAuthor: 'test-author',
+                                    prNumber: '666',
+                                    createdAt: new Date(2023, 6, 6),
+                                    displayVersion: '2',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                },
+                            ],
+                            team: 'test-team',
+                            sourceRepoUrl: '',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
                         },
+                        deployments: {
+                            foo: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             rels: [
@@ -335,36 +355,39 @@ describe('Release Card', () => {
             props: { app: 'test2', version: 2 },
             appDetails: {
                 test2: {
-                    application: {
-                        name: 'test2',
-                        releases: [
-                            {
-                                undeployVersion: false,
-                                version: 2,
-                                sourceMessage: 'test-rel',
-                                sourceCommitId: '12s3',
-                                sourceAuthor: 'test-author',
-                                prNumber: '666',
-                                createdAt: new Date(2002),
-                                displayVersion: '2',
-                                isMinor: true,
-                                isPrepublish: true,
-                            },
-                        ],
-                        team: 'test-team',
-                        sourceRepoUrl: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
-                    },
-                    deployments: {
-                        foo: {
-                            version: 2,
-                            queuedVersion: 0,
-                            undeployVersion: false,
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: [
+                                {
+                                    undeployVersion: false,
+                                    version: 2,
+                                    sourceMessage: 'test-rel',
+                                    sourceCommitId: '12s3',
+                                    sourceAuthor: 'test-author',
+                                    prNumber: '666',
+                                    createdAt: new Date(2002),
+                                    displayVersion: '2',
+                                    isMinor: true,
+                                    isPrepublish: true,
+                                },
+                            ],
+                            team: 'test-team',
+                            sourceRepoUrl: '',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
                         },
+                        deployments: {
+                            foo: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             rels: [
@@ -450,7 +473,7 @@ describe('Release Card Rollout Status', () => {
         rolloutStatus: StreamStatusResponse[];
         expectedStatusIcon: RolloutStatus;
         expectedRolloutDetails: { [name: string]: RolloutStatus };
-        appDetails: { [key: string]: GetAppDetailsResponse };
+        appDetails: { [key: string]: AppDetailsResponse };
     };
     const data: TestData[] = [
         {
@@ -458,46 +481,49 @@ describe('Release Card Rollout Status', () => {
             props: { app: 'test1', version: 2 },
             appDetails: {
                 test1: {
-                    application: {
-                        name: '',
-                        releases: [
-                            {
+                    details: {
+                        application: {
+                            name: '',
+                            releases: [
+                                {
+                                    version: 2,
+                                    sourceMessage: 'test-rel',
+                                    undeployVersion: false,
+                                    sourceCommitId: 'commit123',
+                                    sourceAuthor: 'author',
+                                    prNumber: '666',
+                                    createdAt: new Date(2023, 6, 6),
+                                    displayVersion: '2',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                },
+                            ],
+                            team: 'test-team',
+                            sourceRepoUrl: '',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        deployments: {
+                            development: {
                                 version: 2,
-                                sourceMessage: 'test-rel',
+                                queuedVersion: 0,
                                 undeployVersion: false,
-                                sourceCommitId: 'commit123',
-                                sourceAuthor: 'author',
-                                prNumber: '666',
-                                createdAt: new Date(2023, 6, 6),
-                                displayVersion: '2',
-                                isMinor: false,
-                                isPrepublish: false,
                             },
-                        ],
-                        team: 'test-team',
-                        sourceRepoUrl: '',
-                        undeploySummary: UndeploySummary.NORMAL,
-                        warnings: [],
+                            development2: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                            staging: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    deployments: {
-                        development: {
-                            version: 2,
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                        },
-                        development2: {
-                            version: 2,
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                        },
-                        staging: {
-                            version: 2,
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                        },
-                    },
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             },
             rels: [
