@@ -509,6 +509,7 @@ func (c *CreateApplicationVersion) Transform(
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write all apps: %w", err))
 			}
+
 			//We need to check that this is not an app that has been previously deleted
 			app, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
 			if err != nil {
@@ -523,6 +524,7 @@ func (c *CreateApplicationVersion) Transform(
 				}
 				ver = app.EslVersion + 1
 			}
+
 			err = state.DBHandler.InsertAppFun(
 				ctx,
 				transaction,
