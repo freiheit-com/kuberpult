@@ -344,7 +344,12 @@ func RunServer() {
 			&service.Service{
 				Repository: repo,
 			}
+
 		if dbHandler.ShouldUseOtherTables() {
+			// we overwrite InsertApp in order to also update the overview:
+			dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
+				return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+			}
 			//Check for migrations -> for pulling
 			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")
 			if needsMigration, err := dbHandler.NeedsMigrations(ctx); err == nil && needsMigration {
@@ -355,10 +360,6 @@ func RunServer() {
 				}
 				logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 
-				// we overwrite InsertApp in order to also update the overview:
-				dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-					return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
-				}
 				migErr := dbHandler.RunCustomMigrations(
 					ctx,
 					repo.State().GetAppsAndTeams,

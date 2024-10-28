@@ -509,7 +509,6 @@ func (c *CreateApplicationVersion) Transform(
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write all apps: %w", err))
 			}
-
 			//We need to check that this is not an app that has been previously deleted
 			app, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
 			if err != nil {
@@ -524,7 +523,6 @@ func (c *CreateApplicationVersion) Transform(
 				}
 				ver = app.EslVersion + 1
 			}
-
 			err = state.DBHandler.InsertAppFun(
 				ctx,
 				transaction,
@@ -4118,15 +4116,6 @@ func (c *envReleaseTrain) Transform(
 	sort.Strings(appNames)
 
 	var overview *api.GetOverviewResponse
-	var envOfOverview *api.Environment
-	if state.DBHandler.ShouldUseOtherTables() {
-		var err error
-		overview, err = state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-		if err != nil {
-			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while reading overview cache: %w", c.Env, err))
-		}
-		envOfOverview = getEnvOfOverview(overview, c.Env)
-	}
 
 	span.SetTag("ConsideredApps", len(appNames))
 	var deployCounter uint = 0
@@ -4159,18 +4148,6 @@ func (c *envReleaseTrain) Transform(
 	}
 	span.SetTag("DeployedApps", deployCounter)
 
-	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
-	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps: %w", err))
-	}
-	for _, appName := range appNames {
-		if envOfOverview != nil {
-			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false, allReleasesOfAllApps)
-			if err != nil {
-				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
-			}
-		}
-	}
 	teamInfo := ""
 	if c.Parent.Team != "" {
 		teamInfo = " for team '" + c.Parent.Team + "'"

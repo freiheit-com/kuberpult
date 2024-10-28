@@ -57,7 +57,7 @@ services:
       - KUBERPULT_DB_LOCATION=postgres
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
       - KUBERPULT_DB_OPTION=postgreSQL
-      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
+      - KUBERPULT_GIT_NETWORK_TIMEOUT=3000s
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
       - KUBERPULT_DB_USER_PASSWORD=mypassword

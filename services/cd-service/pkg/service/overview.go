@@ -317,10 +317,11 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, err
 	} else {
 		for _, appName := range apps {
-			err2 := s.UpdateTopLevelAppInOverview(ctx, transaction, appName, &result, false, map[string][]int64{})
-			if err2 != nil {
-				return nil, err2
+			team, err := s.GetTeamName(ctx, transaction, appName)
+			if err != nil {
+				return nil, err
 			}
+			result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 		}
 
 	}
