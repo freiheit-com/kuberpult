@@ -88,7 +88,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 				if err != nil {
 					return nil, fmt.Errorf("unable to get applications for environment '%s': %v", *in.Environment, err)
 				}
-				if allAppsForEnv == nil || len(allAppsForEnv) == 0 {
+				if len(allAppsForEnv) == 0 {
 					return &api.GetProductSummaryResponse{
 						ProductSummary: nil,
 					}, nil
@@ -138,7 +138,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 							if err != nil {
 								return nil, fmt.Errorf("unable to get all applications for environment '%s': %v", envName, err)
 							}
-							if allAppsForEnv == nil || len(allAppsForEnv) == 0 {
+							if len(allAppsForEnv) == 0 {
 								return &api.GetProductSummaryResponse{
 									ProductSummary: nil,
 								}, nil
