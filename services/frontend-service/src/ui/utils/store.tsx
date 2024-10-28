@@ -91,24 +91,21 @@ export enum CommitInfoState {
     ERROR,
     NOTFOUND,
 }
-
-export enum AppDetailsState {
-    LOADING,
-    READY,
-    ERROR,
-    NOTFOUND,
-    NOTREQUESTED = 4,
-}
-
 export type CommitInfoResponse = {
     response: GetCommitInfoResponse | undefined;
     commitInfoReady: CommitInfoState;
 };
 
 export type AppDetailsResponse = {
-    details: GetAppDetailsResponse | undefined;
+    response: GetAppDetailsResponse | undefined;
     appDetailState: AppDetailsState;
 };
+export enum AppDetailsState {
+    LOADING,
+    READY,
+    ERROR,
+    NOTFOUND,
+}
 
 export enum FailedEslsState {
     LOADING,
@@ -133,7 +130,6 @@ export type ReleaseTrainPrognosisResponse = {
     releaseTrainPrognosisReady: ReleaseTrainPrognosisState;
 };
 const emptyBatch: BatchRequest & { [key: string]: unknown } = { actions: [] };
-
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
 export const refreshTags = (): void => {
@@ -149,8 +145,8 @@ export const refreshTags = (): void => {
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
-export const emptyDetails: { [key: string]: AppDetailsResponse } = {};
-export const [useAppDetails, updateAppDetails] = createStore<{ [key: string]: AppDetailsResponse }>(emptyDetails);
+const emtpyDetails: { [key: string]: GetAppDetailsResponse } = {};
+export const [useAppDetails, updateAppDetails] = createStore<{ [key: string]: GetAppDetailsResponse }>(emtpyDetails);
 
 const emptyWarnings: { [key: string]: Warning[] } = {};
 export const [useWarnings, updateWarnings] = createStore<{ [key: string]: Warning[] }>(emptyWarnings);
@@ -158,28 +154,16 @@ export const [useWarnings, updateWarnings] = createStore<{ [key: string]: Warnin
 export const useAllWarningsAllApps = (): Warning => useWarnings((map) => map);
 
 export const getAppDetails = (appName: string, authHeader: AuthHeader): void => {
-    const details = updateAppDetails.get();
-    details[appName] = {
-        details: details[appName] ? details[appName].details : undefined,
-        appDetailState: AppDetailsState.LOADING,
-    };
-    updateAppDetails.set(details);
     useApi
         .overviewService()
         .GetAppDetails({ appName: appName }, authHeader)
         .then((result: GetAppDetailsResponse) => {
-            const d = updateAppDetails.get();
-            d[appName] = { details: result, appDetailState: AppDetailsState.READY };
-            updateAppDetails.set(d);
+            const details = updateAppDetails.get();
+            details[appName] = result;
+            updateAppDetails.set(details);
         })
         .catch((e) => {
-            const GrpcErrorNotFound = 5;
-            if (e.code === GrpcErrorNotFound) {
-                details[appName] = { details: undefined, appDetailState: AppDetailsState.NOTFOUND };
-            } else {
-                details[appName] = { details: undefined, appDetailState: AppDetailsState.ERROR };
-            }
-            updateAppDetails.set(details);
+            PanicOverview.set(e);
             showSnackbarError(e.message);
         });
 };
@@ -456,7 +440,7 @@ export const useOpenReleaseDialog = (app: string, version: number): (() => void)
     }, [app, params, setParams, version]);
 };
 
-export const useAppDetailsForApp = (app: string): AppDetailsResponse => useAppDetails((map) => map[app]);
+export const useAppDetailsForApp = (app: string): GetAppDetailsResponse => useAppDetails((map) => map[app]);
 
 export const useCloseReleaseDialog = (): (() => void) => {
     const [params, setParams] = useSearchParams();
@@ -472,13 +456,10 @@ export const useReleaseDialogParams = (): { app: string | null; version: number 
     const app = params.get('dialog-app') ?? '';
     const version = +(params.get('dialog-version') ?? '');
 
-    const response = useAppDetailsForApp(app);
-
-    if (!response || !response.details) {
+    const appDetails = useAppDetailsForApp(app);
+    if (!appDetails) {
         return { app: null, version: null };
     }
-    const appDetails = response.details;
-
     const valid = !!appDetails.application?.releases.find((r) => r.version === version);
     return valid ? { app, version } : { app: null, version: null };
 };
@@ -517,10 +498,10 @@ export const useAllWarnings = (): Warning[] => {
     return names
         .map((name) => {
             const resp = allAppDetails[name];
-            if (resp === undefined || !allAppDetails[name].details) {
+            if (resp === undefined) {
                 return [];
             } else {
-                const app = resp.details?.application;
+                const app = resp.application;
                 if (app === undefined) {
                     return [];
                 } else {
@@ -608,10 +589,10 @@ export const applicationsWithWarnings = (applications: OverviewApplication[]): O
     applications
         .map((app) => {
             const d = updateAppDetails.get()[app.name];
-            if (d === undefined || !updateAppDetails.get()[app.name].details) {
+            if (d === undefined) {
                 return [];
             } else {
-                const currApp = d.details?.application;
+                const currApp = d.application;
                 if (currApp === undefined) {
                     return [];
                 } else {
@@ -626,8 +607,8 @@ const applicationsMatchingName = (applications: OverviewApplication[], appNamePa
     applications.filter((app) => appNameParam === '' || app.name.includes(appNameParam));
 
 // sorts given apps by team
-// const applicationsSortedByTeam = (applications: OverviewApplication[]): OverviewApplication[] =>
-//     applications.sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
+const applicationsSortedByTeam = (applications: OverviewApplication[]): OverviewApplication[] =>
+    applications.sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
 
 // returns applications to show on the home page
 export const useApplicationsFilteredAndSorted = (
@@ -635,12 +616,11 @@ export const useApplicationsFilteredAndSorted = (
     withWarningsOnly: boolean,
     nameIncludes: string
 ): OverviewApplication[] => {
-    const all = useOverview(({ lightweightApps }) => lightweightApps);
+    const all = useOverview(({ lightweightApps }) => Object.values(lightweightApps));
     const allMatchingTeam = applicationsMatchingTeam(all, teams);
     const allMatchingTeamAndWarnings = withWarningsOnly ? applicationsWithWarnings(allMatchingTeam) : allMatchingTeam;
-    return applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
-    // const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
-    // return applicationsSortedByTeam(allMatchingTeamAndWarningsAndName);
+    const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
+    return applicationsSortedByTeam(allMatchingTeamAndWarningsAndName);
 };
 
 export interface DisplayApplicationLock {
@@ -938,9 +918,8 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 export const useRelease = (application: string, version: number): Release | undefined => {
     const appDetails = useAppDetailsForApp(application);
 
-    if (!appDetails || appDetails.appDetailState !== AppDetailsState.READY) return undefined;
-
-    return appDetails.details ? appDetails.details.application?.releases.find((r) => r.version === version) : undefined;
+    if (!appDetails) return undefined;
+    return appDetails.application?.releases.find((r) => r.version === version);
 };
 
 export const useReleaseOrLog = (application: string, version: number): Release | undefined => {
@@ -954,11 +933,7 @@ export const useReleaseOrLog = (application: string, version: number): Release |
 };
 
 export const useReleaseOptional = (application: string, env: Environment): Release | undefined => {
-    const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
-    if (appDetails === undefined) {
-        return undefined;
-    }
+    const appDetails = useAppDetailsForApp(application);
     const deployment = appDetails.deployments[env.name];
     if (!deployment) return undefined;
     return appDetails.application?.releases.find((r) => r.version === deployment.version);
@@ -971,8 +946,7 @@ export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup:
  */
 export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
-    const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
+    const appDetails = useAppDetailsForApp(application);
     return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
@@ -1004,13 +978,11 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
  */
 export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
-    const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
-
+    const appDetails = useAppDetailsForApp(application);
     return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
-            const envs = group.environments.filter((env) => (appDetails ? appDetails.deployments[env.name] : false));
+            const envs = group.environments.filter((env) => appDetails.deployments[env.name]);
             if (envs.length > 0) {
                 // we need to make a copy of the group here, because we want to remove some envs.
                 // but that should not have any effect on the group saved in the store.
@@ -1028,14 +1000,22 @@ export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroup
     }, [environmentGroups, appDetails]);
 };
 
+// Get all releases for an app
+export const useReleasesForApp = (app: string): Release[] => {
+    const appDetails = useAppDetailsForApp(app);
+    if (!appDetails?.application?.releases) {
+        return [];
+    } else {
+        return appDetails.application?.releases;
+    }
+};
+
 // Calculated release difference between a specific release and currently deployed release on a specific environment
 export const useReleaseDifference = (toDeployVersion: number, application: string, environment: string): number => {
-    const response = useAppDetailsForApp(application);
-
-    if (!response || !response.details) {
+    const appDetails = useAppDetailsForApp(application);
+    if (!appDetails) {
         return 0;
     }
-    const appDetails = response.details;
     const deployment = appDetails.deployments[environment];
     if (!deployment) {
         return 0;
@@ -1058,7 +1038,7 @@ export const useReleaseDifference = (toDeployVersion: number, application: strin
 // Get all minor releases for an app
 export const useMinorsForApp = (app: string): number[] | undefined =>
     useAppDetailsForApp(app)
-        .details?.application?.releases.filter((rel) => rel.isMinor)
+        .application?.releases.filter((rel) => rel.isMinor)
         .map((rel) => rel.version);
 
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate
