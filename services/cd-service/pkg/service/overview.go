@@ -296,7 +296,6 @@ func (o *OverviewServiceServer) getOverview(
 	transaction *sql.Tx,
 ) (*api.GetOverviewResponse, error) {
 	var rev string
-	logger.FromContext(ctx).Warn("Calculating overview...")
 	if s.DBHandler.ShouldUseOtherTables() {
 		rev = "0000000000000000000000000000000000000000"
 	} else {
