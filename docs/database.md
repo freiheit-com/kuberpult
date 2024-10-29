@@ -48,7 +48,8 @@ Metric `Kuberpult.manifest_export_push_failures`.
 This metric measures each failure in the manifest-repo-export-service to push to the git repository.
 It measures 0 if there are currently no failures, and 1 if there are.
 
-This metric is only written, if there is something for kuberpult to push.
+This metric is allways written, even if there is nothing for kuberpult to push.
+In case kuberpult has nothing to push this metric writes 0 every `manifestRepoExport.eslProcessingIdleTimeSeconds` seconds.
 
 
 #### Monitoring Processing Delay

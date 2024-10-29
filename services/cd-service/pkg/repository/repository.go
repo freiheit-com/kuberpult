@@ -1931,9 +1931,26 @@ func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx
 	}
 	return s.GetAllDeploymentsForAppFromManifest(ctx, appName)
 }
+func (s *State) GetAllDeploymentsForAppAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, appName, ts)
+	}
+	return nil, fmt.Errorf("GetAllDeploymentsForAppAtTimestamp is only available if DB is enable")
+}
 
 func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
 	result, err := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return map[string]int64{}, nil
+	}
+	return result.Deployments, nil
+}
+
+func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
+	result, err := s.DBHandler.DBSelectAllDeploymentsForAppAtTimestamp(ctx, transaction, appName, ts)
 	if err != nil {
 		return nil, err
 	}
@@ -2083,6 +2100,13 @@ func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql
 	return s.GetEnvironmentApplicationsFromManifest(environment)
 }
 
+func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, environment string, ts time.Time) ([]string, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentApplicationsFromDBAtTimestamp(ctx, transaction, environment, ts)
+	}
+	return nil, fmt.Errorf("GetEnvironmentApplicationsAtTimestamp is only available for DB uses")
+}
+
 func (s *State) GetEnvironmentApplicationsFromManifest(environment string) ([]string, error) {
 	appDir := s.Filesystem.Join("environments", environment, "applications")
 	return names(s.Filesystem, appDir)
@@ -2090,6 +2114,20 @@ func (s *State) GetEnvironmentApplicationsFromManifest(environment string) ([]st
 
 func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
 	envInfo, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environment)
+	if err != nil {
+		return nil, err
+	}
+	if envInfo == nil {
+		return nil, fmt.Errorf("environment %s not found", environment)
+	}
+	if envInfo.Applications == nil {
+		return make([]string, 0), nil
+	}
+	return envInfo.Applications, nil
+}
+
+func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, environment string, ts time.Time) ([]string, error) {
+	envInfo, err := s.DBHandler.DBSelectEnvironmentAtTimestamp(ctx, transaction, environment, ts)
 	if err != nil {
 		return nil, err
 	}
@@ -2440,13 +2478,9 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	}
 
 	shouldDelete := stateChange == db.AppStateChangeDelete
-	err = s.UpdateTopLevelAppInOverview(ctx, transaction, appName, cache, shouldDelete, map[string][]int64{})
-	if err != nil {
-		return err
-	}
 
 	if shouldDelete {
-		lApps := make([]*api.OverviewApplication, max(len(cache.LightweightApps)-1, 0))
+		lApps := make([]*api.OverviewApplication, 0)
 
 		for _, curr := range cache.LightweightApps {
 			if curr.Name != appName {
@@ -2454,6 +2488,12 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 			}
 		}
 		cache.LightweightApps = lApps
+	} else {
+		team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
+		if err != nil {
+			return fmt.Errorf("could not obtain application team owner to update top level app in overview: %w", err)
+		}
+		cache.LightweightApps = append(cache.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 	}
 
 	err = h.WriteOverviewCache(ctx, transaction, cache)
@@ -2491,30 +2531,6 @@ func (s *State) DBInsertEnvironmentWithOverview(ctx context.Context, tx *sql.Tx,
 	}
 
 	return nil
-}
-
-func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool, allReleasesOfAllApps map[string][]int64) error {
-	if deleteApp {
-		removeOverviewAppFromLightweightApps(result, appName)
-		return nil
-	}
-	team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
-	if err != nil {
-		return fmt.Errorf("could not obtain application team owner to update top level app in overview: %w", err)
-	}
-	result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
-	return nil
-}
-
-func removeOverviewAppFromLightweightApps(result *api.GetOverviewResponse, appName string) {
-	lApps := make([]*api.OverviewApplication, max(len(result.LightweightApps)-1, 0))
-
-	for _, curr := range result.LightweightApps {
-		if curr.Name != appName {
-			lApps = append(lApps, curr)
-		}
-	}
-	result.LightweightApps = lApps
 }
 
 func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
@@ -3096,6 +3112,21 @@ func (s *State) GetApplicationReleaseManifestsFromManifest(application string, v
 func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
+		if err != nil {
+			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
+		}
+		if app == nil {
+			return "", fmt.Errorf("could not get team of app %s - could not find app", application)
+		}
+		return app.Metadata.Team, nil
+	} else {
+		return s.GetApplicationTeamOwnerFromManifest(application)
+	}
+}
+
+func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transaction *sql.Tx, application string, ts time.Time) (string, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		app, err := s.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, application, ts)
 		if err != nil {
 			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
 		}
