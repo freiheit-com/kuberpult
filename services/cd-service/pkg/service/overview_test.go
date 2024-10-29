@@ -49,7 +49,7 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
-func TestOverviewAndAppDetail(t *testing.T) {
+func TestOverviewAndAppDetails(t *testing.T) {
 	var dev = "dev"
 	var development = "development"
 	var staging = "staging"
@@ -1256,7 +1256,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 		ExpectedAppDetails     map[string]*api.GetAppDetailsResponse //appName -> appDetails
 	}{
 		{
-			Name: "Update overview Deployment Attempt",
+			Name: "Update App Details Deployment Attempt",
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",
