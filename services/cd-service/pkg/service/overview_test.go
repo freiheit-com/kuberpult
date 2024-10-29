@@ -1254,7 +1254,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 		ExpectedAppDetails     map[string]*api.GetAppDetailsResponse //appName -> appDetails
 	}{
 		{
-			Name: "Update overview Deployment Attempt",
+			Name: "Update App Details Deployment Attempt",
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",
