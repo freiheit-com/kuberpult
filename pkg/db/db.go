@@ -2535,7 +2535,11 @@ func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context,
 	}
 
 	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, appName, json FROM all_deployments WHERE appName = (?) AND created <= (?) ORDER BY eslVersion DESC LIMIT 1;")
+		"SELECT eslVersion, created, appName, json " +
+			"FROM all_deployments " +
+			"WHERE appName = (?) AND created <= (?) " +
+			"ORDER BY eslVersion " +
+			"DESC LIMIT 1;")
 
 	span.SetTag("query", insertQuery)
 	rows, err := tx.Query(
@@ -5243,31 +5247,7 @@ LIMIT 1;
 	if err != nil {
 		return nil, fmt.Errorf("could not query the environments table for environment %s, error: %w", environmentName, err)
 	}
-
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
-		}
-	}(rows)
-
-	if rows.Next() {
-		//exhaustruct:ignore
-		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
-		}
-		env, err := EnvironmentFromRow(ctx, &row)
-		if err != nil {
-			return nil, err
-		}
-		return env, nil
-	}
-	return nil, nil
+	return h.processEnvironmentRow(ctx, rows)
 }
 
 func (h *DBHandler) DBSelectEnvironmentAtTimestamp(ctx context.Context, tx *sql.Tx, environmentName string, ts time.Time) (*DBEnvironment, error) {
@@ -6104,7 +6084,9 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 	}
 
 	insertQuery := h.AdaptQuery(
-		"SELECT transactionTimestamp FROM commit_transaction_timestamps WHERE commitHash=?;",
+		"SELECT transactionTimestamp " +
+			"FROM commit_transaction_timestamps " +
+			"WHERE commitHash=?;",
 	)
 
 	span.SetTag("query", insertQuery)

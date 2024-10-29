@@ -98,6 +98,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 					if err != nil {
 						return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
 					}
+
 					if version, ok := currentAppDeployments[*in.Environment]; ok {
 						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
 							CommitId:       "",
