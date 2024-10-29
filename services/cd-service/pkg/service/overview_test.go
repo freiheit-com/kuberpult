@@ -49,7 +49,7 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
-func TestOverviewAndAppDetail(t *testing.T) {
+func TestOverviewAndAppDetails(t *testing.T) {
 	var dev = "dev"
 	var development = "development"
 	var staging = "staging"
