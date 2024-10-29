@@ -13,9 +13,9 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { render, screen, fireEvent } from '@testing-library/react';
-import { ServiceLane, DiffElement } from './ServiceLane';
-import { UpdateOverview, updateAppDetails } from '../../utils/store';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { DiffElement, ServiceLane } from './ServiceLane';
+import { AppDetailsResponse, AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 import {
     Application,
@@ -47,14 +47,42 @@ const extendRelease = (props: Partial<Release>): Release => ({
 });
 
 describe('Service Lane', () => {
-    const getNode = (overrides: { application: OverviewApplication }) => (
+    const getNode = (overrides: {
+        application: OverviewApplication;
+        allAppDetails: { [p: string]: AppDetailsResponse };
+    }) => (
         <MemoryRouter>
             <ServiceLane {...overrides} hideMinors={false} />
         </MemoryRouter>
     );
-    const getWrapper = (overrides: { application: OverviewApplication }) => render(getNode(overrides));
+    const getWrapper = (overrides: {
+        application: OverviewApplication;
+        allAppDetails: { [p: string]: AppDetailsResponse };
+    }) => render(getNode(overrides));
     it('Renders a row of releases', () => {
         // when
+        const appDetails = {
+            test2: {
+                details: {
+                    application: {
+                        name: 'test2',
+                        releases: [
+                            extendRelease({ version: 2 }),
+                            extendRelease({ version: 3 }),
+                            extendRelease({ version: 5 }),
+                        ],
+                        sourceRepoUrl: 'http://test2.com',
+                        team: 'example',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                appDetailState: AppDetailsState.READY,
+            },
+        };
         const sampleApp: Application = {
             name: 'test2',
             releases: [extendRelease({ version: 5 }), extendRelease({ version: 2 }), extendRelease({ version: 3 })],
@@ -68,26 +96,8 @@ describe('Service Lane', () => {
             team: '',
         };
         UpdateOverview.set({});
-        updateAppDetails.set({
-            test2: {
-                application: {
-                    name: 'test2',
-                    releases: [
-                        extendRelease({ version: 2 }),
-                        extendRelease({ version: 3 }),
-                        extendRelease({ version: 5 }),
-                    ],
-                    sourceRepoUrl: 'http://test2.com',
-                    team: 'example',
-                    undeploySummary: UndeploySummary.NORMAL,
-                    warnings: [],
-                },
-                deployments: {},
-                appLocks: {},
-                teamLocks: {},
-            },
-        });
-        getWrapper({ application: sampleLightWeightApp });
+        updateAppDetails.set(appDetails);
+        getWrapper({ application: sampleLightWeightApp, allAppDetails: appDetails });
 
         // then releases are sorted and Release card is called with props:
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: 5 });
@@ -102,7 +112,7 @@ type TestData = {
     envs: Environment[];
 };
 
-type TestDataDiff = TestData & { diff: string; releases: Release[]; appDetails: GetAppDetailsResponse };
+type TestDataDiff = TestData & { diff: string; releases: Release[]; appDetails: AppDetailsResponse };
 
 const data: TestDataDiff[] = [
     {
@@ -110,28 +120,31 @@ const data: TestDataDiff[] = [
         diff: '-1',
         releases: [makeRelease(1)],
         appDetails: {
-            application: {
-                name: 'test2',
-                team: 'test-team',
-                releases: [makeRelease(1)],
-                sourceRepoUrl: '',
-                undeploySummary: UndeploySummary.MIXED,
-                warnings: [],
-            },
-            appLocks: {},
-            teamLocks: {},
-            deployments: {
-                foo: {
-                    version: 1,
-                    queuedVersion: 0,
-                    undeployVersion: false,
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
                 },
-                foo2: {
-                    version: 1,
-                    queuedVersion: 0,
-                    undeployVersion: false,
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
                 },
             },
+            appDetailState: AppDetailsState.READY,
         },
         envs: [
             {
@@ -157,28 +170,31 @@ const data: TestDataDiff[] = [
         diff: '0',
         releases: [makeRelease(1), makeRelease(2)],
         appDetails: {
-            application: {
-                name: 'test2',
-                team: 'test-team',
-                releases: [makeRelease(1), makeRelease(2)],
-                sourceRepoUrl: '',
-                undeploySummary: UndeploySummary.MIXED,
-                warnings: [],
-            },
-            appLocks: {},
-            teamLocks: {},
-            deployments: {
-                foo: {
-                    version: 1,
-                    queuedVersion: 0,
-                    undeployVersion: false,
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(1), makeRelease(2)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
                 },
-                foo2: {
-                    version: 2,
-                    queuedVersion: 0,
-                    undeployVersion: false,
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 2,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
                 },
             },
+            appDetailState: AppDetailsState.READY,
         },
         envs: [
             {
@@ -204,28 +220,31 @@ const data: TestDataDiff[] = [
         diff: '1',
         releases: [makeRelease(1), makeRelease(2), makeRelease(4)],
         appDetails: {
-            application: {
-                name: 'test2',
-                team: 'test-team',
-                releases: [makeRelease(4), makeRelease(2), makeRelease(1)],
-                sourceRepoUrl: '',
-                undeploySummary: UndeploySummary.MIXED,
-                warnings: [],
-            },
-            appLocks: {},
-            teamLocks: {},
-            deployments: {
-                foo: {
-                    version: 1,
-                    queuedVersion: 0,
-                    undeployVersion: false,
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(4), makeRelease(2), makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
                 },
-                foo2: {
-                    version: 4,
-                    queuedVersion: 0,
-                    undeployVersion: false,
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 4,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
                 },
             },
+            appDetailState: AppDetailsState.READY,
         },
         envs: [
             {
@@ -251,28 +270,31 @@ const data: TestDataDiff[] = [
         diff: '2',
         releases: [makeRelease(2), makeRelease(4), makeRelease(3), makeRelease(5)],
         appDetails: {
-            application: {
-                name: 'test2',
-                team: 'test-team',
-                releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
-                sourceRepoUrl: '',
-                undeploySummary: UndeploySummary.MIXED,
-                warnings: [],
-            },
-            appLocks: {},
-            teamLocks: {},
-            deployments: {
-                foo: {
-                    version: 2,
-                    queuedVersion: 0,
-                    undeployVersion: false,
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
                 },
-                foo2: {
-                    version: 5,
-                    queuedVersion: 0,
-                    undeployVersion: false,
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 2,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 5,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
                 },
             },
+            appDetailState: AppDetailsState.READY,
         },
         envs: [
             {
@@ -447,16 +469,19 @@ describe('Service Lane Important Releases', () => {
             });
             updateAppDetails.set({
                 test2: {
-                    application: sampleApp,
-                    deployments: {
-                        foo: {
-                            version: testcase.currentlyDeployedVersion,
-                            undeployVersion: false,
-                            queuedVersion: 0,
+                    details: {
+                        application: sampleApp,
+                        deployments: {
+                            foo: {
+                                version: testcase.currentlyDeployedVersion,
+                                undeployVersion: false,
+                                queuedVersion: 0,
+                            },
                         },
+                        appLocks: {},
+                        teamLocks: {},
                     },
-                    appLocks: {},
-                    teamLocks: {},
+                    appDetailState: AppDetailsState.READY,
                 },
             });
             // when
@@ -583,10 +608,13 @@ describe('Service Lane ⋮ menu', () => {
 
             updateAppDetails.set({
                 test1: {
-                    application: testcase.renderedApp,
-                    deployments: {},
-                    appLocks: {},
-                    teamLocks: {},
+                    details: {
+                        application: testcase.renderedApp,
+                        deployments: {},
+                        appLocks: {},
+                        teamLocks: {},
+                    },
+                    appDetailState: AppDetailsState.READY,
                 },
             });
 
@@ -815,7 +843,10 @@ describe('Service Lane AppLockSummary', () => {
             });
 
             updateAppDetails.set({
-                test1: testcase.renderedApp,
+                test1: {
+                    details: testcase.renderedApp,
+                    appDetailState: AppDetailsState.READY,
+                },
             });
 
             const { container } = getWrapper({
