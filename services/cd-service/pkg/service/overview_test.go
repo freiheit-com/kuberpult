@@ -480,7 +480,7 @@ func TestOverviewAndAppDetail(t *testing.T) {
 				Repository: repo,
 				Shutdown:   shutdown,
 				DBHandler:  repo.State().DBHandler,
-				Context:    context.Background(),
+				Context:    ctx,
 			}
 			ov, err := svc.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: ""})
 			if err != nil {
@@ -765,15 +765,16 @@ func TestOverviewService(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			ctx := testutil.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
 				DBHandler:  repo.State().DBHandler,
-				Context:    context.Background(),
+				Context:    ctx,
 			}
 			tc.Test(t, svc)
 			if tc.DB {
-				repo.State().DBHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+				repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					cachedResponse, err := repo.State().DBHandler.ReadLatestOverviewCache(ctx, transaction)
 					if err != nil {
 						return err
@@ -1203,10 +1204,11 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			ctx := testutil.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
-				Context:    context.Background(),
+				Context:    ctx,
 			}
 
 			ov, err := svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
@@ -1383,12 +1385,11 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
 				DBHandler:  repo.State().DBHandler,
-				Context:    context.Background(),
+				Context:    ctx,
 			}
 			for _, currentAppName := range tc.AppsNamesToCheck {
 				response, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: currentAppName})
@@ -1640,12 +1641,12 @@ func TestCalculateWarnings(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-
+			ctx := testutil.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
 				DBHandler:  repo.State().DBHandler,
-				Context:    context.Background(),
+				Context:    ctx,
 			}
 
 			for _, appName := range tc.AppsNamesToCheck {
