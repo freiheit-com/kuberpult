@@ -569,7 +569,6 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 									Argocd:           &api.EnvironmentConfig_ArgoCD{},
 									EnvironmentGroup: &dev,
 								},
-								TeamLocks: make(map[string]*api.Locks),
 								AppLocks: map[string]*api.Locks{
 									"test": {
 										Locks: []*api.Lock{
@@ -644,7 +643,11 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
+				err := dbHandler.DBInsertApplication(ctx, transaction, "test", 0, AppStateChangeCreate, DBAppMetaData{})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
 				if err != nil {
 					return err
 				}
