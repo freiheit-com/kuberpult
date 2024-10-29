@@ -114,7 +114,10 @@ func TestOverviewAndAppDetail(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					Team: "test-team",
+					Team:           "test-team",
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "test with team version 2",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-incorrect-pr-number",
@@ -145,6 +148,11 @@ func TestOverviewAndAppDetail(t *testing.T) {
 					Application: "test-with-team",
 					Environment: "development",
 					Version:     2,
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test-with-incorrect-pr-number",
+					Environment: prod,
+					Version:     3,
 				},
 				&repository.CreateEnvironmentLock{
 					Environment: "development",
@@ -178,6 +186,7 @@ func TestOverviewAndAppDetail(t *testing.T) {
 								SourceMessage:  "changed something (#678)",
 							},
 						},
+						Warnings: []*api.Warning{},
 					},
 					Deployments: map[string]*api.Deployment{
 						"development": {
@@ -189,6 +198,7 @@ func TestOverviewAndAppDetail(t *testing.T) {
 							},
 						},
 					},
+					TeamLocks: map[string]*api.Locks{},
 					AppLocks: map[string]*api.Locks{
 						prod: {
 							Locks: []*api.Lock{
@@ -206,47 +216,83 @@ func TestOverviewAndAppDetail(t *testing.T) {
 				},
 				"test-with-team": {
 					Application: &api.Application{
-						Name: "test",
+						Name: "test-with-team",
 						Team: "test-team",
 						Releases: []*api.Release{
 							{
-								Version:        1,
-								PrNumber:       "678",
+								Version:        2,
 								SourceAuthor:   "example <example@example.com>",
 								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceMessage:  "changed something (#678)",
+								SourceMessage:  "test with team version 2",
+							},
+						},
+						Warnings: []*api.Warning{},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:         2,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
 							},
 						},
 					},
-					Deployments: map[string]*api.Deployment{
-						"dev": {
-							Version:            1,
-							QueuedVersion:      0,
-							UndeployVersion:    false,
-							DeploymentMetaData: &api.Deployment_DeploymentMetaData{},
+					TeamLocks: map[string]*api.Locks{
+						"development": {
+							Locks: []*api.Lock{
+								{
+									Message: "team lock message",
+									LockId:  "manual-team-lock",
+									CreatedBy: &api.Actor{
+										Name:  "test tester",
+										Email: "testmail@example.com",
+									},
+								},
+							},
 						},
 					},
+					AppLocks: map[string]*api.Locks{},
 				},
 				"test-with-incorrect-pr-number": {
 					Application: &api.Application{
 						Name: "test-with-incorrect-pr-number",
-						Team: "test-team",
 						Releases: []*api.Release{
 							{
-								Version:        1,
-								PrNumber:       "678",
+								Version:        3,
 								SourceAuthor:   "example <example@example.com>",
 								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceMessage:  "changed something (#678)",
+								SourceMessage:  "changed something (#678",
+							},
+						},
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UpstreamNotDeployed{
+									UpstreamNotDeployed: &api.UpstreamNotDeployed{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         3,
+										ThisEnvironment:     "production",
+									},
+								},
 							},
 						},
 					},
 					Deployments: map[string]*api.Deployment{
-						"prod": {
-							Version:            1,
-							QueuedVersion:      0,
-							UndeployVersion:    false,
-							DeploymentMetaData: &api.Deployment_DeploymentMetaData{},
+						"development": {
+							Version:         3,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+						prod: {
+							Version:         3,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
 						},
 					},
 					AppLocks:  map[string]*api.Locks{},
@@ -255,19 +301,26 @@ func TestOverviewAndAppDetail(t *testing.T) {
 				"test-with-only-pr-number": {
 					Application: &api.Application{
 						Name: "test-with-only-pr-number",
-						Team: "test-team",
 						Releases: []*api.Release{
 							{
-								Version:        1,
+								Version:        4,
 								PrNumber:       "678",
 								SourceAuthor:   "example <example@example.com>",
 								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceMessage:  "changed something (#678)",
+								SourceMessage:  "(#678)",
 							},
 						},
+						Warnings: []*api.Warning{},
 					},
 					Deployments: map[string]*api.Deployment{
-						"dev": {},
+						"development": {
+							Version:         4,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
 					},
 					AppLocks:  map[string]*api.Locks{},
 					TeamLocks: map[string]*api.Locks{},
@@ -442,8 +495,8 @@ func TestOverviewAndAppDetail(t *testing.T) {
 					t.Error(err)
 				}
 
-				if diff := cmp.Diff(tc.ExpectedAppDetails[appName], appDetails, protocmp.Transform(), getAppDetailsIgnoredTypes(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Lock{}, "created_at"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime")); diff != "" {
-					t.Errorf("appDetails missmatch (-want, +got): %s\n", diff)
+				if diff := cmp.Diff(tc.ExpectedAppDetails[appName], appDetails, getAppDetailsIgnoredTypes(), cmpopts.IgnoreFields(api.Release{}, "CreatedAt"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime"), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt")); diff != "" {
+					t.Errorf("response missmatch (-want, +got): %s\n", diff)
 				}
 			}
 		})
