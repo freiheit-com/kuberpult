@@ -2577,7 +2577,6 @@ func TestReadWriteOverviewCache(t *testing.T) {
 		Name      string
 		Overviews []*api.GetOverviewResponse
 	}
-	//TODO: This test suite has some commented out sections. These should be resolved in Ref: SRX-9PBRYS.
 	tcs := []TestCase{
 		{
 			Name: "Read and write",
@@ -2596,39 +2595,12 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									//Applications: map[string]*api.Environment_Application{
-									//	"test": {
-									//		Name:    "test",
-									//		Version: 1,
-									//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									//			DeployAuthor: "testmail@example.com",
-									//			DeployTime:   "1",
-									//		},
-									//		Team: "team-123",
-									//	},
-									//},
 									Priority: api.Priority_YOLO,
 								},
 							},
 							Priority: api.Priority_YOLO,
 						},
 					},
-					//Applications: map[string]*api.Application{
-					//	"test": {
-					//		Name: "test",
-					//		Releases: []*api.Release{
-					//			{
-					//				Version:        1,
-					//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-					//				SourceAuthor:   "example <example@example.com>",
-					//				SourceMessage:  "changed something (#678)",
-					//				PrNumber:       "678",
-					//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-					//			},
-					//		},
-					//		Team: "team-123",
-					//	},
-					//},
 					LightweightApps: []*api.OverviewApplication{
 						{
 							Name: "test",
@@ -2656,39 +2628,12 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									//Applications: map[string]*api.Environment_Application{
-									//	"test": {
-									//		Name:    "test",
-									//		Version: 1,
-									//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									//			DeployAuthor: "testmail@example.com",
-									//			DeployTime:   "1",
-									//		},
-									//		Team: "team-123",
-									//	},
-									//},
 									Priority: api.Priority_YOLO,
 								},
 							},
 							Priority: api.Priority_YOLO,
 						},
 					},
-					//Applications: map[string]*api.Application{
-					//	"test": {
-					//		Name: "test",
-					//		Releases: []*api.Release{
-					//			{
-					//				Version:        1,
-					//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-					//				SourceAuthor:   "example <example@example.com>",
-					//				SourceMessage:  "changed something (#678)",
-					//				PrNumber:       "678",
-					//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-					//			},
-					//		},
-					//		Team: "team-123",
-					//	},
-					//},
 					LightweightApps: []*api.OverviewApplication{
 						{
 							Name: "test",
@@ -2711,39 +2656,12 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									//Applications: map[string]*api.Environment_Application{
-									//	"test2": {
-									//		Name:    "test2",
-									//		Version: 1,
-									//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									//			DeployAuthor: "testmail2@example.com",
-									//			DeployTime:   "1",
-									//		},
-									//		Team: "team-123",
-									//	},
-									//},
 									Priority: api.Priority_CANARY,
 								},
 							},
 							Priority: api.Priority_CANARY,
 						},
 					},
-					//Applications: map[string]*api.Application{
-					//	"test2": {
-					//		Name: "test2",
-					//		Releases: []*api.Release{
-					//			{
-					//				Version:        1,
-					//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-					//				SourceAuthor:   "example <example@example.com>",
-					//				SourceMessage:  "changed something (#678)",
-					//				PrNumber:       "678",
-					//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-					//			},
-					//		},
-					//		Team: "team-123",
-					//	},
-					//},
 					LightweightApps: []*api.OverviewApplication{
 						{
 							Name: "test2",
