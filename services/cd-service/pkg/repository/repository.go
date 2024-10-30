@@ -2547,6 +2547,8 @@ func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn str
 }
 
 func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateEnvironmentsInOverview")
+	defer span.Finish()
 	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
 		return err
 	} else {
