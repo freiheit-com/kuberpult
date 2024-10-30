@@ -103,11 +103,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 		for idx, r := range rels {
 			uintRels[idx] = uint64(r)
 		}
-		//Does not get the manifest and gets all releases at the same time
+
 		releases, err := o.DBHandler.DBSelectReleasesByVersions(ctx, transaction, appName, uintRels, false)
-		if err != nil {
-			return nil, err
-		}
 		for _, currentRelease := range releases {
 			var tmp = &repository.Release{
 				Version:         currentRelease.ReleaseNumber,
