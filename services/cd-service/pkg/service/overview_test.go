@@ -714,17 +714,18 @@ func TestOverviewService(t *testing.T) {
 				if len(test.Releases) != 2 {
 					t.Errorf("expected two releases, got %v", test.Releases)
 				}
-				if test.Releases[1].Version != 1 {
-					t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
+				actualRelease := test.Releases[1]
+				if actualRelease.Version != 1 {
+					t.Errorf("expected test release version to be 1, but got %d", test.Releases[1].Version)
 				}
-				if test.Releases[1].SourceAuthor != "example <example@example.com>" {
-					t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
+				if actualRelease.SourceAuthor != "example <example@example.com>" {
+					t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", actualRelease.SourceAuthor)
 				}
-				if test.Releases[1].SourceMessage != "changed something (#678)" {
-					t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
+				if actualRelease.SourceMessage != "changed something (#678)" {
+					t.Errorf("expected test source message to be \"changed something\", but got %q", actualRelease.SourceMessage)
 				}
-				if test.Releases[1].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
-					t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
+				if actualRelease.SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
+					t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", actualRelease.SourceCommitId)
 				}
 
 				//Check cache

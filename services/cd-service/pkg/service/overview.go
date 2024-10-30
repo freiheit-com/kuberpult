@@ -98,38 +98,34 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if retrievedReleasesOfApp != nil {
 			rels = retrievedReleasesOfApp.Metadata.Releases
 		}
-		//Highest to lowest
-		sort.Slice(rels, func(i, j int) bool {
-			return rels[j] < rels[i]
-		})
-		for _, id := range rels {
-			uid := uint64(id)
-			// we could optimize this by making one query that does return multiples:
-			if rel, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uid, false); err != nil {
-				return nil, err
-			} else {
-				if rel == nil {
-					// ignore
-				} else {
-					var tmp = &repository.Release{
-						Version:         rel.ReleaseNumber,
-						UndeployVersion: rel.Metadata.UndeployVersion,
-						SourceAuthor:    rel.Metadata.SourceAuthor,
-						SourceCommitId:  rel.Metadata.SourceCommitId,
-						SourceMessage:   rel.Metadata.SourceMessage,
-						CreatedAt:       rel.Created,
-						DisplayVersion:  rel.Metadata.DisplayVersion,
-						IsMinor:         rel.Metadata.IsMinor,
-						IsPrepublish:    rel.Metadata.IsPrepublish,
-					}
-					release := tmp.ToProto()
-					release.Version = uid
-					release.UndeployVersion = tmp.UndeployVersion
-					result.Releases = append(result.Releases, release)
-				}
-			}
-		}
 
+		uintRels := make([]uint64, len(rels))
+		for idx, r := range rels {
+			uintRels[idx] = uint64(r)
+		}
+		//Does not get the manifest and gets all releases at the same time
+		releases, err := o.DBHandler.DBSelectReleasesByVersions(ctx, transaction, appName, uintRels, false)
+		if err != nil {
+			return nil, err
+		}
+		for _, currentRelease := range releases {
+			var tmp = &repository.Release{
+				Version:         currentRelease.ReleaseNumber,
+				UndeployVersion: currentRelease.Metadata.UndeployVersion,
+				SourceAuthor:    currentRelease.Metadata.SourceAuthor,
+				SourceCommitId:  currentRelease.Metadata.SourceCommitId,
+				SourceMessage:   currentRelease.Metadata.SourceMessage,
+				CreatedAt:       currentRelease.Created,
+				DisplayVersion:  currentRelease.Metadata.DisplayVersion,
+				IsMinor:         currentRelease.Metadata.IsMinor,
+				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
+			}
+			result.Releases = append(result.Releases, tmp.ToProto())
+		}
+		//Highest to lowest
+		sort.Slice(result.Releases, func(i, j int) bool {
+			return result.Releases[j].Version < result.Releases[i].Version
+		})
 		if app, err := o.DBHandler.DBSelectApp(ctx, transaction, appName); err != nil {
 			return nil, err
 		} else {
@@ -138,6 +134,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			result.Team = app.Metadata.Team
 		}
+
 		if response == nil {
 			return nil, fmt.Errorf("app not found: '%s'", appName)
 		}
@@ -212,10 +209,10 @@ func (o *OverviewServiceServer) GetAppDetails(
 					deployment.QueuedVersion = *queuedVersion
 				}
 			}
-			if release, err := o.Repository.State().GetApplicationRelease(ctx, transaction, appName, uint64(*currentDeployment.Version)); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return nil, err
-			} else if release != nil {
-				deployment.UndeployVersion = release.UndeployVersion
+
+			rel := getReleaseFromVersion(releases, uint64(*currentDeployment.Version))
+			if rel != nil {
+				deployment.UndeployVersion = rel.Metadata.UndeployVersion
 			}
 			response.Deployments[envName] = deployment
 		}
@@ -232,6 +229,15 @@ func (o *OverviewServiceServer) GetAppDetails(
 	}
 	response.Application = resultApp
 	return response, nil
+}
+
+func getReleaseFromVersion(releases []*db.DBReleaseWithMetaData, version uint64) *db.DBReleaseWithMetaData {
+	for _, curr := range releases {
+		if curr.ReleaseNumber == version {
+			return curr
+		}
+	}
+	return nil
 }
 
 func (o *OverviewServiceServer) GetOverview(
