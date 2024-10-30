@@ -66,6 +66,9 @@ func (o *VersionServiceServer) GetVersion(
 			if err != nil {
 				return nil, err
 			}
+			if release == nil {
+				return nil, fmt.Errorf("no release found for env='%s' and app='%s'", in.Environment, in.Application)
+			}
 			return &api.GetVersionResponse{
 				Version:        releaseVersion,
 				DeployedAt:     timestamppb.New(deployment.Created),
