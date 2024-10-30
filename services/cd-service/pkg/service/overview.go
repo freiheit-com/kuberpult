@@ -120,10 +120,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 				IsMinor:         currentRelease.Metadata.IsMinor,
 				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
 			}
-			release := tmp.ToProto()
-			release.Version = currentRelease.ReleaseNumber
-			release.UndeployVersion = tmp.UndeployVersion
-			result.Releases = append(result.Releases, release)
+			result.Releases = append(result.Releases, tmp.ToProto())
 		}
 		//Highest to lowest
 		sort.Slice(result.Releases, func(i, j int) bool {
