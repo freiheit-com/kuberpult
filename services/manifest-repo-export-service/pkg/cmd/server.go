@@ -322,6 +322,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			if transformer == nil {
 				sleepDuration.Reset()
 				d := sleepDuration.NextBackOff()
+				measurePushes(ddMetrics, log, false)
 				logger.FromContext(ctx).Sugar().Warnf("event processing skipped, will try again in %v", d)
 				time.Sleep(d)
 				continue

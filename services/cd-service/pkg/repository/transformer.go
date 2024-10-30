@@ -4118,15 +4118,6 @@ func (c *envReleaseTrain) Transform(
 	sort.Strings(appNames)
 
 	var overview *api.GetOverviewResponse
-	var envOfOverview *api.Environment
-	if state.DBHandler.ShouldUseOtherTables() {
-		var err error
-		overview, err = state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-		if err != nil {
-			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while reading overview cache: %w", c.Env, err))
-		}
-		envOfOverview = getEnvOfOverview(overview, c.Env)
-	}
 
 	span.SetTag("ConsideredApps", len(appNames))
 	var deployCounter uint = 0
@@ -4159,18 +4150,6 @@ func (c *envReleaseTrain) Transform(
 	}
 	span.SetTag("DeployedApps", deployCounter)
 
-	allReleasesOfAllApps, err := state.GetAllLatestReleases(ctx, transaction, appNames)
-	if err != nil {
-		return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while retrieving all releases of all apps: %w", err))
-	}
-	for _, appName := range appNames {
-		if envOfOverview != nil {
-			err := state.UpdateTopLevelAppInOverview(ctx, transaction, appName, overview, false, allReleasesOfAllApps)
-			if err != nil {
-				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while updating top level app %q to env %q: %w", appName, c.Env, err))
-			}
-		}
-	}
 	teamInfo := ""
 	if c.Parent.Team != "" {
 		teamInfo = " for team '" + c.Parent.Team + "'"
@@ -4199,20 +4178,6 @@ func (c *envReleaseTrain) Transform(
 		"The release train deployed %d services from '%s' to '%s'%s",
 		c.Env, deployedApps, source, c.Env, teamInfo,
 	), nil
-}
-
-func getEnvOfOverview(overview *api.GetOverviewResponse, envName string) *api.Environment {
-	if overview == nil || overview.EnvironmentGroups == nil {
-		return nil
-	}
-	for _, envGroup := range overview.EnvironmentGroups {
-		for _, env := range envGroup.Environments {
-			if env.Name == envName {
-				return env
-			}
-		}
-	}
-	return nil
 }
 
 // skippedServices is a helper Transformer to generate the "skipped

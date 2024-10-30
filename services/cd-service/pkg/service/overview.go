@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"os"
 	"sort"
 	"sync"
@@ -56,6 +57,9 @@ type OverviewServiceServer struct {
 func (o *OverviewServiceServer) GetAppDetails(
 	ctx context.Context,
 	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAppDetails")
+	defer span.Finish()
 
 	var appName = in.AppName
 	var response = &api.GetAppDetailsResponse{
@@ -314,10 +318,12 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, err
 	} else {
 		for _, appName := range apps {
-			err2 := s.UpdateTopLevelAppInOverview(ctx, transaction, appName, &result, false, map[string][]int64{})
-			if err2 != nil {
-				return nil, err2
+
+			team, err := s.GetTeamName(ctx, transaction, appName)
+			if err != nil {
+				return nil, err
 			}
+			result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 		}
 
 	}

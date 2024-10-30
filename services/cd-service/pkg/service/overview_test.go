@@ -19,20 +19,19 @@ package service
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"sync"
-	"testing"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"sync"
+	"testing"
 )
 
 type mockOverviewService_StreamOverviewServer struct {
@@ -50,22 +49,28 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
-func TestOverviewService(t *testing.T) {
+func TestOverviewAndAppDetails(t *testing.T) {
 	var dev = "dev"
 	var development = "development"
 	var staging = "staging"
 	var prod = "production"
 	var upstreamLatest = true
 	tcs := []struct {
-		Name                   string
-		Setup                  []repository.Transformer
-		Test                   func(t *testing.T, svc *OverviewServiceServer)
-		DB                     bool
-		ExpectedCachedOverview *api.GetOverviewResponse
-		ExpectedAppDetails     map[string]*api.GetAppDetailsResponse //appName -> appDetails
+		Name               string
+		Setup              []repository.Transformer
+		Test               func(t *testing.T, svc *OverviewServiceServer)
+		ExpectedOverview   *api.GetOverviewResponse
+		AppNamesToCheck    []string
+		ExpectedAppDetails map[string]*api.GetAppDetailsResponse //appName -> appDetails
 	}{
 		{
 			Name: "A simple overview works",
+			AppNamesToCheck: []string{
+				"test",
+				"test-with-team",
+				"test-with-incorrect-pr-number",
+				"test-with-only-pr-number",
+			},
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",
@@ -105,15 +110,18 @@ func TestOverviewService(t *testing.T) {
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-team",
-					Version:     1,
+					Version:     2,
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					Team: "test-team",
+					Team:           "test-team",
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "test with team version 2",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-incorrect-pr-number",
-					Version:     1,
+					Version:     3,
 					Manifests: map[string]string{
 						"development": "dev",
 					},
@@ -123,7 +131,7 @@ func TestOverviewService(t *testing.T) {
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-only-pr-number",
-					Version:     1,
+					Version:     4,
 					Manifests: map[string]string{
 						"development": "dev",
 					},
@@ -139,7 +147,12 @@ func TestOverviewService(t *testing.T) {
 				&repository.DeployApplicationVersion{
 					Application: "test-with-team",
 					Environment: "development",
-					Version:     1,
+					Version:     2,
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test-with-incorrect-pr-number",
+					Environment: prod,
+					Version:     3,
 				},
 				&repository.CreateEnvironmentLock{
 					Environment: "development",
@@ -173,28 +186,147 @@ func TestOverviewService(t *testing.T) {
 								SourceMessage:  "changed something (#678)",
 							},
 						},
+						Warnings: []*api.Warning{},
 					},
 					Deployments: map[string]*api.Deployment{
-						"prod": {
-							Version:            1,
-							QueuedVersion:      0,
-							UndeployVersion:    false,
-							DeploymentMetaData: &api.Deployment_DeploymentMetaData{},
+						"development": {
+							Version:         1,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+					},
+					TeamLocks: map[string]*api.Locks{},
+					AppLocks: map[string]*api.Locks{
+						prod: {
+							Locks: []*api.Lock{
+								{
+									Message: "no",
+									LockId:  "manual",
+									CreatedBy: &api.Actor{
+										Name:  "test tester",
+										Email: "testmail@example.com",
+									},
+								},
+							},
 						},
 					},
 				},
 				"test-with-team": {
 					Application: &api.Application{
-						Name: "test",
+						Name: "test-with-team",
 						Team: "test-team",
+						Releases: []*api.Release{
+							{
+								Version:        2,
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "test with team version 2",
+							},
+						},
+						Warnings: []*api.Warning{},
 					},
 					Deployments: map[string]*api.Deployment{
-						"dev": {},
+						"development": {
+							Version:         2,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
 					},
+					TeamLocks: map[string]*api.Locks{
+						"development": {
+							Locks: []*api.Lock{
+								{
+									Message: "team lock message",
+									LockId:  "manual-team-lock",
+									CreatedBy: &api.Actor{
+										Name:  "test tester",
+										Email: "testmail@example.com",
+									},
+								},
+							},
+						},
+					},
+					AppLocks: map[string]*api.Locks{},
+				},
+				"test-with-incorrect-pr-number": {
+					Application: &api.Application{
+						Name: "test-with-incorrect-pr-number",
+						Releases: []*api.Release{
+							{
+								Version:        3,
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "changed something (#678",
+							},
+						},
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UpstreamNotDeployed{
+									UpstreamNotDeployed: &api.UpstreamNotDeployed{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         3,
+										ThisEnvironment:     "production",
+									},
+								},
+							},
+						},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:         3,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+						prod: {
+							Version:         3,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+					},
+					AppLocks:  map[string]*api.Locks{},
+					TeamLocks: map[string]*api.Locks{},
+				},
+				"test-with-only-pr-number": {
+					Application: &api.Application{
+						Name: "test-with-only-pr-number",
+						Releases: []*api.Release{
+							{
+								Version:        4,
+								PrNumber:       "678",
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "(#678)",
+							},
+						},
+						Warnings: []*api.Warning{},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:         4,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+					},
+					AppLocks:  map[string]*api.Locks{},
+					TeamLocks: map[string]*api.Locks{},
 				},
 			},
-			DB: true,
-			ExpectedCachedOverview: &api.GetOverviewResponse{
+			ExpectedOverview: &api.GetOverviewResponse{
 				EnvironmentGroups: []*api.EnvironmentGroup{
 					{
 						EnvironmentGroupName: "dev",
@@ -314,227 +446,73 @@ func TestOverviewService(t *testing.T) {
 						Team: "",
 					},
 				},
-				GitRevision: "0",
-			},
-			Test: func(t *testing.T, svc *OverviewServiceServer) {
-				//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
-				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
-					Email: "test-email@example.com",
-					Name:  "overview tester",
-				})
-				resp, err := svc.GetOverview(ctx, &api.GetOverviewRequest{})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if resp.GitRevision == "" {
-					t.Errorf("expected non-empty git revision but was empty")
-				}
-
-				const expectedEnvs = 3
-				if len(resp.EnvironmentGroups) != expectedEnvs {
-					t.Errorf("expected %d environmentGroups, got %q", expectedEnvs, resp.EnvironmentGroups)
-				}
-				app, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: "test"})
-				if err != nil {
-					t.Errorf("Error fetching information for app test: %v", err)
-				}
-				testApp := app.Application
-
-				releases := app.Application.Releases
-				if len(releases) != 1 {
-					t.Errorf("Expected one release, but got %#q", len(releases))
-				}
-				if releases[0].PrNumber != "678" {
-					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
-				}
-
-				app, err = svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: "test-with-team"})
-				if err != nil {
-					t.Errorf("Error fetching information for app test")
-				}
-				testApp = app.Application
-				if testApp.SourceRepoUrl != "" {
-					t.Errorf("Expected \"\", but got %#q", testApp.SourceRepoUrl)
-				}
-				releases = testApp.Releases
-				if len(releases) != 1 {
-					t.Errorf("Expected one release, but got %#q", len(releases))
-				}
-				if releases[0].PrNumber != "" {
-					t.Errorf("Release should not have PR number")
-				}
-
-				app, err = svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: "test-with-incorrect-pr-number"})
-				if err != nil {
-					t.Errorf("Error fetching information for app test")
-				}
-				testApp = app.Application
-
-				releases = testApp.Releases
-				if len(releases) != 1 {
-					t.Errorf("Expected one release, but got %#q", len(releases))
-				}
-				if releases[0].PrNumber != "" {
-					t.Errorf("Release should not have PR number since is an invalid PR number")
-				}
-				app, err = svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: "test-with-only-pr-number"})
-				if err != nil {
-					t.Errorf("Error fetching information for app test")
-				}
-				testApp = app.Application
-				releases = testApp.Releases
-				if len(releases) != 1 {
-					t.Errorf("Expected one release, but got %#q", len(releases))
-				}
-				if releases[0].PrNumber == "" {
-					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
-				}
-				//Check Dev
-				//Note that EnvironmentGroups are sorted, so it's dev,staging,production (see MapEnvironmentsToGroups for details on sorting)
-				devGroup := resp.EnvironmentGroups[0]
-				if devGroup.EnvironmentGroupName != "dev" {
-					t.Errorf("dev environmentGroup has wrong name: %q", devGroup.EnvironmentGroupName)
-				}
-				dev := devGroup.Environments[0]
-				if dev.Name != "development" {
-					t.Errorf("development environment has wrong name: %q", dev.Name)
-				}
-				if dev.Config.Upstream == nil {
-					t.Errorf("development environment has wrong upstream: %#v", dev.Config.Upstream)
-				} else {
-					if !dev.Config.Upstream.GetLatest() {
-						t.Errorf("production environment has wrong upstream: %#v", dev.Config.Upstream)
-					}
-				}
-
-				if len(dev.Locks) != 1 {
-					t.Errorf("development environment has wrong locks: %#v", dev.Locks)
-				}
-				if lck, ok := dev.Locks["manual"]; !ok {
-					t.Errorf("development environment doesn't contain manual lock: %#v", dev.Locks)
-				} else {
-					if lck.Message != "please" {
-						t.Errorf("development environment manual lock has wrong message: %q", lck.Message)
-					}
-				}
-
-				if _, ok := dev.TeamLocks["test-team"]; !ok {
-					t.Errorf("development environment doesn't contain manual-team lock: %#v", dev.TeamLocks)
-
-				}
-				// check team lock
-				if len(dev.TeamLocks["test-team"].Locks) != 1 {
-					t.Errorf("development environment doesn't contain manual-team lock: %#v", dev.TeamLocks)
-				} else {
-					lck := dev.TeamLocks["test-team"].Locks[0]
-					if lck.Message != "team lock message" {
-						t.Errorf("development environment manual lock has wrong message: %q", lck.Message)
-					}
-				}
-
-				// Check staging
-				stageGroup := resp.EnvironmentGroups[1]
-				if stageGroup.EnvironmentGroupName != "staging" {
-					t.Errorf("staging environmentGroup has wrong name: %q", stageGroup.EnvironmentGroupName)
-				}
-				stage := stageGroup.Environments[0]
-				if stage.Name != "staging" {
-					t.Errorf("staging environment has wrong name: %q", stage.Name)
-				}
-				if stage.Config.Upstream == nil {
-					t.Errorf("staging environment has wrong upstream: %#v", stage.Config.Upstream)
-				} else {
-					if stage.Config.Upstream.GetEnvironment() != "development" {
-						t.Errorf("staging environment has wrong upstream: %#v", stage.Config.Upstream)
-					}
-					if stage.Config.Upstream.GetLatest() {
-						t.Errorf("staging environment has wrong upstream: %#v", stage.Config.Upstream)
-					}
-				}
-				if len(stage.Locks) != 0 {
-					t.Errorf("staging environment has wrong locks: %#v", stage.Locks)
-				}
-
-				// Check production
-				prodGroup := resp.EnvironmentGroups[2]
-				if prodGroup.EnvironmentGroupName != "production" {
-					t.Errorf("prod environmentGroup has wrong name: %q", prodGroup.EnvironmentGroupName)
-				}
-				prod := prodGroup.Environments[0]
-				if prod.Name != "production" {
-					t.Errorf("production environment has wrong name: %q", prod.Name)
-				}
-				if prod.Config.Upstream == nil {
-					t.Errorf("production environment has wrong upstream: %#v", prod.Config.Upstream)
-				} else {
-					if prod.Config.Upstream.GetEnvironment() != "staging" {
-						t.Errorf("production environment has wrong upstream: %#v", prod.Config.Upstream)
-					}
-					if prod.Config.Upstream.GetLatest() {
-						t.Errorf("production environment has wrong upstream: %#v", prod.Config.Upstream)
-					}
-				}
-				if len(prod.Locks) != 0 {
-					t.Errorf("production environment has wrong locks: %#v", prod.Locks)
-				}
-
-				//Check applications
-				if len(resp.LightweightApps) != 4 {
-					t.Errorf("expected two application, got %#v", resp.LightweightApps)
-				}
-
-				app, err = svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: "test"})
-				if err != nil {
-					t.Errorf("Error fetching information for app test")
-				}
-				test := app.Application
-				if _, ok := app.Deployments["development"]; !ok {
-					t.Errorf("no deployments foubnd on development")
-				}
-
-				got := app.Deployments["development"].GetDeploymentMetaData().DeployAuthor
-				if got != "test tester" {
-					t.Errorf("development environment deployment did not create deploymentMetaData, got %s", got)
-				}
-
-				if app.Deployments["development"].Version != 1 {
-					t.Errorf("test application has not version 1 but %d", app.Deployments["development"].Version)
-				}
-				if len(dev.AppLocks) != 0 {
-					t.Errorf("test application has locks in development: %#v", dev.AppLocks)
-				}
-
-				if test.Name != "test" {
-					t.Errorf("test applications name is not test but %q", test.Name)
-				}
-				if len(test.Releases) != 1 {
-					t.Errorf("expected one release, got %#v", test.Releases)
-				}
-				if test.Releases[0].Version != 1 {
-					t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
-				}
-				if test.Releases[0].SourceAuthor != "example <example@example.com>" {
-					t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
-				}
-				if test.Releases[0].SourceMessage != "changed something (#678)" {
-					t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
-				}
-				if test.Releases[0].SourceCommitId != "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" {
-					t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
-				}
-
-				app, err = svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: "test-with-team"})
-				if err != nil {
-					t.Errorf("Error fetching information for app test")
-				}
-				testWithTeam := app.Application
-
-				if testWithTeam.Team != "test-team" {
-					t.Errorf("application team is not test-team but %q", testWithTeam.Team)
-				}
-
+				GitRevision: "0000000000000000000000000000000000000000",
 			},
 		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx := testutil.MakeTestContext()
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				Shutdown:   shutdown,
+				DBHandler:  repo.State().DBHandler,
+				Context:    ctx,
+			}
+			ov, err := svc.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: ""})
+			if err != nil {
+				t.Error(err)
+			}
+			if diff := cmp.Diff(tc.ExpectedOverview, ov, protocmp.Transform(), getOverviewIgnoredTypes(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
+				t.Errorf("overview missmatch (-want, +got): %s\n", diff)
+			}
+			for _, appName := range tc.AppNamesToCheck {
+				appDetails, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: appName})
+				if err != nil {
+					t.Error(err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedAppDetails[appName], appDetails, getAppDetailsIgnoredTypes(), cmpopts.IgnoreFields(api.Release{}, "CreatedAt"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime"), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt")); diff != "" {
+					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+				}
+			}
+		})
+	}
+}
+func TestOverviewService(t *testing.T) {
+	var dev = "dev"
+	var upstreamLatest = true
+	tcs := []struct {
+		Name                   string
+		Setup                  []repository.Transformer
+		Test                   func(t *testing.T, svc *OverviewServiceServer)
+		DB                     bool
+		ExpectedCachedOverview *api.GetOverviewResponse
+		ExpectedAppDetails     map[string]*api.GetAppDetailsResponse //appName -> appDetails
+	}{
 		{
 			Name: "A stream overview works",
 			Setup: []repository.Transformer{
@@ -787,15 +765,16 @@ func TestOverviewService(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			ctx := testutil.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
 				DBHandler:  repo.State().DBHandler,
-				Context:    context.Background(),
+				Context:    ctx,
 			}
 			tc.Test(t, svc)
 			if tc.DB {
-				repo.State().DBHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+				repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					cachedResponse, err := repo.State().DBHandler.ReadLatestOverviewCache(ctx, transaction)
 					if err != nil {
 						return err
@@ -1225,10 +1204,11 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			ctx := testutil.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
-				Context:    context.Background(),
+				Context:    ctx,
 			}
 
 			ov, err := svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
@@ -1266,343 +1246,459 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 	}
 }
 
-//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
-//func TestUpdateOverviewDeploymentAttempt(t *testing.T) {
-//	var dev = "dev"
-//	var upstreamLatest = true
-//	var version int64 = 12
-//	startingOverview := makeTestStartingOverview()
-//	tcs := []struct {
-//		Name             string
-//		NewDeployment    *QueuedDeployment
-//		ExpectedError    error
-//		ExpectedOverview *api.GetOverviewResponse
-//	}{
-//		{
-//			Name: "Update overview Deployment Attempt",
-//			NewDeployment: &QueuedDeployment{
-//				EslVersion: 1,
-//				Env:        "development",
-//				App:        "test",
-//				Version:    &version,
-//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedOverview: &api.GetOverviewResponse{
-//				EnvironmentGroups: []*api.EnvironmentGroup{
-//					{
-//						EnvironmentGroupName: "dev",
-//						Environments: []*api.Environment{
-//							{
-//								Name: "development",
-//								Config: &api.EnvironmentConfig{
-//									Upstream: &api.EnvironmentConfig_Upstream{
-//										Latest: &upstreamLatest,
-//									},
-//									Argocd:           &api.EnvironmentConfig_ArgoCD{},
-//									EnvironmentGroup: &dev,
-//								},
-//								//Applications: map[string]*api.Environment_Application{
-//								//	"test": {
-//								//		Name:    "test",
-//								//		Version: 1,
-//								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-//								//			DeployAuthor: "testmail@example.com",
-//								//			DeployTime:   "1",
-//								//		},
-//								//		Team:          "team-123",
-//								//		QueuedVersion: 12,
-//								//	},
-//								//},
-//								Priority: api.Priority_YOLO,
-//							},
-//						},
-//						Priority: api.Priority_YOLO,
-//					},
-//				},
-//				//Applications: map[string]*api.Application{
-//				//	"test": {
-//				//		Name: "test",
-//				//		Releases: []*api.Release{
-//				//			{
-//				//				Version:        1,
-//				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-//				//				SourceAuthor:   "example <example@example.com>",
-//				//				SourceMessage:  "changed something (#678)",
-//				//				PrNumber:       "678",
-//				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-//				//			},
-//				//		},
-//				//		Team: "team-123",
-//				//		Warnings: []*api.Warning{
-//				//			{
-//				//				WarningType: &api.Warning_UnusualDeploymentOrder{
-//				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-//				//						UpstreamEnvironment: "staging",
-//				//						ThisVersion:         12,
-//				//						ThisEnvironment:     "development",
-//				//					},
-//				//				},
-//				//			},
-//				//		},
-//				//	},
-//				//},
-//				LightweightApps: []*api.OverviewApplication{
-//					{
-//						Name: "test",
-//						Team: "team-123",
-//					},
-//				},
-//				GitRevision: "0",
-//			},
-//		},
-//		{
-//			Name: "app does not exists",
-//			NewDeployment: &QueuedDeployment{
-//				EslVersion: 1,
-//				Env:        "development",
-//				App:        "does-not-exists",
-//				Version:    &version,
-//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
-//		},
-//		{
-//			Name: "env does not exists",
-//			NewDeployment: &QueuedDeployment{
-//				EslVersion: 1,
-//				Env:        "does-not-exists",
-//				App:        "test",
-//				Version:    &version,
-//				Created:    time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedError: errMatcher{"could not find environment does-not-exists in overview"},
-//		},
-//		{
-//			Name:             "nil queued deployment",
-//			ExpectedOverview: startingOverview,
-//		},
-//	}
-//
-//	for _, tc := range tcs {
-//		t.Run(tc.Name, func(t *testing.T) {
-//			ctx := testutil.MakeTestContext()
-//			dbHandler := setupDB(t)
-//
-//			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-//				err := dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
-//				if err != nil {
-//					return err
-//				}
-//				err = dbHandler.UpdateOverviewDeploymentAttempt(ctx, transaction, tc.NewDeployment)
-//				if err != nil {
-//					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-//						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
-//					}
-//					return nil
-//				}
-//				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
-//				if err != nil {
-//					return err
-//				}
-//				opts := getOverviewIgnoredTypes()
-//				if diff := cmp.Diff(tc.ExpectedOverview, latestOverview, opts); diff != "" {
-//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
-//				}
-//				return nil
-//			})
-//			if err != nil {
-//				t.Fatal(err)
-//			}
-//		})
-//	}
-//}
-//
+func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
+	var dev = "dev"
+	tcs := []struct {
+		Name                   string
+		Setup                  []repository.Transformer
+		AppsNamesToCheck       []string
+		ExpectedCachedOverview *api.GetOverviewResponse
+		ExpectedAppDetails     map[string]*api.GetAppDetailsResponse //appName -> appDetails
+	}{
+		{
+			Name: "Update App Details Deployment Attempt",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Environment: "development",
+					Application: "test",
+					LockId:      "manual",
+					Message:     "no",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     2,
+					Manifests: map[string]string{
+						"development": "dev-2",
+					},
+					Team:           "test-team",
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			ExpectedAppDetails: map[string]*api.GetAppDetailsResponse{
+				"test": {
+					Application: &api.Application{
+						Name: "test",
+						Releases: []*api.Release{
+							{
+								Version:        2,
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceAuthor:   "example <example@example.com>",
+								SourceMessage:  "changed something (#678)",
+								PrNumber:       "678",
+								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							},
+							{
+								Version:        1,
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceAuthor:   "example <example@example.com>",
+								SourceMessage:  "changed something (#678)",
+								PrNumber:       "678",
+								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							},
+						},
+						Team:     "test-team",
+						Warnings: []*api.Warning{},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:       1,
+							QueuedVersion: 2,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+								CiLink:       "",
+							},
+						},
+					},
+					AppLocks: map[string]*api.Locks{
+						"development": {
+							Locks: []*api.Lock{
+								{
+									Message: "no",
+									LockId:  "manual",
+									CreatedBy: &api.Actor{
+										Name:  "test tester",
+										Email: "testmail@example.com",
+									},
+								},
+							},
+						},
+					},
+					TeamLocks: map[string]*api.Locks{},
+				},
+			},
+			AppsNamesToCheck: []string{"test"},
+		},
+	}
 
-//TODO: This test suite has some commented out sections. These tests should either be adapted or reimplemented in Ref: SRX-9PBRYS.
-//func TestUpdateOverviewApplicationLock(t *testing.T) {
-//	var dev = "dev"
-//	var upstreamLatest = true
-//	startingOverview := makeTestStartingOverview()
-//	tcs := []struct {
-//		Name               string
-//		NewApplicationLock ApplicationLock
-//		ExcpectedOverview  *api.GetOverviewResponse
-//		ExpectedError      error
-//	}{
-//		{
-//			Name: "Update overview",
-//			NewApplicationLock: ApplicationLock{
-//				Env:        "development",
-//				App:        "test",
-//				LockID:     "dev-lock",
-//				EslVersion: 2,
-//				Deleted:    false,
-//				Metadata: LockMetadata{
-//					Message:        "My lock on dev for my-team",
-//					CreatedByName:  "myself",
-//					CreatedByEmail: "myself@example.com",
-//				},
-//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExcpectedOverview: &api.GetOverviewResponse{
-//				EnvironmentGroups: []*api.EnvironmentGroup{
-//					{
-//						EnvironmentGroupName: "dev",
-//						Environments: []*api.Environment{
-//							{
-//								Name: "development",
-//								Config: &api.EnvironmentConfig{
-//									Upstream: &api.EnvironmentConfig_Upstream{
-//										Latest: &upstreamLatest,
-//									},
-//									Argocd:           &api.EnvironmentConfig_ArgoCD{},
-//									EnvironmentGroup: &dev,
-//								},
-//								//Applications: map[string]*api.Environment_Application{
-//								//	"test": {
-//								//		Name:    "test",
-//								//		Version: 1,
-//								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-//								//			DeployAuthor: "testmail@example.com",
-//								//			DeployTime:   "1",
-//								//		},
-//								//		Team: "team-123",
-//								//		Locks: map[string]*api.Lock{
-//								//			"dev-lock": {
-//								//				Message:   "My lock on dev for my-team",
-//								//				LockId:    "dev-lock",
-//								//				CreatedAt: timestamppb.New(time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC)),
-//								//				CreatedBy: &api.Actor{
-//								//					Name:  "myself",
-//								//					Email: "myself@example.com",
-//								//				},
-//								//			},
-//								//		},
-//								//	},
-//								//},
-//								Priority: api.Priority_YOLO,
-//							},
-//						},
-//						Priority: api.Priority_YOLO,
-//					},
-//				},
-//				//Applications: map[string]*api.Application{
-//				//	"test": {
-//				//		Name: "test",
-//				//		Releases: []*api.Release{
-//				//			{
-//				//				Version:        1,
-//				//				SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-//				//				SourceAuthor:   "example <example@example.com>",
-//				//				SourceMessage:  "changed something (#678)",
-//				//				PrNumber:       "678",
-//				//				CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-//				//			},
-//				//		},
-//				//		Team: "team-123",
-//				//		Warnings: []*api.Warning{
-//				//			{
-//				//				WarningType: &api.Warning_UnusualDeploymentOrder{
-//				//					UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-//				//						UpstreamEnvironment: "staging",
-//				//						ThisVersion:         12,
-//				//						ThisEnvironment:     "development",
-//				//					},
-//				//				},
-//				//			},
-//				//		},
-//				//	},
-//				//},
-//				LightweightApps: []*api.OverviewApplication{
-//					{
-//						Name: "test",
-//						Team: "team-123",
-//					},
-//				},
-//				GitRevision: "0",
-//			},
-//		},
-//		{
-//			Name: "env does not exists",
-//			NewApplicationLock: ApplicationLock{
-//				Env:        "does-not-exists",
-//				App:        "test",
-//				LockID:     "dev-lock",
-//				EslVersion: 2,
-//				Deleted:    false,
-//				Metadata: LockMetadata{
-//					Message:        "My lock on dev for my-team",
-//					CreatedByName:  "myself",
-//					CreatedByEmail: "myself@example.com",
-//				},
-//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedError: errMatcher{"could not find environment does-not-exists in overview"},
-//		},
-//		{
-//			Name: "app does not exists",
-//			NewApplicationLock: ApplicationLock{
-//				Env:        "development",
-//				App:        "does-not-exists",
-//				LockID:     "dev-lock",
-//				EslVersion: 2,
-//				Deleted:    false,
-//				Metadata: LockMetadata{
-//					Message:        "My lock on dev for my-team",
-//					CreatedByName:  "myself",
-//					CreatedByEmail: "myself@example.com",
-//				},
-//				Created: time.Date(2024, time.July, 12, 15, 30, 0, 0, time.UTC),
-//			},
-//			ExpectedError: errMatcher{"could not find application 'does-not-exists' in apps table: got no result"},
-//		},
-//	}
-//
-//	for _, tc := range tcs {
-//		tc := tc
-//		t.Run(tc.Name, func(t *testing.T) {
-//			t.Parallel()
-//			ctx := testutil.MakeTestContext()
-//			dbHandler := setupDB(t)
-//
-//			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-//				err := dbHandler.WriteOverviewCache(ctx, transaction, startingOverview)
-//				if err != nil {
-//					return err
-//				}
-//				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock, tc.NewApplicationLock.Created)
-//				if err != nil {
-//					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-//						return fmt.Errorf("mismatch between errors (-want +got):\n%s", diff)
-//					}
-//					return nil
-//				}
-//				latestOverview, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
-//				if err != nil {
-//					return err
-//				}
-//				opts := getOverviewIgnoredTypes()
-//				if diff := cmp.Diff(tc.ExcpectedOverview, latestOverview, opts); diff != "" {
-//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
-//				}
-//				tc.NewApplicationLock.Deleted = true
-//				err = dbHandler.UpdateOverviewApplicationLock(ctx, transaction, tc.NewApplicationLock, tc.NewApplicationLock.Created)
-//				if err != nil {
-//					return err
-//				}
-//				latestOverview, err = dbHandler.ReadLatestOverviewCache(ctx, transaction)
-//				if err != nil {
-//					return err
-//				}
-//				if diff := cmp.Diff(startingOverview, latestOverview, opts); diff != "" {
-//					return fmt.Errorf("mismatch (-want +got):\n%s", diff)
-//				}
-//				return nil
-//			})
-//
-//			if err != nil {
-//				t.Fatal(err)
-//			}
-//		})
-//	}
-//}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := testutil.MakeTestContext()
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				Shutdown:   shutdown,
+				DBHandler:  repo.State().DBHandler,
+				Context:    ctx,
+			}
+			for _, currentAppName := range tc.AppsNamesToCheck {
+				response, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: currentAppName})
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedAppDetails[currentAppName], response, getAppDetailsIgnoredTypes(), cmpopts.IgnoreFields(api.Release{}, "CreatedAt"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime"), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt")); diff != "" {
+					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+				}
+			}
+		})
+
+	}
+}
+
+func TestCalculateWarnings(t *testing.T) {
+	var dev = "dev"
+	tcs := []struct {
+		Name             string
+		ExpectedWarnings map[string][]*api.Warning //appName -> expected warnings
+		Setup            []repository.Transformer
+		AppsNamesToCheck []string
+	}{
+		{
+			Name:             "no deployments - no warning",
+			AppsNamesToCheck: []string{"test"},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{ //Not upstream latest!
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			ExpectedWarnings: map[string][]*api.Warning{
+				"test": {},
+			},
+		},
+		{
+			Name:             "app deployed in higher version on upstream should warn",
+			AppsNamesToCheck: []string{"test"},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+						"staging":     "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     2,
+					Manifests: map[string]string{
+						"development": "dev-2",
+						"staging":     "staging-2",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "staging",
+					Version:     2,
+				},
+			},
+			ExpectedWarnings: map[string][]*api.Warning{
+				"test": {
+					{
+						WarningType: &api.Warning_UnusualDeploymentOrder{
+							UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+								UpstreamVersion:     1,
+								UpstreamEnvironment: "development",
+								ThisVersion:         2,
+								ThisEnvironment:     "staging",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:             "app deployed in same version on upstream should not warn",
+			AppsNamesToCheck: []string{"test"},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+						"staging":     "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     2,
+					Manifests: map[string]string{
+						"development": "dev-2",
+						"staging":     "staging-2",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "staging",
+					Version:     2,
+				},
+			},
+			ExpectedWarnings: map[string][]*api.Warning{
+				"test": {},
+			},
+		},
+		{
+			Name:             "app deployed in no version on upstream should warn",
+			AppsNamesToCheck: []string{"test"},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "development",
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+						"staging":     "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "staging",
+					Version:     1,
+				},
+			},
+			ExpectedWarnings: map[string][]*api.Warning{
+				"test": {
+					{
+						WarningType: &api.Warning_UpstreamNotDeployed{
+							UpstreamNotDeployed: &api.UpstreamNotDeployed{
+								UpstreamEnvironment: "development",
+								ThisVersion:         1,
+								ThisEnvironment:     "staging",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx := testutil.MakeTestContext()
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				Shutdown:   shutdown,
+				DBHandler:  repo.State().DBHandler,
+				Context:    ctx,
+			}
+
+			for _, appName := range tc.AppsNamesToCheck {
+				appDetails, err := svc.GetAppDetails(testutil.MakeTestContext(), &api.GetAppDetailsRequest{AppName: appName})
+				if err != nil {
+					t.Error(err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedWarnings[appName], appDetails.Application.Warnings, getAppDetailsIgnoredTypes()); diff != "" {
+					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+				}
+			}
+		})
+	}
+}
+
+func getAppDetailsIgnoredTypes() cmp.Option {
+	return cmpopts.IgnoreUnexported(api.GetAppDetailsResponse{},
+		api.Deployment{},
+		api.Application{},
+		api.Locks{},
+		api.Lock{},
+		api.Warning{},
+		api.Warning_UnusualDeploymentOrder{},
+		api.UnusualDeploymentOrder{},
+		api.UpstreamNotDeployed{},
+		timestamppb.Timestamp{},
+		api.Warning_UpstreamNotDeployed{},
+		api.Release{},
+		api.Lock{},
+		api.Actor{},
+		api.Deployment_DeploymentMetaData{})
+}
+func getOverviewIgnoredTypes() cmp.Option {
+	return cmpopts.IgnoreUnexported(api.GetOverviewResponse{},
+		api.EnvironmentGroup{},
+		api.Environment{},
+		api.Application{},
+		api.Warning{},
+		api.Warning_UnusualDeploymentOrder{},
+		api.UnusualDeploymentOrder{},
+		api.UpstreamNotDeployed{},
+		api.Warning_UpstreamNotDeployed{},
+		api.Release{},
+		api.EnvironmentConfig_ArgoCD_Destination{},
+		timestamppb.Timestamp{},
+		api.EnvironmentConfig{},
+		api.EnvironmentConfig_Upstream{},
+		api.EnvironmentConfig_ArgoCD{},
+		api.Lock{},
+		api.Actor{},
+		api.OverviewApplication{},
+		api.Deployment{},
+		api.Locks{})
+}
