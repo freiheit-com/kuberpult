@@ -237,6 +237,10 @@ func (o *OverviewServiceServer) GetAppDetails(
 func (o *OverviewServiceServer) GetOverview(
 	ctx context.Context,
 	in *api.GetOverviewRequest) (*api.GetOverviewResponse, error) {
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetOverview")
+	defer span.Finish()
+
 	if in.GitRevision != "" {
 		oid, err := git.NewOid(in.GitRevision)
 		if err != nil {
@@ -295,6 +299,8 @@ func (o *OverviewServiceServer) getOverview(
 	s *repository.State,
 	transaction *sql.Tx,
 ) (*api.GetOverviewResponse, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "CalculateOverview")
+	defer span.Finish()
 	var rev string
 	if s.DBHandler.ShouldUseOtherTables() {
 		rev = "0000000000000000000000000000000000000000"
