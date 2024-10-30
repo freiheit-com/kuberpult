@@ -105,6 +105,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 
 		releases, err := o.DBHandler.DBSelectReleasesByVersions(ctx, transaction, appName, uintRels, false)
+		if err != nil {
+			return nil, err
+		}
 		for _, currentRelease := range releases {
 			var tmp = &repository.Release{
 				Version:         currentRelease.ReleaseNumber,
