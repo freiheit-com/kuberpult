@@ -105,6 +105,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 
 		releases, err := o.DBHandler.DBSelectReleasesByVersions(ctx, transaction, appName, uintRels, false)
+		if err != nil {
+			return nil, err
+		}
 		for _, currentRelease := range releases {
 			var tmp = &repository.Release{
 				Version:         currentRelease.ReleaseNumber,
@@ -209,10 +212,10 @@ func (o *OverviewServiceServer) GetAppDetails(
 					deployment.QueuedVersion = *queuedVersion
 				}
 			}
-			if release, err := o.Repository.State().GetApplicationRelease(ctx, transaction, appName, uint64(*currentDeployment.Version)); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return nil, err
-			} else if release != nil {
-				deployment.UndeployVersion = release.UndeployVersion
+
+			rel := getReleaseFromVersion(releases, uint64(*currentDeployment.Version))
+			if rel != nil {
+				deployment.UndeployVersion = rel.Metadata.UndeployVersion
 			}
 			response.Deployments[envName] = deployment
 		}
@@ -229,6 +232,15 @@ func (o *OverviewServiceServer) GetAppDetails(
 	}
 	response.Application = resultApp
 	return response, nil
+}
+
+func getReleaseFromVersion(releases []*db.DBReleaseWithMetaData, version uint64) *db.DBReleaseWithMetaData {
+	for _, curr := range releases {
+		if curr.ReleaseNumber == version {
+			return curr
+		}
+	}
+	return nil
 }
 
 func (o *OverviewServiceServer) GetOverview(
