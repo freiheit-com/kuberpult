@@ -217,11 +217,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			response.Deployments[envName] = deployment
 		}
 		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
-		warnings, err := CalculateWarnings(deployments, appLocks, envGroups)
-		if err != nil {
-			return nil, err
-		}
-		result.Warnings = warnings
+		result.Warnings = CalculateWarnings(deployments, appLocks, envGroups)
 		return result, nil
 	})
 	if err != nil {
@@ -494,7 +490,7 @@ func deriveUndeploySummary(appName string, deployments map[string]*api.Deploymen
 	return api.UndeploySummary_MIXED
 }
 
-func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.ApplicationLock, groups []*api.EnvironmentGroup) ([]*api.Warning, error) {
+func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.ApplicationLock, groups []*api.EnvironmentGroup) []*api.Warning {
 	result := make([]*api.Warning, 0)
 	for e := 0; e < len(groups); e++ {
 		group := groups[e]
@@ -518,16 +514,8 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 			}
 			versionInEnv := envDeployment.Version
 
-			upstreamDeployment, ok := appDeployments[env.Name]
-
+			upstreamDeployment, ok := appDeployments[*upstreamEnvName]
 			if !ok {
-				// appName is not deployed here, ignore it
-				continue
-			}
-
-			versionInUpstreamEnv := upstreamDeployment.Version
-
-			if versionInUpstreamEnv == nil {
 				// appName is not deployed upstream... that's unusual!
 				var warning = api.Warning{
 					WarningType: &api.Warning_UpstreamNotDeployed{
@@ -541,7 +529,7 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 				result = append(result, &warning)
 				continue
 			}
-
+			versionInUpstreamEnv := upstreamDeployment.Version
 			if *versionInEnv > *versionInUpstreamEnv && len(appLocks) == 0 {
 				var warning = api.Warning{
 					WarningType: &api.Warning_UnusualDeploymentOrder{
@@ -557,5 +545,5 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 			}
 		}
 	}
-	return result, nil
+	return result
 }
