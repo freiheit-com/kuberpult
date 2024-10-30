@@ -737,7 +737,7 @@ func TestOverviewService(t *testing.T) {
 					t.Errorf("expected two releases, got %v", test.Releases)
 				}
 				if test.Releases[1].Version != 1 {
-					t.Errorf("expected test release version to be 1, but got %d", test.Releases[0].Version)
+					t.Errorf("expected test release version to be 1, but got %d", test.Releases[1].Version)
 				}
 				if test.Releases[1].SourceAuthor != "example <example@example.com>" {
 					t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
