@@ -1217,7 +1217,14 @@ export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
         },
     }));
 };
-
+export const invalidateAppDetailsForApp = (appName: string): void => {
+    const details = updateAppDetails.get();
+    details[appName] = {
+        appDetailState: AppDetailsState.NOTREQUESTED,
+        details: undefined,
+    };
+    updateAppDetails.set(details);
+};
 export const EnableRolloutStatus = (): void => {
     rolloutStatus.set({ enabled: true });
 };

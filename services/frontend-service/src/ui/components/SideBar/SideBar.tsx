@@ -30,6 +30,8 @@ import {
     useLocksSimilarTo,
     useRelease,
     useLocksConflictingWithActions,
+    invalidateAppDetailsForApp,
+    useApplications,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -425,7 +427,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
-
+    const allApps = useApplications();
     let title = 'Planned Actions';
     const numActions = useNumberOfActions();
     if (numActions > 0) {
@@ -471,21 +473,29 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
         }
         if (authReady) {
             setShowSpinner(true);
+            const appNames: string[] = [];
             const lockId = randomLockId();
             for (const action of actions) {
+                if (action.action?.$case === 'deploy') {
+                    appNames.push(action.action.deploy.application);
+                }
                 if (action.action?.$case === 'createEnvironmentApplicationLock') {
+                    appNames.push(action.action.createEnvironmentApplicationLock.application);
                     action.action.createEnvironmentApplicationLock.lockId = lockId;
                 }
                 if (action.action?.$case === 'createEnvironmentLock') {
                     action.action.createEnvironmentLock.lockId = lockId;
                 }
                 if (action.action?.$case === 'createEnvironmentTeamLock') {
+                    const team = action.action.createEnvironmentTeamLock.team;
                     action.action.createEnvironmentTeamLock.lockId = lockId;
+                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNames.push(app.name));
                 }
             }
             api.batchService()
                 .ProcessBatch({ actions }, authHeader)
                 .then((result) => {
+                    //Invalidate cache
                     deleteAllActions();
                     showSnackbarSuccess('Actions were applied successfully');
                 })
@@ -500,6 +510,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     }
                 })
                 .finally(() => {
+                    appNames.forEach((appName) => invalidateAppDetailsForApp(appName));
                     setShowSpinner(false);
                 });
             setDialogState({ showConfirmationDialog: false });
