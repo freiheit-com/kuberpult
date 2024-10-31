@@ -479,6 +479,13 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 if (action.action?.$case === 'deploy') {
                     appNames.push(action.action.deploy.application);
                 }
+                if (action.action?.$case === 'deleteEnvironmentApplicationLock') {
+                    appNames.push(action.action.deleteEnvironmentApplicationLock.application);
+                }
+                if (action.action?.$case === 'deleteEnvironmentTeamLock') {
+                    const team = action.action.deleteEnvironmentTeamLock.team;
+                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNames.push(app.name));
+                }
                 if (action.action?.$case === 'createEnvironmentApplicationLock') {
                     appNames.push(action.action.createEnvironmentApplicationLock.application);
                     action.action.createEnvironmentApplicationLock.lockId = lockId;
@@ -488,6 +495,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 }
                 if (action.action?.$case === 'createEnvironmentTeamLock') {
                     const team = action.action.createEnvironmentTeamLock.team;
+
                     action.action.createEnvironmentTeamLock.lockId = lockId;
                     allApps.filter((elem) => elem.team !== team).forEach((app) => appNames.push(app.name));
                 }
