@@ -19,7 +19,6 @@ import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
-    AppDetailsResponse,
     AppDetailsState,
     EnableRolloutStatus,
     FlushRolloutStatus,
@@ -103,14 +102,15 @@ export const App: React.FC = () => {
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
 
-                        const newDetails: { [p: string]: AppDetailsResponse } = {};
-                        result.lightweightApps?.forEach(
-                            (elem) =>
-                                (newDetails[elem.name] = {
+                        const details = updateAppDetails.get();
+
+                        result.lightweightApps?.forEach((elem) => {
+                            if (!details[elem.name]) {
+                                details[elem.name] = {
                                     appDetailState: AppDetailsState.NOTREQUESTED,
                                     details: undefined,
                                     updatedAt: undefined,
-                                })
+                                });
                         );
                         updateAppDetails.set(newDetails);
                     },
