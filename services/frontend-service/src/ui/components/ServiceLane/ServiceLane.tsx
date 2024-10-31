@@ -21,6 +21,7 @@ import {
     getAppDetails,
     showSnackbarError,
     showSnackbarWarn,
+    updateAppDetails,
     useAppDetailsForApp,
     useCurrentlyExistsAtGroup,
     useMinorsForApp,
@@ -38,6 +39,7 @@ import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 import { AuthHeader, useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { SmallSpinner } from '../Spinner/Spinner';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
+import { Button } from '../button';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -279,6 +281,15 @@ export const ReadyServiceLane: React.FC<{
         },
         [application.name, envs]
     );
+    const onReload = useCallback(() => {
+        const details = updateAppDetails.get();
+        details[application.name] = {
+            details: undefined,
+            appDetailState: AppDetailsState.NOTREQUESTED,
+            updatedAt: new Date(Date.now()),
+        };
+        updateAppDetails.set(details);
+    }, [application.name]);
     const buttons: DotsMenuButton[] = [
         {
             label: 'View History',
@@ -316,6 +327,16 @@ export const ReadyServiceLane: React.FC<{
         />
     );
 
+    const reloadButton = (
+        <Button
+            id={application.name + '-reloadButton'}
+            className="servicelane__reload mdc-button--unelevated"
+            label={'⟳'}
+            highlightEffect={false}
+            onClick={onReload}
+        />
+    );
+
     return (
         <div className="service-lane">
             {dialog}
@@ -330,6 +351,7 @@ export const ReadyServiceLane: React.FC<{
                         <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
                         {' | '} <span title={'app name'}> {application.name}</span>
                     </div>
+                    <div>{reloadButton}</div>
                 </div>
                 <div className="service-lane-wrapper">
                     {props.allAppData.updatedAt && (
@@ -340,6 +362,7 @@ export const ReadyServiceLane: React.FC<{
                     )}
                     <div className="service__actions__">{dotsMenu}</div>
                 </div>
+                <div className="service__actions__">{dotsMenu}</div>
             </div>
             <div className="service__warnings">
                 <WarningBoxes application={appDetails?.application} />
