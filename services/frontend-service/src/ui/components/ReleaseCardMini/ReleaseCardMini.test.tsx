@@ -147,6 +147,7 @@ describe('Release Card Mini', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             });
             const { container } = getWrapper(testcase.props);

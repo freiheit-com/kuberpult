@@ -79,6 +79,7 @@ describe('App', () => {
                     teamLocks: {},
                 },
                 appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
             },
             [sampleApps.app2.name]: {
                 details: {
@@ -88,6 +89,7 @@ describe('App', () => {
                     teamLocks: {},
                 },
                 appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
             },
             [sampleApps.app2.name]: {
                 details: {
@@ -97,6 +99,7 @@ describe('App', () => {
                     teamLocks: {},
                 },
                 appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
             },
         });
         fakeLoadEverything(true);
@@ -173,6 +176,7 @@ describe('App', () => {
                     teamLocks: {},
                 },
                 appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
             },
             [sampleApps.app2.name]: {
                 details: {
@@ -182,6 +186,7 @@ describe('App', () => {
                     teamLocks: {},
                 },
                 appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
             },
             [sampleApps.app2.name]: {
                 details: {
@@ -191,6 +196,7 @@ describe('App', () => {
                     teamLocks: {},
                 },
                 appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
             },
         });
         fakeLoadEverything(true);
@@ -519,6 +525,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 bar: {
                     details: {
@@ -535,6 +542,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 example: {
                     details: {
@@ -551,6 +559,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 team: {
                     details: {
@@ -567,6 +576,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             expectedNumOfTeams: 2,
@@ -611,6 +621,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 bar: {
                     details: {
@@ -627,6 +638,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 team: {
                     details: {
@@ -643,6 +655,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
         },
@@ -689,6 +702,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 bar: {
                     details: {
@@ -705,6 +719,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 team: {
                     details: {
@@ -721,6 +736,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             expectedNumOfTeams: 4,
@@ -760,6 +776,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 bar: {
                     details: {
@@ -776,6 +793,7 @@ describe('Get applications from selected teams (useApplicationsFilteredAndSorted
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             expectedNumOfTeams: 0,

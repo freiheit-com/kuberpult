@@ -1192,6 +1192,7 @@ describe('Test Calculate Release Difference', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             inputOverview: {
@@ -1283,6 +1284,7 @@ describe('Test Calculate Release Difference', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             inputOverview: {
@@ -1365,6 +1367,7 @@ describe('Test Calculate Release Difference', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             inputOverview: {
@@ -1445,6 +1448,7 @@ describe('Test Calculate Release Difference', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             inputOverview: {

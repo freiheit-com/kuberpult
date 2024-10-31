@@ -91,6 +91,7 @@ describe('ReleaseHistoryPage', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             });
             const { container } = getWrapper();
