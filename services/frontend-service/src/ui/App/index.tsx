@@ -110,9 +110,10 @@ export const App: React.FC = () => {
                                     appDetailState: AppDetailsState.NOTREQUESTED,
                                     details: undefined,
                                     updatedAt: undefined,
-                                });
-                        );
-                        updateAppDetails.set(newDetails);
+                                };
+                            }
+                        });
+                        updateAppDetails.set(details);
                     },
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });
