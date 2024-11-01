@@ -102,8 +102,10 @@ export const App: React.FC = () => {
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
 
+                        // When there's an update of the overview
+                        // we keep the app details that we have,
+                        // and add new ones for the apps that we don't know yet:
                         const details = updateAppDetails.get();
-
                         result.lightweightApps?.forEach((elem) => {
                             if (!details[elem.name]) {
                                 details[elem.name] = {
