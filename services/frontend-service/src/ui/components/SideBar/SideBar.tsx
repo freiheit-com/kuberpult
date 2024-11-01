@@ -476,6 +476,9 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
             const appNames: string[] = [];
             const lockId = randomLockId();
             for (const action of actions) {
+                if (action.action?.$case === 'deleteEnvFromApp') {
+                    appNames.push(action.action.deleteEnvFromApp.application);
+                }
                 if (action.action?.$case === 'deploy') {
                     appNames.push(action.action.deploy.application);
                 }
@@ -495,15 +498,13 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 }
                 if (action.action?.$case === 'createEnvironmentTeamLock') {
                     const team = action.action.createEnvironmentTeamLock.team;
-
                     action.action.createEnvironmentTeamLock.lockId = lockId;
                     allApps.filter((elem) => elem.team !== team).forEach((app) => appNames.push(app.name));
                 }
             }
             api.batchService()
                 .ProcessBatch({ actions }, authHeader)
-                .then((result) => {
-                    //Invalidate cache
+                .then(() => {
                     deleteAllActions();
                     showSnackbarSuccess('Actions were applied successfully');
                 })
