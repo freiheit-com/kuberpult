@@ -523,7 +523,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 });
             setDialogState({ showConfirmationDialog: false });
         }
-    }, [actions, api, authHeader, authReady, lockCreationList, lockMessage]);
+    }, [actions, api, authHeader, authReady, lockCreationList, lockMessage, allApps]);
 
     const showDialog = useCallback(() => {
         setDialogState({ showConfirmationDialog: true });
