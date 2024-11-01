@@ -351,9 +351,9 @@ export const ReadyServiceLane: React.FC<{
                         <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
                         {' | '} <span title={'app name'}> {application.name}</span>
                     </div>
-                    <div>{reloadButton}</div>
                 </div>
                 <div className="service-lane-wrapper">
+                    <div>{reloadButton}</div>
                     {props.allAppData.updatedAt && (
                         <div className="service-lane__date">
                             <span>Updated </span>
@@ -362,7 +362,7 @@ export const ReadyServiceLane: React.FC<{
                     )}
                     <div className="service__actions__">{dotsMenu}</div>
                 </div>
-                <div className="service__actions__">{dotsMenu}</div>
+                {/*<div className="service__actions__">{dotsMenu}</div>*/}
             </div>
             <div className="service__warnings">
                 <WarningBoxes application={appDetails?.application} />
