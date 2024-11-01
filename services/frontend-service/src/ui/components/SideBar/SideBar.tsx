@@ -30,6 +30,8 @@ import {
     useLocksSimilarTo,
     useRelease,
     useLocksConflictingWithActions,
+    invalidateAppDetailsForApp,
+    useApplications,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -425,7 +427,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
-
+    const allApps = useApplications();
     let title = 'Planned Actions';
     const numActions = useNumberOfActions();
     if (numActions > 0) {
@@ -471,21 +473,38 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
         }
         if (authReady) {
             setShowSpinner(true);
+            const appNamesToInvalidate: string[] = [];
             const lockId = randomLockId();
             for (const action of actions) {
+                if (action.action?.$case === 'deleteEnvFromApp') {
+                    appNamesToInvalidate.push(action.action.deleteEnvFromApp.application);
+                }
+                if (action.action?.$case === 'deploy') {
+                    appNamesToInvalidate.push(action.action.deploy.application);
+                }
+                if (action.action?.$case === 'deleteEnvironmentApplicationLock') {
+                    appNamesToInvalidate.push(action.action.deleteEnvironmentApplicationLock.application);
+                }
+                if (action.action?.$case === 'deleteEnvironmentTeamLock') {
+                    const team = action.action.deleteEnvironmentTeamLock.team;
+                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToInvalidate.push(app.name));
+                }
                 if (action.action?.$case === 'createEnvironmentApplicationLock') {
+                    appNamesToInvalidate.push(action.action.createEnvironmentApplicationLock.application);
                     action.action.createEnvironmentApplicationLock.lockId = lockId;
                 }
                 if (action.action?.$case === 'createEnvironmentLock') {
                     action.action.createEnvironmentLock.lockId = lockId;
                 }
                 if (action.action?.$case === 'createEnvironmentTeamLock') {
+                    const team = action.action.createEnvironmentTeamLock.team;
                     action.action.createEnvironmentTeamLock.lockId = lockId;
+                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToInvalidate.push(app.name));
                 }
             }
             api.batchService()
                 .ProcessBatch({ actions }, authHeader)
-                .then((result) => {
+                .then(() => {
                     deleteAllActions();
                     showSnackbarSuccess('Actions were applied successfully');
                 })
@@ -500,11 +519,12 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     }
                 })
                 .finally(() => {
+                    appNamesToInvalidate.forEach((appName) => invalidateAppDetailsForApp(appName));
                     setShowSpinner(false);
                 });
             setDialogState({ showConfirmationDialog: false });
         }
-    }, [actions, api, authHeader, authReady, lockCreationList, lockMessage]);
+    }, [actions, api, authHeader, authReady, lockCreationList, lockMessage, allApps]);
 
     const showDialog = useCallback(() => {
         setDialogState({ showConfirmationDialog: true });
