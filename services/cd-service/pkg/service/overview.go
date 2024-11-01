@@ -217,11 +217,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			response.Deployments[envName] = deployment
 		}
 		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
-		warnings, err := CalculateWarnings(ctx, transaction, o.Repository.State(), appName, envGroups)
-		if err != nil {
-			return nil, err
-		}
-		result.Warnings = warnings
+		result.Warnings = CalculateWarnings(deployments, appLocks, envGroups)
 		return result, nil
 	})
 	if err != nil {
@@ -494,7 +490,7 @@ func deriveUndeploySummary(appName string, deployments map[string]*api.Deploymen
 	return api.UndeploySummary_MIXED
 }
 
-func CalculateWarnings(ctx context.Context, transaction *sql.Tx, state *repository.State, appName string, groups []*api.EnvironmentGroup) ([]*api.Warning, error) {
+func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.ApplicationLock, groups []*api.EnvironmentGroup) []*api.Warning {
 	result := make([]*api.Warning, 0)
 	for e := 0; e < len(groups); e++ {
 		group := groups[e]
@@ -510,27 +506,22 @@ func CalculateWarnings(ctx context.Context, transaction *sql.Tx, state *reposito
 				continue
 			}
 
-			versionInEnv, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env.Name, appName)
-			if err != nil {
-				return nil, err
-			}
+			envDeployment, ok := appDeployments[env.Name]
 
-			if versionInEnv == nil {
+			if !ok {
 				// appName is not deployed here, ignore it
 				continue
 			}
+			versionInEnv := envDeployment.Version
 
-			versionInUpstreamEnv, err := state.GetEnvironmentApplicationVersion(ctx, transaction, *upstreamEnvName, appName)
-			if err != nil {
-				return nil, err
-			}
-			if versionInUpstreamEnv == nil {
+			upstreamDeployment, ok := appDeployments[*upstreamEnvName]
+			if !ok {
 				// appName is not deployed upstream... that's unusual!
 				var warning = api.Warning{
 					WarningType: &api.Warning_UpstreamNotDeployed{
 						UpstreamNotDeployed: &api.UpstreamNotDeployed{
 							UpstreamEnvironment: *upstreamEnvName,
-							ThisVersion:         *versionInEnv,
+							ThisVersion:         uint64(*versionInEnv),
 							ThisEnvironment:     env.Name,
 						},
 					},
@@ -538,18 +529,14 @@ func CalculateWarnings(ctx context.Context, transaction *sql.Tx, state *reposito
 				result = append(result, &warning)
 				continue
 			}
-
-			appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, env.Name, appName)
-			if err != nil {
-				return nil, err
-			}
+			versionInUpstreamEnv := upstreamDeployment.Version
 			if *versionInEnv > *versionInUpstreamEnv && len(appLocks) == 0 {
 				var warning = api.Warning{
 					WarningType: &api.Warning_UnusualDeploymentOrder{
 						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-							UpstreamVersion:     *versionInUpstreamEnv,
+							UpstreamVersion:     uint64(*versionInUpstreamEnv),
 							UpstreamEnvironment: *upstreamEnvName,
-							ThisVersion:         *versionInEnv,
+							ThisVersion:         uint64(*versionInEnv),
 							ThisEnvironment:     env.Name,
 						},
 					},
@@ -558,5 +545,5 @@ func CalculateWarnings(ctx context.Context, transaction *sql.Tx, state *reposito
 			}
 		}
 	}
-	return result, nil
+	return result
 }
