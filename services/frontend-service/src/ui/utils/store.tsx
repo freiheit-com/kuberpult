@@ -1222,6 +1222,7 @@ export const invalidateAppDetailsForApp = (appName: string): void => {
     details[appName] = {
         appDetailState: AppDetailsState.NOTREQUESTED,
         details: undefined,
+        updatedAt: undefined,
     };
     updateAppDetails.set(details);
 };
