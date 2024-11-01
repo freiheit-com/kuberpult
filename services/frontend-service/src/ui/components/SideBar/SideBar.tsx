@@ -473,24 +473,24 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
         }
         if (authReady) {
             setShowSpinner(true);
-            const appNames: string[] = [];
+            const appNamesToInvalidate: string[] = [];
             const lockId = randomLockId();
             for (const action of actions) {
                 if (action.action?.$case === 'deleteEnvFromApp') {
-                    appNames.push(action.action.deleteEnvFromApp.application);
+                    appNamesToInvalidate.push(action.action.deleteEnvFromApp.application);
                 }
                 if (action.action?.$case === 'deploy') {
-                    appNames.push(action.action.deploy.application);
+                    appNamesToInvalidate.push(action.action.deploy.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentApplicationLock') {
-                    appNames.push(action.action.deleteEnvironmentApplicationLock.application);
+                    appNamesToInvalidate.push(action.action.deleteEnvironmentApplicationLock.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentTeamLock') {
                     const team = action.action.deleteEnvironmentTeamLock.team;
-                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNames.push(app.name));
+                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToInvalidate.push(app.name));
                 }
                 if (action.action?.$case === 'createEnvironmentApplicationLock') {
-                    appNames.push(action.action.createEnvironmentApplicationLock.application);
+                    appNamesToInvalidate.push(action.action.createEnvironmentApplicationLock.application);
                     action.action.createEnvironmentApplicationLock.lockId = lockId;
                 }
                 if (action.action?.$case === 'createEnvironmentLock') {
@@ -499,7 +499,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 if (action.action?.$case === 'createEnvironmentTeamLock') {
                     const team = action.action.createEnvironmentTeamLock.team;
                     action.action.createEnvironmentTeamLock.lockId = lockId;
-                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNames.push(app.name));
+                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToInvalidate.push(app.name));
                 }
             }
             api.batchService()
@@ -519,7 +519,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     }
                 })
                 .finally(() => {
-                    appNames.forEach((appName) => invalidateAppDetailsForApp(appName));
+                    appNamesToInvalidate.forEach((appName) => invalidateAppDetailsForApp(appName));
                     setShowSpinner(false);
                 });
             setDialogState({ showConfirmationDialog: false });
