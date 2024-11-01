@@ -28,7 +28,7 @@ import {
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { Environment, GetAppDetailsResponse, OverviewApplication, UndeploySummary } from '../../../api/api';
+import { Environment, OverviewApplication, UndeploySummary } from '../../../api/api';
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
@@ -37,6 +37,7 @@ import { DotsMenu, DotsMenuButton } from './DotsMenu';
 import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 import { AuthHeader, useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { SmallSpinner } from '../Spinner/Spinner';
+import { FormattedDate } from '../FormattedDate/FormattedDate';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -153,7 +154,7 @@ export const ServiceLane: React.FC<{
             <ReadyServiceLane
                 application={application}
                 hideMinors={hideMinors}
-                appDetails={appDetails.details}
+                allAppData={appDetails}
                 key={application.name}></ReadyServiceLane>
         </div>
     );
@@ -178,13 +179,13 @@ function getAppDetailsIfInView(
 export const ReadyServiceLane: React.FC<{
     application: OverviewApplication;
     hideMinors: boolean;
-    appDetails: GetAppDetailsResponse;
+    allAppData: AppDetailsResponse;
 }> = (props) => {
     const { application, hideMinors } = props;
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
-
-    const allReleases = [...new Set(props.appDetails?.application?.releases.map((d) => d.version))];
-    const deployments = props.appDetails?.deployments;
+    const appDetails = props.allAppData.details;
+    const allReleases = [...new Set(appDetails?.application?.releases.map((d) => d.version))];
+    const deployments = appDetails?.deployments;
     const allDeployedReleaseNumbers = [];
     for (const prop in deployments) {
         allDeployedReleaseNumbers.push(deployments[prop].version);
@@ -192,7 +193,7 @@ export const ReadyServiceLane: React.FC<{
     const deployedReleases = [...new Set(allDeployedReleaseNumbers.map((v) => v).sort((n1, n2) => n2 - n1))];
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
-        switch (props.appDetails.application?.undeploySummary) {
+        switch (appDetails?.application?.undeploySummary) {
             case UndeploySummary.UNDEPLOY:
                 addAction({
                     action: {
@@ -216,12 +217,12 @@ export const ReadyServiceLane: React.FC<{
                 showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in unknown state.');
                 break;
         }
-    }, [application.name, props.appDetails.application?.undeploySummary]);
+    }, [application.name, appDetails?.application?.undeploySummary]);
     let minorReleases = useMinorsForApp(application.name);
     if (!minorReleases) {
         minorReleases = [];
     }
-    const prepareUndeployOrUndeployText = deriveUndeployMessage(props.appDetails.application?.undeploySummary);
+    const prepareUndeployOrUndeployText = deriveUndeployMessage(appDetails?.application?.undeploySummary);
     const releases = [
         ...new Set(
             getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) => n2 - n1)
@@ -303,8 +304,8 @@ export const ReadyServiceLane: React.FC<{
     }
 
     const dotsMenu = <DotsMenu buttons={buttons} />;
-    const appLocks = Object.values(props.appDetails.appLocks);
-    const teamLocks = Object.values(props.appDetails.teamLocks);
+    const appLocks = Object.values(appDetails?.appLocks ? appDetails.appLocks : []);
+    const teamLocks = Object.values(appDetails?.teamLocks ? appDetails.teamLocks : []);
     const dialog = (
         <EnvSelectionDialog
             environments={envs.map((e) => e.name)}
@@ -330,10 +331,18 @@ export const ReadyServiceLane: React.FC<{
                         {' | '} <span title={'app name'}> {application.name}</span>
                     </div>
                 </div>
-                <div className="service__actions__">{dotsMenu}</div>
+                <div className="service-lane-wrapper">
+                    {props.allAppData.updatedAt && (
+                        <div className="service-lane__date">
+                            <span>Updated </span>
+                            <FormattedDate className={'date'} createdAt={props.allAppData.updatedAt} />
+                        </div>
+                    )}
+                    <div className="service__actions__">{dotsMenu}</div>
+                </div>
             </div>
             <div className="service__warnings">
-                <WarningBoxes application={props.appDetails?.application} />
+                <WarningBoxes application={appDetails?.application} />
             </div>
             <div className="service__releases">{releases_lane}</div>
         </div>

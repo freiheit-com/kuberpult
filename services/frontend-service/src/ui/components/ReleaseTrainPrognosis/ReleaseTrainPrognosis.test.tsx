@@ -277,6 +277,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
                 'app-3': {
                     details: {
@@ -305,6 +306,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             applicationsOverview: {

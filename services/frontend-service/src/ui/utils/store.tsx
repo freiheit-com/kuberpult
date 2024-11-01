@@ -108,6 +108,7 @@ export type CommitInfoResponse = {
 export type AppDetailsResponse = {
     details: GetAppDetailsResponse | undefined;
     appDetailState: AppDetailsState;
+    updatedAt: Date | undefined;
 };
 
 export enum FailedEslsState {
@@ -162,6 +163,7 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
     details[appName] = {
         details: details[appName] ? details[appName].details : undefined,
         appDetailState: AppDetailsState.LOADING,
+        updatedAt: undefined,
     };
     updateAppDetails.set(details);
     useApi
@@ -169,15 +171,23 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
         .GetAppDetails({ appName: appName }, authHeader)
         .then((result: GetAppDetailsResponse) => {
             const d = updateAppDetails.get();
-            d[appName] = { details: result, appDetailState: AppDetailsState.READY };
+            d[appName] = { details: result, appDetailState: AppDetailsState.READY, updatedAt: new Date(Date.now()) };
             updateAppDetails.set(d);
         })
         .catch((e) => {
             const GrpcErrorNotFound = 5;
             if (e.code === GrpcErrorNotFound) {
-                details[appName] = { details: undefined, appDetailState: AppDetailsState.NOTFOUND };
+                details[appName] = {
+                    details: undefined,
+                    appDetailState: AppDetailsState.NOTFOUND,
+                    updatedAt: new Date(Date.now()),
+                };
             } else {
-                details[appName] = { details: undefined, appDetailState: AppDetailsState.ERROR };
+                details[appName] = {
+                    details: undefined,
+                    appDetailState: AppDetailsState.ERROR,
+                    updatedAt: new Date(Date.now()),
+                };
             }
             updateAppDetails.set(details);
             showSnackbarError(e.message);

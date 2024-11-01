@@ -81,6 +81,7 @@ describe('Service Lane', () => {
                     teamLocks: {},
                 },
                 appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
             },
         };
         const sampleApp: Application = {
@@ -145,6 +146,7 @@ const data: TestDataDiff[] = [
                 },
             },
             appDetailState: AppDetailsState.READY,
+            updatedAt: new Date(Date.now()),
         },
         envs: [
             {
@@ -195,6 +197,7 @@ const data: TestDataDiff[] = [
                 },
             },
             appDetailState: AppDetailsState.READY,
+            updatedAt: new Date(Date.now()),
         },
         envs: [
             {
@@ -245,6 +248,7 @@ const data: TestDataDiff[] = [
                 },
             },
             appDetailState: AppDetailsState.READY,
+            updatedAt: new Date(Date.now()),
         },
         envs: [
             {
@@ -295,6 +299,7 @@ const data: TestDataDiff[] = [
                 },
             },
             appDetailState: AppDetailsState.READY,
+            updatedAt: new Date(Date.now()),
         },
         envs: [
             {
@@ -482,6 +487,7 @@ describe('Service Lane Important Releases', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             });
             // when
@@ -615,6 +621,7 @@ describe('Service Lane ⋮ menu', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             });
 
@@ -846,6 +853,7 @@ describe('Service Lane AppLockSummary', () => {
                 test1: {
                     details: testcase.renderedApp,
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             });
 

@@ -121,6 +121,7 @@ describe('Release Dialog', () => {
             },
         },
         appDetailState: AppDetailsState.READY,
+        updatedAt: new Date(Date.now()),
     };
 
     const testEnv1: Environment = {
@@ -279,6 +280,7 @@ describe('Release Dialog', () => {
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             releases: [
@@ -347,6 +349,7 @@ describe('Release Dialog', () => {
                         deployments: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             releases: [],

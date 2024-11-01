@@ -87,6 +87,7 @@ describe('Release Card', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             rels: [
@@ -137,6 +138,7 @@ describe('Release Card', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             rels: [
@@ -193,6 +195,7 @@ describe('Release Card', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             rels: [
@@ -258,6 +261,7 @@ describe('Release Card', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             rels: [
@@ -323,6 +327,7 @@ describe('Release Card', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             rels: [
@@ -388,6 +393,7 @@ describe('Release Card', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             rels: [
@@ -524,6 +530,7 @@ describe('Release Card Rollout Status', () => {
                         teamLocks: {},
                     },
                     appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
                 },
             },
             rels: [
