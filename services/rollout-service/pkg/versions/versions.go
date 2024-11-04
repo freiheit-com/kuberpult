@@ -80,21 +80,24 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
 	tr, err := v.tryGetVersion(environment, application)
 	if err == nil {
+		logger.FromContext(ctx).Sugar().Infof("Found cached version for app '%s' on environment '%s'", application, environment)
 		return tr, nil
 	}
-	info, err := v.versionClient.GetVersion(ctx, &api.GetVersionRequest{
-		GitRevision: revision,
-		Environment: environment,
-		Application: application,
-	})
+	//info, err := v.versionClient.GetVersion(ctx, &api.GetVersionRequest{
+	//	GitRevision: revision,
+	//	Environment: environment,
+	//	Application: application,
+	//})
+
 	if err != nil {
 		return nil, err
 	}
-	return &VersionInfo{
-		Version:        info.Version,
-		SourceCommitId: info.SourceCommitId,
-		DeployedAt:     info.DeployedAt.AsTime(),
-	}, nil
+	//return &VersionInfo{
+	//	Version:        info.Version,
+	//	SourceCommitId: info.SourceCommitId,
+	//	DeployedAt:     info.DeployedAt.AsTime(),
+	//}, nil
+	return nil, nil
 }
 
 // Tries getting the version from cache
@@ -192,8 +195,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				return nil
 			default:
 			}
+			logger.FromContext(ctx).Sugar().Warn("Waiting for changed apps...")
 			changedApps, err := client.Recv()
 			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("Error getting changed apps: %v", err)
 				grpcErr := grpc.UnwrapGRPCStatus(err)
 				if grpcErr != nil {
 					if grpcErr.Code() == codes.Canceled {
@@ -202,7 +207,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				}
 				return fmt.Errorf("changedApps.recv: %w", err)
 			}
-
+			logger.FromContext(ctx).Sugar().Warnf("Recieved information for %d apps.", len(changedApps.ChangedApps))
 			ov, err := v.overviewClient.GetOverview(ctx, &api.GetOverviewRequest{
 				GitRevision: "",
 			})
@@ -225,6 +230,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				AppDetails: make(map[string]*api.GetAppDetailsResponse),
 			}
 			for _, appDetailsResponse := range changedApps.ChangedApps {
+				logger.FromContext(ctx).Sugar().Warnf("Processing AppDetails for app: '%s'", appDetailsResponse.Application.Name)
 				appName := appDetailsResponse.Application.Name
 				overview.AppDetails[appName] = appDetailsResponse
 				v.cache.Add(appName, appDetailsResponse) // Update cache of app details
