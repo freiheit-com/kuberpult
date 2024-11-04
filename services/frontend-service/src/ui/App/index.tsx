@@ -19,10 +19,12 @@ import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
+    AppDetailsState,
     EnableRolloutStatus,
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
+    updateAppDetails,
     UpdateFrontendConfig,
     UpdateOverview,
     UpdateRolloutStatus,
@@ -99,6 +101,21 @@ export const App: React.FC = () => {
                         UpdateOverview.set(result);
                         UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
+
+                        // When there's an update of the overview
+                        // we keep the app details that we have,
+                        // and add new ones for the apps that we don't know yet:
+                        const details = updateAppDetails.get();
+                        result.lightweightApps?.forEach((elem) => {
+                            if (!details[elem.name]) {
+                                details[elem.name] = {
+                                    appDetailState: AppDetailsState.NOTREQUESTED,
+                                    details: undefined,
+                                    updatedAt: undefined,
+                                };
+                            }
+                        });
+                        updateAppDetails.set(details);
                     },
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });

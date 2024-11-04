@@ -37,6 +37,7 @@ type kuberpultClientParameters struct {
 	authorEmail *string
 	iapToken    *string
 	dexToken    *string
+	timeout     uint64
 }
 
 func RunCLI() ReturnCode {

@@ -17,17 +17,26 @@ Copyright freiheit.com*/
 package releasetrain
 
 import (
+	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
-	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"net/http"
 	urllib "net/url"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
+
+type ReleaseTrainJsonData struct {
+	CiLink string `json:"ciLink,omitempty"`
+}
 
 type ReleaseTrainParameters struct {
 	TargetEnvironment    string
 	Team                 *string
+	CiLink               *string
+	UseEnvGroupTarget    bool
 	UseDexAuthentication bool
 }
 
@@ -36,7 +45,7 @@ func HandleReleaseTrain(requestParams kutil.RequestParameters, authParams kutil.
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
-	if err := cli_utils.IssueHttpRequest(*req, requestParams.Retries); err != nil {
+	if err := cli_utils.IssueHttpRequest(*req, requestParams.Retries, requestParams.HttpTimeout); err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil
@@ -52,6 +61,9 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 
 	if parameters.UseDexAuthentication {
 		prefix = "api/environments"
+		if parameters.UseEnvGroupTarget {
+			prefix = "api/environment-groups"
+		}
 	}
 
 	path := fmt.Sprintf("%s/%s/releasetrain", prefix, parameters.TargetEnvironment)
@@ -62,7 +74,23 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 		urlStruct.RawQuery = values.Encode()
 	}
 
-	req, err := http.NewRequest(http.MethodPut, urlStruct.JoinPath(path).String(), nil)
+	var jsonData []byte
+	if parameters.CiLink != nil {
+		d := ReleaseTrainJsonData{
+			CiLink: *parameters.CiLink,
+		}
+
+		jsonData, err = json.Marshal(d)
+		if err != nil {
+			return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
+		}
+	}
+
+	req, err := http.NewRequest(http.MethodPut, urlStruct.JoinPath(path).String(), bytes.NewBuffer(jsonData))
+
+	if jsonData != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}

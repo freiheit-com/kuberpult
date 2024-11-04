@@ -1,15 +1,11 @@
 # Database
 
-## The Database feature is not ready for production yet
-
-However, you can already prepare for the database feature,
-see [Preparation](#preparation)
-
+## The Database feature is now required
 
 ## Background
 
-Kuberpult is switching over to use a database. The rough timeline to have the database production-ready is summer 2024.
-As of now Kuberpult is using the manifest repository to store data.
+Kuberpult switched over to use a database.
+In the past, Kuberpult was using the manifest repository to store data.
 This worked fine for a while, and it had the added bonus
 that ArgoCD is reading from the same manifest git repository.
 
@@ -21,10 +17,6 @@ Therefore, we will use a database and not rely on git anymore in the future.
 
 Git will still be used as an *output* of kuberpult, but not as the source of truth.
 
-As of now, kuberpult still supports the option to not have the database,
-but this option will be removed in a few weeks with another breaking change in kuberpult.
-
-
 ## Preparation
 
 Our recommendation is to enable the database mode in 2 steps:
@@ -32,6 +24,7 @@ Our recommendation is to enable the database mode in 2 steps:
 ### Step 1: writeEslTableOnly=true
 
 Enable the Database with `db.dbOption: "postgreSQL"` and `db.writeEslTableOnly: true`.
+This requires kuberpult version <= 10.3.10.
 This means that kuberpult will connect to the DB, but only write one table.
 Kuberpult will not read from the database in this state,
 so the manifest-repository is still considered the source of truth.
@@ -55,7 +48,8 @@ Metric `Kuberpult.manifest_export_push_failures`.
 This metric measures each failure in the manifest-repo-export-service to push to the git repository.
 It measures 0 if there are currently no failures, and 1 if there are.
 
-This metric is only written, if there is something for kuberpult to push.
+This metric is allways written, even if there is nothing for kuberpult to push.
+In case kuberpult has nothing to push this metric writes 0 every `manifestRepoExport.eslProcessingIdleTimeSeconds` seconds.
 
 
 #### Monitoring Processing Delay

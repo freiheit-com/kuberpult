@@ -107,6 +107,7 @@ type Config struct {
 	DbSslMode            string   `default:"verify-full" split_words:"true"`
 	MinorRegexes         string   `default:"" split_words:"true"`
 	AllowedDomains       []string `split_words:"true"`
+	CacheTtlHours        uint     `default:"24" split_words:"true"`
 
 	DisableQueue bool `required:"true" split_words:"true"`
 }
@@ -343,19 +344,22 @@ func RunServer() {
 			&service.Service{
 				Repository: repo,
 			}
+
 		if dbHandler.ShouldUseOtherTables() {
+			// we overwrite InsertApp in order to also update the overview:
+			dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
+				return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+			}
 			//Check for migrations -> for pulling
+			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")
 			if needsMigration, err := dbHandler.NeedsMigrations(ctx); err == nil && needsMigration {
+				logger.FromContext(ctx).Sugar().Warnf("starting to pull the repo")
 				err := repo.Pull(ctx)
 				if err != nil {
 					logger.FromContext(ctx).Fatal("Could not pull repository to perform custom migrations", zap.Error(err))
 				}
 				logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 
-				// we overwrite InsertApp in order to also update the overview:
-				dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-					return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
-				}
 				migErr := dbHandler.RunCustomMigrations(
 					ctx,
 					repo.State().GetAppsAndTeams,
@@ -377,7 +381,17 @@ func RunServer() {
 			} else if err != nil {
 				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(err))
 			}
-			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because all tables contain data.")
+			logger.FromContext(ctx).Sugar().Warnf("Skipping git-related custom migrations, because all tables contain data.")
+			err = dbHandler.RunCustomMigrationReleaseEnvironments(ctx)
+			if err != nil {
+				return err
+			}
+			logger.FromContext(ctx).Sugar().Warnf("Applied custom migration for release environments")
+			err = dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
+			if err != nil {
+				return err
+			}
+			logger.FromContext(ctx).Sugar().Warnf("Applied custom migrations for environment applications")
 		} else {
 			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 		}
@@ -427,6 +441,7 @@ func RunServer() {
 						RepositoryConfig: cfg,
 						Shutdown:         shutdownCh,
 						Context:          ctx,
+						DBHandler:        dbHandler,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv, PageSize: 10})
@@ -457,6 +472,15 @@ func RunServer() {
 						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository) {
 							repository.GetRepositoryStateAndUpdateMetrics(ctx, repository2)
 						})
+						return nil
+					},
+				},
+				{
+					Shutdown: nil,
+					Name:     "cache cleanup",
+					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
+						reporter.ReportReady("Cache cleanup started")
+						repository.RegularlyCleanupOverviewCache(ctx, repo, 3600, c.CacheTtlHours)
 						return nil
 					},
 				},

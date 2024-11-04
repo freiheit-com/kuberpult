@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"testing"
 	"time"
 
@@ -35,13 +36,14 @@ import (
 )
 
 type step struct {
-	Overview      *api.GetOverviewResponse
-	ConnectErr    error
-	RecvErr       error
-	CancelContext bool
-
-	ExpectReady    bool
-	ExpectedEvents []KuberpultEvent
+	ChangedApps         *api.GetChangedAppsResponse
+	ConnectErr          error
+	RecvErr             error
+	CancelContext       bool
+	OverviewResponse    *api.GetOverviewResponse
+	AppDetailsResponses map[string]*api.GetAppDetailsResponse
+	ExpectReady         bool
+	ExpectedEvents      []KuberpultEvent
 }
 
 type expectedVersion struct {
@@ -64,18 +66,23 @@ type mockOverviewStreamMessage struct {
 
 type mockOverviewClient struct {
 	grpc.ClientStream
-	Responses    map[string]*api.GetOverviewResponse
-	LastMetadata metadata.MD
-	StartStep    chan struct{}
-	Steps        chan step
-	savedStep    *step
-	current      int
+	OverviewResponse    *api.GetOverviewResponse
+	AppDetailsResponses map[string]*api.GetAppDetailsResponse
+	LastMetadata        metadata.MD
+	StartStep           chan struct{}
+	Steps               chan step
+	savedStep           *step
+	current             int
 }
 
 // GetOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (*api.GetOverviewResponse, error) {
-	m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
-	if resp := m.Responses[in.GitRevision]; resp != nil {
+	return m.OverviewResponse, nil
+}
+
+// GetOverview implements api.GetAppDetails
+func (m *mockOverviewClient) GetAppDetails(ctx context.Context, in *api.GetAppDetailsRequest, opts ...grpc.CallOption) (*api.GetAppDetailsResponse, error) {
+	if resp := m.AppDetailsResponses[in.AppName]; resp != nil {
 		return resp, nil
 	}
 	return nil, status.Error(codes.Unknown, "no")
@@ -83,6 +90,11 @@ func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOvervie
 
 // StreamOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (api.OverviewService_StreamOverviewClient, error) {
+	return nil, nil
+}
+
+// StreamOverview implements api.OverviewServiceClient
+func (m *mockOverviewClient) StreamChangedApps(ctx context.Context, in *api.GetChangedAppsRequest, opts ...grpc.CallOption) (api.OverviewService_StreamChangedAppsClient, error) {
 	m.StartStep <- struct{}{}
 	reply, ok := <-m.Steps
 	if !ok {
@@ -95,7 +107,7 @@ func (m *mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOver
 	return m, nil
 }
 
-func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
+func (m *mockOverviewClient) Recv() (*api.GetChangedAppsResponse, error) {
 	var reply step
 	var ok bool
 	if m.savedStep != nil {
@@ -105,11 +117,14 @@ func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
 	} else {
 		m.StartStep <- struct{}{}
 		reply, ok = <-m.Steps
+
 	}
 	if !ok {
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
 	}
-	return reply.Overview, reply.RecvErr
+	m.OverviewResponse = reply.OverviewResponse
+	m.AppDetailsResponses = reply.AppDetailsResponses //Endpoint responses at different steps
+	return reply.ChangedApps, reply.RecvErr
 }
 
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
@@ -148,17 +163,6 @@ func (m *mockVersionEventProcessor) ProcessKuberpultEvent(ctx context.Context, e
 func TestVersionClientStream(t *testing.T) {
 	t.Parallel()
 	testOverview := &api.GetOverviewResponse{
-		Applications: map[string]*api.Application{
-			"foo": {
-				Releases: []*api.Release{
-					{
-						Version:        1,
-						SourceCommitId: "00001",
-					},
-				},
-				Team: "footeam",
-			},
-		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
 
@@ -167,32 +171,14 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
-						Applications: map[string]*api.Environment_Application{
-							"foo": {
-								Name:    "foo",
-								Version: 1,
-								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									DeployTime: "123456789",
-								},
-							},
-						},
 					},
 				},
 			},
 		},
 		GitRevision: "1234",
 	}
+
 	testOverviewWithDifferentEnvgroup := &api.GetOverviewResponse{
-		Applications: map[string]*api.Application{
-			"foo": {
-				Releases: []*api.Release{
-					{
-						Version:        2,
-						SourceCommitId: "00002",
-					},
-				},
-			},
-		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
 
@@ -201,15 +187,6 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
-						Applications: map[string]*api.Environment_Application{
-							"foo": {
-								Name:    "foo",
-								Version: 2,
-								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									DeployTime: "123456789",
-								},
-							},
-						},
 					},
 				},
 			},
@@ -217,16 +194,6 @@ func TestVersionClientStream(t *testing.T) {
 		GitRevision: "1234",
 	}
 	testOverviewWithProdEnvs := &api.GetOverviewResponse{
-		Applications: map[string]*api.Application{
-			"foo": {
-				Releases: []*api.Release{
-					{
-						Version:        2,
-						SourceCommitId: "00002",
-					},
-				},
-			},
-		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
 				EnvironmentGroupName: "production",
@@ -234,15 +201,6 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "production",
-						Applications: map[string]*api.Environment_Application{
-							"foo": {
-								Name:    "foo",
-								Version: 2,
-								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									DeployTime: "123456789",
-								},
-							},
-						},
 					},
 				},
 			},
@@ -252,15 +210,6 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "canary",
-						Applications: map[string]*api.Environment_Application{
-							"foo": {
-								Name:    "foo",
-								Version: 2,
-								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-									DeployTime: "123456789",
-								},
-							},
-						},
 					},
 				},
 			},
@@ -273,10 +222,11 @@ func TestVersionClientStream(t *testing.T) {
 	}
 
 	tcs := []struct {
-		Name             string
-		Steps            []step
-		VersionResponses map[string]mockVersionResponse
-		ExpectedVersions []expectedVersion
+		Name                 string
+		Steps                []step
+		VersionResponses     map[string]mockVersionResponse
+		GetOverviewResponses map[string]*api.GetOverviewResponse
+		ExpectedVersions     []expectedVersion
 	}{
 		{
 			Name: "Retries connections and finishes",
@@ -301,9 +251,32 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Puts received overviews in the cache",
 			Steps: []step{
 				{
-					Overview: testOverview,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -370,9 +343,32 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Don't notify twice for the same version",
 			Steps: []step{
 				{
-					Overview: testOverview,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -388,9 +384,32 @@ func TestVersionClientStream(t *testing.T) {
 					},
 				},
 				{
-					Overview: testOverview,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
@@ -402,9 +421,32 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Notify for apps that are deleted",
 			Steps: []step{
 				{
-					Overview: testOverview,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -420,9 +462,25 @@ func TestVersionClientStream(t *testing.T) {
 					},
 				},
 				{
-					Overview: emptyTestOverview,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{},
+							},
+						},
+					},
+					OverviewResponse: emptyTestOverview,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -443,9 +501,32 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Notify for apps that are deleted across reconnects",
 			Steps: []step{
 				{
-					Overview: testOverview,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -466,9 +547,25 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady: false,
 				},
 				{
-					Overview: emptyTestOverview,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{},
+							},
+						},
+					},
+					OverviewResponse: emptyTestOverview,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -489,9 +586,32 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Updates environment groups",
 			Steps: []step{
 				{
-					Overview: testOverview,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
@@ -507,15 +627,38 @@ func TestVersionClientStream(t *testing.T) {
 					},
 				},
 				{
-					Overview: testOverviewWithDifferentEnvgroup,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverviewWithDifferentEnvgroup,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "staging",
 							Application:      "foo",
 							EnvironmentGroup: "not-staging-group",
-							Team:             "",
+							Team:             "footeam",
 							Version: &VersionInfo{
 								Version:        2,
 								SourceCommitId: "00002",
@@ -534,15 +677,45 @@ func TestVersionClientStream(t *testing.T) {
 			Name: "Reports production environments",
 			Steps: []step{
 				{
-					Overview: testOverviewWithProdEnvs,
-
-					ExpectReady: true,
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        2,
+											SourceCommitId: "00002",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"production": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+									"canary": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverviewWithProdEnvs,
+					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
 							Environment:      "production",
 							Application:      "foo",
 							EnvironmentGroup: "production",
 							IsProduction:     true,
+							Team:             "footeam",
 							Version: &VersionInfo{
 								Version:        2,
 								SourceCommitId: "00002",
@@ -554,6 +727,7 @@ func TestVersionClientStream(t *testing.T) {
 							Application:      "foo",
 							EnvironmentGroup: "canary",
 							IsProduction:     true,
+							Team:             "footeam",
 							Version: &VersionInfo{
 								Version:        2,
 								SourceCommitId: "00002",
@@ -624,6 +798,15 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	if hs.IsReady("versions") != s.ExpectReady {
 		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
 	}
+
+	//Sort this to avoid flakeyness based on order
+	sort.Slice(vp.events, func(i, j int) bool {
+		return vp.events[i].Environment < vp.events[j].Environment
+	})
+	//Sort this to avoid flakeyness based on order
+	sort.Slice(s.ExpectedEvents, func(i, j int) bool {
+		return s.ExpectedEvents[i].Environment < s.ExpectedEvents[j].Environment
+	})
 	if !cmp.Equal(s.ExpectedEvents, vp.events) {
 		t.Errorf("version events differ: %s", cmp.Diff(s.ExpectedEvents, vp.events))
 	}

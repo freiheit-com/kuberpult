@@ -18,11 +18,8 @@
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
-{{- if not (or (eq .Values.db.dbOption "postgreSQL") (eq .Values.db.dbOption "NO_DB")) }}
-{{ fail ".Values.db.dbOption does not contain a valid value (NO_DB, postgreSQL)."}}
-{{ end -}}
-{{- if (and (.Values.db.cloudSqlProxyEnabled) (eq .Values.db.dbOption "NO_DB")) }}
-{{ fail "Cloudsql proxy cannot be used with NO_DB option"}}
+{{- if not (eq .Values.db.dbOption "postgreSQL") }}
+{{ fail ".Values.db.dbOption does not contain a valid value (Only postgreSQL is allowed from now on)."}}
 {{ end -}}
 ---
 apiVersion: apps/v1
@@ -164,6 +161,8 @@ spec:
         - name: KUBERPULT_GIT_WEB_URL
           value: {{ .Values.git.webUrl | quote }}
 {{- if .Values.datadogTracing.enabled }}
+        - name: KUBERPULT_CACHE_TTL_HOURS
+          value: {{ .Values.cd.cacheTtlHours | quote }}
         - name: DD_AGENT_HOST
           valueFrom:
             fieldRef:
@@ -239,10 +238,10 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
-        - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
+        - name: KUBERPULT_DB_OPTION # { postgreSQL}
           value: {{ .Values.db.dbOption }}
         - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
-          value: "{{ .Values.db.writeEslTableOnly }}"
+          value: "false"
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
@@ -312,7 +311,7 @@ spec:
         # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
         # Because of an issue in gitlib2, this actually happens.
         emptyDir:
-          sizeLimit: 10Gi
+          sizeLimit: 30Gi
       - name: ssh
         secret:
           secretName: kuberpult-ssh

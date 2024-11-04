@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -37,7 +38,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type errMatcher struct {
@@ -255,6 +255,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 						SourceMessage:  "msg1",
 						DisplayVersion: "display1",
 					},
+					Environments: []string{"dev"},
 				},
 				{
 					EslVersion:    1,
@@ -271,6 +272,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 						SourceMessage:  "msg2",
 						DisplayVersion: "display2",
 					},
+					Environments: []string{"dev"},
 				},
 			},
 		},
@@ -1754,7 +1756,8 @@ func TestDeleteRelease(t *testing.T) {
 					SourceMessage:  "message",
 					DisplayVersion: "1.0.0",
 				},
-				Deleted: true,
+				Deleted:      true,
+				Environments: []string{"development"},
 			},
 		},
 	}
@@ -2304,6 +2307,36 @@ func TestReadReleasesByApp(t *testing.T) {
 					ReleaseNumber: 10,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{"dev"},
+				},
+			},
+		},
+		{
+			Name: "Retrieve deleted release",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslVersion:    2,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Deleted:       true,
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName: "app1",
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    2,
+					ReleaseNumber: 10,
+					Deleted:       true,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{"dev"},
 				},
 			},
 		},
@@ -2342,12 +2375,14 @@ func TestReadReleasesByApp(t *testing.T) {
 					ReleaseNumber: 20,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+					Environments:  []string{"dev"},
 				},
 				{
 					EslVersion:    2,
 					ReleaseNumber: 10,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{"dev"},
 				},
 			},
 		},
@@ -2393,18 +2428,21 @@ func TestReadReleasesByApp(t *testing.T) {
 					ReleaseNumber: 3,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+					Environments:  []string{"dev"},
 				},
 				{
 					EslVersion:    2,
 					ReleaseNumber: 2,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
+					Environments:  []string{"dev"},
 				},
 				{
 					EslVersion:    1,
 					ReleaseNumber: 1,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{"dev"},
 				},
 			},
 		},
@@ -2439,12 +2477,14 @@ func TestReadReleasesByApp(t *testing.T) {
 					ReleaseNumber: 3,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+					Environments:  []string{"dev"},
 				},
 				{
 					EslVersion:    1,
 					ReleaseNumber: 1,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{"dev"},
 				},
 			},
 		},
@@ -2479,6 +2519,7 @@ func TestReadReleasesByApp(t *testing.T) {
 					ReleaseNumber: 3,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest3"}},
+					Environments:  []string{"dev"},
 				},
 				{
 					EslVersion:    2,
@@ -2486,12 +2527,14 @@ func TestReadReleasesByApp(t *testing.T) {
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest2"}},
 					Metadata:      DBReleaseMetaData{IsPrepublish: true},
+					Environments:  []string{"dev"},
 				},
 				{
 					EslVersion:    1,
 					ReleaseNumber: 1,
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{"dev"},
 				},
 			},
 		},
@@ -2511,7 +2554,7 @@ func TestReadReleasesByApp(t *testing.T) {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
-				releases, err := dbHandler.DBSelectReleasesByApp(ctx, transaction, tc.AppName, false, !tc.RetrievePrepublishes)
+				releases, err := dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, tc.AppName, !tc.RetrievePrepublishes)
 				if err != nil {
 					return fmt.Errorf("error while selecting release, error: %w", err)
 				}
@@ -2535,7 +2578,6 @@ func TestReadWriteOverviewCache(t *testing.T) {
 		Name      string
 		Overviews []*api.GetOverviewResponse
 	}
-
 	tcs := []TestCase{
 		{
 			Name: "Read and write",
@@ -2554,36 +2596,15 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									Applications: map[string]*api.Environment_Application{
-										"test": {
-											Name:    "test",
-											Version: 1,
-											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-												DeployAuthor: "testmail@example.com",
-												DeployTime:   "1",
-											},
-											Team: "team-123",
-										},
-									},
 									Priority: api.Priority_YOLO,
 								},
 							},
 							Priority: api.Priority_YOLO,
 						},
 					},
-					Applications: map[string]*api.Application{
-						"test": {
+					LightweightApps: []*api.OverviewApplication{
+						{
 							Name: "test",
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-									SourceAuthor:   "example <example@example.com>",
-									SourceMessage:  "changed something (#678)",
-									PrNumber:       "678",
-									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-								},
-							},
 							Team: "team-123",
 						},
 					},
@@ -2608,36 +2629,15 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									Applications: map[string]*api.Environment_Application{
-										"test": {
-											Name:    "test",
-											Version: 1,
-											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-												DeployAuthor: "testmail@example.com",
-												DeployTime:   "1",
-											},
-											Team: "team-123",
-										},
-									},
 									Priority: api.Priority_YOLO,
 								},
 							},
 							Priority: api.Priority_YOLO,
 						},
 					},
-					Applications: map[string]*api.Application{
-						"test": {
+					LightweightApps: []*api.OverviewApplication{
+						{
 							Name: "test",
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-									SourceAuthor:   "example <example@example.com>",
-									SourceMessage:  "changed something (#678)",
-									PrNumber:       "678",
-									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-								},
-							},
 							Team: "team-123",
 						},
 					},
@@ -2657,36 +2657,15 @@ func TestReadWriteOverviewCache(t *testing.T) {
 										Argocd:           &api.EnvironmentConfig_ArgoCD{},
 										EnvironmentGroup: &dev,
 									},
-									Applications: map[string]*api.Environment_Application{
-										"test2": {
-											Name:    "test2",
-											Version: 1,
-											DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-												DeployAuthor: "testmail2@example.com",
-												DeployTime:   "1",
-											},
-											Team: "team-123",
-										},
-									},
 									Priority: api.Priority_CANARY,
 								},
 							},
 							Priority: api.Priority_CANARY,
 						},
 					},
-					Applications: map[string]*api.Application{
-						"test2": {
+					LightweightApps: []*api.OverviewApplication{
+						{
 							Name: "test2",
-							Releases: []*api.Release{
-								{
-									Version:        1,
-									SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-									SourceAuthor:   "example <example@example.com>",
-									SourceMessage:  "changed something (#678)",
-									PrNumber:       "678",
-									CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-								},
-							},
 							Team: "team-123",
 						},
 					},
@@ -2725,6 +2704,209 @@ func TestReadWriteOverviewCache(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+		})
+	}
+}
+
+func TestFindEnvAppsFromReleases(t *testing.T) {
+	type TestCase struct {
+		Name             string
+		Releases         []DBReleaseWithMetaData
+		ExpectedEnvsApps map[string][]string
+	}
+	tcs := []TestCase{
+		{
+			Name: "Simple test: several releases",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					Created:       time.Now(),
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env1": "testmanifest",
+							"env2": "another test manifest",
+							"env3": "test",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					Created:       time.Now(),
+					App:           "app2",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env1": "testmanifest",
+							"env3": "test",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					Created:       time.Now(),
+					App:           "app3",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env1": "testmanifest",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+			},
+			ExpectedEnvsApps: map[string][]string{
+				"env1": {"app1", "app2", "app3"},
+				"env2": {"app1"},
+				"env3": {"app1", "app2"},
+			},
+		},
+		{
+			Name: "Several Releases for one app",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					Created:       time.Now(),
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env1": "testmanifest",
+							"env2": "another test manifest",
+							"env3": "test",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 11,
+					Created:       time.Now(),
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env1": "testmanifest",
+							"env3": "test",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 12,
+					Created:       time.Now(),
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env4": "testmanifest",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+			},
+			ExpectedEnvsApps: map[string][]string{
+				"env1": {"app1"},
+				"env2": {"app1"},
+				"env3": {"app1"},
+				"env4": {"app1"},
+			},
+		},
+		{
+			Name: "Releases with different esl versions",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					Created:       time.Now(),
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env1": "testmanifest",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+				{
+					EslVersion:    2,
+					ReleaseNumber: 10,
+					Created:       time.Now(),
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env2": "testmanifest",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+				{
+					EslVersion:    3,
+					ReleaseNumber: 10,
+					Created:       time.Now(),
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"env3": "testmanifest",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor: "testauthor",
+					},
+				},
+			},
+			ExpectedEnvsApps: map[string][]string{
+				"env3": {"app1"},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, release := range tc.Releases {
+					err := dbHandler.DBInsertRelease(ctx, transaction, release, release.EslVersion-1)
+					if err != nil {
+						return err
+					}
+				}
+
+				envsAppsFromReleases, err := dbHandler.FindEnvsAppsFromReleases(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for env := range envsAppsFromReleases {
+					sort.Strings(envsAppsFromReleases[env])
+				}
+				if diff := cmp.Diff(tc.ExpectedEnvsApps, envsAppsFromReleases); diff != "" {
+					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction, error: %v", err)
 			}
 		})
 	}

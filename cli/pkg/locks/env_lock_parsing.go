@@ -19,14 +19,17 @@ package locks
 import (
 	"flag"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
+	"net/url"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
 
 type CreateEnvLockCommandLineArguments struct {
 	environment cli_utils.RepeatedString
 	lockId      cli_utils.RepeatedString
 	message     cli_utils.RepeatedString
+	ciLink      cli_utils.RepeatedString
 }
 
 func argsValidCreateEnvLock(cmdArgs *CreateEnvLockCommandLineArguments) (result bool, errorMessage string) {
@@ -38,6 +41,14 @@ func argsValidCreateEnvLock(cmdArgs *CreateEnvLockCommandLineArguments) (result 
 	}
 	if len(cmdArgs.message.Values) > 1 {
 		return false, "the --message arg must be set at most once"
+	}
+	if len(cmdArgs.ciLink.Values) > 1 {
+		return false, "the --ci_link arg must be set at most once"
+	} else if len(cmdArgs.ciLink.Values) == 1 {
+		_, err := url.ParseRequestURI(cmdArgs.ciLink.Values[0])
+		if err != nil {
+			return false, fmt.Sprintf("provided invalid --ci_link value '%s'", cmdArgs.ciLink.Values[0])
+		}
 	}
 
 	return true, ""
@@ -52,6 +63,7 @@ func readCreateEnvLockArgs(args []string) (*CreateEnvLockCommandLineArguments, e
 	fs.Var(&cmdArgs.environment, "environment", "the environment to lock")
 	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.message, "message", "lock message")
+	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the CI run that created this lock")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -80,9 +92,13 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 		Environment:          cmdArgs.environment.Values[0],
 		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
+		CiLink:               nil,
 	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
+	}
+	if len(cmdArgs.ciLink.Values) == 1 {
+		rp.CiLink = &cmdArgs.ciLink.Values[0]
 	}
 	return &rp, nil
 }

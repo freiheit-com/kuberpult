@@ -37,6 +37,11 @@ Copyright freiheit.com*/
     border-radius: 14px;
     border-color: blue;
     border-style: groove;
+    .button-popup-deploy {
+        &:disabled {
+            color: grey;
+        }
+    }
 
     .first-two {
         height: 36px;

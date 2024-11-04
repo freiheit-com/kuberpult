@@ -15,18 +15,21 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import classNames from 'classnames';
 import React, { ReactElement, useCallback } from 'react';
-import { Environment, Environment_Application, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
+import { Deployment, Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
     getPriorityClassName,
+    useAppDetailsForApp,
+    useApplications,
+    useAppLocks,
     useCloseReleaseDialog,
     useCurrentlyDeployedAtGroup,
     useEnvironmentGroups,
     useReleaseDifference,
     useReleaseOptional,
-    useReleaseOrLog,
     useRolloutStatus,
     useTeamFromApplication,
+    useTeamLocks,
 } from '../../utils/store';
 import { Button } from '../button';
 import { Close, Locks, SortAscending, SortDescending } from '../../../images';
@@ -105,14 +108,14 @@ export type EnvironmentListItemProps = {
 };
 
 type CommitIdProps = {
-    application: Environment_Application;
+    deployment: Deployment | undefined;
     app: string;
     env: Environment;
     otherRelease?: Release;
 };
 
-const DeployedVersion: React.FC<CommitIdProps> = ({ application, app, env, otherRelease }): ReactElement => {
-    if (!application || !otherRelease) {
+const DeployedVersion: React.FC<CommitIdProps> = ({ deployment, app, env, otherRelease }): ReactElement => {
+    if (!deployment || !otherRelease) {
         return (
             <span>
                 "{app}" has no version deployed on "{env.name}"
@@ -187,58 +190,31 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             </div>
         );
     const otherRelease = useReleaseOptional(app, env);
-    const application = env.applications[app];
+    const appDetails = useAppDetailsForApp(app);
+    const deployment = appDetails.details?.deployments[env.name];
+
     const getDeploymentMetadata = (): [String, JSX.Element] => {
-        if (!application) {
+        if (!deployment) {
             return ['', <></>];
         }
-        if (application.deploymentMetaData === null) {
+        if (deployment.deploymentMetaData === null) {
             return ['', <></>];
         }
-        const deployedBy = application.deploymentMetaData?.deployAuthor ?? 'unknown';
-        const deployedUNIX = application.deploymentMetaData?.deployTime ?? '';
+        const deployedBy = deployment.deploymentMetaData?.deployAuthor ?? 'unknown';
+        const deployedUNIX = deployment.deploymentMetaData?.deployTime ?? '';
         if (deployedUNIX === '') {
             return ['Deployed by &nbsp;' + deployedBy, <></>];
         }
-        const deployedDate = new Date(+deployedUNIX * 1000);
+        const deployedDate = new Date(deployedUNIX);
         const returnString = 'Deployed by ' + deployedBy + ' ';
         const time = <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', '')} />;
 
         return [returnString, time];
     };
-    const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, application?.version, env.name));
-
-    const teamLocks = Object.values(env.applications)
-        .filter((application) => application.name === app)
-        .filter((app) => app.team === team)
-        .map((app) =>
-            Object.values(app.teamLocks).map((lock) => ({
-                date: lock.createdAt,
-                environment: env.name,
-                team: app.team,
-                lockId: lock.lockId,
-                message: lock.message,
-                authorName: lock.createdBy?.name,
-                authorEmail: lock.createdBy?.email,
-            }))
-        )
-        .flat()
-        .filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
-
-    const appLocks = Object.values(env.applications)
-        .filter((application) => application.name === app)
-        .map((app) =>
-            Object.values(app.locks).map((lock) => ({
-                date: lock.createdAt,
-                environment: env.name,
-                team: app.team,
-                lockId: lock.lockId,
-                message: lock.message,
-                authorName: lock.createdBy?.name,
-                authorEmail: lock.createdBy?.email,
-            }))
-        )
-        .flat();
+    const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
+    const apps = useApplications().filter((application) => application.name === app);
+    const teamLocks = useTeamLocks(apps);
+    const appLocks = useAppLocks(apps);
 
     const allowDeployment: boolean = ((): boolean => {
         if (release.isPrepublish) {
@@ -251,7 +227,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     })();
     const releaseDifference = useReleaseDifference(release.version, app, env.name);
     const getReleaseDiffContent = (): JSX.Element => {
-        if (!otherRelease || !application) {
+        if (!otherRelease || !deployment) {
             return <div></div>;
         }
         if (releaseDifference > 0) {
@@ -314,7 +290,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-                        <DeployedVersion app={app} env={env} application={application} otherRelease={otherRelease} />
+                        <DeployedVersion app={app} env={env} deployment={deployment} otherRelease={otherRelease} />
                     </div>
                     {queueInfo}
                     <div className={classNames('env-card-data')}>
@@ -371,10 +347,14 @@ export const undeployTooltipExplanation =
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
-    // the ReleaseDialog is only opened when there is a release, so we can assume that it exists here:
-    const release = useReleaseOrLog(app, version);
+    const appDetails = useAppDetailsForApp(app);
     const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();
+    if (!appDetails) {
+        return null;
+    }
+    const release = appDetails.details?.application?.releases.find((r) => r.version === version);
+
     if (!release) {
         return null;
     }
@@ -450,6 +430,7 @@ export const EnvironmentGroupLane: React.FC<{
     const priorityClassName = getPriorityClassName(environmentGroup);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
     const [allowGroupDeployment, setAllowGroupDeployment] = React.useState(true);
+    const appDetails = useAppDetailsForApp(app);
     const collapse = useCallback(() => {
         setIsCollapsed(!isCollapsed);
     }, [isCollapsed]);
@@ -576,7 +557,11 @@ export const EnvironmentGroupLane: React.FC<{
                             release={release}
                             team={team}
                             className={priorityClassName}
-                            queuedVersion={env.applications[app] ? env.applications[app].queuedVersion : 0}
+                            queuedVersion={
+                                appDetails.details?.deployments[env.name]
+                                    ? appDetails.details?.deployments[env.name].queuedVersion
+                                    : 0
+                            }
                         />
                     ))}
                 </div>

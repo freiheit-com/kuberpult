@@ -19,10 +19,11 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"strconv"
 	"time"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"encoding/json"
 	"fmt"
@@ -321,6 +322,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			if transformer == nil {
 				sleepDuration.Reset()
 				d := sleepDuration.NextBackOff()
+				measurePushes(ddMetrics, log, false)
 				logger.FromContext(ctx).Sugar().Warnf("event processing skipped, will try again in %v", d)
 				time.Sleep(d)
 				continue
@@ -343,11 +345,11 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				}
 
 				//Get latest commit. Write esl timestamp and commit hash.
-				commit, err := repo.GetHeadCommit()
+				commitId, err := repo.GetHeadCommitId()
 				if err != nil {
 					return err
 				}
-				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), esl.Created)
+				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
 			})
 			if err != nil {
 				err3 := repo.FetchAndReset(ctx)

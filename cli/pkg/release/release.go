@@ -18,6 +18,7 @@ package release
 
 import (
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
@@ -35,6 +36,7 @@ type ReleaseParameters struct {
 	SourceMessage        *string
 	Version              *uint64
 	DisplayVersion       *string
+	CiLink               *string
 	UseDexAuthentication bool
 	IsPrepublish         bool
 }
@@ -46,7 +48,7 @@ func Release(requestParams kutil.RequestParameters, authParams kutil.Authenticat
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
-	if err := cli_utils.IssueHttpRequest(*req, requestParams.Retries); err != nil {
+	if err := cli_utils.IssueHttpRequest(*req, requestParams.Retries, requestParams.HttpTimeout); err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil

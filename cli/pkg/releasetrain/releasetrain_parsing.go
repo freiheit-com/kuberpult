@@ -19,6 +19,7 @@ package releasetrain
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
@@ -27,6 +28,8 @@ import (
 type ReleaseTrainCommandLineArguments struct {
 	targetEnvironment    cli_utils.RepeatedString
 	team                 cli_utils.RepeatedString
+	ciLink               cli_utils.RepeatedString
+	useEnvGroupTarget    bool
 	useDexAuthentication bool
 }
 
@@ -37,6 +40,15 @@ func releaseTrainArgsValid(cmdArgs *ReleaseTrainCommandLineArguments) (result bo
 
 	if len(cmdArgs.team.Values) > 1 {
 		return false, "the --team arg must be set at most once"
+	}
+
+	if len(cmdArgs.ciLink.Values) > 1 {
+		return false, "the --ci_link arg must be set at most once"
+	} else if len(cmdArgs.ciLink.Values) == 1 {
+		_, err := url.ParseRequestURI(cmdArgs.ciLink.Values[0])
+		if err != nil {
+			return false, fmt.Sprintf("provided invalid --ci_link value '%s'", cmdArgs.ciLink.Values[0])
+		}
 	}
 
 	return true, ""
@@ -50,6 +62,8 @@ func readArgs(args []string) (*ReleaseTrainCommandLineArguments, error) {
 	fs.Var(&cmdArgs.targetEnvironment, "target-environment", "the name of the environment to target with the release train (must be set exactly once)")
 	fs.Var(&cmdArgs.team, "team", "the target team. Only specified teams services will be taken into account when conducting the release train")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "if set to true, the /api/* endpoint will be used. Dex must be enabled on the server side and a dex token must be provided, otherwise the request will be denied")
+	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the CI run that created this release train")
+	fs.BoolVar(&cmdArgs.useEnvGroupTarget, "use_env_group_target", false, "if set to true, sets target type to environment-group")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -73,13 +87,20 @@ func convertToParams(cmdArgs ReleaseTrainCommandLineArguments) (*ReleaseTrainPar
 
 	rp := ReleaseTrainParameters{
 		Team:                 nil,
+		CiLink:               nil,
 		TargetEnvironment:    cmdArgs.targetEnvironment.Values[0],
 		UseDexAuthentication: cmdArgs.useDexAuthentication,
+		UseEnvGroupTarget:    cmdArgs.useEnvGroupTarget,
 	}
 
 	if len(cmdArgs.team.Values) == 1 {
 		rp.Team = &cmdArgs.team.Values[0]
 	}
+
+	if len(cmdArgs.ciLink.Values) == 1 {
+		rp.CiLink = &cmdArgs.ciLink.Values[0]
+	}
+
 	return &rp, nil
 }
 

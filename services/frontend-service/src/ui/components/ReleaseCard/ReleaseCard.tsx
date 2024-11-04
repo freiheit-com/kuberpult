@@ -21,6 +21,7 @@ import {
     useRolloutStatus,
     EnvironmentGroupExtended,
     useReleaseOrLog,
+    useAppDetailsForApp,
 } from '../../utils/store';
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
@@ -87,11 +88,12 @@ const useDeploymentStatus = (
     app: string,
     deployedAt: EnvironmentGroupExtended[]
 ): [Array<DeploymentStatus>, RolloutStatus?] => {
+    const appDetails = useAppDetailsForApp(app);
     const rolloutEnvGroups = useRolloutStatus((getter) => {
         const groups: { [envGroup: string]: RolloutStatus } = {};
         deployedAt.forEach((envGroup) => {
             const status = envGroup.environments.reduce((cur: RolloutStatus | undefined, env) => {
-                const appVersion: number | undefined = env.applications[app]?.version;
+                const appVersion = appDetails.details?.deployments[env.name].version;
                 const status = getter.getAppStatus(app, appVersion, env.name);
                 if (cur === undefined) {
                     return status;
@@ -201,7 +203,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         </div>
     );
 
-    const firstLine = sourceMessage.split('\n')[0] + (isMinor ? '💤' : '');
+    const firstLine = (isMinor ? '💤' : '') + sourceMessage.split('\n')[0];
     return (
         <Tooltip id={app + version} tooltipContent={tooltipContents}>
             <div className={'release-card__container'}>

@@ -16,11 +16,14 @@ Copyright freiheit.com*/
 
 package notify
 
-import "sync"
+import (
+	"sync"
+)
 
 type Notify struct {
-	mx       sync.Mutex
-	listener map[chan struct{}]struct{}
+	mx                 sync.Mutex
+	oveviewListener    map[chan struct{}]struct{}
+	changeAppsListener map[chan ChangedAppNames]struct{}
 }
 
 type Unsubscribe = func()
@@ -31,24 +34,54 @@ func (n *Notify) Subscribe() (<-chan struct{}, Unsubscribe) {
 
 	n.mx.Lock()
 	defer n.mx.Unlock()
-	if n.listener == nil {
-		n.listener = map[chan struct{}]struct{}{}
+	if n.oveviewListener == nil {
+		n.oveviewListener = map[chan struct{}]struct{}{}
 	}
 
-	n.listener[ch] = struct{}{}
+	n.oveviewListener[ch] = struct{}{}
 	return ch, func() {
 		n.mx.Lock()
 		defer n.mx.Unlock()
-		delete(n.listener, ch)
+		delete(n.oveviewListener, ch)
 	}
 }
 
 func (n *Notify) Notify() {
 	n.mx.Lock()
 	defer n.mx.Unlock()
-	for ch := range n.listener {
+	for ch := range n.oveviewListener {
 		select {
 		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
+type ChangedAppNames []string
+
+func (n *Notify) SubscribeChangesApps() (<-chan ChangedAppNames, Unsubscribe) {
+	ch := make(chan ChangedAppNames, 1)
+	ch <- ChangedAppNames{}
+
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	if n.changeAppsListener == nil {
+		n.changeAppsListener = map[chan ChangedAppNames]struct{}{}
+	}
+	n.changeAppsListener[ch] = struct{}{}
+	return ch, func() {
+		n.mx.Lock()
+		defer n.mx.Unlock()
+		delete(n.changeAppsListener, ch)
+	}
+}
+
+func (n *Notify) NotifyChangedApps(changedApps ChangedAppNames) {
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	for ch := range n.changeAppsListener {
+		select {
+		case ch <- changedApps:
 		default:
 		}
 	}

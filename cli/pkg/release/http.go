@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"mime/multipart"
 	"net/http"
 	urllib "net/url"
+
+	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
 
 func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
@@ -95,6 +96,12 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 	if parsedArgs.DisplayVersion != nil {
 		if err := writer.WriteField("display_version", *parsedArgs.DisplayVersion); err != nil {
 			return nil, fmt.Errorf("error writing display_version field, error: %w", err)
+		}
+	}
+
+	if parsedArgs.CiLink != nil {
+		if err := writer.WriteField("ci_link", *parsedArgs.CiLink); err != nil {
+			return nil, fmt.Errorf("error writing ci_link field, error: %w", err)
 		}
 	}
 

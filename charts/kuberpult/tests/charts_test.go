@@ -179,7 +179,7 @@ ingress:
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_DB_OPTION",
-					Value: "NO_DB",
+					Value: "postgreSQL",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -400,37 +400,6 @@ argocd:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Database disabled",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: NO_DB
-`,
-			ExpectedEnvs: []core.EnvVar{},
-			ExpectedMissing: []core.EnvVar{
-
-				{
-					Name:  "KUBERPULT_DB_LOCATION",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_NAME",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "",
-				},
-			},
-		},
-		{
 			Name: "Database postgreSQL enabled 1",
 			Values: `
 git:
@@ -531,50 +500,6 @@ db:
 				{
 					Name:  "KUBERPULT_DB_WRITE_ESL_TABLE_ONLY",
 					Value: "false",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_NAME",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "does",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "not",
-				},
-			},
-		},
-		{
-			Name: "Database writeEslTableOnly=true",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: postgreSQL
-  location: /kp/database
-  dbName: does
-  dbUser: not
-  dbPassword: matter
-  writeEslTableOnly: true
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "postgreSQL",
-				},
-				{
-					Name:  "KUBERPULT_DB_LOCATION",
-					Value: "/kp/database",
-				},
-				{
-					Name:  "KUBERPULT_DB_WRITE_ESL_TABLE_ONLY",
-					Value: "true",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{
@@ -942,38 +867,6 @@ db:
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Database disabled",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: NO_DB
-  writeEslTableOnly: false
-`,
-			ExpectedEnvs: []core.EnvVar{},
-			ExpectedMissing: []core.EnvVar{
-
-				{
-					Name:  "KUBERPULT_DB_LOCATION",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_NAME",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "",
-				},
-			},
 		},
 		{
 			Name: "Database postgreSQL enabled 1",

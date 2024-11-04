@@ -15,26 +15,31 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import {
     addAction,
+    AppDetailsResponse,
+    AppDetailsState,
     EnvironmentGroupExtended,
+    getAppDetails,
     showSnackbarError,
     showSnackbarWarn,
+    updateAppDetails,
+    useAppDetailsForApp,
     useCurrentlyExistsAtGroup,
-    useDeployedReleases,
-    useFilteredApplicationLocks,
     useMinorsForApp,
     useNavigateWithSearchParams,
-    useTeamLocksFilterByTeam,
-    useVersionsForApp,
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { Application, Environment, UndeploySummary } from '../../../api/api';
+import { Environment, OverviewApplication, UndeploySummary } from '../../../api/api';
 import * as React from 'react';
+import { useCallback, useState } from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
-import { useCallback, useState } from 'react';
 import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
+import { AuthHeader, useAzureAuthSub } from '../../utils/AzureAuthProvider';
+import { SmallSpinner } from '../Spinner/Spinner';
+import { FormattedDate } from '../FormattedDate/FormattedDate';
+import { Button } from '../button';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -91,7 +96,7 @@ export const DiffElement: React.FC<{ diff: number; title: string; navCallback: (
     </div>
 );
 
-const deriveUndeployMessage = (undeploySummary: UndeploySummary): string | undefined => {
+const deriveUndeployMessage = (undeploySummary: UndeploySummary | undefined): string | undefined => {
     switch (undeploySummary) {
         case UndeploySummary.UNDEPLOY:
             return 'Delete Forever';
@@ -104,15 +109,93 @@ const deriveUndeployMessage = (undeploySummary: UndeploySummary): string | undef
     }
 };
 
-export const ServiceLane: React.FC<{ application: Application; hideMinors: boolean }> = (props) => {
+export const ServiceLane: React.FC<{
+    application: OverviewApplication;
+    hideMinors: boolean;
+}> = (props) => {
     const { application, hideMinors } = props;
-    const deployedReleases = useDeployedReleases(application.name);
-    const allReleases = useVersionsForApp(application.name);
+    const { authHeader } = useAzureAuthSub((auth) => auth);
+
+    const appDetails = useAppDetailsForApp(application.name);
+    const componentRef: React.MutableRefObject<any> = React.useRef();
+
+    React.useEffect(() => {
+        const handleScroll = (): void => {
+            getAppDetailsIfInView(componentRef, appDetails, authHeader, application.name);
+        };
+        handleScroll();
+        if (document.getElementsByClassName('mdc-drawer-app-content').length !== 0) {
+            document.getElementsByClassName('mdc-drawer-app-content')[0].addEventListener('scroll', handleScroll);
+            return () => {
+                document
+                    .getElementsByClassName('mdc-drawer-app-content')[0]
+                    .removeEventListener('scroll', handleScroll);
+            };
+        }
+    }, [appDetails, application, authHeader]);
+
+    if (!appDetails || !appDetails.details) {
+        return (
+            <div ref={componentRef} className="service-lane">
+                <div className="service-lane__header">
+                    <div className="service-lane-wrapper">
+                        <div className={'service-lane-name'}>
+                            <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
+                            {' | '} <span title={'app name'}> {application.name}</span>
+                        </div>
+                        <SmallSpinner appName={application.name} key={application.name} />
+                    </div>
+                </div>
+                <div className="service__releases" key={application.name + '-' + application.team}></div>
+            </div>
+        );
+    }
+
+    return (
+        <div ref={componentRef}>
+            <ReadyServiceLane
+                application={application}
+                hideMinors={hideMinors}
+                allAppData={appDetails}
+                key={application.name}></ReadyServiceLane>
+        </div>
+    );
+};
+
+function getAppDetailsIfInView(
+    componentRef: React.MutableRefObject<any>,
+    appDetails: AppDetailsResponse,
+    authHeader: AuthHeader,
+    appName: string
+): void {
+    if (componentRef.current !== null) {
+        const rect = componentRef.current.getBoundingClientRect();
+        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+            if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
+                getAppDetails(appName, authHeader);
+            }
+        }
+    }
+}
+
+export const ReadyServiceLane: React.FC<{
+    application: OverviewApplication;
+    hideMinors: boolean;
+    allAppData: AppDetailsResponse;
+}> = (props) => {
+    const { application, hideMinors } = props;
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
-    const prepareUndeployOrUndeployText = deriveUndeployMessage(application.undeploySummary);
+    const appDetails = props.allAppData.details;
+    const allReleases = [...new Set(appDetails?.application?.releases.map((d) => d.version))];
+    const deployments = appDetails?.deployments;
+    const allDeployedReleaseNumbers = [];
+    for (const prop in deployments) {
+        allDeployedReleaseNumbers.push(deployments[prop].version);
+    }
+    const deployedReleases = [...new Set(allDeployedReleaseNumbers.map((v) => v).sort((n1, n2) => n2 - n1))];
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
-        switch (application.undeploySummary) {
+        switch (appDetails?.application?.undeploySummary) {
             case UndeploySummary.UNDEPLOY:
                 addAction({
                     action: {
@@ -136,10 +219,17 @@ export const ServiceLane: React.FC<{ application: Application; hideMinors: boole
                 showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in unknown state.');
                 break;
         }
-    }, [application.name, application.undeploySummary]);
-    const minorReleases = useMinorsForApp(application.name);
-    const releases = getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors);
-
+    }, [application.name, appDetails?.application?.undeploySummary]);
+    let minorReleases = useMinorsForApp(application.name);
+    if (!minorReleases) {
+        minorReleases = [];
+    }
+    const prepareUndeployOrUndeployText = deriveUndeployMessage(appDetails?.application?.undeploySummary);
+    const releases = [
+        ...new Set(
+            getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) => n2 - n1)
+        ),
+    ];
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {
@@ -191,6 +281,15 @@ export const ServiceLane: React.FC<{ application: Application; hideMinors: boole
         },
         [application.name, envs]
     );
+    const onReload = useCallback(() => {
+        const details = updateAppDetails.get();
+        details[application.name] = {
+            details: undefined,
+            appDetailState: AppDetailsState.NOTREQUESTED,
+            updatedAt: new Date(Date.now()),
+        };
+        updateAppDetails.set(details);
+    }, [application.name]);
     const buttons: DotsMenuButton[] = [
         {
             label: 'View History',
@@ -216,8 +315,8 @@ export const ServiceLane: React.FC<{ application: Application; hideMinors: boole
     }
 
     const dotsMenu = <DotsMenu buttons={buttons} />;
-    const appLocks = useFilteredApplicationLocks(application.name);
-    const teamLocks = useTeamLocksFilterByTeam(application.team);
+    const appLocks = Object.values(appDetails?.appLocks ? appDetails.appLocks : []);
+    const teamLocks = Object.values(appDetails?.teamLocks ? appDetails.teamLocks : []);
     const dialog = (
         <EnvSelectionDialog
             environments={envs.map((e) => e.name)}
@@ -225,6 +324,16 @@ export const ServiceLane: React.FC<{ application: Application; hideMinors: boole
             onSubmit={confirmEnvAppDelete}
             onCancel={handleClose}
             envSelectionDialog={true}
+        />
+    );
+
+    const reloadButton = (
+        <Button
+            id={application.name + '-reloadButton'}
+            className="servicelane__reload mdc-button--unelevated"
+            label={'⟳'}
+            highlightEffect={false}
+            onClick={onReload}
         />
     );
 
@@ -243,10 +352,20 @@ export const ServiceLane: React.FC<{ application: Application; hideMinors: boole
                         {' | '} <span title={'app name'}> {application.name}</span>
                     </div>
                 </div>
-                <div className="service__actions__">{dotsMenu}</div>
+                <div className="service-lane-wrapper">
+                    <div>{reloadButton}</div>
+                    {props.allAppData.updatedAt && (
+                        <div className="service-lane__date">
+                            <span>Updated </span>
+                            <FormattedDate className={'date'} createdAt={props.allAppData.updatedAt} />
+                        </div>
+                    )}
+                    <div className="service__actions__">{dotsMenu}</div>
+                </div>
+                {/*<div className="service__actions__">{dotsMenu}</div>*/}
             </div>
             <div className="service__warnings">
-                <WarningBoxes application={application} />
+                <WarningBoxes application={appDetails?.application} />
             </div>
             <div className="service__releases">{releases_lane}</div>
         </div>

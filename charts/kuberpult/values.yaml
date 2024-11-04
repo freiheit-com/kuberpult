@@ -85,6 +85,7 @@ cd:
   allowLongAppNames: false
 # List of allowed domains that the links provided in releases, release trains and locks must match
   allowedDomains: ""
+  cacheTtlHours: 24
   service:
     annotations: {}
   pod:
@@ -93,9 +94,9 @@ cd:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
     queueSize: 5
-# Disabling the queue is as of now an experimental feature. It's only possible to use with db.writeEslTableOnly=false.
+# Disabling the queue is as of now an experimental feature.
 # With the queue, the cd-service processes only one request at a time, which is very much required when using git.
-# With the database enabled, this is not required anymore.
+# With the database, this is not required anymore.
     disableQueue: false
   resources:
     limits:
@@ -117,29 +118,21 @@ cd:
       timeoutSeconds: 5
       failureThreshold: 10
       initialDelaySeconds: 5
-# The Database is not ready for use on production and the helm options might change in the near future.
 db:
   location: "127.0.0.1"
   authProxyPort: 5432
-# As the Database feature is still work in progress, for now we recommend to set:
-# dbOption: "NO_DB"
-# Other valid values are "postgreSQL".
-# If you do want to try out the database, for now use
-# writeEslTableOnly: true
-  dbOption: "NO_DB"
-# k8sServiceAccountName is required if `dbOption = "postgreSQL"`, otherwise it's ignored.
+# The Database feature is now required:
+  dbOption: "postgreSQL"
+# k8sServiceAccountName is required.
 # k8sServiceAccountName is the name of the kubernetes service account.
   k8sServiceAccountName: "k8sServiceAccountName"
-# cloudSqlProxyEnabled enables the cloudsql proxy. Not possible with `dbOption = "NO_DB"`.
+# cloudSqlProxyEnabled enables the cloudsql proxy.
   cloudSqlProxyEnabled: false
   dbConnectionName: "connectioname"
   dbName: "databaseName"
   dbUser: "username"
   dbPassword: "password"
   migrations: /migrations
-  # If set to true, kuberpult will write only the ESL table.
-  # This is useful to already collect historical data in the database, while waiting for the full database implementation.
-  writeEslTableOnly: false
   # SSL mode to be used by the database
   sslMode: verify-full
   requests:

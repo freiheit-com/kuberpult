@@ -71,7 +71,6 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                 {/* the button to expand the dialog: */}
                 <Button
                     onClick={onClickExpand}
-                    disabled={props.disabled}
                     className={'button-expand'}
                     key={'button-second-key'}
                     label={''}
@@ -95,6 +94,7 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                                 label={'Deploy only'}
                                 icon={undefined}
                                 highlightEffect={true}
+                                disabled={props.disabled}
                             />
                         </div>
                         <div>

@@ -115,6 +115,11 @@ func (err *TransformerBatchApplyError) Is(target error) bool {
 	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
+func (e *TransformerBatchApplyError) Unwrap() error {
+	// Return the inner error.
+	return e.TransformerError
+}
+
 func UnwrapUntilTransformerBatchApplyError(err error) *TransformerBatchApplyError {
 	for {
 		var applyErr *TransformerBatchApplyError
@@ -596,7 +601,6 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			}
 		}
 	}
-
 	return transformerBatches, nil, changes
 }
 
@@ -735,7 +739,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}
 
 	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
-
 	if len(transformerBatches) == 0 {
 		return
 	}
@@ -789,6 +792,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	ddSpan.Finish()
 
 	r.notify.Notify()
+	r.notifyChangedApps(changes)
 }
 
 func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
@@ -1117,6 +1121,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 			}
 		}
 		r.notify.Notify()
+		r.notifyChangedApps(changes)
 		return nil
 	} else {
 		eCh := r.applyDeferred(ctx, transformers...)
@@ -1126,6 +1131,20 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	}
+}
+
+func (r *repository) notifyChangedApps(changes *TransformerResult) {
+	var changedAppNames []string
+	var seen = make(map[string]bool)
+	for _, app := range changes.ChangedApps {
+		if _, ok := seen[app.App]; !ok {
+			seen[app.App] = true
+			changedAppNames = append(changedAppNames, app.App)
+		}
+	}
+	if len(changedAppNames) != 0 {
+		r.notify.NotifyChangedApps(changedAppNames)
 	}
 }
 
@@ -1912,9 +1931,26 @@ func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx
 	}
 	return s.GetAllDeploymentsForAppFromManifest(ctx, appName)
 }
+func (s *State) GetAllDeploymentsForAppAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, appName, ts)
+	}
+	return nil, fmt.Errorf("GetAllDeploymentsForAppAtTimestamp is only available if DB is enable")
+}
 
 func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
 	result, err := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return map[string]int64{}, nil
+	}
+	return result.Deployments, nil
+}
+
+func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
+	result, err := s.DBHandler.DBSelectAllDeploymentsForAppAtTimestamp(ctx, transaction, appName, ts)
 	if err != nil {
 		return nil, err
 	}
@@ -2064,6 +2100,13 @@ func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql
 	return s.GetEnvironmentApplicationsFromManifest(environment)
 }
 
+func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, environment string, ts time.Time) ([]string, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetEnvironmentApplicationsFromDBAtTimestamp(ctx, transaction, environment, ts)
+	}
+	return nil, fmt.Errorf("GetEnvironmentApplicationsAtTimestamp is only available for DB uses")
+}
+
 func (s *State) GetEnvironmentApplicationsFromManifest(environment string) ([]string, error) {
 	appDir := s.Filesystem.Join("environments", environment, "applications")
 	return names(s.Filesystem, appDir)
@@ -2073,6 +2116,23 @@ func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transactio
 	envInfo, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
+	}
+	if envInfo == nil {
+		return nil, fmt.Errorf("environment %s not found", environment)
+	}
+	if envInfo.Applications == nil {
+		return make([]string, 0), nil
+	}
+	return envInfo.Applications, nil
+}
+
+func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, environment string, ts time.Time) ([]string, error) {
+	envInfo, err := s.DBHandler.DBSelectEnvironmentAtTimestamp(ctx, transaction, environment, ts)
+	if err != nil {
+		return nil, err
+	}
+	if envInfo == nil {
+		return nil, fmt.Errorf("environment %s not found", environment)
 	}
 	if envInfo.Applications == nil {
 		return make([]string, 0), nil
@@ -2202,7 +2262,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 			return err
 		}
 		for lockId, lock := range ls {
-			fmt.Printf("LOCK: %s\n", lock.CreatedAt.String())
 			currentEnv := db.EnvironmentLock{
 				EslVersion: 0,
 				Env:        envName,
@@ -2419,31 +2478,22 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	}
 
 	shouldDelete := stateChange == db.AppStateChangeDelete
-	err = s.UpdateTopLevelAppInOverview(ctx, transaction, appName, cache, shouldDelete, map[string][]int64{})
-	if err != nil {
-		return err
-	}
 
-	for envGroupIndex := range cache.EnvironmentGroups {
-		envGroup := cache.EnvironmentGroups[envGroupIndex]
+	if shouldDelete {
+		lApps := make([]*api.OverviewApplication, 0)
 
-		for i := range envGroup.Environments {
-			env := envGroup.Environments[i]
-
-			if shouldDelete {
-				delete(env.Applications, appName)
-			} else {
-				envApp, err := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, env.Name, nil, map[string]*int64{})
-				if err != nil {
-					return err
-				}
-
-				if env.Applications == nil {
-					env.Applications = map[string]*api.Environment_Application{}
-				}
-				env.Applications[appName] = envApp
+		for _, curr := range cache.LightweightApps {
+			if curr.Name != appName {
+				lApps = append(lApps, curr)
 			}
 		}
+		cache.LightweightApps = lApps
+	} else {
+		team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
+		if err != nil {
+			return fmt.Errorf("could not obtain application team owner to update top level app in overview: %w", err)
+		}
+		cache.LightweightApps = append(cache.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 	}
 
 	err = h.WriteOverviewCache(ctx, transaction, cache)
@@ -2454,70 +2504,32 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	return nil
 }
 
-func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool, allReleasesOfAllApps map[string][]int64) error {
-	if deleteApp {
-		delete(result.Applications, appName)
-		return nil
-	}
-	app := api.Application{
-		UndeploySummary: 0,
-		Warnings:        nil,
-		Name:            appName,
-		Releases:        []*api.Release{},
-		SourceRepoUrl:   "",
-		Team:            "",
-	}
-	allReleasesOfApp, found := allReleasesOfAllApps[appName]
-	var rels []uint64
-	if found {
-		rels = conversion.ToUint64Slice(allReleasesOfApp)
-	} else {
-		retrievedReleasesOfApp, err := s.GetAllApplicationReleases(ctx, transaction, appName)
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
-		}
-		rels = retrievedReleasesOfApp
-	}
-	for _, id := range rels {
-		if rel, err := s.GetApplicationRelease(ctx, transaction, appName, id); err != nil {
-			return err
-		} else {
-			if rel == nil {
-				// ignore
-			} else {
-				release := rel.ToProto()
-				release.Version = id
-				release.UndeployVersion = rel.UndeployVersion
-				app.Releases = append(app.Releases, release)
-			}
-		}
-	}
-
-	if team, err := s.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
+func (s *State) DBInsertEnvironmentWithOverview(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+	h := s.DBHandler
+	err := h.DBWriteEnvironment(ctx, tx, environmentName, environmentConfig, applications)
+	if err != nil {
 		return err
-	} else {
-		app.Team = team
 	}
-	if result == nil {
+
+	cache, err := h.ReadLatestOverviewCache(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if cache == nil {
+		logger.FromContext(ctx).Sugar().Warnf("overview was nil, will skip update for env %s", environmentName)
 		return nil
 	}
-	app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
-	app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
-	if result.Applications == nil {
-		result.Applications = map[string]*api.Application{}
-	}
-	result.Applications[appName] = &app
-	return nil
-}
 
-func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {
-	for _, currentGroup := range groups {
-		for _, currentEnv := range currentGroup.Environments {
-			if currentEnv.Name == envNameToReturn {
-				return currentEnv
-			}
-		}
+	err = s.UpdateEnvironmentsInOverview(ctx, tx, cache)
+	if err != nil {
+		return err
 	}
+
+	err = h.WriteOverviewCache(ctx, tx, cache)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -2534,216 +2546,9 @@ func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn str
 	return nil
 }
 
-/*
-CalculateWarnings returns warnings for the User to be displayed in the UI.
-For really unusual configurations, these will be logged and not returned.
-*/
-func CalculateWarnings(_ context.Context, appName string, groups []*api.EnvironmentGroup) []*api.Warning {
-	result := make([]*api.Warning, 0)
-	for e := 0; e < len(groups); e++ {
-		group := groups[e]
-		for i := 0; i < len(groups[e].Environments); i++ {
-			env := group.Environments[i]
-			if env == nil || env.Config == nil || env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
-				// if the env has no upstream, there's nothing to warn about
-				continue
-			}
-			upstreamEnvName := env.Config.GetUpstream().Environment
-			upstreamEnv := getEnvironmentByName(groups, *upstreamEnvName)
-			if upstreamEnv == nil {
-				// this is already checked on startup and therefore shouldn't happen here
-				continue
-			}
-
-			appInEnv := env.Applications[appName]
-			if appInEnv == nil {
-				// appName is not deployed here, ignore it
-				continue
-			}
-			versionInEnv := appInEnv.Version
-			appInUpstreamEnv := upstreamEnv.Applications[appName]
-			if appInUpstreamEnv == nil {
-				// appName is not deployed upstream... that's unusual!
-				var warning = api.Warning{
-					WarningType: &api.Warning_UpstreamNotDeployed{
-						UpstreamNotDeployed: &api.UpstreamNotDeployed{
-							UpstreamEnvironment: *upstreamEnvName,
-							ThisVersion:         versionInEnv,
-							ThisEnvironment:     env.Name,
-						},
-					},
-				}
-				result = append(result, &warning)
-				continue
-			}
-			versionInUpstreamEnv := appInUpstreamEnv.Version
-
-			if versionInEnv > versionInUpstreamEnv && len(appInEnv.Locks) == 0 {
-				var warning = api.Warning{
-					WarningType: &api.Warning_UnusualDeploymentOrder{
-						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-							UpstreamVersion:     versionInUpstreamEnv,
-							UpstreamEnvironment: *upstreamEnvName,
-							ThisVersion:         versionInEnv,
-							ThisEnvironment:     env.Name,
-						},
-					},
-				}
-				result = append(result, &warning)
-			}
-		}
-	}
-	return result
-}
-
-func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
-	var allNormal = true
-	var allUndeploy = true
-	for _, group := range groups {
-		for _, environment := range group.Environments {
-			var app, exists = environment.Applications[appName]
-			if !exists {
-				continue
-			}
-			if app.Version == 0 {
-				// if the app exists but nothing is deployed, we ignore this
-				continue
-			}
-			if app.UndeployVersion {
-				allNormal = false
-			} else {
-				allUndeploy = false
-			}
-		}
-	}
-	if allUndeploy {
-		return api.UndeploySummary_UNDEPLOY
-	}
-	if allNormal {
-		return api.UndeploySummary_NORMAL
-	}
-	return api.UndeploySummary_MIXED
-
-}
-
-func (s *State) UpdateOneAppEnvInOverview(ctx context.Context, transaction *sql.Tx, appName string, envName string, configParam *config.EnvironmentConfig, allEnvironmentApplicationVersions map[string]*int64) (*api.Environment_Application, error) {
-	var envConfig = configParam
-	if envConfig == nil {
-		var err error
-		envConfig, err = s.GetEnvironmentConfig(ctx, transaction, envName)
-		if err != nil {
-			return nil, fmt.Errorf("could not get environment to update app %s in env %s: %w", appName, envName, err)
-		}
-	}
-
-	app := api.Environment_Application{
-		Version:         0,
-		QueuedVersion:   0,
-		UndeployVersion: false,
-		ArgoCd:          nil,
-		Name:            appName,
-		Locks:           map[string]*api.Lock{},
-		TeamLocks:       map[string]*api.Lock{},
-		Team:            "",
-		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-			DeployAuthor: "",
-			DeployTime:   "",
-		},
-	}
-	teamName, err := s.GetTeamName(ctx, transaction, appName)
-	if err == nil {
-		app.Team = teamName
-		if teamLocks, teamErr := s.GetEnvironmentTeamLocks(ctx, transaction, envName, teamName); teamErr != nil {
-			return nil, teamErr
-		} else {
-			for lockId, lock := range teamLocks {
-				app.TeamLocks[lockId] = &api.Lock{
-					Message:   lock.Message,
-					LockId:    lockId,
-					CreatedAt: timestamppb.New(lock.CreatedAt),
-					CreatedBy: &api.Actor{
-						Name:  lock.CreatedBy.Name,
-						Email: lock.CreatedBy.Email,
-					},
-				}
-			}
-		}
-	} // Err != nil means no team name was found so no need to parse team locks
-
-	var version *uint64 = new(uint64)
-	allAppsVersion, found := allEnvironmentApplicationVersions[appName]
-	if found {
-		*version = uint64(*allAppsVersion)
-	} else {
-		version, err = s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
-	}
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	} else {
-
-		if version == nil {
-			app.Version = 0
-		} else {
-			app.Version = *version
-		}
-	}
-
-	if queuedVersion, err := s.GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	} else {
-		if queuedVersion == nil {
-			app.QueuedVersion = 0
-		} else {
-			app.QueuedVersion = *queuedVersion
-		}
-	}
-	app.UndeployVersion = false
-	if version != nil {
-		if release, err := s.GetApplicationRelease(ctx, transaction, appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return nil, err
-		} else if release != nil {
-			app.UndeployVersion = release.UndeployVersion
-		}
-	}
-
-	if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
-		return nil, err
-	} else {
-		for lockId, lock := range appLocks {
-			app.Locks[lockId] = &api.Lock{
-				Message:   lock.Message,
-				LockId:    lockId,
-				CreatedAt: timestamppb.New(lock.CreatedAt),
-				CreatedBy: &api.Actor{
-					Name:  lock.CreatedBy.Name,
-					Email: lock.CreatedBy.Email,
-				},
-			}
-		}
-	}
-	if envConfig != nil && envConfig.ArgoCd != nil {
-		if syncWindows, err := mapper.TransformSyncWindows(envConfig.ArgoCd.SyncWindows, appName); err != nil {
-			return nil, err
-		} else {
-			app.ArgoCd = &api.Environment_Application_ArgoCD{
-				SyncWindows: syncWindows,
-			}
-		}
-	}
-	deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, transaction, envName, appName)
-	if err != nil {
-		return nil, err
-	}
-	app.DeploymentMetaData.DeployAuthor = deployAuthor
-	if deployTime.IsZero() {
-		app.DeploymentMetaData.DeployTime = ""
-	} else {
-		app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
-	}
-	return &app, nil
-}
-
 func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateEnvironmentsInOverview")
+	defer span.Finish()
 	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
 		return err
 	} else {
@@ -2778,8 +2583,9 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 					Argocd:           argocd,
 					EnvironmentGroup: &groupName,
 				},
-				Locks:        map[string]*api.Lock{},
-				Applications: map[string]*api.Environment_Application{},
+				Locks:     map[string]*api.Lock{},
+				AppLocks:  make(map[string]*api.Locks),
+				TeamLocks: make(map[string]*api.Locks),
 			}
 			envInGroup.Config = env.Config
 			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
@@ -2803,16 +2609,61 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 				return err
 			} else {
 				for _, appName := range apps {
-					app, err2 := s.UpdateOneAppEnvInOverview(ctx, transaction, appName, envName, &config, map[string]*int64{})
-					if err2 != nil {
+
+					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
 						return err
+					} else {
+						apiAppLocks := api.Locks{
+							Locks: make([]*api.Lock, 0),
+						}
+						for lockId, lock := range appLocks {
+							apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
+							})
+
+						}
+						if len(apiAppLocks.Locks) > 0 {
+							env.AppLocks[appName] = &apiAppLocks
+						}
 					}
-					env.Applications[appName] = app
+					team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
+					if err != nil {
+						return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
+					}
+					if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, team); err != nil {
+						return err
+					} else {
+						apiTeamLocks := api.Locks{
+							Locks: make([]*api.Lock, 0),
+						}
+						for lockId, lock := range teamLocks {
+							apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
+							})
+						}
+						if len(apiTeamLocks.Locks) > 0 {
+							env.TeamLocks[appName] = &apiTeamLocks
+						}
+					}
 				}
 			}
-			envInGroup.Applications = env.Applications
+			envInGroup.TeamLocks = env.TeamLocks
+			envInGroup.AppLocks = env.AppLocks
 		}
 	}
+
 	return nil
 }
 
@@ -2888,7 +2739,8 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Deleted: false,
+			Deleted:      false,
+			Environments: []string{},
 		}
 		err = dbHandler.DBInsertRelease(ctx, transaction, dbRelease, db.InitialEslVersion-1)
 		if err != nil {
@@ -3084,6 +2936,42 @@ func (s *State) IsUndeployVersionFromManifest(application string, version uint64
 	return true, nil
 }
 
+func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.Tx, application string, versions []uint64) ([]*Release, error) {
+	var result []*Release
+	if s.DBHandler.ShouldUseOtherTables() {
+		rels, err := s.DBHandler.DBSelectReleasesByVersions(ctx, transaction, application, versions, true)
+		if err != nil {
+			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
+		}
+		if rels == nil {
+			return nil, nil
+		}
+		for _, rel := range rels {
+			r := &Release{
+				Version:         rel.ReleaseNumber,
+				UndeployVersion: rel.Metadata.UndeployVersion,
+				SourceAuthor:    rel.Metadata.SourceAuthor,
+				SourceCommitId:  rel.Metadata.SourceCommitId,
+				SourceMessage:   rel.Metadata.SourceMessage,
+				CreatedAt:       rel.Created,
+				DisplayVersion:  rel.Metadata.DisplayVersion,
+				IsMinor:         rel.Metadata.IsMinor,
+				IsPrepublish:    rel.Metadata.IsPrepublish,
+			}
+			result = append(result, r)
+		}
+	} else {
+		for i, v := range versions {
+			rel, err := s.GetApplicationRelease(ctx, transaction, application, v)
+			if err != nil {
+				return nil, fmt.Errorf("could not get release of app %s at index %d for version %v: %v", application, i, v, err)
+			}
+			result = append(result, rel)
+		}
+	}
+	return result, nil
+}
+
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
@@ -3226,6 +3114,21 @@ func (s *State) GetApplicationReleaseManifestsFromManifest(application string, v
 func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
+		if err != nil {
+			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
+		}
+		if app == nil {
+			return "", fmt.Errorf("could not get team of app %s - could not find app", application)
+		}
+		return app.Metadata.Team, nil
+	} else {
+		return s.GetApplicationTeamOwnerFromManifest(application)
+	}
+}
+
+func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transaction *sql.Tx, application string, ts time.Time) (string, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		app, err := s.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, application, ts)
 		if err != nil {
 			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
 		}

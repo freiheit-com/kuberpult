@@ -109,6 +109,46 @@ func TestReadArgsTeamLock(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "environment, lockID, team and ciLink are specified",
+			args: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--ci_link", "https://localhost:8000"},
+			expectedCmdArgs: &CreateTeamLockCommandLineArguments{
+				environment: cli_utils.RepeatedString{
+					Values: []string{
+						"development",
+					},
+				},
+				lockId: cli_utils.RepeatedString{
+					Values: []string{
+						"my-lock",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"my-team",
+					},
+				},
+				ciLink: cli_utils.RepeatedString{
+					Values: []string{
+						"https://localhost:8000",
+					},
+				},
+			},
+		},
+		{
+			name: "--ci_link is invalid url",
+			args: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--ci_link", "https//localhost:8000"},
+			expectedError: errMatcher{
+				msg: "provided invalid --ci_link value 'https//localhost:8000'",
+			},
+		},
+		{
+			name: "--ci_link is specified twice",
+			args: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--ci_link", "https://localhost:8000", "--ci_link", "https://localhost:8000"},
+			expectedError: errMatcher{
+				msg: "the --ci_link arg must be set at most once",
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -275,6 +315,17 @@ func TestParseArgsCreateTeamLock(t *testing.T) {
 				Team:                 "my-team",
 				Message:              "this is a very long message",
 				UseDexAuthentication: true,
+			},
+		},
+		{
+			name:    "with environment, lockID, team and ciLink",
+			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--ci_link", "https://localhost:8000"},
+			expectedParams: &CreateTeamLockParameters{
+				Environment:          "development",
+				LockId:               "my-lock",
+				Team:                 "my-team",
+				UseDexAuthentication: true,
+				CiLink:               strPtr("https://localhost:8000"),
 			},
 		},
 	}
