@@ -78,7 +78,6 @@ var ZeroVersion VersionInfo
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-	logger.FromContext(ctx).Sugar().Infof("Getting version for app '%s' on environment '%s'", application, environment)
 	tr, err := v.tryGetVersion(environment, application)
 	if err == nil {
 		logger.FromContext(ctx).Sugar().Infof("Found cached version for app '%s' on environment '%s'", application, environment)
@@ -90,7 +89,6 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 		Application: application,
 	})
 	if err != nil {
-		logger.FromContext(ctx).Sugar().Warnf("Error getting version for app '%s' on environment '%s'. err: %v", application, environment, err)
 		return nil, err
 	}
 	return &VersionInfo{
