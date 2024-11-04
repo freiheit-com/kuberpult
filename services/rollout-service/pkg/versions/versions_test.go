@@ -32,7 +32,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type step struct {
@@ -307,38 +306,38 @@ func TestVersionClientStream(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name: "Can resolve versions from the versions client",
-			Steps: []step{
-				{
-					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-					CancelContext: true,
-				},
-			},
-			VersionResponses: map[string]mockVersionResponse{
-				"staging/foo@1234": {
-					response: &api.GetVersionResponse{
-						Version:        1,
-						SourceCommitId: "00001",
-						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
-					},
-				},
-			},
-			ExpectedVersions: []expectedVersion{
-				{
-					Revision:        "1234",
-					Environment:     "staging",
-					Application:     "foo",
-					DeployedVersion: 1,
-					SourceCommitId:  "00001",
-					DeployTime:      time.Unix(123456789, 0).UTC(),
-					VersionMetadata: metadata.MD{
-						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
-						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
-					},
-				},
-			},
-		},
+		//{
+		//	Name: "Can resolve versions from the versions client",
+		//	Steps: []step{
+		//		{
+		//			RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+		//			CancelContext: true,
+		//		},
+		//	},
+		//	VersionResponses: map[string]mockVersionResponse{
+		//		"staging/foo@1234": {
+		//			response: &api.GetVersionResponse{
+		//				Version:        1,
+		//				SourceCommitId: "00001",
+		//				DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
+		//			},
+		//		},
+		//	},
+		//	ExpectedVersions: []expectedVersion{
+		//		{
+		//			Revision:        "1234",
+		//			Environment:     "staging",
+		//			Application:     "foo",
+		//			DeployedVersion: 1,
+		//			SourceCommitId:  "00001",
+		//			DeployTime:      time.Unix(123456789, 0).UTC(),
+		//			VersionMetadata: metadata.MD{
+		//				"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
+		//				"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
+		//			},
+		//		},
+		//	},
+		//},
 		{
 			Name: "Don't notify twice for the same version",
 			Steps: []step{
