@@ -193,8 +193,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				return nil
 			default:
 			}
+			logger.FromContext(ctx).Sugar().Info("Waiting for changed apps...")
 			changedApps, err := client.Recv()
 			if err != nil {
+				logger.FromContext(ctx).Sugar().Infof("Error getting changed apps: %v", err)
 				grpcErr := grpc.UnwrapGRPCStatus(err)
 				if grpcErr != nil {
 					if grpcErr.Code() == codes.Canceled {
