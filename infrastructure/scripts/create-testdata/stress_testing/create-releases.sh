@@ -99,13 +99,13 @@ data:
   TESTDB_SID_LOOKUP_FILENAME: /db-config/locations.json
 kind: ConfigMap
 metadata:
-  name: foo-service
+  name: foo-service-$app-$env
   namespace: md
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: foo-service
+  name: foo-service-$app-$env
   namespace: md
 spec:
   ports:
@@ -116,27 +116,27 @@ spec:
     port: 8080
     targetPort: 8080
   selector:
-    app: foo-service
+    app: foo-service-$app-$env
   type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: foo-service
-    service: md.foo-service
+    app: foo-service-$app-$env
+    service: md.foo-service-$app-$env
     tags.datadoghq.com/env: qas
-    tags.datadoghq.com/service: md.foo-service
+    tags.datadoghq.com/service: md.foo-service-$app-$env
     tags.datadoghq.com/version: c544a05b09237b49b5cec53e4de6d9ae85e794c9
     version: c544a05b09237b49b5cec53e4de6d9ae85e794c9
-  name: foo-service
+  name: foo-service-$app-$env
   namespace: md
 spec:
   replicas: 1
   revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: foo-service
+      app: foo-service-$app-$env
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -146,17 +146,17 @@ spec:
     metadata:
       annotations:
         ad.datadoghq.com/tags: '{"team": "md-supplier"}'
-        apm.datadoghq.com/env: '{"DD_SERVICE":"md.foo-service","DD_VERSION":"c544a05b09237b49b5cec53e4de6d9ae85e794c9","DD_PROPAGATION_STYLE_INJECT":"B3","DD_PROPAGATION_STYLE_EXTRACT":"B3"}'
+        apm.datadoghq.com/env: '{"DD_SERVICE":"md.foo-service-$app-$env","DD_VERSION":"c544a05b09237b49b5cec53e4de6d9ae85e794c9","DD_PROPAGATION_STYLE_INJECT":"B3","DD_PROPAGATION_STYLE_EXTRACT":"B3"}'
         sidecar.istio.io/agentLogLevel: default:error,xdsproxy:error,ads:error,cache:error,sds:error
         sidecar.istio.io/componentLogLevel: misc:error
         sidecar.istio.io/logLevel: error
       labels:
-        app: foo-service
-        service: md.foo-service
-        service.istio.io/canonical-name: md.foo-service
+        app: foo-service-$app-$env
+        service: md.foo-service-$app-$env
+        service.istio.io/canonical-name: md.foo-service-$app-$env
         sidecar.istio.io/inject: "true"
         tags.datadoghq.com/env: qas
-        tags.datadoghq.com/service: md.foo-service
+        tags.datadoghq.com/service: md.foo-service-$app-$env
         tags.datadoghq.com/version: c544a05b09237b49b5cec53e4de6d9ae85e794c9
         version: c544a05b09237b49b5cec53e4de6d9ae85e794c9
     spec:
@@ -171,7 +171,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: SERVICE_NAME
-          value: foo-service
+          value: foo-service-$app-$env
         - name: DOMAIN
           value: md
         - name: TEAM
@@ -218,15 +218,15 @@ spec:
             name: shared-config
             optional: true
         - secretRef:
-            name: foo-service-terraform
+            name: foo-service-$app-$env-terraform
             optional: true
         - configMapRef:
-            name: foo-service
+            name: foo-service-$app-$env
             optional: true
         - secretRef:
-            name: foo-service
+            name: foo-service-$app-$env
             optional: true
-        image: example.com/domains/md/services/foo-service:foobar
+        image: example.com/domains/md/services/foo-service-$app-$env:foobar
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -234,7 +234,7 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 5
-        name: foo-service
+        name: foo-service-$app-$env
         ports:
         - containerPort: 8080
           name: http
@@ -281,7 +281,7 @@ spec:
       topologySpreadConstraints:
       - labelSelector:
           matchLabels:
-            app: foo-service
+            app: foo-service-$app-$env
         maxSkew: 1
         topologyKey: kubernetes.io/hostname
         whenUnsatisfiable: ScheduleAnyway
@@ -298,9 +298,9 @@ spec:
       - name: service-user-secret
         secret:
           items:
-          - key: md-foo-service-service-user-secret
+          - key: md-foo-service-$app-$env-service-user-secret
             path: secret-a
-          - key: md-foo-service-service-user-secret-old
+          - key: md-foo-service-$app-$env-service-user-secret-old
             path: secret-b
           optional: true
           secretName: md-service-user-secrets
@@ -308,20 +308,20 @@ spec:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: foo-service-pdb
+  name: foo-service-$app-$env-pdb
   namespace: md
 spec:
   maxUnavailable: 25%
   selector:
     matchLabels:
-      app: foo-service
+      app: foo-service-$app-$env
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   labels:
-    app: foo-service
-  name: foo-service
+    app: foo-service-$app-$env
+  name: foo-service-$app-$env
   namespace: md
 spec:
   maxReplicas: 6
@@ -336,20 +336,20 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: foo-service
+    name: foo-service-$app-$env
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: foo-service
+  name: foo-service-$app-$env
   namespace: md
 spec:
   hosts:
-  - foo-service
+  - foo-service-$app-$env
   http:
   - route:
     - destination:
-        host: foo-service
+        host: foo-service-$app-$env
         port:
           number: 50051
   random: "${randomValue}"
