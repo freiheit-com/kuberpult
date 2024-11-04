@@ -78,8 +78,10 @@ var ZeroVersion VersionInfo
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
+	logger.FromContext(ctx).Sugar().Infof("Getting version for app '%s' on environment '%s'", application, environment)
 	tr, err := v.tryGetVersion(environment, application)
 	if err == nil {
+		logger.FromContext(ctx).Sugar().Infof("Found cached version for app '%s' on environment '%s'", application, environment)
 		return tr, nil
 	}
 	info, err := v.versionClient.GetVersion(ctx, &api.GetVersionRequest{
@@ -88,6 +90,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 		Application: application,
 	})
 	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("Error getting version for app '%s' on environment '%s'. err: %v", application, environment, err)
 		return nil, err
 	}
 	return &VersionInfo{
@@ -202,7 +205,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				}
 				return fmt.Errorf("changedApps.recv: %w", err)
 			}
-
+			logger.FromContext(ctx).Sugar().Infof("Recieved information for %d apps.", len(changedApps.ChangedApps))
 			ov, err := v.overviewClient.GetOverview(ctx, &api.GetOverviewRequest{
 				GitRevision: "",
 			})
@@ -225,6 +228,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				AppDetails: make(map[string]*api.GetAppDetailsResponse),
 			}
 			for _, appDetailsResponse := range changedApps.ChangedApps {
+				logger.FromContext(ctx).Sugar().Infof("Processing AppDetails for app: '%s'", appDetailsResponse.Application.Name)
 				appName := appDetailsResponse.Application.Name
 				overview.AppDetails[appName] = appDetailsResponse
 				v.cache.Add(appName, appDetailsResponse) // Update cache of app details
