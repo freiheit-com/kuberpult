@@ -1635,7 +1635,26 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not clear all deployments for app '%s': %v", u.Application, err)
 		}
-
+		allEnvs, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not get all environments: %v", err)
+		}
+		for _, envName := range allEnvs.Environments {
+			env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+			if err != nil {
+				return "", fmt.Errorf("UndeployApplication: could not get environment %s: %v", envName, err)
+			}
+			newEnvApps := make([]string, 0)
+			for _, app := range env.Applications {
+				if app != u.Application {
+					newEnvApps = append(newEnvApps, app)
+				}
+			}
+			err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, newEnvApps)
+			if err != nil {
+				return "", fmt.Errorf("UndeployApplication: could not write environment: %v", err)
+			}
+		}
 	} else {
 		// remove application
 		appDir := applicationDirectory(fs, u.Application)
@@ -2738,14 +2757,7 @@ func (c *CreateEnvironment) Transform(
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		// write to environments table
-		allApplications, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
-		if err != nil {
-			return "", fmt.Errorf("unable to read all applications, error: %w", err)
-		}
 		environmentApplications := make([]string, 0)
-		if allApplications != nil {
-			environmentApplications = allApplications.Apps
-		}
 		err = state.DBInsertEnvironmentWithOverview(ctx, transaction, c.Environment, c.Config, environmentApplications)
 		if err != nil {
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)

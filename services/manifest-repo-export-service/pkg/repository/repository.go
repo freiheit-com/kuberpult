@@ -1282,14 +1282,14 @@ func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error)
 }
 
 func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
-	applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+	envInfo, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environment)
 	if err != nil {
-		return nil, err
+		return make([]string, 0), err
 	}
-	if applications == nil {
+	if envInfo == nil || envInfo.Applications == nil {
 		return make([]string, 0), nil
 	}
-	return applications.Apps, nil
+	return envInfo.Applications, nil
 }
 
 // GetApplicationsFromFile returns apps from the filesystem

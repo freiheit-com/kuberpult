@@ -5602,16 +5602,17 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 			return fmt.Errorf("could not get environments, error: %w", err)
 		}
 
-		allApplications, err := h.DBSelectAllApplications(ctx, transaction)
-		if err != nil {
-			return fmt.Errorf("could not get all applications, error: %w", err)
-		}
-
 		allEnvironmentNames := make([]string, 0)
+		allEnvsApps, err := h.FindEnvsAppsFromReleases(ctx, transaction)
+		if err != nil {
+			return err
+		}
 		for envName, config := range allEnvironments {
 			allEnvironmentNames = append(allEnvironmentNames, envName)
-
-			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allApplications.Apps)
+			if allEnvsApps[envName] == nil {
+				allEnvsApps[envName] = make([]string, 0)
+			}
+			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allEnvsApps[envName])
 			if err != nil {
 				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 			}
@@ -5648,18 +5649,24 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 		if err != nil {
 			return fmt.Errorf("could not get environments, error: %w", err)
 		}
-
-		allApplications, err := h.DBSelectAllApplications(ctx, transaction)
-		if err != nil {
-			return fmt.Errorf("could not get all applications, error: %w", err)
-		}
+		var allEnvsApps map[string][]string
 		for _, envName := range allEnvironments.Environments {
 			env, err := h.DBSelectEnvironment(ctx, transaction, envName)
 			if err != nil {
 				return fmt.Errorf("could not get env: %s, error: %w", envName, err)
 			}
+
 			if env.Applications == nil || len(env.Applications) == 0 {
-				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allApplications.Apps)
+				if allEnvsApps == nil {
+					allEnvsApps, err = h.FindEnvsAppsFromReleases(ctx, transaction)
+					if err != nil {
+						return fmt.Errorf("could not find all applications of all environments, error: %w", err)
+					}
+				}
+				if allEnvsApps[envName] == nil {
+					allEnvsApps[envName] = make([]string, 0)
+				}
+				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allEnvsApps[envName])
 				if err != nil {
 					return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 				}
@@ -5667,6 +5674,26 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 		}
 		return nil
 	})
+}
+
+func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[string][]string, error) {
+	envsApps := make(map[string][]string)
+	releases, err := h.DBSelectAllManifestsForAllReleases(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get all environments for all releases, error: %w", err)
+	}
+	for app, versionEnvs := range releases {
+		envSet := make(map[string]struct{})
+		for _, envs := range versionEnvs {
+			for _, env := range envs {
+				envSet[env] = struct{}{}
+			}
+		}
+		for env := range envSet {
+			envsApps[env] = append(envsApps[env], app)
+		}
+	}
+	return envsApps, nil
 }
 
 func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) error {
