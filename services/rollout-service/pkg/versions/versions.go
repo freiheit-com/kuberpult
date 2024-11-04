@@ -83,19 +83,21 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 		logger.FromContext(ctx).Sugar().Infof("Found cached version for app '%s' on environment '%s'", application, environment)
 		return tr, nil
 	}
-	info, err := v.versionClient.GetVersion(ctx, &api.GetVersionRequest{
-		GitRevision: revision,
-		Environment: environment,
-		Application: application,
-	})
+	//info, err := v.versionClient.GetVersion(ctx, &api.GetVersionRequest{
+	//	GitRevision: revision,
+	//	Environment: environment,
+	//	Application: application,
+	//})
+
 	if err != nil {
 		return nil, err
 	}
-	return &VersionInfo{
-		Version:        info.Version,
-		SourceCommitId: info.SourceCommitId,
-		DeployedAt:     info.DeployedAt.AsTime(),
-	}, nil
+	//return &VersionInfo{
+	//	Version:        info.Version,
+	//	SourceCommitId: info.SourceCommitId,
+	//	DeployedAt:     info.DeployedAt.AsTime(),
+	//}, nil
+	return nil, nil
 }
 
 // Tries getting the version from cache
