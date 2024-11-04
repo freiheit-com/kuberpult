@@ -62,6 +62,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 	defer span.Finish()
 
 	var appName = in.AppName
+	logger.FromContext(ctx).Sugar().Warnf("Processing app details for app: %s", appName)
 	var response = &api.GetAppDetailsResponse{
 		Application: &api.Application{
 			UndeploySummary: 0,
@@ -397,7 +398,7 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 				ov.ChangedApps[idx] = response
 			}
 
-			logger.FromContext(stream.Context()).Sugar().Infof("Sending changes apps: '%v'\n", changedAppsNames)
+			logger.FromContext(stream.Context()).Sugar().Warnf("Sending changes apps: '%v'\n", changedAppsNames)
 			if err := stream.Send(ov); err != nil {
 				logger.FromContext(stream.Context()).Error("error sending changed apps  response:", zap.Error(err), zap.String("changedAppsNames", fmt.Sprintf("%+v", ov)))
 				return err

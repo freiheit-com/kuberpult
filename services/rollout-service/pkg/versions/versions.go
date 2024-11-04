@@ -193,10 +193,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				return nil
 			default:
 			}
-			logger.FromContext(ctx).Sugar().Info("Waiting for changed apps...")
+			logger.FromContext(ctx).Sugar().Warn("Waiting for changed apps...")
 			changedApps, err := client.Recv()
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Infof("Error getting changed apps: %v", err)
+				logger.FromContext(ctx).Sugar().Warnf("Error getting changed apps: %v", err)
 				grpcErr := grpc.UnwrapGRPCStatus(err)
 				if grpcErr != nil {
 					if grpcErr.Code() == codes.Canceled {
@@ -205,7 +205,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				}
 				return fmt.Errorf("changedApps.recv: %w", err)
 			}
-			logger.FromContext(ctx).Sugar().Infof("Recieved information for %d apps.", len(changedApps.ChangedApps))
+			logger.FromContext(ctx).Sugar().Warnf("Recieved information for %d apps.", len(changedApps.ChangedApps))
 			ov, err := v.overviewClient.GetOverview(ctx, &api.GetOverviewRequest{
 				GitRevision: "",
 			})
@@ -228,7 +228,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				AppDetails: make(map[string]*api.GetAppDetailsResponse),
 			}
 			for _, appDetailsResponse := range changedApps.ChangedApps {
-				logger.FromContext(ctx).Sugar().Infof("Processing AppDetails for app: '%s'", appDetailsResponse.Application.Name)
+				logger.FromContext(ctx).Sugar().Warnf("Processing AppDetails for app: '%s'", appDetailsResponse.Application.Name)
 				appName := appDetailsResponse.Application.Name
 				overview.AppDetails[appName] = appDetailsResponse
 				v.cache.Add(appName, appDetailsResponse) // Update cache of app details
