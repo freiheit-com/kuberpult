@@ -12,6 +12,7 @@ testData=${1:-"./testdata_template/environments"}
 for filename in "$testData"/*; do
   configFile="$filename"/config.json
   env=$(basename -- "$filename")
+  env=$(echo "$env" | awk '{print tolower($0)}')
   echo Writing $env...
   DATA=$(cat $configFile)
   curl  -f -X POST -H "multipart/form-data" \
