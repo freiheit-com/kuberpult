@@ -18,6 +18,7 @@ import React, { ReactElement, useCallback } from 'react';
 import { Deployment, Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
+    DisplayLock,
     getPriorityClassName,
     useAppDetailsForApp,
     useApplications,
@@ -215,6 +216,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps);
     const appLocks = useAppLocks(apps);
+    const appEnvLocks = appLocks.filter((value: DisplayLock) => value.environment === env.name);
 
     const allowDeployment: boolean = ((): boolean => {
         if (release.isPrepublish) {
@@ -261,10 +263,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     useEnvColor={false}
                 />
                 <div className={classNames('env-card-locks')}>
-                    {appLocks.length > 0 && (
+                    {appEnvLocks.length > 0 && (
                         <div className={classNames('env-card-app-locks')}>
                             App:
-                            {Object.values(appLocks).map((lock) => (
+                            {Object.values(appEnvLocks).map((lock) => (
                                 <AppLock key={lock.lockId} env={env} app={app} lock={lock} />
                             ))}
                         </div>
