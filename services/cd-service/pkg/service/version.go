@@ -47,6 +47,9 @@ func (o *VersionServiceServer) GetVersion(
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetVersion")
 	defer span.Finish()
+	span.SetTag("GitRevision", in.GitRevision)
+	span.SetTag("Environment", in.Environment)
+	span.SetTag("Application", in.Application)
 
 	state := o.Repository.State()
 	dbHandler := state.DBHandler
