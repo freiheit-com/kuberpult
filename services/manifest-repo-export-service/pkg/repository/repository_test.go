@@ -187,7 +187,7 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo := setupRepositoryTest(t)
+			repo, _ := SetupRepositoryTestWithDB(t)
 			state := repo.State()
 			err := state.Filesystem.MkdirAll(tc.CreateThisDir, 0777)
 			if err != nil {
@@ -206,33 +206,9 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 	}
 }
 
-func setupRepositoryTest(t *testing.T) Repository {
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
-	t.Logf("test created dir: %s", localDir)
-	repo, err := New(
-		testutil.MakeTestContext(),
-		RepositoryConfig{
-			URL:                 remoteDir,
-			Path:                localDir,
-			CommitterEmail:      "kuberpult@freiheit.com",
-			CommitterName:       "kuberpult",
-			ArgoCdGenerateFiles: true,
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo
-}
-
-func SetupRepositoryTestWithDB(t *testing.T) *db.DBHandler {
+func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(2)
+	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
@@ -248,17 +224,14 @@ func SetupRepositoryTestWithDB(t *testing.T) *db.DBHandler {
 	err = cmd.Start()
 	if err != nil {
 		t.Fatalf("error starting %v", err)
-		return nil
+		return nil, nil
 	}
 	err = cmd.Wait()
 	if err != nil {
 		t.Fatalf("error waiting %v", err)
-		return nil
+		return nil, nil
 	}
-	t.Logf("test created dir: %s", localDir)
-
 	dbConfig.DbHost = dir
-
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
@@ -268,7 +241,21 @@ func SetupRepositoryTestWithDB(t *testing.T) *db.DBHandler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return dbHandler
+	repo, err := New(
+		testutil.MakeTestContext(),
+		RepositoryConfig{
+			URL:                 remoteDir,
+			Path:                localDir,
+			CommitterEmail:      "kuberpult@freiheit.com",
+			CommitterName:       "kuberpult",
+			ArgoCdGenerateFiles: true,
+			DBHandler:           dbHandler,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, dbHandler
 }
 
 func TestGetTagsNoTags(t *testing.T) {

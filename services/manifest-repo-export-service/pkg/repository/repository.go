@@ -19,7 +19,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1564,16 +1563,6 @@ func names(fs billy.Filesystem, path string) ([]string, error) {
 		result = append(result, app.Name())
 	}
 	return result, nil
-}
-
-func decodeJsonFile(fs billy.Filesystem, path string, out interface{}) error {
-	if file, err := fs.Open(path); err != nil {
-		return wrapFileError(err, path, "could not decode json file")
-	} else {
-		defer file.Close()
-		dec := json.NewDecoder(file)
-		return dec.Decode(out)
-	}
 }
 
 func readFile(fs billy.Filesystem, path string) ([]byte, error) {
