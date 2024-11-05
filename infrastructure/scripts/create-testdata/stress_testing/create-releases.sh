@@ -352,7 +352,6 @@ spec:
         host: foo-service-$app-$env
         port:
           number: 50051
-  random: "${randomValue}"
 ---
 EOF
       manifests+=("--form" "manifests[${env}]=@${file}")
