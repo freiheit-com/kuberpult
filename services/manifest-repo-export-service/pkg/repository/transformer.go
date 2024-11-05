@@ -1442,13 +1442,12 @@ func (c *CleanupOldApplicationVersions) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	var versionLimit = int(state.ReleaseVersionsLimit)
-	var err error = nil
+	var err error
 	var oldVersions []uint64
 	if tCtx.ShouldMinimizeGitData() {
-		versionLimit = 0
 		oldVersions, err = state.GetApplicationReleasesFromFile(c.Application)
 	} else {
+		var versionLimit = int(state.ReleaseVersionsLimit)
 		oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
 	}
 	if err != nil {
@@ -1708,7 +1707,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if err != nil {
 		return "", fmt.Errorf("Could not get last relase for app '%v': %v\n", c.Application, err)
 	}
-	var nextReleaseNumber uint64 = 0
+	var nextReleaseNumber uint64
 	if len(lastRelease) == 0 {
 		return "", fmt.Errorf("cannot undeploy application '%v'", c.Application)
 	}
