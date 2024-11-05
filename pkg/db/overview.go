@@ -114,63 +114,6 @@ func (h *DBHandler) UpdateOverviewEnvironmentLock(ctx context.Context, transacti
 	return nil
 }
 
-func (h *DBHandler) UpdateOverviewDeployment(ctx context.Context, transaction *sql.Tx, deployment Deployment, createdTime time.Time) error {
-	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	if h.IsOverviewEmpty(latestOverview) {
-		return nil
-	}
-	env := getEnvironmentByName(latestOverview.EnvironmentGroups, deployment.Env)
-	if env == nil {
-		return fmt.Errorf("could not find environment %s in overview", deployment.Env)
-	}
-
-	selectApp, err := h.DBSelectExistingApp(ctx, transaction, deployment.App)
-	if err != nil {
-		return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", deployment.App, err)
-	}
-	if selectApp == nil {
-		return fmt.Errorf("could not find application '%s' in apps table: got no result", deployment.App)
-	}
-
-	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (h *DBHandler) UpdateOverviewDeploymentAttempt(ctx context.Context, transaction *sql.Tx, queuedDeployment *QueuedDeployment) error {
-	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	if h.IsOverviewEmpty(latestOverview) {
-		return nil
-	}
-	if queuedDeployment == nil {
-		return nil
-	}
-	env := getEnvironmentByName(latestOverview.EnvironmentGroups, queuedDeployment.Env)
-	if env == nil {
-		return fmt.Errorf("could not find environment %s in overview", queuedDeployment.Env)
-	}
-	selectApp, err := h.DBSelectExistingApp(ctx, transaction, queuedDeployment.App)
-	if err != nil {
-		return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", queuedDeployment.App, err)
-	}
-	if selectApp == nil {
-		return fmt.Errorf("could not find application '%s' in apps table: got no result", queuedDeployment.App)
-	}
-	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transaction *sql.Tx, applicationLock ApplicationLock, createdTime time.Time) error {
 	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
 	if err != nil {

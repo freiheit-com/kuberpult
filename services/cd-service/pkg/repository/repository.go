@@ -2462,9 +2462,6 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 }
 
 func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-	log := logger.FromContext(ctx).Sugar()
-	log.Warnf("dbinsert app with overview: %s/%v", appName, stateChange)
-
 	h := s.DBHandler
 	err := h.DBInsertApplication(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
 	if err != nil {
@@ -2533,30 +2530,6 @@ func (s *State) DBInsertEnvironmentWithOverview(ctx context.Context, tx *sql.Tx,
 	}
 
 	return nil
-}
-
-func (s *State) UpdateTopLevelAppInOverview(ctx context.Context, transaction *sql.Tx, appName string, result *api.GetOverviewResponse, deleteApp bool, allReleasesOfAllApps map[string][]int64) error {
-	if deleteApp {
-		removeOverviewAppFromLightweightApps(result, appName)
-		return nil
-	}
-	team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
-	if err != nil {
-		return fmt.Errorf("could not obtain application team owner to update top level app in overview: %w", err)
-	}
-	result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
-	return nil
-}
-
-func removeOverviewAppFromLightweightApps(result *api.GetOverviewResponse, appName string) {
-	lApps := make([]*api.OverviewApplication, max(len(result.LightweightApps)-1, 0))
-
-	for _, curr := range result.LightweightApps {
-		if curr != nil && curr.Name != appName {
-			lApps = append(lApps, curr)
-		}
-	}
-	result.LightweightApps = lApps
 }
 
 func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {

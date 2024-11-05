@@ -197,7 +197,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			if environment == nil {
 				return nil, fmt.Errorf("could not obtain environment %s for app %s: %w", envName, appName, err)
 			}
-			foundApp := false
+			foundApp := false // only apps that are active on that environment should be returned here
 			for _, appInEnv := range environment.Applications {
 				if appInEnv == appName {
 					foundApp = true
@@ -240,11 +240,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		return nil, err
 	}
 	response.Application = resultApp
-
-	//span2, ctx := tracer.StartSpanFromContext(ctx, "Delay")
-	//time.Sleep(1000 * time.Millisecond)
-	//defer span2.Finish()
-
 	return response, nil
 }
 

@@ -1324,23 +1324,6 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 	return envConfigs, err
 }
 
-//func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
-//envs, err := s.Filesystem.ReadDir("environments")
-//if err != nil {
-//	return nil, err
-//}
-//result := map[string]config.EnvironmentConfig{}
-//for _, env := range envs {
-//	c, err := s.GetEnvironmentConfig(env.Name())
-//	if err != nil {
-//		return nil, err
-//
-//	}
-//	result[env.Name()] = *c
-//}
-//return result, nil
-//}
-
 func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {
 	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
 	var config config.EnvironmentConfig

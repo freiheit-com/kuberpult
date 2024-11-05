@@ -386,7 +386,6 @@ func (c *DeployApplicationVersion) Transform(
 		}
 
 		teamLocks, err = state.GetEnvironmentTeamLocksFromDB(ctx, transaction, c.Environment, teamName)
-		//teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, teamName)
 		if err != nil {
 			return "", err
 		}
@@ -455,17 +454,14 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if tCtx.ShouldMaximizeGitData() {
-		logger.FromContext(ctx).Sugar().Warnf("writing deployed name...")
 		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by"), []byte(existingDeployment.Metadata.DeployedByName), 0666); err != nil {
 			return "", err
 		}
 
-		logger.FromContext(ctx).Sugar().Warnf("writing deployed email...")
 		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by_email"), []byte(existingDeployment.Metadata.DeployedByEmail), 0666); err != nil {
 			return "", err
 		}
 
-		logger.FromContext(ctx).Sugar().Warnf("writing deployed at...")
 		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_at_utc"), []byte(existingDeployment.Created.UTC().String()), 0666); err != nil {
 			return "", err
 		}
@@ -1451,7 +1447,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 	var oldVersions []uint64
 	if tCtx.ShouldMinimizeGitData() {
 		versionLimit = 0
-		//oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
 		oldVersions, err = state.GetApplicationReleasesFromFile(c.Application)
 	} else {
 		oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
@@ -1710,7 +1705,6 @@ func (c *CreateUndeployApplicationVersion) Transform(
 ) (string, error) {
 	fs := state.Filesystem
 	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false)
-	//lastRelease, err := state.GetLastRelease(ctx, fs, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("Could not get last relase for app '%v': %v\n", c.Application, err)
 	}
@@ -1905,7 +1899,6 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
 		}
 	}
-
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 
