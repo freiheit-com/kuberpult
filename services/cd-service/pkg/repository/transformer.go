@@ -2475,11 +2475,13 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 			return "", fmt.Errorf("DeleteEnvironmentApplicationLock: could not select all env app locks for app '%v' on '%v': '%w'", c.Application, c.Environment, err)
 		}
 		var locks []string
+		var version = int64(db.InitialEslVersion)
 		if allAppLocks != nil {
 			locks = db.Remove(allAppLocks.AppLocks, c.LockId)
+			version = allAppLocks.Version
 		}
 
-		err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, allAppLocks.Version, c.Environment, c.Application, locks)
+		err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, version, c.Environment, c.Application, locks)
 		if err != nil {
 			return "", fmt.Errorf("DeleteEnvironmentApplicationLock: could not write app locks for app '%v' on '%v': '%w'", c.Application, c.Environment, err)
 		}
