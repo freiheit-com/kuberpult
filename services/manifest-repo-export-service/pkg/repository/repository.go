@@ -1324,17 +1324,6 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 	return envConfigs, err
 }
 
-func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {
-	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
-	var config config.EnvironmentConfig
-	if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("%s : %w", fileName, InvalidJson)
-		}
-	}
-	return &config, nil
-}
-
 func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *sql.Tx, envGroup string) ([]string, error) {
 	allEnvConfigs, err := s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
