@@ -1941,7 +1941,25 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 		},
+		{
+			Name: "write one environment and read it, test that it orders applications",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // "elaborate config" being the env group
+					Applications:      []string{"zapp", "app1", "capp"},
+				},
+			},
+			EnvToQuery: "development",
+			ExpectedEntry: &DBEnvironment{
+				Version:      1,
+				Name:         "development",
+				Config:       testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+				Applications: []string{"app1", "capp", "zapp"},
+			},
+		},
 	}
+
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
@@ -1978,6 +1996,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 		})
 	}
 }
+
 func TestReadWriteEslEvent(t *testing.T) {
 	const envName = "dev"
 	const appName = "my-app"
@@ -2233,12 +2252,22 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 			Name: "create entries with increasing length",
 			AllEnvsToWrite: [][]string{
 				{"development"},
-				{"development", "staging"},
-				{"development", "staging", "production"},
+				{"development", "production"},
+				{"development", "production", "staging"},
 			},
 			ExpectedEntry: &DBAllEnvironments{
 				Version:      3,
-				Environments: []string{"development", "staging", "production"},
+				Environments: []string{"development", "production", "staging"},
+			},
+		},
+		{
+			Name: "ensure that environments are sorted",
+			AllEnvsToWrite: [][]string{
+				{"staging", "development", "production"},
+			},
+			ExpectedEntry: &DBAllEnvironments{
+				Version:      1,
+				Environments: []string{"development", "production", "staging"},
 			},
 		},
 	}
@@ -2280,6 +2309,65 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 	}
 }
 
+func TestReadWriteAllApplications(t *testing.T) {
+	type TestCase struct {
+		Name           string
+		AllAppsToWrite [][]string
+		ExpectedEntry  *AllApplicationsGo
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "test that app are ordered",
+			AllAppsToWrite: [][]string{
+				{"my_app", "ze_app", "the_app"},
+			},
+			ExpectedEntry: &AllApplicationsGo{
+				Version: 1,
+				AllApplicationsJson: AllApplicationsJson{
+					Apps: []string{"my_app", "the_app", "ze_app"},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			for version, allApps := range tc.AllAppsToWrite {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					err := dbHandler.DBWriteAllApplications(ctx, transaction, int64(version), allApps)
+					if err != nil {
+						return fmt.Errorf("error while writing application, error: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("error while running the transaction for writing all applications %v to the database, error: %v", allApps, err)
+				}
+			}
+
+			allAppsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
+				allAppsEntry, err := dbHandler.DBSelectAllApplications(ctx, transaction)
+				if err != nil {
+					return nil, fmt.Errorf("error while selecting application entry, error: %w", err)
+				}
+				return allAppsEntry, nil
+			})
+
+			if err != nil {
+				t.Fatalf("error while running the transaction for selecting the target all applications, error: %v", err)
+			}
+			if diff := cmp.Diff(allAppsEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(AllApplicationsGo{}, "Created")); diff != "" {
+				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, allAppsEntry, diff)
+			}
+		})
+	}
+}
+
 func TestReadReleasesByApp(t *testing.T) {
 
 	tcs := []struct {
@@ -2308,6 +2396,27 @@ func TestReadReleasesByApp(t *testing.T) {
 					App:           "app1",
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
 					Environments:  []string{"dev"},
+				},
+			},
+		},
+		{
+			Name: "Retrieved release has ordered environments",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manfest2", "production": "manfest2"}},
+				},
+			},
+			AppName: "app1",
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manfest2", "production": "manfest2"}},
+					Environments:  []string{"dev", "production", "staging"},
 				},
 			},
 		},
