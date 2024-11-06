@@ -1946,7 +1946,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 			EnvsToWrite: []EnvAndConfig{
 				{
 					EnvironmentName:   "development",
-					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // "elaborate config" being the env group
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
 					Applications:      []string{"zapp", "app1", "capp"},
 				},
 			},
@@ -1954,12 +1954,11 @@ func TestReadWriteEnvironment(t *testing.T) {
 			ExpectedEntry: &DBEnvironment{
 				Version:      1,
 				Name:         "development",
-				Config:       testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+				Config:       testutil.MakeEnvConfigLatest(nil),
 				Applications: []string{"app1", "capp", "zapp"},
 			},
 		},
 	}
-
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
@@ -1996,7 +1995,6 @@ func TestReadWriteEnvironment(t *testing.T) {
 		})
 	}
 }
-
 func TestReadWriteEslEvent(t *testing.T) {
 	const envName = "dev"
 	const appName = "my-app"
