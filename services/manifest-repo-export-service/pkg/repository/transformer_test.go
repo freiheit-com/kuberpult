@@ -95,7 +95,7 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 		CommitterEmail:      "kuberpult@freiheit.com",
 		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
-		ReleaseVersionLimit: 0,
+		ReleaseVersionLimit: 2,
 	}
 
 	if dbConfig != nil {
@@ -1712,6 +1712,20 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					if err != nil {
 						return err
 					}
+				}
+
+				envConfig := config.EnvironmentConfig{
+					Upstream:         nil,
+					ArgoCd:           nil,
+					EnvironmentGroup: nil,
+				}
+				err = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envConfig, []string{})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance})
+				if err != nil {
+					return err
 				}
 
 				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
