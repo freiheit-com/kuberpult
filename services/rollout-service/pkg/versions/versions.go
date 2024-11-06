@@ -19,6 +19,7 @@ package versions
 import (
 	"context"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strconv"
 	"time"
 
@@ -82,6 +83,11 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	if err == nil {
 		return tr, nil
 	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetVersionRequest")
+	defer span.Finish()
+	span.SetTag("GitRevision", revision)
+	span.SetTag("Application", application)
+	span.SetTag("Environment", environment)
 	info, err := v.versionClient.GetVersion(ctx, &api.GetVersionRequest{
 		GitRevision: revision,
 		Environment: environment,
