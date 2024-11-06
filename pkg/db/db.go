@@ -2467,14 +2467,13 @@ func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName
 }
 
 func processAppRow(ctx context.Context, rows *sql.Rows) (*DBAppWithMetaData, error) {
-	//exhaustruct:ignore
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
 		}
 	}(rows)
-
+	//exhaustruct:ignore
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
