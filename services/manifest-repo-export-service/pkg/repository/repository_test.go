@@ -248,6 +248,7 @@ func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *Reposi
 		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
 		DBHandler:           dbHandler,
+		Branch:              "master",
 	}
 	repo, err := New(
 		testutil.MakeTestContext(),
@@ -265,71 +266,18 @@ func TestGetTagsNoTags(t *testing.T) {
 	t.Run(name, func(t *testing.T) {
 		t.Parallel()
 
-		if false {
-			_, _, repoConfig := SetupRepositoryTestWithDB(t)
-			localDir := repoConfig.Path
-			//dir := t.TempDir()
-			//remoteDir := path.Join(dir, "remote")
-			//localDir := path.Join(dir, "local")
-			//repoConfig := RepositoryConfig{
-			//	URL:                 "file://" + remoteDir,
-			//	Path:                localDir,
-			//	Branch:              "master",
-			//	ArgoCdGenerateFiles: true,
-			//}
-			//cmd := exec.Command("git", "init", "--bare", remoteDir)
-			//cmd.Start()
-			//cmd.Wait()
-			//_, err := New(
-			//	testutil.MakeTestContext(),
-			//	repoConfig,
-			//)
-
-			//if err != nil {
-			//	t.Fatal(err)
-			//}
-			tags, err := GetTags(
-				*repoConfig,
-				localDir,
-				testutil.MakeTestContext(),
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
-			if len(tags) != 0 {
-				t.Fatalf("expected %v tags but got %v", 0, len(tags))
-			}
-		} else {
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			repoConfig := RepositoryConfig{
-				URL:                 "file://" + remoteDir,
-				Path:                localDir,
-				Branch:              "master",
-				ArgoCdGenerateFiles: true,
-			}
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			_, err := New(
-				testutil.MakeTestContext(),
-				repoConfig,
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			tags, err := GetTags(
-				repoConfig,
-				localDir,
-				testutil.MakeTestContext(),
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
-			if len(tags) != 0 {
-				t.Fatalf("expected %v tags but got %v", 0, len(tags))
-			}
+		_, _, repoConfig := SetupRepositoryTestWithDB(t)
+		localDir := repoConfig.Path
+		tags, err := GetTags(
+			*repoConfig,
+			localDir,
+			testutil.MakeTestContext(),
+		)
+		if err != nil {
+			t.Fatalf("new: expected no error, got '%e'", err)
+		}
+		if len(tags) != 0 {
+			t.Fatalf("expected %v tags but got %v", 0, len(tags))
 		}
 	})
 
@@ -356,21 +304,11 @@ func TestGetTags(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			repoConfig := RepositoryConfig{
-				URL:                 "file://" + remoteDir,
-				Path:                localDir,
-				Branch:              "master",
-				ArgoCdGenerateFiles: true,
-			}
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
+			_, _, repoConfig := SetupRepositoryTestWithDB(t)
+			localDir := repoConfig.Path
 			_, err := New(
 				testutil.MakeTestContext(),
-				repoConfig,
+				*repoConfig,
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -409,7 +347,7 @@ func TestGetTags(t *testing.T) {
 				}
 			}
 			tags, err := GetTags(
-				repoConfig,
+				*repoConfig,
 				localDir,
 				testutil.MakeTestContext(),
 			)

@@ -1445,8 +1445,11 @@ func (c *CleanupOldApplicationVersions) Transform(
 	var err error
 	var oldVersions []uint64
 	if tCtx.ShouldMinimizeGitData() {
-		oldVersions, err = state.GetApplicationReleasesFromFile(c.Application)
+		//oldVersions, err = state.GetApplicationReleasesFromFile(c.Application)
+		var versionLimit = int(state.ReleaseVersionsLimit)
+		oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
 	} else {
+		//oldVersions, err = state.GetApplicationReleasesFromFile(c.Application)
 		var versionLimit = int(state.ReleaseVersionsLimit)
 		oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
 	}
@@ -1559,6 +1562,9 @@ func (u *ReleaseTrain) Transform(
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, u.TargetType)
 	for _, currentDeployment := range deployments {
 		envConfig := envGroupConfigs[currentDeployment.Env]
+		if envConfig.Upstream == nil || envConfig.Upstream.Environment == "" {
+			return "", fmt.Errorf("could not find upstream config for env '%s'", currentDeployment.Env)
+		}
 		upstreamEnvName := envConfig.Upstream.Environment
 		var trainGroup *string
 		if isEnvGroup {

@@ -758,7 +758,7 @@ func TestReleaseTrain(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := setupRepositoryTestWithPath(t)
+			repo, _, _ := SetupRepositoryTestWithDB(t)
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
@@ -835,6 +835,10 @@ func TestReleaseTrain(t *testing.T) {
 						Environment: "staging",
 					},
 				}, []string{appName})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{"staging", "production"})
 				if err != nil {
 					return err
 				}
