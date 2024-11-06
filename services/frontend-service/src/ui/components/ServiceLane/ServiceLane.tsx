@@ -40,6 +40,7 @@ import { AuthHeader, useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { SmallSpinner } from '../Spinner/Spinner';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { Button } from '../button';
+import { useSearchParams } from 'react-router-dom';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -118,7 +119,7 @@ export const ServiceLane: React.FC<{
 
     const appDetails = useAppDetailsForApp(application.name);
     const componentRef: React.MutableRefObject<any> = React.useRef();
-
+    const searchParams = useSearchParams();
     React.useEffect(() => {
         const handleScroll = (): void => {
             getAppDetailsIfInView(componentRef, appDetails, authHeader, application.name);
@@ -132,7 +133,7 @@ export const ServiceLane: React.FC<{
                     .removeEventListener('scroll', handleScroll);
             };
         }
-    }, [appDetails, application, authHeader]);
+    }, [appDetails, application, authHeader, searchParams]);
 
     if (!appDetails || !appDetails.details) {
         return (
