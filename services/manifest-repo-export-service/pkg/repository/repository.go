@@ -276,6 +276,9 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				return nil, err
 			}
 
+			if state == nil || state.DBHandler == nil {
+				return nil, fmt.Errorf("no database configured")
+			}
 			// Check configuration for errors and abort early if any:
 			err = state.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				_, err = state.GetEnvironmentConfigsAndValidate(ctx, transaction)

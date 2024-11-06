@@ -187,7 +187,7 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithDB(t)
+			repo, _, _ := SetupRepositoryTestWithDB(t)
 			state := repo.State()
 			err := state.Filesystem.MkdirAll(tc.CreateThisDir, 0777)
 			if err != nil {
@@ -206,7 +206,7 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 	}
 }
 
-func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler) {
+func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *RepositoryConfig) {
 	ctx := context.Background()
 	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
@@ -224,12 +224,12 @@ func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler) {
 	err = cmd.Start()
 	if err != nil {
 		t.Fatalf("error starting %v", err)
-		return nil, nil
+		return nil, nil, nil
 	}
 	err = cmd.Wait()
 	if err != nil {
 		t.Fatalf("error waiting %v", err)
-		return nil, nil
+		return nil, nil, nil
 	}
 	dbConfig.DbHost = dir
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
@@ -241,21 +241,22 @@ func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	config := RepositoryConfig{
+		URL:                 "file://" + remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
+		DBHandler:           dbHandler,
+	}
 	repo, err := New(
 		testutil.MakeTestContext(),
-		RepositoryConfig{
-			URL:                 remoteDir,
-			Path:                localDir,
-			CommitterEmail:      "kuberpult@freiheit.com",
-			CommitterName:       "kuberpult",
-			ArgoCdGenerateFiles: true,
-			DBHandler:           dbHandler,
-		},
+		config,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repo, dbHandler
+	return repo, dbHandler, &config
 }
 
 func TestGetTagsNoTags(t *testing.T) {
@@ -263,36 +264,72 @@ func TestGetTagsNoTags(t *testing.T) {
 
 	t.Run(name, func(t *testing.T) {
 		t.Parallel()
-		dir := t.TempDir()
-		remoteDir := path.Join(dir, "remote")
-		localDir := path.Join(dir, "local")
-		repoConfig := RepositoryConfig{
-			URL:                 "file://" + remoteDir,
-			Path:                localDir,
-			Branch:              "master",
-			ArgoCdGenerateFiles: true,
-		}
-		cmd := exec.Command("git", "init", "--bare", remoteDir)
-		cmd.Start()
-		cmd.Wait()
-		_, err := New(
-			testutil.MakeTestContext(),
-			repoConfig,
-		)
 
-		if err != nil {
-			t.Fatal(err)
-		}
-		tags, err := GetTags(
-			repoConfig,
-			localDir,
-			testutil.MakeTestContext(),
-		)
-		if err != nil {
-			t.Fatalf("new: expected no error, got '%e'", err)
-		}
-		if len(tags) != 0 {
-			t.Fatalf("expected %v tags but got %v", 0, len(tags))
+		if false {
+			_, _, repoConfig := SetupRepositoryTestWithDB(t)
+			localDir := repoConfig.Path
+			//dir := t.TempDir()
+			//remoteDir := path.Join(dir, "remote")
+			//localDir := path.Join(dir, "local")
+			//repoConfig := RepositoryConfig{
+			//	URL:                 "file://" + remoteDir,
+			//	Path:                localDir,
+			//	Branch:              "master",
+			//	ArgoCdGenerateFiles: true,
+			//}
+			//cmd := exec.Command("git", "init", "--bare", remoteDir)
+			//cmd.Start()
+			//cmd.Wait()
+			//_, err := New(
+			//	testutil.MakeTestContext(),
+			//	repoConfig,
+			//)
+
+			//if err != nil {
+			//	t.Fatal(err)
+			//}
+			tags, err := GetTags(
+				*repoConfig,
+				localDir,
+				testutil.MakeTestContext(),
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			if len(tags) != 0 {
+				t.Fatalf("expected %v tags but got %v", 0, len(tags))
+			}
+		} else {
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			repoConfig := RepositoryConfig{
+				URL:                 "file://" + remoteDir,
+				Path:                localDir,
+				Branch:              "master",
+				ArgoCdGenerateFiles: true,
+			}
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			_, err := New(
+				testutil.MakeTestContext(),
+				repoConfig,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tags, err := GetTags(
+				repoConfig,
+				localDir,
+				testutil.MakeTestContext(),
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			if len(tags) != 0 {
+				t.Fatalf("expected %v tags but got %v", 0, len(tags))
+			}
 		}
 	})
 
