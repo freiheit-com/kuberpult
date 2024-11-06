@@ -1120,6 +1120,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		envs = append(envs, env)
 	}
 	release.Environments = envs
+	slices.Sort(release.Environments) // we don't really *need* the sorting, it's just for convenience
 	environmentStr, err := json.Marshal(release.Environments)
 	if err != nil {
 		return fmt.Errorf("could not marshal release environments: %w", err)
@@ -5392,6 +5393,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
 	}
+	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
 	applicationsJson, err := json.Marshal(applications)
 	if err != nil {
 		return fmt.Errorf("could not marshal the application names list %v, error: %w", applicationsJson, err)
@@ -5495,6 +5497,7 @@ func (h *DBHandler) DBWriteAllEnvironments(ctx context.Context, transaction *sql
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironments")
 	defer span.Finish()
 
+	slices.Sort(environmentNames) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, err := json.Marshal(environmentNames)
 	if err != nil {
 		return fmt.Errorf("could not marshal the environment names list %v, error: %w", environmentNames, err)
