@@ -180,6 +180,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
+		// TODO check flow here
 		client, err := v.overviewClient.StreamChangedApps(ctx, &api.GetChangedAppsRequest{})
 
 		if err != nil {

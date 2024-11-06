@@ -19,11 +19,12 @@ package argo
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"slices"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"path/filepath"
-	"slices"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -105,6 +106,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 					for _, env := range envGroup.Environments {
 						if ok := appsKnownToArgo[env.Name]; ok != nil {
 							envAppsKnownToArgo = appsKnownToArgo[env.Name]
+							// TODO investigate
 							a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
 						}
 
@@ -277,6 +279,7 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 		deleteAppSpan.SetTag("application", toDelete[i].Name)
 		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
 		deleteAppSpan.SetTag("operation", "delete")
+		// TODO actual deletion
 		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
 			Cascade:              nil,
 			PropagationPolicy:    nil,
