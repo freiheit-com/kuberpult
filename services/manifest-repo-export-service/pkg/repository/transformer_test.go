@@ -2405,7 +2405,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 	}{
 		{
 
-			Name: "Create undeploy applicatiom version and deploy it",
+			Name: "Create undeploy application version and deploy it",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
@@ -2704,6 +2704,8 @@ func TestUndeployLogic(t *testing.T) {
 	const appName = "app1"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
+	environmentConfigAcceptance := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}}
+	environmentConfigAcceptance2 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true}}
 	tcs := []struct {
 		Name            string
 		Transformers    []Transformer
@@ -2717,7 +2719,7 @@ func TestUndeployLogic(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					Config:      environmentConfigAcceptance,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2726,7 +2728,7 @@ func TestUndeployLogic(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: envAcceptance2,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true}},
+					Config:      environmentConfigAcceptance2,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2828,7 +2830,7 @@ func TestUndeployLogic(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					Config:      environmentConfigAcceptance,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2837,7 +2839,7 @@ func TestUndeployLogic(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: envAcceptance2,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true}},
+					Config:      environmentConfigAcceptance2,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2891,7 +2893,7 @@ func TestUndeployLogic(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					Config:      environmentConfigAcceptance,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2900,7 +2902,7 @@ func TestUndeployLogic(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: envAcceptance2,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true}},
+					Config:      environmentConfigAcceptance2,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2960,23 +2962,22 @@ func TestUndeployLogic(t *testing.T) {
 			},
 			expectedError: errMatcher{msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: UndeployApplication(repo):" +
 				" error cannot un-deploy application '" + appName + "' the release on 'acceptance2' is not un-deployed: 'environments/acceptance2/applications/" + appName + "/version/undeploy'"},
-			expectedData: []*FilenameAndData{
-				{ //There is an undeploy version
-					path:     "/applications/app1/releases/2/undeploy",
-					fileData: []byte(""),
-				},
+			expectedData: []*FilenameAndData{},
+			expectedMissing: []*FilenameAndData{
 				{ //The first env has the undeploy version deployed
 					path:     "environments/acceptance/applications/app1/version/undeploy",
 					fileData: []byte(""),
 				},
-				{ //The second env has the undeploy version *queued*
-					path:     "environments/acceptance2/applications/app1/queued_version/undeploy",
-					fileData: []byte(""),
-				},
-			},
-			expectedMissing: []*FilenameAndData{
 				{ //The second env does NOT have the undeploy version
 					path:     "environments/acceptance2/applications/app1/version/undeploy",
+					fileData: []byte(""),
+				},
+				{ //There is no undeploy version, because all releases have been deleted
+					path:     "/applications/app1/releases/2/undeploy",
+					fileData: []byte(""),
+				},
+				{ //The second env has the undeploy version *queued*
+					path:     "environments/acceptance2/applications/app1/queued_version",
 					fileData: []byte(""),
 				},
 			},
@@ -2997,16 +2998,11 @@ func TestUndeployLogic(t *testing.T) {
 				if err2 != nil {
 					t.Fatal(err2)
 				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, config.EnvironmentConfig{
-					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: "staging",
-					},
-				}, []string{appName})
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, config.EnvironmentConfig{
-					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: "staging",
-					},
-				}, []string{appName})
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, environmentConfigAcceptance, []string{appName})
+				if err2 != nil {
+					return err2
+				}
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, environmentConfigAcceptance2, []string{appName})
 				if err2 != nil {
 					return err2
 				}
@@ -3104,9 +3100,15 @@ func TestUndeployLogic(t *testing.T) {
 					}
 				}
 				var commitMsg []string
-				err := repo.Apply(ctx, transaction, tc.Transformers...)
-				if err != nil {
-					return err
+				for _, t := range tc.Transformers {
+					err := repo.Apply(ctx, transaction, t)
+					if err != nil {
+						return err
+					}
+					err = repo.PushRepo(ctx) // just for testing!
+					if err != nil {
+						return err
+					}
 				}
 				actualMsg := ""
 				// note that we only check the LAST error here:
