@@ -2397,6 +2397,8 @@ func TestCreateUndeployLogic(t *testing.T) {
 	const appName = "app1"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
+	envAcceptanceConfig := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}}
+	envAcceptance2Config := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true}}
 	tcs := []struct {
 		Name            string
 		Transformers    []Transformer
@@ -2409,7 +2411,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					Config:      envAcceptanceConfig,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2463,7 +2465,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					Config:      envAcceptanceConfig,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2472,7 +2474,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 				},
 				&CreateEnvironment{
 					Environment: envAcceptance2,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true}},
+					Config:      envAcceptance2Config,
 					TransformerMetadata: TransformerMetadata{
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
@@ -2586,8 +2588,21 @@ func TestCreateUndeployLogic(t *testing.T) {
 				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err2 != nil {
 					t.Fatal(err2)
-
 				}
+
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig, []string{appName})
+				if err2 != nil {
+					return err2
+				}
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config, []string{appName})
+				if err2 != nil {
+					return err2
+				}
+				err2 = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance, envAcceptance2})
+				if err2 != nil {
+					return err2
+				}
+
 				//populate the database
 				for _, tr := range tc.Transformers {
 					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
