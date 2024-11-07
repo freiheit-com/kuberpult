@@ -2996,7 +2996,23 @@ func TestUndeployLogic(t *testing.T) {
 				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err2 != nil {
 					t.Fatal(err2)
-
+				}
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: "staging",
+					},
+				}, []string{appName})
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: "staging",
+					},
+				}, []string{appName})
+				if err2 != nil {
+					return err2
+				}
+				err2 = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance, envAcceptance2})
+				if err2 != nil {
+					return err2
 				}
 				//populate the database
 				for _, tr := range tc.Transformers {

@@ -1825,7 +1825,7 @@ func (u *UndeployApplication) Transform(
 	}
 	isUndeploy := lastRelease.Metadata.UndeployVersion
 	if !isUndeploy {
-		return "", fmt.Errorf("UndeployApplication: last release is not un-deployed application version of '%v'", u.Application)
+		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
 	appDir := applicationDirectory(fs, u.Application)
 	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction) // we use ALL envs, to be sure
