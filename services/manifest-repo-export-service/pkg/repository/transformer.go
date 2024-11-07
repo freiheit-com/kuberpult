@@ -879,7 +879,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	if !isLatest {
 		// check that we can actually backfill this version
-		oldVersions, err := findOldApplicationVersions(ctx, transaction, state, int(state.ReleaseVersionsLimit), c.Application)
+		oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1059,7 +1059,7 @@ func isLatestVersion(ctx context.Context, state *State, transaction *sql.Tx, app
 
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
 // Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
-func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, versionLimit int, appName string) ([]uint64, error) {
+func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, appName string) ([]uint64, error) {
 	// 1) get release in each env:
 	envConfigs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	//envConfigs, err := state.GetEnvironmentConfigs()
@@ -1093,7 +1093,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return versions[i] >= oldestDeployedVersion
 	})
 
-	if positionOfOldestVersion < (versionLimit - 1) {
+	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
 	indexToKeep := positionOfOldestVersion - 1
@@ -1109,7 +1109,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		} else if !release.Metadata.IsMinor && !release.Metadata.IsPrepublish {
 			majorsCount += 1
 		}
-		if majorsCount >= versionLimit {
+		if majorsCount >= int(state.ReleaseVersionsLimit) {
 			break
 		}
 	}
@@ -1438,28 +1438,19 @@ func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 func (c *CleanupOldApplicationVersions) Transform(
 	ctx context.Context,
 	state *State,
-	tCtx TransformerContext,
+	_ TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
 	var err error
 	var oldVersions []uint64
-	if tCtx.ShouldMinimizeGitData() {
-		//oldVersions, err = state.GetApplicationReleasesFromFile(c.Application)
-		var versionLimit = int(state.ReleaseVersionsLimit)
-		oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
-	} else {
-		//oldVersions, err = state.GetApplicationReleasesFromFile(c.Application)
-		var versionLimit = int(state.ReleaseVersionsLimit)
-		oldVersions, err = findOldApplicationVersions(ctx, transaction, state, versionLimit, c.Application)
-	}
+	oldVersions, err = findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
 
 	msg := ""
 	for _, oldRelease := range oldVersions {
-
 		// delete oldRelease:
 		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
 		_, err := fs.Stat(releasesDir)
@@ -1816,7 +1807,7 @@ func (u *UndeployApplication) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := state.DBHandler.DBSelectLastReleasesByApp(ctx, transaction, u.Application, false, true)
+	lastRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, u.Application, false, true)
 	if err != nil {
 		return "", err
 	}

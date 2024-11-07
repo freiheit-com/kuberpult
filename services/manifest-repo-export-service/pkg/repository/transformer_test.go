@@ -3120,7 +3120,10 @@ func TestUndeployLogic(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					err = repo.PushRepo(ctx) // just for testing!
+					// just for testing, we push each transformer change separately.
+					// if you need to debug this test, you can git clone the repo
+					// and we will only see anything if we push.
+					err = repo.PushRepo(ctx)
 					if err != nil {
 						return err
 					}

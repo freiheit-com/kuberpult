@@ -677,8 +677,8 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 		var v = db.InitialEslVersion - 1
-		if len(prevRelease) > 0 {
-			v = prevRelease[0].EslVersion
+		if prevRelease != nil {
+			v = prevRelease.EslVersion
 		}
 		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 		if err != nil {
