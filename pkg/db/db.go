@@ -864,25 +864,37 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
 }
 
-func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppOrderedByEslVersion")
 	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments " +
-			" FROM releases " +
-			" WHERE appName=? AND deleted=?" +
-			" ORDER BY eslVersion DESC, releaseVersion DESC, created DESC" +
-			" LIMIT 1;"))
+	selectQuery := h.AdaptQuery(fmt.Sprintf(`
+SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments
+FROM (
+ 	SELECT max(eslVersion) as latestEslVersion, appName, releaseVersion
+ 	FROM releases
+ 	WHERE appName=?
+ 	GROUP BY appName, releaseVersion
+ 	) as c
+JOIN releases
+    ON  c.appName= releases.appName
+    AND c.latestEslVersion = releases.eslversion
+    AND c.releaseVersion = releases.releaseVersion
+ORDER BY c.releaseVersion DESC
+LIMIT 1;
+`),
+	)
 	span.SetTag("query", selectQuery)
+	span.SetTag("appName", app)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		app,
-		deleted,
 	)
 
 	result, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
+	span.SetTag("resultCount", len(result))
 	if err != nil {
+		span.Finish(tracer.WithError(err))
 		return nil, err
 	}
 	if result == nil {
