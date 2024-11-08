@@ -99,10 +99,6 @@ func applicationDirectory(fs billy.Filesystem, application string) string {
 	return fs.Join("applications", application)
 }
 
-func environmentDirectory(fs billy.Filesystem, environment string) string {
-	return fs.Join("environments", environment)
-}
-
 func environmentApplicationDirectory(fs billy.Filesystem, environment, application string) string {
 	return fs.Join("environments", environment, "applications", application)
 }
@@ -201,14 +197,6 @@ func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes flo
 		return err
 	}
 	return nil
-}
-
-func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
-	return func(i, j int) bool {
-		iIndex := gs[i].Name()
-		jIndex := gs[j].Name()
-		return iIndex < jIndex
-	}
 }
 
 func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
