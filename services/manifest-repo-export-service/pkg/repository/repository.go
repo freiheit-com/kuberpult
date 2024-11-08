@@ -880,55 +880,6 @@ type Lock struct {
 	CreatedAt time.Time
 }
 
-func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
-	lock := &Lock{
-		Message: "",
-		CreatedBy: Actor{
-			Name:  "",
-			Email: "",
-		},
-		CreatedAt: time.Time{},
-	}
-
-	if cnt, err := readFile(fs, fs.Join(lockDir, "message")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		lock.Message = string(cnt)
-	}
-
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_by_email")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		lock.CreatedBy.Email = string(cnt)
-	}
-
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_by_name")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		lock.CreatedBy.Name = string(cnt)
-	}
-
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_at")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		if createdAt, err := time.Parse(time.RFC3339, strings.TrimSpace(string(cnt))); err != nil {
-			return nil, err
-		} else {
-			lock.CreatedAt = createdAt
-		}
-	}
-
-	return lock, nil
-}
-
 func (s *State) GetEnvLocksDir(environment string) string {
 	return s.Filesystem.Join("environments", environment, "locks")
 }
@@ -994,65 +945,6 @@ func (s *State) GetLastRelease(ctx context.Context, fs billy.Filesystem, applica
 			}
 		}
 		return lastRelease, nil
-	}
-}
-
-func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
-	base := s.GetEnvLocksDir(environment)
-	if entries, err := s.Filesystem.ReadDir(base); err != nil {
-		return nil, err
-	} else {
-		result := make(map[string]Lock, len(entries))
-		for _, e := range entries {
-			if !e.IsDir() {
-				return nil, fmt.Errorf("error getting environment locks: found file in the locks directory. run migration script to generate correct metadata")
-			}
-			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
-				return nil, err
-			} else {
-				result[e.Name()] = *lock
-			}
-		}
-		return result, nil
-	}
-}
-
-func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) {
-	base := s.GetAppLocksDir(environment, application)
-	if entries, err := s.Filesystem.ReadDir(base); err != nil {
-		return nil, err
-	} else {
-		result := make(map[string]Lock, len(entries))
-		for _, e := range entries {
-			if !e.IsDir() {
-				return nil, fmt.Errorf("error getting application locks: found file in the locks directory. run migration script to generate correct metadata")
-			}
-			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
-				return nil, err
-			} else {
-				result[e.Name()] = *lock
-			}
-		}
-		return result, nil
-	}
-}
-func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lock, error) {
-	base := s.GetTeamLocksDir(environment, team)
-	if entries, err := s.Filesystem.ReadDir(base); err != nil {
-		return nil, err
-	} else {
-		result := make(map[string]Lock, len(entries))
-		for _, e := range entries {
-			if !e.IsDir() {
-				return nil, fmt.Errorf("error getting team locks: found file in the locks directory. run migration script to generate correct metadata")
-			}
-			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
-				return nil, err
-			} else {
-				result[e.Name()] = *lock
-			}
-		}
-		return result, nil
 	}
 }
 

@@ -868,7 +868,14 @@ func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppOrderedByEslVersion")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(`
-SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments
+SELECT
+	releases.eslVersion,
+	releases.created,
+	releases.appName,
+	releases.metadata,
+	releases.releaseVersion,
+	releases.deleted,
+	releases.environments
 FROM (
  	SELECT max(eslVersion) as latestEslVersion, appName, releaseVersion
  	FROM releases

@@ -1696,7 +1696,7 @@ func (c *CreateUndeployApplicationVersion) GetDBEventType() db.EventType {
 func (c *CreateUndeployApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
-	t TransformerContext,
+	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
@@ -1719,12 +1719,14 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	// this is a flag to indicate that this is the special "undeploy" version
-	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
-		return "", err
-	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", err
+	if tCtx.ShouldMaximizeGitData() {
+		// this is a flag to indicate that this is the special "undeploy" version
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
+			return "", err
+		}
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+			return "", err
+		}
 	}
 	for env := range configs {
 		envDir := fs.Join(releaseDir, "environments", env)
@@ -1749,7 +1751,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-		t.AddAppEnv(c.Application, env, teamOwner)
+		tCtx.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest {
 			d := &DeployApplicationVersion{
 				SourceTrain: nil,
@@ -1767,7 +1769,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 					AuthorEmail: "",
 				},
 			}
-			err := t.Execute(d, transaction)
+			err := tCtx.Execute(d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -1807,7 +1809,7 @@ func (u *UndeployApplication) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, u.Application, false, true)
+	lastRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, u.Application, true)
 	if err != nil {
 		return "", err
 	}
