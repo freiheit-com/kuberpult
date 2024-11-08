@@ -212,33 +212,28 @@ func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
 }
 
 func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
-	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
 	}
-	// if DBShouldUseOtherTables is true uses DB
 	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
 	if err != nil {
 		return err
 	}
 	repo.(*repository).GaugeQueueSize(ctx)
-	for i := range envNames {
-		env := envNames[i]
-		GaugeEnvLockMetric(ctx, state, transaction, env)
-		// Using filesistem, change to DB
-		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
-		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
-			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
-			sort.Slice(entries, sortFiles(entries))
-			for _, app := range entries {
-				GaugeEnvAppLockMetric(ctx, state, transaction, env, app.Name())
+	for _, envName := range envNames {
+		GaugeEnvLockMetric(ctx, state, transaction, envName)
+		if env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName); err != nil {
+			// in the future the apps might be sorted, but currently they aren't
+			slices.Sort(env.Applications)
+			for _, appName := range env.Applications {
+				GaugeEnvAppLockMetric(ctx, state, transaction, envName, appName)
 
-				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
 				if err != nil {
 					return err
 				}
 				timeDiff := now.Sub(deployedAtTimeUtc)
-				err = GaugeDeploymentMetric(ctx, env, app.Name(), timeDiff.Minutes())
+				err = GaugeDeploymentMetric(ctx, envName, appName, timeDiff.Minutes())
 				if err != nil {
 					return err
 				}
