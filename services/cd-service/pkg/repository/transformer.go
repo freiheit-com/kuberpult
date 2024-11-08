@@ -152,6 +152,7 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env 
 				Warnf("Error when trying to get the number of environment locks: %w\n", err)
 			return
 		}
+		// TODO remove linting directives
 		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1) //nolint: errcheck
 	}
 }
@@ -164,6 +165,7 @@ func GaugeEnvAppLockMetric(ctx context.Context, s *State, transaction *sql.Tx, e
 				Warnf("Error when trying to get the number of application locks: %w\n", err)
 			return
 		}
+		// TODO remove linting directives
 		ddMetrics.Gauge("app_lock_count", count, []string{"app:" + app, "env:" + env}, 1) //nolint: errcheck
 	}
 }
