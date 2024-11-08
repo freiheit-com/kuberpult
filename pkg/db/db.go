@@ -867,7 +867,7 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppOrderedByEslVersion")
 	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(`
+	selectQuery := h.AdaptQuery(`
 SELECT
 	releases.eslVersion,
 	releases.created,
@@ -888,7 +888,7 @@ JOIN releases
     AND c.releaseVersion = releases.releaseVersion
 ORDER BY c.releaseVersion DESC
 LIMIT 1;
-`),
+`,
 	)
 	span.SetTag("query", selectQuery)
 	span.SetTag("appName", app)
