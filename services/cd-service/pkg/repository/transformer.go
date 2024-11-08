@@ -204,10 +204,10 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 		return nil
 	}
 
-	// if state.DBHandler == nil {
-	// 	logger.FromContext(ctx).Sugar().Warn("Tried to update datadog metrics without database")
-	// 	return nil
-	// }
+	if state.DBHandler == nil {
+		logger.FromContext(ctx).Sugar().Warn("Tried to update datadog metrics without database")
+		return nil
+	}
 
 	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
 	if err != nil {
