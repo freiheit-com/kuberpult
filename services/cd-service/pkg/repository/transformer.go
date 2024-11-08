@@ -152,8 +152,8 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env 
 				Warnf("Error when trying to get the number of environment locks: %w\n", err)
 			return
 		}
-		// TODO remove linting directives
-		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1) //nolint: errcheck
+		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1)
+		ddMetrics.Gauge("environment_lock_count", count, []string{"kuberpult_environment:" + env}, 1)
 	}
 }
 func GaugeEnvAppLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env, app string) {
@@ -165,8 +165,8 @@ func GaugeEnvAppLockMetric(ctx context.Context, s *State, transaction *sql.Tx, e
 				Warnf("Error when trying to get the number of application locks: %w\n", err)
 			return
 		}
-		// TODO remove linting directives
-		ddMetrics.Gauge("app_lock_count", count, []string{"app:" + app, "env:" + env}, 1) //nolint: errcheck
+		ddMetrics.Gauge("app_lock_count", count, []string{"app:" + app, "env:" + env}, 1)
+		ddMetrics.Gauge("application_lock_count", count, []string{"kuberpult_environment:" + env, "kuberpult_application:" + app}, 1)
 	}
 }
 
@@ -196,6 +196,7 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	if ddMetrics == nil {
 		return nil
 	}
+	// if DBShouldUseOtherTables is true uses DB
 	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
 	if err != nil {
 		return err
@@ -204,6 +205,7 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	for i := range envNames {
 		env := envNames[i]
 		GaugeEnvLockMetric(ctx, state, transaction, env)
+		// Using filesistem, change to DB
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
 			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
