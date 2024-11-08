@@ -7038,7 +7038,8 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 }
 
 func SetupRepositoryTestWithDB(t *testing.T) Repository {
-	return SetupRepositoryTestWithDBOptions(t, false)
+	r := SetupRepositoryTestWithDBOptions(t, false)
+	return r
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repository {
@@ -7684,6 +7685,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 						"envA": "envA-manifest-1",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
@@ -7691,6 +7693,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 						"envA": "envA-manifest-2",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 			},
 			expectedGauges: []Gauge{
@@ -7703,6 +7706,10 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
+
+				// {request_queue_size 0 [] 1}
+				// {env_lock_count 0 [env:envA] 1}
+				// {environment_lock_count 0 [kuberpult_environment:envA] 1}
 			},
 		},
 		{
@@ -7723,6 +7730,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 						"envB": "envB-manifest-1",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
@@ -7731,6 +7739,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 						"envB": "envB-manifest-2",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 			},
 			expectedGauges: []Gauge{
@@ -7762,16 +7771,29 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
-			repo := setupRepositoryTest(t)
+			repo := SetupRepositoryTestWithDB(t).(*repository)
 
-			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.transformers...)
-			if applyErr != nil {
-				t.Fatalf("Expected no error: %v", applyErr)
-			}
+			err := repo.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, tc.transformers...)
+				if applyErr != nil {
+					t.Fatalf("expected no error: %v", applyErr)
+					return nil
+				}
+				now, err := repo.DB.DBReadTransactionTimestamp(ctx, transaction)
+				if applyErr != nil {
+					t.Fatalf("expected no error: %v", err)
+					return nil
+				}
+				err = UpdateDatadogMetrics(ctx, transaction, state, repo, nil, *now)
+				if err != nil {
+					t.Fatalf("expected no error: %v", err)
+					return nil
+				}
+				return nil
+			})
 
-			err := UpdateDatadogMetrics(ctx, nil, state, repo, nil, time.UnixMilli(0))
 			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
+				t.Fatalf("Failed during transaction: %v", err)
 			}
 
 			if len(tc.expectedGauges) != len(mockClient.gauges) {
@@ -7878,6 +7900,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 						"envA": "envA-manifest-1",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
@@ -7885,6 +7908,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 						"envA": "envA-manifest-2",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 			},
 			changes: &TransformerResult{
@@ -7934,6 +7958,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 						"envB": "envB-manifest-1",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
@@ -7942,6 +7967,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 						"envB": "envB-manifest-2",
 					},
 					WriteCommitData: false,
+					Version:         1,
 				},
 			},
 			changes: &TransformerResult{
@@ -8002,17 +8028,32 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
-			repo := setupRepositoryTest(t)
+			repo := SetupRepositoryTestWithDB(t).(*repository)
 
-			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, nil, tc.transformers...)
-			if applyErr != nil {
-				t.Fatalf("Expected no error: %v", applyErr)
-			}
+			err := repo.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, tc.transformers...)
+				if applyErr != nil {
+					t.Fatalf("Expected no error: %v", applyErr)
+					return nil
+				}
 
-			err := UpdateDatadogMetrics(ctx, nil, state, repo, tc.changes, time.UnixMilli(0))
+				now, err := repo.DB.DBReadTransactionTimestamp(ctx, transaction)
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+					return nil
+				}
+				err = UpdateDatadogMetrics(ctx, transaction, state, repo, tc.changes, *now)
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+					return nil
+				}
+
+				return nil
+			})
 			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
+				t.Fatalf("Failed during transaction: %v", err)
 			}
+
 			if len(tc.expectedEvents) != len(mockClient.events) {
 				t.Fatalf("expected %d events, but got %d", len(tc.expectedEvents), len(mockClient.events))
 			}
