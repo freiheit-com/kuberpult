@@ -95,7 +95,7 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) {
 func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
 	hlth.ReportReady("event-consuming")
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
-	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
+	appsKnownToArgoByEnv := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
 	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
 	for {
 		select {
@@ -104,10 +104,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			for currentApp, currentAppDetails := range argoOv.AppDetails {
 				for _, envGroup := range overview.EnvironmentGroups {
 					for _, env := range envGroup.Environments {
-						if ok := appsKnownToArgo[env.Name]; ok != nil {
-							envAppsKnownToArgo = appsKnownToArgo[env.Name]
-							// TODO investigate
-							a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
+						if ok := appsKnownToArgoByEnv[env.Name]; ok != nil {
+							envAppsKnownToArgo = appsKnownToArgoByEnv[env.Name]
+							a.DeleteArgoApps(ctx, envAppsKnownToArgo[currentApp], currentAppDetails.Deployments[env.Name])
+
 						}
 
 						if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
@@ -122,10 +122,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			if appName == "" {
 				continue
 			}
-			if appsKnownToArgo[envName] == nil {
-				appsKnownToArgo[envName] = map[string]*v1alpha1.Application{}
+			if appsKnownToArgoByEnv[envName] == nil {
+				appsKnownToArgoByEnv[envName] = map[string]*v1alpha1.Application{}
 			}
-			envKnownToArgo := appsKnownToArgo[envName]
+			envKnownToArgo := appsKnownToArgoByEnv[envName]
 			switch ev.Type {
 			case "ADDED", "MODIFIED":
 				l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
@@ -267,19 +267,14 @@ func calculateFinalizers() []string {
 	}
 }
 
-func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment) {
-	toDelete := make([]*v1alpha1.Application, 0)
-	deleteSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplications")
-	defer deleteSpan.Finish()
-	if argoApps[appName] != nil && deployment.UndeployVersion {
-		toDelete = append(toDelete, argoApps[appName])
-	}
-	for i := range toDelete {
+func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, app *v1alpha1.Application, deployment *api.Deployment) {
+	if app != nil && deployment != nil && deployment.UndeployVersion {
 		deleteAppSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplication")
-		deleteAppSpan.SetTag("application", toDelete[i].Name)
-		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
+		defer deleteAppSpan.Finish()
+		deleteAppSpan.SetTag("application", app.Name)
+		deleteAppSpan.SetTag("namespace", app.Namespace)
 		deleteAppSpan.SetTag("operation", "delete")
-		// TODO actual deletion
+
 		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
 			Cascade:              nil,
 			PropagationPolicy:    nil,
@@ -288,13 +283,12 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 			XXX_NoUnkeyedLiteral: struct{}{},
 			XXX_unrecognized:     nil,
 			XXX_sizecache:        0,
-			Name:                 conversion.FromString(toDelete[i].Name),
+			Name:                 conversion.FromString(app.Name),
 		})
 
 		if err != nil {
-			logger.FromContext(ctx).Error("deleting application: "+toDelete[i].Name, zap.Error(err))
+			logger.FromContext(ctx).Error("deleting application: "+app.Name, zap.Error(err))
 		}
-		deleteAppSpan.Finish()
 	}
 }
 
