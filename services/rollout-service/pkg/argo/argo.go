@@ -49,7 +49,7 @@ type Processor interface {
 	Consume(ctx context.Context, hlth *setup.HealthReporter) error
 	CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application)
 	ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error
-	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment)
+	DeleteArgoApp(ctx context.Context, argoApp *v1alpha1.Application, deployment *api.Deployment)
 	GetManageArgoAppsFilter() []string
 	GetManageArgoAppsEnabled() bool
 }
@@ -106,7 +106,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 					for _, env := range envGroup.Environments {
 						if ok := appsKnownToArgoByEnv[env.Name]; ok != nil {
 							envAppsKnownToArgo = appsKnownToArgoByEnv[env.Name]
-							a.DeleteArgoApps(ctx, envAppsKnownToArgo[currentApp], currentAppDetails.Deployments[env.Name])
+							a.DeleteArgoApp(ctx, envAppsKnownToArgo[currentApp], currentAppDetails.Deployments[env.Name])
 
 						}
 
@@ -267,7 +267,7 @@ func calculateFinalizers() []string {
 	}
 }
 
-func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, app *v1alpha1.Application, deployment *api.Deployment) {
+func (a *ArgoAppProcessor) DeleteArgoApp(ctx context.Context, app *v1alpha1.Application, deployment *api.Deployment) {
 	if app != nil && deployment != nil && deployment.UndeployVersion {
 		deleteAppSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplication")
 		defer deleteAppSpan.Finish()

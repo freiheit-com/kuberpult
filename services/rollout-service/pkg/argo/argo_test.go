@@ -19,11 +19,11 @@ package argo
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -133,7 +133,7 @@ func (a *mockArgoProcessor) TestConsume(t *testing.T, ctx context.Context, expec
 					for _, env := range envGroup.Environments {
 						if ok := appsKnownToArgo[env.Name]; ok != nil {
 							envAppsKnownToArgo = appsKnownToArgo[env.Name]
-							a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
+							a.DeleteArgoApp(ctx, envAppsKnownToArgo[currentApp], currentAppDetails.Deployments[env.Name])
 						}
 						if existingArgoApps {
 							argoApp := CreateArgoApplication(overview, currentApp, currentAppDetails.Application.Team, env)
@@ -988,11 +988,11 @@ func (a *mockArgoProcessor) DeleteArgoApps(ctx context.Context, argoApps map[str
 		toDelete = append(toDelete, argoApp)
 	}
 
-	for i := range toDelete {
+func (a *mockArgoProcessor) DeleteArgoApp(ctx context.Context, argoApp *v1alpha1.Application, deployment *api.Deployment) {
+	if argoApp != nil && deployment != nil && deployment.UndeployVersion {
 		a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
-			Name: conversion.FromString(toDelete[i].Name),
+			Name: conversion.FromString(argoApp.Name),
 		})
-
 	}
 }
 
