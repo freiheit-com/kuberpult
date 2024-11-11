@@ -271,7 +271,7 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 	toDelete := make([]*v1alpha1.Application, 0)
 	deleteSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplications")
 	defer deleteSpan.Finish()
-	if argoApps[appName] != nil && deployment == nil {
+	if argoApps[appName] != nil && deployment.UndeployVersion {
 		toDelete = append(toDelete, argoApps[appName])
 	}
 	for i := range toDelete {
