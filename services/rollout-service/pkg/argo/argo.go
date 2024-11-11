@@ -134,7 +134,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 				l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
 				delete(envKnownToArgo, appName)
 			}
-			appsKnownToArgo[envName] = envKnownToArgo
+			appsKnownToArgoByEnv[envName] = envKnownToArgo
 		case <-ctx.Done():
 			return nil
 		}
