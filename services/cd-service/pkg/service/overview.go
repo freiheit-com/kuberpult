@@ -109,18 +109,20 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, err
 		}
 		for _, currentRelease := range releases {
-			var tmp = &repository.Release{
+			tmp := &api.Release{
+				PrNumber:        repository.ExtractPrNumber(currentRelease.Metadata.SourceMessage),
 				Version:         currentRelease.ReleaseNumber,
-				UndeployVersion: currentRelease.Metadata.UndeployVersion,
 				SourceAuthor:    currentRelease.Metadata.SourceAuthor,
 				SourceCommitId:  currentRelease.Metadata.SourceCommitId,
 				SourceMessage:   currentRelease.Metadata.SourceMessage,
-				CreatedAt:       currentRelease.Created,
+				UndeployVersion: currentRelease.Metadata.UndeployVersion,
+				CreatedAt:       timestamppb.New(currentRelease.Created),
 				DisplayVersion:  currentRelease.Metadata.DisplayVersion,
 				IsMinor:         currentRelease.Metadata.IsMinor,
 				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
+				Environments:    currentRelease.Environments,
 			}
-			result.Releases = append(result.Releases, tmp.ToProto())
+			result.Releases = append(result.Releases, tmp)
 		}
 		//Highest to lowest
 		sort.Slice(result.Releases, func(i, j int) bool {

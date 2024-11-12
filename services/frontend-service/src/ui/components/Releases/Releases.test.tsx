@@ -50,6 +50,7 @@ describe('Release Dialog', () => {
             displayVersion: '1',
             isMinor: false,
             isPrepublish: false,
+            environments: [],
         },
         {
             version: 2,
@@ -62,6 +63,7 @@ describe('Release Dialog', () => {
             displayVersion: '2',
             isMinor: false,
             isPrepublish: false,
+            environments: [],
         },
         {
             version: 3,
@@ -74,6 +76,7 @@ describe('Release Dialog', () => {
             displayVersion: '3',
             isMinor: false,
             isPrepublish: false,
+            environments: [],
         },
     ];
 
@@ -189,6 +192,7 @@ describe('Release Dialog', () => {
                     displayVersion: '1',
                     isMinor: false,
                     isPrepublish: false,
+                    environments: [],
                 },
                 {
                     version: 2,
@@ -201,6 +205,7 @@ describe('Release Dialog', () => {
                     displayVersion: '2',
                     isMinor: false,
                     isPrepublish: false,
+                    environments: [],
                 },
                 {
                     version: 3,
@@ -213,6 +218,7 @@ describe('Release Dialog', () => {
                     displayVersion: '3',
                     isMinor: false,
                     isPrepublish: false,
+                    environments: [],
                 },
             ],
             envGroups: [testEnvGroup1],
@@ -244,6 +250,7 @@ describe('Release Dialog', () => {
                                     displayVersion: '1',
                                     isMinor: false,
                                     isPrepublish: false,
+                                    environments: [],
                                 },
                                 {
                                     version: 2,
@@ -256,6 +263,7 @@ describe('Release Dialog', () => {
                                     displayVersion: '2',
                                     isMinor: false,
                                     isPrepublish: false,
+                                    environments: [],
                                 },
                                 {
                                     version: 3,
@@ -268,6 +276,7 @@ describe('Release Dialog', () => {
                                     displayVersion: '3',
                                     isMinor: false,
                                     isPrepublish: false,
+                                    environments: [],
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -295,6 +304,7 @@ describe('Release Dialog', () => {
                     displayVersion: '1',
                     isMinor: false,
                     isPrepublish: false,
+                    environments: [],
                 },
                 {
                     version: 2,
@@ -307,6 +317,7 @@ describe('Release Dialog', () => {
                     displayVersion: '2',
                     isMinor: false,
                     isPrepublish: false,
+                    environments: [],
                 },
                 {
                     version: 3,
@@ -319,6 +330,7 @@ describe('Release Dialog', () => {
                     displayVersion: '3',
                     isMinor: false,
                     isPrepublish: false,
+                    environments: [],
                 },
             ],
             envGroups: [],

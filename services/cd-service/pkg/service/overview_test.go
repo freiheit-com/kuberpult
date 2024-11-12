@@ -795,6 +795,7 @@ func TestOverviewService(t *testing.T) {
 func TestGetApplicationDetails(t *testing.T) {
 	var dev = "dev"
 	var env = "development"
+	var secondEnv = "development2"
 	var appName = "test-app"
 	tcs := []struct {
 		Name             string
@@ -816,6 +817,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							SourceMessage:  "changed something (#678)",
 							PrNumber:       "678",
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments: []string{env, secondEnv},
 						},
 					},
 					Team: "team-123",
@@ -884,6 +886,7 @@ func TestGetApplicationDetails(t *testing.T) {
 					Application:           appName,
 					Manifests: map[string]string{
 						env: "v1",
+						secondEnv: "v2",
 					},
 				},
 				&repository.CreateEnvironmentTeamLock{

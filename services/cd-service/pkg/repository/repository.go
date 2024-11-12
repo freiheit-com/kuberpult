@@ -2888,7 +2888,7 @@ func (rel *Release) ToProto() *api.Release {
 		return nil
 	}
 	return &api.Release{
-		PrNumber:        extractPrNumber(rel.SourceMessage),
+		PrNumber:        ExtractPrNumber(rel.SourceMessage),
 		Version:         rel.Version,
 		SourceAuthor:    rel.SourceAuthor,
 		SourceCommitId:  rel.SourceCommitId,
@@ -2901,7 +2901,7 @@ func (rel *Release) ToProto() *api.Release {
 	}
 }
 
-func extractPrNumber(sourceMessage string) string {
+func ExtractPrNumber(sourceMessage string) string {
 	re := regexp.MustCompile(`\(#(\d+)\)`)
 	res := re.FindAllStringSubmatch(sourceMessage, -1)
 

@@ -43,6 +43,7 @@ const extendRelease = (props: Partial<Release>): Release => ({
     prNumber: 'pr',
     isMinor: false,
     isPrepublish: false,
+    environments: [],
     ...props,
 });
 

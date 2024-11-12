@@ -20,6 +20,7 @@ import {
     addAction,
     DisplayLock,
     getPriorityClassName,
+    showSnackbarWarn,
     useAppDetailsForApp,
     useApplications,
     useAppLocks,
@@ -459,12 +460,17 @@ export const EnvironmentGroupLane: React.FC<{
     }, [environmentGroup, app]);
     const deployAndLockClick = React.useCallback(
         (shouldLockToo: boolean) => {
+            var skippedEnvs: string[] = [];
             environmentGroup.environments.forEach((environment) => {
                 if (
                     allReleases &&
                     allReleases.length !== 0 &&
                     allReleases[0].environments.find((env) => env === environment)
                 ) {
+                    return;
+                }
+                if (!release.environments.includes(environment.name)) {
+                    skippedEnvs.push(environment.name);
                     return;
                 }
                 addAction({
@@ -494,8 +500,11 @@ export const EnvironmentGroupLane: React.FC<{
                     });
                 }
             });
+            if (skippedEnvs.length > 0) {
+                showSnackbarWarn(`Environments skipped: ${skippedEnvs}`);
+            }
         },
-        [release.version, app, environmentGroup, allReleases]
+        [environmentGroup.environments, allReleases, release.environments, release.version, app]
     );
 
     React.useEffect(() => {
