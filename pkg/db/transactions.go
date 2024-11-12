@@ -129,8 +129,8 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 			span.Finish(tracer.WithError(e))
 			time.Sleep(duration)
 			// We must use original ctx here so that a retry attempt registers
-			// A DBTransaction span independent from previous DBTransaction
-			return withTransactionAllOptions(h, ctx, transactionOptions{
+			// A DBTransaction span independent of previous DBTransaction
+			return withTransactionAllOptions[T](h, ctx, transactionOptions{
 				maxRetries: opts.maxRetries - 1,
 				readonly:   opts.readonly,
 			}, f)
