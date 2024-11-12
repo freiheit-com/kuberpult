@@ -227,7 +227,6 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 		for _, appName := range env.Applications {
 			GaugeEnvAppLockMetric(ctx, state, transaction, envName, appName)
 
-			// 2024-11-08 17:09:03 +0000 UTC
 			_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
 			if err != nil {
 				return err
