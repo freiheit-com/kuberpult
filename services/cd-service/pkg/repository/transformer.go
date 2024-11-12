@@ -99,10 +99,6 @@ func applicationDirectory(fs billy.Filesystem, application string) string {
 	return fs.Join("applications", application)
 }
 
-func environmentDirectory(fs billy.Filesystem, environment string) string {
-	return fs.Join("environments", environment)
-}
-
 func environmentApplicationDirectory(fs billy.Filesystem, environment, application string) string {
 	return fs.Join("environments", environment, "applications", application)
 }
@@ -152,7 +148,18 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env 
 				Warnf("Error when trying to get the number of environment locks: %w\n", err)
 			return
 		}
-		ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1) //nolint: errcheck
+		err = ddMetrics.Gauge("env_lock_count", count, []string{"env:" + env}, 1)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error when trying to send `env_lock_count` metric to datadog: %w\n", err)
+		}
+		err = ddMetrics.Gauge("environment_lock_count", count, []string{"kuberpult_environment:" + env}, 1)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error when trying to send `environment_lock_count` metric to datadog: %w\n", err)
+		}
 	}
 }
 func GaugeEnvAppLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env, app string) {
@@ -164,7 +171,18 @@ func GaugeEnvAppLockMetric(ctx context.Context, s *State, transaction *sql.Tx, e
 				Warnf("Error when trying to get the number of application locks: %w\n", err)
 			return
 		}
-		ddMetrics.Gauge("app_lock_count", count, []string{"app:" + app, "env:" + env}, 1) //nolint: errcheck
+		err = ddMetrics.Gauge("app_lock_count", count, []string{"app:" + app, "env:" + env}, 1)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error when trying to send `app_lock_count` metric to datadog: %w\n", err)
+		}
+		err = ddMetrics.Gauge("application_lock_count", count, []string{"kuberpult_environment:" + env, "kuberpult_application:" + app}, 1)
+		if err != nil {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("Error when trying to send `application_lock_count` metric to datadog: %w\n", err)
+		}
 	}
 }
 
@@ -181,43 +199,42 @@ func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes flo
 	return nil
 }
 
-func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
-	return func(i, j int) bool {
-		iIndex := gs[i].Name()
-		jIndex := gs[j].Name()
-		return iIndex < jIndex
-	}
-}
-
 func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
-	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
 	}
+
+	if state.DBHandler == nil {
+		logger.FromContext(ctx).Sugar().Warn("Tried to update datadog metrics without database")
+		return nil
+	}
+
 	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
 	if err != nil {
 		return err
 	}
 	repo.(*repository).GaugeQueueSize(ctx)
-	for i := range envNames {
-		env := envNames[i]
-		GaugeEnvLockMetric(ctx, state, transaction, env)
-		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
-		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
-			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
-			sort.Slice(entries, sortFiles(entries))
-			for _, app := range entries {
-				GaugeEnvAppLockMetric(ctx, state, transaction, env, app.Name())
+	for _, envName := range envNames {
+		GaugeEnvLockMetric(ctx, state, transaction, envName)
 
-				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, env, app.Name())
-				if err != nil {
-					return err
-				}
-				timeDiff := now.Sub(deployedAtTimeUtc)
-				err = GaugeDeploymentMetric(ctx, env, app.Name(), timeDiff.Minutes())
-				if err != nil {
-					return err
-				}
+		env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+		if err != nil {
+			return fmt.Errorf("failed to read environment from the db: %v", err)
+		}
+
+		// in the future apps might be sorted, but currently they aren't
+		slices.Sort(env.Applications)
+		for _, appName := range env.Applications {
+			GaugeEnvAppLockMetric(ctx, state, transaction, envName, appName)
+
+			_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
+			if err != nil {
+				return err
+			}
+			timeDiff := now.Sub(deployedAtTimeUtc)
+			err = GaugeDeploymentMetric(ctx, envName, appName, timeDiff.Minutes())
+			if err != nil {
+				return err
 			}
 		}
 	}
