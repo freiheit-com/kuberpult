@@ -42,17 +42,3 @@ $> gpg --armor --detach --sign < manifest.ymal > manifest.yaml.sig
 $> curl -F "application=test" -F "manifests[production]=@manifests.yaml" -F "signatures[production]=@manifests.yaml.sig"  https://kuberpult.yourcompany.com/release
 $> curl -F "application=test" -F "manifests[production]=@manifests.yaml" -F "signatures[production]=@manifests.yaml.sig"  https://kuberpult.yourcompany.com/release
 ```
-
-Datadog Metrics
----------------------
-The cd-service uploads multiple metrics to datadog.
-
-These metrics include:
-* `env_lock_count` - the count of current environment locks, for a given environment; \[❗ deprecated\]
-* `environment_lock_count` - the count of current environment locks, for a given environment;
-* `app_lock_count` - the count of current environment application locks, for a given application in a given environment; \[❗ deprecated\]
-* `application_lock_count` - the count of current environment application locks, for a given application in a given environment;
-* `lastDeployed` - the time since the last deployment in minutes;
-* `request_queue_size` - the current size of the request queue;
-
-
