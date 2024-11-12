@@ -200,7 +200,7 @@ func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes flo
 }
 
 func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
-	if ddMetrics == nil || state.DBHandler == nil {
+	if ddMetrics == nil {
 		return nil
 	}
 
