@@ -19,8 +19,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"os/exec"
-	"path"
 	"sort"
 	"testing"
 	"time"
@@ -43,35 +41,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	rp "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
-
-func setupRepositoryTestWithoutDB(t *testing.T) (rp.Repository, error) {
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
-	t.Logf("test created dir: %s", localDir)
-
-	repoCfg := rp.RepositoryConfig{
-		URL:                  remoteDir,
-		Path:                 localDir,
-		CommitterEmail:       "kuberpult@freiheit.com",
-		CommitterName:        "kuberpult",
-		ArgoCdGenerateFiles:  true,
-		MinimizeExportedData: false,
-	}
-	repoCfg.DBHandler = nil
-
-	repo, err := rp.New(
-		testutil.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, nil
-}
 
 func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx) error {
 	err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
