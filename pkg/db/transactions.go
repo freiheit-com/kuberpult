@@ -73,7 +73,7 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransactionWithRetries")
 	defer span.Finish()
 	span.SetTag("retries", maxRetries)
-	res, err := withTransactionAllOptions(h, ctx, transactionOptions{
+	res, err := withTransactionAllOptions[T](h, ctx, transactionOptions{
 		maxRetries: maxRetries,
 		readonly:   readonly,
 	}, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
@@ -95,7 +95,7 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
 func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	return withTransactionAllOptions(h, ctx, transactionOptions{
+	return withTransactionAllOptions[T](h, ctx, transactionOptions{
 		maxRetries: DefaultNumRetries,
 		readonly:   readonly,
 	}, f)
