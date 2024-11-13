@@ -49,7 +49,7 @@ type Processor interface {
 	Consume(ctx context.Context, hlth *setup.HealthReporter) error
 	CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application)
 	ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error
-	DeleteArgoApp(ctx context.Context, argoApp *v1alpha1.Application, deployment *api.Deployment)
+	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment)
 	GetManageArgoAppsFilter() []string
 	GetManageArgoAppsEnabled() bool
 }
@@ -95,7 +95,7 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) {
 func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
 	hlth.ReportReady("event-consuming")
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
-	appsKnownToArgoByEnv := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
+	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
 	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
 	for {
 		select {
@@ -104,10 +104,9 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			for currentApp, currentAppDetails := range argoOv.AppDetails {
 				for _, envGroup := range overview.EnvironmentGroups {
 					for _, env := range envGroup.Environments {
-						if ok := appsKnownToArgoByEnv[env.Name]; ok != nil {
-							envAppsKnownToArgo = appsKnownToArgoByEnv[env.Name]
-							a.DeleteArgoApp(ctx, envAppsKnownToArgo[currentApp], currentAppDetails.Deployments[env.Name])
-
+						if ok := appsKnownToArgo[env.Name]; ok != nil {
+							envAppsKnownToArgo = appsKnownToArgo[env.Name]
+							a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
 						}
 
 						if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
@@ -122,10 +121,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			if appName == "" {
 				continue
 			}
-			if appsKnownToArgoByEnv[envName] == nil {
-				appsKnownToArgoByEnv[envName] = map[string]*v1alpha1.Application{}
+			if appsKnownToArgo[envName] == nil {
+				appsKnownToArgo[envName] = map[string]*v1alpha1.Application{}
 			}
-			envKnownToArgo := appsKnownToArgoByEnv[envName]
+			envKnownToArgo := appsKnownToArgo[envName]
 			switch ev.Type {
 			case "ADDED", "MODIFIED":
 				l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
@@ -134,7 +133,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 				l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
 				delete(envKnownToArgo, appName)
 			}
-			appsKnownToArgoByEnv[envName] = envKnownToArgo
+			appsKnownToArgo[envName] = envKnownToArgo
 		case <-ctx.Done():
 			return nil
 		}
@@ -267,12 +266,17 @@ func calculateFinalizers() []string {
 	}
 }
 
-func (a *ArgoAppProcessor) DeleteArgoApp(ctx context.Context, app *v1alpha1.Application, deployment *api.Deployment) {
-	if app != nil && deployment == nil {
+func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment) {
+	toDelete := make([]*v1alpha1.Application, 0)
+	deleteSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplications")
+	defer deleteSpan.Finish()
+	if argoApps[appName] != nil && deployment == nil {
+		toDelete = append(toDelete, argoApps[appName])
+	}
+	for i := range toDelete {
 		deleteAppSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplication")
-		defer deleteAppSpan.Finish()
-		deleteAppSpan.SetTag("application", app.Name)
-		deleteAppSpan.SetTag("namespace", app.Namespace)
+		deleteAppSpan.SetTag("application", toDelete[i].Name)
+		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
 		deleteAppSpan.SetTag("operation", "delete")
 
 		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
@@ -283,11 +287,11 @@ func (a *ArgoAppProcessor) DeleteArgoApp(ctx context.Context, app *v1alpha1.Appl
 			XXX_NoUnkeyedLiteral: struct{}{},
 			XXX_unrecognized:     nil,
 			XXX_sizecache:        0,
-			Name:                 conversion.FromString(app.Name),
+			Name:                 conversion.FromString(toDelete[i].Name),
 		})
 
 		if err != nil {
-			logger.FromContext(ctx).Error("deleting application: "+app.Name, zap.Error(err))
+			logger.FromContext(ctx).Error("deleting application: "+toDelete[i].Name, zap.Error(err))
 		}
 	}
 }
