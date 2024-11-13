@@ -42,4 +42,3 @@ $> gpg --armor --detach --sign < manifest.ymal > manifest.yaml.sig
 $> curl -F "application=test" -F "manifests[production]=@manifests.yaml" -F "signatures[production]=@manifests.yaml.sig"  https://kuberpult.yourcompany.com/release
 $> curl -F "application=test" -F "manifests[production]=@manifests.yaml" -F "signatures[production]=@manifests.yaml.sig"  https://kuberpult.yourcompany.com/release
 ```
-
