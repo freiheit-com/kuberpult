@@ -185,6 +185,12 @@ func Run(ctx context.Context) error {
 	}
 	argoCdGenerateFiles := argoCdGenerateFilesString == "true"
 
+	kuberpultVersion, err := valid.ReadEnvVar("KUBERPULT_VERSION")
+	if err != nil {
+		return err
+	}
+	logger.FromContext(ctx).Info("startup", zap.String("kuberpultVersion", kuberpultVersion))
+
 	var dbCfg db.DBConfig
 	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
@@ -272,6 +278,7 @@ func Run(ctx context.Context) error {
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
+				api.RegisterMigrationServiceServer(srv, &service.MigrationServer{})
 				reflection.Register(srv)
 			},
 		},

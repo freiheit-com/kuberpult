@@ -98,7 +98,7 @@ the sqlite file yet.
 
 Then you can look into the database, by using the sqlite command line client:
 ```shell
-sqlite3 database/db.sqlite
+sqlite3 database/migrations.sqlite
 ```
 or for postgres:
 ```shell
