@@ -1650,6 +1650,7 @@ func (u *UndeployApplication) Transform(
 					newEnvApps = append(newEnvApps, app)
 				}
 			}
+			t.AddAppEnv(u.Application, envName, dbApp.Metadata.Team)
 			err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, newEnvApps)
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication: could not write environment: %v", err)
