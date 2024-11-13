@@ -17,8 +17,8 @@ Copyright freiheit.com*/
 package service
 
 import (
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/migrations"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"

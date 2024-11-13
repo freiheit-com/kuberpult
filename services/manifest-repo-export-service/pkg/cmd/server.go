@@ -19,7 +19,7 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"strconv"
 	"time"
 
@@ -196,6 +196,11 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	dbMigrationLocation, err := valid.ReadEnvVar("KUBERPULT_DB_MIGRATIONS_LOCATION")
+	if err != nil {
+		return err
+	}
+
 	var dbCfg db.DBConfig
 	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
@@ -205,7 +210,7 @@ func Run(ctx context.Context) error {
 			DbName:         dbName,
 			DbPassword:     dbPassword,
 			DbUser:         dbUserName,
-			MigrationsPath: "",
+			MigrationsPath: dbMigrationLocation,
 			WriteEslOnly:   false,
 			SSLMode:        sslMode,
 
@@ -220,7 +225,7 @@ func Run(ctx context.Context) error {
 			DbName:         dbName,
 			DbPassword:     dbPassword,
 			DbUser:         dbUserName,
-			MigrationsPath: "",
+			MigrationsPath: dbMigrationLocation,
 			WriteEslOnly:   false,
 			SSLMode:        sslMode,
 
@@ -241,16 +246,6 @@ func Run(ctx context.Context) error {
 			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 		}
 	}
-
-	migrationServer := &service.MigrationServer{DBHandler: dbHandler}
-	log.Infof("Running Custom Migrations")
-	_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
-		Version: kuberpultVersion,
-	})
-	if err != nil {
-		return fmt.Errorf("error running custom migrations: %w", err)
-	}
-	log.Infof("Finished Custom Migrations successfully")
 
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
@@ -275,6 +270,45 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
+
+	log.Infof("Running SQL Migrations")
+
+	migErr := db.RunDBMigrations(ctx, dbCfg)
+	if migErr != nil {
+		logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
+	}
+	logger.FromContext(ctx).Info("Finished with basic database migration.")
+
+	log.Infof("Running Custom Migrations")
+
+	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrations(
+			ctx,
+			repo.State().GetAppsAndTeams,
+			repo.State().WriteCurrentlyDeployed,
+			repo.State().WriteAllReleases,
+			repo.State().WriteCurrentEnvironmentLocks,
+			repo.State().WriteCurrentApplicationLocks,
+			repo.State().WriteCurrentTeamLocks,
+			repo.State().GetAllEnvironments,
+			repo.State().WriteAllQueuedAppVersions,
+			repo.State().WriteAllCommitEvents,
+		)
+	}
+
+	migrationServer := &service.MigrationServer{
+		DBHandler:  dbHandler,
+		Migrations: getAllMigrations(migrationFunc),
+	}
+
+	_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+		Version: kuberpultVersion,
+	})
+	if err != nil {
+		return fmt.Errorf("error running custom migrations: %w", err)
+	}
+	log.Infof("Finished Custom Migrations successfully")
+
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
@@ -312,6 +346,15 @@ func Run(ctx context.Context) error {
 		},
 	})
 	return nil
+}
+
+func getAllMigrations(migrationFunc service.MigrationFunc) []*service.Migration {
+	return []*service.Migration{
+		{
+			Version:   migrations.CreateKuberpultVersion(0, 0, 0), // we set this to 0.0.0, because these migrations should always be executed
+			Migration: migrationFunc,
+		},
+	}
 }
 
 func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {

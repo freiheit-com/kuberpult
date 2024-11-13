@@ -24,6 +24,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 )
 
@@ -31,7 +32,7 @@ func DBReadCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, transacti
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadCustomMigrationCutoff")
 	defer span.Finish()
 
-	requestedVersionString := FormatKuberpultVersion(requestedVersion)
+	requestedVersionString := migrations2.FormatKuberpultVersion(requestedVersion)
 
 	selectQuery := h.AdaptQuery(`
 SELECT kuberpult_version
@@ -76,7 +77,7 @@ LIMIT 1;`)
 	}
 
 	var kuberpultVersion *api.KuberpultVersion
-	kuberpultVersion, err = ParseKuberpultVersion(rawVersion)
+	kuberpultVersion, err = migrations2.ParseKuberpultVersion(rawVersion)
 	if err != nil {
 		return nil, onErr(fmt.Errorf("migration_cutoff: Error parsing kuberpult version. Error: %w", err))
 	}
@@ -98,7 +99,7 @@ func DBWriteCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql.
 	_, err = tx.Exec(
 		insertQuery,
 		timestamp,
-		FormatKuberpultVersion(kuberpultVersion),
+		migrations2.FormatKuberpultVersion(kuberpultVersion),
 	)
 	if err != nil {
 		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err))

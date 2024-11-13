@@ -3680,7 +3680,7 @@ func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction
 		return true, err
 	}
 	if arbitraryAllEnvsRow != nil {
-		log.Infof("custom migration for environments already ran because row %v was found, skipping custom migration", arbitraryAllEnvsRow)
+		log.Infof("custom migration for environments already ran because row (%v) was found, skipping custom migration", arbitraryAllEnvsRow)
 		return false, nil
 	}
 	return true, nil

@@ -60,10 +60,22 @@ func TestParseKuberpultVersion(t *testing.T) {
 			expectedError:         nil,
 		},
 		{
+			name:                  "should read first part for kind version",
+			kuberpultVersionInput: "v11.10.0-7-g1a2fd8d0",
+			expectedVersion:       CreateKuberpultVersion(11, 10, 0),
+			expectedError:         nil,
+		},
+		{
+			name:                  "just another kind version",
+			kuberpultVersionInput: "v1.13.2-8-g0a1fd1d1",
+			expectedVersion:       CreateKuberpultVersion(1, 13, 2),
+			expectedError:         nil,
+		},
+		{
 			name:                  "invalid number of dashes",
 			kuberpultVersionInput: "main-main-v12.1.2-7-g08f811e8",
 			expectedVersion:       nil,
-			expectedError:         errMatcher{msg: "invalid version, expected 0 or 3 dashes"},
+			expectedError:         errMatcher{msg: "invalid version, expected 0, 2, or 3 dashes, but got main-main-v12.1.2-7-g08f811e8"},
 		},
 		{
 			name:                  "0 dashes also works",

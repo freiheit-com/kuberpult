@@ -31,10 +31,13 @@ func ParseKuberpultVersion(version string) (*api.KuberpultVersion, error) {
 		// See the top-level Makefile and how the version is supplied to earthly in the line
 		// "earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)"
 		version = splitDash[1]
+	} else if len(splitDash) == 3 {
+		// this is what happens when we us run-kind.sh
+		version = splitDash[0]
 	} else if len(splitDash) == 1 {
 		// this is the normal case, we don't have to remove parts
 	} else {
-		return nil, fmt.Errorf("invalid version, expected 0 or 3 dashes")
+		return nil, fmt.Errorf("invalid version, expected 0, 2, or 3 dashes, but got %s", version)
 	}
 
 	version = strings.TrimPrefix(version, "v")
@@ -74,5 +77,8 @@ func CreateKuberpultVersion(major, minor, patch int) *api.KuberpultVersion {
 }
 
 func FormatKuberpultVersion(version *api.KuberpultVersion) string {
+	if version == nil {
+		return ""
+	}
 	return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
 }
