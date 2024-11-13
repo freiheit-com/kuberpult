@@ -19,11 +19,11 @@ package argo
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"

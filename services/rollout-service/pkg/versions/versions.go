@@ -19,10 +19,9 @@ package versions
 import (
 	"context"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strconv"
 	"time"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"

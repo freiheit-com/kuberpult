@@ -19,12 +19,11 @@ package argo
 import (
 	"context"
 	"fmt"
-	"path/filepath"
-	"slices"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"path/filepath"
+	"slices"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
