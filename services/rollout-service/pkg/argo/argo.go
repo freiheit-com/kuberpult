@@ -268,7 +268,7 @@ func calculateFinalizers() []string {
 }
 
 func (a *ArgoAppProcessor) DeleteArgoApp(ctx context.Context, app *v1alpha1.Application, deployment *api.Deployment) {
-	if app != nil && deployment != nil && deployment.UndeployVersion {
+	if app != nil && deployment == nil {
 		deleteAppSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplication")
 		defer deleteAppSpan.Finish()
 		deleteAppSpan.SetTag("application", app.Name)
