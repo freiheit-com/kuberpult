@@ -4043,3 +4043,92 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		})
 	}
 }
+
+func TestChangedApps(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		Setup               []Transformer
+		Transformers        []Transformer
+		expectedChangedApps []AppEnv
+	}{
+		{
+			Name: "Undeploy application sets changed apps",
+			Setup: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Team:        "team1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			Transformers: []Transformer{
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedChangedApps: []AppEnv{
+				{
+					App:  "app1",
+					Env:  "production",
+					Team: "team1",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Setup...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+
+			if err != nil {
+				t.Fatalf("Did not expect error during setup but got:\n%+v", err)
+			}
+
+			err = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, changes, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+
+				finalChanges := &TransformerResult{}
+				for _, change := range changes {
+					finalChanges.Combine(change)
+				}
+
+				if diff := cmp.Diff(tc.expectedChangedApps, finalChanges.ChangedApps); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Did no expect error but got:\n%+v", err)
+			}
+		})
+	}
+}
