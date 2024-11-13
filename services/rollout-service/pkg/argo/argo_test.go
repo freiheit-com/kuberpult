@@ -987,6 +987,13 @@ func (a *mockArgoProcessor) DeleteArgoApps(ctx context.Context, argoApps map[str
 		}
 		toDelete = append(toDelete, argoApp)
 	}
+
+	for i := range toDelete {
+		a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
+			Name: conversion.FromString(toDelete[i].Name),
+		})
+
+	}
 }
 
 func (a *mockArgoProcessor) GetManageArgoAppsFilter() []string {
