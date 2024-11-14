@@ -1052,6 +1052,47 @@ manifestRepoExport:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
+			Name: "Git MinimizeExportData mode explicitely set",
+			Values: `
+git:
+  url:  "testURL"
+  minimizeExportedData: true
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+  sslMode: disable
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_MINIMIZE_EXPORTED_DATA",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Git MinimizeExportData mode default value",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+  sslMode: disable
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_MINIMIZE_EXPORTED_DATA",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
 			Name: "DB ssl mode",
 			Values: `
 git:

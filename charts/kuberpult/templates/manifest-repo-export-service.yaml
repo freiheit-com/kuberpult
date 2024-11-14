@@ -231,6 +231,8 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
+        - name: KUBERPULT_MINIMIZE_EXPORTED_DATA
+          value: "{{ .Values.git.minimizeExportedData }}"
         volumeMounts:
         - name: repository
           # The repository volume, an emptyDir, is mounted to the kp directory.

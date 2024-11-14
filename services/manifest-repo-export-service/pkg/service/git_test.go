@@ -54,11 +54,12 @@ func setupRepositoryTestWithoutDB(t *testing.T) (rp.Repository, error) {
 	t.Logf("test created dir: %s", localDir)
 
 	repoCfg := rp.RepositoryConfig{
-		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
-		ArgoCdGenerateFiles: true,
+		URL:                  remoteDir,
+		Path:                 localDir,
+		CommitterEmail:       "kuberpult@freiheit.com",
+		CommitterName:        "kuberpult",
+		ArgoCdGenerateFiles:  true,
+		MinimizeExportedData: false,
 	}
 	repoCfg.DBHandler = nil
 
@@ -1031,8 +1032,9 @@ func TestGetCommitInfo(t *testing.T) {
 			}
 
 			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles: true,
-				DBHandler:           repo.State().DBHandler,
+				ArgoCdGenerateFiles:  true,
+				DBHandler:            repo.State().DBHandler,
+				MinimizeExportedData: false,
 			}
 			sv := &GitServer{
 				Repository: repo,

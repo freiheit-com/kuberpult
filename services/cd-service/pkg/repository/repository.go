@@ -2478,12 +2478,11 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 	}
 
 	shouldDelete := stateChange == db.AppStateChangeDelete
-
 	if shouldDelete {
 		lApps := make([]*api.OverviewApplication, 0)
 
 		for _, curr := range cache.LightweightApps {
-			if curr.Name != appName {
+			if curr != nil && curr.Name != appName {
 				lApps = append(lApps, curr)
 			}
 		}

@@ -689,13 +689,13 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, c.Application, false, false)
+		prevRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, c.Application, false)
 		if err != nil {
 			return "", err
 		}
 		var v = db.InitialEslVersion - 1
-		if len(prevRelease) > 0 {
-			v = prevRelease[0].EslVersion
+		if prevRelease != nil {
+			v = prevRelease.EslVersion
 		}
 		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 		if err != nil {
@@ -1510,8 +1510,8 @@ func (u *UndeployApplication) GetDBEventType() db.EventType {
 	return db.EvtUndeployApplication
 }
 
-func (c *UndeployApplication) SetEslVersion(id db.TransformerID) {
-	c.TransformerEslVersion = id
+func (u *UndeployApplication) SetEslVersion(id db.TransformerID) {
+	u.TransformerEslVersion = id
 }
 
 func (u *UndeployApplication) Transform(
@@ -1633,7 +1633,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not write all apps '%v': '%w'", u.Application, err)
 		}
-		dbApp, err := state.DBHandler.DBSelectApp(ctx, transaction, u.Application)
+		dbApp, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, u.Application)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 		}

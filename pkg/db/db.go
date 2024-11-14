@@ -864,23 +864,50 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
 }
 
-func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context, tx *sql.Tx, app string, deleted bool, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppOrderedByEslVersion")
 	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments " +
-			" FROM releases " +
-			" WHERE appName=? AND deleted=?" +
-			" ORDER BY eslVersion DESC, releaseVersion DESC, created DESC;"))
+	selectQuery := h.AdaptQuery(`
+SELECT
+	releases.eslVersion,
+	releases.created,
+	releases.appName,
+	releases.metadata,
+	releases.releaseVersion,
+	releases.deleted,
+	releases.environments
+FROM (
+ 	SELECT max(eslVersion) as latestEslVersion, appName, releaseVersion
+ 	FROM releases
+ 	WHERE appName=?
+ 	GROUP BY appName, releaseVersion
+ 	) as c
+JOIN releases
+    ON  c.appName= releases.appName
+    AND c.latestEslVersion = releases.eslversion
+    AND c.releaseVersion = releases.releaseVersion
+ORDER BY c.releaseVersion DESC
+LIMIT 1;
+`,
+	)
 	span.SetTag("query", selectQuery)
+	span.SetTag("appName", app)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		app,
-		deleted,
 	)
 
-	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
+	result, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
+	span.SetTag("resultCount", len(result))
+	if err != nil {
+		span.Finish(tracer.WithError(err))
+		return nil, err
+	}
+	if result == nil {
+		return nil, nil
+	}
+	return result[0], nil
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
@@ -2287,6 +2314,9 @@ type DBAppWithMetaData struct {
 func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertApplication")
 	defer span.Finish()
+	log := logger.FromContext(ctx).Sugar()
+	log.Warnf("plain dbinsert app: %s/%v", appName, stateChange)
+
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -2419,13 +2449,27 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
 	}
+	return processAppRow(ctx, rows)
+}
+
+func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
+	app, err := h.DBSelectApp(ctx, tx, appName)
+	if err != nil {
+		return nil, err
+	}
+	if app == nil {
+		return nil, nil
+	}
+	return app, nil
+}
+
+func processAppRow(ctx context.Context, rows *sql.Rows) (*DBAppWithMetaData, error) {
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
 		}
 	}(rows)
-
 	//exhaustruct:ignore
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
@@ -2443,10 +2487,13 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
 		}
 		row.Metadata = metaData
+		if row.StateChange == AppStateChangeDelete {
+			return nil, nil
+		}
 	} else {
 		row = nil
 	}
-	err = closeRows(rows)
+	err := closeRows(rows)
 	if err != nil {
 		return nil, err
 	}

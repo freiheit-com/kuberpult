@@ -286,14 +286,6 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								DeployAuthor: "test tester",
 							},
 						},
-						prod: {
-							Version:         3,
-							QueuedVersion:   0,
-							UndeployVersion: false,
-							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-								DeployAuthor: "test tester",
-							},
-						},
 					},
 					AppLocks:  map[string]*api.Locks{},
 					TeamLocks: map[string]*api.Locks{},
