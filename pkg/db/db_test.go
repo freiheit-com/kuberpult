@@ -322,7 +322,6 @@ func TestCustomMigrationsApps(t *testing.T) {
 			Name: "Simple migration",
 			expectedApps: []*DBAppWithMetaData{
 				{
-					EslVersion:  2,
 					App:         appName,
 					StateChange: AppStateChangeMigrate,
 					Metadata: DBAppMetaData{
