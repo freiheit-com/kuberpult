@@ -643,7 +643,7 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBInsertApplication(ctx, transaction, "test", 0, AppStateChangeCreate, DBAppMetaData{})
+				err := dbHandler.DBInsertApplication(ctx, transaction, "test", AppStateChangeCreate, DBAppMetaData{})
 				if err != nil {
 					return err
 				}

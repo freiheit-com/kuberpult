@@ -2461,9 +2461,9 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 	return nil
 }
 
-func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
+func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
 	h := s.DBHandler
-	err := h.DBInsertApplication(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+	err := h.DBInsertApplication(ctx, transaction, appName, stateChange, metaData)
 	if err != nil {
 		return err
 	}

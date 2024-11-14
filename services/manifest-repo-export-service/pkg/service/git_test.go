@@ -84,7 +84,7 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 	}
 	eslVersion := 0
 	for _, app := range fixtureAppications {
-		err = dbHandler.DBInsertApplication(ctx, transaction, app, db.EslVersion(eslVersion), db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
+		err = dbHandler.DBInsertApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
 		if err != nil {
 			return err
 		}

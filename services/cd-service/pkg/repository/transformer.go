@@ -532,21 +532,14 @@ func (c *CreateApplicationVersion) Transform(
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not read apps: %v", err))
 			}
-			var ver db.EslVersion
-			if app == nil {
-				ver = db.InitialEslVersion
-			} else {
-				if app.StateChange != db.AppStateChangeDelete {
-					return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app, app already exists: %v", err)) //Should never happen
-				}
-				ver = app.EslVersion + 1
+			if app != nil && app.StateChange != db.AppStateChangeDelete {
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app, app already exists: %v", err)) //Should never happen
 			}
 
 			err = state.DBHandler.InsertAppFun(
 				ctx,
 				transaction,
 				c.Application,
-				ver,
 				db.AppStateChangeCreate,
 				db.DBAppMetaData{Team: c.Team},
 			)
@@ -569,7 +562,6 @@ func (c *CreateApplicationVersion) Transform(
 					ctx,
 					transaction,
 					c.Application,
-					existingApp.EslVersion,
 					db.AppStateChangeUpdate,
 					newMeta,
 				)
@@ -1637,7 +1629,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 		}
-		err = state.DBHandler.InsertAppFun(ctx, transaction, dbApp.App, dbApp.EslVersion, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
+		err = state.DBHandler.InsertAppFun(ctx, transaction, dbApp.App, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 		}

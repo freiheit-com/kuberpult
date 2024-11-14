@@ -220,7 +220,7 @@ func TestVersion(t *testing.T) {
 						return err
 					}
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, "test", db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
@@ -447,13 +447,13 @@ func TestGetManifests(t *testing.T) {
 						return err
 					}
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, appNameOther, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appNameOther, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
