@@ -290,6 +290,7 @@ func runServer(ctx context.Context, config Config) error {
 		},
 	})
 
+	fmt.Println("OUCH")
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
 			{
