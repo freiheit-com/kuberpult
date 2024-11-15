@@ -59,7 +59,8 @@ func (o *VersionServiceServer) GetVersion(
 			// Instead, it has the release number stored with leading zeroes.
 			releaseVersion, err := reposerver.FromRevision(in.GitRevision)
 			if err != nil {
-				return nil, fmt.Errorf("could not parse GitRevision '%s': %w", in.GitRevision, err)
+				return nil, fmt.Errorf("could not parse GitRevision '%s' for app '%s' in env '%s': %w",
+					in.GitRevision, in.Application, in.Environment, err)
 			}
 			deployment, err := dbHandler.DBSelectSpecificDeployment(ctx, tx, in.Environment, in.Application, releaseVersion)
 			if err != nil || deployment == nil {
