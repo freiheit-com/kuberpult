@@ -184,6 +184,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								SourceAuthor:   "example <example@example.com>",
 								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceMessage:  "changed something (#678)",
+								Environments:   []string{"development"},
 							},
 						},
 						Warnings: []*api.Warning{},
@@ -224,6 +225,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								SourceAuthor:   "example <example@example.com>",
 								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceMessage:  "test with team version 2",
+								Environments:   []string{"development"},
 							},
 						},
 						Warnings: []*api.Warning{},
@@ -263,6 +265,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								SourceAuthor:   "example <example@example.com>",
 								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceMessage:  "changed something (#678",
+								Environments:   []string{"development"},
 							},
 						},
 						Warnings: []*api.Warning{
@@ -300,6 +303,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								SourceAuthor:   "example <example@example.com>",
 								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 								SourceMessage:  "(#678)",
+								Environments:   []string{"development"},
 							},
 						},
 						Warnings: []*api.Warning{},
@@ -787,6 +791,7 @@ func TestOverviewService(t *testing.T) {
 func TestGetApplicationDetails(t *testing.T) {
 	var dev = "dev"
 	var env = "development"
+	var secondEnv = "development2"
 	var appName = "test-app"
 	tcs := []struct {
 		Name             string
@@ -808,6 +813,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							SourceMessage:  "changed something (#678)",
 							PrNumber:       "678",
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{env, secondEnv},
 						},
 					},
 					Team: "team-123",
@@ -875,7 +881,8 @@ func TestGetApplicationDetails(t *testing.T) {
 					TransformerEslVersion: 1,
 					Application:           appName,
 					Manifests: map[string]string{
-						env: "v1",
+						env:       "v1",
+						secondEnv: "v2",
 					},
 				},
 				&repository.CreateEnvironmentTeamLock{
@@ -1309,6 +1316,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
 								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+								Environments:   []string{"development"},
 							},
 							{
 								Version:        1,
@@ -1317,6 +1325,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 								SourceMessage:  "changed something (#678)",
 								PrNumber:       "678",
 								CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+								Environments:   []string{"development"},
 							},
 						},
 						Team:     "test-team",

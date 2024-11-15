@@ -1300,6 +1300,7 @@ func (rel *Release) ToProto() *api.Release {
 		DisplayVersion:  rel.DisplayVersion,
 		IsMinor:         false,
 		IsPrepublish:    false,
+		Environments:    []string{},
 	}
 }
 

@@ -2880,6 +2880,7 @@ type Release struct {
 	The goal is to get 100% of the commits even if the pipeline fails.
 	*/
 	IsPrepublish bool
+	Environments []string
 }
 
 func (rel *Release) ToProto() *api.Release {
@@ -2897,6 +2898,7 @@ func (rel *Release) ToProto() *api.Release {
 		DisplayVersion:  rel.DisplayVersion,
 		IsMinor:         rel.IsMinor,
 		IsPrepublish:    rel.IsPrepublish,
+		Environments:    rel.Environments,
 	}
 }
 
@@ -2956,6 +2958,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 				DisplayVersion:  rel.Metadata.DisplayVersion,
 				IsMinor:         rel.Metadata.IsMinor,
 				IsPrepublish:    rel.Metadata.IsPrepublish,
+				Environments:    rel.Environments,
 			}
 			result = append(result, r)
 		}
@@ -2990,6 +2993,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 			DisplayVersion:  env.Metadata.DisplayVersion,
 			IsMinor:         env.Metadata.IsMinor,
 			IsPrepublish:    env.Metadata.IsPrepublish,
+			Environments:    env.Environments,
 		}, nil
 	} else {
 		return s.GetApplicationReleaseFromManifest(application, version)
@@ -3012,6 +3016,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		DisplayVersion:  "",
 		IsMinor:         false,
 		IsPrepublish:    false,
+		Environments:    []string{},
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
