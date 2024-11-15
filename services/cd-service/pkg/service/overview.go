@@ -21,6 +21,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"sort"
+	"sync"
+	"sync/atomic"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
@@ -34,10 +39,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"os"
-	"sort"
-	"sync"
-	"sync/atomic"
 )
 
 type OverviewServiceServer struct {
@@ -119,7 +120,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 				DisplayVersion:  currentRelease.Metadata.DisplayVersion,
 				IsMinor:         currentRelease.Metadata.IsMinor,
 				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
-				Enviornments:    currentRelease.Environments,
+				Environments:    currentRelease.Environments,
 			}
 			result.Releases = append(result.Releases, tmp.ToProto())
 		}
