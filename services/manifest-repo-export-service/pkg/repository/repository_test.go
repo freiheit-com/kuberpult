@@ -17,9 +17,10 @@ Copyright freiheit.com*/
 package repository
 
 import (
+	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"os"
 	"os/exec"
 	"path"
 	"testing"
@@ -30,108 +31,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	git "github.com/libgit2/git2go/v34"
 )
-
-func TestConfigValidity(t *testing.T) {
-	tcs := []struct {
-		Name          string
-		ConfigContent string
-		ErrorExpected bool
-	}{
-		{
-			Name:          "Initialization with valid config.json file works",
-			ConfigContent: "{\"upstream\": {\"latest\": true }}",
-			ErrorExpected: false,
-		},
-		{
-			Name:          "Initialization with invalid config.json file throws error",
-			ConfigContent: "{\"upstream\": \"latest\": true }}",
-			ErrorExpected: true,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			workdir := t.TempDir()
-			remoteDir := path.Join(workdir, "remote")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-
-			workdir = t.TempDir()
-			cmd = exec.Command("git", "clone", remoteDir, workdir) // Clone git dir
-			_, err := cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				t.Fatal(err)
-			}
-
-			if err := os.MkdirAll(path.Join(workdir, "environments", "development"), 0700); err != nil {
-				t.Fatal(err)
-			}
-
-			configFilePath := path.Join(workdir, "environments", "development", "config.json")
-			if err := os.WriteFile(configFilePath, []byte(tc.ConfigContent), 0666); err != nil {
-				t.Fatal(err)
-			}
-			cmd = exec.Command("git", "add", configFilePath) // Add a new file to git
-			cmd.Dir = workdir
-			_, err = cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				t.Fatal(err)
-			}
-			cmd = exec.Command("git", "commit", "-m", "valid config") // commit the new file
-			cmd.Dir = workdir
-			cmd.Env = []string{
-				"GIT_AUTHOR_NAME=kuberpult",
-				"GIT_COMMITTER_NAME=kuberpult",
-				"EMAIL=test@kuberpult.com",
-			}
-			_, err = cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				t.Fatal(err)
-			}
-			cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
-			cmd.Dir = workdir
-			_, err = cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				t.Fatal(err)
-			}
-
-			_, err = New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                 remoteDir,
-					Path:                t.TempDir(),
-					ArgoCdGenerateFiles: true,
-				},
-			)
-
-			if tc.ErrorExpected {
-				if err == nil {
-					t.Errorf("Initialized even though config.json was incorrect")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Initialization failed with valid config.json")
-				}
-			}
-
-		})
-	}
-}
 
 func TestRetrySsh(t *testing.T) {
 	tcs := []struct {
@@ -288,7 +187,7 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo := setupRepositoryTest(t)
+			repo, _, _ := SetupRepositoryTestWithDB(t)
 			state := repo.State()
 			err := state.Filesystem.MkdirAll(tc.CreateThisDir, 0777)
 			if err != nil {
@@ -307,28 +206,58 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 	}
 }
 
-func setupRepositoryTest(t *testing.T) Repository {
+func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *RepositoryConfig) {
+	ctx := context.Background()
+	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &db.DBConfig{
+		MigrationsPath: migrationsPath,
+		DriverName:     "sqlite3",
+	}
+
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
-	t.Logf("test created dir: %s", localDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil, nil, nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil, nil, nil
+	}
+	dbConfig.DbHost = dir
+	migErr := db.RunDBMigrations(ctx, *dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := db.Connect(ctx, *dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := RepositoryConfig{
+		URL:                 "file://" + remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
+		DBHandler:           dbHandler,
+		Branch:              "master",
+	}
 	repo, err := New(
 		testutil.MakeTestContext(),
-		RepositoryConfig{
-			URL:                 remoteDir,
-			Path:                localDir,
-			CommitterEmail:      "kuberpult@freiheit.com",
-			CommitterName:       "kuberpult",
-			ArgoCdGenerateFiles: true,
-		},
+		config,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repo
+	return repo, dbHandler, &config
 }
 
 func TestGetTagsNoTags(t *testing.T) {
@@ -336,28 +265,11 @@ func TestGetTagsNoTags(t *testing.T) {
 
 	t.Run(name, func(t *testing.T) {
 		t.Parallel()
-		dir := t.TempDir()
-		remoteDir := path.Join(dir, "remote")
-		localDir := path.Join(dir, "local")
-		repoConfig := RepositoryConfig{
-			URL:                 "file://" + remoteDir,
-			Path:                localDir,
-			Branch:              "master",
-			ArgoCdGenerateFiles: true,
-		}
-		cmd := exec.Command("git", "init", "--bare", remoteDir)
-		cmd.Start()
-		cmd.Wait()
-		_, err := New(
-			testutil.MakeTestContext(),
-			repoConfig,
-		)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+		_, _, repoConfig := SetupRepositoryTestWithDB(t)
+		localDir := repoConfig.Path
 		tags, err := GetTags(
-			repoConfig,
+			*repoConfig,
 			localDir,
 			testutil.MakeTestContext(),
 		)
@@ -392,21 +304,11 @@ func TestGetTags(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			repoConfig := RepositoryConfig{
-				URL:                 "file://" + remoteDir,
-				Path:                localDir,
-				Branch:              "master",
-				ArgoCdGenerateFiles: true,
-			}
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
+			_, _, repoConfig := SetupRepositoryTestWithDB(t)
+			localDir := repoConfig.Path
 			_, err := New(
 				testutil.MakeTestContext(),
-				repoConfig,
+				*repoConfig,
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -445,7 +347,7 @@ func TestGetTags(t *testing.T) {
 				}
 			}
 			tags, err := GetTags(
-				repoConfig,
+				*repoConfig,
 				localDir,
 				testutil.MakeTestContext(),
 			)

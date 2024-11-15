@@ -32,7 +32,7 @@ services:
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
       - KUBERPULT_DEX_RBAC_TEAM_PATH=/etc/team.csv
       - KUBERPULT_DEX_MOCK_ROLE=developer
-      - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
+      - KUBERPULT_GIT_WRITE_COMMIT_DATA=false
       - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
       - KUBERPULT_ALLOW_LONG_APP_NAMES=true
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
@@ -74,6 +74,7 @@ services:
       - KUBERPULT_DB_SSL_MODE=disable
       - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=5
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=1
+      - KUBERPULT_MINIMIZE_EXPORTED_DATA=true
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database

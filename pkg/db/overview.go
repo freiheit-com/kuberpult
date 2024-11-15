@@ -126,7 +126,7 @@ func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transacti
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", applicationLock.Env)
 	}
-	selectApp, err := h.DBSelectApp(ctx, transaction, applicationLock.App)
+	selectApp, err := h.DBSelectExistingApp(ctx, transaction, applicationLock.App)
 	if err != nil {
 		return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", applicationLock.App, err)
 	}

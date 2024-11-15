@@ -289,6 +289,13 @@ func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel 
 	defer cancel()
 	if err := config.Run(ctx, reporter); err != nil {
 		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))
+	} else {
+		select {
+		case <-ctx.Done():
+			logger.FromContext(ctx).Info("Background task terminated with shutdown signal: " + config.Name)
+		default:
+			logger.FromContext(ctx).Warn("Background task terminated without error or shutdown signal: " + config.Name)
+		}
 	}
 }
 
