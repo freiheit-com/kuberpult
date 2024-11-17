@@ -1,12 +1,20 @@
 ALTER TABLE IF EXISTS apps ADD COLUMN IF NOT EXISTS version INTEGER;
-WITH ordered_rows AS (
-    SELECT eslversion, appname, ROW_NUMBER() OVER (ORDER BY eslversion) AS row_num
-    FROM apps
-)
-UPDATE apps
-SET version = ordered_rows.row_num
-FROM ordered_rows
-WHERE apps.eslversion = ordered_rows.eslversion AND apps.appname = ordered_rows.appname;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'apps' 
+                 AND column_name = 'eslversion') THEN
+        EXECUTE 'WITH ordered_rows AS (
+            SELECT eslversion, appname, ROW_NUMBER() OVER (ORDER BY eslversion) AS row_num
+            FROM apps
+        )
+        UPDATE apps
+        SET version = ordered_rows.row_num
+        FROM ordered_rows
+        WHERE apps.eslversion = ordered_rows.eslversion AND apps.appname = ordered_rows.appname;';
+    END IF;
+END $$;
 
 CREATE SEQUENCE IF NOT EXISTS apps_version_seq OWNED BY apps.version;
 
