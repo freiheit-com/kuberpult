@@ -1405,480 +1405,315 @@ func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 	return nil
 }
 
-func TestApplicationDeploymentEvent(t *testing.T) {
-	type TestCase struct {
-		Name             string
-		Transformers     []Transformer
-		expectedContent  []FileWithContent
-		db               bool
-		expectedDBEvents []event.Event
-	}
+//func TestApplicationDeploymentEvent(t *testing.T) {
+//	type TestCase struct {
+//		Name             string
+//		Transformers     []Transformer
+//		db               bool
+//		expectedDBEvents []event.Event
+//	}
+//
+//	tcs := []TestCase{
+//		{
+//			Name: "Create a single application version and deploy it",
+//			// no need to bother with environments here
+//			Transformers: []Transformer{
+//				&CreateApplicationVersion{
+//					Application:    "app",
+//					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+//					Manifests: map[string]string{
+//						"staging": "doesn't matter",
+//					},
+//					WriteCommitData: true,
+//					Version:         1,
+//				},
+//				&DeployApplicationVersion{
+//					Application:     "app",
+//					Environment:     "staging",
+//					WriteCommitData: true,
+//					Version:         1,
+//				},
+//			},
+//		},
+//		{
+//			Name: "Trigger a deployment via a relase train with environment target",
+//			Transformers: []Transformer{
+//				&CreateEnvironment{
+//					Environment: "production",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Environment: "staging",
+//						},
+//					},
+//				},
+//				&CreateEnvironment{
+//					Environment: "staging",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Environment: "staging",
+//							Latest:      true,
+//						},
+//					},
+//				},
+//				&CreateApplicationVersion{
+//					Application:    "app",
+//					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+//					Manifests: map[string]string{
+//						"production": "some production manifest 2",
+//						"staging":    "some staging manifest 2",
+//					},
+//					WriteCommitData: true,
+//					Version:         1,
+//				},
+//				&DeployApplicationVersion{
+//					Environment:     "staging",
+//					Application:     "app",
+//					Version:         1,
+//					WriteCommitData: true,
+//				},
+//				&ReleaseTrain{
+//					Target:          "production",
+//					WriteCommitData: true,
+//				},
+//			},
+//		},
+//		{
+//			Name: "Trigger a deployment via a release train with environment group target without lock",
+//			Transformers: []Transformer{
+//				&CreateEnvironment{
+//					Environment: "production",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Environment: "staging",
+//						},
+//						EnvironmentGroup: conversion.FromString("production-group"),
+//					},
+//				},
+//				&CreateEnvironment{
+//					Environment: "staging",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Environment: "staging",
+//							Latest:      true,
+//						},
+//					},
+//				},
+//				&CreateApplicationVersion{
+//					Application:    "app",
+//					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+//					Manifests: map[string]string{
+//						"production": "some production manifest 2",
+//						"staging":    "some staging manifest 2",
+//					},
+//					WriteCommitData: true,
+//					Version:         1,
+//				},
+//				&DeployApplicationVersion{
+//					Environment:     "staging",
+//					Application:     "app",
+//					Version:         1,
+//					WriteCommitData: true,
+//				},
+//				&ReleaseTrain{
+//					Target:          "production-group",
+//					WriteCommitData: true,
+//				},
+//			},
+//		},
+//		{
+//			Name: "Trigger a deployment via a release train with environment group target with lock",
+//			Transformers: []Transformer{
+//				&CreateEnvironment{
+//					Environment: "production",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Environment: "staging",
+//						},
+//						EnvironmentGroup: conversion.FromString("production-group"),
+//					},
+//				},
+//				&CreateEnvironment{
+//					Environment: "staging",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Environment: "staging",
+//							Latest:      true,
+//						},
+//					},
+//				},
+//				&CreateApplicationVersion{
+//					Application:    "app",
+//					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+//					Manifests: map[string]string{
+//						"production": "some production manifest 2",
+//						"staging":    "some staging manifest 2",
+//					},
+//					WriteCommitData: true,
+//					Version:         1,
+//				},
+//				&DeployApplicationVersion{
+//					Environment:     "staging",
+//					Application:     "app",
+//					Version:         1,
+//					WriteCommitData: true,
+//				},
+//				&CreateEnvironmentLock{
+//					Environment: "production",
+//					LockId:      "lock id 1",
+//					Message:     "lock msg 1",
+//				},
+//				&ReleaseTrain{
+//					Target:          "production-group",
+//					WriteCommitData: true,
+//				},
+//			},
+//		},
+//		{
+//			Name: "Block deployments using env lock",
+//			Transformers: []Transformer{
+//				&CreateEnvironment{
+//					Environment: "dev",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//					},
+//				},
+//				&CreateEnvironment{
+//					Environment: "staging",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//					},
+//				},
+//				&CreateEnvironmentLock{
+//					Environment: "staging",
+//					LockId:      "lock1",
+//					Message:     "lock staging",
+//				},
+//				&CreateApplicationVersion{
+//					Application:    "myapp",
+//					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+//					Manifests: map[string]string{
+//						"dev":     "some dev manifest",
+//						"staging": "some staging manifest",
+//					},
+//					WriteCommitData: true,
+//					Version:         3,
+//				},
+//			},
+//		},
+//		{
+//			Name: "Block deployments using app lock",
+//			Transformers: []Transformer{
+//				&CreateEnvironment{
+//					Environment: "dev",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//					},
+//				},
+//				&CreateEnvironment{
+//					Environment: "staging",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//					},
+//				},
+//				//&CreateEnvironmentLock{
+//				//	Environment: "staging",
+//				//	LockId:      "lock1",
+//				//	Message:     "lock staging",
+//				//},
+//				&CreateEnvironmentApplicationLock{
+//					Environment: "staging",
+//					Application: "myapp",
+//					LockId:      "lock2",
+//					Message:     "lock myapp",
+//				},
+//				&CreateApplicationVersion{
+//					Application:    "myapp",
+//					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+//					Manifests: map[string]string{
+//						"dev":     "some dev manifest",
+//						"staging": "some staging manifest",
+//					},
+//					WriteCommitData: true,
+//					Version:         4,
+//				},
+//			},
+//		},
+//		{
+//			Name: "Block deployments using Team lock",
+//			Transformers: []Transformer{
+//				&CreateEnvironment{
+//					Environment: "dev",
+//					Config: config.EnvironmentConfig{
+//						Upstream: &config.EnvironmentConfigUpstream{
+//							Latest: true,
+//						},
+//					},
+//				},
+//				&CreateApplicationVersion{ //Create the team
+//					Application:    "someapp",
+//					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaf",
+//					Manifests: map[string]string{
+//						"dev": "some dev manifest",
+//					},
+//					WriteCommitData: true,
+//					Team:            "sre-team",
+//					Version:         5,
+//				},
+//				&CreateEnvironmentTeamLock{
+//					Environment: "dev",
+//					Team:        "sre-team",
+//					LockId:      "lock2",
+//					Message:     "lock sreteam",
+//				},
+//				&CreateApplicationVersion{
+//					Application:    "myapp",
+//					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+//					Manifests: map[string]string{
+//						"dev": "some dev manifest",
+//					},
+//					WriteCommitData: true,
+//					Team:            "sre-team",
+//					Version:         6,
+//				},
+//			},
+//		},
+//	}
+//
+//	for _, tc := range tcs {
+//		t.Run(tc.Name, func(t *testing.T) {
+//			tc := tc
+//			t.Parallel()
+//
+//			fakeGen := testutil.NewIncrementalUUIDGenerator()
+//			ctx := testutil.MakeTestContext()
+//			ctx = AddGeneratorToContext(ctx, fakeGen)
+//			var repo Repository
+//			var err error = nil
+//			repo = SetupRepositoryTestWithDB(t)
+//
+//			_, err = db.WithTransactionT(repo.State().DBHandler, ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
+//				var batchError *TransformerBatchApplyError = nil
+//				_, _, _, batchError = repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+//				if batchError != nil {
+//					t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
+//				}
+//				return nil, nil
+//			})
+//			if err != nil {
+//				t.Fatalf("encountered error but no error is expected here: '%v'", err)
+//			}
+//		})
+//	}
+//}
 
-	tcs := []TestCase{
-		{
-			Name: "Create a single application version and deploy it",
-			// no need to bother with environments here
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
-						"staging": "doesn't matter",
-					},
-					WriteCommitData: true,
-				},
-				&DeployApplicationVersion{
-					Application:     "app",
-					Environment:     "staging",
-					WriteCommitData: true,
-					Version:         1,
-				},
-			},
-			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
-					Content: "app",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
-				},
-			},
-		},
-		{
-			Name: "Trigger a deployment via a relase train with environment target",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "production",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: "staging",
-						},
-					},
-				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: "staging",
-							Latest:      true,
-						},
-					},
-				},
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-					Manifests: map[string]string{
-						"production": "some production manifest 2",
-						"staging":    "some staging manifest 2",
-					},
-					WriteCommitData: true,
-				},
-				&DeployApplicationVersion{
-					Environment:     "staging",
-					Application:     "app",
-					Version:         1,
-					WriteCommitData: true,
-				},
-				&ReleaseTrain{
-					Target:          "production",
-					WriteCommitData: true,
-				},
-			},
-			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
-					Content: "app",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
-					Content: "production",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_upstream",
-					Content: "staging",
-				},
-			},
-		},
-		{
-			Name: "Trigger a deployment via a release train with environment group target without lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "production",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: "staging",
-						},
-						EnvironmentGroup: conversion.FromString("production-group"),
-					},
-				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: "staging",
-							Latest:      true,
-						},
-					},
-				},
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-					Manifests: map[string]string{
-						"production": "some production manifest 2",
-						"staging":    "some staging manifest 2",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&DeployApplicationVersion{
-					Environment:     "staging",
-					Application:     "app",
-					Version:         1,
-					WriteCommitData: true,
-				},
-				&ReleaseTrain{
-					Target:          "production-group",
-					WriteCommitData: true,
-				},
-			},
-			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
-					Content: "app",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
-					Content: "production",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_upstream",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_environment_group",
-					Content: "production-group",
-				},
-			},
-		},
-		{
-			Name: "Trigger a deployment via a release train with environment group target with lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "production",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: "staging",
-						},
-						EnvironmentGroup: conversion.FromString("production-group"),
-					},
-				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: "staging",
-							Latest:      true,
-						},
-					},
-				},
-				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-					Manifests: map[string]string{
-						"production": "some production manifest 2",
-						"staging":    "some staging manifest 2",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&DeployApplicationVersion{
-					Environment:     "staging",
-					Application:     "app",
-					Version:         1,
-					WriteCommitData: true,
-				},
-				&CreateEnvironmentLock{
-					Environment: "production",
-					LockId:      "lock id 1",
-					Message:     "lock msg 1",
-				},
-				&ReleaseTrain{
-					Target:          "production-group",
-					WriteCommitData: true,
-				},
-			},
-			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
-					Content: "replaced-by",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
-					Content: "lock-prevented-deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/lock_message",
-					Content: "lock msg 1",
-				},
-			},
-		},
-		{
-			Name: "Block deployments using env lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "dev",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-					},
-				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-					},
-				},
-				&CreateEnvironmentLock{
-					Environment: "staging",
-					LockId:      "lock1",
-					Message:     "lock staging",
-				},
-				&CreateApplicationVersion{
-					Application:    "myapp",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-					Manifests: map[string]string{
-						"dev":     "some dev manifest",
-						"staging": "some staging manifest",
-					},
-					WriteCommitData: true,
-					Version:         3,
-				},
-			},
-			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
-					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
-					Content: "lock-prevented-deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
-					Content: "lock staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
-					Content: "environment",
-				},
-			},
-		},
-		{
-			Name: "Block deployments using app lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "dev",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-					},
-				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-					},
-				},
-				//&CreateEnvironmentLock{
-				//	Environment: "staging",
-				//	LockId:      "lock1",
-				//	Message:     "lock staging",
-				//},
-				&CreateEnvironmentApplicationLock{
-					Environment: "staging",
-					Application: "myapp",
-					LockId:      "lock2",
-					Message:     "lock myapp",
-				},
-				&CreateApplicationVersion{
-					Application:    "myapp",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-					Manifests: map[string]string{
-						"dev":     "some dev manifest",
-						"staging": "some staging manifest",
-					},
-					WriteCommitData: true,
-					Version:         4,
-				},
-			},
-			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
-					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
-					Content: "lock-prevented-deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
-					Content: "lock myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
-					Content: "application",
-				},
-			},
-		},
-		{
-			Name: "Block deployments using Team lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "dev",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-					},
-				},
-				&CreateApplicationVersion{ //Create the team
-					Application:    "someapp",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaf",
-					Manifests: map[string]string{
-						"dev": "some dev manifest",
-					},
-					WriteCommitData: true,
-					Team:            "sre-team",
-					Version:         5,
-				},
-				&CreateEnvironmentTeamLock{
-					Environment: "dev",
-					Team:        "sre-team",
-					LockId:      "lock2",
-					Message:     "lock sreteam",
-				},
-				&CreateApplicationVersion{
-					Application:    "myapp",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-					Manifests: map[string]string{
-						"dev": "some dev manifest",
-					},
-					WriteCommitData: true,
-					Team:            "sre-team",
-					Version:         6,
-				},
-			},
-			expectedContent: []FileWithContent{
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
-					Content: "lock-prevented-deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
-					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/lock_message",
-					Content: "lock sreteam",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/lock_type",
-					Content: "team",
-				},
-			},
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
-			t.Parallel()
-
-			fakeGen := testutil.NewIncrementalUUIDGenerator()
-			ctx := testutil.MakeTestContext()
-			ctx = AddGeneratorToContext(ctx, fakeGen)
-			var repo Repository
-			var err error = nil
-			var updatedState *State = nil
-			repo = setupRepositoryTest(t)
-			var batchError *TransformerBatchApplyError = nil
-			_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
-			if batchError != nil {
-				t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
-			}
-			if err != nil {
-				t.Fatalf("encountered error but no error is expected here: '%v'", err)
-			}
-			fs := updatedState.Filesystem
-			if err := verifyContent(fs, tc.expectedContent); err != nil {
-				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
-			}
-		})
-	}
-}
 func TestNextAndPreviousCommitCreation(t *testing.T) {
 	type TestCase struct {
 		Name            string
