@@ -2460,6 +2460,9 @@ func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName
 	if app == nil {
 		return nil, nil
 	}
+	if app.StateChange == AppStateChangeDelete {
+		return nil, nil
+	}
 	return app, nil
 }
 
@@ -2487,9 +2490,6 @@ func processAppRow(ctx context.Context, rows *sql.Rows) (*DBAppWithMetaData, err
 			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
 		}
 		row.Metadata = metaData
-		if row.StateChange == AppStateChangeDelete {
-			return nil, nil
-		}
 	} else {
 		row = nil
 	}
