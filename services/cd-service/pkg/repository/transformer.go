@@ -259,28 +259,36 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateLockMetrics")
 	defer span.Finish()
 
-	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
+	envConfigs, _, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
 	if err != nil {
 		return err
 	}
-	for _, envName := range envNames {
+
+	overviewCache, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+	if err != nil {
+		return err
+	}
+
+	for envName := range envConfigs {
+		envFromCache := db.GetEnvironmentByName(overviewCache.EnvironmentGroups, envName)
+
 		GaugeEnvLockMetric(ctx, state, transaction, envName)
 
-		env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+		envFromDb, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 		if err != nil {
 			return fmt.Errorf("failed to read environment from the db: %v", err)
 		}
 
-		cache, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-		if err != nil {
-			return err
-
-		}
-		envAppLockCount := len(cache.EnvironmentGroups[0].Environments[0].AppLocks)
-
 		// in the future apps might be sorted, but currently they aren't
-		slices.Sort(env.Applications)
-		for _, appName := range env.Applications {
+		slices.Sort(envFromDb.Applications)
+		for _, appName := range envFromDb.Applications {
+			var envAppLockCount = 0
+			if envFromCache != nil && envFromCache.AppLocks != nil {
+				l := envFromCache.AppLocks[appName]
+				if l != nil {
+					envAppLockCount = len(l.Locks)
+				}
+			}
 			GaugeEnvAppLockMetric(ctx, envAppLockCount, envName, appName)
 
 			_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
