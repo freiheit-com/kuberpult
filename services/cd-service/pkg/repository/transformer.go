@@ -203,42 +203,32 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	if ddMetrics == nil {
 		return nil
 	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateDatadogMetrics")
+	defer span.Finish()
 
 	if state.DBHandler == nil {
 		logger.FromContext(ctx).Sugar().Warn("Tried to update datadog metrics without database")
 		return nil
 	}
 
-	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
+	repo.(*repository).GaugeQueueSize(ctx)
+	err2 := UpdateLockMetrics(ctx, transaction, state, now)
+	if err2 != nil {
+		span.Finish(tracer.WithError(err2))
+		return err2
+	}
+
+	err := UpdateChangedAppMetrics(ctx, changes, now)
 	if err != nil {
+		span.Finish(tracer.WithError(err2))
 		return err
 	}
-	repo.(*repository).GaugeQueueSize(ctx)
-	for _, envName := range envNames {
-		GaugeEnvLockMetric(ctx, state, transaction, envName)
+	return nil
+}
 
-		env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
-		if err != nil {
-			return fmt.Errorf("failed to read environment from the db: %v", err)
-		}
-
-		// in the future apps might be sorted, but currently they aren't
-		slices.Sort(env.Applications)
-		for _, appName := range env.Applications {
-			GaugeEnvAppLockMetric(ctx, state, transaction, envName, appName)
-
-			_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
-			if err != nil {
-				return err
-			}
-			timeDiff := now.Sub(deployedAtTimeUtc)
-			err = GaugeDeploymentMetric(ctx, envName, appName, timeDiff.Minutes())
-			if err != nil {
-				return err
-			}
-		}
-	}
-
+func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, now time.Time) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateChangedAppMetrics")
+	defer span.Finish()
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
@@ -264,6 +254,41 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 				},
 			}
 			err := ddMetrics.Event(&evt)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, now time.Time) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateLockMetrics")
+	defer span.Finish()
+
+	_, envNames, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	for _, envName := range envNames {
+		GaugeEnvLockMetric(ctx, state, transaction, envName)
+
+		env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+		if err != nil {
+			return fmt.Errorf("failed to read environment from the db: %v", err)
+		}
+
+		// in the future apps might be sorted, but currently they aren't
+		slices.Sort(env.Applications)
+		for _, appName := range env.Applications {
+			GaugeEnvAppLockMetric(ctx, state, transaction, envName, appName)
+
+			_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
+			if err != nil {
+				return err
+			}
+			timeDiff := now.Sub(deployedAtTimeUtc)
+			err = GaugeDeploymentMetric(ctx, envName, appName, timeDiff.Minutes())
 			if err != nil {
 				return err
 			}
