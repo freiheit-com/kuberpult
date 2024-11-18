@@ -227,7 +227,7 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 }
 
 func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, now time.Time) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateChangedAppMetrics")
+	span, _ := tracer.StartSpanFromContext(ctx, "UpdateChangedAppMetrics")
 	defer span.Finish()
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
