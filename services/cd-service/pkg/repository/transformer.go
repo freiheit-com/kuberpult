@@ -1835,6 +1835,7 @@ func (u *DeleteEnvFromApp) Transform(
 		if err != nil {
 			return "", fmt.Errorf("Couldn't write environment: %s into environments table, error: %w", u.Environment, err)
 		}
+		t.DeleteEnvFromApp(u.Application, u.Environment)
 	} else {
 
 		fs := state.Filesystem

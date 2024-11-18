@@ -3205,12 +3205,6 @@ func TestTransformerChanges(t *testing.T) {
 					Environment: envAcceptance,
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
-				&CreateEnvironmentApplicationLock{
-					Environment: envProduction,
-					Application: "foo",
-					LockId:      "foo-id",
-					Message:     "foo",
-				},
 				&CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
@@ -3219,6 +3213,12 @@ func TestTransformerChanges(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: "foo",
+					LockId:      "foo-id",
+					Message:     "foo",
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -3377,6 +3377,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeleteEnvFromApp{
 					Application: "foo",
@@ -3438,19 +3439,26 @@ func TestTransformerChanges(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo := setupRepositoryTest(t)
-			msgs, _, actualChanges, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
-			// we only diff the changes from the last transformer here:
-			lastChanges := actualChanges[len(actualChanges)-1]
-			// note that we only check the LAST error here:
-			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
-			}
+			//repo := setupRepositoryTest(t)
+			repo := SetupRepositoryTestWithDB(t)
 
-			if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
-				t.Log("Commit message:\n", msgs[len(msgs)-1])
-				t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
-			}
+			dbHandler := repo.State().DBHandler
+
+			_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+				msgs, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				// note that we only check the LAST error here:
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				// we only diff the changes from the last transformer here:
+				lastChanges := actualChanges[len(actualChanges)-1]
+				if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
+					t.Log("Commit message:\n", msgs[len(msgs)-1])
+					t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
+				}
+				return nil
+			})
+
 		})
 	}
 }
