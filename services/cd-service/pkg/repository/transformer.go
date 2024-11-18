@@ -1681,6 +1681,9 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not get all environments: %v", err)
 		}
+		if allEnvs == nil {
+			return "", fmt.Errorf("UndeployApplication: all environments nil")
+		}
 		for _, envName := range allEnvs.Environments {
 			env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 			if err != nil {
