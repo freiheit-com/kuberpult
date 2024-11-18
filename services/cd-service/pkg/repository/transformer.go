@@ -268,6 +268,9 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 	if err != nil {
 		return err
 	}
+	if overviewCache == nil {
+		return fmt.Errorf("UpdateLockMetrics could not get overview: nil")
+	}
 
 	for envName := range envConfigs {
 		envFromCache := db.GetEnvironmentByName(overviewCache.EnvironmentGroups, envName)
