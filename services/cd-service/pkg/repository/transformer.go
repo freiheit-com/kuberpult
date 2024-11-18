@@ -2423,52 +2423,75 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 		}
 	}
-	user, err := auth.ReadUserFromContext(ctx)
-	if err != nil {
-		return "", err
-	}
-	//Write to locks table
-	errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, db.LockMetadata{
-		CreatedByName:  user.Name,
-		CreatedByEmail: user.Email,
-		Message:        c.Message,
-		CiLink:         c.CiLink,
-		CreatedAt:      time.Time{},
-	})
-	if errW != nil {
-		return "", errW
-	}
-
-	//Add it to all locks
-	allAppLocks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, c.Environment, c.Application)
-	if err != nil {
-		return "", err
-	}
-	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return "", fmt.Errorf("could not get transaction timestamp")
-	}
-	if allAppLocks == nil {
-		allAppLocks = &db.AllAppLocksGo{
-			Version: 1,
-			AllAppLocksJson: db.AllAppLocksJson{
-				AppLocks: []string{},
-			},
-			Created:     *now,
-			Environment: c.Environment,
-			AppName:     c.Application,
-		}
-	}
-
-	if !slices.Contains(allAppLocks.AppLocks, c.LockId) {
-		allAppLocks.AppLocks = append(allAppLocks.AppLocks, c.LockId)
-		err := state.DBHandler.DBWriteAllAppLocks(ctx, transaction, allAppLocks.Version, c.Environment, c.Application, allAppLocks.AppLocks)
+	if state.DBHandler.ShouldUseOtherTables() {
+		user, err := auth.ReadUserFromContext(ctx)
 		if err != nil {
+			return "", err
+		}
+		//Write to locks table
+		errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, db.LockMetadata{
+			CreatedByName:  user.Name,
+			CreatedByEmail: user.Email,
+			Message:        c.Message,
+			CiLink:         c.CiLink,
+			CreatedAt:      time.Time{},
+		})
+		if errW != nil {
+			return "", errW
+		}
+
+		//Add it to all locks
+		allAppLocks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, c.Environment, c.Application)
+		if err != nil {
+			return "", err
+		}
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp: %v", err)
+		}
+		if now == nil {
+			return "", fmt.Errorf("could not get transaction timestamp: nil")
+		}
+		if allAppLocks == nil {
+			allAppLocks = &db.AllAppLocksGo{
+				Version: 1,
+				AllAppLocksJson: db.AllAppLocksJson{
+					AppLocks: []string{},
+				},
+				Created:     *now,
+				Environment: c.Environment,
+				AppName:     c.Application,
+			}
+		}
+
+		if !slices.Contains(allAppLocks.AppLocks, c.LockId) {
+			allAppLocks.AppLocks = append(allAppLocks.AppLocks, c.LockId)
+			err := state.DBHandler.DBWriteAllAppLocks(ctx, transaction, allAppLocks.Version, c.Environment, c.Application, allAppLocks.AppLocks)
+			if err != nil {
+				return "", err
+			}
+		}
+		GaugeEnvAppLockMetric(ctx, len(allAppLocks.AppLocks), c.Environment, c.Application)
+	} else {
+		fs := state.Filesystem
+		envDir := fs.Join("environments", c.Environment)
+		if _, err := fs.Stat(envDir); err != nil {
+			return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+		}
+
+		appDir := fs.Join(envDir, "applications", c.Application)
+		if err := fs.MkdirAll(appDir, 0777); err != nil {
+			return "", err
+		}
+		chroot, err := fs.Chroot(appDir)
+		if err != nil {
+			return "", err
+		}
+		if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
 			return "", err
 		}
 	}
 
-	GaugeEnvAppLockMetric(ctx, len(allAppLocks.AppLocks), c.Environment, c.Application)
 	// locks are invisible to argoCd, so no changes here
 	return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
 }
@@ -2502,26 +2525,49 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		return "", err
 	}
 	queueMessage := ""
-	err = state.DBHandler.DBDeleteApplicationLock(ctx, transaction, c.Environment, c.Application, c.LockId)
-	if err != nil {
-		return "", err
-	}
-	allAppLocks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, c.Environment, c.Application)
-	if err != nil {
-		return "", fmt.Errorf("DeleteEnvironmentApplicationLock: could not select all env app locks for app '%v' on '%v': '%w'", c.Application, c.Environment, err)
-	}
-	var locks []string
-	var version = int64(db.InitialEslVersion)
-	if allAppLocks != nil {
-		locks = db.Remove(allAppLocks.AppLocks, c.LockId)
-		version = allAppLocks.Version
-	}
+	if state.DBHandler.ShouldUseOtherTables() {
+		err = state.DBHandler.DBDeleteApplicationLock(ctx, transaction, c.Environment, c.Application, c.LockId)
+		if err != nil {
+			return "", err
+		}
+		allAppLocks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, c.Environment, c.Application)
+		if err != nil {
+			return "", fmt.Errorf("DeleteEnvironmentApplicationLock: could not select all env app locks for app '%v' on '%v': '%w'", c.Application, c.Environment, err)
+		}
+		var locks []string
+		var version = int64(db.InitialEslVersion)
+		if allAppLocks != nil {
+			locks = db.Remove(allAppLocks.AppLocks, c.LockId)
+			version = allAppLocks.Version
+		}
 
-	err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, version, c.Environment, c.Application, locks)
-	if err != nil {
-		return "", fmt.Errorf("DeleteEnvironmentApplicationLock: could not write app locks for app '%v' on '%v': '%w'", c.Application, c.Environment, err)
+		err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, version, c.Environment, c.Application, locks)
+		if err != nil {
+			return "", fmt.Errorf("DeleteEnvironmentApplicationLock: could not write app locks for app '%v' on '%v': '%w'", c.Application, c.Environment, err)
+		}
+		GaugeEnvAppLockMetric(ctx, len(locks), c.Environment, c.Application)
+	} else {
+		fs := state.Filesystem
+		lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
+		_, err = fs.Stat(lockDir)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
+			}
+			return "", err
+		}
+		if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+		}
+
+		queueMessage, err = state.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
+		if err != nil {
+			return "", err
+		}
+		if err := state.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
+			return "", err
+		}
 	}
-	GaugeEnvAppLockMetric(ctx, len(locks), c.Environment, c.Application)
 	return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
 }
 
