@@ -105,7 +105,7 @@ func (err *TransformerBatchApplyError) Is(target error) bool {
 	if err == nil {
 		return target == nil
 	}
-	if target == nil {
+	if target == nil || tgt == nil {
 		return false
 	}
 	// now both target and err are guaranteed to be non-nil
@@ -115,9 +115,12 @@ func (err *TransformerBatchApplyError) Is(target error) bool {
 	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
-func (e *TransformerBatchApplyError) Unwrap() error {
+func (err *TransformerBatchApplyError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
 	// Return the inner error.
-	return e.TransformerError
+	return err.TransformerError
 }
 
 func UnwrapUntilTransformerBatchApplyError(err error) *TransformerBatchApplyError {
