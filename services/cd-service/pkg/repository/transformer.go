@@ -204,18 +204,18 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 		return nil
 	}
 
-	// repo.(*repository).GaugeQueueSize(ctx)
-	// err2 := UpdateLockMetrics(ctx, transaction, state, now)
-	// if err2 != nil {
-	// 	span.Finish(tracer.WithError(err2))
-	// 	return err2
-	// }
+	repo.(*repository).GaugeQueueSize(ctx)
+	err2 := UpdateLockMetrics(ctx, transaction, state, now)
+	if err2 != nil {
+		span.Finish(tracer.WithError(err2))
+		return err2
+	}
 
-	// err := UpdateChangedAppMetrics(ctx, changes, now)
-	// if err != nil {
-	// 	span.Finish(tracer.WithError(err2))
-	// 	return err
-	// }
+	err := UpdateChangedAppMetrics(ctx, changes, now)
+	if err != nil {
+		span.Finish(tracer.WithError(err2))
+		return err
+	}
 	return nil
 }
 

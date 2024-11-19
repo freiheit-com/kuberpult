@@ -7627,68 +7627,68 @@ func (c *MockClient) Gauge(name string, value float64, tags []string, rate float
 // https://golang.org/doc/faq#guarantee_satisfies_interface
 var _ statsd.ClientInterface = &MockClient{}
 
-// func TestUpdateDatadogMetrics(t *testing.T) {
-// 	tcs := []struct {
-// 		Name         string
-// 		Transformers []Transformer
-// 	}{
-// 		{
-// 			Name: "Application Lock metric is sent",
-// 			Transformers: []Transformer{
-// 				&CreateEnvironment{
-// 					Environment: "acceptance",
-// 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-// 				},
-// 				&CreateApplicationVersion{
-// 					Application: "app1",
-// 					Manifests: map[string]string{
-// 						envAcceptance: "acceptance",
-// 					},
-// 					WriteCommitData: true,
-// 				},
-// 				&CreateEnvironmentApplicationLock{
-// 					Environment: "acceptance",
-// 					Application: "app1",
-// 					LockId:      "22133",
-// 					Message:     "test",
-// 				},
-// 			},
-// 		},
-// 		{
-// 			Name: "Application Lock metric is sent",
-// 			Transformers: []Transformer{
-// 				&CreateEnvironment{
-// 					Environment: "acceptance",
-// 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-// 				},
-// 				&CreateApplicationVersion{
-// 					Application: "app1",
-// 					Manifests: map[string]string{
-// 						envAcceptance: "acceptance",
-// 					},
-// 					WriteCommitData: true,
-// 				},
-// 				&CreateEnvironmentLock{
-// 					Environment: "acceptance",
-// 					LockId:      "22133",
-// 					Message:     "test",
-// 				},
-// 			},
-// 		},
-// 	}
-// 	for _, tc := range tcs {
-// 		tc := tc
-// 		t.Run(tc.Name, func(t *testing.T) {
-// 			t.Parallel()
-// 			repo := setupRepositoryTest(t)
-// 			_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
+func TestUpdateDatadogMetrics(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Transformers []Transformer
+	}{
+		{
+			Name: "Application Lock metric is sent",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+					WriteCommitData: true,
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "acceptance",
+					Application: "app1",
+					LockId:      "22133",
+					Message:     "test",
+				},
+			},
+		},
+		{
+			Name: "Application Lock metric is sent",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+					WriteCommitData: true,
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
 
-// 			if err != nil {
-// 				t.Fatalf("Got an unexpected error: %v", err)
-// 			}
-// 		})
-// 	}
-// }
+			if err != nil {
+				t.Fatalf("Got an unexpected error: %v", err)
+			}
+		})
+	}
+}
 
 func TestDatadogQueueMetric(t *testing.T) {
 	tcs := []struct {
