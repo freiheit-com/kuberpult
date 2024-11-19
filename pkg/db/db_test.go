@@ -2678,6 +2678,148 @@ func TestReadReleasesByApp(t *testing.T) {
 	}
 }
 
+func TestReadReleasesByVersion(t *testing.T) {
+
+	tcs := []struct {
+		Name                 string
+		Releases             []DBReleaseWithMetaData
+		RetrievePrepublishes bool
+		AppName              string
+		Versions             []uint64
+		Expected             []*DBReleaseWithMetaData
+	}{
+		{
+			Name: "Retrieve one release, no manifests",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName:  "app1",
+			Versions: []uint64{10},
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Environments:  []string{"dev"},
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{}},
+				},
+			},
+		},
+		{
+			Name: "Retrieve no releases",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName:  "app1",
+			Versions: []uint64{},
+			Expected: []*DBReleaseWithMetaData{},
+		},
+		{
+			Name: "Retrieve one of two releases",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 11,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName:  "app1",
+			Versions: []uint64{11},
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 11,
+					App:           "app1",
+					Environments:  []string{"dev"},
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{}},
+				},
+			},
+		},
+		{
+			Name: "Retrieve multiple releases",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 11,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName:  "app1",
+			Versions: []uint64{10, 11},
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Environments:  []string{"dev"},
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{}},
+				},
+				{
+					EslVersion:    1,
+					ReleaseNumber: 11,
+					App:           "app1",
+					Environments:  []string{"dev"},
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{}},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, release := range tc.Releases {
+					err := dbHandler.DBInsertRelease(ctx, transaction, release, release.EslVersion-1)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				releases, err := dbHandler.DBSelectReleasesByVersions(ctx, transaction, tc.AppName, tc.Versions, !tc.RetrievePrepublishes)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+				if diff := cmp.Diff(tc.Expected, releases, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
+					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
 func TestReadWriteOverviewCache(t *testing.T) {
 	var upstreamLatest = true
 	var dev = "dev"
