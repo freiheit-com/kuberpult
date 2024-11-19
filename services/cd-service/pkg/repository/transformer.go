@@ -2768,11 +2768,13 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 			return "", fmt.Errorf("DeleteEnvironmentTeamLock: could not select all env team locks for team '%v' on '%v': '%w'", c.Team, c.Environment, err)
 		}
 		var locks []string
+		var oldVersion = int64(db.InitialEslVersion)
 		if allTeamLocks != nil {
 			locks = db.Remove(allTeamLocks.TeamLocks, c.LockId)
+			oldVersion = allTeamLocks.Version
 		}
 
-		err = state.DBHandler.DBWriteAllTeamLocks(ctx, transaction, allTeamLocks.Version, c.Environment, c.Team, locks)
+		err = state.DBHandler.DBWriteAllTeamLocks(ctx, transaction, oldVersion, c.Environment, c.Team, locks)
 		if err != nil {
 			return "", fmt.Errorf("DeleteEnvironmentTeamLock: could not write team locks for team '%v' on '%v': '%w'", c.Team, c.Environment, err)
 		}
