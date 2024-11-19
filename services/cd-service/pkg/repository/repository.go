@@ -776,8 +776,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 				err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 			}
 		}
-		span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
-		defer span.Finish()
 	}
 
 	r.notify.Notify()
