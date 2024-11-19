@@ -35,7 +35,7 @@ func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql
 	if h.IsOverviewEmpty(latestOverview) {
 		return nil
 	}
-	env := getEnvironmentByName(latestOverview.EnvironmentGroups, teamLock.Env)
+	env := GetEnvironmentByName(latestOverview.EnvironmentGroups, teamLock.Env)
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", teamLock.Env)
 	}
@@ -88,7 +88,7 @@ func (h *DBHandler) UpdateOverviewEnvironmentLock(ctx context.Context, transacti
 	if h.IsOverviewEmpty(latestOverview) {
 		return nil
 	}
-	env := getEnvironmentByName(latestOverview.EnvironmentGroups, environmentLock.Env)
+	env := GetEnvironmentByName(latestOverview.EnvironmentGroups, environmentLock.Env)
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", environmentLock.Env)
 	}
@@ -122,7 +122,7 @@ func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transacti
 	if h.IsOverviewEmpty(latestOverview) {
 		return nil
 	}
-	env := getEnvironmentByName(latestOverview.EnvironmentGroups, applicationLock.Env)
+	env := GetEnvironmentByName(latestOverview.EnvironmentGroups, applicationLock.Env)
 	if env == nil {
 		return fmt.Errorf("could not find environment %s in overview", applicationLock.Env)
 	}
@@ -218,7 +218,7 @@ AND eslversion NOT IN (
 	return nil
 }
 
-func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {
+func GetEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {
 	for _, currentGroup := range groups {
 		for _, currentEnv := range currentGroup.Environments {
 			if currentEnv.Name == envNameToReturn {

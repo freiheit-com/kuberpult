@@ -93,12 +93,17 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		{
 			Name: "Success",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -112,12 +117,17 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		{
 			Name: "Create un-deploy Version for un-deployed application should not work",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -130,7 +140,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				},
 			},
 			expectedError: &TransformerBatchApplyError{
-				Index:            3,
+				Index:            4,
 				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
 			},
 			expectedCommitMsg: "",
@@ -148,6 +158,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -177,6 +188,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -206,6 +218,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
@@ -221,7 +234,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"UndeployApplication(repo): error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'"},
+				TransformerError: errMatcher{"UndeployApplication(db): error cannot un-deploy application 'app1' the current release 'acceptance' is not un-deployed"},
 			},
 			expectedCommitMsg: "",
 		},
@@ -242,6 +255,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -265,6 +279,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -289,6 +304,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -300,6 +316,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					SourceAuthor:    "",
 					SourceMessage:   "",
 					WriteCommitData: true,
+					Version:         3,
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -317,19 +334,26 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
-			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-			}
-
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			commitMsgPtr, _ := db.WithTransactionT(repo.State().DBHandler, ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
+				commitMsg, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+					return nil, nil
+				}
+				return &commitMsg, nil
+			})
+			commitMsg := *commitMsgPtr
 			actualMsg := ""
 			if len(commitMsg) > 0 {
 				actualMsg = commitMsg[len(commitMsg)-1]
 			}
+
 			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
 				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 			}
+
 		})
 	}
 }
@@ -1708,11 +1732,11 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						},
 					},
 				},
-				//&CreateEnvironmentLock{
-				//	Environment: "staging",
-				//	LockId:      "lock1",
-				//	Message:     "lock staging",
-				//},
+				//				&CreateEnvironmentLock{
+				//					Environment: "staging",
+				//					LockId:      "lock1",
+				//					Message:     "lock staging",
+				//				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "staging",
 					Application: "myapp",
@@ -1855,6 +1879,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 		})
 	}
 }
+
 func TestNextAndPreviousCommitCreation(t *testing.T) {
 	type TestCase struct {
 		Name            string
@@ -3346,12 +3371,6 @@ func TestTransformerChanges(t *testing.T) {
 					Environment: envAcceptance,
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
-				&CreateEnvironmentApplicationLock{
-					Environment: envProduction,
-					Application: "foo",
-					LockId:      "foo-id",
-					Message:     "foo",
-				},
 				&CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
@@ -3360,6 +3379,12 @@ func TestTransformerChanges(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: "foo",
+					LockId:      "foo-id",
+					Message:     "foo",
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -3518,6 +3543,7 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeleteEnvFromApp{
 					Application: "foo",
@@ -3579,19 +3605,26 @@ func TestTransformerChanges(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo := setupRepositoryTest(t)
-			msgs, _, actualChanges, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), nil, tc.Transformers...)
-			// we only diff the changes from the last transformer here:
-			lastChanges := actualChanges[len(actualChanges)-1]
-			// note that we only check the LAST error here:
-			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
-			}
+			//repo := setupRepositoryTest(t)
+			repo := SetupRepositoryTestWithDB(t)
 
-			if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
-				t.Log("Commit message:\n", msgs[len(msgs)-1])
-				t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
-			}
+			dbHandler := repo.State().DBHandler
+
+			_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+				msgs, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				// note that we only check the LAST error here:
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				// we only diff the changes from the last transformer here:
+				lastChanges := actualChanges[len(actualChanges)-1]
+				if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
+					t.Log("Commit message:\n", msgs[len(msgs)-1])
+					t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
+				}
+				return nil
+			})
+
 		})
 	}
 }
