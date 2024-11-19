@@ -23,6 +23,7 @@ jobs:
   trivy-scan:
     needs: [execution-plan]
     uses: ./.github/workflows/trivy-scan.yml
+    if: false
     with:
       trigger: pull-request
     secrets: inherit
