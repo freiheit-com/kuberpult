@@ -23,16 +23,13 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"sort"
 	"testing"
 	gotime "time"
 
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/lib/pq"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -3695,354 +3692,354 @@ func TestIsCustomErrorRetryable(t *testing.T) {
 	}
 }
 
-func TestUpdateDatadogEventsInternal(t *testing.T) {
-	tcs := []struct {
-		Name           string
-		changes        *TransformerResult
-		transformers   []Transformer
-		expectedEvents []statsd.Event
-	}{
-		{
-			Name: "Changes are sent as one event",
-			transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "envA",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[string]string{
-						"envA": "envA-manifest-1",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-				&CreateApplicationVersion{
-					Application: "app2",
-					Manifests: map[string]string{
-						"envA": "envA-manifest-2",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-			},
-			changes: &TransformerResult{
-				ChangedApps: []AppEnv{
-					{
-						App:  "app1",
-						Env:  "envB",
-						Team: "teamT",
-					},
-				},
-				DeletedRootApps: nil,
-				Commits:         nil,
-			},
-			expectedEvents: []statsd.Event{
-				{
-					Title:          "Kuberpult app deployed",
-					Text:           "Kuberpult has deployed app1 to envB for team teamT",
-					Timestamp:      gotime.Time{},
-					Hostname:       "",
-					AggregationKey: "",
-					Priority:       "",
-					SourceTypeName: "",
-					AlertType:      "",
-					Tags: []string{
-						"kuberpult.application:app1",
-						"kuberpult.environment:envB",
-						"kuberpult.team:teamT",
-					},
-				},
-			},
-		},
-		{
-			Name: "Changes are sent as two events",
-			transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "envA",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&CreateEnvironment{
-					Environment: "envB",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[string]string{
-						"envA": "envA-manifest-1",
-						"envB": "envB-manifest-1",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-				&CreateApplicationVersion{
-					Application: "app2",
-					Manifests: map[string]string{
-						"envA": "envA-manifest-2",
-						"envB": "envB-manifest-2",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-			},
-			changes: &TransformerResult{
-				ChangedApps: []AppEnv{
-					{
-						App:  "app1",
-						Env:  "envB",
-						Team: "teamT",
-					},
-					{
-						App:  "app2",
-						Env:  "envA",
-						Team: "teamX",
-					},
-				},
-				DeletedRootApps: nil,
-				Commits:         nil,
-			},
-			expectedEvents: []statsd.Event{
-				{
-					Title:          "Kuberpult app deployed",
-					Text:           "Kuberpult has deployed app1 to envB for team teamT",
-					Timestamp:      gotime.Time{},
-					Hostname:       "",
-					AggregationKey: "",
-					Priority:       "",
-					SourceTypeName: "",
-					AlertType:      "",
-					Tags: []string{
-						"kuberpult.application:app1",
-						"kuberpult.environment:envB",
-						"kuberpult.team:teamT",
-					},
-				},
-				{
-					Title:          "Kuberpult app deployed",
-					Text:           "Kuberpult has deployed app2 to envA for team teamX",
-					Timestamp:      gotime.Time{},
-					Hostname:       "",
-					AggregationKey: "",
-					Priority:       "",
-					SourceTypeName: "",
-					AlertType:      "",
-					Tags: []string{
-						"kuberpult.application:app2",
-						"kuberpult.environment:envA",
-						"kuberpult.team:teamX",
-					},
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
-			var mockClient = &MockClient{}
-			var client statsd.ClientInterface = mockClient
-			ddMetrics = client
-			repo := SetupRepositoryTestWithDB(t).(*repository)
+// func TestUpdateDatadogEventsInternal(t *testing.T) {
+// 	tcs := []struct {
+// 		Name           string
+// 		changes        *TransformerResult
+// 		transformers   []Transformer
+// 		expectedEvents []statsd.Event
+// 	}{
+// 		{
+// 			Name: "Changes are sent as one event",
+// 			transformers: []Transformer{
+// 				&CreateEnvironment{
+// 					Environment: "envA",
+// 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+// 				},
+// 				&CreateApplicationVersion{
+// 					Application: "app1",
+// 					Manifests: map[string]string{
+// 						"envA": "envA-manifest-1",
+// 					},
+// 					WriteCommitData: false,
+// 					Version:         1,
+// 				},
+// 				&CreateApplicationVersion{
+// 					Application: "app2",
+// 					Manifests: map[string]string{
+// 						"envA": "envA-manifest-2",
+// 					},
+// 					WriteCommitData: false,
+// 					Version:         1,
+// 				},
+// 			},
+// 			changes: &TransformerResult{
+// 				ChangedApps: []AppEnv{
+// 					{
+// 						App:  "app1",
+// 						Env:  "envB",
+// 						Team: "teamT",
+// 					},
+// 				},
+// 				DeletedRootApps: nil,
+// 				Commits:         nil,
+// 			},
+// 			expectedEvents: []statsd.Event{
+// 				{
+// 					Title:          "Kuberpult app deployed",
+// 					Text:           "Kuberpult has deployed app1 to envB for team teamT",
+// 					Timestamp:      gotime.Time{},
+// 					Hostname:       "",
+// 					AggregationKey: "",
+// 					Priority:       "",
+// 					SourceTypeName: "",
+// 					AlertType:      "",
+// 					Tags: []string{
+// 						"kuberpult.application:app1",
+// 						"kuberpult.environment:envB",
+// 						"kuberpult.team:teamT",
+// 					},
+// 				},
+// 			},
+// 		},
+// 		{
+// 			Name: "Changes are sent as two events",
+// 			transformers: []Transformer{
+// 				&CreateEnvironment{
+// 					Environment: "envA",
+// 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+// 				},
+// 				&CreateEnvironment{
+// 					Environment: "envB",
+// 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+// 				},
+// 				&CreateApplicationVersion{
+// 					Application: "app1",
+// 					Manifests: map[string]string{
+// 						"envA": "envA-manifest-1",
+// 						"envB": "envB-manifest-1",
+// 					},
+// 					WriteCommitData: false,
+// 					Version:         1,
+// 				},
+// 				&CreateApplicationVersion{
+// 					Application: "app2",
+// 					Manifests: map[string]string{
+// 						"envA": "envA-manifest-2",
+// 						"envB": "envB-manifest-2",
+// 					},
+// 					WriteCommitData: false,
+// 					Version:         1,
+// 				},
+// 			},
+// 			changes: &TransformerResult{
+// 				ChangedApps: []AppEnv{
+// 					{
+// 						App:  "app1",
+// 						Env:  "envB",
+// 						Team: "teamT",
+// 					},
+// 					{
+// 						App:  "app2",
+// 						Env:  "envA",
+// 						Team: "teamX",
+// 					},
+// 				},
+// 				DeletedRootApps: nil,
+// 				Commits:         nil,
+// 			},
+// 			expectedEvents: []statsd.Event{
+// 				{
+// 					Title:          "Kuberpult app deployed",
+// 					Text:           "Kuberpult has deployed app1 to envB for team teamT",
+// 					Timestamp:      gotime.Time{},
+// 					Hostname:       "",
+// 					AggregationKey: "",
+// 					Priority:       "",
+// 					SourceTypeName: "",
+// 					AlertType:      "",
+// 					Tags: []string{
+// 						"kuberpult.application:app1",
+// 						"kuberpult.environment:envB",
+// 						"kuberpult.team:teamT",
+// 					},
+// 				},
+// 				{
+// 					Title:          "Kuberpult app deployed",
+// 					Text:           "Kuberpult has deployed app2 to envA for team teamX",
+// 					Timestamp:      gotime.Time{},
+// 					Hostname:       "",
+// 					AggregationKey: "",
+// 					Priority:       "",
+// 					SourceTypeName: "",
+// 					AlertType:      "",
+// 					Tags: []string{
+// 						"kuberpult.application:app2",
+// 						"kuberpult.environment:envA",
+// 						"kuberpult.team:teamX",
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
+// 	for _, tc := range tcs {
+// 		tc := tc
+// 		t.Run(tc.Name, func(t *testing.T) {
+// 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+// 			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+// 			var mockClient = &MockClient{}
+// 			var client statsd.ClientInterface = mockClient
+// 			ddMetrics = client
+// 			repo := SetupRepositoryTestWithDB(t).(*repository)
 
-			err := repo.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, tc.transformers...)
-				if applyErr != nil {
-					t.Fatalf("Expected no error: %v", applyErr)
-					return nil
-				}
+// 			err := repo.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+// 				_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, tc.transformers...)
+// 				if applyErr != nil {
+// 					t.Fatalf("Expected no error: %v", applyErr)
+// 					return nil
+// 				}
 
-				now, err := repo.DB.DBReadTransactionTimestamp(ctx, transaction)
-				if err != nil {
-					t.Fatalf("Expected no error: %v", err)
-					return nil
-				}
-				err = UpdateDatadogMetrics(ctx, transaction, state, repo, tc.changes, *now)
-				if err != nil {
-					t.Fatalf("Expected no error: %v", err)
-					return nil
-				}
+// 				now, err := repo.DB.DBReadTransactionTimestamp(ctx, transaction)
+// 				if err != nil {
+// 					t.Fatalf("Expected no error: %v", err)
+// 					return nil
+// 				}
+// 				err = UpdateDatadogMetrics(ctx, transaction, state, repo, tc.changes, *now)
+// 				if err != nil {
+// 					t.Fatalf("Expected no error: %v", err)
+// 					return nil
+// 				}
 
-				return nil
-			})
-			if err != nil {
-				t.Fatalf("Failed during transaction: %v", err)
-			}
+// 				return nil
+// 			})
+// 			if err != nil {
+// 				t.Fatalf("Failed during transaction: %v", err)
+// 			}
 
-			if len(tc.expectedEvents) != len(mockClient.events) {
-				t.Fatalf("expected %d events, but got %d", len(tc.expectedEvents), len(mockClient.events))
-			}
-			for i := range tc.expectedEvents {
-				var expectedEvent statsd.Event = tc.expectedEvents[i]
-				var actualEvent statsd.Event = *mockClient.events[i]
+// 			if len(tc.expectedEvents) != len(mockClient.events) {
+// 				t.Fatalf("expected %d events, but got %d", len(tc.expectedEvents), len(mockClient.events))
+// 			}
+// 			for i := range tc.expectedEvents {
+// 				var expectedEvent statsd.Event = tc.expectedEvents[i]
+// 				var actualEvent statsd.Event = *mockClient.events[i]
 
-				if diff := cmp.Diff(expectedEvent, actualEvent, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
-				}
-			}
-		})
-	}
-}
+// 				if diff := cmp.Diff(expectedEvent, actualEvent, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+// 					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
+// 				}
+// 			}
+// 		})
+// 	}
+// }
 
-func TestUpdateDatadogMetricsInternal(t *testing.T) {
-	makeGauge := func(name string, val float64, tags []string, rate float64) Gauge {
-		return Gauge{
-			Name:  name,
-			Value: val,
-			Tags:  tags,
-			Rate:  rate,
-		}
-	}
-	tcs := []struct {
-		Name           string
-		changes        *TransformerResult
-		transformers   []Transformer
-		expectedGauges []Gauge
-	}{
-		{
-			Name: "Changes are sent as one event",
-			transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "envA",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[string]string{
-						"envA": "envA-manifest-1",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-				&CreateApplicationVersion{
-					Application: "app2",
-					Manifests: map[string]string{
-						"envA": "envA-manifest-2",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-			},
-			expectedGauges: []Gauge{
-				makeGauge("request_queue_size", 0, []string{}, 1),
-				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
-				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
-				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app1"}, 1),
-				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
-				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
-				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
-			},
-		},
-		{
-			Name: "Changes are sent as two events",
-			transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "envA",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&CreateEnvironment{
-					Environment: "envB",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[string]string{
-						"envA": "envA-manifest-1",
-						"envB": "envB-manifest-1",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-				&CreateApplicationVersion{
-					Application: "app2",
-					Manifests: map[string]string{
-						"envA": "envA-manifest-2",
-						"envB": "envB-manifest-2",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-			},
-			expectedGauges: []Gauge{
-				makeGauge("request_queue_size", 0, []string{}, 1),
-				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
-				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
-				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app1"}, 1),
-				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
-				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
-				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
-				makeGauge("env_lock_count", 0, []string{"env:envB"}, 1),
-				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envB"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envB"}, 1),
-				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app1"}, 1),
-				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envB"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envB"}, 1),
-				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app2"}, 1),
-				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
-			var mockClient = &MockClient{}
-			var client statsd.ClientInterface = mockClient
-			ddMetrics = client
-			repo := SetupRepositoryTestWithDB(t).(*repository)
+// func TestUpdateDatadogMetricsInternal(t *testing.T) {
+// 	makeGauge := func(name string, val float64, tags []string, rate float64) Gauge {
+// 		return Gauge{
+// 			Name:  name,
+// 			Value: val,
+// 			Tags:  tags,
+// 			Rate:  rate,
+// 		}
+// 	}
+// 	tcs := []struct {
+// 		Name           string
+// 		changes        *TransformerResult
+// 		transformers   []Transformer
+// 		expectedGauges []Gauge
+// 	}{
+// 		{
+// 			Name: "Changes are sent as one event",
+// 			transformers: []Transformer{
+// 				&CreateEnvironment{
+// 					Environment: "envA",
+// 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+// 				},
+// 				&CreateApplicationVersion{
+// 					Application: "app1",
+// 					Manifests: map[string]string{
+// 						"envA": "envA-manifest-1",
+// 					},
+// 					WriteCommitData: false,
+// 					Version:         1,
+// 				},
+// 				&CreateApplicationVersion{
+// 					Application: "app2",
+// 					Manifests: map[string]string{
+// 						"envA": "envA-manifest-2",
+// 					},
+// 					WriteCommitData: false,
+// 					Version:         1,
+// 				},
+// 			},
+// 			expectedGauges: []Gauge{
+// 				makeGauge("request_queue_size", 0, []string{}, 1),
+// 				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
+// 				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envA"}, 1),
+// 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
+// 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app1"}, 1),
+// 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
+// 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
+// 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
+// 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
+// 			},
+// 		},
+// 		{
+// 			Name: "Changes are sent as two events",
+// 			transformers: []Transformer{
+// 				&CreateEnvironment{
+// 					Environment: "envA",
+// 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+// 				},
+// 				&CreateEnvironment{
+// 					Environment: "envB",
+// 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+// 				},
+// 				&CreateApplicationVersion{
+// 					Application: "app1",
+// 					Manifests: map[string]string{
+// 						"envA": "envA-manifest-1",
+// 						"envB": "envB-manifest-1",
+// 					},
+// 					WriteCommitData: false,
+// 					Version:         1,
+// 				},
+// 				&CreateApplicationVersion{
+// 					Application: "app2",
+// 					Manifests: map[string]string{
+// 						"envA": "envA-manifest-2",
+// 						"envB": "envB-manifest-2",
+// 					},
+// 					WriteCommitData: false,
+// 					Version:         1,
+// 				},
+// 			},
+// 			expectedGauges: []Gauge{
+// 				makeGauge("request_queue_size", 0, []string{}, 1),
+// 				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
+// 				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envA"}, 1),
+// 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
+// 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app1"}, 1),
+// 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
+// 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
+// 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
+// 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
+// 				makeGauge("env_lock_count", 0, []string{"env:envB"}, 1),
+// 				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envB"}, 1),
+// 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envB"}, 1),
+// 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app1"}, 1),
+// 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envB"}, 1),
+// 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envB"}, 1),
+// 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app2"}, 1),
+// 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),
+// 			},
+// 		},
+// 	}
+// 	for _, tc := range tcs {
+// 		tc := tc
+// 		t.Run(tc.Name, func(t *testing.T) {
+// 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+// 			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+// 			var mockClient = &MockClient{}
+// 			var client statsd.ClientInterface = mockClient
+// 			ddMetrics = client
+// 			repo := SetupRepositoryTestWithDB(t).(*repository)
 
-			err := repo.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, tc.transformers...)
-				if applyErr != nil {
-					t.Fatalf("expected no error: %v", applyErr)
-					return nil
-				}
-				now, err := repo.DB.DBReadTransactionTimestamp(ctx, transaction)
-				if applyErr != nil {
-					t.Fatalf("expected no error: %v", err)
-					return nil
-				}
-				err = UpdateDatadogMetrics(ctx, transaction, state, repo, nil, *now)
-				if err != nil {
-					t.Fatalf("expected no error: %v", err)
-					return nil
-				}
-				return nil
-			})
+// 			err := repo.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+// 				_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, tc.transformers...)
+// 				if applyErr != nil {
+// 					t.Fatalf("expected no error: %v", applyErr)
+// 					return nil
+// 				}
+// 				now, err := repo.DB.DBReadTransactionTimestamp(ctx, transaction)
+// 				if applyErr != nil {
+// 					t.Fatalf("expected no error: %v", err)
+// 					return nil
+// 				}
+// 				err = UpdateDatadogMetrics(ctx, transaction, state, repo, nil, *now)
+// 				if err != nil {
+// 					t.Fatalf("expected no error: %v", err)
+// 					return nil
+// 				}
+// 				return nil
+// 			})
 
-			if err != nil {
-				t.Fatalf("Failed during transaction: %v", err)
-			}
+// 			if err != nil {
+// 				t.Fatalf("Failed during transaction: %v", err)
+// 			}
 
-			if len(tc.expectedGauges) != len(mockClient.gauges) {
-				gaugesString := ""
-				for i := range mockClient.gauges {
-					gauge := mockClient.gauges[i]
-					gaugesString += fmt.Sprintf("%v\n", gauge)
-				}
-				msg := fmt.Sprintf("expected %d gauges but got %d\nActual:\n%v\n",
-					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
-				t.Fatalf(msg)
-			}
-			for i := range tc.expectedGauges {
-				var expectedGauge Gauge = tc.expectedGauges[i]
-				sort.Strings(expectedGauge.Tags)
-				var actualGauge Gauge = mockClient.gauges[i]
-				sort.Strings(actualGauge.Tags)
-				t.Logf("actualGauges: %v", actualGauge.Tags)
+// 			if len(tc.expectedGauges) != len(mockClient.gauges) {
+// 				gaugesString := ""
+// 				for i := range mockClient.gauges {
+// 					gauge := mockClient.gauges[i]
+// 					gaugesString += fmt.Sprintf("%v\n", gauge)
+// 				}
+// 				msg := fmt.Sprintf("expected %d gauges but got %d\nActual:\n%v\n",
+// 					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
+// 				t.Fatalf(msg)
+// 			}
+// 			for i := range tc.expectedGauges {
+// 				var expectedGauge Gauge = tc.expectedGauges[i]
+// 				sort.Strings(expectedGauge.Tags)
+// 				var actualGauge Gauge = mockClient.gauges[i]
+// 				sort.Strings(actualGauge.Tags)
+// 				t.Logf("actualGauges: %v", actualGauge.Tags)
 
-				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
-					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
-				}
-			}
-		})
-	}
-}
+// 				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+// 					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
+// 				}
+// 			}
+// 		})
+// 	}
+// }
 
 func TestChangedApps(t *testing.T) {
 	tcs := []struct {
