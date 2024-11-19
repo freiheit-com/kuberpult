@@ -735,8 +735,8 @@ github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6So
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
-github.com/rogpeppe/go-internal v1.11.0 h1:cWPaGQEPrBb5/AsnsZesgZZ9yb1OQ+GOISoDNXVBh4M=
-github.com/rogpeppe/go-internal v1.11.0/go.mod h1:ddIwULY96R17DhadqLgMfk9H9tvdUzkipdSkR5nkCZA=
+github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU5NdKM8=
+github.com/rogpeppe/go-internal v1.12.0/go.mod h1:E+RYuTGaKKdloAfM02xzb0FW3Paa99yedzYV+kq4uf4=
 github.com/rs/cors v1.7.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
 github.com/rs/cors v1.8.0 h1:P2KMzcFwrPoSjkF1WLRPsp3UMLyql8L4v9hQpVeK5so=
 github.com/rs/cors v1.8.0/go.mod h1:EBwu+T5AvHOcXwvZIkQFjUN6s8Czyqw12GL/Y0tUyRM=
@@ -1258,8 +1258,8 @@ k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f h1:2kWPakN3i/k81b0gvD5C5F
 k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f/go.mod h1:byini6yhqGC14c3ebc/QwanvYwhuMWF6yz2F8uwW8eg=
 k8s.io/kubectl v0.26.11 h1:cVPzYA4HKefU3tPiVK7hZpJ+5Lm04XoyvCCY5ODznpQ=
 k8s.io/kubectl v0.26.11/go.mod h1:xjEX/AHtEQrGj2AGqVopyHr/JU1hLy1k7Yn48JuK9LQ=
-k8s.io/kubernetes v1.26.11 h1:g3r1IAUqsaHnOG2jdpoagJ5W9UCXkR2ljQ/7BmCzPNg=
-k8s.io/kubernetes v1.26.11/go.mod h1:z1URAaBJ+XnOTr3Q/l4umxRUxn/OyD2fbkUgS0Bl7u4=
+k8s.io/kubernetes v1.26.15 h1:o65B3kKH7q9xK2h2323rKKThI1rp3ZarXpb8asT932U=
+k8s.io/kubernetes v1.26.15/go.mod h1:X28d33q7QRZtOw/KPdTeOksMQAMNKkSwwAzRtovsBVE=
 k8s.io/utils v0.0.0-20210802155522-efc7438f0176/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20221107191617-1a15be271d1d/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 k8s.io/utils v0.0.0-20231121161247-cf03d44ff3cf h1:iTzha1p7Fi83476ypNSz8nV9iR9932jIIs26F7gNLsU=

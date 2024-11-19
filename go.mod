@@ -126,7 +126,7 @@ require (
 	k8s.io/kube-aggregator v0.26.11 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	k8s.io/kubectl v0.26.11 // indirect
-	k8s.io/kubernetes v1.26.11 // indirect
+	k8s.io/kubernetes v1.26.15 // indirect
 	sigs.k8s.io/kustomize/api v0.13.2 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.14.1 // indirect
 )
