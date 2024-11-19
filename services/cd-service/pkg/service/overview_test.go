@@ -19,6 +19,9 @@ package service
 import (
 	"context"
 	"database/sql"
+	"sync"
+	"testing"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -30,8 +33,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"sync"
-	"testing"
 )
 
 type mockOverviewService_StreamOverviewServer struct {
@@ -897,6 +898,60 @@ func TestGetApplicationDetails(t *testing.T) {
 					Environment: env,
 					LockId:      "my-app-lock",
 					Message:     "app lock for test-app",
+				},
+			},
+		},
+		{
+			Name:    "Get App details returns deleted apps",
+			AppName: appName,
+			ExpectedResponse: &api.GetAppDetailsResponse{
+				Application: &api.Application{
+					Name:     appName,
+					Releases: []*api.Release{},
+					Team:     "team-123",
+				},
+				Deployments: map[string]*api.Deployment{},
+				TeamLocks:   map[string]*api.Locks{},
+				AppLocks:    map[string]*api.Locks{},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateUndeployApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Application:           appName,
+					WriteCommitData:       true,
+					TransformerEslVersion: 1,
+				},
+				&repository.UndeployApplication{
+					Authentication:        repository.Authentication{},
+					Application:           appName,
+					TransformerEslVersion: 1,
 				},
 			},
 		},
