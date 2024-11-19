@@ -892,7 +892,6 @@ func TestReadWriteDeployment(t *testing.T) {
 }
 
 func TestReadAllLatestDeploymentForApplication(t *testing.T) {
-	// TEST DBSelectAllLatestDeploymentsForApplication
 	tcs := []struct {
 		Name                string
 		AppName             string
@@ -963,6 +962,13 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				},
 				{
 					App:           "app1",
+					Env:           "staging",
+					EslVersion:    2,
+					Version:       version(5),
+					TransformerID: 0,
+				},
+				{
+					App:           "app2",
 					Env:           "staging",
 					EslVersion:    2,
 					Version:       version(5),
