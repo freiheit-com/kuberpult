@@ -566,7 +566,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			e := transformerBatches[i]
 
 			subChanges, txErr := db.WithTransactionT(r.DB, e.ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
-				subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
+				subChanges, applyErr := r.ApplyTransformers(ctx, transaction, e.transformers...)
 				if applyErr != nil {
 					return nil, applyErr
 				}

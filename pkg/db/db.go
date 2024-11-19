@@ -5236,9 +5236,7 @@ type DBEnvironmentRow struct {
 	Applications string
 }
 
-func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "EnvironmentFromRow")
-	defer span.Finish()
+func EnvironmentFromRow(_ context.Context, row *DBEnvironmentRow) (*DBEnvironment, error) {
 	//exhaustruct:ignore
 	parsedConfig := config.EnvironmentConfig{}
 	err := json.Unmarshal([]byte(row.Config), &parsedConfig)
@@ -5273,6 +5271,7 @@ LIMIT 1;
 `,
 	)
 	span.SetTag("query", selectQuery)
+	span.SetTag("name", environmentName)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -6048,9 +6047,6 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 }
 
 func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) (*time.Time, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadTransactionTimestamp")
-	defer span.Finish()
-
 	if h == nil {
 		return nil, nil
 	}
@@ -6064,7 +6060,6 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	} else {
 		query = "select now();"
 	}
-	span.SetTag("query", query)
 	rows, err := tx.QueryContext(
 		ctx,
 		query,
