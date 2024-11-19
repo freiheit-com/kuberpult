@@ -128,14 +128,12 @@ func (o *OverviewServiceServer) GetAppDetails(
 		sort.Slice(result.Releases, func(i, j int) bool {
 			return result.Releases[j].Version < result.Releases[i].Version
 		})
-		if app, err := o.DBHandler.DBSelectExistingApp(ctx, transaction, appName); err != nil {
-			return nil, err
-		} else {
-			if app == nil {
-				return nil, fmt.Errorf("could not find app details of app: %s", appName)
-			}
-			result.Team = app.Metadata.Team
+
+		appTeamName, err := o.Repository.State().GetTeamName(ctx, transaction, appName)
+		if err != nil {
+			return nil, fmt.Errorf("app team not found: %s", appName)
 		}
+		result.Team = appTeamName
 
 		if response == nil {
 			return nil, fmt.Errorf("app not found: '%s'", appName)
