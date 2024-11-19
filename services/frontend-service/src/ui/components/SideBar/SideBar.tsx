@@ -169,6 +169,7 @@ export const getActionDetails = (
                         lock.environment === action.environment
                 ); // 2 Team locks that don't have the same environment or team might, in theory, have the same lock ID, so the lock id does not uniquely identify a lock, but the combination of env + team + ID should.
             const target = findMatchingTeamLock(teamLocks, action.deleteEnvironmentTeamLock);
+
             return {
                 type: ActionTypes.DeleteEnvironmentTeamLock,
                 name: 'Delete Team Lock',
