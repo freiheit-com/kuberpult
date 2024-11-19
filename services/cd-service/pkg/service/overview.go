@@ -61,6 +61,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetAppDetails")
 	defer span.Finish()
+	span.SetTag("application", in.AppName)
 
 	var appName = in.AppName
 	var response = &api.GetAppDetailsResponse{
