@@ -3,7 +3,7 @@ VERSION 0.8
 IMPORT ../infrastructure/earthly/go AS go-build
 
 deps:
-    FROM golang:1.21.4-alpine3.17
+    FROM golang:1.22.9-alpine3.20
 
     RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
 

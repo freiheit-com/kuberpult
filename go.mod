@@ -1,6 +1,6 @@
 module github.com/freiheit-com/kuberpult
 
-go 1.21
+go 1.22
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.5.0
