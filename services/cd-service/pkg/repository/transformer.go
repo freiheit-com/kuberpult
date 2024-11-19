@@ -4209,8 +4209,6 @@ func (c *envReleaseTrain) Transform(
 	}
 	sort.Strings(appNames)
 
-	var overview *api.GetOverviewResponse
-
 	span.SetTag("ConsideredApps", len(appNames))
 	var deployCounter uint = 0
 	for _, appName := range appNames {
@@ -4256,13 +4254,6 @@ func (c *envReleaseTrain) Transform(
 	for _, checker := range prognosis.AppsPrognoses {
 		if checker.SkipCause != nil {
 			deployedApps += 1
-		}
-	}
-
-	if state.DBHandler.ShouldUseOtherTables() {
-		err := state.DBHandler.WriteOverviewCache(ctx, transaction, overview)
-		if err != nil {
-			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error for env=%s while writing overview cache: %w", c.Env, err))
 		}
 	}
 
