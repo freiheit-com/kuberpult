@@ -61,6 +61,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetAppDetails")
 	defer span.Finish()
+	span.SetTag("application", in.AppName)
 
 	var appName = in.AppName
 	var response = &api.GetAppDetailsResponse{
@@ -405,6 +406,7 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 		case <-o.Shutdown:
 			return nil
 		case changedAppsNames := <-ch:
+			fmt.Printf("OUCH sending changes apps %v\n", changedAppsNames)
 			if len(changedAppsNames) == 0 { //This only happens when a channel is first triggered, so we send all apps
 				allApps, err := o.getAllAppNames(stream.Context())
 				if err != nil {
@@ -420,6 +422,7 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 				if err != nil {
 					return err
 				}
+				fmt.Printf("OUCH sending changed app being sent %s\n", response.Application.Name)
 				ov.ChangedApps[idx] = response
 			}
 
