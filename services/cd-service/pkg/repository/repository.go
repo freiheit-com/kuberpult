@@ -779,38 +779,9 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 		span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
 		defer span.Finish()
 	}
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
-
-	if r.config.DogstatsdEvents {
-		var ddError error
-		if r.DB.ShouldUseEslTable() {
-			ddError = UpdateDatadogMetricsDB(ctx, r.State(), r, changes, time.Now())
-		} else {
-			ddError = UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
-		}
-		if ddError != nil {
-			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
-		}
-	}
-	ddSpan.Finish()
 
 	r.notify.Notify()
 	r.notifyChangedApps(changes)
-}
-
-func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
-	repo := r.(*repository)
-	err := repo.DB.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-		ddError := UpdateDatadogMetrics(ctx, transaction, state, r, changes, now)
-		if ddError != nil {
-			return ddError
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
@@ -1111,17 +1082,6 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 
 		if err != nil {
 			return err
-		}
-		if r.config.DogstatsdEvents {
-			var ddError error
-			if r.DB.ShouldUseEslTable() {
-				ddError = UpdateDatadogMetricsDB(ctx, r.State(), r, changes, time.Now())
-			} else {
-				ddError = UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
-			}
-			if ddError != nil {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
-			}
 		}
 		r.notify.Notify()
 		r.notifyChangedApps(changes)
