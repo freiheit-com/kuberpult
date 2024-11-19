@@ -224,7 +224,7 @@ require (
 replace (
 	github.com/chai2010/gettext-go => github.com/chai2010/gettext-go v1.0.2 // indirect
 	// https://github.com/kubernetes/kubernetes/issues/79384#issuecomment-505627280
-	k8s.io/api => k8s.io/api v0.26.11
+	//k8s.io/api => k8s.io/api v0.26.11
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.26.11
 	k8s.io/apimachinery => k8s.io/apimachinery v0.26.11
 	k8s.io/apiserver => k8s.io/apiserver v0.26.11
