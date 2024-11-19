@@ -2787,6 +2787,34 @@ func TestReadReleasesByVersion(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Retrieve latest esl version only",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					EslVersion:    2,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
+				},
+			},
+			AppName:  "app1",
+			Versions: []uint64{10},
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    2,
+					ReleaseNumber: 10,
+					App:           "app1",
+					Environments:  []string{"dev", "staging"},
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{}},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
