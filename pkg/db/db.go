@@ -1935,7 +1935,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	return processAllLatestDeploymentsForApp(rows)
 }
 
-func (h *DBHandler) DBSelectAllLatestDeployments(ctx context.Context, tx *sql.Tx, envName string) (map[string]*int64, error) {
+func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName string) (map[string]*int64, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeployments")
 	defer span.Finish()
 

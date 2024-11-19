@@ -1055,6 +1055,60 @@ func TestReadAllLatestDeployment(t *testing.T) {
 				"app1": version(7),
 			},
 		},
+		{
+			Name:    "Select latest deployment",
+			EnvName: "dev",
+			SetupDeployments: []*Deployment{
+				{
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(7),
+					TransformerID: 0,
+				},
+				{
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    3,
+					Version:       version(8),
+					TransformerID: 0,
+				},
+			},
+			ExpectedDeployments: map[string]*int64{
+				"app1": version(8),
+			},
+		},
+		{
+			Name:    "Select multiple deployments",
+			EnvName: "dev",
+			SetupDeployments: []*Deployment{
+				{
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(7),
+					TransformerID: 0,
+				},
+				{
+					App:           "app2",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(8),
+					TransformerID: 0,
+				},
+				{
+					App:           "app3",
+					Env:           "staging",
+					EslVersion:    2,
+					Version:       version(8),
+					TransformerID: 0,
+				},
+			},
+			ExpectedDeployments: map[string]*int64{
+				"app1": version(7),
+				"app2": version(8),
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1078,7 +1132,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					}
 				}
 
-				latestDeployments, err := dbHandler.DBSelectAllLatestDeployments(ctx, transaction, tc.EnvName)
+				latestDeployments, err := dbHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, tc.EnvName)
 				if err != nil {
 					return err
 				}
