@@ -192,7 +192,7 @@ func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes flo
 	return nil
 }
 
-func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
+func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time, even bool) error {
 	if ddMetrics == nil {
 		return nil
 	}
@@ -205,7 +205,7 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	}
 
 	repo.(*repository).GaugeQueueSize(ctx)
-	err2 := UpdateLockMetrics(ctx, transaction, state, now)
+	err2 := UpdateLockMetrics(ctx, transaction, state, now, even)
 	if err2 != nil {
 		span.Finish(tracer.WithError(err2))
 		return err2
@@ -255,7 +255,7 @@ func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, no
 	return nil
 }
 
-func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, now time.Time) error {
+func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, now time.Time, even bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateLockMetrics")
 	defer span.Finish()
 
@@ -284,7 +284,14 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 
 		// in the future apps might be sorted, but currently they aren't
 		slices.Sort(envFromDb.Applications)
+		var appCounter = 0
 		for _, appName := range envFromDb.Applications {
+			appCounter = appCounter + 1
+			actualEven := appCounter%2 == 0
+			if actualEven != even {
+				// iterating over all apps can take a while, so we only do half the apps each run
+				continue
+			}
 			var envAppLockCount = 0
 			if envFromCache != nil && envFromCache.AppLocks != nil {
 				l := envFromCache.AppLocks[appName]
@@ -308,18 +315,20 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 	return nil
 }
 
-func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBack func(repository Repository)) {
+func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBack func(repository Repository, even bool)) {
 	metricEventTimer := time.NewTicker(interval * time.Second)
+	var even = true
 	for range metricEventTimer.C {
-		callBack(repo)
+		callBack(repo, even)
+		even = !even
 	}
 }
 
-func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
+func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository, even bool) {
 	s := repo.State()
 	if s.DBHandler.ShouldUseOtherTables() {
 		err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-			if err := UpdateDatadogMetrics(ctx, transaction, s, repo, nil, time.Now()); err != nil {
+			if err := UpdateDatadogMetrics(ctx, transaction, s, repo, nil, time.Now(), even); err != nil {
 				return err
 			}
 			return nil
@@ -328,7 +337,7 @@ func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 			panic(err.Error())
 		}
 	} else {
-		if err := UpdateDatadogMetrics(ctx, nil, s, repo, nil, time.Now()); err != nil {
+		if err := UpdateDatadogMetrics(ctx, nil, s, repo, nil, time.Now(), even); err != nil {
 			panic(err.Error())
 		}
 	}
