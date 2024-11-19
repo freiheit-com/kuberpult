@@ -1032,6 +1032,69 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 	}
 }
 
+func TestReadAllLatestDeployment(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		EnvName             string
+		SetupDeployments    []*Deployment
+		ExpectedDeployments map[string]*int64
+	}{
+		{
+			Name:    "Select one deployment",
+			EnvName: "dev",
+			SetupDeployments: []*Deployment{
+				{
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(7),
+					TransformerID: 0,
+				},
+			},
+			ExpectedDeployments: map[string]*int64{
+				"app1": version(7),
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				for _, deployment := range tc.SetupDeployments {
+					err := dbHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion-1, false)
+					if err != nil {
+						return err
+					}
+				}
+
+				latestDeployments, err := dbHandler.DBSelectAllLatestDeployments(ctx, transaction, tc.EnvName)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedDeployments, latestDeployments, cmpopts.IgnoreFields(Deployment{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestDeleteEnvironmentLock(t *testing.T) {
 	tcs := []struct {
 		Name          string
