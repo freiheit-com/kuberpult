@@ -518,7 +518,7 @@ export const useTeamNames = (): string[] =>
 export const useApplications = (): OverviewApplication[] => useOverview(({ lightweightApps }) => lightweightApps);
 
 export const useTeamFromApplication = (app: string): string | undefined =>
-    useOverview(({ lightweightApps }) => lightweightApps.find((data) => data.name === app)?.name);
+    useOverview(({ lightweightApps }) => lightweightApps.find((data) => data.name === app)?.team);
 
 // returns warnings from all apps
 export const useAllWarnings = (): Warning[] => {
