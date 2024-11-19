@@ -891,6 +891,141 @@ func TestReadWriteDeployment(t *testing.T) {
 	}
 }
 
+func TestReadAllLatestDeploymentForApplication(t *testing.T) {
+	// TEST DBSelectAllLatestDeploymentsForApplication
+	tcs := []struct {
+		Name                string
+		AppName             string
+		SetupDeployments    []*Deployment
+		ExpectedDeployments map[string]Deployment
+	}{
+		{
+			Name:    "Select one deployment",
+			AppName: "app1",
+			SetupDeployments: []*Deployment{
+				{
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(7),
+					TransformerID: 0,
+				},
+			},
+			ExpectedDeployments: map[string]Deployment{
+				"dev": {
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(7),
+					TransformerID: 0,
+				},
+			},
+		},
+		{
+			Name:    "Select only latest deployment",
+			AppName: "app1",
+			SetupDeployments: []*Deployment{
+				{
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(6),
+					TransformerID: 0,
+				},
+				{
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    3,
+					Version:       version(7),
+					TransformerID: 0,
+				},
+			},
+			ExpectedDeployments: map[string]Deployment{
+				"dev": {
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    3,
+					Version:       version(7),
+					TransformerID: 0,
+				},
+			},
+		},
+		{
+			Name:    "Select multiple deployments",
+			AppName: "app1",
+			SetupDeployments: []*Deployment{
+				{
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(6),
+					TransformerID: 0,
+				},
+				{
+					App:           "app1",
+					Env:           "staging",
+					EslVersion:    2,
+					Version:       version(5),
+					TransformerID: 0,
+				},
+			},
+			ExpectedDeployments: map[string]Deployment{
+				"dev": {
+					App:           "app1",
+					Env:           "dev",
+					EslVersion:    2,
+					Version:       version(6),
+					TransformerID: 0,
+				},
+				"staging": {
+					App:           "app1",
+					Env:           "staging",
+					EslVersion:    2,
+					Version:       version(5),
+					TransformerID: 0,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				for _, deployment := range tc.SetupDeployments {
+					err := dbHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion-1, false)
+					if err != nil {
+						return err
+					}
+				}
+
+				latestDeployments, err := dbHandler.DBSelectAllLatestDeploymentsForApplication(ctx, transaction, tc.AppName)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedDeployments, latestDeployments, cmpopts.IgnoreFields(Deployment{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestDeleteEnvironmentLock(t *testing.T) {
 	tcs := []struct {
 		Name          string
