@@ -192,30 +192,35 @@ func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes flo
 	return nil
 }
 
-func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
+func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time, even bool) error {
 	if ddMetrics == nil {
 		return nil
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateDatadogMetrics")
 	defer span.Finish()
+	span.SetTag("even", even)
 
 	if state.DBHandler == nil {
 		logger.FromContext(ctx).Sugar().Warn("Tried to update datadog metrics without database")
 		return nil
 	}
 
-	// repo.(*repository).GaugeQueueSize(ctx)
-	// err2 := UpdateLockMetrics(ctx, transaction, state, now)
-	// if err2 != nil {
-	// 	span.Finish(tracer.WithError(err2))
-	// 	return err2
-	// }
+	if even {
+		repo.(*repository).GaugeQueueSize(ctx)
+	}
+	err2 := UpdateLockMetrics(ctx, transaction, state, now, even)
+	if err2 != nil {
+		span.Finish(tracer.WithError(err2))
+		return err2
+	}
 
-	// err := UpdateChangedAppMetrics(ctx, changes, now)
-	// if err != nil {
-	// 	span.Finish(tracer.WithError(err2))
-	// 	return err
-	// }
+	if even {
+		err := UpdateChangedAppMetrics(ctx, changes, now)
+		if err != nil {
+			span.Finish(tracer.WithError(err2))
+			return err
+		}
+	}
 	return nil
 }
 
@@ -255,7 +260,7 @@ func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, no
 	return nil
 }
 
-func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, now time.Time) error {
+func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, now time.Time, even bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateLockMetrics")
 	defer span.Finish()
 
@@ -275,7 +280,9 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 	for envName := range envConfigs {
 		envFromCache := db.GetEnvironmentByName(overviewCache.EnvironmentGroups, envName)
 
-		GaugeEnvLockMetric(ctx, state, transaction, envName)
+		if even {
+			GaugeEnvLockMetric(ctx, state, transaction, envName)
+		}
 
 		envFromDb, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 		if err != nil {
@@ -284,7 +291,14 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 
 		// in the future apps might be sorted, but currently they aren't
 		slices.Sort(envFromDb.Applications)
+		var appCounter = 0
 		for _, appName := range envFromDb.Applications {
+			appCounter = appCounter + 1
+			actualEven := appCounter%2 == 0
+			if actualEven == even {
+				// iterating over all apps can take a while, so we only do half the apps each run
+				continue
+			}
 			var envAppLockCount = 0
 			if envFromCache != nil && envFromCache.AppLocks != nil {
 				l := envFromCache.AppLocks[appName]
@@ -308,18 +322,20 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 	return nil
 }
 
-func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBack func(repository Repository)) {
+func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBack func(repository Repository, even bool)) {
 	metricEventTimer := time.NewTicker(interval * time.Second)
+	var even = true
 	for range metricEventTimer.C {
-		callBack(repo)
+		callBack(repo, even)
+		even = !even
 	}
 }
 
-func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
+func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository, even bool) {
 	s := repo.State()
 	if s.DBHandler.ShouldUseOtherTables() {
 		err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-			if err := UpdateDatadogMetrics(ctx, transaction, s, repo, nil, time.Now()); err != nil {
+			if err := UpdateDatadogMetrics(ctx, transaction, s, repo, nil, time.Now(), even); err != nil {
 				return err
 			}
 			return nil
@@ -328,7 +344,7 @@ func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 			panic(err.Error())
 		}
 	} else {
-		if err := UpdateDatadogMetrics(ctx, nil, s, repo, nil, time.Now()); err != nil {
+		if err := UpdateDatadogMetrics(ctx, nil, s, repo, nil, time.Now(), even); err != nil {
 			panic(err.Error())
 		}
 	}
