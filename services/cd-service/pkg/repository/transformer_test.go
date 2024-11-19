@@ -7561,7 +7561,7 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 
 func mockSendMetrics(repo Repository, interval time.Duration) <-chan bool {
 	ch := make(chan bool, 1)
-	go RegularlySendDatadogMetrics(repo, interval, func(repo Repository) { ch <- true })
+	go RegularlySendDatadogMetrics(repo, interval, func(repo Repository, even bool) { ch <- true })
 	return ch
 }
 

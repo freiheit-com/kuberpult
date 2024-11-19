@@ -3857,7 +3857,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 					t.Fatalf("Expected no error: %v", err)
 					return nil
 				}
-				err = UpdateDatadogMetrics(ctx, transaction, state, repo, tc.changes, *now)
+				err = UpdateDatadogMetrics(ctx, transaction, state, repo, tc.changes, *now, true)
 				if err != nil {
 					t.Fatalf("Expected no error: %v", err)
 					return nil
@@ -3972,16 +3972,23 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app1"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
-				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
-				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
 				makeGauge("env_lock_count", 0, []string{"env:envB"}, 1),
 				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envB"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envB"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app1"}, 1),
+
+				// 10:
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envB"}, 1),
+				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
+
+				// 12:
+				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
+				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
+
+				// 14:
 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envB"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app2"}, 1),
+
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),
 			},
 		},
@@ -4007,7 +4014,12 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					t.Fatalf("expected no error: %v", err)
 					return nil
 				}
-				err = UpdateDatadogMetrics(ctx, transaction, state, repo, nil, *now)
+				err = UpdateDatadogMetrics(ctx, transaction, state, repo, nil, *now, true)
+				if err != nil {
+					t.Fatalf("expected no error: %v", err)
+					return nil
+				}
+				err = UpdateDatadogMetrics(ctx, transaction, state, repo, nil, *now, false)
 				if err != nil {
 					t.Fatalf("expected no error: %v", err)
 					return nil
@@ -4034,7 +4046,8 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				sort.Strings(expectedGauge.Tags)
 				var actualGauge Gauge = mockClient.gauges[i]
 				sort.Strings(actualGauge.Tags)
-				t.Logf("actualGauges: %v", actualGauge.Tags)
+				t.Logf("actualGauges:[%v] %v:%v", i, actualGauge.Name, actualGauge.Tags)
+				t.Logf("expectedGauges:[%v] %v:%v", i, expectedGauge.Name, expectedGauge.Tags)
 
 				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
 					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)

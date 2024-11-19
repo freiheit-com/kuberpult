@@ -198,23 +198,28 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateDatadogMetrics")
 	defer span.Finish()
+	span.SetTag("even", even)
 
 	if state.DBHandler == nil {
 		logger.FromContext(ctx).Sugar().Warn("Tried to update datadog metrics without database")
 		return nil
 	}
 
-	repo.(*repository).GaugeQueueSize(ctx)
+	if even {
+		repo.(*repository).GaugeQueueSize(ctx)
+	}
 	err2 := UpdateLockMetrics(ctx, transaction, state, now, even)
 	if err2 != nil {
 		span.Finish(tracer.WithError(err2))
 		return err2
 	}
 
-	err := UpdateChangedAppMetrics(ctx, changes, now)
-	if err != nil {
-		span.Finish(tracer.WithError(err2))
-		return err
+	if even {
+		err := UpdateChangedAppMetrics(ctx, changes, now)
+		if err != nil {
+			span.Finish(tracer.WithError(err2))
+			return err
+		}
 	}
 	return nil
 }
@@ -275,7 +280,9 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 	for envName := range envConfigs {
 		envFromCache := db.GetEnvironmentByName(overviewCache.EnvironmentGroups, envName)
 
-		GaugeEnvLockMetric(ctx, state, transaction, envName)
+		if even {
+			GaugeEnvLockMetric(ctx, state, transaction, envName)
+		}
 
 		envFromDb, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 		if err != nil {
@@ -288,7 +295,7 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 		for _, appName := range envFromDb.Applications {
 			appCounter = appCounter + 1
 			actualEven := appCounter%2 == 0
-			if actualEven != even {
+			if actualEven == even {
 				// iterating over all apps can take a while, so we only do half the apps each run
 				continue
 			}
