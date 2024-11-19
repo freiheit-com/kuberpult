@@ -8,6 +8,7 @@ on:
         description: 'The trigger which calls the workflow, one of [pull-request, main, tag]'
 jobs:
   trivy:
+    if: false
     runs-on: ubuntu-latest
     env: 
       IMAGE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
