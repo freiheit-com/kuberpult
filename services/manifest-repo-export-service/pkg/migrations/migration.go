@@ -25,19 +25,33 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"strconv"
-	"strings"
 )
 
-func DBReadMigrationCutoff(h *db.DBHandler, ctx context.Context, transaction *sql.Tx, requestedVersion *api.KuberpultVersion) (*api.KuberpultVersion, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadMigrationCutoff")
+type OnErrFunc = func(err error) error
+
+// StartSpanFromContext is the same as tracer.StartSpanFromContext, but also returns an onError function that tags the span as error
+func StartSpanFromContext(ctx context.Context, name string) (tracer.Span, context.Context, OnErrFunc) {
+	mySpan, ctx := tracer.StartSpanFromContext(ctx, name)
+	onErr := func(err error) error {
+		if err == nil {
+			return nil
+		}
+		mySpan.Finish(tracer.WithError(err))
+		return err
+	}
+	return mySpan, ctx, onErr
+}
+
+func DBReadCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, transaction *sql.Tx, requestedVersion *api.KuberpultVersion) (*api.KuberpultVersion, error) {
+	span, ctx, onErr := StartSpanFromContext(ctx, "DBReadCustomMigrationCutoff")
+	//span, ctx := tracer.StartSpanFromContext(ctx, "DBReadCustomMigrationCutoff")
 	defer span.Finish()
 
 	requestedVersionString := formatKuberpultVersion(requestedVersion)
 
 	selectQuery := h.AdaptQuery(`
-SELECT eslVersion
-FROM migration_cutoff
+SELECT kuberpultVersion
+FROM custom_migration_cutoff
 WHERE kuberpultVersion=?
 LIMIT 1;`)
 	span.SetTag("query", selectQuery)
@@ -48,7 +62,7 @@ LIMIT 1;`)
 		requestedVersionString,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w\n", err)
+		return nil, onErr(fmt.Errorf("could not query cutoff table from DB. Error: %w\n", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -66,72 +80,44 @@ LIMIT 1;`)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("migration_cutoff: Error scanning row from DB. Error: %w\n", err)
+		return nil, onErr(fmt.Errorf("migration_cutoff: Error scanning row from DB. Error: %w\n", err))
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, fmt.Errorf("migration_cutoff: row closing error: %v\n", err)
+		return nil, onErr(fmt.Errorf("migration_cutoff: row closing error: %v\n", err))
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("migration_cutoff: row has error: %v\n", err)
+		return nil, onErr(fmt.Errorf("migration_cutoff: row has error: %v\n", err))
 	}
 
 	var kuberpultVersion *api.KuberpultVersion
-	kuberpultVersion, err = parseKuberpultVersion(rawVersion)
+	kuberpultVersion, err = ParseKuberpultVersion(rawVersion)
 	if err != nil {
-		return nil, fmt.Errorf("migration_cutoff: Error parsing kuberpult version. Error: %w", err)
+		return nil, onErr(fmt.Errorf("migration_cutoff: Error parsing kuberpult version. Error: %w", err))
 	}
 	return kuberpultVersion, nil
 }
 
-func parseKuberpultVersion(version string) (*api.KuberpultVersion, error) {
-	version = strings.TrimPrefix(version, "v")
-	split := strings.Split(version, ".")
-	if len(split) != 3 {
-		return nil, fmt.Errorf("migration_cutoff: Error parsing kuberpult version '%s', must have 3 dots", version)
-	}
-	majorRaw := split[0]
-	minorRaw := split[1]
-	patchRaw := split[2]
+func DBWriteCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, kuberpultVersion *api.KuberpultVersion) error {
+	span, ctx, onErr := StartSpanFromContext(ctx, "DBWriteCustomMigrationCutoff")
+	defer span.Finish()
 
-	ma, err := strconv.ParseUint(majorRaw, 10, 32)
+	timestamp, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
-		return nil, fmt.Errorf("migration_cutoff: Error parsing kuberpult major version'%s'. Error: %w", majorRaw, err)
+		return onErr(fmt.Errorf("DBWriteCustomMigrationCutoff: Error reading transaction timestamp from DB. Error: %w", err))
 	}
-	mi, err := strconv.ParseUint(minorRaw, 10, 32)
+
+	insertQuery := h.AdaptQuery("INSERT INTO custom_migration_cutoff (migrationDoneAt, kuberpultVersion) VALUES (?, ?);")
+	span.SetTag("query", insertQuery)
+
+	_, err = tx.Exec(
+		insertQuery,
+		timestamp,
+		formatKuberpultVersion(kuberpultVersion),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("migration_cutoff: Error parsing kuberpult major version'%s'. Error: %w", majorRaw, err)
+		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err))
 	}
-	pa, err := strconv.ParseUint(patchRaw, 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("migration_cutoff: Error parsing kuberpult major version'%s'. Error: %w", majorRaw, err)
-	}
-	return &api.KuberpultVersion{
-		Major: int32(ma),
-		Minor: int32(mi),
-		Patch: int32(pa),
-	}, nil
+	return nil
 }
-
-func formatKuberpultVersion(version *api.KuberpultVersion) string {
-	return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
-}
-
-//func DBWriteCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx, eslVersion EslVersion) error {
-//	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCutoff")
-//	defer span.Finish()
-//
-//	insertQuery := h.AdaptQuery("INSERT INTO cutoff (eslVersion, processedTime) VALUES (?, ?);")
-//	span.SetTag("query", insertQuery)
-//
-//	_, err := tx.Exec(
-//		insertQuery,
-//		eslVersion,
-//		time.Now().UTC(),
-//	)
-//	if err != nil {
-//		return fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err)
-//	}
-//	return nil
-//}

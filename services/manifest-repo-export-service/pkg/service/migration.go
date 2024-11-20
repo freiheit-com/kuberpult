@@ -32,7 +32,10 @@ type MigrationServer struct {
 
 func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *api.EnsureCustomMigrationAppliedRequest) (*api.EnsureCustomMigrationAppliedResponse, error) {
 	log := logger.FromContext(ctx).Sugar()
-	log.Warn("EnsureCustomMigrationApplied start")
+
+	if in.Version == nil {
+		return nil, fmt.Errorf("kuberpult version is nil")
+	}
 
 	// 1) Check if migrations are done:
 	dbDone, err := s.CustomMigrationsDone(ctx, in.Version)
@@ -40,18 +43,17 @@ func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *
 		return nil, fmt.Errorf("could not check if migrations are done: %w", err)
 	}
 	if dbDone {
-		log.Warn("EnsureCustomMigrationApplied end 1 nothing to do")
+		log.Warn("SU DEBUG: EnsureCustomMigrationApplied end 1 nothing to do")
 		return &api.EnsureCustomMigrationAppliedResponse{
 			MigrationsApplied: true,
 		}, nil
 	}
 
-	err = s.RunMigrations(ctx)
+	err = s.RunMigrations(ctx, in.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	log.Warn("EnsureCustomMigrationApplied end 2")
 	return &api.EnsureCustomMigrationAppliedResponse{
 		MigrationsApplied: false,
 	}, nil
@@ -62,7 +64,7 @@ func (s *MigrationServer) CustomMigrationsDone(ctx context.Context, version *api
 		done bool
 	}
 	dbVersion, err := db.WithTransactionT(s.DBHandler, ctx, 0, true, func(ctx context.Context, transaction *sql.Tx) (*api.KuberpultVersion, error) {
-		dbVersion, tErr := migrations.DBReadMigrationCutoff(s.DBHandler, ctx, transaction, version)
+		dbVersion, tErr := migrations.DBReadCustomMigrationCutoff(s.DBHandler, ctx, transaction, version)
 		if tErr != nil {
 			return nil, tErr
 		}
@@ -75,11 +77,20 @@ func (s *MigrationServer) CustomMigrationsDone(ctx context.Context, version *api
 		return true, nil
 	}
 	log := logger.FromContext(ctx).Sugar()
-	log.Warnf("CustomMigrationsDone diff: %s!=%s", dbVersion, version) // TODO SU: this should be INFO or not logged
+	log.Warnf("SU DEBUG: CustomMigrationsDone diff: %s!=%s", dbVersion, version) // TODO SU: this should be INFO or not logged
 	return false, nil
 }
 
-func (s *MigrationServer) RunMigrations(ctx context.Context) error {
+func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *api.KuberpultVersion) error {
 	// TODO IMPLEMENT
-	return nil
+	log := logger.FromContext(ctx).Sugar()
+	log.Warnf("SU DEBUG: RunMigrations is running: TODO IMPLEMENT ") // TODO SU: this should be INFO or not logged
+
+	if kuberpultVersion == nil {
+		return fmt.Errorf("kuberpult version is nil")
+	}
+
+	return s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		return migrations.DBWriteCustomMigrationCutoff(s.DBHandler, ctx, transaction, kuberpultVersion)
+	})
 }
