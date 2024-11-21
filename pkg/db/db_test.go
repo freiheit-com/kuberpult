@@ -4309,10 +4309,5 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 			err)
 	}
 
-	logger.FromContext(ctx).Sugar().Infof(
-		"inserted release: app '%s' and version '%v' and eslVersion %v",
-		release.App,
-		release.ReleaseNumber,
-		previousEslVersion+1)
 	return nil
 }
