@@ -535,7 +535,6 @@ type DBReleaseManifests struct {
 }
 
 type DBReleaseWithMetaData struct {
-	EslVersion    EslVersion
 	ReleaseNumber uint64
 	Created       time.Time
 	App           string
@@ -557,7 +556,7 @@ type DBAllReleasesWithMetaData struct {
 
 func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments " +
+		"SELECT created, appName, metadata, releaseVersion, deleted, environments" +
 			" FROM releases " +
 			" LIMIT 1;"))
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyRelease")
@@ -583,7 +582,6 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 	SELECT DISTINCT
-		releases.eslVersion,
 		releases.created,
 		releases.appName,
 		releases.metadata,
@@ -593,7 +591,7 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 		releases.environments
 	FROM (
 		SELECT
-			MAX(eslVersion) AS latestEslVersion,
+			MAX(version) AS latestVersion,
 			appname,
 			releaseversion
 		FROM
@@ -603,7 +601,7 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 	JOIN
 		releases AS releases
 	ON
-		latest.latestEslVersion=releases.eslVersion
+		latest.latestVersion=releases.version
 		AND latest.releaseVersion=releases.releaseVersion
 		AND latest.appname=releases.appname
 	WHERE COALESCE(environments, '') = '' AND COALESCE(manifests, '') != ''
@@ -628,7 +626,6 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 	selectQuery := h.AdaptQuery(`
 
 	SELECT DISTINCT
-		releases.eslVersion,
 		releases.created,
 		releases.appName,
 		releases.metadata,
@@ -637,7 +634,7 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 		releases.environments
 	FROM 
 		( 	SELECT
-				MAX(eslVersion) AS latestEslVersion,
+				MAX(version) AS latestVersion,
 				appname,
 				releaseversion
 			FROM
@@ -652,7 +649,7 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 	JOIN
 		releases AS releases
 	ON
-		latest.latestEslVersion=releases.eslVersion
+		latest.latestVersion=releases.version
 		AND latest.releaseVersion=releases.releaseVersion
 		AND latest.appname=releases.appname
 	LIMIT ?
@@ -685,10 +682,10 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
+		"SELECT created, appName, metadata, manifests, releaseVersion, deleted, environments " +
 			" FROM releases " +
 			" WHERE appName=? AND releaseVersion=?" +
-			" ORDER BY eslVersion DESC " +
+			" ORDER BY version DESC " +
 			" LIMIT 1;"))
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
 	defer span.Finish()
@@ -712,10 +709,10 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 
 func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
+		"SELECT created, appName, metadata, manifests, releaseVersion, deleted, environments " +
 			" FROM releases " +
 			" WHERE appName=? AND releaseVersion=? AND created <= (?)" +
-			" ORDER BY eslVersion DESC " +
+			" ORDER BY version DESC " +
 			" LIMIT 1;"))
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
 	defer span.Finish()
@@ -747,7 +744,7 @@ func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *
 		releases.environments
 	FROM (
 		SELECT
-			MAX(eslVersion) AS latestRelease,
+			MAX(version) AS latestRelease,
 			appname,
 			releaseversion
 		FROM
@@ -757,7 +754,7 @@ func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *
 	JOIN
 		releases AS releases
 	ON
-		latest.latestRelease=releases.eslVersion
+		latest.latestRelease=releases.version
 		AND latest.releaseVersion=releases.releaseVersion
 		AND latest.appname=releases.appname;
 `)
@@ -824,7 +821,6 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(
 		`SELECT
-			releases.eslVersion,
 			releases.created,
 			releases.appName,
 			releases.metadata,
@@ -834,7 +830,7 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 			releases.environments
 		FROM (
 			SELECT
-				MAX(eslVersion) AS latestEslVersion,
+				MAX(version) AS latestVersion,
 				appname,
 				releaseversion
 			FROM
@@ -843,16 +839,16 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 				appname=?
 			GROUP BY
 				appname, releaseversion
-		) as currentEslReleases
+		) as currentReleases
 		JOIN
 		  releases
 		ON 
-			currentEslReleases.appname 			= releases.appname
+			currentReleases.appname 			= releases.appname
 		AND
-			currentEslReleases.latesteslversion = releases.eslversion
+			currentReleases.latestVersion = releases.version
 		AND
-			currentEslReleases.releaseversion 	= releases.releaseversion
-		ORDER BY currentEslReleases.releaseversion DESC;`,
+			currentReleases.releaseversion 	= releases.releaseversion
+		ORDER BY currentReleases.releaseversion DESC;`,
 	)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
@@ -869,7 +865,6 @@ func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 SELECT
-	releases.eslVersion,
 	releases.created,
 	releases.appName,
 	releases.metadata,
@@ -877,14 +872,14 @@ SELECT
 	releases.deleted,
 	releases.environments
 FROM (
- 	SELECT max(eslVersion) as latestEslVersion, appName, releaseVersion
+ 	SELECT max(version) as latestVersion, appName, releaseVersion
  	FROM releases
  	WHERE appName=?
  	GROUP BY appName, releaseVersion
  	) as c
 JOIN releases
     ON  c.appName= releases.appName
-    AND c.latestEslVersion = releases.eslversion
+    AND c.latestVersion = releases.version
     AND c.releaseVersion = releases.releaseVersion
 ORDER BY c.releaseVersion DESC
 LIMIT 1;
@@ -1063,9 +1058,9 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		var environmentsStr sql.NullString
 		var err error
 		if withManifests {
-			err = rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
+			err = rows.Scan(&row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
 		} else {
-			err = rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr /*manifests*/, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
+			err = rows.Scan(&row.Created, &row.App, &metadataStr /*manifests*/, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
 		}
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -1126,7 +1121,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	return result, nil
 }
 
-func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslVersion) error {
+func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
 	defer span.Finish()
 	metadataJson, err := json.Marshal(release.Metadata)
@@ -1134,7 +1129,7 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 		return fmt.Errorf("insert release: could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata, deleted, environments)  VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+		"INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, deleted, environments)  VALUES (?, ?, ?, ?, ?, ?, ?);",
 	)
 	span.SetTag("query", insertQuery)
 	manifestJson, err := json.Marshal(release.Manifests)
@@ -1159,7 +1154,6 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 	}
 	_, err = transaction.Exec(
 		insertQuery,
-		previousEslVersion+1,
 		*now,
 		release.ReleaseNumber,
 		release.App,
@@ -1170,18 +1164,16 @@ func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, re
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not insert release for app '%s' and version '%v' and eslVersion '%v' into DB. Error: %w\n",
+			"could not insert release for app '%s' and version '%v' into DB. Error: %w\n",
 			release.App,
 			release.ReleaseNumber,
-			previousEslVersion+1,
 			err)
 	}
 
 	logger.FromContext(ctx).Sugar().Infof(
-		"inserted release: app '%s' and version '%v' and eslVersion %v",
+		"inserted release: app '%s' and version '%v'",
 		release.App,
-		release.ReleaseNumber,
-		previousEslVersion+1)
+		release.ReleaseNumber)
 	return nil
 }
 
@@ -1248,7 +1240,7 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	}
 
 	targetRelease.Deleted = true
-	if err := h.DBInsertRelease(ctx, transaction, *targetRelease, targetRelease.EslVersion); err != nil {
+	if err := h.DBInsertRelease(ctx, transaction, *targetRelease); err != nil {
 		return err
 	}
 	return nil
@@ -5763,7 +5755,7 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) e
 			}
 			logger.FromContext(ctx).Sugar().Infof("updating %d releases environments", len(releasesWithoutEnvironments))
 			for _, release := range releasesWithoutEnvironments {
-				err = h.DBInsertRelease(ctx, transaction, *release, release.EslVersion)
+				err = h.DBInsertRelease(ctx, transaction, *release)
 				if err != nil {
 					return fmt.Errorf("could not insert release, error: %w", err)
 				}

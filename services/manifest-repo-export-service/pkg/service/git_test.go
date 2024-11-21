@@ -91,13 +91,12 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 		}
 		for releaseNumber := 1; releaseNumber < 4; releaseNumber++ {
 			err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-				EslVersion:    db.EslVersion(releaseNumber) + (db.EslVersion(eslVersion)-1)*3,
 				ReleaseNumber: uint64(releaseNumber),
 				Created:       time.Time{},
 				App:           app,
 				Manifests:     db.DBReleaseManifests{},
 				Metadata:      db.DBReleaseMetaData{},
-			}, 0)
+			})
 			if err != nil {
 				return err
 			}

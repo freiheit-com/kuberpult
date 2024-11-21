@@ -395,13 +395,12 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 				if err != nil {
 					return err
 				}
@@ -606,13 +605,12 @@ func TestDeploymentEvent(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 				if err != nil {
 					return err
 				}
@@ -805,13 +803,12 @@ func TestReleaseTrain(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 				if err != nil {
 					return err
 				}
@@ -1350,17 +1347,15 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 
 				if tc.MinorRelease != 0 {
 					err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-						EslVersion:    1,
 						ReleaseNumber: tc.MinorRelease,
 						Created:       time.Time{},
 						App:           appName,
@@ -1368,11 +1363,10 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 						Metadata: db.DBReleaseMetaData{
 							IsMinor: true,
 						},
-					}, 1)
+					})
 				}
 				if tc.PrepublishRelease != 0 {
 					err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-						EslVersion:    1,
 						ReleaseNumber: tc.PrepublishRelease,
 						Created:       time.Time{},
 						App:           appName,
@@ -1380,7 +1374,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 						Metadata: db.DBReleaseMetaData{
 							IsPrepublish: true,
 						},
-					}, 1)
+					})
 				}
 
 				if err != nil {
@@ -1597,21 +1591,19 @@ func TestReplacedByEvents(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    1,
 					ReleaseNumber: 2,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 				if err != nil {
 					return err
 				}
@@ -1743,21 +1735,19 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, 0)
+				})
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 2,
 					Created:       time.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 				if err != nil {
 					return err
 				}
@@ -2306,14 +2296,13 @@ func TestLocks(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							EslVersion:    0,
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
 							Deleted: false,
-						}, 0)
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2623,14 +2612,13 @@ func TestCreateUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							EslVersion:    0,
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
 							Deleted: false,
-						}, 0)
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2654,7 +2642,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						err2 = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							EslVersion:    1,
 							ReleaseNumber: 2,
 							App:           appName,
 							Manifests: db.DBReleaseManifests{
@@ -2671,7 +2658,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 							},
 							Created: time.Now(),
 							Deleted: false,
-						}, 1)
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -3045,14 +3032,13 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							EslVersion:    0,
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
 							Deleted: false,
-						}, 0)
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -3077,7 +3063,6 @@ func TestUndeployLogic(t *testing.T) {
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						concreteTransformer := tr.(*CreateUndeployApplicationVersion)
 						err2 = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							EslVersion:    1,
 							ReleaseNumber: 2,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
@@ -3094,7 +3079,7 @@ func TestUndeployLogic(t *testing.T) {
 							},
 							Created: time.Now(),
 							Deleted: false,
-						}, 1)
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}

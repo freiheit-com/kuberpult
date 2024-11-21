@@ -2779,7 +2779,6 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 
 		}
 		dbRelease := db.DBReleaseWithMetaData{
-			EslVersion:    db.InitialEslVersion,
 			Created:       *now,
 			ReleaseNumber: releaseVersion,
 			App:           app,
@@ -2799,7 +2798,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 			Deleted:      false,
 			Environments: []string{},
 		}
-		err = dbHandler.DBInsertRelease(ctx, transaction, dbRelease, db.InitialEslVersion-1)
+		err = dbHandler.DBInsertRelease(ctx, transaction, dbRelease)
 		if err != nil {
 			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
 		}
