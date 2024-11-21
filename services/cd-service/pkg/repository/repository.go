@@ -2541,7 +2541,6 @@ func (s *State) UpdateOneEnvironmentInOverview(ctx context.Context, transaction 
 				logger.FromContext(ctx).Sugar().Infof("skipping environment %s because it's not the new environment %s", envName, newEnvName)
 				continue
 			}
-			logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: updating new env %s with new group %v", envName, newGroupName)
 			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, newGroupName, envInGroup)
 			if err2 != nil {
 				return err2

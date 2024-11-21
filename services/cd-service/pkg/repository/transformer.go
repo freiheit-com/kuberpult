@@ -2878,7 +2878,6 @@ func (c *CreateEnvironment) Transform(
 		if err != nil {
 			return "", fmt.Errorf("Unable to read overview cache, error: %w", err)
 		}
-		logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: updating env %s with group %v", c.Environment, c.Config.EnvironmentGroup)
 		err = state.UpdateOneEnvironmentInOverview(ctx, transaction, overview, c.Environment)
 		if err != nil {
 			return "", fmt.Errorf("Unable to udpate overview cache, error: %w", err)
