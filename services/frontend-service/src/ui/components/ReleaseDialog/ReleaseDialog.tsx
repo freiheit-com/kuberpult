@@ -215,7 +215,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     };
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
     const apps = useApplications().filter((application) => application.name === app);
-    const teamLocks = useTeamLocks(apps);
+    const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
     const appLocks = useAppLocks(apps);
     const appEnvLocks = appLocks.filter((value: DisplayLock) => value.environment === env.name);
 

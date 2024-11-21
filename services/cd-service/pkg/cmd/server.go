@@ -469,8 +469,8 @@ func RunServer() {
 					Name:     "ddmetrics",
 					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 						reporter.ReportReady("sending metrics")
-						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository) {
-							repository.GetRepositoryStateAndUpdateMetrics(ctx, repository2)
+						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository, even bool) {
+							repository.GetRepositoryStateAndUpdateMetrics(ctx, repository2, even)
 						})
 						return nil
 					},

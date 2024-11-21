@@ -566,7 +566,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			e := transformerBatches[i]
 
 			subChanges, txErr := db.WithTransactionT(r.DB, e.ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
-				subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
+				subChanges, applyErr := r.ApplyTransformers(ctx, transaction, e.transformers...)
 				if applyErr != nil {
 					return nil, applyErr
 				}
@@ -776,41 +776,10 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 				err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 			}
 		}
-		span, ctx = tracer.StartSpanFromContext(ctx, "PostPush")
-		defer span.Finish()
 	}
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
-
-	if r.config.DogstatsdEvents {
-		var ddError error
-		if r.DB.ShouldUseEslTable() {
-			ddError = UpdateDatadogMetricsDB(ctx, r.State(), r, changes, time.Now())
-		} else {
-			ddError = UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
-		}
-		if ddError != nil {
-			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
-		}
-	}
-	ddSpan.Finish()
 
 	r.notify.Notify()
 	r.notifyChangedApps(changes)
-}
-
-func UpdateDatadogMetricsDB(ctx context.Context, state *State, r Repository, changes *TransformerResult, now time.Time) error {
-	repo := r.(*repository)
-	err := repo.DB.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-		ddError := UpdateDatadogMetrics(ctx, transaction, state, r, changes, now)
-		if ddError != nil {
-			return ddError
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
@@ -1111,17 +1080,6 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 
 		if err != nil {
 			return err
-		}
-		if r.config.DogstatsdEvents {
-			var ddError error
-			if r.DB.ShouldUseEslTable() {
-				ddError = UpdateDatadogMetricsDB(ctx, r.State(), r, changes, time.Now())
-			} else {
-				ddError = UpdateDatadogMetrics(ctx, nil, r.State(), r, changes, time.Now())
-			}
-			if ddError != nil {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
-			}
 		}
 		r.notify.Notify()
 		r.notifyChangedApps(changes)
@@ -2559,42 +2517,78 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 
-			argocd := &api.EnvironmentConfig_ArgoCD{
-				SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
-				Destination: &api.EnvironmentConfig_ArgoCD_Destination{
-					Name:                 "",
-					Server:               "",
-					Namespace:            nil,
-					AppProjectNamespace:  nil,
-					ApplicationNamespace: nil,
+			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, groupName, envInGroup)
+			if err2 != nil {
+				return err2
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.Tx, config config.EnvironmentConfig, envName string, groupName string, envInGroup *api.Environment) error {
+	argocd := &api.EnvironmentConfig_ArgoCD{
+		SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
+		Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+			Name:                 "",
+			Server:               "",
+			Namespace:            nil,
+			AppProjectNamespace:  nil,
+			ApplicationNamespace: nil,
+		},
+		AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+		ApplicationAnnotations: map[string]string{},
+		IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
+		SyncOptions:            []string{},
+	}
+	if config.ArgoCd != nil {
+		argocd = mapper.TransformArgocd(*config.ArgoCd)
+	}
+	env := api.Environment{
+		DistanceToUpstream: 0,
+		Priority:           api.Priority_PROD,
+		Name:               envName,
+		Config: &api.EnvironmentConfig{
+			Upstream:         mapper.TransformUpstream(config.Upstream),
+			Argocd:           argocd,
+			EnvironmentGroup: &groupName,
+		},
+		Locks:     map[string]*api.Lock{},
+		AppLocks:  make(map[string]*api.Locks),
+		TeamLocks: make(map[string]*api.Locks),
+	}
+	envInGroup.Config = env.Config
+	if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
+		return err
+	} else {
+		for lockId, lock := range locks {
+			env.Locks[lockId] = &api.Lock{
+				Message:   lock.Message,
+				LockId:    lockId,
+				CreatedAt: timestamppb.New(lock.CreatedAt),
+				CreatedBy: &api.Actor{
+					Name:  lock.CreatedBy.Name,
+					Email: lock.CreatedBy.Email,
 				},
-				AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
-				ApplicationAnnotations: map[string]string{},
-				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-				SyncOptions:            []string{},
 			}
-			if config.ArgoCd != nil {
-				argocd = mapper.TransformArgocd(*config.ArgoCd)
-			}
-			env := api.Environment{
-				DistanceToUpstream: 0,
-				Priority:           api.Priority_PROD,
-				Name:               envName,
-				Config: &api.EnvironmentConfig{
-					Upstream:         mapper.TransformUpstream(config.Upstream),
-					Argocd:           argocd,
-					EnvironmentGroup: &groupName,
-				},
-				Locks:     map[string]*api.Lock{},
-				AppLocks:  make(map[string]*api.Locks),
-				TeamLocks: make(map[string]*api.Locks),
-			}
-			envInGroup.Config = env.Config
-			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
+		}
+		envInGroup.Locks = env.Locks
+	}
+
+	if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
+		return err
+	} else {
+		for _, appName := range apps {
+
+			if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
 				return err
 			} else {
-				for lockId, lock := range locks {
-					env.Locks[lockId] = &api.Lock{
+				apiAppLocks := api.Locks{
+					Locks: make([]*api.Lock, 0),
+				}
+				for lockId, lock := range appLocks {
+					apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
 						Message:   lock.Message,
 						LockId:    lockId,
 						CreatedAt: timestamppb.New(lock.CreatedAt),
@@ -2602,70 +2596,42 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 							Name:  lock.CreatedBy.Name,
 							Email: lock.CreatedBy.Email,
 						},
-					}
-				}
-				envInGroup.Locks = env.Locks
-			}
+					})
 
-			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
+				}
+				if len(apiAppLocks.Locks) > 0 {
+					env.AppLocks[appName] = &apiAppLocks
+				}
+			}
+			team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
+			if err != nil {
+				return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
+			}
+			if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, team); err != nil {
 				return err
 			} else {
-				for _, appName := range apps {
-
-					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
-						return err
-					} else {
-						apiAppLocks := api.Locks{
-							Locks: make([]*api.Lock, 0),
-						}
-						for lockId, lock := range appLocks {
-							apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
-								Message:   lock.Message,
-								LockId:    lockId,
-								CreatedAt: timestamppb.New(lock.CreatedAt),
-								CreatedBy: &api.Actor{
-									Name:  lock.CreatedBy.Name,
-									Email: lock.CreatedBy.Email,
-								},
-							})
-
-						}
-						if len(apiAppLocks.Locks) > 0 {
-							env.AppLocks[appName] = &apiAppLocks
-						}
-					}
-					team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
-					if err != nil {
-						return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
-					}
-					if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, team); err != nil {
-						return err
-					} else {
-						apiTeamLocks := api.Locks{
-							Locks: make([]*api.Lock, 0),
-						}
-						for lockId, lock := range teamLocks {
-							apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
-								Message:   lock.Message,
-								LockId:    lockId,
-								CreatedAt: timestamppb.New(lock.CreatedAt),
-								CreatedBy: &api.Actor{
-									Name:  lock.CreatedBy.Name,
-									Email: lock.CreatedBy.Email,
-								},
-							})
-						}
-						if len(apiTeamLocks.Locks) > 0 {
-							env.TeamLocks[appName] = &apiTeamLocks
-						}
-					}
+				apiTeamLocks := api.Locks{
+					Locks: make([]*api.Lock, 0),
+				}
+				for lockId, lock := range teamLocks {
+					apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
+						Message:   lock.Message,
+						LockId:    lockId,
+						CreatedAt: timestamppb.New(lock.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  lock.CreatedBy.Name,
+							Email: lock.CreatedBy.Email,
+						},
+					})
+				}
+				if len(apiTeamLocks.Locks) > 0 {
+					env.TeamLocks[appName] = &apiTeamLocks
 				}
 			}
-			envInGroup.TeamLocks = env.TeamLocks
-			envInGroup.AppLocks = env.AppLocks
 		}
 	}
-
+	envInGroup.TeamLocks = env.TeamLocks
+	envInGroup.AppLocks = env.AppLocks
 	return nil
 }
 
