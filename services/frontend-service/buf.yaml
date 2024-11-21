@@ -14,7 +14,9 @@
 
 # Copyright freiheit.com
 
-version: v1beta1
+version: v1
 name: buf.build/freiheit-com/kuberpult
 deps:
 - buf.build/googleapis/googleapis
+lint:
+  allow_comment_ignores: true
