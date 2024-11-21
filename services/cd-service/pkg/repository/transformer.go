@@ -2840,7 +2840,7 @@ func (c *CreateEnvironment) Transform(
 	if state.DBHandler.ShouldUseOtherTables() {
 		// write to environments table
 		environmentApplications := make([]string, 0)
-		err = state.DBInsertEnvironmentWithOverview(ctx, transaction, c.Environment, c.Config, environmentApplications)
+		err := state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)
 		if err != nil {
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 		}
