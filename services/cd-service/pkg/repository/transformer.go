@@ -1595,7 +1595,7 @@ func (u *UndeployApplication) Transform(
 				deployment.Version = nil
 				deployment.Metadata.DeployedByName = user.Name
 				deployment.Metadata.DeployedByEmail = user.Email
-				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion, false)
+				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, false)
 				if err != nil {
 					return "", err
 				}
@@ -3128,7 +3128,6 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		var v = int64(c.Version)
 		newDeployment := db.Deployment{
-			EslVersion:    0,
 			Created:       time.Time{},
 			App:           c.Application,
 			Env:           c.Environment,
@@ -3140,13 +3139,7 @@ func (c *DeployApplicationVersion) Transform(
 				CiLink:          c.CiLink,
 			},
 		}
-		var previousVersion db.EslVersion
-		if existingDeployment == nil {
-			previousVersion = 0
-		} else {
-			previousVersion = existingDeployment.EslVersion
-		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion, c.SkipOverview)
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, c.SkipOverview)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}
