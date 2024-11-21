@@ -1675,9 +1675,10 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
+									//Argocd: &api.EnvironmentConfig_ArgoCD{
+									//	Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									//},
+									Argocd:           nil,
 									EnvironmentGroup: &developmentEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
@@ -1739,9 +1740,6 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
-									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
 									},
 									EnvironmentGroup: &developmentEnvGroup,
 								},
