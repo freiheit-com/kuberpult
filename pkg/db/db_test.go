@@ -2426,7 +2426,6 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version:      1,
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatest(nil),
 				Applications: []string{"app1", "app2", "app3"},
@@ -2443,7 +2442,6 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version:      1,
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
 				Applications: []string{"app1"},
@@ -2463,9 +2461,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version: 2,
-				Name:    "development",
-				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+				Name:   "development",
+				Config: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
 			},
 		},
 		{
@@ -2486,9 +2483,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version: 3,
-				Name:    "development",
-				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-development-group")),
+				Name:   "development",
+				Config: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-development-group")),
 			},
 		},
 		{
@@ -2505,9 +2501,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "staging",
 			ExpectedEntry: &DBEnvironment{
-				Version: 1,
-				Name:    "staging",
-				Config:  testutil.MakeEnvConfigUpstream("development", nil),
+				Name:   "staging",
+				Config: testutil.MakeEnvConfigUpstream("development", nil),
 			},
 		},
 		{
@@ -2536,7 +2531,6 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version:      1,
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatest(nil),
 				Applications: []string{"app1", "capp", "zapp"},
