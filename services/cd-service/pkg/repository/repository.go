@@ -2534,14 +2534,15 @@ func (s *State) UpdateOneEnvironmentInOverview(ctx context.Context, transaction 
 	} else {
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
 		for envName, config := range envs {
-			var groupName = mapper.DeriveGroupName(config, envName)
-			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
+			var newGroupName = mapper.DeriveGroupName(config, envName)
+			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, newGroupName, envName)
 
 			if envName != newEnvName {
 				logger.FromContext(ctx).Sugar().Infof("skipping environment %s because it's not the new environment %s", envName, newEnvName)
 				continue
 			}
-			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, groupName, envInGroup)
+			logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: updating new env %s with new group %v", envName, newGroupName)
+			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, newGroupName, envInGroup)
 			if err2 != nil {
 				return err2
 			}
