@@ -2603,6 +2603,129 @@ func TestReadWriteEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestReadEnvironmentBatch(t *testing.T) {
+	type EnvAndConfig struct {
+		EnvironmentName   string
+		EnvironmentConfig config.EnvironmentConfig
+		Applications      []string
+	}
+	type TestCase struct {
+		Name         string
+		EnvsToWrite  []EnvAndConfig
+		EnvsToQuery  []string
+		ExpectedEnvs *[]DBEnvironment
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "read batch of environments",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+				{
+					EnvironmentName:   "staging",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+				{
+					EnvironmentName:   "production",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+			},
+			EnvsToQuery: []string{"development", "staging"},
+			ExpectedEnvs: &[]DBEnvironment{
+				{
+					Version:      1,
+					Name:         "development",
+					Config:       testutil.MakeEnvConfigLatest(nil),
+					Applications: []string{"app1", "app2", "app3"},
+				},
+				{
+					Version:      1,
+					Name:         "staging",
+					Config:       testutil.MakeEnvConfigLatest(nil),
+					Applications: []string{"app1", "app2", "app3"},
+				},
+			},
+		},
+		{
+			Name: "read only latest esl version of environments",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+				{
+					EnvironmentName:   "staging",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2"},
+				},
+			},
+			EnvsToQuery: []string{"development", "staging"},
+			ExpectedEnvs: &[]DBEnvironment{
+				{
+					Version:      2,
+					Name:         "development",
+					Config:       testutil.MakeEnvConfigLatest(nil),
+					Applications: []string{"app1", "app2"},
+				},
+				{
+					Version:      1,
+					Name:         "staging",
+					Config:       testutil.MakeEnvConfigLatest(nil),
+					Applications: []string{"app1", "app2", "app3"},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			for _, envToWrite := range tc.EnvsToWrite {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
+					if err != nil {
+						return fmt.Errorf("error while writing environment, error: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("error while running the transaction for writing environment %s to the database, error: %v", envToWrite.EnvironmentName, err)
+				}
+			}
+
+			environments, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]DBEnvironment, error) {
+				enviroments, err := dbHandler.DBSelectEnvironmentsBatch(ctx, transaction, tc.EnvsToQuery)
+				if err != nil {
+					return nil, fmt.Errorf("error while selecting environment batch, error: %w", err)
+				}
+				return enviroments, nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for selecting the target environment, error: %v", err)
+			}
+			if diff := cmp.Diff(environments, tc.ExpectedEnvs, cmpopts.IgnoreFields(DBEnvironment{}, "Created")); diff != "" {
+				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEnvs, environments, diff)
+			}
+		})
+	}
+}
+
 func TestReadWriteEslEvent(t *testing.T) {
 	const envName = "dev"
 	const appName = "my-app"
