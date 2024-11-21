@@ -1675,9 +1675,7 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
+									Argocd:           nil,
 									EnvironmentGroup: &developmentEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
@@ -1692,6 +1690,94 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
 									},
 									EnvironmentGroup: &developmentEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+			},
+		},
+		{
+			Name: "updating the group of an env where the new group does not exist",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &stagingEnvGroup), // changing the group
+				},
+			},
+			ExpectedOverviewCache: &api.GetOverviewResponse{
+				GitRevision: "0000000000000000000000000000000000000000",
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: stagingEnvGroup,
+						Environments: []*api.Environment{
+							{
+								Name: "development",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &stagingEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+			},
+		},
+		{
+			Name: "updating the group of an env while the group already exists",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "development2",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &stagingEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &stagingEnvGroup), // changing the group
+				},
+			},
+			ExpectedOverviewCache: &api.GetOverviewResponse{
+				GitRevision: "0000000000000000000000000000000000000000",
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: stagingEnvGroup,
+						Environments: []*api.Environment{
+							{
+								Name: "development",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &stagingEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+							{
+								Name: "development2",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									EnvironmentGroup: &stagingEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
 							},
@@ -1739,9 +1825,6 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
-									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
 									},
 									EnvironmentGroup: &developmentEnvGroup,
 								},

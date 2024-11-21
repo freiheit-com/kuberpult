@@ -2878,7 +2878,7 @@ func (c *CreateEnvironment) Transform(
 		if err != nil {
 			return "", fmt.Errorf("Unable to read overview cache, error: %w", err)
 		}
-		err = state.UpdateEnvironmentsInOverview(ctx, transaction, overview)
+		err = state.UpdateOneEnvironmentInOverview(ctx, transaction, overview, c.Environment)
 		if err != nil {
 			return "", fmt.Errorf("Unable to udpate overview cache, error: %w", err)
 		}
