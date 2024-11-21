@@ -1535,6 +1535,181 @@ func TestReadWriteApplicationLock(t *testing.T) {
 	}
 }
 
+func TestReadAllActiveApplicationLock(t *testing.T) {
+
+	type testLockInfo struct {
+		Env         string
+		LockID      string
+		Message     string
+		AppName     string
+		AuthorName  string
+		AuthorEmail string
+		CiLink      string
+	}
+
+	tcs := []struct {
+		Name                string
+		AppName             string
+		SetupLocks          []testLockInfo
+		DeleteLocks         []testLockInfo
+		ExpectedActiveLocks []ApplicationLock
+	}{
+		{
+			Name:    "Read one lock",
+			AppName: "my-app",
+			SetupLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			DeleteLocks: []testLockInfo{},
+			ExpectedActiveLocks: []ApplicationLock{
+				{
+					Env:        "dev",
+					LockID:     "dev-app-lock",
+					EslVersion: 1,
+					Deleted:    false,
+					App:        "my-app",
+					Metadata: LockMetadata{
+						Message:        "My application lock on dev for my-app",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+			},
+		},
+		{
+			Name:    "Don't read deleted lock",
+			AppName: "my-app",
+			SetupLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			DeleteLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			ExpectedActiveLocks: nil,
+		},
+		{
+			Name:    "Only read not deleted locks",
+			AppName: "my-app",
+			SetupLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+				{
+					Env:         "staging",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			DeleteLocks: []testLockInfo{
+				{
+					Env:         "staging",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			ExpectedActiveLocks: []ApplicationLock{
+				{
+					Env:        "dev",
+					LockID:     "dev-app-lock",
+					EslVersion: 1,
+					Deleted:    false,
+					App:        "my-app",
+					Metadata: LockMetadata{
+						Message:        "My application lock on dev for my-app",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
+				for _, lockInfo := range tc.SetupLocks {
+					err := dbHandler.DBWriteApplicationLock(ctx, transaction, lockInfo.LockID, lockInfo.Env, lockInfo.AppName, LockMetadata{
+						CreatedByName:  lockInfo.AuthorName,
+						CreatedByEmail: lockInfo.AuthorEmail,
+						Message:        lockInfo.Message,
+						CiLink:         lockInfo.CiLink,
+					})
+					if err != nil {
+						return err
+					}
+
+				}
+
+				for _, lockInfo := range tc.DeleteLocks {
+					err := dbHandler.DBDeleteApplicationLock(ctx, transaction, lockInfo.Env, lockInfo.AppName, lockInfo.LockID)
+					if err != nil {
+						return err
+					}
+				}
+
+				activeLocks, err := dbHandler.DBSelectAllActiveAppLocksForApp(ctx, transaction, tc.AppName)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedActiveLocks, activeLocks, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestDeleteApplicationLock(t *testing.T) {
 	tcs := []struct {
 		Name          string
