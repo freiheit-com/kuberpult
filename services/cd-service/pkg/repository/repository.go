@@ -2523,7 +2523,30 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 			}
 		}
 	}
+	return nil
+}
 
+func (s *State) UpdateOneEnvironmentInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse, newEnvName string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateEnvironmentsInOverview")
+	defer span.Finish()
+	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
+		return err
+	} else {
+		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
+		for envName, config := range envs {
+			var newGroupName = mapper.DeriveGroupName(config, envName)
+			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, newGroupName, envName)
+
+			if envName != newEnvName {
+				logger.FromContext(ctx).Sugar().Infof("skipping environment %s because it's not the new environment %s", envName, newEnvName)
+				continue
+			}
+			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, newGroupName, envInGroup)
+			if err2 != nil {
+				return err2
+			}
+		}
+	}
 	return nil
 }
 
