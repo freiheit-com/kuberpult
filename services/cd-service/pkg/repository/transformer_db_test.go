@@ -1782,6 +1782,17 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t)
 			state := repo.State()
 			err := state.DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := state.DBHandler.WriteOverviewCache(ctx, transaction, &api.GetOverviewResponse{
+					EnvironmentGroups: nil,
+					GitRevision:       "0000000000000000000000000000000000000000",
+					Branch:            "",
+					ManifestRepoUrl:   "",
+					LightweightApps:   nil,
+				})
+				if err != nil {
+					return err
+				}
+
 				_, _, _, transformerBatchErr := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if transformerBatchErr != nil {
 					return transformerBatchErr

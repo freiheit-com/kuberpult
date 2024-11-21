@@ -2517,42 +2517,78 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 
-			argocd := &api.EnvironmentConfig_ArgoCD{
-				SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
-				Destination: &api.EnvironmentConfig_ArgoCD_Destination{
-					Name:                 "",
-					Server:               "",
-					Namespace:            nil,
-					AppProjectNamespace:  nil,
-					ApplicationNamespace: nil,
+			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, groupName, envInGroup)
+			if err2 != nil {
+				return err2
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.Tx, config config.EnvironmentConfig, envName string, groupName string, envInGroup *api.Environment) error {
+	argocd := &api.EnvironmentConfig_ArgoCD{
+		SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
+		Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+			Name:                 "",
+			Server:               "",
+			Namespace:            nil,
+			AppProjectNamespace:  nil,
+			ApplicationNamespace: nil,
+		},
+		AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+		ApplicationAnnotations: map[string]string{},
+		IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
+		SyncOptions:            []string{},
+	}
+	if config.ArgoCd != nil {
+		argocd = mapper.TransformArgocd(*config.ArgoCd)
+	}
+	env := api.Environment{
+		DistanceToUpstream: 0,
+		Priority:           api.Priority_PROD,
+		Name:               envName,
+		Config: &api.EnvironmentConfig{
+			Upstream:         mapper.TransformUpstream(config.Upstream),
+			Argocd:           argocd,
+			EnvironmentGroup: &groupName,
+		},
+		Locks:     map[string]*api.Lock{},
+		AppLocks:  make(map[string]*api.Locks),
+		TeamLocks: make(map[string]*api.Locks),
+	}
+	envInGroup.Config = env.Config
+	if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
+		return err
+	} else {
+		for lockId, lock := range locks {
+			env.Locks[lockId] = &api.Lock{
+				Message:   lock.Message,
+				LockId:    lockId,
+				CreatedAt: timestamppb.New(lock.CreatedAt),
+				CreatedBy: &api.Actor{
+					Name:  lock.CreatedBy.Name,
+					Email: lock.CreatedBy.Email,
 				},
-				AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
-				ApplicationAnnotations: map[string]string{},
-				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-				SyncOptions:            []string{},
 			}
-			if config.ArgoCd != nil {
-				argocd = mapper.TransformArgocd(*config.ArgoCd)
-			}
-			env := api.Environment{
-				DistanceToUpstream: 0,
-				Priority:           api.Priority_PROD,
-				Name:               envName,
-				Config: &api.EnvironmentConfig{
-					Upstream:         mapper.TransformUpstream(config.Upstream),
-					Argocd:           argocd,
-					EnvironmentGroup: &groupName,
-				},
-				Locks:     map[string]*api.Lock{},
-				AppLocks:  make(map[string]*api.Locks),
-				TeamLocks: make(map[string]*api.Locks),
-			}
-			envInGroup.Config = env.Config
-			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
+		}
+		envInGroup.Locks = env.Locks
+	}
+
+	if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
+		return err
+	} else {
+		for _, appName := range apps {
+
+			if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
 				return err
 			} else {
-				for lockId, lock := range locks {
-					env.Locks[lockId] = &api.Lock{
+				apiAppLocks := api.Locks{
+					Locks: make([]*api.Lock, 0),
+				}
+				for lockId, lock := range appLocks {
+					apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
 						Message:   lock.Message,
 						LockId:    lockId,
 						CreatedAt: timestamppb.New(lock.CreatedAt),
@@ -2560,70 +2596,42 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 							Name:  lock.CreatedBy.Name,
 							Email: lock.CreatedBy.Email,
 						},
-					}
-				}
-				envInGroup.Locks = env.Locks
-			}
+					})
 
-			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
+				}
+				if len(apiAppLocks.Locks) > 0 {
+					env.AppLocks[appName] = &apiAppLocks
+				}
+			}
+			team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
+			if err != nil {
+				return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
+			}
+			if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, team); err != nil {
 				return err
 			} else {
-				for _, appName := range apps {
-
-					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
-						return err
-					} else {
-						apiAppLocks := api.Locks{
-							Locks: make([]*api.Lock, 0),
-						}
-						for lockId, lock := range appLocks {
-							apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
-								Message:   lock.Message,
-								LockId:    lockId,
-								CreatedAt: timestamppb.New(lock.CreatedAt),
-								CreatedBy: &api.Actor{
-									Name:  lock.CreatedBy.Name,
-									Email: lock.CreatedBy.Email,
-								},
-							})
-
-						}
-						if len(apiAppLocks.Locks) > 0 {
-							env.AppLocks[appName] = &apiAppLocks
-						}
-					}
-					team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
-					if err != nil {
-						return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
-					}
-					if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, team); err != nil {
-						return err
-					} else {
-						apiTeamLocks := api.Locks{
-							Locks: make([]*api.Lock, 0),
-						}
-						for lockId, lock := range teamLocks {
-							apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
-								Message:   lock.Message,
-								LockId:    lockId,
-								CreatedAt: timestamppb.New(lock.CreatedAt),
-								CreatedBy: &api.Actor{
-									Name:  lock.CreatedBy.Name,
-									Email: lock.CreatedBy.Email,
-								},
-							})
-						}
-						if len(apiTeamLocks.Locks) > 0 {
-							env.TeamLocks[appName] = &apiTeamLocks
-						}
-					}
+				apiTeamLocks := api.Locks{
+					Locks: make([]*api.Lock, 0),
+				}
+				for lockId, lock := range teamLocks {
+					apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
+						Message:   lock.Message,
+						LockId:    lockId,
+						CreatedAt: timestamppb.New(lock.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  lock.CreatedBy.Name,
+							Email: lock.CreatedBy.Email,
+						},
+					})
+				}
+				if len(apiTeamLocks.Locks) > 0 {
+					env.TeamLocks[appName] = &apiTeamLocks
 				}
 			}
-			envInGroup.TeamLocks = env.TeamLocks
-			envInGroup.AppLocks = env.AppLocks
 		}
 	}
-
+	envInGroup.TeamLocks = env.TeamLocks
+	envInGroup.AppLocks = env.AppLocks
 	return nil
 }
 
