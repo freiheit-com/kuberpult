@@ -2466,7 +2466,7 @@ func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction
 
 func (s *State) DBInsertEnvironmentWithOverview(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
 	h := s.DBHandler
-	err := h.DBWriteEnvironment(ctx, tx, environmentName, environmentConfig, applications)
+	err := h.DBWriteEnvironment(ctx, tx, environmentName, environmentConfig, applications, nil)
 	if err != nil {
 		return err
 	}

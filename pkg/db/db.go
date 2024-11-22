@@ -5420,7 +5420,9 @@ LIMIT ?
 	return &envs, nil
 }
 
-func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+// DBWriteEnvironment writes the env to the db
+// if the previousVersion is not supplied, it will do another request to get the environment.
+func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string, previousVersion *int64) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
 
@@ -5435,21 +5437,23 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
 	}
-	existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName)
-	if err != nil {
-		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
+	var existingEnvironmentVersion int64 = 0
+	if previousVersion == nil {
+		existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName)
+		if err != nil {
+			return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
+		}
+		if existingEnvironment != nil {
+			existingEnvironmentVersion = existingEnvironment.Version
+		}
+	} else {
+		existingEnvironmentVersion = *previousVersion
 	}
+
 	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
 	applicationsJson, err := json.Marshal(applications)
 	if err != nil {
 		return fmt.Errorf("could not marshal the application names list %v, error: %w", applicationsJson, err)
-	}
-
-	var existingEnvironmentVersion int64
-	if existingEnvironment == nil {
-		existingEnvironmentVersion = 0
-	} else {
-		existingEnvironmentVersion = existingEnvironment.Version
 	}
 
 	insertQuery := h.AdaptQuery(
@@ -5661,7 +5665,7 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 			if allEnvsApps[envName] == nil {
 				allEnvsApps[envName] = make([]string, 0)
 			}
-			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allEnvsApps[envName])
+			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allEnvsApps[envName], nil)
 			if err != nil {
 				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 			}
@@ -5715,7 +5719,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 				if allEnvsApps[envName] == nil {
 					allEnvsApps[envName] = make([]string, 0)
 				}
-				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allEnvsApps[envName])
+				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allEnvsApps[envName], &env.Version)
 				if err != nil {
 					return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 				}
