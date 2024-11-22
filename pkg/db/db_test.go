@@ -1994,6 +1994,129 @@ func TestReadWriteEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestReadEnvironmentBatch(t *testing.T) {
+	type EnvAndConfig struct {
+		EnvironmentName   string
+		EnvironmentConfig config.EnvironmentConfig
+		Applications      []string
+	}
+	type TestCase struct {
+		Name         string
+		EnvsToWrite  []EnvAndConfig
+		EnvsToQuery  []string
+		ExpectedEnvs *[]DBEnvironment
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "read batch of environments",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+				{
+					EnvironmentName:   "staging",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+				{
+					EnvironmentName:   "production",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+			},
+			EnvsToQuery: []string{"development", "staging"},
+			ExpectedEnvs: &[]DBEnvironment{
+				{
+					Version:      1,
+					Name:         "development",
+					Config:       testutil.MakeEnvConfigLatest(nil),
+					Applications: []string{"app1", "app2", "app3"},
+				},
+				{
+					Version:      1,
+					Name:         "staging",
+					Config:       testutil.MakeEnvConfigLatest(nil),
+					Applications: []string{"app1", "app2", "app3"},
+				},
+			},
+		},
+		{
+			Name: "read only latest esl version of environments",
+			EnvsToWrite: []EnvAndConfig{
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+				{
+					EnvironmentName:   "staging",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2", "app3"},
+				},
+				{
+					EnvironmentName:   "development",
+					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
+					Applications:      []string{"app1", "app2"},
+				},
+			},
+			EnvsToQuery: []string{"development", "staging"},
+			ExpectedEnvs: &[]DBEnvironment{
+				{
+					Version:      2,
+					Name:         "development",
+					Config:       testutil.MakeEnvConfigLatest(nil),
+					Applications: []string{"app1", "app2"},
+				},
+				{
+					Version:      1,
+					Name:         "staging",
+					Config:       testutil.MakeEnvConfigLatest(nil),
+					Applications: []string{"app1", "app2", "app3"},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			for _, envToWrite := range tc.EnvsToWrite {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
+					if err != nil {
+						return fmt.Errorf("error while writing environment, error: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("error while running the transaction for writing environment %s to the database, error: %v", envToWrite.EnvironmentName, err)
+				}
+			}
+
+			environments, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]DBEnvironment, error) {
+				enviroments, err := dbHandler.DBSelectEnvironmentsBatch(ctx, transaction, tc.EnvsToQuery)
+				if err != nil {
+					return nil, fmt.Errorf("error while selecting environment batch, error: %w", err)
+				}
+				return enviroments, nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for selecting the target environment, error: %v", err)
+			}
+			if diff := cmp.Diff(environments, tc.ExpectedEnvs, cmpopts.IgnoreFields(DBEnvironment{}, "Created")); diff != "" {
+				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEnvs, environments, diff)
+			}
+		})
+	}
+}
+
 func TestReadWriteEslEvent(t *testing.T) {
 	const envName = "dev"
 	const appName = "my-app"
@@ -3083,4 +3206,139 @@ func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
 		t.Fatal(err)
 	}
 	return dbHandler
+}
+
+func TestReadReleasesWithoutEnvironments(t *testing.T) {
+
+	tcs := []struct {
+		Name        string
+		Releases    []DBReleaseWithMetaData
+		AppName     string
+		Expected    []*DBReleaseWithMetaData
+		ExpectedErr error
+	}{
+		{
+			Name: "Retrieve release without environment",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 1,
+					App:           "appNoEnv",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			AppName: "appNoEnv",
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 1,
+					App:           "appNoEnv",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{},
+				},
+			},
+		},
+		{
+			Name: "Retrieve only latest releases without envionments",
+			Releases: []DBReleaseWithMetaData{
+				{
+					EslVersion:    1,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+					Environments:  []string{"dev"},
+				},
+				{
+					EslVersion:    2,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
+				},
+			},
+			AppName: "app1",
+			Expected: []*DBReleaseWithMetaData{
+				{
+					EslVersion:    2,
+					ReleaseNumber: 1,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
+					Environments:  []string{},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, release := range tc.Releases {
+					err := dbHandler.DBInsertReleaseWithoutEnvironment(ctx, transaction, release, release.EslVersion-1)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				releases, err := dbHandler.DBSelectReleasesWithoutEnvironments(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+				if diff := cmp.Diff(tc.Expected, releases, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
+					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
+// DBInsertReleaseWithoutEnvironment inserts a release with mismatching manifest and environments into the database.
+// This behaviour is intended to test the `DBSelectReleasesWithoutEnvironments` method which exists only for migration purposes.
+func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslVersion) error {
+	metadataJson, err := json.Marshal(release.Metadata)
+	if err != nil {
+		return fmt.Errorf("insert release: could not marshal json data: %w", err)
+	}
+	insertQuery := h.AdaptQuery(
+		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata, deleted, environments)  VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+	)
+	manifestJson, err := json.Marshal(release.Manifests)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
+	environmentStr := ""
+
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
+	}
+	_, err = transaction.Exec(
+		insertQuery,
+		previousEslVersion+1,
+		*now,
+		release.ReleaseNumber,
+		release.App,
+		manifestJson,
+		metadataJson,
+		release.Deleted,
+		environmentStr,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"could not insert release for app '%s' and version '%v' and eslVersion '%v' into DB. Error: %w\n",
+			release.App,
+			release.ReleaseNumber,
+			previousEslVersion+1,
+			err)
+	}
+
+	return nil
 }
