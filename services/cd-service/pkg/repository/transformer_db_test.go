@@ -4124,6 +4124,21 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
 				t.Fatalf(msg)
 			}
+			sortGauges := func(gaugesList []Gauge) {
+				sort.Slice(gaugesList, func(i, j int) bool {
+					if len(gaugesList[i].Tags) == 0 && len(gaugesList[j].Tags) == 0 {
+						return gaugesList[i].Name > gaugesList[j].Name
+					} else if len(gaugesList[i].Tags) > 0 && len(gaugesList[j].Tags) == 0 {
+						return true
+					} else if len(gaugesList[i].Tags) == 0 && len(gaugesList[j].Tags) > 0 {
+						return false
+					} else {
+						return gaugesList[i].Tags[0] > gaugesList[j].Tags[0]
+					}
+				})
+			}
+			sortGauges(tc.expectedGauges)
+			sortGauges(mockClient.gauges)
 			for i := range tc.expectedGauges {
 				var expectedGauge Gauge = tc.expectedGauges[i]
 				sort.Strings(expectedGauge.Tags)
