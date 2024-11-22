@@ -56,6 +56,7 @@ scan-service:
 cache-trivy-db:
 	FROM +deps
 	ARG --required cache_dir
+	ARG --required kuberpult_trivy
 	ARG retries=10
-	RUN pwd
-	RUN  ./trivy/download_db_image.sh $retries $cache_dir
+	RUN echo "$kuberpult_trivy/trivy/download_db_image.sh"
+	RUN  $kuberpult_trivy/trivy/download_db_image.sh $retries $cache_dir
