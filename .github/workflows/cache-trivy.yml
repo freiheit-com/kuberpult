@@ -52,6 +52,6 @@ jobs:
           --location=europe-west3 \
           --project=fdc-public-docker-registry \
           --repository=kuberpult \
-          --package=trivy-db-cache \
+          --package=aquasecurity/trivy-db \
           --source-directory=$LOCAL_CACHE/db \
           --version=1
