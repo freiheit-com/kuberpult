@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -101,7 +102,8 @@ func TestHandleCommitDeployments(t *testing.T) {
 			if w.Code != tc.expectedStatusCode {
 				t.Errorf("expected status code %d, got %d", tc.expectedStatusCode, w.Code)
 			}
-			if diff := cmp.Diff(tc.expectedResponse, w.Body.String()); diff != "" {
+			body := strings.ReplaceAll(w.Body.String(), ", ", ",")
+			if diff := cmp.Diff(tc.expectedResponse, body); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\\n%s", diff)
 			}
 		})

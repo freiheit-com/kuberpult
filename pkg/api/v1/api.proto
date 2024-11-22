@@ -524,7 +524,12 @@ message EnvironmentConfig {
 
   Upstream upstream = 1;
   ArgoCD argocd  = 2;
-  optional string environment_group = 3;
+
+  // Buf somehow generates the wrong go annotation in this case.
+  // To fix it, we changed the spelling, but now violate a linter rule.
+  // So we disable the rule, according to https://buf.build/docs/lint/overview/#comment-ignores
+  // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
+  optional string environmentGroup = 3; // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
 }
 
 
