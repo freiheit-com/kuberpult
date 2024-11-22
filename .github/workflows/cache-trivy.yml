@@ -1,5 +1,7 @@
 name: "Kuberpult Trivy Caching"
 on:
+  pull_request:
+    types: [opened]
   # schedule:
   #   - cron: '0 8 * * *'
 
