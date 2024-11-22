@@ -56,4 +56,6 @@ scan-service:
 cache-trivy-db:
 	FROM +deps
 	ARG --required cache_dir
-	RUN trivy --cache-dir $cache_dir image --download-db-only
+	FOR i IN $(printf "%s " {1..10})
+		RUN trivy --cache-dir $cache_dir image --download-db-only
+	END
