@@ -2697,7 +2697,7 @@ func TestReadEnvironmentBatch(t *testing.T) {
 
 			for _, envToWrite := range tc.EnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications, nil)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
