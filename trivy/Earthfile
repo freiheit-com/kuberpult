@@ -56,6 +56,7 @@ scan-service:
 cache-trivy-db:
 	FROM +deps
 	ARG --required cache_dir
+	ARG retries=10
 	FOR i IN $(printf "%s " {1..10})
-		RUN trivy --cache-dir $cache_dir image --download-db-only
+		RUN RETRIES=$retries ./download_db_image.sh
 	END
