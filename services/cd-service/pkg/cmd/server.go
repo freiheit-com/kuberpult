@@ -347,8 +347,8 @@ func RunServer() {
 
 		if dbHandler.ShouldUseOtherTables() {
 			// we overwrite InsertApp in order to also update the overview:
-			dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-				return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+			dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
+				return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, stateChange, metaData)
 			}
 			//Check for migrations -> for pulling
 			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")

@@ -2353,7 +2353,7 @@ func TestUpdateOverviewCache(t *testing.T) {
 				metaData := db.DBAppMetaData{
 					Team: "",
 				}
-				err = state.DBInsertApplicationWithOverview(ctx, transaction, "app1", db.InitialEslVersion-1, tc.StateChange, metaData)
+				err = state.DBInsertApplicationWithOverview(ctx, transaction, "app1", tc.StateChange, metaData)
 				if err != nil {
 					return err
 				}

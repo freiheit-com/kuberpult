@@ -203,8 +203,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 			ExpectedApp: &db.DBAppWithMetaData{
-				EslVersion: 0,
-				App:        appName,
+				App: appName,
 				Metadata: db.DBAppMetaData{
 					Team: "team-123",
 				},
@@ -385,7 +384,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					}
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
@@ -596,7 +595,7 @@ func TestDeploymentEvent(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
@@ -795,7 +794,7 @@ func TestReleaseTrain(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
@@ -1340,7 +1339,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
@@ -1587,7 +1586,7 @@ func TestReplacedByEvents(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
@@ -1733,7 +1732,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.InitialEslVersion, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
@@ -2294,7 +2293,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, 0, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2611,7 +2610,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, 0, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -3033,7 +3032,7 @@ func TestUndeployLogic(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, 0, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
 						if err2 != nil {
 							t.Fatal(err2)
 						}

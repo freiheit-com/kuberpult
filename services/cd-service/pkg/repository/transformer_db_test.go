@@ -658,7 +658,6 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  2,
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
@@ -699,7 +698,6 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  2, // even when CreateApplicationVersion is called twice, we still write the app only once
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
@@ -740,7 +738,6 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
 				App:         appName,
 				StateChange: db.AppStateChangeUpdate,
 				Metadata: db.DBAppMetaData{
@@ -3463,7 +3460,6 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  2,
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
@@ -3504,7 +3500,6 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  2, // even when CreateApplicationVersion is called twice, we still write the app only once
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
@@ -3545,7 +3540,6 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
 				App:         appName,
 				StateChange: db.AppStateChangeUpdate,
 				Metadata: db.DBAppMetaData{

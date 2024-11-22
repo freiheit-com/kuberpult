@@ -61,7 +61,7 @@ type DBConfig struct {
 	MaxOpenConnections uint
 }
 
-type InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error
+type InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error
 
 type DBHandler struct {
 	DbName         string
@@ -126,9 +126,9 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 		WriteEslOnly:   cfg.WriteEslOnly,
 		InsertAppFun:   nil,
 	}
-	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
+	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
 		// by default, we just insert the app
-		return handler.DBInsertApplication(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+		return handler.DBInsertApplication(ctx, transaction, appName, stateChange, metaData)
 	}
 	return handler, nil
 }
@@ -2305,13 +2305,12 @@ type DBAppMetaData struct {
 }
 
 type DBAppWithMetaData struct {
-	EslVersion  EslVersion
 	App         string
 	Metadata    DBAppMetaData
 	StateChange AppStateChange
 }
 
-func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
+func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertApplication")
 	defer span.Finish()
 	log := logger.FromContext(ctx).Sugar()
@@ -2322,7 +2321,7 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO apps (eslVersion, created, appName, stateChange, metadata)  VALUES (?, ?, ?, ?, ?);",
+		"INSERT INTO apps (created, appName, stateChange, metadata)  VALUES (?, ?, ?, ?);",
 	)
 	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
@@ -2331,7 +2330,6 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
-		previousEslVersion+1,
 		*now,
 		appName,
 		stateChange,
@@ -2360,7 +2358,7 @@ func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithM
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, metadata " +
+		"SELECT appName, metadata " +
 			" FROM apps " +
 			" LIMIT 1;"))
 	span.SetTag("query", selectQuery)
@@ -2381,7 +2379,7 @@ func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithM
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
-		err := rows.Scan(&row.EslVersion, &row.App, &metadataStr)
+		err := rows.Scan(&row.App, &metadataStr)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -2410,10 +2408,10 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, stateChange, metadata" +
+		"SELECT appName, stateChange, metadata" +
 			" FROM apps " +
 			" WHERE appName=? " +
-			" ORDER BY eslVersion DESC " +
+			" ORDER BY version DESC " +
 			" LIMIT 1;"))
 	span.SetTag("query", selectQuery)
 
@@ -2429,10 +2427,10 @@ func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appN
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppAtTimestamp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, stateChange, metadata" +
+		"SELECT appName, stateChange, metadata" +
 			" FROM apps " +
 			" WHERE appName=? AND created <= ?" +
-			" ORDER BY eslVersion DESC " +
+			" ORDER BY version DESC " +
 			" LIMIT 1;"))
 	span.SetTag("query", selectQuery)
 
@@ -2477,7 +2475,7 @@ func processAppRow(ctx context.Context, rows *sql.Rows) (*DBAppWithMetaData, err
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
-		err := rows.Scan(&row.EslVersion, &row.App, &row.StateChange, &metadataStr)
+		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -3111,7 +3109,7 @@ func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql
 	defer span.Finish()
 
 	for app, team := range *appsMap {
-		err := h.DBInsertApplication(ctx, transaction, app, InitialEslVersion, AppStateChangeMigrate, DBAppMetaData{Team: team})
+		err := h.DBInsertApplication(ctx, transaction, app, AppStateChangeMigrate, DBAppMetaData{Team: team})
 		if err != nil {
 			return fmt.Errorf("could not write dbApp %s: %v", app, err)
 		}
