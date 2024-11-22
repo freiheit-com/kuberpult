@@ -114,7 +114,7 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 			Upstream: &config.EnvironmentConfigUpstream{
 				Latest: true,
 			},
-		}, fixtureAppications)
+		}, fixtureAppications, nil)
 		if err != nil {
 			return err
 		}

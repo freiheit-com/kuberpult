@@ -170,6 +170,8 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
         .overviewService()
         .GetAppDetails({ appName: appName }, authHeader)
         .then((result: GetAppDetailsResponse) => {
+            // eslint-disable-next-line no-console
+            console.info('SU DEBUG: getappdetails: ', result);
             const d = updateAppDetails.get();
             d[appName] = { details: result, appDetailState: AppDetailsState.READY, updatedAt: new Date(Date.now()) };
             updateAppDetails.set(d);

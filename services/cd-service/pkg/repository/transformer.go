@@ -830,7 +830,7 @@ func (c *CreateApplicationVersion) Transform(
 				}
 			}
 			if envInfo != nil && !found {
-				err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
+				err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application), &envInfo.Version)
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)
 				}
@@ -1723,7 +1723,7 @@ func (u *UndeployApplication) Transform(
 				}
 			}
 			t.AddAppEnv(u.Application, envName, dbApp.Metadata.Team)
-			err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, newEnvApps)
+			err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, newEnvApps, &env.Version)
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication: could not write environment: %v", err)
 			}
@@ -2838,9 +2838,20 @@ func (c *CreateEnvironment) Transform(
 		return "", err
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
+		// first read the env to see if it has applications:
+		existingEnvironment, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, c.Environment)
+		if err != nil {
+			return "", fmt.Errorf("could not select environment %s from database, error: %w", c.Environment, err)
+		}
+
 		// write to environments table
 		environmentApplications := make([]string, 0)
-		err := state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)
+		var version *int64
+		if existingEnvironment != nil {
+			environmentApplications = existingEnvironment.Applications
+			version = &existingEnvironment.Version
+		}
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications, version)
 		if err != nil {
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 		}
