@@ -57,6 +57,4 @@ cache-trivy-db:
 	FROM +deps
 	ARG --required cache_dir
 	ARG retries=10
-	FOR i IN $(printf "%s " {1..10})
-		RUN RETRIES=$retries ./download_db_image.sh
-	END
+	RUN  ./trivy/download_db_image.sh $retries
