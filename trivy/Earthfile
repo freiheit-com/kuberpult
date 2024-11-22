@@ -58,5 +58,5 @@ cache-trivy-db:
 	ARG --required cache_dir
 	ARG --required kuberpult_trivy
 	ARG retries=10
-	RUN echo "$kuberpult_trivy/trivy/download_db_image.sh"
-	RUN  $kuberpult_trivy/trivy/download_db_image.sh $retries $cache_dir
+	RUN echo "$kuberpult_trivy/download_db_image.sh"
+	RUN  $kuberpult_trivy/download_db_image.sh $retries $cache_dir
