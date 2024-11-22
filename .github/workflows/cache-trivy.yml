@@ -28,7 +28,7 @@ jobs:
     - name: Cache trivy
       run: |
         cd trivy
-        mkdir $LOCAL_CACHE
+        pwd
         earthly +cache-trivy-db --cache_dir $LOCAL_CACHE
           
     - name: Login to Google Artifact Registry
