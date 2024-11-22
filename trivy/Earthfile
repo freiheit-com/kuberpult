@@ -52,3 +52,8 @@ scan-service:
 
     RUN trivy --cache-dir /tmp/trivy_cache image $IMAGE_REGISTRY/kuberpult-$service:$version -f template --template "@templates/html.tpl" -o kuberpult-$service.html
     SAVE ARTIFACT kuberpult-$service.html
+
+cache-trivy-db:
+	FROM +deps
+	ARG --required cache_dir
+	RUN trivy --cache-dir $cache_dir image --download-db-only
