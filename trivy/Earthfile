@@ -58,6 +58,4 @@ cache-trivy-db:
 	ARG --required cache_dir
 	ARG retries=10
 	COPY ./download_db_image.sh .
-	RUN pwd
-	RUN ls
 	RUN  ["/bin/sh", "download_db_image.sh", "$retries", "$cache_dir"]
