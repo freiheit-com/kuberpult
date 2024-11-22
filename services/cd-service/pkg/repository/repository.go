@@ -71,6 +71,8 @@ type contextKey string
 
 const DdMetricsKey contextKey = "ddMetrics"
 
+var gitMutexLock sync.Mutex
+
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
@@ -946,7 +948,13 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 	if err := r.afterTransform(ctx, *state, transaction); err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
-
+	
+	gitMutexLock.Lock()
+	defer gitMutexLock.Unlock()
+	state, err := r.StateAt(nil);
+	if err != nil {
+		return nil, &TransformerBatchApplyError{TransformerError: err, Index: -1}
+	}
 	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if insertError != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
