@@ -27,11 +27,8 @@ jobs:
 
     - name: Cache trivy
       run: |
-        KUBERPULT_HOME=$(pwd)
-        echo $KUBERPULT_HOME
-        ls $KUBERPULT_HOME
         cd trivy
-        earthly +cache-trivy-db --cache_dir $LOCAL_CACHE --kuberpult_home $KUBERPULT_HOME
+        earthly +cache-trivy-db --cache_dir $LOCAL_CACHE
           
     - name: Login to Google Artifact Registry
       uses: docker/login-action@v3
