@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CACHE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-      LOCAL_CACHE: /trivy_db_cache
+      LOCAL_CACHE: ./trivy_db_cache
     steps: 
     - name: Checkout repository
       uses: actions/checkout@v4
