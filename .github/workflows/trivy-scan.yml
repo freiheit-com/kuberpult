@@ -46,7 +46,6 @@ jobs:
           exit 1
         fi
     - name: Run trivy scan
-      if: false
       run: |
         cd trivy
         earthly +scan-all --kuberpult_version="$IMAGE_TAG_KUBERPULT" --trigger=${{ inputs.trigger }}
