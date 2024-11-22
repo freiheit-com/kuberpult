@@ -60,4 +60,4 @@ cache-trivy-db:
 	COPY ./download_db_image.sh .
 	RUN pwd
 	RUN ls
-	RUN  ./download_db_image.sh $retries $cache_dir
+	RUN  ["./download_db_image.sh", "$retries", "$cache_dir"]
