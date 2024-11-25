@@ -24,11 +24,6 @@ jobs:
       with:
           version: v0.8.13
 
-    - name: Cache trivy
-      run: |
-        cd trivy
-        earthly +cache-trivy-db --cache_dir $LOCAL_CACHE
-
     - uses: google-github-actions/auth@v2
       name: "Authenticate to Google Cloud"
       with:
@@ -45,8 +40,10 @@ jobs:
         username: _json_key
         password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
 
-    - name: Push trivy image
+    - name: Cache trivy
       run: |
+        cd trivy
+        earthly +cache-trivy-db --cache_dir $LOCAL_CACHE
         gcloud artifacts generic upload \
           --location=europe-west3 \
           --project=fdc-public-docker-registry \
