@@ -54,8 +54,8 @@ jobs:
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
-        exit 1
     - name: Run trivy scan
+      if: true
       run: |
         cd trivy
         earthly --secret-file gcp_credentials=${GOOGLE_APPLICATION_CREADENTIALS} +scan-all --kuberpult_version="$IMAGE_TAG_KUBERPULT" --trigger=${{ inputs.trigger }}
