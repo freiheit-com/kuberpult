@@ -58,4 +58,5 @@ jobs:
           --repository=kuberpult-generic \
           --package=aquasecurity/trivy-db \
           --source-directory=$LOCAL_CACHE/db \
-          --version=1
+          --version=1 \
+          --access-token-file=credential.json
