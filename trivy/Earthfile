@@ -6,7 +6,6 @@ ARG --global SERVICES=$(ls ../services)
 
 deps:
     FROM alpine:3.18
-	RUN echo "test"
     WORKDIR /tmp
     ARG TRIVY_VERSION=0.50.1
     ARG TRIVY_CHECKSUM=4cf907dfe770d81931ee56fb996d285edbf4e0d2308bcfd0f4a3d80e93b0f146
