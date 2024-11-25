@@ -23,6 +23,7 @@ scan-all:
     ARG REPORT_TAR_NAME="${VERSION_REPORT_NAME}.tar.gz"
     ENV TRIVY_DB_REPOSITORY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult-generic
     ENV TRIVY_USERNAME=""
+	RUN echo $trigger
     RUN mkdir $VERSION_REPORT_NAME
     IF [ "$trigger" == "pull-request" ]
         FOR service IN $SERVICES
