@@ -1,10 +1,7 @@
-name: "Kuberpult Trivy Caching"
+name: "Trivy DB Caching"
 on:
-  pull_request:
-    branches:
-      - 'main'
-  # schedule:
-  #   - cron: '0 8 * * *'
+  schedule:
+    - cron: '0 8 * * *'
 
   workflow_dispatch:
 
@@ -31,12 +28,6 @@ jobs:
       name: "Authenticate to Google Cloud"
       with:
         credentials_json: '${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}'
-
-    # - name: Add credentials file
-    #   run: |
-    #     cat > credential.json << EOF
-    #     ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
-    #     EOF
 
     - name: Cache trivy
       run: |
