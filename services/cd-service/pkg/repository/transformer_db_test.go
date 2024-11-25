@@ -1672,7 +1672,7 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd:           nil,
+									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
 									EnvironmentGroup: &developmentEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
@@ -1756,7 +1756,7 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 						EnvironmentGroupName: stagingEnvGroup,
 						Environments: []*api.Environment{
 							{
-								Name: "development",
+								Name: "development2",
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
@@ -1769,10 +1769,13 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 								Priority: api.Priority_YOLO,
 							},
 							{
-								Name: "development2",
+								Name: "development",
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
 									},
 									EnvironmentGroup: &stagingEnvGroup,
 								},
@@ -1823,6 +1826,7 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
 									EnvironmentGroup: &developmentEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
