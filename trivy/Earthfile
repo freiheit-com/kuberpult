@@ -42,22 +42,18 @@ scan-service-pr:
     ARG --required service
     ARG --required version
     CACHE --sharing locked --id trivy-cache /tmp/trivy_cache
-
     # To access our trivy-db image cache we need to authenticate to gcp
     RUN --mount type=secret,target=/root/.config/gcloud/application_default_credentials.json,id=+secrets/gcp_credentials \
         trivy --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image $IMAGE_REGISTRY/kuberpult-$service:$version
-        
 
 scan-service:
     FROM +deps
     ARG --required service
     ARG --required version
     CACHE --sharing locked --id trivy-cache /tmp/trivy_cache
-
     # To access our trivy-db image cache we need to authenticate to gcp
     RUN --mount type=secret,target=/root/.config/gcloud/application_default_credentials.json,id=+secrets/gcp_credentials \
         trivy --cache-dir /tmp/trivy_cache image $IMAGE_REGISTRY/kuberpult-$service:$version -f template --template "@templates/html.tpl" -o kuberpult-$service.html
-
     SAVE ARTIFACT kuberpult-$service.html
 
 cache-trivy-db:
