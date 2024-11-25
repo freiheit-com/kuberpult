@@ -9,7 +9,7 @@ while [ "$i" -lt $1 ]; do
 		break
 	fi
 	sleep 2
-    i=$(( i + 1 ))
+	i=$(( i + 1 ))
 done
 
 exit $status
