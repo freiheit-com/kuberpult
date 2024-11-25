@@ -2506,6 +2506,55 @@ func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn str
 	return nil
 }
 
+func addNewEnvToOverview(result *api.GetOverviewResponse, newGroup *api.EnvironmentGroup, newEnv *api.Environment) {
+	envGroupFoundInOverview := false
+	for groupIndex, overviewEnvGroup := range result.EnvironmentGroups {
+		if overviewEnvGroup.EnvironmentGroupName == newGroup.EnvironmentGroupName {
+			envGroupFoundInOverview = true
+			envInOverviewFound := false
+			for envIndex, overviewEnv := range overviewEnvGroup.Environments {
+				if overviewEnv.Name == newEnv.Name {
+					envInOverviewFound = true
+					overviewEnvGroup.Environments[envIndex] = newEnv
+				}
+			}
+			if !envInOverviewFound {
+				overviewEnvGroup.Environments = append(overviewEnvGroup.Environments, newEnv)
+			}
+		} else {
+			// If the environment was in another group and now its added to a new group, we should remove it from its previous group
+			for envIndex, overviewEnv := range overviewEnvGroup.Environments {
+				if overviewEnv.Name == newEnv.Name {
+					overviewEnvGroup.Environments = append(overviewEnvGroup.Environments[:envIndex], overviewEnvGroup.Environments[envIndex+1:]...)
+				}
+			}
+			if len(overviewEnvGroup.Environments) == 0 {
+				result.EnvironmentGroups = append(result.EnvironmentGroups[:groupIndex], result.EnvironmentGroups[groupIndex+1:]...)
+			}
+		}
+	}
+	if !envGroupFoundInOverview && newGroup != nil {
+		result.EnvironmentGroups = append(result.EnvironmentGroups, newGroup)
+	}
+}
+
+func updateEnvGroupsPriorities(result *api.GetOverviewResponse, newEnvGroups []*api.EnvironmentGroup) {
+	for groupIndex, overviewEnvGroup := range result.EnvironmentGroups {
+		for _, newEnvGroup := range newEnvGroups {
+			if newEnvGroup.EnvironmentGroupName == overviewEnvGroup.EnvironmentGroupName {
+				result.EnvironmentGroups[groupIndex].Priority = newEnvGroup.Priority
+				for envIndex, overviewEnv := range overviewEnvGroup.Environments {
+					for _, newEnv := range newEnvGroup.Environments {
+						if overviewEnv.Name == newEnv.Name {
+							overviewEnvGroup.Environments[envIndex].Priority = newEnv.Priority
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateEnvironmentsInOverview")
 	defer span.Finish()
@@ -2532,21 +2581,38 @@ func (s *State) UpdateOneEnvironmentInOverview(ctx context.Context, transaction 
 	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
 		return err
 	} else {
-		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
+		newEnvGroups := mapper.MapEnvironmentsToGroups(envs)
 		for envName, config := range envs {
-			var newGroupName = mapper.DeriveGroupName(config, envName)
-			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, newGroupName, envName)
-
 			if envName != newEnvName {
 				logger.FromContext(ctx).Sugar().Infof("skipping environment %s because it's not the new environment %s", envName, newEnvName)
 				continue
 			}
+			var newGroupName = mapper.DeriveGroupName(config, envName)
+			var envInGroup = getEnvironmentInGroup(newEnvGroups, newGroupName, envName)
+			var newEnvsGroup *api.EnvironmentGroup
+			for _, envGroup := range newEnvGroups {
+				if envGroup.EnvironmentGroupName == newGroupName {
+					newEnvsGroup = envGroup
+				}
+			}
+
 			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, newGroupName, envInGroup)
 			if err2 != nil {
 				return err2
 			}
+			addNewEnvToOverview(result, newEnvsGroup, envInGroup)
+			updateEnvGroupsPriorities(result, newEnvGroups)
 		}
 	}
+	var rev string
+	if s.DBHandler.ShouldUseOtherTables() {
+		rev = "0000000000000000000000000000000000000000"
+	} else {
+		if s.Commit != nil {
+			rev = s.Commit.Id().String()
+		}
+	}
+	result.GitRevision = rev
 	return nil
 }
 
@@ -2599,7 +2665,7 @@ func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.
 		envInGroup.Locks = env.Locks
 	}
 
-	if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
+	if apps, err := s.GetApplications(ctx, transaction); err != nil {
 		return err
 	} else {
 		for _, appName := range apps {

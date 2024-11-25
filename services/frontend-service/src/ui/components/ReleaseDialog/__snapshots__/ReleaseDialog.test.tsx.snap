@@ -987,6 +987,28 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     <div
                       class="env-card-locks"
                     >
+                      <div
+                        class="env-card-app-locks"
+                      >
+                        App:
+                        <div
+                          title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                        >
+                          <button
+                            aria-label=""
+                            class="mdc-button button-lock"
+                          >
+                            <div
+                              class="mdc-button__ripple"
+                            />
+                            <svg
+                              class="env-card-app-lock"
+                            >
+                              Locks.svg
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                       <span
                         class="rollout__description_progressing"
                       >
