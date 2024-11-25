@@ -33,6 +33,12 @@ jobs:
       run: |
         gcloud auth configure-docker
           
+    - name: Add credentials file
+      run: |
+        cat > credential.json << EOF
+        ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+        EOF
+
     - name: Login to Google Artifact Registry
       uses: docker/login-action@v3
       with:
