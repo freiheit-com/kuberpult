@@ -30,7 +30,7 @@ jobs:
     - uses: google-github-actions/auth@v2
       name: "Authenticate to Google Cloud"
       with:
-        credentials_json: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }} 
+        credentials_json: '${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}'
 
     # - name: Add credentials file
     #   run: |
