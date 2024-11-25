@@ -11,6 +11,8 @@ on:
 jobs:
   cache:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     env:
       LOCAL_CACHE: ./trivy_db_cache
     steps: 
