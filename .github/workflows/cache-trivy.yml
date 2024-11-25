@@ -42,9 +42,6 @@ jobs:
       run: |
         cd trivy
         earthly +cache-trivy-db --cache_dir $LOCAL_CACHE
-        # cat > credential.json << EOF
-        # ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
-        # EOF
         gcloud artifacts generic upload \
           --location=europe-west3 \
           --project=fdc-public-docker-registry \
