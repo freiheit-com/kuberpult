@@ -2508,23 +2508,50 @@ func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn str
 
 func addNewEnvToOverview(result *api.GetOverviewResponse, newGroup *api.EnvironmentGroup, newEnv *api.Environment) {
 	envGroupFoundInOverview := false
-	for _, overviewEnvGroup := range result.EnvironmentGroups {
+	for groupIndex, overviewEnvGroup := range result.EnvironmentGroups {
 		if overviewEnvGroup.EnvironmentGroupName == newGroup.EnvironmentGroupName {
 			envGroupFoundInOverview = true
 			envInOverviewFound := false
-			for _, overviewEnv := range overviewEnvGroup.Environments {
+			for envIndex, overviewEnv := range overviewEnvGroup.Environments {
 				if overviewEnv.Name == newEnv.Name {
 					envInOverviewFound = true
+					overviewEnvGroup.Environments[envIndex] = newEnv
 				}
-				overviewEnv = newEnv
 			}
 			if !envInOverviewFound {
 				overviewEnvGroup.Environments = append(overviewEnvGroup.Environments, newEnv)
+			}
+		} else {
+			// If the environment was in another group and now its added to a new group, we should remove it from its previous group
+			for envIndex, overviewEnv := range overviewEnvGroup.Environments {
+				if overviewEnv.Name == newEnv.Name {
+					overviewEnvGroup.Environments = append(overviewEnvGroup.Environments[:envIndex], overviewEnvGroup.Environments[envIndex+1:]...)
+				}
+			}
+			if len(overviewEnvGroup.Environments) == 0 {
+				result.EnvironmentGroups = append(result.EnvironmentGroups[:groupIndex], result.EnvironmentGroups[groupIndex+1:]...)
 			}
 		}
 	}
 	if !envGroupFoundInOverview && newGroup != nil {
 		result.EnvironmentGroups = append(result.EnvironmentGroups, newGroup)
+	}
+}
+
+func updateEnvGroupsPriorities(result *api.GetOverviewResponse, newEnvGroups []*api.EnvironmentGroup) {
+	for groupIndex, overviewEnvGroup := range result.EnvironmentGroups {
+		for _, newEnvGroup := range newEnvGroups {
+			if newEnvGroup.EnvironmentGroupName == overviewEnvGroup.EnvironmentGroupName {
+				result.EnvironmentGroups[groupIndex].Priority = newEnvGroup.Priority
+				for envIndex, overviewEnv := range overviewEnvGroup.Environments {
+					for _, newEnv := range newEnvGroup.Environments {
+						if overviewEnv.Name == newEnv.Name {
+							overviewEnvGroup.Environments[envIndex].Priority = newEnv.Priority
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -2574,8 +2601,18 @@ func (s *State) UpdateOneEnvironmentInOverview(ctx context.Context, transaction 
 				return err2
 			}
 			addNewEnvToOverview(result, newEnvsGroup, envInGroup)
+			updateEnvGroupsPriorities(result, newEnvGroups)
 		}
 	}
+	var rev string
+	if s.DBHandler.ShouldUseOtherTables() {
+		rev = "0000000000000000000000000000000000000000"
+	} else {
+		if s.Commit != nil {
+			rev = s.Commit.Id().String()
+		}
+	}
+	result.GitRevision = rev
 	return nil
 }
 

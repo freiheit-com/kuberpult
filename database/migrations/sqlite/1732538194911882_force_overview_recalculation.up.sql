@@ -1,1 +1,1 @@
-INSERT INTO overview_cache (timestamp, json) VALUES (now(), '{}');
+INSERT INTO overview_cache (timestamp, json) VALUES (current_timestamp, '{}');

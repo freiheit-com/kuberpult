@@ -358,6 +358,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
 									EnvironmentGroup: &dev,
 								},
 								Priority: api.Priority_UPSTREAM,
@@ -374,6 +375,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: &development,
 									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
 									EnvironmentGroup: &staging,
 								},
 								DistanceToUpstream: 1,
