@@ -59,4 +59,5 @@ cache-trivy-db:
 	ARG --required cache_dir
 	ARG retries=10
 	COPY ./download_db_image.sh .
-	RUN  ["/bin/sh", "download_db_image.sh", "$retries", "$cache_dir"]
+	RUN  ["/bin/sh", "download_db_image.sh", "$retries", "./db"]
+	SAVE ARTIFACT ./db AS LOCAL $cache_dir
