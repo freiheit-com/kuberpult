@@ -51,7 +51,7 @@ jobs:
         gcloud artifacts generic upload \
           --location=europe-west3 \
           --project=fdc-public-docker-registry \
-          --repository=kuberpult \
+          --repository=kuberpult-generic \
           --package=aquasecurity/trivy-db \
           --source-directory=$LOCAL_CACHE/db \
           --version=1
