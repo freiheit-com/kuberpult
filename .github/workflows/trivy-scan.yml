@@ -54,6 +54,7 @@ jobs:
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
+        exit 1
     - name: Run trivy scan
       run: |
         cd trivy
