@@ -11,5 +11,4 @@ while [ "$i" -lt $1 ]; do
 	sleep 2
 	i=$(( i + 1 ))
 done
-
 exit $status
