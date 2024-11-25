@@ -178,6 +178,7 @@ func transformDestinationToConfig(in *api.EnvironmentConfig_ArgoCD_Destination) 
 }
 
 func transformDestinationToApi(in *config.ArgoCdDestination) *api.EnvironmentConfig_ArgoCD_Destination {
+	// useless line
 	if in == nil {
 		//exhaustruct:ignore
 		return &api.EnvironmentConfig_ArgoCD_Destination{}
