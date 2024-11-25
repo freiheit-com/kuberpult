@@ -196,7 +196,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 				return nil, fmt.Errorf("could not obtain environment %s for app %s: %w", envName, appName, err)
 			}
 			if environment == nil {
-				return nil, fmt.Errorf("could not obtain environment %s for app %s: %w", envName, appName, err)
+				logger.FromContext(ctx).Sugar().Warnf("could not obtain environment %s for app %s: %w", envName, appName, err)
+				continue
 			}
 			foundApp := false // only apps that are active on that environment should be returned here
 			for _, appInEnv := range environment.Applications {

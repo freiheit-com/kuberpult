@@ -18,12 +18,10 @@ import React, { ReactElement, useCallback } from 'react';
 import { Deployment, Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
-    DisplayLock,
     getPriorityClassName,
     showSnackbarWarn,
     useAppDetailsForApp,
     useApplications,
-    useAppLocks,
     useCloseReleaseDialog,
     useCurrentlyDeployedAtGroup,
     useEnvironmentGroups,
@@ -216,8 +214,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
-    const appLocks = useAppLocks(apps);
-    const appEnvLocks = appLocks.filter((value: DisplayLock) => value.environment === env.name);
+    const appEnvLocks = appDetails?.details?.appLocks?.[env.name]?.locks ?? [];
 
     const allowDeployment: boolean = ((): boolean => {
         if (release.isPrepublish) {
