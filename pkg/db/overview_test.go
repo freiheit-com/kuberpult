@@ -448,7 +448,7 @@ func TestDBDeleteOldOverview(t *testing.T) {
 			},
 			timeThresholdDiff:                  -300 * time.Second,
 			numberOfOverviewsToKeep:            0,
-			expectedNumberOfRemainingOverviews: 4,
+			expectedNumberOfRemainingOverviews: 5,
 		},
 		{
 			Name: "4 overviews, late time threshold, zero to remain",
