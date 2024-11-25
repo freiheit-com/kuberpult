@@ -59,8 +59,8 @@ jobs:
     - name: Run trivy scan
       run: |
         cd trivy
-        echo "$credentials_file_path"
-        echo "$GOOGLE_APPLICATION_CREDENTIALS"
+        echo "a $credentials_file_path"
+        echo "b $GOOGLE_APPLICATION_CREDENTIALS"
         earthly --secret-file gcp_credentials="$credentials_file_path" +scan-all --kuberpult_version="$IMAGE_TAG_KUBERPULT" --trigger=${{ inputs.trigger }}
     - name: Archive reports
       uses: actions/upload-artifact@v4
