@@ -33,7 +33,7 @@ jobs:
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
         if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
-          echo "IMAGE_TAG_KUBERPULT=pr-v11.5.9-48-g056a0695" >> $GITHUB_ENV
+          echo "IMAGE_TAG_KUBERPULT=pr-$(make version)" >> $GITHUB_ENV
         elif [[ ${{ inputs.trigger }} == "main" ]]; then
           echo "IMAGE_TAG_KUBERPULT=main-$(make version)" >> $GITHUB_ENV
         fi

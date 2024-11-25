@@ -21,8 +21,8 @@ scan-all:
     ARG trigger=""
     ARG VERSION_REPORT_NAME="kuberpult-${kuberpult_version}-reports"
     ARG REPORT_TAR_NAME="${VERSION_REPORT_NAME}.tar.gz"
-	ENV TRIVY_DB_REPOSITORY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult-generic
-	ENV TRIVY_USERNAME=""
+    ENV TRIVY_DB_REPOSITORY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult-generic
+    ENV TRIVY_USERNAME=""
     RUN mkdir $VERSION_REPORT_NAME
     IF [ "$trigger" == "pull-request" ]
         FOR service IN $SERVICES
@@ -43,10 +43,10 @@ scan-service-pr:
     ARG --required version
     CACHE --sharing locked --id trivy-cache /tmp/trivy_cache
 
-	# To access our trivy-db image cache we need to authenticate to gcp
-	RUN --mount type=secret,target=/root/.config/gcloud/application_default_credentials.json,id=+secrets/gcp_credentials \
-		trivy --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image $IMAGE_REGISTRY/kuberpult-$service:$version
-		
+    # To access our trivy-db image cache we need to authenticate to gcp
+    RUN --mount type=secret,target=/root/.config/gcloud/application_default_credentials.json,id=+secrets/gcp_credentials \
+        trivy --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image $IMAGE_REGISTRY/kuberpult-$service:$version
+        
 
 scan-service:
     FROM +deps
@@ -54,18 +54,17 @@ scan-service:
     ARG --required version
     CACHE --sharing locked --id trivy-cache /tmp/trivy_cache
 
-
-	# To access our trivy-db image cache we need to authenticate to gcp
-	RUN --mount type=secret,target=/root/.config/gcloud/application_default_credentials.json,id=+secrets/gcp_credentials \
-		trivy --cache-dir /tmp/trivy_cache image $IMAGE_REGISTRY/kuberpult-$service:$version -f template --template "@templates/html.tpl" -o kuberpult-$service.html	
+    # To access our trivy-db image cache we need to authenticate to gcp
+    RUN --mount type=secret,target=/root/.config/gcloud/application_default_credentials.json,id=+secrets/gcp_credentials \
+        trivy --cache-dir /tmp/trivy_cache image $IMAGE_REGISTRY/kuberpult-$service:$version -f template --template "@templates/html.tpl" -o kuberpult-$service.html
 
     SAVE ARTIFACT kuberpult-$service.html
 
 cache-trivy-db:
-	FROM +deps
-	ARG --required cache_dir
-	ARG retries=10
-	ENV TRIVY_DB_REPOSITORY=""
-	COPY ./download_db_image.sh .
-	RUN  /bin/sh download_db_image.sh $retries $cache_dir
-	SAVE ARTIFACT $cache_dir AS LOCAL $cache_dir
+    FROM +deps
+    ARG --required cache_dir
+    ARG retries=10
+    ENV TRIVY_DB_REPOSITORY=""
+    COPY ./download_db_image.sh .
+    RUN  /bin/sh download_db_image.sh $retries $cache_dir
+    SAVE ARTIFACT $cache_dir AS LOCAL $cache_dir
