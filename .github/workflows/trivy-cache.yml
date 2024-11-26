@@ -39,7 +39,7 @@ jobs:
 
     - name: gcloud authorize
       run: |
-        gcloud auth configure-docker
+        gcloud auth configure-docker europe-west3-docker.pkg.dev
 
     - name: Cache trivy
       run: |
