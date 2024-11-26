@@ -27,6 +27,12 @@ jobs:
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag VERSION=v${{ steps.new-semrel-version.outputs.version }}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+            credentials_json: '${{ secrets.FDC_CORE_CI_IMAGE_READER }}'
+            create_credentials_file: true
+            export_environment_variables: true
       - name: Login to Google Artifact Registry
         uses: docker/login-action@v3
         with:
@@ -74,7 +80,7 @@ jobs:
       - name: Append vulnerability reports to release
         run: |
           echo $VERSION
-          earthly ./trivy+scan-all --kuberpult_version=v${VERSION}
+          earthly --secret-file gcp_credentials="$GOOGLE_APPLICATION_CREDENTIALS" ./trivy+scan-all --kuberpult_version=v${VERSION}
           gh release upload v$VERSION trivy/kuberpult-v${VERSION}-reports.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
