@@ -19,11 +19,12 @@ package argo
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"slices"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"path/filepath"
-	"slices"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -101,6 +102,9 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 		case argoOv := <-a.trigger:
 			overview := argoOv.Overview
 			for currentApp, currentAppDetails := range argoOv.AppDetails {
+				span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
+				defer span.Finish()
+				span.SetTag("kuberpult-app", currentApp)
 				for _, envGroup := range overview.EnvironmentGroups {
 					for _, env := range envGroup.Environments {
 						if ok := appsKnownToArgo[env.Name]; ok != nil {
@@ -113,7 +117,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 						}
 					}
 				}
-
+				span.Finish()
 			}
 		case ev := <-a.argoApps:
 			envName, appName := getEnvironmentAndName(ev.Application.Annotations)
