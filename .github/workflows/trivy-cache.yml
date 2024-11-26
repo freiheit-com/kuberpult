@@ -14,7 +14,7 @@ jobs:
       packages: write
       contents: read
     env:
-      LOCAL_CACHE: ./trivy_db_cache
+      RETRIES: 10
     steps: 
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -43,4 +43,4 @@ jobs:
 
     - name: Cache trivy
       run: |
-        ./trivy/cache_db_image.sh
+        ./trivy/cache_db_image.sh $RETRIES
