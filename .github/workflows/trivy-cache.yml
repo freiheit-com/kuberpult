@@ -18,11 +18,6 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Install earthly
-      uses: earthly/actions-setup@v1
-      with:
-          version: v0.8.13
-
     - name: Install oras
       uses: oras-project/setup-oras@v1
       with:
