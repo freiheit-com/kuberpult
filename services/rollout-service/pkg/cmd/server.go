@@ -116,7 +116,7 @@ func RunServer() {
 		return runServer(ctx, config)
 	})
 	if err != nil {
-		fmt.Printf("error: %v %#v", err, err)
+		fmt.Printf("error: %v %#v\n", err, err)
 	}
 }
 
