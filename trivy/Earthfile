@@ -44,7 +44,7 @@ scan-service-pr:
     CACHE --sharing locked --id trivy-cache /tmp/trivy_cache
     # To access our trivy-db image cache we need to authenticate to gcp
     RUN --mount type=secret,target=$GOOGLE_APPLICATION_CREDENTIALS,id=+secrets/gcp_credentials \
-        trivy --db-repository europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/aquasecurity/trivy-db --cache-dir /tmp/trivy_cache \
+        trivy --db-repository europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/aquasecurit/trivy-db --cache-dir /tmp/trivy_cache \
 		      --severity HIGH,CRITICAL --exit-code 1 image $IMAGE_REGISTRY/kuberpult-$service:$version
 
 scan-service:
