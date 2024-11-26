@@ -1,5 +1,8 @@
 name: "Trivy DB Caching"
 on:
+  pull_request:
+    branches:
+      - main
   schedule:
     - cron: '0 8 * * *'
   workflow_dispatch:
@@ -35,7 +38,7 @@ jobs:
         gcloud artifacts generic upload \
           --location=europe-west3 \
           --project=fdc-public-docker-registry \
-          --repository=kuberpult-generic \
+          --repository=kuberpult \
           --package=trivy-db \
           --source-directory=$LOCAL_CACHE/db \
           --version=2.0.0
