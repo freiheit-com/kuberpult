@@ -343,7 +343,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				err2 = repo.PushRepo(ctx)
 				if err2 != nil {
 					d := sleepDuration.NextBackOff()
-					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v", d)
+					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v: %v", d, err2)
 					measurePushes(ddMetrics, log, true)
 					time.Sleep(d)
 					return err2
