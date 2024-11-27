@@ -89,7 +89,7 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) {
 	case a.trigger <- a.lastOverview:
 		l.Info("argocd.pushed")
 	default:
-		l.Info("argocd.push-failed")
+		l.Warn("argocd.push-failed")
 	}
 }
 
