@@ -39,14 +39,15 @@ type Notifier interface {
 	NotifyArgoCd(ctx context.Context, environment, application string)
 }
 
-func New(client SimplifiedApplicationInterface, concurrencyLimit int) Notifier {
-	n := &notifier{client, errgroup.Group{}}
+func New(client SimplifiedApplicationInterface, concurrencyLimit int, timeout int) Notifier {
+	n := &notifier{client, time.Duration(timeout), errgroup.Group{}}
 	n.errGroup.SetLimit(concurrencyLimit)
 	return n
 }
 
 type notifier struct {
 	client   SimplifiedApplicationInterface
+	timeout  time.Duration
 	errGroup errgroup.Group
 }
 
@@ -56,7 +57,7 @@ func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application st
 		span, ctx := tracer.StartSpanFromContext(ctx, "argocd.refresh")
 		span.SetTag("environment", environment)
 		span.SetTag("application", application)
-		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, n.timeout*time.Second)
 		defer cancel()
 		l := logger.FromContext(ctx).With(zap.String("environment", environment), zap.String("application", application))
 		//exhaustruct:ignore
