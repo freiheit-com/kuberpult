@@ -89,6 +89,7 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) {
 	case a.trigger <- a.lastOverview:
 		l.Info("argocd.pushed")
 	default:
+		l.Warn("argocd.push-failed")
 	}
 }
 
@@ -100,6 +101,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 	for {
 		select {
 		case argoOv := <-a.trigger:
+			l.Info("self-manage.trigger")
 			overview := argoOv.Overview
 			for currentApp, currentAppDetails := range argoOv.AppDetails {
 				span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
