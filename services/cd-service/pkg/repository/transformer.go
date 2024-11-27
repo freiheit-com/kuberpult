@@ -733,14 +733,6 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, c.Application, false)
-		if err != nil {
-			return "", err
-		}
-		var v = db.InitialEslVersion - 1
-		if prevRelease != nil {
-			v = prevRelease.EslVersion
-		}
 		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 		if err != nil {
 			return "", err
@@ -754,7 +746,6 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 		}
 		release := db.DBReleaseWithMetaData{
-			EslVersion:    0,
 			ReleaseNumber: version,
 			App:           c.Application,
 			Manifests: db.DBReleaseManifests{
@@ -774,7 +765,7 @@ func (c *CreateApplicationVersion) Transform(
 			Created:      *now,
 			Deleted:      false,
 		}
-		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
+		err = state.DBHandler.DBInsertRelease(ctx, transaction, release)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -915,7 +906,7 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 			return false, fmt.Errorf("next release exists in the all releases but not in the release table!")
 		}
 		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
-		err = dbHandler.DBInsertRelease(ctx, transaction, *nextRelease, nextRelease.EslVersion)
+		err = dbHandler.DBInsertRelease(ctx, transaction, *nextRelease)
 		if err != nil {
 			return false, err
 		}
@@ -1351,20 +1342,11 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, lastRelease, true)
-		if err != nil {
-			return "", err
-		}
-		var v = db.InitialEslVersion - 1
-		if prevRelease != nil {
-			v = prevRelease.EslVersion
-		}
 		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 		if err != nil {
 			return "", fmt.Errorf("could not get transaction timestamp")
 		}
 		release := db.DBReleaseWithMetaData{
-			EslVersion:    0,
 			ReleaseNumber: lastRelease + 1,
 			App:           c.Application,
 			Manifests: db.DBReleaseManifests{
@@ -1386,7 +1368,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			Created:      *now,
 			Deleted:      false,
 		}
-		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
+		err = state.DBHandler.DBInsertRelease(ctx, transaction, release)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1812,7 +1794,6 @@ func (u *DeleteEnvFromApp) Transform(
 				return "", fmt.Errorf("could not get transaction timestamp")
 			}
 			newRelease := db.DBReleaseWithMetaData{
-				EslVersion:    dbReleaseWithMetadata.EslVersion + 1,
 				ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
 				App:           dbReleaseWithMetadata.App,
 				Created:       *now,
@@ -1821,7 +1802,7 @@ func (u *DeleteEnvFromApp) Transform(
 				Deleted:       dbReleaseWithMetadata.Deleted,
 				Environments:  []string{},
 			}
-			err = state.DBHandler.DBInsertRelease(ctx, transaction, newRelease, dbReleaseWithMetadata.EslVersion)
+			err = state.DBHandler.DBInsertRelease(ctx, transaction, newRelease)
 			if err != nil {
 				return "", err
 			}

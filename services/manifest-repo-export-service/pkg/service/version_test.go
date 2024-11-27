@@ -232,13 +232,12 @@ func TestVersion(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       gotime.Time{},
 					App:           "test",
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 				if err != nil {
 					return err
 				}
@@ -465,35 +464,32 @@ func TestGetManifests(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    0,
 					ReleaseNumber: 1,
 					Created:       gotime.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, db.InitialEslVersion)
+				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    1,
 					ReleaseNumber: 2,
 					Created:       gotime.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, 1)
+				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    2,
 					ReleaseNumber: 3,
 					Created:       gotime.Time{},
 					App:           appName,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, 2)
+				})
 				if err != nil {
 					return err
 				}
@@ -502,35 +498,32 @@ func TestGetManifests(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    3,
 					ReleaseNumber: 1,
 					Created:       gotime.Time{},
 					App:           appNameOther,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, 3)
+				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    4,
 					ReleaseNumber: 2,
 					Created:       gotime.Time{},
 					App:           appNameOther,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, 4)
+				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					EslVersion:    5,
 					ReleaseNumber: 3,
 					Created:       gotime.Time{},
 					App:           appNameOther,
 					Manifests:     db.DBReleaseManifests{},
 					Metadata:      db.DBReleaseMetaData{},
-				}, 5)
+				})
 				if err != nil {
 					return err
 				}
