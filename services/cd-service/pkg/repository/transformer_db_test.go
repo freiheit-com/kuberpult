@@ -4128,12 +4128,17 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				sort.Slice(gaugesList, func(i, j int) bool {
 					if len(gaugesList[i].Tags) == 0 && len(gaugesList[j].Tags) == 0 {
 						return gaugesList[i].Name > gaugesList[j].Name
-					} else if len(gaugesList[i].Tags) > 0 && len(gaugesList[j].Tags) == 0 {
-						return true
-					} else if len(gaugesList[i].Tags) == 0 && len(gaugesList[j].Tags) > 0 {
-						return false
 					} else {
-						return gaugesList[i].Tags[0] > gaugesList[j].Tags[0]
+						if len(gaugesList[i].Tags) != len(gaugesList[j].Tags) {
+							return len(gaugesList[i].Tags) > len(gaugesList[j].Tags)
+						} else {
+							for tagIndex := range gaugesList[i].Tags {
+								if gaugesList[i].Tags[tagIndex] != gaugesList[j].Tags[tagIndex] {
+									return gaugesList[i].Tags[tagIndex] > gaugesList[j].Tags[tagIndex]
+								}
+							}
+							return true
+						}
 					}
 				})
 			}
