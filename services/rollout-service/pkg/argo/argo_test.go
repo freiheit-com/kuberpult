@@ -19,10 +19,11 @@ package argo
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -99,11 +100,13 @@ type mockArgoProcessor struct {
 	ManageArgoAppsFilter  []string
 }
 
-func (a *mockArgoProcessor) Push(ctx context.Context, last *ArgoOverview) {
+func (a *mockArgoProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 	a.lastOverview = last
 	select {
 	case a.trigger <- a.lastOverview:
+		return nil
 	default:
+		return fmt.Errorf("failed to push to mock argo app")
 	}
 }
 
