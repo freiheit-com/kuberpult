@@ -19,9 +19,10 @@ package versions
 import (
 	"context"
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strconv"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
@@ -192,6 +193,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			return fmt.Errorf("StreamChangedApps.connect: %w", err)
 		}
 		hr.ReportReady("consuming")
+		appsToChange := map[string]*api.GetAppDetailsResponse{}
 		for {
 			select {
 			case <-ctx.Done():
@@ -228,11 +230,11 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 			overview := argo.ArgoOverview{
 				Overview:   ov,
-				AppDetails: make(map[string]*api.GetAppDetailsResponse),
+				AppDetails: nil,
 			}
 			for _, appDetailsResponse := range changedApps.ChangedApps {
 				appName := appDetailsResponse.Application.Name
-				overview.AppDetails[appName] = appDetailsResponse
+				appsToChange[appName] = appDetailsResponse
 				v.cache.Add(appName, appDetailsResponse) // Update cache of app details
 
 				app := appDetailsResponse.Application
@@ -281,8 +283,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 			}
 
-			l.Info("version.push")
-			v.ArgoProcessor.Push(ctx, &overview)
+			overview.AppDetails = appsToChange
+			if err := v.ArgoProcessor.Push(ctx, &overview); err != nil {
+				l.Sugar().Warnf("version.push failed: %v", err)
+			} else {
+				l.Info("version.push")
+				appsToChange = make(map[string]*api.GetAppDetailsResponse)
+			}
 			// Send events with version 0 for deleted applications so that we can react
 			// to apps getting deleted.
 			for k := range versions {

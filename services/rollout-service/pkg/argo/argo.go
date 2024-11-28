@@ -45,7 +45,7 @@ type SimplifiedApplicationServiceClient interface {
 }
 
 type Processor interface {
-	Push(ctx context.Context, last *ArgoOverview)
+	Push(ctx context.Context, last *ArgoOverview) error
 	Consume(ctx context.Context, hlth *setup.HealthReporter) error
 	CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application)
 	ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error
@@ -69,7 +69,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ApplicationClient:     appClient,
 		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
 		ManageArgoAppsFilter:  manageArgoApplicationFilter,
-		trigger:               make(chan *ArgoOverview),
+		trigger:               make(chan *ArgoOverview, 5),
 		argoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
 	}
 }
@@ -82,14 +82,15 @@ func (a *ArgoAppProcessor) GetManageArgoAppsEnabled() bool {
 	return a.ManageArgoAppsEnabled
 }
 
-func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) {
+func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 	l := logger.FromContext(ctx).With(zap.String("argo-pushing", "ready"))
 	a.lastOverview = last
 	select {
 	case a.trigger <- a.lastOverview:
 		l.Info("argocd.pushed")
+		return nil
 	default:
-		l.Warn("argocd.push-failed")
+		return fmt.Errorf("failed to push to argo app processor: channel full")
 	}
 }
 
