@@ -77,7 +77,7 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 	revision := ev.Application.Status.Sync.Revision
 	ddSpan.SetTag("argoSyncRevision", revision)
 
-	// 1. Check if the revision is empty, in this case it means the app was deleted in kuberpult
+	// 0. Check if the app was deleted from kuberpult, if yes do nothing and wait for a delete event from argocd
 	if revision == "" {
 		return nil
 	}
