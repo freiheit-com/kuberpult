@@ -76,7 +76,12 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 	defer ddSpan.Finish()
 	revision := ev.Application.Status.Sync.Revision
 	ddSpan.SetTag("argoSyncRevision", revision)
-	// 0. Check if this is the delete event, if yes then we can delete the entry right away
+
+	// 1. Check if the revision is empty, in this case it means the app was deleted in kuberpult
+	if revision == "" {
+		return nil
+	}
+	// 1. Check if this is the delete event, if yes then we can delete the entry right away
 	if ev.Type == "DELETED" {
 		version := &versions.ZeroVersion
 		r.known[k] = &knownRevision{
@@ -86,7 +91,7 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 		delete(r.unknown, k)
 		return version
 	}
-	// 1. Check if the revision has not changed
+	// 2. Check if the revision has not changed
 	if vi := r.known[k]; vi != nil && vi.revision == revision {
 		delete(r.unknown, k)
 		return vi.version
@@ -100,7 +105,7 @@ func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.Applica
 		delete(r.unknown, k)
 		return version
 	}
-	// 3. Put this in the unknown queue and trigger the channel
+	// 4. Put this in the unknown queue and trigger the channel
 	r.unknown[k] = ev
 	select {
 	case r.unknownCh <- struct{}{}:
