@@ -2255,20 +2255,10 @@ func (c *DeleteEnvironmentLock) Transform(
 			return "", err
 		}
 	}
-	apps, err := s.GetEnvironmentApplications(ctx, transaction, c.Environment)
-	if err != nil {
-		return "", fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
-	}
 
-	additionalMessageFromDeployment := ""
-	for _, appName := range apps {
-		queueMessage, err := s.ProcessQueue(ctx, transaction, fs, c.Environment, appName)
-		if err != nil {
-			return "", err
-		}
-		if queueMessage != "" {
-			additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
-		}
+	additionalMessageFromDeployment, err := s.ProcessQueueAllApps(ctx, transaction, fs, c.Environment)
+	if err != nil {
+		return "", err
 	}
 	GaugeEnvLockMetric(ctx, state, transaction, c.Environment)
 	return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), nil
