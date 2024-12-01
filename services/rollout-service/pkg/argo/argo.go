@@ -113,11 +113,11 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 						for _, env := range envGroup.Environments {
 							if ok := appsKnownToArgo[env.Name]; ok != nil {
 								envAppsKnownToArgo = appsKnownToArgo[env.Name]
-								a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
+								go a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
 							}
 
 							if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
-								a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, envAppsKnownToArgo)
+								go a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, envAppsKnownToArgo)
 							}
 						}
 					}
