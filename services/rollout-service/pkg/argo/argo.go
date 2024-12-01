@@ -99,29 +99,37 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
 	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
-	for {
-		select {
-		case argoOv := <-a.trigger:
-			l.Info("self-manage.trigger")
-			overview := argoOv.Overview
-			for currentApp, currentAppDetails := range argoOv.AppDetails {
-				span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
-				defer span.Finish()
-				span.SetTag("kuberpult-app", currentApp)
-				for _, envGroup := range overview.EnvironmentGroups {
-					for _, env := range envGroup.Environments {
-						if ok := appsKnownToArgo[env.Name]; ok != nil {
-							envAppsKnownToArgo = appsKnownToArgo[env.Name]
-							a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
-						}
+	go func() error {
+		for {
+			select {
+			case argoOv := <-a.trigger:
+				l.Info("self-manage.trigger")
+				overview := argoOv.Overview
+				for currentApp, currentAppDetails := range argoOv.AppDetails {
+					span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
+					defer span.Finish()
+					span.SetTag("kuberpult-app", currentApp)
+					for _, envGroup := range overview.EnvironmentGroups {
+						for _, env := range envGroup.Environments {
+							if ok := appsKnownToArgo[env.Name]; ok != nil {
+								envAppsKnownToArgo = appsKnownToArgo[env.Name]
+								a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
+							}
 
-						if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
-							a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, envAppsKnownToArgo)
+							if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
+								a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, envAppsKnownToArgo)
+							}
 						}
 					}
+					span.Finish()
 				}
-				span.Finish()
+			case <-ctx.Done():
+				return nil
 			}
+		}
+	}()
+	for {
+		select {
 		case ev := <-a.argoApps:
 			envName, appName := getEnvironmentAndName(ev.Application.Annotations)
 			if appName == "" {
