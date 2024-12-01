@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	// "github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
@@ -32,7 +32,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	// "google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type step struct {
@@ -160,639 +160,639 @@ func (m *mockVersionEventProcessor) ProcessKuberpultEvent(ctx context.Context, e
 	m.events = append(m.events, ev)
 }
 
-// func TestVersionClientStream(t *testing.T) {
-// 	t.Parallel()
-// 	testOverview := &api.GetOverviewResponse{
-// 		EnvironmentGroups: []*api.EnvironmentGroup{
-// 			{
+func TestVersionClientStream(t *testing.T) {
+	t.Parallel()
+	testOverview := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{
+			{
 
-// 				EnvironmentGroupName: "staging-group",
-// 				Priority:             api.Priority_UPSTREAM,
-// 				Environments: []*api.Environment{
-// 					{
-// 						Name: "staging",
-// 					},
-// 				},
-// 			},
-// 		},
-// 		GitRevision: "1234",
-// 	}
+				EnvironmentGroupName: "staging-group",
+				Priority:             api.Priority_UPSTREAM,
+				Environments: []*api.Environment{
+					{
+						Name: "staging",
+					},
+				},
+			},
+		},
+		GitRevision: "1234",
+	}
 
-// 	testOverviewWithDifferentEnvgroup := &api.GetOverviewResponse{
-// 		EnvironmentGroups: []*api.EnvironmentGroup{
-// 			{
+	testOverviewWithDifferentEnvgroup := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{
+			{
 
-// 				EnvironmentGroupName: "not-staging-group",
-// 				Priority:             api.Priority_UPSTREAM,
-// 				Environments: []*api.Environment{
-// 					{
-// 						Name: "staging",
-// 					},
-// 				},
-// 			},
-// 		},
-// 		GitRevision: "1234",
-// 	}
-// 	testOverviewWithProdEnvs := &api.GetOverviewResponse{
-// 		EnvironmentGroups: []*api.EnvironmentGroup{
-// 			{
-// 				EnvironmentGroupName: "production",
-// 				Priority:             api.Priority_PROD,
-// 				Environments: []*api.Environment{
-// 					{
-// 						Name: "production",
-// 					},
-// 				},
-// 			},
-// 			{
-// 				EnvironmentGroupName: "canary",
-// 				Priority:             api.Priority_CANARY,
-// 				Environments: []*api.Environment{
-// 					{
-// 						Name: "canary",
-// 					},
-// 				},
-// 			},
-// 		},
-// 		GitRevision: "1234",
-// 	}
-// 	emptyTestOverview := &api.GetOverviewResponse{
-// 		EnvironmentGroups: []*api.EnvironmentGroup{},
-// 		GitRevision:       "000",
-// 	}
+				EnvironmentGroupName: "not-staging-group",
+				Priority:             api.Priority_UPSTREAM,
+				Environments: []*api.Environment{
+					{
+						Name: "staging",
+					},
+				},
+			},
+		},
+		GitRevision: "1234",
+	}
+	testOverviewWithProdEnvs := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{
+			{
+				EnvironmentGroupName: "production",
+				Priority:             api.Priority_PROD,
+				Environments: []*api.Environment{
+					{
+						Name: "production",
+					},
+				},
+			},
+			{
+				EnvironmentGroupName: "canary",
+				Priority:             api.Priority_CANARY,
+				Environments: []*api.Environment{
+					{
+						Name: "canary",
+					},
+				},
+			},
+		},
+		GitRevision: "1234",
+	}
+	emptyTestOverview := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{},
+		GitRevision:       "000",
+	}
 
-// 	tcs := []struct {
-// 		Name                 string
-// 		Steps                []step
-// 		VersionResponses     map[string]mockVersionResponse
-// 		GetOverviewResponses map[string]*api.GetOverviewResponse
-// 		ExpectedVersions     []expectedVersion
-// 	}{
-// 		{
-// 			Name: "Retries connections and finishes",
-// 			Steps: []step{
-// 				{
-// 					ConnectErr: fmt.Errorf("no"),
+	tcs := []struct {
+		Name                 string
+		Steps                []step
+		VersionResponses     map[string]mockVersionResponse
+		GetOverviewResponses map[string]*api.GetOverviewResponse
+		ExpectedVersions     []expectedVersion
+	}{
+		{
+			Name: "Retries connections and finishes",
+			Steps: []step{
+				{
+					ConnectErr: fmt.Errorf("no"),
 
-// 					ExpectReady: false,
-// 				},
-// 				{
-// 					RecvErr: fmt.Errorf("no"),
+					ExpectReady: false,
+				},
+				{
+					RecvErr: fmt.Errorf("no"),
 
-// 					ExpectReady: false,
-// 				},
-// 				{
-// 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-// 					CancelContext: true,
-// 				},
-// 			},
-// 		},
-// 		{
-// 			Name: "Puts received overviews in the cache",
-// 			Steps: []step{
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Team: "footeam",
-// 									Name: "foo",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{
-// 									"staging": {
-// 										Version: 1,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: testOverview,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "staging",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "staging-group",
-// 							Team:             "footeam",
-// 							Version: &VersionInfo{
-// 								Version:        1,
-// 								SourceCommitId: "00001",
-// 								DeployedAt:     time.Unix(123456789, 0).UTC(),
-// 							},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-// 					CancelContext: true,
-// 				},
-// 			},
-// 			ExpectedVersions: []expectedVersion{
-// 				{
-// 					Revision:        "1234",
-// 					Environment:     "staging",
-// 					Application:     "foo",
-// 					DeployedVersion: 1,
-// 					SourceCommitId:  "00001",
-// 					DeployTime:      time.Unix(123456789, 0).UTC(),
-// 				},
-// 			},
-// 		},
-// 		{
-// 			Name: "Can resolve versions from the versions client",
-// 			Steps: []step{
-// 				{
-// 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-// 					CancelContext: true,
-// 				},
-// 			},
-// 			VersionResponses: map[string]mockVersionResponse{
-// 				"staging/foo@1234": {
-// 					response: &api.GetVersionResponse{
-// 						Version:        1,
-// 						SourceCommitId: "00001",
-// 						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
-// 					},
-// 				},
-// 			},
-// 			ExpectedVersions: []expectedVersion{
-// 				{
-// 					Revision:        "1234",
-// 					Environment:     "staging",
-// 					Application:     "foo",
-// 					DeployedVersion: 1,
-// 					SourceCommitId:  "00001",
-// 					DeployTime:      time.Unix(123456789, 0).UTC(),
-// 					VersionMetadata: metadata.MD{
-// 						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
-// 						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
-// 					},
-// 				},
-// 			},
-// 		},
-// 		{
-// 			Name: "Don't notify twice for the same version",
-// 			Steps: []step{
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Team: "footeam",
-// 									Name: "foo",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{
-// 									"staging": {
-// 										Version: 1,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: testOverview,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "staging",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "staging-group",
-// 							Team:             "footeam",
-// 							Version: &VersionInfo{
-// 								Version:        1,
-// 								SourceCommitId: "00001",
-// 								DeployedAt:     time.Unix(123456789, 0).UTC(),
-// 							},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Team: "footeam",
-// 									Name: "foo",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{
-// 									"staging": {
-// 										Version: 1,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: testOverview,
-// 					ExpectReady:      true,
-// 				},
-// 				{
-// 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-// 					CancelContext: true,
-// 				},
-// 			},
-// 		},
-// 		{
-// 			Name: "Notify for apps that are deleted",
-// 			Steps: []step{
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Team: "footeam",
-// 									Name: "foo",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{
-// 									"staging": {
-// 										Version: 1,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: testOverview,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "staging",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "staging-group",
-// 							Team:             "footeam",
-// 							Version: &VersionInfo{
-// 								Version:        1,
-// 								SourceCommitId: "00001",
-// 								DeployedAt:     time.Unix(123456789, 0).UTC(),
-// 							},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Name: "foo",
-// 									Team: "footeam",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: emptyTestOverview,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "staging",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "staging-group",
-// 							Team:             "footeam",
-// 							Version:          &VersionInfo{},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-// 					CancelContext: true,
-// 				},
-// 			},
-// 		},
-// 		{
-// 			Name: "Notify for apps that are deleted across reconnects",
-// 			Steps: []step{
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Name: "foo",
-// 									Team: "footeam",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{
-// 									"staging": {
-// 										Version: 1,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: testOverview,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "staging",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "staging-group",
-// 							Team:             "footeam",
-// 							Version: &VersionInfo{
-// 								Version:        1,
-// 								SourceCommitId: "00001",
-// 								DeployedAt:     time.Unix(123456789, 0).UTC(),
-// 							},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					RecvErr: fmt.Errorf("no"),
+					ExpectReady: false,
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name: "Puts received overviews in the cache",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Revision:        "1234",
+					Environment:     "staging",
+					Application:     "foo",
+					DeployedVersion: 1,
+					SourceCommitId:  "00001",
+					DeployTime:      time.Unix(123456789, 0).UTC(),
+				},
+			},
+		},
+		{
+			Name: "Can resolve versions from the versions client",
+			Steps: []step{
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			VersionResponses: map[string]mockVersionResponse{
+				"staging/foo@1234": {
+					response: &api.GetVersionResponse{
+						Version:        1,
+						SourceCommitId: "00001",
+						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
+					},
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Revision:        "1234",
+					Environment:     "staging",
+					Application:     "foo",
+					DeployedVersion: 1,
+					SourceCommitId:  "00001",
+					DeployTime:      time.Unix(123456789, 0).UTC(),
+					VersionMetadata: metadata.MD{
+						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
+						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
+					},
+				},
+			},
+		},
+		{
+			Name: "Don't notify twice for the same version",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name: "Notify for apps that are deleted",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{},
+							},
+						},
+					},
+					OverviewResponse: emptyTestOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version:          &VersionInfo{},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name: "Notify for apps that are deleted across reconnects",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					RecvErr: fmt.Errorf("no"),
 
-// 					ExpectReady: false,
-// 				},
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Name: "foo",
-// 									Team: "footeam",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: emptyTestOverview,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "staging",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "staging-group",
-// 							Team:             "footeam",
-// 							Version:          &VersionInfo{},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-// 					CancelContext: true,
-// 				},
-// 			},
-// 		},
-// 		{
-// 			Name: "Updates environment groups",
-// 			Steps: []step{
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Name: "foo",
-// 									Team: "footeam",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{
-// 									"staging": {
-// 										Version: 1,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: testOverview,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "staging",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "staging-group",
-// 							Team:             "footeam",
-// 							Version: &VersionInfo{
-// 								Version:        1,
-// 								SourceCommitId: "00001",
-// 								DeployedAt:     time.Unix(123456789, 0).UTC(),
-// 							},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Name: "foo",
-// 									Team: "footeam",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        1,
-// 											SourceCommitId: "00001",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{
-// 									"staging": {
-// 										Version: 2,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: testOverviewWithDifferentEnvgroup,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "staging",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "not-staging-group",
-// 							Team:             "footeam",
-// 							Version: &VersionInfo{
-// 								Version:        2,
-// 								SourceCommitId: "00002",
-// 								DeployedAt:     time.Unix(123456789, 0).UTC(),
-// 							},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-// 					CancelContext: true,
-// 				},
-// 			},
-// 		},
-// 		{
-// 			Name: "Reports production environments",
-// 			Steps: []step{
-// 				{
-// 					ChangedApps: &api.GetChangedAppsResponse{
-// 						ChangedApps: []*api.GetAppDetailsResponse{
-// 							{
-// 								Application: &api.Application{
-// 									Name: "foo",
-// 									Team: "footeam",
-// 									Releases: []*api.Release{
-// 										{
-// 											Version:        2,
-// 											SourceCommitId: "00002",
-// 										},
-// 									},
-// 								},
-// 								Deployments: map[string]*api.Deployment{
-// 									"production": {
-// 										Version: 2,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 									"canary": {
-// 										Version: 2,
-// 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-// 											DeployTime: "123456789",
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 					OverviewResponse: testOverviewWithProdEnvs,
-// 					ExpectReady:      true,
-// 					ExpectedEvents: []KuberpultEvent{
-// 						{
-// 							Environment:      "production",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "production",
-// 							IsProduction:     true,
-// 							Team:             "footeam",
-// 							Version: &VersionInfo{
-// 								Version:        2,
-// 								SourceCommitId: "00002",
-// 								DeployedAt:     time.Unix(123456789, 0).UTC(),
-// 							},
-// 						},
-// 						{
-// 							Environment:      "canary",
-// 							Application:      "foo",
-// 							EnvironmentGroup: "canary",
-// 							IsProduction:     true,
-// 							Team:             "footeam",
-// 							Version: &VersionInfo{
-// 								Version:        2,
-// 								SourceCommitId: "00002",
-// 								DeployedAt:     time.Unix(123456789, 0).UTC(),
-// 							},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-// 					CancelContext: true,
-// 				},
-// 			},
-// 		},
-// 	}
-// 	for _, tc := range tcs {
-// 		tc := tc
-// 		t.Run(tc.Name, func(t *testing.T) {
-// 			ctx, cancel := context.WithCancel(context.Background())
-// 			vp := &mockVersionEventProcessor{}
-// 			startSteps := make(chan struct{})
-// 			steps := make(chan step)
-// 			moc := &mockOverviewClient{StartStep: startSteps, Steps: steps}
-// 			if tc.VersionResponses == nil {
-// 				tc.VersionResponses = map[string]mockVersionResponse{}
-// 			}
-// 			mvc := &mockVersionClient{responses: tc.VersionResponses}
-// 			vc := New(moc, mvc, nil, false, []string{})
-// 			hs := &setup.HealthServer{}
-// 			hs.BackOffFactory = func() backoff.BackOff {
-// 				return backoff.NewConstantBackOff(time.Millisecond)
-// 			}
-// 			errCh := make(chan error)
-// 			go func() {
-// 				errCh <- vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
-// 			}()
-// 			for i, s := range tc.Steps {
-// 				<-startSteps
-// 				if i > 0 {
-// 					assertStep(t, i-1, tc.Steps[i-1], vp, hs)
-// 				}
-// 				if s.CancelContext {
-// 					cancel()
-// 				}
-// 				select {
-// 				case steps <- s:
-// 				case err := <-errCh:
-// 					t.Fatalf("expected no error but received %q", err)
-// 				case <-time.After(10 * time.Second):
-// 					t.Fatal("test got stuck after 10 seconds")
-// 				}
-// 			}
-// 			cancel()
-// 			err := <-errCh
-// 			if err != nil {
-// 				t.Errorf("expected no error, but received %q", err)
-// 			}
-// 			if len(steps) != 0 {
-// 				t.Errorf("expected all events to be consumed, but got %d left", len(steps))
-// 			}
-// 			assertExpectedVersions(t, tc.ExpectedVersions, vc, moc, mvc)
+					ExpectReady: false,
+				},
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{},
+							},
+						},
+					},
+					OverviewResponse: emptyTestOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version:          &VersionInfo{},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name: "Updates environment groups",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverviewWithDifferentEnvgroup,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "not-staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        2,
+								SourceCommitId: "00002",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name: "Reports production environments",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Name: "foo",
+									Team: "footeam",
+									Releases: []*api.Release{
+										{
+											Version:        2,
+											SourceCommitId: "00002",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"production": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+									"canary": {
+										Version: 2,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverviewWithProdEnvs,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "production",
+							Application:      "foo",
+							EnvironmentGroup: "production",
+							IsProduction:     true,
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        2,
+								SourceCommitId: "00002",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+						{
+							Environment:      "canary",
+							Application:      "foo",
+							EnvironmentGroup: "canary",
+							IsProduction:     true,
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        2,
+								SourceCommitId: "00002",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			vp := &mockVersionEventProcessor{}
+			startSteps := make(chan struct{})
+			steps := make(chan step)
+			moc := &mockOverviewClient{StartStep: startSteps, Steps: steps}
+			if tc.VersionResponses == nil {
+				tc.VersionResponses = map[string]mockVersionResponse{}
+			}
+			mvc := &mockVersionClient{responses: tc.VersionResponses}
+			vc := New(moc, mvc, nil, false, []string{})
+			hs := &setup.HealthServer{}
+			hs.BackOffFactory = func() backoff.BackOff {
+				return backoff.NewConstantBackOff(time.Millisecond)
+			}
+			errCh := make(chan error)
+			go func() {
+				errCh <- vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
+			}()
+			for i, s := range tc.Steps {
+				<-startSteps
+				if i > 0 {
+					assertStep(t, i-1, tc.Steps[i-1], vp, hs)
+				}
+				if s.CancelContext {
+					cancel()
+				}
+				select {
+				case steps <- s:
+				case err := <-errCh:
+					t.Fatalf("expected no error but received %q", err)
+				case <-time.After(10 * time.Second):
+					t.Fatal("test got stuck after 10 seconds")
+				}
+			}
+			cancel()
+			err := <-errCh
+			if err != nil {
+				t.Errorf("expected no error, but received %q", err)
+			}
+			if len(steps) != 0 {
+				t.Errorf("expected all events to be consumed, but got %d left", len(steps))
+			}
+			assertExpectedVersions(t, tc.ExpectedVersions, vc, moc, mvc)
 
-// 		})
-// 	}
-// }
+		})
+	}
+}
 
 func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *setup.HealthServer) {
 	if hs.IsReady("versions") != s.ExpectReady {
