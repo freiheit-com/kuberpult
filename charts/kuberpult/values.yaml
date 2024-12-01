@@ -294,7 +294,7 @@ argocd:
     # Send up to that many parallel refresh requests to argocd.
     # The number is determined by the power of the deployed argocd.
     concurrency: 50
-    clientTimeoutSeconds: 60
+    clientTimeoutSeconds: 30
 
   generateFiles: true
 
