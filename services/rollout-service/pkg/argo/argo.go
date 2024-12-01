@@ -99,7 +99,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
 	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
-	go func() error {
+	go func() {
 		for {
 			select {
 			case argoOv := <-a.trigger:
@@ -124,7 +124,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 					span.Finish()
 				}
 			case <-ctx.Done():
-				return nil
+				return
 			}
 		}
 	}()
