@@ -52,7 +52,7 @@ func Subscribe(ctx context.Context, notifier Notifier, broadcast *service.Broadc
 						return errChannelClosed
 					}
 				}
-				go s.maybeSend(ctx, ev)
+				s.maybeSend(ctx, ev)
 			}
 		}
 	})

@@ -241,7 +241,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				//Go through every deployment and check if we have seen it. If not, Add it to the pool of events
 				for env, deployment := range appDetailsResponse.Deployments {
 					dt := deployedAt(deployment)
-					sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
+					// sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
 					tm := appDetailsResponse.Application.Team
 
 					foundEnv := false
@@ -267,18 +267,18 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					if versions[k] == deployment.Version {
 						continue
 					}
-					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-						Application:      appName,
-						Environment:      env,
-						EnvironmentGroup: envGroup.EnvironmentGroupName,
-						Team:             tm,
-						IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
-						Version: &VersionInfo{
-							Version:        deployment.Version,
-							SourceCommitId: sc,
-							DeployedAt:     dt,
-						},
-					})
+					// processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+					// 	Application:      appName,
+					// 	Environment:      env,
+					// 	EnvironmentGroup: envGroup.EnvironmentGroupName,
+					// 	Team:             tm,
+					// 	IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
+					// 	Version: &VersionInfo{
+					// 		Version:        deployment.Version,
+					// 		SourceCommitId: sc,
+					// 		DeployedAt:     dt,
+					// 	},
+					// })
 				}
 
 			}
