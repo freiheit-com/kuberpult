@@ -331,8 +331,9 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team stri
 		Server:    env.Config.Argocd.Destination.Server,
 	}
 
-	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
+	var ignoreDifferences []v1alpha1.ResourceIgnoreDifferences = nil
 	if len(env.Config.Argocd.IgnoreDifferences) > 0 {
+		ignoreDifferences = make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
 		for index, value := range env.Config.Argocd.IgnoreDifferences {
 			difference := v1alpha1.ResourceIgnoreDifferences{
 				Group:                 value.Group,
@@ -345,10 +346,7 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team stri
 			}
 			ignoreDifferences[index] = difference
 		}
-	} else {
-		ignoreDifferences = nil
 	}
-
 	//exhaustruct:ignore
 	ObjectMeta := metav1.ObjectMeta{
 		Name:        fmt.Sprintf("%s-%s", env.Name, appName),
