@@ -69,7 +69,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ApplicationClient:     appClient,
 		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
 		ManageArgoAppsFilter:  manageArgoApplicationFilter,
-		trigger:               make(chan *ArgoOverview, 5),
+		trigger:               make(chan *ArgoOverview, 50),
 		argoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
 	}
 }
