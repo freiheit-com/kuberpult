@@ -306,7 +306,7 @@ func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscr
 	for key, app := range b.state {
 		result = append(result, app.getEvent(key.Application, key.Environment))
 	}
-	ch := make(chan *BroadcastEvent, 100)
+	ch := make(chan *BroadcastEvent, 100000)
 	b.listener[ch] = struct{}{}
 	return result, ch, func() {
 		b.mx.Lock()

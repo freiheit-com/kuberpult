@@ -69,7 +69,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ApplicationClient:     appClient,
 		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
 		ManageArgoAppsFilter:  manageArgoApplicationFilter,
-		trigger:               make(chan *ArgoOverview, 5),
+		trigger:               make(chan *ArgoOverview, 50),
 		argoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
 	}
 }
@@ -98,50 +98,23 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 	hlth.ReportReady("event-consuming")
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
-	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
 	for {
 		select {
 		case argoOv := <-a.trigger:
 			l.Info("self-manage.trigger")
-			overview := argoOv.Overview
-			for currentApp, currentAppDetails := range argoOv.AppDetails {
-				span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
-				defer span.Finish()
-				span.SetTag("kuberpult-app", currentApp)
-				for _, envGroup := range overview.EnvironmentGroups {
-					for _, env := range envGroup.Environments {
-						if ok := appsKnownToArgo[env.Name]; ok != nil {
-							envAppsKnownToArgo = appsKnownToArgo[env.Name]
-							a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
-						}
-
-						if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
-							a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, envAppsKnownToArgo)
-						}
-					}
-				}
-				span.Finish()
-			}
-		case ev := <-a.argoApps:
-			envName, appName := getEnvironmentAndName(ev.Application.Annotations)
-			if appName == "" {
-				continue
-			}
-			if appsKnownToArgo[envName] == nil {
-				appsKnownToArgo[envName] = map[string]*v1alpha1.Application{}
-			}
-			envKnownToArgo := appsKnownToArgo[envName]
-			switch ev.Type {
-			case "ADDED", "MODIFIED":
-				l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
-				envKnownToArgo[appName] = &ev.Application
-			case "DELETED":
-				l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
-				delete(envKnownToArgo, appName)
-			}
-			appsKnownToArgo[envName] = envKnownToArgo
+			a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
 		case <-ctx.Done():
 			return nil
+		default:
+			select {
+			case argoOv := <-a.trigger:
+				l.Info("self-manage.trigger")
+				a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
+			case ev := <-a.argoApps:
+				a.ProcessArgoWatchEvent(ctx, l, appsKnownToArgo, ev)
+			case <-ctx.Done():
+				return nil
+			}
 		}
 	}
 }
@@ -149,6 +122,45 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 type ArgoOverview struct {
 	AppDetails map[string]*api.GetAppDetailsResponse //Map from appName to app Details. Gets filled with information based on what apps have changed.
 	Overview   *api.GetOverviewResponse              //Standard overview. Only information regarding environments should be retrieved from this overview.
+}
+
+func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, appsKnownToArgo map[string]map[string]*v1alpha1.Application, argoOv *ArgoOverview) {
+	overview := argoOv.Overview
+	for currentApp, currentAppDetails := range argoOv.AppDetails {
+		span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
+		defer span.Finish()
+		span.SetTag("kuberpult-app", currentApp)
+		for _, envGroup := range overview.EnvironmentGroups {
+			for _, env := range envGroup.Environments {
+				if ok := appsKnownToArgo[env.Name]; ok != nil {
+					a.DeleteArgoApps(ctx, appsKnownToArgo[env.Name], currentApp, currentAppDetails.Deployments[env.Name])
+				}
+
+				if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
+					a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, appsKnownToArgo[env.Name])
+				}
+			}
+		}
+		span.Finish()
+	}
+}
+
+func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, appsKnownToArgo map[string]map[string]*v1alpha1.Application, ev *v1alpha1.ApplicationWatchEvent) {
+	envName, appName := getEnvironmentAndName(ev.Application.Annotations)
+	if appName == "" {
+		return
+	}
+	if appsKnownToArgo[envName] == nil {
+		appsKnownToArgo[envName] = map[string]*v1alpha1.Application{}
+	}
+	switch ev.Type {
+	case "ADDED", "MODIFIED":
+		l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
+		appsKnownToArgo[envName][appName] = &ev.Application
+	case "DELETED":
+		l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
+		delete(appsKnownToArgo[envName], appName)
+	}
 }
 
 func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
