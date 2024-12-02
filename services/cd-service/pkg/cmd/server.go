@@ -460,6 +460,7 @@ func RunServer() {
 					reposerver.Register(srv, repo, cfg)
 					if dbHandler != nil {
 						api.RegisterCommitDeploymentServiceServer(srv, &service.CommitDeploymentServer{DBHandler: dbHandler})
+						overviewSrv.GetOverview(ctx, &api.GetOverviewRequest{})
 					}
 				},
 			},

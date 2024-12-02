@@ -1614,6 +1614,10 @@ func (u *UndeployApplication) Transform(
 						return "", err
 					}
 				}
+				err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, locks.Version, env, u.Application, []string{})
+				if err != nil {
+					return "", err
+				}
 				continue
 			}
 			return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
