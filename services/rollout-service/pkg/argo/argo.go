@@ -146,6 +146,8 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 				appsKnownToArgo[envName] = envKnownToArgo
 			case <-ctx.Done():
 				return nil
+			default:
+				l.Info("No events in argocd nor in kuberpult to consume")
 			}
 		}
 	}
