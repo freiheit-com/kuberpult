@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -146,7 +147,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 				appsKnownToArgo[envName] = envKnownToArgo
 			case <-ctx.Done():
 				return nil
-			default:
+			case <-time.After(2):
 				l.Info("No events in argocd nor in kuberpult to consume")
 			}
 		}
