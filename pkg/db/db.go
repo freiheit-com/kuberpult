@@ -5026,6 +5026,50 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
+func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context, tx *sql.Tx, environmentName string) ([]*QueuedDeployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttemptOfAllApps")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectLatestDeploymentAttemptOfAllApps: no transaction provided")
+	}
+	query := h.AdaptQuery(
+		`
+	SELECT DISTINCT
+		deployment_attempts.eslversion,
+		deployment_attempts.created,
+		deployment_attempts.envName,
+		deployment_attempts.appName,
+		deployment_attempts.queuedReleaseVersion
+	FROM (
+		SELECT
+			MAX(eslversion) AS latestRelease,
+			appname,
+			envName
+		FROM
+			"deployment_attempts"
+		GROUP BY
+			envname, appname) AS latest
+	JOIN
+		deployment_attempts AS deployment_attempts 
+	ON
+		latest.latestRelease=deployment_attempts.eslVersion
+		AND latest.envName=deployment_attempts.envName
+		AND latest.appname=deployment_attempts.appname
+	WHERE deployment_attempts.envName=?
+	ORDER BY deployment_attempts.eslversion DESC;
+	`)
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(
+		ctx,
+		query,
+		environmentName)
+	return h.processDeploymentAttemptsRows(ctx, rows, err)
+}
+
 func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64, skipOverview bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
@@ -5107,6 +5151,31 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
 	}
 	return nil
+}
+
+func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql.Rows, err error) ([]*QueuedDeployment, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	var results []*QueuedDeployment
+	for rows.Next() {
+		row, err := h.processSingleDeploymentAttemptsRow(ctx, rows)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
 }
 
 func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows, err error) (*QueuedDeployment, error) {
