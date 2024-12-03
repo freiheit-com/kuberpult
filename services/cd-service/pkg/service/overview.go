@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -191,6 +192,13 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("could not obtain deployments for app %s: %w", appName, err)
 		}
 		for envName, currentDeployment := range deployments {
+
+			// Test that deployment's release has the deployment's environment
+			deploymentRelease := getReleaseFromVersion(releases, uint64(*currentDeployment.Version))
+			if deploymentRelease != nil && !slices.Contains(deploymentRelease.Environments, envName) {
+				continue
+			}
+
 			environment, err := o.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 			if err != nil {
 				return nil, fmt.Errorf("could not obtain environment %s for app %s: %w", envName, appName, err)
@@ -227,9 +235,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 					}
 				}
 
-				rel := getReleaseFromVersion(releases, uint64(*currentDeployment.Version))
-				if rel != nil {
-					deployment.UndeployVersion = rel.Metadata.UndeployVersion
+				if deploymentRelease != nil {
+					deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
 				}
 				response.Deployments[envName] = deployment
 			}
