@@ -183,7 +183,7 @@ type key struct {
 
 func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-	versions := map[key]uint64{}
+	seenVersions := map[key]uint64{}
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
@@ -226,61 +226,110 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			l := logger.FromContext(ctx)
 
 			l.Info("overview.get")
-			seen := make(map[key]uint64, len(versions))
 
 			overview := argo.ArgoOverview{
 				Overview:   ov,
 				AppDetails: nil,
 			}
+
+			fmt.Println("OUCH GOT HERE 0")
 			for _, appDetailsResponse := range changedApps.ChangedApps {
 				appName := appDetailsResponse.Application.Name
 				appsToChange[appName] = appDetailsResponse
 				v.cache.Add(appName, appDetailsResponse) // Update cache of app details
+				fmt.Printf("OUCH dep number: %d\n", len(appDetailsResponse.Deployments))
 
-				app := appDetailsResponse.Application
-				//Go through every deployment and check if we have seen it. If not, Add it to the pool of events
-				for env, deployment := range appDetailsResponse.Deployments {
-					dt := deployedAt(deployment)
-					sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
-					tm := appDetailsResponse.Application.Team
-
-					foundEnv := false
-					var envGroup *api.EnvironmentGroup
-					for _, currEnvGroup := range overview.Overview.EnvironmentGroups {
-						for _, currEnv := range currEnvGroup.Environments {
-							if currEnv.Name == env {
-								foundEnv = true
-								envGroup = currEnvGroup
-							}
-						}
-					}
-
-					if !foundEnv {
-						return fmt.Errorf("getAppDetails returned information regarding a deployment for app %s on env %s, but did not provide any environment group information about this environment", appName, env)
-					}
-
-					l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt))
-					k := key{env, appName}
-					seen[k] = deployment.Version
-					environmentGroups[k] = envGroup.EnvironmentGroupName
-					teams[k] = tm
-					if versions[k] == deployment.Version {
+				for key, _ := range seenVersions {
+					if key.Application != appName {
 						continue
 					}
+
+					var foundEnv *api.Environment = nil
+					for _, envGroup := range overview.Overview.EnvironmentGroups {
+						for _, env := range envGroup.Environments {
+							if env.Name == key.Environment {
+								foundEnv = env
+								break
+							}
+						}
+						if foundEnv != nil {
+							break
+						}
+					}
+					if foundEnv != nil {
+						continue
+					}
+
+					delete(seenVersions, key)
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+						IsProduction:     false,
 						Application:      appName,
-						Environment:      env,
-						EnvironmentGroup: envGroup.EnvironmentGroupName,
-						Team:             tm,
-						IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
+						Environment:      key.Environment,
+						EnvironmentGroup: environmentGroups[key],
+						Team:             teams[key],
 						Version: &VersionInfo{
-							Version:        deployment.Version,
-							SourceCommitId: sc,
-							DeployedAt:     dt,
+							Version:        0,
+							SourceCommitId: "",
+							DeployedAt:     time.Time{},
 						},
 					})
 				}
 
+				for _, envGroup := range overview.Overview.EnvironmentGroups {
+					for _, env := range envGroup.Environments {
+						argoAppKey := key{Environment: env.Name, Application: appName}
+						fmt.Printf("OUCH %s, %s\n", env.Name, appName)
+						seenVersion, ok := seenVersions[argoAppKey]
+						deployment, deploymentExists := appDetailsResponse.Deployments[env.Name]
+
+						fmt.Printf("OUCH tests: %t, %v\n", deploymentExists, deployment)
+
+						if !deploymentExists || deployment == nil {
+							fmt.Println("OUCH GOT HERE")
+							// Check we knew a real version and deployment does not exist
+							if ok && seenVersion > 0 {
+								fmt.Println("OUCH DELETED")
+								delete(seenVersions, argoAppKey)
+								processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+									IsProduction:     false,
+									Application:      appName,
+									Environment:      env.Name,
+									EnvironmentGroup: envGroup.EnvironmentGroupName,
+									Team:             appDetailsResponse.Application.Team,
+									Version: &VersionInfo{
+										Version:        0,
+										SourceCommitId: "",
+										DeployedAt:     time.Time{},
+									},
+								})
+							}
+							continue
+						} else if deployment.Version == seenVersion {
+							continue
+						}
+
+						seenVersions[argoAppKey] = deployment.Version
+						dt := deployedAt(deployment)
+						sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
+						tm := appDetailsResponse.Application.Team
+						l.Info("version.process", zap.String("application", appName), zap.String("environment", env.Name), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt))
+
+						environmentGroups[argoAppKey] = envGroup.EnvironmentGroupName
+						teams[argoAppKey] = tm
+						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+							Application:      appName,
+							Environment:      env.Name,
+							EnvironmentGroup: envGroup.EnvironmentGroupName,
+							Team:             tm,
+							IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
+							Version: &VersionInfo{
+								Version:        deployment.Version,
+								SourceCommitId: sc,
+								DeployedAt:     dt,
+							},
+						})
+					}
+				}
 			}
 
 			overview.AppDetails = appsToChange
@@ -290,25 +339,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				l.Info("version.push")
 				appsToChange = make(map[string]*api.GetAppDetailsResponse)
 			}
-			// Send events with version 0 for deleted applications so that we can react
-			// to apps getting deleted.
-			for k := range versions {
-				if seen[k] == 0 {
-					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-						IsProduction:     false,
-						Application:      k.Application,
-						Environment:      k.Environment,
-						EnvironmentGroup: environmentGroups[k],
-						Team:             teams[k],
-						Version: &VersionInfo{
-							Version:        0,
-							SourceCommitId: "",
-							DeployedAt:     time.Time{},
-						},
-					})
-				}
-			}
-			versions = seen
 		}
 	})
 }
