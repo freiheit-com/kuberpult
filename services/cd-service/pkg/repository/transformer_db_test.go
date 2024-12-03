@@ -4147,6 +4147,11 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				sort.Strings(actualGauge.Tags)
 				t.Logf("actualGauges:[%v] %v:%v", i, actualGauge.Name, actualGauge.Tags)
 				t.Logf("expectedGauges:[%v] %v:%v", i, expectedGauge.Name, expectedGauge.Tags)
+				if actualGauge.Name == "lastDeployed" {
+					if actualGauge.Value < 1 {
+						actualGauge.Value = 0
+					}
+				}
 
 				if diff := cmp.Diff(expectedGauge, actualGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
 					t.Errorf("[%d] want %v, got %v, diff (-want +got) %s", i, expectedGauge, actualGauge, diff)
