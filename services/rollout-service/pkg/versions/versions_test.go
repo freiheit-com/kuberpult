@@ -418,6 +418,98 @@ func TestVersionClientStream(t *testing.T) {
 			},
 		},
 		{
+			Name: "Only alter deployments in changed apps",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "bar",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "bar",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+
+		{
 			Name: "Notify for apps that are deleted",
 			Steps: []step{
 				{
