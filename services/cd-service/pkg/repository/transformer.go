@@ -1776,6 +1776,8 @@ func (u *DeleteEnvFromApp) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DeleteEnvFromApp")
+	defer span.Finish()
 	err := state.checkUserPermissions(ctx, transaction, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig, true)
 	if err != nil {
 		return "", err
