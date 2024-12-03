@@ -19,9 +19,10 @@ package service
 import (
 	"context"
 	"errors"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"sync"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -57,7 +58,7 @@ func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 }
 
 func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEvent {
-	if !a.argocdVersion.Equal(ev.Version) || a.isProduction == nil || *a.isProduction != ev.IsProduction {
+	if !a.kuberpultVersion.Equal(ev.Version) || a.isProduction == nil || *a.isProduction != ev.IsProduction {
 		a.kuberpultVersion = ev.Version
 		a.environmentGroup = ev.EnvironmentGroup
 		a.team = ev.Team
@@ -305,7 +306,7 @@ func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscr
 	for key, app := range b.state {
 		result = append(result, app.getEvent(key.Application, key.Environment))
 	}
-	ch := make(chan *BroadcastEvent, 100)
+	ch := make(chan *BroadcastEvent, 100000)
 	b.listener[ch] = struct{}{}
 	return result, ch, func() {
 		b.mx.Lock()

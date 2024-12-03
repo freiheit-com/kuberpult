@@ -1681,11 +1681,48 @@ func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx,
 	return v, nil
 }
 
+func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]*uint64, error) {
+	queuedDeployments, err := s.DBHandler.DBSelectLatestDeploymentAttemptOfAllApps(ctx, transaction, environment)
+	result := map[string]*uint64{}
+	if err != nil || queuedDeployments == nil {
+		return result, err
+	}
+	for _, queuedDeployment := range queuedDeployments {
+		var v *uint64
+		if queuedDeployment.Version != nil {
+			parsedInt := uint64(*queuedDeployment.Version)
+			v = &parsedInt
+		} else {
+			v = nil
+		}
+		result[queuedDeployment.App] = v
+	}
+	return result, nil
+}
+
 func (s *State) GetQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		return s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
 	}
 	return s.GetQueuedVersionFromManifest(environment, application)
+}
+func (s *State) GetQueuedVersionOfAllApps(ctx context.Context, transaction *sql.Tx, environment string) (map[string]*uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetQueuedVersionAllAppsFromDB(ctx, transaction, environment)
+	}
+	result := map[string]*uint64{}
+	apps, err := s.GetEnvironmentApplications(ctx, transaction, environment)
+	if err != nil {
+		return result, fmt.Errorf("environment applications for %q not found: %v", environment, err.Error())
+	}
+	for _, appName := range apps {
+		version, err := s.GetQueuedVersionFromManifest(environment, appName)
+		if err != nil {
+			return result, err
+		}
+		result[appName] = version
+	}
+	return result, nil
 }
 
 func (s *State) GetQueuedVersionFromManifest(environment string, application string) (*uint64, error) {
@@ -3288,6 +3325,36 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 			// whenever the next deployment happens:
 			err = s.DeleteQueuedVersion(ctx, transaction, environment, application, false)
 			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
+		}
+	}
+	return queueDeploymentMessage, nil
+}
+
+func (s *State) ProcessQueueAllApps(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment string) (string, error) {
+	queuedVersions, err := s.GetQueuedVersionOfAllApps(ctx, transaction, environment)
+	if err != nil {
+		return "", err
+	}
+	queueDeploymentMessage := ""
+	for application, queuedVersion := range queuedVersions {
+		if queuedVersion == nil {
+			continue
+		}
+
+		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
+		if err != nil {
+			return "", err
+		}
+
+		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
+			err = s.DeleteQueuedVersion(ctx, transaction, environment, application, false)
+			if err != nil {
+				return "", err
+			}
+			if queueDeploymentMessage != "" {
+				queueDeploymentMessage += "\n"
+			}
+			queueDeploymentMessage += fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment)
 		}
 	}
 	return queueDeploymentMessage, nil

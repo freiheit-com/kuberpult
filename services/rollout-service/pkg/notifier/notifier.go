@@ -19,6 +19,7 @@ package notifier
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	argoapplication "github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -66,7 +67,9 @@ func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application st
 			Refresh: conversion.FromString(string(argoappv1.RefreshTypeNormal)),
 		})
 		if err != nil {
-			l.Error("argocd.refresh", zap.Error(err))
+			if !strings.HasPrefix(err.Error(), "rpc error: code = DeadlineExceeded") && !strings.HasPrefix(err.Error(), "rpc error: code = Unknown desc = application refresh deadline exceeded") {
+				l.Error("argocd.refresh", zap.Error(err))
+			}
 		}
 		span.Finish(tracer.WithError(err))
 		return nil
