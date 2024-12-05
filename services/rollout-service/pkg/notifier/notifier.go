@@ -19,6 +19,7 @@ package notifier
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	argoapplication "github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -39,14 +40,15 @@ type Notifier interface {
 	NotifyArgoCd(ctx context.Context, environment, application string)
 }
 
-func New(client SimplifiedApplicationInterface, concurrencyLimit int) Notifier {
-	n := &notifier{client, errgroup.Group{}}
+func New(client SimplifiedApplicationInterface, concurrencyLimit int, timeout int) Notifier {
+	n := &notifier{client, time.Duration(timeout), errgroup.Group{}}
 	n.errGroup.SetLimit(concurrencyLimit)
 	return n
 }
 
 type notifier struct {
 	client   SimplifiedApplicationInterface
+	timeout  time.Duration
 	errGroup errgroup.Group
 }
 
@@ -56,7 +58,7 @@ func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application st
 		span, ctx := tracer.StartSpanFromContext(ctx, "argocd.refresh")
 		span.SetTag("environment", environment)
 		span.SetTag("application", application)
-		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, n.timeout*time.Second)
 		defer cancel()
 		l := logger.FromContext(ctx).With(zap.String("environment", environment), zap.String("application", application))
 		//exhaustruct:ignore
@@ -65,7 +67,9 @@ func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application st
 			Refresh: conversion.FromString(string(argoappv1.RefreshTypeNormal)),
 		})
 		if err != nil {
-			l.Error("argocd.refresh", zap.Error(err))
+			if !strings.HasPrefix(err.Error(), "rpc error: code = DeadlineExceeded") && !strings.HasPrefix(err.Error(), "rpc error: code = Unknown desc = application refresh deadline exceeded") {
+				l.Error("argocd.refresh", zap.Error(err))
+			}
 		}
 		span.Finish(tracer.WithError(err))
 		return nil

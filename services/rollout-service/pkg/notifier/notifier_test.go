@@ -53,7 +53,7 @@ func TestNotifier(t *testing.T) {
 			// chan without capacity will block all requests
 			ch := make(chan *argoapplication.ApplicationQuery)
 			ma := &mockApplicationClient{ch}
-			nf := New(ma, tc.ConcurrencyLimit)
+			nf := New(ma, tc.ConcurrencyLimit, 60)
 			for i := 0; i < tc.ConcurrencyLimit; i = i + 1 {
 				nf.NotifyArgoCd(ctx, "foo", "bar")
 			}

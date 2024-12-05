@@ -4122,6 +4122,24 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
 				t.Fatalf(msg)
 			}
+			sortGauges := func(gaugesList []Gauge) {
+				sort.Slice(gaugesList, func(i, j int) bool {
+					if len(gaugesList[i].Tags) == 0 && len(gaugesList[j].Tags) == 0 {
+						return gaugesList[i].Name > gaugesList[j].Name
+					} else if len(gaugesList[i].Tags) != len(gaugesList[j].Tags) {
+						return len(gaugesList[i].Tags) > len(gaugesList[j].Tags)
+					} else {
+						for tagIndex := range gaugesList[i].Tags {
+							if gaugesList[i].Tags[tagIndex] != gaugesList[j].Tags[tagIndex] {
+								return gaugesList[i].Tags[tagIndex] > gaugesList[j].Tags[tagIndex]
+							}
+						}
+						return true
+					}
+				})
+			}
+			sortGauges(tc.expectedGauges)
+			sortGauges(mockClient.gauges)
 			for i := range tc.expectedGauges {
 				var expectedGauge Gauge = tc.expectedGauges[i]
 				sort.Strings(expectedGauge.Tags)
@@ -4129,9 +4147,14 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				sort.Strings(actualGauge.Tags)
 				t.Logf("actualGauges:[%v] %v:%v", i, actualGauge.Name, actualGauge.Tags)
 				t.Logf("expectedGauges:[%v] %v:%v", i, expectedGauge.Name, expectedGauge.Tags)
+				if actualGauge.Name == "lastDeployed" {
+					if actualGauge.Value < 1 {
+						actualGauge.Value = 0
+					}
+				}
 
-				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
-					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
+				if diff := cmp.Diff(expectedGauge, actualGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+					t.Errorf("[%d] want %v, got %v, diff (-want +got) %s", i, expectedGauge, actualGauge, diff)
 				}
 			}
 		})

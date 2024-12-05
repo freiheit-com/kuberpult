@@ -54,14 +54,14 @@ func (o *VersionServiceServer) GetVersion(
 	state := o.Repository.State()
 	dbHandler := state.DBHandler
 	if dbHandler.ShouldUseOtherTables() {
+		// The gitRevision field is actually not a proper git revision.
+		// Instead, it has the release number stored with leading zeroes.
+		releaseVersion, err := reposerver.FromRevision(in.GitRevision)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse GitRevision '%s' for app '%s' in env '%s': %w",
+				in.GitRevision, in.Application, in.Environment, err)
+		}
 		res, err := db.WithTransactionT[api.GetVersionResponse](dbHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
-			// The gitRevision field is actually not a proper git revision.
-			// Instead, it has the release number stored with leading zeroes.
-			releaseVersion, err := reposerver.FromRevision(in.GitRevision)
-			if err != nil {
-				return nil, fmt.Errorf("could not parse GitRevision '%s' for app '%s' in env '%s': %w",
-					in.GitRevision, in.Application, in.Environment, err)
-			}
 			deployment, err := dbHandler.DBSelectSpecificDeployment(ctx, tx, in.Environment, in.Application, releaseVersion)
 			if err != nil || deployment == nil {
 				return nil, fmt.Errorf("no deployment found for env='%s' and app='%s': %w", in.Environment, in.Application, err)

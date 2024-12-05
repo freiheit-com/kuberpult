@@ -103,6 +103,8 @@ spec:
           value: {{ .Values.argocd.refresh.enabled | quote }}
         - name: KUBERPULT_ARGOCD_REFRESH_CONCURRENCY
           value: {{ .Values.argocd.refresh.concurrency | quote }}
+        - name: KUBERPULT_ARGOCD_REFRESH_CLIENT_TIMEOUT_SECONDS
+          value: {{ .Values.argocd.refresh.clientTimeoutSeconds | quote }}
         - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_ENABLED
           value: {{ .Values.manageArgoApplications.enabled | quote }}
         - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_FILTER
