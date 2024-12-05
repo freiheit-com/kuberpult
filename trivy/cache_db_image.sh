@@ -3,6 +3,7 @@
 i=0
 status=1
 while [ "$i" -lt $1 ]; do
+	# https://cloud.google.com/kubernetes-engine/enterprise/config-sync/docs/how-to/sync-oci-artifacts-from-artifact-registry
 	oras cp ghcr.io/aquasecurity/trivy-db:2 europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/aquasecurity/trivy-db:2
 	status=$?
 	if [ $status -eq 0 ]; then
