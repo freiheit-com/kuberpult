@@ -899,7 +899,6 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				{
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(7),
 					TransformerID: 0,
 				},
@@ -908,7 +907,6 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				"dev": {
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(7),
 					TransformerID: 0,
 				},
@@ -921,14 +919,12 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				{
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(6),
 					TransformerID: 0,
 				},
 				{
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    3,
 					Version:       version(7),
 					TransformerID: 0,
 				},
@@ -937,7 +933,6 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				"dev": {
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    3,
 					Version:       version(7),
 					TransformerID: 0,
 				},
@@ -950,21 +945,18 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				{
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(6),
 					TransformerID: 0,
 				},
 				{
 					App:           "app1",
 					Env:           "staging",
-					EslVersion:    2,
 					Version:       version(5),
 					TransformerID: 0,
 				},
 				{
 					App:           "app2",
 					Env:           "staging",
-					EslVersion:    2,
 					Version:       version(5),
 					TransformerID: 0,
 				},
@@ -973,14 +965,12 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				"dev": {
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(6),
 					TransformerID: 0,
 				},
 				"staging": {
 					App:           "app1",
 					Env:           "staging",
-					EslVersion:    2,
 					Version:       version(5),
 					TransformerID: 0,
 				},
@@ -1003,7 +993,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				}
 
 				for _, deployment := range tc.SetupDeployments {
-					err := dbHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion-1, false)
+					err := dbHandler.DBWriteDeployment(ctx, transaction, *deployment, false)
 					if err != nil {
 						return err
 					}
@@ -1040,7 +1030,6 @@ func TestReadAllLatestDeployment(t *testing.T) {
 				{
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(7),
 					TransformerID: 0,
 				},
@@ -1056,14 +1045,12 @@ func TestReadAllLatestDeployment(t *testing.T) {
 				{
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(7),
 					TransformerID: 0,
 				},
 				{
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    3,
 					Version:       version(8),
 					TransformerID: 0,
 				},
@@ -1079,21 +1066,18 @@ func TestReadAllLatestDeployment(t *testing.T) {
 				{
 					App:           "app1",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(7),
 					TransformerID: 0,
 				},
 				{
 					App:           "app2",
 					Env:           "dev",
-					EslVersion:    2,
 					Version:       version(8),
 					TransformerID: 0,
 				},
 				{
 					App:           "app3",
 					Env:           "staging",
-					EslVersion:    2,
 					Version:       version(8),
 					TransformerID: 0,
 				},
@@ -1120,7 +1104,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 				}
 
 				for _, deployment := range tc.SetupDeployments {
-					err := dbHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion-1, false)
+					err := dbHandler.DBWriteDeployment(ctx, transaction, *deployment, false)
 					if err != nil {
 						return err
 					}

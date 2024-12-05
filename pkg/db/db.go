@@ -1696,7 +1696,6 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 }
 
 type DBDeployment struct {
-	EslVersion     EslVersion
 	Created        time.Time
 	ReleaseVersion *int64
 	App            string
