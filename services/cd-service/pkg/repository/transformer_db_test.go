@@ -3125,10 +3125,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3161,10 +3160,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3197,10 +3195,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3347,10 +3344,9 @@ func TestUndeployDBState(t *testing.T) {
 			expectedAllReleases: []int64{},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 3,
-					App:        appName,
-					Env:        envProduction,
-					Version:    nil,
+					App:     appName,
+					Env:     envProduction,
+					Version: nil,
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3358,10 +3354,9 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					EslVersion: 2,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(2),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(2),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3369,10 +3364,9 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
