@@ -153,10 +153,10 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
 		}
 
-		envMap := make(map[string]*db.DBEnvironment)
+		envMap := make(map[string]db.DBEnvironment)
 		envConfigs := make(map[string]config.EnvironmentConfig)
 		for _, env := range *envs {
-			envMap[env.Name] = &env
+			envMap[env.Name] = env
 			envConfigs[env.Name] = env.Config
 		}
 
@@ -217,9 +217,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 
 			environment, ok := envMap[envName]
 			if !ok {
-				return nil, fmt.Errorf("could not obtain environment %s for app %s", envName, appName)
-			}
-			if environment == nil {
 				logger.FromContext(ctx).Sugar().Warnf("could not obtain environment %s for app %s: %w", envName, appName, err)
 				continue
 			}
