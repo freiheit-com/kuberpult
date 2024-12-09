@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -140,10 +141,25 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if response == nil {
 			return nil, fmt.Errorf("app not found: '%s'", appName)
 		}
-		envConfigs, err := o.Repository.State().GetAllEnvironmentConfigs(ctx, transaction)
+		dbAllEnvs, err := o.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 		if err != nil {
-			return nil, fmt.Errorf("could not find environments: %w", err)
+			return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 		}
+		if dbAllEnvs == nil {
+			return nil, nil
+		}
+		envs, err := o.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs.Environments)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+		}
+
+		envMap := make(map[string]*db.DBEnvironment)
+		envConfigs := make(map[string]config.EnvironmentConfig)
+		for _, env := range *envs {
+			envMap[env.Name] = &env
+			envConfigs[env.Name] = env.Config
+		}
+
 		envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
 
 		// App Locks
@@ -199,9 +215,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 				continue
 			}
 
-			environment, err := o.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
-			if err != nil {
-				return nil, fmt.Errorf("could not obtain environment %s for app %s: %w", envName, appName, err)
+			environment, ok := envMap[envName]
+			if !ok {
+				return nil, fmt.Errorf("could not obtain environment %s for app %s", envName, appName)
 			}
 			if environment == nil {
 				logger.FromContext(ctx).Sugar().Warnf("could not obtain environment %s for app %s: %w", envName, appName, err)
