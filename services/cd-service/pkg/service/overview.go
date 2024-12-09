@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"sort"
 	"sync"
@@ -207,6 +206,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not obtain deployments for app %s: %w", appName, err)
 		}
+		// Store deployments in this map to batch requests to the database
+		deploymentsMap := make(map[string]*api.Deployment)
 		for envName, currentDeployment := range deployments {
 
 			// Test that deployment's release has the deployment's environment
@@ -238,22 +239,45 @@ func (o *OverviewServiceServer) GetAppDetails(
 						DeployTime:   currentDeployment.Created.String(),
 					},
 				}
-				if queuedVersion, err := o.Repository.State().GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
-					return nil, err
-				} else {
-					if queuedVersion == nil {
-						deployment.QueuedVersion = 0
-					} else {
-						deployment.QueuedVersion = *queuedVersion
-					}
-				}
 
 				if deploymentRelease != nil {
 					deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
 				}
-				response.Deployments[envName] = deployment
+
+				deploymentsMap[envName] = &api.Deployment{
+					Version:         uint64(*currentDeployment.Version),
+					QueuedVersion:   0,
+					UndeployVersion: false,
+					DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+						CiLink:       currentDeployment.Metadata.CiLink,
+						DeployAuthor: currentDeployment.Metadata.DeployedByName,
+						DeployTime:   currentDeployment.Created.String(),
+					},
+				}
 			}
 		}
+
+		queuedDeployments, err := o.DBHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, appName)
+		if err != nil {
+			return nil, err
+		}
+
+		queuedVersions := make(map[string]*uint64)
+		for _, queuedDeployment := range queuedDeployments {
+			parsedInt := uint64(*queuedDeployment.Version)
+			queuedVersions[queuedDeployment.Env] = &parsedInt
+		}
+
+		for envName, deployment := range deploymentsMap {
+			queuedVersion, ok := queuedVersions[envName]
+			if !ok || queuedVersion == nil {
+				deployment.QueuedVersion = 0
+			} else {
+				deployment.QueuedVersion = *queuedVersion
+			}
+			response.Deployments[envName] = deployment
+		}
+
 		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
 		result.Warnings = CalculateWarnings(deployments, appLocks, envGroups)
 		return result, nil
