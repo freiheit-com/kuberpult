@@ -133,6 +133,119 @@ func TestRevolution(t *testing.T) {
 							DeployedAt:     time.Date(2024, 2, 14, 12, 15, 0, 0, time.UTC),
 						},
 					},
+
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:  "foo",
+						Application:  "bar",
+						IsProduction: true,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Date(2024, 2, 15, 12, 15, 0, 0, time.UTC),
+						},
+					},
+
+					ExpectedRequest: nil,
+				},
+			},
+		},
+		{
+			Name: "don't notify on a lone kuberpult event",
+			Now:  time.Unix(123456789, 0).UTC(),
+			Steps: []step{
+				{
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:      "fakeprod",
+						Application:      "foo",
+						EnvironmentGroup: "prod",
+						IsProduction:     true,
+						Team:             "bar",
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					ExpectedRequest: nil,
+				},
+			},
+		},
+		{
+			Name: "don't notify on a lone argo event",
+			Now:  time.Unix(123456789, 0).UTC(),
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusDegraded,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					ExpectedRequest: nil,
+				},
+			},
+		},
+		{
+			Name: "don't notify on non production env",
+			Now:  time.Unix(123456789, 0).UTC(),
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:  "foo",
+						Application:  "bar",
+						IsProduction: false,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					ExpectedRequest: nil,
+				},
+			},
+		},
+		{
+			Name: "don't notify on non production env",
+			Now:  time.Unix(123456789, 0).UTC(),
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:  "foo",
+						Application:  "bar",
+						IsProduction: false,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
 					ExpectedRequest: nil,
 				},
 			},
