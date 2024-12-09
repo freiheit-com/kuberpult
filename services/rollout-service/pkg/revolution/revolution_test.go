@@ -142,17 +142,22 @@ func TestRevolution(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			reqCh := make(chan *request)
+			ctx, cancel := context.WithCancel(context.Background())
 			revolution := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, _ := io.ReadAll(r.Body)
 				hdr := r.Header.Clone()
 				hdr.Del("Accept-Encoding")
 				hdr.Del("Content-Length")
-				reqCh <- &request{
+				select {
+				case reqCh <- &request{
 					Url:    r.URL.String(),
 					Header: hdr,
 					Body:   string(body),
+				}:
+					w.WriteHeader(http.StatusOK)
+				case <-ctx.Done():
+					t.Errorf("Ended test with requests left to process")
 				}
-				w.WriteHeader(http.StatusOK)
 			}))
 			readyCh := make(chan struct{}, 1)
 			bc := service.New()
@@ -165,7 +170,6 @@ func TestRevolution(t *testing.T) {
 			})
 			cs.ready = func() { readyCh <- struct{}{} }
 			cs.now = func() time.Time { return tc.Now }
-			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
 				errCh <- cs.Subscribe(ctx, bc)
 			}()
