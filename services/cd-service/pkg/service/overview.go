@@ -21,13 +21,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -140,10 +140,25 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if response == nil {
 			return nil, fmt.Errorf("app not found: '%s'", appName)
 		}
-		envConfigs, err := o.Repository.State().GetAllEnvironmentConfigs(ctx, transaction)
+		dbAllEnvs, err := o.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 		if err != nil {
-			return nil, fmt.Errorf("could not find environments: %w", err)
+			return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 		}
+		if dbAllEnvs == nil {
+			return nil, nil
+		}
+		envs, err := o.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs.Environments)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+		}
+
+		envMap := make(map[string]db.DBEnvironment)
+		envConfigs := make(map[string]config.EnvironmentConfig)
+		for _, env := range *envs {
+			envMap[env.Name] = env
+			envConfigs[env.Name] = env.Config
+		}
+
 		envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
 
 		// App Locks
@@ -191,6 +206,18 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not obtain deployments for app %s: %w", appName, err)
 		}
+
+		queuedDeployments, err := o.DBHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, appName)
+		if err != nil {
+			return nil, err
+		}
+
+		// Cache queued versions to check with deployments
+		queuedVersions := make(map[string]*uint64)
+		for _, queuedDeployment := range queuedDeployments {
+			parsedInt := uint64(*queuedDeployment.Version)
+			queuedVersions[queuedDeployment.Env] = &parsedInt
+		}
 		for envName, currentDeployment := range deployments {
 
 			// Test that deployment's release has the deployment's environment
@@ -199,11 +226,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 				continue
 			}
 
-			environment, err := o.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
-			if err != nil {
-				return nil, fmt.Errorf("could not obtain environment %s for app %s: %w", envName, appName, err)
-			}
-			if environment == nil {
+			environment, ok := envMap[envName]
+			if !ok {
 				logger.FromContext(ctx).Sugar().Warnf("could not obtain environment %s for app %s: %w", envName, appName, err)
 				continue
 			}
@@ -225,19 +249,18 @@ func (o *OverviewServiceServer) GetAppDetails(
 						DeployTime:   currentDeployment.Created.String(),
 					},
 				}
-				if queuedVersion, err := o.Repository.State().GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
-					return nil, err
+
+				queuedVersion, ok := queuedVersions[envName]
+				if !ok || queuedVersion == nil {
+					deployment.QueuedVersion = 0
 				} else {
-					if queuedVersion == nil {
-						deployment.QueuedVersion = 0
-					} else {
-						deployment.QueuedVersion = *queuedVersion
-					}
+					deployment.QueuedVersion = *queuedVersion
 				}
 
 				if deploymentRelease != nil {
 					deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
 				}
+
 				response.Deployments[envName] = deployment
 			}
 		}

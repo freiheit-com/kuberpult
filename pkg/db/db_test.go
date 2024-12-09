@@ -25,8 +25,10 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -2110,6 +2112,190 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tc.ExpectedDeployments, actual, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
+	const appName = "foo"
+
+	tcs := []struct {
+		Name                string
+		Deployments         []QueuedDeployment
+		ExpectedDeployments []*QueuedDeployment
+		App                 string
+	}{
+		{
+			Name: "Read all queued versions on environment",
+			App:  appName,
+			Deployments: []QueuedDeployment{
+				{
+					Env:     "dev",
+					App:     appName,
+					Version: version(0),
+				},
+				{
+					Env:     "staging",
+					App:     appName,
+					Version: version(0),
+				},
+				{
+					EslVersion: 2,
+					Env:        "staging",
+					App:        appName,
+					Version:    version(1),
+				},
+				{
+					Env:     "dev",
+					App:     "bar",
+					Version: version(0),
+				},
+			},
+			ExpectedDeployments: []*QueuedDeployment{
+				{
+					EslVersion: 1,
+					Env:        "dev",
+					App:        appName,
+					Version:    version(0),
+				},
+				{
+					EslVersion: 2,
+					Env:        "staging",
+					App:        appName,
+					Version:    version(1),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, deployments := range tc.Deployments {
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					if err != nil {
+						return err
+					}
+				}
+
+				queuedDeployments, err := dbHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, tc.App)
+				if err != nil {
+					return err
+				}
+
+				slices.SortFunc(queuedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
+					return strings.Compare(d1.Env, d2.Env)
+				})
+
+				slices.SortFunc(tc.ExpectedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
+					return strings.Compare(d1.Env, d2.Env)
+				})
+
+				if diff := cmp.Diff(tc.ExpectedDeployments, queuedDeployments, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
+	const envName = "dev"
+
+	tcs := []struct {
+		Name                string
+		Deployments         []QueuedDeployment
+		ExpectedDeployments []*QueuedDeployment
+		Env                 string
+	}{
+		{
+			Name: "Read all queued versions on environment",
+			Env:  envName,
+			Deployments: []QueuedDeployment{
+				{
+					Env:     envName,
+					App:     "foo",
+					Version: version(0),
+				},
+				{
+					Env:     envName,
+					App:     "bar",
+					Version: version(0),
+				},
+				{
+					EslVersion: 2,
+					Env:        envName,
+					App:        "bar",
+					Version:    version(1),
+				},
+				{
+					Env:     "fakeEnv",
+					App:     "foo",
+					Version: version(0),
+				},
+			},
+			ExpectedDeployments: []*QueuedDeployment{
+				{
+					EslVersion: 1,
+					Env:        envName,
+					App:        "foo",
+					Version:    version(0),
+				},
+				{
+					EslVersion: 2,
+					Env:        envName,
+					App:        "bar",
+					Version:    version(1),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, deployments := range tc.Deployments {
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					if err != nil {
+						return err
+					}
+				}
+
+				queuedDeployments, err := dbHandler.DBSelectLatestDeploymentAttemptOfAllApps(ctx, transaction, tc.Env)
+				if err != nil {
+					return err
+				}
+
+				slices.SortFunc(queuedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
+					return strings.Compare(d1.App, d2.App)
+				})
+
+				slices.SortFunc(tc.ExpectedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
+					return strings.Compare(d1.App, d2.App)
+				})
+
+				if diff := cmp.Diff(tc.ExpectedDeployments, queuedDeployments, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
 					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
