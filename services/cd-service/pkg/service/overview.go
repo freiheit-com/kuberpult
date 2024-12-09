@@ -212,6 +212,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, err
 		}
 
+		// Cache queued versions to check with deployments
 		queuedVersions := make(map[string]*uint64)
 		for _, queuedDeployment := range queuedDeployments {
 			parsedInt := uint64(*queuedDeployment.Version)
@@ -249,16 +250,17 @@ func (o *OverviewServiceServer) GetAppDetails(
 					},
 				}
 
-				if deploymentRelease != nil {
-					deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
-				}
-
 				queuedVersion, ok := queuedVersions[envName]
 				if !ok || queuedVersion == nil {
 					deployment.QueuedVersion = 0
 				} else {
 					deployment.QueuedVersion = *queuedVersion
 				}
+
+				if deploymentRelease != nil {
+					deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
+				}
+
 				response.Deployments[envName] = deployment
 			}
 		}
