@@ -5063,6 +5063,50 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context
 	return h.processDeploymentAttemptsRows(ctx, rows, err)
 }
 
+func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context.Context, tx *sql.Tx, appName string) ([]*QueuedDeployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttemptOnAllEnvironments")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectLatestDeploymentAttemptOnAllEnvironments: no transaction provided")
+	}
+	query := h.AdaptQuery(
+		`
+	SELECT DISTINCT
+		deployment_attempts.eslversion,
+		deployment_attempts.created,
+		deployment_attempts.envname,
+		deployment_attempts.appname,
+		deployment_attempts.queuedReleaseVersion
+	FROM (
+		SELECT
+			MAX(eslversion) AS latestRelease,
+			appname,
+			envname
+		FROM
+			"deployment_attempts"
+		GROUP BY
+			envname, appname) AS latest
+	JOIN
+		deployment_attempts AS deployment_attempts
+	ON
+		latest.latestRelease=deployment_attempts.eslVersion
+		AND latest.envname=deployment_attempts.envname
+		AND latest.appname=deployment_attempts.appname
+	WHERE deployment_attempts.appname=?
+	ORDER BY deployment_attempts.eslversion DESC;
+	`)
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(
+		ctx,
+		query,
+		appName)
+	return h.processDeploymentAttemptsRows(ctx, rows, err)
+}
+
 func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64, skipOverview bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
