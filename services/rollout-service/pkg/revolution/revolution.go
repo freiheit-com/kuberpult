@@ -97,6 +97,7 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 		}
 	}
 	s.ready()
+	l := logger.FromContext(ctx).With(zap.String("revolution", "processing"))
 	for {
 		select {
 		case <-ctx.Done():
@@ -113,6 +114,7 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 				ev.ArgocdVersion.DeployedAt.Add(s.maxAge).Before(s.now()) {
 				continue
 			}
+			l.Info("registering event app: " + ev.Key.Application + ", environment: " + ev.Key.Environment)
 			if shouldNotify(s.state[ev.Key], ev) {
 				s.group.Go(s.notify(ctx, ev))
 			}
