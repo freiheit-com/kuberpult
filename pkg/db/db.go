@@ -5071,7 +5071,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBSelectLatestDeploymentAttemptOfAllApps: no transaction provided")
+		return nil, fmt.Errorf("DBSelectLatestDeploymentAttemptOnAllEnvironments: no transaction provided")
 	}
 	query := h.AdaptQuery(
 		`

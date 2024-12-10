@@ -218,8 +218,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 			if queuedDeployment.Version != nil {
 				parsedInt := uint64(*queuedDeployment.Version)
 				queuedVersions[queuedDeployment.Env] = &parsedInt
-			} else {
-				queuedVersions[queuedDeployment.Env] = nil
 			}
 		}
 		for envName, currentDeployment := range deployments {
