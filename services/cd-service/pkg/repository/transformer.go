@@ -1595,7 +1595,7 @@ func (u *UndeployApplication) Transform(
 				deployment.Version = nil
 				deployment.Metadata.DeployedByName = user.Name
 				deployment.Metadata.DeployedByEmail = user.Email
-				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion, false)
+				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, false)
 				if err != nil {
 					return "", err
 				}
@@ -1613,6 +1613,10 @@ func (u *UndeployApplication) Transform(
 					if err != nil {
 						return "", err
 					}
+				}
+				err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, locks.Version, env, u.Application, []string{})
+				if err != nil {
+					return "", err
 				}
 				continue
 			}
@@ -1772,6 +1776,8 @@ func (u *DeleteEnvFromApp) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DeleteEnvFromApp")
+	defer span.Finish()
 	err := state.checkUserPermissions(ctx, transaction, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig, true)
 	if err != nil {
 		return "", err
@@ -2255,20 +2261,10 @@ func (c *DeleteEnvironmentLock) Transform(
 			return "", err
 		}
 	}
-	apps, err := s.GetEnvironmentApplications(ctx, transaction, c.Environment)
-	if err != nil {
-		return "", fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
-	}
 
-	additionalMessageFromDeployment := ""
-	for _, appName := range apps {
-		queueMessage, err := s.ProcessQueue(ctx, transaction, fs, c.Environment, appName)
-		if err != nil {
-			return "", err
-		}
-		if queueMessage != "" {
-			additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
-		}
+	additionalMessageFromDeployment, err := s.ProcessQueueAllApps(ctx, transaction, fs, c.Environment)
+	if err != nil {
+		return "", err
 	}
 	GaugeEnvLockMetric(ctx, state, transaction, c.Environment)
 	return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), nil
@@ -3132,7 +3128,6 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		var v = int64(c.Version)
 		newDeployment := db.Deployment{
-			EslVersion:    0,
 			Created:       time.Time{},
 			App:           c.Application,
 			Env:           c.Environment,
@@ -3144,13 +3139,7 @@ func (c *DeployApplicationVersion) Transform(
 				CiLink:          c.CiLink,
 			},
 		}
-		var previousVersion db.EslVersion
-		if existingDeployment == nil {
-			previousVersion = 0
-		} else {
-			previousVersion = existingDeployment.EslVersion
-		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion, c.SkipOverview)
+		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, c.SkipOverview)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 		}

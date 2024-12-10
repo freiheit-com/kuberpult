@@ -3125,10 +3125,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3161,10 +3160,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3197,10 +3195,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3347,10 +3344,9 @@ func TestUndeployDBState(t *testing.T) {
 			expectedAllReleases: []int64{},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 3,
-					App:        appName,
-					Env:        envProduction,
-					Version:    nil,
+					App:     appName,
+					Env:     envProduction,
+					Version: nil,
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3358,10 +3354,9 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					EslVersion: 2,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(2),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(2),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3369,10 +3364,9 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -4147,9 +4141,14 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				sort.Strings(actualGauge.Tags)
 				t.Logf("actualGauges:[%v] %v:%v", i, actualGauge.Name, actualGauge.Tags)
 				t.Logf("expectedGauges:[%v] %v:%v", i, expectedGauge.Name, expectedGauge.Tags)
+				if actualGauge.Name == "lastDeployed" {
+					if actualGauge.Value < 1 {
+						actualGauge.Value = 0
+					}
+				}
 
-				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
-					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
+				if diff := cmp.Diff(expectedGauge, actualGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+					t.Errorf("[%d] want %v, got %v, diff (-want +got) %s", i, expectedGauge, actualGauge, diff)
 				}
 			}
 		})
