@@ -28,8 +28,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -97,6 +99,7 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 		}
 	}
 	s.ready()
+	l := logger.FromContext(ctx).With(zap.String("revolution", "processing"))
 	for {
 		select {
 		case <-ctx.Done():
@@ -113,6 +116,7 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 				ev.ArgocdVersion.DeployedAt.Add(s.maxAge).Before(s.now()) {
 				continue
 			}
+			l.Info("registering event app: " + ev.Key.Application + ", environment: " + ev.Key.Environment)
 			if shouldNotify(s.state[ev.Key], ev) {
 				s.group.Go(s.notify(ctx, ev))
 			}
