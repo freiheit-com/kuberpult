@@ -2189,7 +2189,6 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 				versionIntPtr = nil
 			}
 			deployment := db.Deployment{
-				EslVersion:    0,
 				Created:       time.Time{},
 				App:           appName,
 				Env:           envName,
@@ -2201,7 +2200,7 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 					CiLink:          "",
 				},
 			}
-			err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0, true)
+			err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, true)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %w", deployment.App, deployment.Env, err)
 			}
