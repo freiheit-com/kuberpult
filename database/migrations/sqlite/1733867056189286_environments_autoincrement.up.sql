@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS environments_new 
 (
-    row_version INTEGER PRIMARY KEY AUTOINCREMENT,
+    version INTEGER PRIMARY KEY AUTOINCREMENT,
     created TIMESTAMP,
     name VARCHAR(255),
     json VARCHAR,
