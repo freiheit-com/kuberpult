@@ -260,7 +260,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 				if deploymentRelease != nil {
 					deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
 				}
-
 				response.Deployments[envName] = deployment
 			}
 		}
