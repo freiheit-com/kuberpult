@@ -38,7 +38,7 @@ jobs:
 
     - name: Cache trivy
       run: |
-        exit 1
+        exit 2
         ./trivy/cache_db_image.sh $RETRIES
 
   send-alert:
