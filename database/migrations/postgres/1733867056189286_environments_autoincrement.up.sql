@@ -16,6 +16,7 @@ BEGIN
     END IF;
 END $$;
 
+DROP SEQUENCE IF EXISTS environments_version_seq CASCADE;
 CREATE SEQUENCE IF NOT EXISTS environments_version_seq OWNED BY environments.row_version;
 
 SELECT setval('environments_version_seq', coalesce(max(row_version), 0) + 1, false) FROM environments;
