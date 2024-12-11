@@ -822,7 +822,7 @@ func TestReleaseTrain(t *testing.T) {
 						Environment: "staging",
 						Latest:      true,
 					},
-				}, []string{appName}, nil)
+				}, []string{appName})
 				if err != nil {
 					return err
 				}
@@ -830,7 +830,7 @@ func TestReleaseTrain(t *testing.T) {
 					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: "staging",
 					},
-				}, []string{appName}, nil)
+				}, []string{appName})
 				if err != nil {
 					return err
 				}
@@ -1710,7 +1710,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					ArgoCd:           nil,
 					EnvironmentGroup: nil,
 				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envConfig, []string{}, nil)
+				err = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envConfig, []string{})
 				if err != nil {
 					return err
 				}
@@ -2578,11 +2578,11 @@ func TestCreateUndeployLogic(t *testing.T) {
 					t.Fatal(err2)
 				}
 
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig, []string{appName}, nil)
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig, []string{appName})
 				if err2 != nil {
 					return err2
 				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config, []string{appName}, nil)
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config, []string{appName})
 				if err2 != nil {
 					return err2
 				}
@@ -2999,11 +2999,11 @@ func TestUndeployLogic(t *testing.T) {
 				if err2 != nil {
 					t.Fatal(err2)
 				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, environmentConfigAcceptance, []string{appName}, nil)
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, environmentConfigAcceptance, []string{appName})
 				if err2 != nil {
 					return err2
 				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, environmentConfigAcceptance2, []string{appName}, nil)
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, environmentConfigAcceptance2, []string{appName})
 				if err2 != nil {
 					return err2
 				}
