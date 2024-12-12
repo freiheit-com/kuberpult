@@ -105,19 +105,24 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 		case <-ctx.Done():
 			return s.group.Wait()
 		case ev, ok := <-ch:
+			span, ctx := tracer.StartSpanFromContext(ctx, "RevolutionStart")
 			if !ok {
 				return s.group.Wait()
 			}
 			if ev.IsProduction == nil || !*ev.IsProduction {
 				continue
 			}
+			span.SetTag("IsProduction", "true")
 			if s.maxAge != 0 &&
 				ev.ArgocdVersion != nil &&
 				ev.ArgocdVersion.DeployedAt.Add(s.maxAge).Before(s.now()) {
 				continue
 			}
+			span.SetTag("IsWithinMaxAge", "true")
 			l.Info("registering event app: " + ev.Key.Application + ", environment: " + ev.Key.Environment)
 			if shouldNotify(s.state[ev.Key], ev) {
+
+				span.SetTag("Notified", "true")
 				s.group.Go(s.notify(ctx, ev))
 			}
 			s.state[ev.Key] = ev
