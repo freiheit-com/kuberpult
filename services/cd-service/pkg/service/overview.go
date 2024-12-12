@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"sort"
 	"sync"
@@ -207,6 +206,20 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if err != nil {
 			return nil, fmt.Errorf("could not obtain deployments for app %s: %w", appName, err)
 		}
+
+		queuedDeployments, err := o.DBHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, appName)
+		if err != nil {
+			return nil, err
+		}
+
+		// Cache queued versions to check with deployments
+		queuedVersions := make(map[string]*uint64)
+		for _, queuedDeployment := range queuedDeployments {
+			if queuedDeployment.Version != nil {
+				parsedInt := uint64(*queuedDeployment.Version)
+				queuedVersions[queuedDeployment.Env] = &parsedInt
+			}
+		}
 		for envName, currentDeployment := range deployments {
 
 			// Test that deployment's release has the deployment's environment
@@ -238,14 +251,12 @@ func (o *OverviewServiceServer) GetAppDetails(
 						DeployTime:   currentDeployment.Created.String(),
 					},
 				}
-				if queuedVersion, err := o.Repository.State().GetQueuedVersion(ctx, transaction, envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
-					return nil, err
+
+				queuedVersion, ok := queuedVersions[envName]
+				if !ok || queuedVersion == nil {
+					deployment.QueuedVersion = 0
 				} else {
-					if queuedVersion == nil {
-						deployment.QueuedVersion = 0
-					} else {
-						deployment.QueuedVersion = *queuedVersion
-					}
+					deployment.QueuedVersion = *queuedVersion
 				}
 
 				if deploymentRelease != nil {

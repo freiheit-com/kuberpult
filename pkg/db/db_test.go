@@ -25,8 +25,10 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -2121,6 +2123,190 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 	}
 }
 
+func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
+	const appName = "foo"
+
+	tcs := []struct {
+		Name                string
+		Deployments         []QueuedDeployment
+		ExpectedDeployments []*QueuedDeployment
+		App                 string
+	}{
+		{
+			Name: "Read all queued versions on environment",
+			App:  appName,
+			Deployments: []QueuedDeployment{
+				{
+					Env:     "dev",
+					App:     appName,
+					Version: version(0),
+				},
+				{
+					Env:     "staging",
+					App:     appName,
+					Version: version(0),
+				},
+				{
+					EslVersion: 2,
+					Env:        "staging",
+					App:        appName,
+					Version:    version(1),
+				},
+				{
+					Env:     "dev",
+					App:     "bar",
+					Version: version(0),
+				},
+			},
+			ExpectedDeployments: []*QueuedDeployment{
+				{
+					EslVersion: 1,
+					Env:        "dev",
+					App:        appName,
+					Version:    version(0),
+				},
+				{
+					EslVersion: 2,
+					Env:        "staging",
+					App:        appName,
+					Version:    version(1),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, deployments := range tc.Deployments {
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					if err != nil {
+						return err
+					}
+				}
+
+				queuedDeployments, err := dbHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, tc.App)
+				if err != nil {
+					return err
+				}
+
+				slices.SortFunc(queuedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
+					return strings.Compare(d1.Env, d2.Env)
+				})
+
+				slices.SortFunc(tc.ExpectedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
+					return strings.Compare(d1.Env, d2.Env)
+				})
+
+				if diff := cmp.Diff(tc.ExpectedDeployments, queuedDeployments, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
+	const envName = "dev"
+
+	tcs := []struct {
+		Name                string
+		Deployments         []QueuedDeployment
+		ExpectedDeployments []*QueuedDeployment
+		Env                 string
+	}{
+		{
+			Name: "Read all queued versions on environment",
+			Env:  envName,
+			Deployments: []QueuedDeployment{
+				{
+					Env:     envName,
+					App:     "foo",
+					Version: version(0),
+				},
+				{
+					Env:     envName,
+					App:     "bar",
+					Version: version(0),
+				},
+				{
+					EslVersion: 2,
+					Env:        envName,
+					App:        "bar",
+					Version:    version(1),
+				},
+				{
+					Env:     "fakeEnv",
+					App:     "foo",
+					Version: version(0),
+				},
+			},
+			ExpectedDeployments: []*QueuedDeployment{
+				{
+					EslVersion: 1,
+					Env:        envName,
+					App:        "foo",
+					Version:    version(0),
+				},
+				{
+					EslVersion: 2,
+					Env:        envName,
+					App:        "bar",
+					Version:    version(1),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, deployments := range tc.Deployments {
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					if err != nil {
+						return err
+					}
+				}
+
+				queuedDeployments, err := dbHandler.DBSelectLatestDeploymentAttemptOfAllApps(ctx, transaction, tc.Env)
+				if err != nil {
+					return err
+				}
+
+				slices.SortFunc(queuedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
+					return strings.Compare(d1.App, d2.App)
+				})
+
+				slices.SortFunc(tc.ExpectedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
+					return strings.Compare(d1.App, d2.App)
+				})
+
+				if diff := cmp.Diff(tc.ExpectedDeployments, queuedDeployments, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
+					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestReadWriteTeamLock(t *testing.T) {
 	tcs := []struct {
 		Name         string
@@ -2426,7 +2612,6 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version:      1,
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatest(nil),
 				Applications: []string{"app1", "app2", "app3"},
@@ -2443,7 +2628,6 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version:      1,
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
 				Applications: []string{"app1"},
@@ -2463,9 +2647,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version: 2,
-				Name:    "development",
-				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
+				Name:   "development",
+				Config: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
 			},
 		},
 		{
@@ -2486,9 +2669,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version: 3,
-				Name:    "development",
-				Config:  testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-development-group")),
+				Name:   "development",
+				Config: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-development-group")),
 			},
 		},
 		{
@@ -2505,9 +2687,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "staging",
 			ExpectedEntry: &DBEnvironment{
-				Version: 1,
-				Name:    "staging",
-				Config:  testutil.MakeEnvConfigUpstream("development", nil),
+				Name:   "staging",
+				Config: testutil.MakeEnvConfigUpstream("development", nil),
 			},
 		},
 		{
@@ -2536,7 +2717,6 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Version:      1,
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatest(nil),
 				Applications: []string{"app1", "capp", "zapp"},
@@ -2552,7 +2732,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 
 			for _, envToWrite := range tc.EnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications, nil)
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -2616,13 +2796,11 @@ func TestReadEnvironmentBatch(t *testing.T) {
 			EnvsToQuery: []string{"development", "staging"},
 			ExpectedEnvs: &[]DBEnvironment{
 				{
-					Version:      1,
 					Name:         "development",
 					Config:       testutil.MakeEnvConfigLatest(nil),
 					Applications: []string{"app1", "app2", "app3"},
 				},
 				{
-					Version:      1,
 					Name:         "staging",
 					Config:       testutil.MakeEnvConfigLatest(nil),
 					Applications: []string{"app1", "app2", "app3"},
@@ -2651,13 +2829,11 @@ func TestReadEnvironmentBatch(t *testing.T) {
 			EnvsToQuery: []string{"development", "staging"},
 			ExpectedEnvs: &[]DBEnvironment{
 				{
-					Version:      2,
 					Name:         "development",
 					Config:       testutil.MakeEnvConfigLatest(nil),
 					Applications: []string{"app1", "app2"},
 				},
 				{
-					Version:      1,
 					Name:         "staging",
 					Config:       testutil.MakeEnvConfigLatest(nil),
 					Applications: []string{"app1", "app2", "app3"},
@@ -2674,7 +2850,7 @@ func TestReadEnvironmentBatch(t *testing.T) {
 
 			for _, envToWrite := range tc.EnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications, nil)
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
