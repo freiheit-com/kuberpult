@@ -384,7 +384,7 @@ message EnsureCustomMigrationAppliedRequest {
 }
 
 message EnsureCustomMigrationAppliedResponse {
-  bool migrationsApplied = 1;
+  bool migrations_applied = 1;
 }
 
 message KuberpultVersion {
