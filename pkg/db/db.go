@@ -5316,7 +5316,6 @@ type DBAllEnvironmentsRow struct {
 
 type DBEnvironment struct {
 	Created      time.Time
-	Version      int64
 	Name         string
 	Config       config.EnvironmentConfig
 	Applications []string
@@ -5324,7 +5323,6 @@ type DBEnvironment struct {
 
 type DBEnvironmentRow struct {
 	Created      time.Time
-	Version      int64
 	Name         string
 	Config       string
 	Applications string
@@ -5344,7 +5342,6 @@ func EnvironmentFromRow(_ context.Context, row *DBEnvironmentRow) (*DBEnvironmen
 	}
 	return &DBEnvironment{
 		Created:      row.Created,
-		Version:      row.Version,
 		Name:         row.Name,
 		Config:       parsedConfig,
 		Applications: applications,
@@ -5357,7 +5354,7 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 
 	selectQuery := h.AdaptQuery(
 		`
-SELECT created, version, name, json, applications
+SELECT created, name, json, applications
 FROM environments
 WHERE name=? AND deleted=false
 ORDER BY version DESC
@@ -5385,7 +5382,7 @@ func (h *DBHandler) DBSelectEnvironmentAtTimestamp(ctx context.Context, tx *sql.
 
 	selectQuery := h.AdaptQuery(
 		`
-SELECT created, version, name, json, applications
+SELECT created, name, json, applications
 FROM environments
 WHERE name=? AND deleted=false AND created <= ? 
 ORDER BY version DESC
@@ -5418,7 +5415,7 @@ func (h *DBHandler) processEnvironmentRow(ctx context.Context, rows *sql.Rows) (
 	if rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
+		err := rows.Scan(&row.Created, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -5448,7 +5445,6 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 		`
 SELECT
   environments.created AS created,
-  environments.version AS version,
   environments.name AS name,
   environments.json AS json,
   environments.applications AS applications
@@ -5498,7 +5494,7 @@ LIMIT ?
 	for rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
+		err := rows.Scan(&row.Created, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -5516,7 +5512,7 @@ LIMIT ?
 
 // DBWriteEnvironment writes the env to the db
 // if the previousVersion is not supplied, it will do another request to get the environment.
-func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string, previousVersion *int64) error {
+func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
 
@@ -5531,17 +5527,8 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
 	}
-	var existingEnvironmentVersion int64 = 0
-	if previousVersion == nil {
-		existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName)
-		if err != nil {
-			return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
-		}
-		if existingEnvironment != nil {
-			existingEnvironmentVersion = existingEnvironment.Version
-		}
-	} else {
-		existingEnvironmentVersion = *previousVersion
+	if err != nil {
+		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
 	}
 
 	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
@@ -5551,7 +5538,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT Into environments (created, version, name, json, applications, deleted) VALUES (?, ?, ?, ?, ?, ?);",
+		"INSERT Into environments (created, name, json, applications, deleted) VALUES (?, ?, ?, ?, ?);",
 	)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -5561,7 +5548,6 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	_, err = tx.Exec(
 		insertQuery,
 		*now,
-		existingEnvironmentVersion+1,
 		environmentName,
 		jsonToInsert,
 		string(applicationsJson),
@@ -5759,7 +5745,7 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 			if allEnvsApps[envName] == nil {
 				allEnvsApps[envName] = make([]string, 0)
 			}
-			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allEnvsApps[envName], nil)
+			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allEnvsApps[envName])
 			if err != nil {
 				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 			}
@@ -5813,7 +5799,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 				if allEnvsApps[envName] == nil {
 					allEnvsApps[envName] = make([]string, 0)
 				}
-				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allEnvsApps[envName], &env.Version)
+				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allEnvsApps[envName])
 				if err != nil {
 					return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
 				}
