@@ -81,9 +81,6 @@ func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *
 }
 
 func (s *MigrationServer) CustomMigrationsDone(ctx context.Context, version *api.KuberpultVersion) (bool, error) {
-	type Done struct {
-		done bool
-	}
 	dbVersion, err := db.WithTransactionT(s.DBHandler, ctx, 0, true, func(ctx context.Context, transaction *sql.Tx) (*api.KuberpultVersion, error) {
 		dbVersion, tErr := migrations.DBReadCustomMigrationCutoff(s.DBHandler, ctx, transaction, version)
 		if tErr != nil {
