@@ -1,8 +1,10 @@
 name: "Trivy DB Caching"
-on:
-  schedule:
-    - cron: '0 8 * * *'
-  workflow_dispatch:
+'on':
+  push:
+    tags-ignore:
+      - "**"
+    branches:
+      - main
 
 jobs:
   cache:
