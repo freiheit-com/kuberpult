@@ -36,3 +36,18 @@ jobs:
     - name: Cache trivy
       run: |
         ./trivy/cache_db_image.sh $RETRIES
+
+  send-alert:
+    name: "Send alert in cache failed."
+    if: ${{ failure() }}
+    needs: cache
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Run curl to the Slack webhook
+      run: |
+        curl \
+        --request POST \
+        --header "Content-Type: application/json" \
+        --data '{"text": ":warning::warning: Failed daily cache of the trivy-db image in <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>.\n"}' \
+        --fail \
+        ${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}
