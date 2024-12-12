@@ -6,10 +6,10 @@ ARG --global target=docker
 deps:
     ARG USERARCH
     IF [ "$USERARCH" = "arm64" ]
-        FROM golang:1.21-bookworm
+        FROM golang:1.23-bookworm
         RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
     ELSE
-        FROM golang:1.21-alpine3.18
+        FROM golang:1.23-alpine3.21
         RUN apk add --no-cache ca-certificates tzdata bash libgit2-dev sqlite-dev alpine-sdk
     END
 
@@ -24,7 +24,7 @@ deps:
         SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
         echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
 
-    ARG GO_CI_LINT_VERSION="v1.51.2"
+    ARG GO_CI_LINT_VERSION="v1.62.2"
     RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
 
     RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.2.0.tar.gz -O exhaustruct.tar.gz
@@ -98,7 +98,7 @@ integration-test-deps:
     SAVE ARTIFACT /usr/bin/argocd
 
 integration-test:
-    FROM golang:1.21-bookworm
+    FROM golang:1.23-bookworm
     RUN apt update && apt install --auto-remove -y curl gpg gpg-agent gettext bash git golang netcat-openbsd docker.io
     ARG GO_TEST_ARGS
     # K3S environment variables
