@@ -99,7 +99,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
 		}
 		if retrievedReleasesOfApp != nil {
-			rels = retrievedReleasesOfApp.Metadata.Releases
+			rels = retrievedReleasesOfApp
 		}
 
 		uintRels := make([]uint64, len(rels))

@@ -204,7 +204,6 @@ func TestCustomMigrationReleases(t *testing.T) {
 				},
 			},
 		}
-		releaseNumbers := []int64{}
 		for _, r := range releases {
 			dbRelease := DBReleaseWithMetaData{
 				Created:       time.Now().UTC(),
@@ -220,17 +219,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 					SourceMessage:   r.SourceMessage,
 					DisplayVersion:  r.DisplayVersion,
 				},
-				Deleted: false,
 			}
-			err := dbHandler.DBInsertRelease(ctx, transaction, dbRelease)
+			err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, dbRelease)
 			if err != nil {
 				return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
 			}
-			releaseNumbers = append(releaseNumbers, int64(r.Version))
-		}
-		err := dbHandler.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, InitialEslVersion-1)
-		if err != nil {
-			return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
 		}
 		return nil
 	}
@@ -2494,7 +2487,6 @@ func TestDeleteRelease(t *testing.T) {
 	tcs := []struct {
 		Name     string
 		toInsert DBReleaseWithMetaData
-		expected DBReleaseWithMetaData
 	}{
 		{
 			Name: "Delete Release from database",
@@ -2511,23 +2503,6 @@ func TestDeleteRelease(t *testing.T) {
 					SourceMessage:  "message",
 					DisplayVersion: "1.0.0",
 				},
-				Deleted: false,
-			},
-			expected: DBReleaseWithMetaData{
-				Created:       time.Now(),
-				ReleaseNumber: 1,
-				App:           "app",
-				Manifests: DBReleaseManifests{
-					Manifests: map[string]string{"development": "development"},
-				},
-				Metadata: DBReleaseMetaData{
-					SourceAuthor:   "me",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					SourceMessage:  "message",
-					DisplayVersion: "1.0.0",
-				},
-				Deleted:      true,
-				Environments: []string{"development"},
 			},
 		},
 	}
@@ -2540,11 +2515,7 @@ func TestDeleteRelease(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := dbHandler.DBInsertRelease(ctx, transaction, tc.toInsert)
-				if err2 != nil {
-					return err2
-				}
-				err2 = dbHandler.DBInsertAllReleases(ctx, transaction, tc.toInsert.App, []int64{int64(tc.toInsert.ReleaseNumber)}, 0)
+				err2 := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, tc.toInsert)
 				if err2 != nil {
 					return err2
 				}
@@ -2554,30 +2525,22 @@ func TestDeleteRelease(t *testing.T) {
 					t.Fatalf("error: %v\n", errDelete)
 				}
 
-				errDelete2 := dbHandler.DBDeleteReleaseFromAllReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber)
-				if errDelete2 != nil {
-					return errDelete2
-				}
-
 				allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, tc.toInsert.App)
 				if err != nil {
 					return err
 				}
-				if len(allReleases.Metadata.Releases) != 0 {
-					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases.Metadata.Releases))
+				if len(allReleases) != 0 {
+					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases))
 				}
 
 				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber, true)
 				if err != nil {
 					return err
 				}
-				if !latestRelease.Deleted {
+				if latestRelease != nil {
 					t.Fatalf("Release has not beed deleted\n")
 				}
 
-				if diff := cmp.Diff(&tc.expected, latestRelease, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
-					t.Fatalf("team locks mismatch (-want, +got):\n%s", diff)
-				}
 				return nil
 			})
 			if err != nil {
@@ -3298,32 +3261,6 @@ func TestReadReleasesByApp(t *testing.T) {
 			},
 		},
 		{
-			Name: "Retrieve deleted release",
-			Releases: []DBReleaseWithMetaData{
-				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
-				},
-				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Deleted:       true,
-					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
-				},
-			},
-			AppName: "app1",
-			Expected: []*DBReleaseWithMetaData{
-				{
-					ReleaseNumber: 10,
-					Deleted:       true,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
-					Environments:  []string{"dev"},
-				},
-			},
-		},
-		{
 			Name: "Retrieve multiple releases",
 			Releases: []DBReleaseWithMetaData{
 				{
@@ -3508,7 +3445,7 @@ func TestReadReleasesByApp(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.Releases {
-					err := dbHandler.DBInsertRelease(ctx, transaction, release)
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -3665,7 +3602,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.Releases {
-					err := dbHandler.DBInsertRelease(ctx, transaction, release)
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -3742,10 +3679,10 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 			}
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				for app, releases := range allReleases {
-					err := dbHandler.DBInsertAllReleases(ctx, transaction, app, releases, 1)
+				for _, release := range tc.Releases {
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 					if err != nil {
-						return fmt.Errorf("error while writing releases, error: %w", err)
+						return err
 					}
 				}
 				releases, err := dbHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
@@ -3845,7 +3782,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.Releases {
-					err := dbHandler.DBInsertRelease(ctx, transaction, release)
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -4174,7 +4111,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.Releases {
-					err := dbHandler.DBInsertRelease(ctx, transaction, release)
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 					if err != nil {
 						return err
 					}
@@ -4294,31 +4231,6 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name: "Retrieve only latest releases without envionments",
-			Releases: []DBReleaseWithMetaData{
-				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
-					Environments:  []string{"dev"},
-				},
-				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
-				},
-			},
-			AppName: "app1",
-			Expected: []*DBReleaseWithMetaData{
-				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
-					Environments:  []string{},
-				},
-			},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -4360,7 +4272,7 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 		return fmt.Errorf("insert release: could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, deleted, environments)  VALUES (?, ?, ?, ?, ?, ?, ?);",
+		"INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments)  VALUES (?, ?, ?, ?, ?, ?);",
 	)
 	manifestJson, err := json.Marshal(release.Manifests)
 	if err != nil {
@@ -4380,7 +4292,6 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 		release.App,
 		manifestJson,
 		metadataJson,
-		release.Deleted,
 		environmentStr,
 	)
 	if err != nil {

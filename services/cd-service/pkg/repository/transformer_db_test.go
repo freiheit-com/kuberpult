@@ -640,7 +640,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		Name               string
 		Transformers       []Transformer
 		expectedDbContent  *db.DBAppWithMetaData
-		expectedDbReleases *db.DBAllReleasesWithMetaData
+		expectedDbReleases []int64
 	}{
 		{
 			Name: "create one version",
@@ -664,14 +664,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 1,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10000},
-				},
-			},
+			expectedDbReleases: []int64{10000},
 		},
 		{
 			Name: "create two versions, same team",
@@ -704,14 +697,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "noteam",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 2,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10, 11},
-				},
-			},
+			expectedDbReleases: []int64{10, 11},
 		},
 		{
 			Name: "create two versions, different teams",
@@ -744,14 +730,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "new",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 2,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10, 11},
-				},
-			},
+			expectedDbReleases: []int64{10, 11},
 		},
 	}
 	for _, tc := range tcs {
@@ -777,7 +756,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				if err3 != nil {
 					return fmt.Errorf("error: %v", err3)
 				}
-				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease, cmpopts.IgnoreFields(db.DBAllReleasesWithMetaData{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				environment, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
@@ -1510,7 +1489,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
-				if diff := cmp.Diff(tc.ExpectedActiveReleases, res.Metadata.Releases); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedActiveReleases, res); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -3062,13 +3041,13 @@ func TestCreateUndeployDBState(t *testing.T) {
 				if err2 != nil {
 					t.Fatal(err)
 				}
-				if allReleases == nil || len(allReleases.Metadata.Releases) == 0 {
+				if allReleases == nil || len(allReleases) == 0 {
 					t.Fatal("Expected some releases, but got none")
 				}
-				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases.Metadata.Releases); diff != "" {
+				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
-				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uint64(allReleases.Metadata.Releases[len(allReleases.Metadata.Releases)-1]), true)
+				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uint64(allReleases[len(allReleases)-1]), true)
 				if err2 != nil {
 					t.Fatal(err)
 				}
@@ -3277,7 +3256,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if diff := cmp.Diff(tc.expectedAllReleases, allReleases.Metadata.Releases); diff != "" {
+				if diff := cmp.Diff(tc.expectedAllReleases, allReleases); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
 
@@ -3395,7 +3374,7 @@ func TestUndeployDBState(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if diff := cmp.Diff(tc.expectedAllReleases, allReleases.Metadata.Releases); diff != "" {
+				if diff := cmp.Diff(tc.expectedAllReleases, allReleases); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
 
@@ -3440,7 +3419,7 @@ func TestTransaction(t *testing.T) {
 		Name               string
 		Transformers       []Transformer
 		expectedDbContent  *db.DBAppWithMetaData
-		expectedDbReleases *db.DBAllReleasesWithMetaData
+		expectedDbReleases []int64
 	}{
 		{
 			Name: "create one version",
@@ -3464,14 +3443,7 @@ func TestTransaction(t *testing.T) {
 					Team: "",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 1,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10000},
-				},
-			},
+			expectedDbReleases: []int64{10000},
 		},
 		{
 			Name: "create two versions, same team",
@@ -3504,14 +3476,7 @@ func TestTransaction(t *testing.T) {
 					Team: "noteam",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 2,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10, 11},
-				},
-			},
+			expectedDbReleases: []int64{10, 11},
 		},
 		{
 			Name: "create two versions, different teams",
@@ -3544,14 +3509,7 @@ func TestTransaction(t *testing.T) {
 					Team: "new",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 2,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10, 11},
-				},
-			},
+			expectedDbReleases: []int64{10, 11},
 		},
 	}
 	for _, tc := range tcs {
@@ -3577,7 +3535,7 @@ func TestTransaction(t *testing.T) {
 				if err3 != nil {
 					return fmt.Errorf("error: %v", err3)
 				}
-				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease, cmpopts.IgnoreFields(db.DBAllReleasesWithMetaData{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil

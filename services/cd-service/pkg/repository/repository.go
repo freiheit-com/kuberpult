@@ -2785,7 +2785,6 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 	if err != nil {
 		return fmt.Errorf("cannot get releases of app %s: %v", app, err)
 	}
-	releaseNumbers := []int64{}
 	for i := range releases {
 		releaseVersion := releases[i]
 		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
@@ -2831,32 +2830,26 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Deleted:      false,
 			Environments: []string{},
 		}
-		err = dbHandler.DBInsertRelease(ctx, transaction, dbRelease)
+		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, dbRelease)
 		if err != nil {
 			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
 		}
-		releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
-	}
-	err = dbHandler.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, db.InitialEslVersion-1)
-	if err != nil {
-		return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
 	}
 	return nil
 }
 
 func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		app, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+		releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 		if err != nil {
 			return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
 		}
-		if app == nil {
+		if releases == nil {
 			return nil, fmt.Errorf("could not get all releases of app %s (nil)", application)
 		}
-		res := conversion.ToUint64Slice(app.Metadata.Releases)
+		res := conversion.ToUint64Slice(releases)
 		return res, nil
 	} else {
 		return s.GetAllApplicationReleasesFromManifest(application)
