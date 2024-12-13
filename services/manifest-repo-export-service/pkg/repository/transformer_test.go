@@ -828,12 +828,12 @@ func TestReleaseTrain(t *testing.T) {
 				}
 				var v int64
 				v = 1
-				err = dbHandler.DBWriteDeployment(ctx, transaction, db.Deployment{
+				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 					App:           appName,
 					Env:           "production",
 					Version:       &v,
 					TransformerID: 5,
-				}, false)
+				})
 				if err != nil {
 					return err
 				}

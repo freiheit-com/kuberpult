@@ -364,7 +364,6 @@ func RunServer() {
 					ctx,
 					repo.State().GetAppsAndTeams,
 					repo.State().WriteCurrentlyDeployed,
-					repo.State().WriteAllCurrentlyDeployed,
 					repo.State().WriteAllReleases,
 					repo.State().WriteCurrentEnvironmentLocks,
 					repo.State().WriteCurrentApplicationLocks,

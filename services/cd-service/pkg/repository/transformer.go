@@ -1549,7 +1549,7 @@ func (u *UndeployApplication) Transform(
 				deployment.Version = nil
 				deployment.Metadata.DeployedByName = user.Name
 				deployment.Metadata.DeployedByEmail = user.Email
-				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, false)
+				err = state.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
 				if err != nil {
 					return "", err
 				}
@@ -1632,10 +1632,6 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication: could not clear releases for app '%s': %v", u.Application, err)
 		}
 
-		err = state.DBHandler.DBClearAllDeploymentsForApp(ctx, transaction, u.Application)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not clear all deployments for app '%s': %v", u.Application, err)
-		}
 		allEnvs, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not get all environments: %v", err)
@@ -3082,13 +3078,9 @@ func (c *DeployApplicationVersion) Transform(
 				CiLink:          c.CiLink,
 			},
 		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, c.SkipOverview)
+		err = state.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, newDeployment)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
-		}
-		err = state.DBHandler.DBUpdateAllDeploymentsForApp(ctx, transaction, c.Application, c.Environment, int64(c.Version))
-		if err != nil {
-			return "", fmt.Errorf("could not write oldest deployment for %v - %v", newDeployment, err)
 		}
 	} else {
 		//Check if there is a version of target app already deployed on target environment

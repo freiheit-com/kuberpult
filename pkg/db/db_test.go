@@ -853,12 +853,12 @@ func TestReadWriteDeployment(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBWriteDeployment(ctx, transaction, Deployment{
+				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, Deployment{
 					App:           tc.App,
 					Env:           tc.Env,
 					Version:       tc.VersionToDeploy,
 					TransformerID: 0,
-				}, false)
+				})
 				if err != nil {
 					return err
 				}
@@ -988,7 +988,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				}
 
 				for _, deployment := range tc.SetupDeployments {
-					err := dbHandler.DBWriteDeployment(ctx, transaction, *deployment, false)
+					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
 					if err != nil {
 						return err
 					}
@@ -1099,7 +1099,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 				}
 
 				for _, deployment := range tc.SetupDeployments {
-					err := dbHandler.DBWriteDeployment(ctx, transaction, *deployment, false)
+					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
 					if err != nil {
 						return err
 					}
@@ -1322,8 +1322,21 @@ func TestAllDeployments(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
 				for _, d := range tc.data {
-					err := dbHandler.DBUpdateAllDeploymentsForApp(ctx, transaction, tc.AppName, d.EnvName, int64(d.Version))
+					newVersion := int64(d.Version)
+					deployment := Deployment{
+						Created:       time.Now(),
+						App:           tc.AppName,
+						Env:           d.EnvName,
+						Version:       &newVersion,
+						Metadata:      DeploymentMetadata{},
+						TransformerID: 0,
+					}
+					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
 					if err != nil {
 						t.Fatalf("Error updating all deployments: %v\n", err)
 					}
@@ -1332,7 +1345,7 @@ func TestAllDeployments(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Error reading from all deployments: %v\n", err)
 				}
-				if diff := cmp.Diff(tc.expected, result.Deployments); diff != "" {
+				if diff := cmp.Diff(tc.expected, result); diff != "" {
 					t.Fatalf("mismatch result (-want, +got):\n%s", diff)
 				}
 				return nil
