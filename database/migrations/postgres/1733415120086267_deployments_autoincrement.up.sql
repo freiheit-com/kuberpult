@@ -23,7 +23,23 @@ SELECT setval('deployments_version_seq', coalesce(max(version), 0) + 1, false) F
 ALTER TABLE IF EXISTS deployments
 ALTER COLUMN version SET DEFAULT nextval('deployments_version_seq');
 
-ALTER TABLE IF EXISTS deployments DROP CONSTRAINT IF EXISTS deployments_pkey;
+DO $$
+DECLARE
+    cmd TEXT;
+BEGIN
+    FOR cmd IN
+        SELECT format(
+            'ALTER TABLE %I DROP CONSTRAINT %I;',
+            relname, conname
+        )
+        FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        WHERE conname LIKE 'deployments_pkey%'
+    LOOP
+        EXECUTE cmd;
+    END LOOP;
+END $$;
+
 
 ALTER TABLE IF EXISTS deployments ADD PRIMARY KEY (version, appname, envname);
 

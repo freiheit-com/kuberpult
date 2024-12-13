@@ -22,8 +22,23 @@ SELECT setval('releases_version_seq', coalesce(max(version), 0) + 1, false) FROM
 
 ALTER TABLE IF EXISTS releases
 ALTER COLUMN version SET DEFAULT nextval('releases_version_seq');
+DO $
+DECLARE
+    cmd TEXT;
+BEGIN
+    FOR cmd IN
+        SELECT format(
+            'ALTER TABLE %I DROP CONSTRAINT %I;',
+            relname, conname
+        )
+        FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        WHERE conname LIKE 'releases_pkey%'
+    LOOP
+        EXECUTE cmd;
+    END LOOP;
+END $$;
 
-ALTER TABLE IF EXISTS releases DROP CONSTRAINT IF EXISTS releases_pkey;
 
 ALTER TABLE IF EXISTS releases ADD PRIMARY KEY (version, appname, releaseversion);
 

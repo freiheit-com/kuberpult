@@ -24,7 +24,23 @@ SELECT setval('environments_version_seq', coalesce(max(row_version), 0) + 1, fal
 ALTER TABLE IF EXISTS environments
 ALTER COLUMN row_version SET DEFAULT nextval('environments_version_seq');
 
-ALTER TABLE IF EXISTS environments DROP CONSTRAINT IF EXISTS environments_pkey;
+DO $$
+DECLARE
+    cmd TEXT;
+BEGIN
+    FOR cmd IN
+        SELECT format(
+            'ALTER TABLE %I DROP CONSTRAINT %I;',
+            relname, conname
+        )
+        FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        WHERE conname LIKE 'environments_pkey%'
+    LOOP
+        EXECUTE cmd;
+    END LOOP;
+END $$;
+
 
 ALTER TABLE IF EXISTS environments ADD PRIMARY KEY (row_version, name);
 
