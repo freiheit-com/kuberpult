@@ -33,6 +33,9 @@ BEGIN
         WHERE table_schema = 'public' AND table_name = 'releases'
     ) AND NOT EXISTS (
         SELECT 1 FROM releases LIMIT 1
+    ) AND EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'releases_history'
     ) THEN
         INSERT INTO releases (releaseVersion, created, appName, manifests, metadata, environments)
         SELECT DISTINCT

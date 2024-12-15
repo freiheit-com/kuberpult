@@ -22,7 +22,7 @@ SELECT setval('releases_version_seq', coalesce(max(version), 0) + 1, false) FROM
 
 ALTER TABLE IF EXISTS releases
 ALTER COLUMN version SET DEFAULT nextval('releases_version_seq');
-DO $
+DO $$
 DECLARE
     cmd TEXT;
 BEGIN
