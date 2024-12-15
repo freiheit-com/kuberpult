@@ -1,4 +1,12 @@
-ALTER TABLE IF EXISTS releases ADD COLUMN IF NOT EXISTS version INTEGER;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'releases' 
+                 AND column_name = 'eslversion') THEN
+        ALTER TABLE IF EXISTS releases ADD COLUMN IF NOT EXISTS version INTEGER;
+    END IF;
+END $$;
 DO $$ 
 BEGIN
     IF EXISTS (SELECT 1 
@@ -16,30 +24,55 @@ BEGIN
     END IF;
 END $$;
 
-CREATE SEQUENCE IF NOT EXISTS releases_version_seq OWNED BY releases.version;
-
-SELECT setval('releases_version_seq', coalesce(max(version), 0) + 1, false) FROM releases;
-
-ALTER TABLE IF EXISTS releases
-ALTER COLUMN version SET DEFAULT nextval('releases_version_seq');
-DO $$
-DECLARE
-    cmd TEXT;
+DO $$ 
 BEGIN
-    FOR cmd IN
-        SELECT format(
-            'ALTER TABLE %I DROP CONSTRAINT %I;',
-            relname, conname
-        )
-        FROM pg_constraint c
-        JOIN pg_class t ON c.conrelid = t.oid
-        WHERE conname LIKE 'releases_pkey%'
-    LOOP
-        EXECUTE cmd;
-    END LOOP;
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'releases' 
+                 AND column_name = 'eslversion') THEN
+        CREATE SEQUENCE IF NOT EXISTS releases_version_seq OWNED BY releases.version;
+    END IF;
 END $$;
 
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'releases' 
+                 AND column_name = 'eslversion') THEN
+        PERFORM setval('releases_version_seq', coalesce(max(version), 0) + 1, false) FROM releases;
+    END IF;
+END $$;
 
-ALTER TABLE IF EXISTS releases ADD PRIMARY KEY (version, appname, releaseversion);
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'releases' 
+                 AND column_name = 'eslversion') THEN
+        ALTER TABLE IF EXISTS releases
+        ALTER COLUMN version SET DEFAULT nextval('releases_version_seq');
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'releases' 
+                 AND column_name = 'eslversion') THEN
+        ALTER TABLE IF EXISTS releases DROP CONSTRAINT IF EXISTS releases_pkey;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'releases' 
+                 AND column_name = 'eslversion') THEN
+        ALTER TABLE IF EXISTS releases ADD PRIMARY KEY (version, appname, releaseversion);
+    END IF;
+END $$;
 
 ALTER TABLE IF EXISTS releases DROP COLUMN IF EXISTS eslversion;
