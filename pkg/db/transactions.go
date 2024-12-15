@@ -163,7 +163,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 
 func (h *DBHandler) BeginTransaction(ctx context.Context, readonly bool) (*sql.Tx, error) {
 	return h.DB.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelRepeatableRead,
+		Isolation: sql.LevelReadCommitted,
 		ReadOnly:  readonly,
 	})
 }
