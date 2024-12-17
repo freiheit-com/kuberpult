@@ -327,6 +327,7 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 
 func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
 	defer span.Finish()
 	deleteQuery := h.AdaptQuery(`
@@ -334,6 +335,11 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	`)
 =======
 	deleteQuery := h.AdaptQuery(`DELETE FROM releases WHERE appname=? AND releaseversion=?`)
+=======
+	deleteQuery := h.AdaptQuery(`
+		DELETE FROM releases WHERE appname=? AND releaseversion=?
+	`)
+>>>>>>> 02e01011 (fix(db): separate queries visually from the rest of the code)
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
 	defer span.Finish()
 >>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
@@ -370,8 +376,10 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 =======
 func (h *DBHandler) updateReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
 	insertQuery := h.AdaptQuery(`
-		UPDATE releases SET created=?, manifests=?, metadata=?, environments=?
-		WHERE appname=? AND releaseVersion=?;`)
+		UPDATE releases 
+		SET created=?, manifests=?, metadata=?, environments=?
+		WHERE appname=? AND releaseVersion=?;
+	`)
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateReleaseRow")
 	defer span.Finish()
 	span.SetTag("query", insertQuery)
@@ -423,9 +431,10 @@ func (h *DBHandler) updateReleaseRow(ctx context.Context, transaction *sql.Tx, r
 }
 
 func (h *DBHandler) insertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments)  VALUES (?, ?, ?, ?, ?, ?);",
-	)
+	insertQuery := h.AdaptQuery(`
+		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments)
+		VALUES (?, ?, ?, ?, ?, ?);
+	`)
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseRow")
 	defer span.Finish()
 	span.SetTag("query", insertQuery)
@@ -475,16 +484,22 @@ func (h *DBHandler) insertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 
 func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, deleted bool) error {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
 	defer span.Finish()
+=======
+>>>>>>> 02e01011 (fix(db): separate queries visually from the rest of the code)
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO releases_history (created, releaseVersion, appName, manifests, metadata, deleted, environments)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
+<<<<<<< HEAD
 =======
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO releases_history (created, releaseVersion, appName, manifests, metadata, deleted, environments)  VALUES (?, ?, ?, ?, ?, ?, ?);",
 	)
+=======
+>>>>>>> 02e01011 (fix(db): separate queries visually from the rest of the code)
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
 	defer span.Finish()
 >>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
