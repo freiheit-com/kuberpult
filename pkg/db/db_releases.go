@@ -242,42 +242,12 @@ func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx
 // INSERT, UPDATE, DELETES
 
 func (h *DBHandler) DBUpdateOrCreateRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
-<<<<<<< HEAD
-<<<<<<< HEAD
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateOrCreateRelease")
 	defer span.Finish()
 	err := h.upsertReleaseRow(ctx, transaction, release)
-<<<<<<< HEAD
 	if err != nil {
 		return err
 	}
-=======
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
-=======
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateOrCreateRelease")
->>>>>>> 44201445 (fix(db): fix migrations and spans)
-	defer span.Finish()
-	retrievedRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, release.App, release.ReleaseNumber, false)
-	if err != nil {
-		return err
-	}
-	if retrievedRelease == nil {
-		err = h.insertReleaseRow(ctx, transaction, release)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = h.updateReleaseRow(ctx, transaction, release)
-		if err != nil {
-			return err
-		}
-	}
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-=======
-	if err != nil {
-		return err
-	}
->>>>>>> d00bc312 (fix(db): use upsert query instead of update/insert)
 	err = h.insertReleaseHistoryRow(ctx, transaction, release, false)
 	if err != nil {
 		return err
@@ -332,29 +302,11 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 // actual changes in tables
 
 func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
 	defer span.Finish()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM releases WHERE appname=? AND releaseversion=?
 	`)
-<<<<<<< HEAD
-=======
-	deleteQuery := h.AdaptQuery(`DELETE FROM releases WHERE appname=? AND releaseversion=?`)
-=======
-	deleteQuery := h.AdaptQuery(`
-		DELETE FROM releases WHERE appname=? AND releaseversion=?
-	`)
->>>>>>> 02e01011 (fix(db): separate queries visually from the rest of the code)
-	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
-	defer span.Finish()
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-=======
->>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 	span.SetTag("query", deleteQuery)
 	_, err := transaction.Exec(
 		deleteQuery,
@@ -371,88 +323,10 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	return nil
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertReleaseRow")
 	defer span.Finish()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(releaseVersion, appname)
-		DO UPDATE SET created = excluded.created, manifests = excluded.manifests, metadata = excluded.metadata, environments = excluded.environments;
-	`)
-	span.SetTag("query", upsertQuery)
-	metadataJson, err := json.Marshal(release.Metadata)
-	if err != nil {
-		return fmt.Errorf("upsert release: could not marshal json data: %w", err)
-=======
-func (h *DBHandler) updateReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "updateReleaseRow")
-	defer span.Finish()
-	insertQuery := h.AdaptQuery(`
-		UPDATE releases 
-		SET created=?, manifests=?, metadata=?, environments=?
-		WHERE appname=? AND releaseVersion=?;
-	`)
-	span.SetTag("query", insertQuery)
-	metadataJson, err := json.Marshal(release.Metadata)
-	if err != nil {
-		return fmt.Errorf("insert release: could not marshal json data: %w", err)
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-	}
-	manifestJson, err := json.Marshal(release.Manifests)
-	if err != nil {
-		return fmt.Errorf("could not marshal json data: %w", err)
-	}
-
-	envs := make([]string, 0)
-	for env := range release.Manifests.Manifests {
-		envs = append(envs, env)
-	}
-	release.Environments = envs
-	slices.Sort(release.Environments)
-	environmentStr, err := json.Marshal(release.Environments)
-	if err != nil {
-		return fmt.Errorf("could not marshal release environments: %w", err)
-	}
-
-	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
-	}
-	_, err = transaction.Exec(
-<<<<<<< HEAD
-		upsertQuery,
-=======
-		insertQuery,
-		*now,
-		manifestJson,
-		metadataJson,
-		environmentStr,
-		release.App,
-		release.ReleaseNumber,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"could not insert release for app '%s' and version '%v' into DB. Error: %w\n",
-			release.App,
-			release.ReleaseNumber,
-			err)
-	}
-	return nil
-}
-
-func (h *DBHandler) insertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseRow")
-	defer span.Finish()
-	insertQuery := h.AdaptQuery(`
-=======
-func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "upsertReleaseRow")
-	defer span.Finish()
-	upsertQuery := h.AdaptQuery(`
->>>>>>> d00bc312 (fix(db): use upsert query instead of update/insert)
 		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(releaseVersion, appname)
@@ -484,12 +358,7 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
 	}
 	_, err = transaction.Exec(
-<<<<<<< HEAD
-		insertQuery,
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-=======
 		upsertQuery,
->>>>>>> d00bc312 (fix(db): use upsert query instead of update/insert)
 		*now,
 		release.ReleaseNumber,
 		release.App,
@@ -508,34 +377,12 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 }
 
 func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, deleted bool) error {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
 	defer span.Finish()
-=======
->>>>>>> 02e01011 (fix(db): separate queries visually from the rest of the code)
-=======
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
-	defer span.Finish()
->>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO releases_history (created, releaseVersion, appName, manifests, metadata, deleted, environments)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO releases_history (created, releaseVersion, appName, manifests, metadata, deleted, environments)  VALUES (?, ?, ?, ?, ?, ?, ?);",
-	)
-=======
->>>>>>> 02e01011 (fix(db): separate queries visually from the rest of the code)
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
-	defer span.Finish()
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-=======
->>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 	span.SetTag("query", insertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
@@ -573,15 +420,7 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 	)
 	if err != nil {
 		return fmt.Errorf(
-<<<<<<< HEAD
-<<<<<<< HEAD
 			"could not insert release_history for app '%s' and version '%v' into DB. Error: %w\n",
-=======
-			"could not insert release for app '%s' and version '%v' into DB. Error: %w\n",
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-=======
-			"could not insert release_history for app '%s' and version '%v' into DB. Error: %w\n",
->>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 			release.App,
 			release.ReleaseNumber,
 			err)
@@ -603,15 +442,6 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 }
 
 func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows, ignorePrepublishes bool, withManifests bool) ([]*DBReleaseWithMetaData, error) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseRows")
-	defer span.Finish()
-
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-=======
->>>>>>> 44201445 (fix(db): fix migrations and spans)
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -696,15 +526,6 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 }
 
 func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (map[string]map[uint64][]string, error) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseManifestRows")
-	defer span.Finish()
-
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-=======
->>>>>>> 44201445 (fix(db): fix migrations and spans)
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -777,15 +598,6 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 }
 
 func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err error, rows *sql.Rows) (map[string][]int64, error) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesForAllAppsRow")
-	defer span.Finish()
-
->>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
-=======
->>>>>>> 44201445 (fix(db): fix migrations and spans)
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
