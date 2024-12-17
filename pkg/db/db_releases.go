@@ -247,6 +247,7 @@ func (h *DBHandler) DBUpdateOrCreateRelease(ctx context.Context, transaction *sq
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateOrCreateRelease")
 	defer span.Finish()
 	err := h.upsertReleaseRow(ctx, transaction, release)
+<<<<<<< HEAD
 	if err != nil {
 		return err
 	}
@@ -272,6 +273,11 @@ func (h *DBHandler) DBUpdateOrCreateRelease(ctx context.Context, transaction *sq
 		}
 	}
 >>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
+=======
+	if err != nil {
+		return err
+	}
+>>>>>>> d00bc312 (fix(db): use upsert query instead of update/insert)
 	err = h.insertReleaseHistoryRow(ctx, transaction, release, false)
 	if err != nil {
 		return err
@@ -366,6 +372,7 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertReleaseRow")
 	defer span.Finish()
@@ -440,13 +447,21 @@ func (h *DBHandler) insertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseRow")
 	defer span.Finish()
 	insertQuery := h.AdaptQuery(`
+=======
+func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "upsertReleaseRow")
+	defer span.Finish()
+	upsertQuery := h.AdaptQuery(`
+>>>>>>> d00bc312 (fix(db): use upsert query instead of update/insert)
 		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments)
-		VALUES (?, ?, ?, ?, ?, ?);
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(releaseVersion, appname)
+		DO UPDATE SET created = excluded.created, manifests = excluded.manifests, metadata = excluded.metadata, environments = excluded.environments;
 	`)
-	span.SetTag("query", insertQuery)
+	span.SetTag("query", upsertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
-		return fmt.Errorf("insert release: could not marshal json data: %w", err)
+		return fmt.Errorf("upsert release: could not marshal json data: %w", err)
 	}
 	manifestJson, err := json.Marshal(release.Manifests)
 	if err != nil {
@@ -469,8 +484,12 @@ func (h *DBHandler) insertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
 	}
 	_, err = transaction.Exec(
+<<<<<<< HEAD
 		insertQuery,
 >>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
+=======
+		upsertQuery,
+>>>>>>> d00bc312 (fix(db): use upsert query instead of update/insert)
 		*now,
 		release.ReleaseNumber,
 		release.App,
