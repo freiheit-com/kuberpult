@@ -3809,16 +3809,27 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 	span.SetTag("ConsideredApps", len(apps))
+	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction)
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         err,
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
-			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
+			team, ok := allTeams[appName]
+			if !ok {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
-					Error:         err,
+					Error:         fmt.Errorf("team for app %s not found", appName),
 					Locks:         nil,
 					AppsPrognoses: nil,
 				}
-			} else if c.Parent.Team != team {
+			}
+			if c.Parent.Team != team {
 				continue
 			}
 		}
@@ -3947,9 +3958,9 @@ func (c *envReleaseTrain) prognosis(
 			}
 		}
 
-		teamName, err := state.GetTeamName(ctx, transaction, appName)
+		teamName, ok := allTeams[appName]
 
-		if err == nil { //IF we find information for team
+		if ok { //IF we find information for team
 
 			err := state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
 

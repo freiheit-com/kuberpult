@@ -1642,6 +1642,35 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	return h.processAppsRow(ctx, rows, err)
 }
 
+func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) ([]*DBAppWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`
+SELECT
+	apps.appname,
+	apps.stateChange,
+	apps.metadata
+FROM (
+	SELECT
+	MAX(version) AS latest,
+	appname
+FROM
+	"apps"
+GROUP BY
+	appName
+) AS latest
+JOIN
+	apps AS apps 
+ON
+latest.latest=apps.version
+AND latest.appname=apps.appname
+	`)
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(ctx, selectQuery)
+
+	return h.processAppsRows(ctx, rows, err)
+}
+
 func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*DBAppWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppAtTimestamp")
 	defer span.Finish()
@@ -1660,6 +1689,43 @@ func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appN
 		ts,
 	)
 	return h.processAppsRow(ctx, rows, err)
+}
+
+func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]*DBAppWithMetaData, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
+		}
+	}(rows)
+	var result []*DBAppWithMetaData
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row = &DBAppWithMetaData{}
+		var metadataStr string
+		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
+		}
+		var metaData = DBAppMetaData{Team: ""}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Metadata = metaData
+		result = append(result, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err error) (*DBAppWithMetaData, error) {
