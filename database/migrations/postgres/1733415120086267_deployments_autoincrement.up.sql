@@ -1,4 +1,13 @@
-ALTER TABLE IF EXISTS deployments ADD COLUMN IF NOT EXISTS version INTEGER;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'deployments' 
+                 AND column_name = 'eslversion') THEN
+        ALTER TABLE IF EXISTS deployments ADD COLUMN IF NOT EXISTS version INTEGER;
+    END IF;
+END $$;
+
 DO $$ 
 BEGIN
     IF EXISTS (SELECT 1 
@@ -16,15 +25,55 @@ BEGIN
     END IF;
 END $$;
 
-CREATE SEQUENCE IF NOT EXISTS deployments_version_seq OWNED BY deployments.version;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'deployments' 
+                 AND column_name = 'eslversion') THEN
+        CREATE SEQUENCE IF NOT EXISTS deployments_version_seq OWNED BY deployments.version;
+    END IF;
+END $$;
 
-SELECT setval('deployments_version_seq', coalesce(max(version), 0) + 1, false) FROM deployments;
 
-ALTER TABLE IF EXISTS deployments
-ALTER COLUMN version SET DEFAULT nextval('deployments_version_seq');
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'deployments' 
+                 AND column_name = 'eslversion') THEN
+        PERFORM setval('deployments_version_seq', coalesce(max(version), 0) + 1, false) FROM deployments;
+    END IF;
+END $$;
 
-ALTER TABLE IF EXISTS deployments DROP CONSTRAINT IF EXISTS deployments_pkey;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'deployments' 
+                 AND column_name = 'eslversion') THEN
+        ALTER TABLE IF EXISTS deployments
+        ALTER COLUMN version SET DEFAULT nextval('deployments_version_seq');
+    END IF;
+END $$;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'deployments' 
+                 AND column_name = 'eslversion') THEN
+        ALTER TABLE IF EXISTS deployments DROP CONSTRAINT IF EXISTS deployments_pkey;
+    END IF;
+END $$;
 
-ALTER TABLE IF EXISTS deployments ADD PRIMARY KEY (version, appname, envname);
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'deployments' 
+                 AND column_name = 'eslversion') THEN
+        ALTER TABLE IF EXISTS deployments ADD PRIMARY KEY (version, appname, envname);
+    END IF;
+END $$;
 
 ALTER TABLE IF EXISTS deployments DROP COLUMN IF EXISTS eslversion;

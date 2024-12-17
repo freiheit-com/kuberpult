@@ -519,11 +519,11 @@ func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, fs bill
 		if err != nil {
 			return 0, fmt.Errorf("could not get releases of app %s: %v", application, err)
 		}
-		if releases == nil || len(releases.Metadata.Releases) == 0 {
+		if len(releases) == 0 {
 			return 0, nil
 		}
-		l := len(releases.Metadata.Releases)
-		return uint64(releases.Metadata.Releases[l-1]), nil
+		l := len(releases)
+		return uint64(releases[l-1]), nil
 	} else {
 		return GetLastReleaseFromFile(fs, application)
 	}
@@ -763,32 +763,8 @@ func (c *CreateApplicationVersion) Transform(
 			},
 			Environments: []string{},
 			Created:      *now,
-			Deleted:      false,
 		}
-		err = state.DBHandler.DBInsertRelease(ctx, transaction, release)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		allReleases, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if allReleases == nil {
-
-			allReleases = &db.DBAllReleasesWithMetaData{
-				EslVersion: db.InitialEslVersion - 1,
-				Created:    *now,
-				App:        c.Application,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{int64(release.ReleaseNumber)},
-				},
-			}
-		} else {
-			allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(release.ReleaseNumber))
-		}
-		if !c.IsPrepublish {
-			err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslVersion)
-		}
+		err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -874,14 +850,13 @@ func (c *CreateApplicationVersion) Transform(
 }
 
 func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64, minorRegexes []*regexp.Regexp) (bool, error) {
-	allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
+	releaseVersions, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
 	if err != nil {
 		return false, err
 	}
-	if allReleases == nil {
-		return false, err
+	if releaseVersions == nil {
+		return false, nil
 	}
-	releaseVersions := allReleases.Metadata.Releases
 	sort.Slice(releaseVersions, func(i, j int) bool { return releaseVersions[i] > releaseVersions[j] })
 	nextVersion := int64(-1)
 	previousVersion := int64(-1)
@@ -906,7 +881,7 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 			return false, fmt.Errorf("next release exists in the all releases but not in the release table!")
 		}
 		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
-		err = dbHandler.DBInsertRelease(ctx, transaction, *nextRelease)
+		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, *nextRelease)
 		if err != nil {
 			return false, err
 		}
@@ -1288,8 +1263,8 @@ func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, app
 		if all == nil {
 			rels = make([]uint64, 0)
 		} else {
-			rels = make([]uint64, len(all.Metadata.Releases))
-			for idx, rel := range all.Metadata.Releases {
+			rels = make([]uint64, len(all))
+			for idx, rel := range all {
 				rels[idx] = uint64(rel)
 			}
 		}
@@ -1366,29 +1341,8 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			},
 			Environments: []string{},
 			Created:      *now,
-			Deleted:      false,
 		}
-		err = state.DBHandler.DBInsertRelease(ctx, transaction, release)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		allReleases, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if allReleases == nil {
-			allReleases = &db.DBAllReleasesWithMetaData{
-				EslVersion: db.InitialEslVersion - 1,
-				Created:    *now,
-				App:        c.Application,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{int64(release.ReleaseNumber)},
-				},
-			}
-		} else {
-			allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(release.ReleaseNumber))
-		}
-		err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslVersion)
+		err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1805,10 +1759,9 @@ func (u *DeleteEnvFromApp) Transform(
 				Created:       *now,
 				Manifests:     db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:      dbReleaseWithMetadata.Metadata,
-				Deleted:       dbReleaseWithMetadata.Deleted,
 				Environments:  []string{},
 			}
-			err = state.DBHandler.DBInsertRelease(ctx, transaction, newRelease)
+			err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
 			if err != nil {
 				return "", err
 			}
@@ -1942,10 +1895,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 	msg := ""
 	for _, oldRelease := range oldVersions {
 		if state.DBHandler.ShouldUseOtherTables() {
-			// delete release from all_releases
-			if err := state.DBHandler.DBDeleteReleaseFromAllReleases(ctx, transaction, c.Application, oldRelease); err != nil {
-				return "", err
-			}
 			//'Delete' from releases table
 			if err := state.DBHandler.DBDeleteFromReleases(ctx, transaction, c.Application, oldRelease); err != nil {
 				return "", err
