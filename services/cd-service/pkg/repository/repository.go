@@ -951,9 +951,12 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 
 	gitMutexLock.Lock()
 	defer gitMutexLock.Unlock()
-	state, err := r.StateAt(nil)
-	if err != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: err, Index: -1}
+	if state.DBHandler.ShouldUseOtherTables() {
+		var err error
+		state, err = r.StateAt(nil)
+		if err != nil {
+			return nil, &TransformerBatchApplyError{TransformerError: err, Index: -1}
+		}
 	}
 	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if insertError != nil {
