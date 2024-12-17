@@ -1,4 +1,4 @@
--- rename releases table to releases_history if it doesn't exist
+-- rename deployments table to deployments_history if it doesn't exist
 DO $$
 BEGIN
     IF EXISTS (
@@ -12,7 +12,7 @@ BEGIN
     END IF;
 END
 $$;
--- create releases table if it doesn't exist
+-- create deployments table if it doesn't exist
 DROP INDEX IF EXISTS deployments_idx;
 DROP INDEX IF EXISTS deployments_version_idx;
 CREATE TABLE IF NOT EXISTS deployments(
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS deployments(
 CREATE INDEX IF NOT EXISTS deployments_idx ON deployments USING btree ("appname","envname");
 CREATE INDEX IF NOT EXISTS deployments_version_idx ON deployments USING btree ("releaseversion","appname","envname");
 
--- insert data into releases table from releases_history table if there's no data inside it
+-- insert data into deployments table from deployments_history table if there's no data inside it
 DO $$
 BEGIN
     IF EXISTS (
@@ -64,5 +64,5 @@ BEGIN
 END
 $$;
 
--- Remove all_releases table
+-- Remove all_deployments table
 DROP TABLE IF EXISTS all_deployments;
