@@ -70,7 +70,7 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 		envSelector,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select deployment for app %s on env %s from DB. Error: %w\n", appSelector, envSelector, err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -96,7 +96,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 		appName,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select deployment of app %s from DB. Error: %w\n", appName, err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -123,7 +123,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 		envName,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select deployment for env %s from DB. Error: %w\n", envName, err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -153,7 +153,7 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 		releaseVersion,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select deployment for app %s on env %s for version %v from DB. Error: %w\n", appSelector, envSelector, releaseVersion, err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -184,7 +184,7 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 		limit,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not select deployment history from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not select deployment history of app %s in env %s from DB. Error: %w\n", appSelector, envSelector, err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()

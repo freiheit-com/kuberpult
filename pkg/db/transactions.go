@@ -163,7 +163,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 
 func (h *DBHandler) BeginTransaction(ctx context.Context, readonly bool) (*sql.Tx, error) {
 	return h.DB.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
+		Isolation: sql.LevelReadCommitted, // Otherwise we would get pq: could not serialize access due to concurrent update error while creating releases in parallel
 		ReadOnly:  readonly,
 	})
 }

@@ -48,6 +48,7 @@ WHERE releaseVersion IS NOT NULL;
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetCommitDeploymentInfo")
 	defer span.Finish()
 	span.SetTag("commit_id", in.CommitId)
+	span.SetTag("query", allApplicationReleasesQuery)
 
 	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		// Get the latest new-release event for the commit

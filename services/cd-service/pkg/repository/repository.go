@@ -949,6 +949,8 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
+	gitSpan, ctx := tracer.StartSpanFromContext(ctx, "GitCommitCreation")
+	defer gitSpan.Finish()
 	gitMutexLock.Lock()
 	defer gitMutexLock.Unlock()
 	if state.DBHandler.ShouldUseOtherTables() {
