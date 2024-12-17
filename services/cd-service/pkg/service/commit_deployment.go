@@ -83,7 +83,7 @@ WHERE releaseVersion IS NOT NULL;
 			var appName string
 			var envName string
 			var appRelease uint64
-			err = rows.Scan(&appName, &appRelease, &envName)
+			err = rows.Scan(&appName, &envName, &appRelease)
 			if err != nil {
 				return err
 			}
