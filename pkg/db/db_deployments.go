@@ -626,12 +626,12 @@ func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Ro
 
 func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (map[string]int64, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query all_deployments table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("all_deployments: row could not be closed: %v", err)
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row could not be closed: %v", err)
 		}
 	}(rows)
 	deployments := make(map[string]int64)
