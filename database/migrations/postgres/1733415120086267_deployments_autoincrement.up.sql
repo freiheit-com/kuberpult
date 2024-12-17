@@ -42,7 +42,7 @@ BEGIN
                FROM information_schema.columns 
                WHERE table_name = 'deployments' 
                  AND column_name = 'eslversion') THEN
-        SELECT setval('deployments_version_seq', coalesce(max(version), 0) + 1, false) FROM deployments;
+        PERFORM setval('deployments_version_seq', coalesce(max(version), 0) + 1, false) FROM deployments;
     END IF;
 END $$;
 
