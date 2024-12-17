@@ -328,11 +328,15 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
 	defer span.Finish()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM releases WHERE appname=? AND releaseversion=?
 	`)
+<<<<<<< HEAD
 =======
 	deleteQuery := h.AdaptQuery(`DELETE FROM releases WHERE appname=? AND releaseversion=?`)
 =======
@@ -343,6 +347,8 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
 	defer span.Finish()
 >>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
+=======
+>>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 	span.SetTag("query", deleteQuery)
 	_, err := transaction.Exec(
 		deleteQuery,
@@ -375,13 +381,13 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 		return fmt.Errorf("upsert release: could not marshal json data: %w", err)
 =======
 func (h *DBHandler) updateReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "updateReleaseRow")
+	defer span.Finish()
 	insertQuery := h.AdaptQuery(`
 		UPDATE releases 
 		SET created=?, manifests=?, metadata=?, environments=?
 		WHERE appname=? AND releaseVersion=?;
 	`)
-	span, ctx := tracer.StartSpanFromContext(ctx, "updateReleaseRow")
-	defer span.Finish()
 	span.SetTag("query", insertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
@@ -431,12 +437,12 @@ func (h *DBHandler) updateReleaseRow(ctx context.Context, transaction *sql.Tx, r
 }
 
 func (h *DBHandler) insertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseRow")
+	defer span.Finish()
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments)
 		VALUES (?, ?, ?, ?, ?, ?);
 	`)
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseRow")
-	defer span.Finish()
 	span.SetTag("query", insertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
@@ -485,14 +491,20 @@ func (h *DBHandler) insertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, deleted bool) error {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
 	defer span.Finish()
 =======
 >>>>>>> 02e01011 (fix(db): separate queries visually from the rest of the code)
+=======
+	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
+	defer span.Finish()
+>>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO releases_history (created, releaseVersion, appName, manifests, metadata, deleted, environments)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 	insertQuery := h.AdaptQuery(
@@ -503,6 +515,8 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
 	defer span.Finish()
 >>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
+=======
+>>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 	span.SetTag("query", insertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
@@ -541,10 +555,14 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 	if err != nil {
 		return fmt.Errorf(
 <<<<<<< HEAD
+<<<<<<< HEAD
 			"could not insert release_history for app '%s' and version '%v' into DB. Error: %w\n",
 =======
 			"could not insert release for app '%s' and version '%v' into DB. Error: %w\n",
 >>>>>>> a79861f3 (fix(db): separate current state of the releases from releases in history)
+=======
+			"could not insert release_history for app '%s' and version '%v' into DB. Error: %w\n",
+>>>>>>> 677633ef (fix(db): move span creation to the first line of the function)
 			release.App,
 			release.ReleaseNumber,
 			err)
