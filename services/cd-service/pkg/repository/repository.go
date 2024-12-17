@@ -948,10 +948,10 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 	if err := r.afterTransform(ctx, *state, transaction); err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
-	
+
 	gitMutexLock.Lock()
 	defer gitMutexLock.Unlock()
-	state, err := r.StateAt(nil);
+	state, err := r.StateAt(nil)
 	if err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: err, Index: -1}
 	}
