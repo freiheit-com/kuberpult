@@ -2416,11 +2416,11 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) ([]
 SELECT
 	apps.appname,
 	apps.stateChange,
-	apps.metadata,
+	apps.metadata
 FROM (
 	SELECT
-	MAX(eslVersion) AS latest,
-	appname,
+	MAX(version) AS latest,
+	appname
 FROM
 	"apps"
 GROUP BY
@@ -2429,11 +2429,11 @@ GROUP BY
 JOIN
 	apps AS apps 
 ON
-latest.latest=apps.eslVersion
+latest.latest=apps.version
 AND latest.appname=apps.appname
 	`)
 	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(ctx, selectQuery) 
+	rows, err := tx.QueryContext(ctx, selectQuery)
 
 	return h.processAppsRows(ctx, rows, err)
 }
@@ -2468,10 +2468,10 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
 		}
 	}(rows)
-	//exhaustruct:ignore
-	var row = &DBAppWithMetaData{}
 	var result []*DBAppWithMetaData
 	for rows.Next() {
+		//exhaustruct:ignore
+		var row = &DBAppWithMetaData{}
 		var metadataStr string
 		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
 		if err != nil {

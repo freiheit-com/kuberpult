@@ -4009,9 +4009,9 @@ func (c *envReleaseTrain) prognosis(
 			}
 		}
 
-		teamName, err := state.GetTeamName(ctx, transaction, appName)
+		teamName, ok := allTeams[appName]
 
-		if err == nil { //IF we find information for team
+		if ok { //IF we find information for team
 
 			err := state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
 
