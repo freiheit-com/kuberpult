@@ -24,27 +24,11 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 )
 
-type OnErrFunc = func(err error) error
-
-// StartSpanFromContext is the same as tracer.StartSpanFromContext, but also returns an onError function that tags the span as error
-// You should call the onErrorFunc when the span should be marked as failed.
-func StartSpanFromContext(ctx context.Context, name string) (tracer.Span, context.Context, OnErrFunc) {
-	mySpan, ctx := tracer.StartSpanFromContext(ctx, name)
-	onErr := func(err error) error {
-		if err == nil {
-			return nil
-		}
-		mySpan.Finish(tracer.WithError(err))
-		return err
-	}
-	return mySpan, ctx, onErr
-}
-
 func DBReadCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, transaction *sql.Tx, requestedVersion *api.KuberpultVersion) (*api.KuberpultVersion, error) {
-	span, ctx, onErr := StartSpanFromContext(ctx, "DBReadCustomMigrationCutoff")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadCustomMigrationCutoff")
 	defer span.Finish()
 
 	requestedVersionString := FormatKuberpultVersion(requestedVersion)
@@ -100,7 +84,7 @@ LIMIT 1;`)
 }
 
 func DBWriteCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, kuberpultVersion *api.KuberpultVersion) error {
-	span, ctx, onErr := StartSpanFromContext(ctx, "DBWriteCustomMigrationCutoff")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBWriteCustomMigrationCutoff")
 	defer span.Finish()
 
 	timestamp, err := h.DBReadTransactionTimestamp(ctx, tx)
