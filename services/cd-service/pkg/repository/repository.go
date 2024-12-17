@@ -3223,6 +3223,33 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 	}
 }
 
+func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx) (map[string]string, error) {
+	result := make(map[string]string)
+	if s.DBHandler.ShouldUseOtherTables() {
+		apps, err := s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
+		if err != nil {
+			return result, fmt.Errorf("could not get team of all apps: %w", err)
+		}
+		for _, app := range apps {
+			result[app.App] = app.Metadata.Team
+		}
+		return result, nil
+	} else {
+		apps, err := s.GetApplications(ctx, transaction)
+		if err != nil {
+			return result, err
+		}
+		for _, app := range apps {
+			teamOwner, err := s.GetApplicationTeamOwnerFromManifest(app)
+			if err != nil {
+				return result, err
+			}
+			result[app] = teamOwner
+		}
+		return result, nil
+	}
+}
+
 func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transaction *sql.Tx, application string, ts time.Time) (string, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		app, err := s.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, application, ts)

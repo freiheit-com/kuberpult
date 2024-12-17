@@ -3860,16 +3860,27 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 	span.SetTag("ConsideredApps", len(apps))
+	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction)
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         err,
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
-			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
+			team, ok := allTeams[appName]
+			if !ok {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
-					Error:         err,
+					Error:         fmt.Errorf("team for app %s not found", appName),
 					Locks:         nil,
 					AppsPrognoses: nil,
 				}
-			} else if c.Parent.Team != team {
+			}
+			if c.Parent.Team != team {
 				continue
 			}
 		}
