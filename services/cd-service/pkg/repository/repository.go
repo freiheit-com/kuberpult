@@ -71,6 +71,8 @@ type contextKey string
 
 const DdMetricsKey contextKey = "ddMetrics"
 
+var gitMutexLock sync.Mutex
+
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
@@ -947,6 +949,17 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
+	gitSpan, ctx := tracer.StartSpanFromContext(ctx, "GitCommitCreation")
+	defer gitSpan.Finish()
+	gitMutexLock.Lock()
+	defer gitMutexLock.Unlock()
+	if state.DBHandler.ShouldUseOtherTables() {
+		var err error
+		state, err = r.StateAt(nil)
+		if err != nil {
+			return nil, &TransformerBatchApplyError{TransformerError: err, Index: -1}
+		}
+	}
 	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if insertError != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
@@ -1944,7 +1957,7 @@ func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *
 	if result == nil {
 		return map[string]int64{}, nil
 	}
-	return result.Deployments, nil
+	return result, nil
 }
 
 func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
@@ -1955,7 +1968,7 @@ func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, tr
 	if result == nil {
 		return map[string]int64{}, nil
 	}
-	return result.Deployments, nil
+	return result, nil
 }
 
 func (s *State) GetAllDeploymentsForAppFromManifest(ctx context.Context, appName string) (map[string]int64, error) {
@@ -2200,43 +2213,10 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 					CiLink:          "",
 				},
 			}
-			err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, true)
+			err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %w", deployment.App, deployment.Env, err)
 			}
-		}
-	}
-	return nil
-}
-
-// WriteAllCurrentlyDeployed writes all active deployments for al apps
-func (s *State) WriteAllCurrentlyDeployed(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "WriteAllCurrentlyDeployed")
-	defer ddSpan.Finish()
-	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
-	if err != nil {
-		return err
-	}
-	apps, err := s.GetApplicationsFromFile()
-	if err != nil {
-		return err
-	}
-
-	for _, appName := range apps {
-		deploymentsForApp := map[string]int64{}
-		for _, envName := range envNames {
-			var version *uint64
-			version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
-			if err != nil {
-				return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
-			}
-			if version != nil {
-				deploymentsForApp[envName] = int64(*version)
-			}
-		}
-		err = dbHandler.DBWriteAllDeploymentsForApp(ctx, transaction, 0, appName, deploymentsForApp)
-		if err != nil {
-			return fmt.Errorf("error writing all deployments to DB for app %s: %w", appName, err)
 		}
 	}
 	return nil

@@ -246,11 +246,11 @@ func TestVersion(t *testing.T) {
 					return err
 				}
 				var version int64 = 1
-				err = dbHandler.DBWriteDeployment(ctx, transaction, db.Deployment{
+				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 					App:     "test",
 					Env:     "development",
 					Version: &version,
-				}, false)
+				})
 				err = repo.Apply(ctx, transaction, tc.Setup...)
 				if err != nil {
 					return err

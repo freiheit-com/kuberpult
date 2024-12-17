@@ -39,28 +39,16 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 	commitDeploymentStatus := make(map[string]*api.AppCommitDeploymentStatus, 0)
 	var jsonCommitEventsMetadata []byte
 	var jsonAllEnvironmentsMetadata []byte
-	applicationReleases := make(map[string][]byte, 0)
+	applicationReleases := make(map[string]map[string]uint64, 0)
 	allApplicationReleasesQuery := `
-SELECT
-  deployments.appname,
-  deployments.json
-FROM (
-  SELECT
-    MAX(eslVersion) AS latest,
-    appname
-  FROM
-    "public"."all_deployments"
-  GROUP BY
-    appname) AS latest
-JOIN
-  "public".all_deployments AS deployments
-ON
-  latest.latest=deployments.eslVersion
-  AND latest.appname=deployments.appname;
+SELECT appname, envname, releaseVersion
+FROM deployments
+WHERE releaseVersion IS NOT NULL;
 `
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetCommitDeploymentInfo")
 	defer span.Finish()
 	span.SetTag("commit_id", in.CommitId)
+	span.SetTag("query", allApplicationReleasesQuery)
 
 	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		// Get the latest new-release event for the commit
@@ -94,12 +82,16 @@ ON
 
 		for rows.Next() {
 			var appName string
-			var appRelease []byte
-			err = rows.Scan(&appName, &appRelease)
+			var envName string
+			var appRelease uint64
+			err = rows.Scan(&appName, &envName, &appRelease)
 			if err != nil {
 				return err
 			}
-			applicationReleases[appName] = appRelease
+			if _, ok := applicationReleases[appName]; !ok {
+				applicationReleases[appName] = make(map[string]uint64, 0)
+			}
+			applicationReleases[appName][envName] = appRelease
 		}
 		return nil
 	})
@@ -129,15 +121,11 @@ ON
 	}, nil
 }
 
-func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []string, appDeployments []byte) (*api.AppCommitDeploymentStatus, error) {
+func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []string, environmentReleases map[string]uint64) (*api.AppCommitDeploymentStatus, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
 	defer span.Finish()
 	span.SetTag("app", app)
 
-	environmentReleases, err := getEnvironmentReleases(appDeployments)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get environment releases from all_deployments metadata: %v", err)
-	}
 	commitStatus := getCommitStatus(commitReleaseNumber, environmentReleases, environments)
 	return &api.AppCommitDeploymentStatus{
 		DeploymentStatus: commitStatus,
@@ -196,13 +184,4 @@ func getAllEnvironments(jsonInput []byte) ([]string, error) {
 		return nil, err
 	}
 	return environments, nil
-}
-
-func getEnvironmentReleases(jsonInput []byte) (map[string]uint64, error) {
-	releases := map[string]uint64{}
-	err := json.Unmarshal(jsonInput, &releases)
-	if err != nil {
-		return nil, err
-	}
-	return releases, nil
 }

@@ -3391,7 +3391,7 @@ func TestUndeployDBState(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if len(allDeployments.Deployments) != 0 {
+				if len(allDeployments) != 0 {
 					t.Fatal("No deployments expected, but found some.")
 				}
 				return nil
