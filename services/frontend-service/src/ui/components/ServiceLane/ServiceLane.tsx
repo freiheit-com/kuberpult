@@ -128,9 +128,14 @@ export const ServiceLane: React.FC<{
         if (document.getElementsByClassName('mdc-drawer-app-content').length !== 0) {
             document.getElementsByClassName('mdc-drawer-app-content')[0].addEventListener('scroll', handleScroll);
             return () => {
-                document
-                    .getElementsByClassName('mdc-drawer-app-content')[0]
-                    .removeEventListener('scroll', handleScroll);
+                const elems = document.getElementsByClassName('mdc-drawer-app-content');
+                if (elems.length < 1) {
+                    return;
+                }
+                const elem = elems[0];
+                if (elem) {
+                    elem.removeEventListener('scroll', handleScroll);
+                }
             };
         }
     }, [appDetails, application, authHeader, searchParams]);
