@@ -17,13 +17,26 @@ Copyright freiheit.com*/
 package migrations
 
 import (
-	"fmt"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/google/go-cmp/cmp"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func TestParseKuberpultVersion(t *testing.T) {
 	type TestCase struct {
@@ -50,7 +63,7 @@ func TestParseKuberpultVersion(t *testing.T) {
 			name:                  "invalid number of dashes",
 			kuberpultVersionInput: "main-main-v12.1.2-7-g08f811e8",
 			expectedVersion:       nil,
-			expectedError:         fmt.Errorf("invalid version, expected 0 or 3 dashes"),
+			expectedError:         errMatcher{msg: "invalid version, expected 0 or 3 dashes"},
 		},
 		{
 			name:                  "0 dashes also works",
@@ -69,7 +82,7 @@ func TestParseKuberpultVersion(t *testing.T) {
 				t.Errorf("version mismatch (-want, +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff(tc.expectedError, actualErr, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.expectedError, actualErr, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
