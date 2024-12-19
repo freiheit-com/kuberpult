@@ -24,6 +24,20 @@ import (
 )
 
 func ParseKuberpultVersion(version string) (*api.KuberpultVersion, error) {
+
+	splitDash := strings.Split(version, "-")
+	if len(splitDash) == 4 {
+		// we have a version in the form of pr-v11.6.10-7-g08f811e8
+		// we need to find the second part in "pr-v11.6.10-7"
+		// See the top-level Makefile and how the version is supplied to earthly in the line
+		// "earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)"
+		version = splitDash[1]
+	} else if len(splitDash) == 1 {
+		// this is the normal case, we don't have to remove parts
+	} else {
+		return nil, fmt.Errorf("invalid version, expected 0 or 3 dashes")
+	}
+
 	version = strings.TrimPrefix(version, "v")
 	split := strings.Split(version, ".")
 	if len(split) != 3 {
