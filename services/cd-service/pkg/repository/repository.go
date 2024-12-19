@@ -71,6 +71,8 @@ type contextKey string
 
 const DdMetricsKey contextKey = "ddMetrics"
 
+var gitMutexLock sync.Mutex
+
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
@@ -566,7 +568,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 			e := transformerBatches[i]
 
 			subChanges, txErr := db.WithTransactionT(r.DB, e.ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
-				subChanges, applyErr := r.ApplyTransformers(e.ctx, transaction, e.transformers...)
+				subChanges, applyErr := r.ApplyTransformers(ctx, transaction, e.transformers...)
 				if applyErr != nil {
 					return nil, applyErr
 				}
@@ -947,6 +949,17 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
+	gitSpan, ctx := tracer.StartSpanFromContext(ctx, "GitCommitCreation")
+	defer gitSpan.Finish()
+	gitMutexLock.Lock()
+	defer gitMutexLock.Unlock()
+	if state.DBHandler.ShouldUseOtherTables() {
+		var err error
+		state, err = r.StateAt(nil)
+		if err != nil {
+			return nil, &TransformerBatchApplyError{TransformerError: err, Index: -1}
+		}
+	}
 	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if insertError != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
@@ -1681,11 +1694,48 @@ func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx,
 	return v, nil
 }
 
+func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]*uint64, error) {
+	queuedDeployments, err := s.DBHandler.DBSelectLatestDeploymentAttemptOfAllApps(ctx, transaction, environment)
+	result := map[string]*uint64{}
+	if err != nil || queuedDeployments == nil {
+		return result, err
+	}
+	for _, queuedDeployment := range queuedDeployments {
+		var v *uint64
+		if queuedDeployment.Version != nil {
+			parsedInt := uint64(*queuedDeployment.Version)
+			v = &parsedInt
+		} else {
+			v = nil
+		}
+		result[queuedDeployment.App] = v
+	}
+	return result, nil
+}
+
 func (s *State) GetQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		return s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
 	}
 	return s.GetQueuedVersionFromManifest(environment, application)
+}
+func (s *State) GetQueuedVersionOfAllApps(ctx context.Context, transaction *sql.Tx, environment string) (map[string]*uint64, error) {
+	if s.DBHandler.ShouldUseOtherTables() {
+		return s.GetQueuedVersionAllAppsFromDB(ctx, transaction, environment)
+	}
+	result := map[string]*uint64{}
+	apps, err := s.GetEnvironmentApplications(ctx, transaction, environment)
+	if err != nil {
+		return result, fmt.Errorf("environment applications for %q not found: %v", environment, err.Error())
+	}
+	for _, appName := range apps {
+		version, err := s.GetQueuedVersionFromManifest(environment, appName)
+		if err != nil {
+			return result, err
+		}
+		result[appName] = version
+	}
+	return result, nil
 }
 
 func (s *State) GetQueuedVersionFromManifest(environment string, application string) (*uint64, error) {
@@ -1716,7 +1766,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 }
 func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.DBHandler.DBSelectAllLatestDeployments(ctx, transaction, environment)
+		return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 	} else {
 		var result = make(map[string]*int64)
 		for _, appName := range allApps {
@@ -1907,7 +1957,7 @@ func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *
 	if result == nil {
 		return map[string]int64{}, nil
 	}
-	return result.Deployments, nil
+	return result, nil
 }
 
 func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
@@ -1918,7 +1968,7 @@ func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, tr
 	if result == nil {
 		return map[string]int64{}, nil
 	}
-	return result.Deployments, nil
+	return result, nil
 }
 
 func (s *State) GetAllDeploymentsForAppFromManifest(ctx context.Context, appName string) (map[string]int64, error) {
@@ -2152,7 +2202,6 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 				versionIntPtr = nil
 			}
 			deployment := db.Deployment{
-				EslVersion:    0,
 				Created:       time.Time{},
 				App:           appName,
 				Env:           envName,
@@ -2164,43 +2213,10 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 					CiLink:          "",
 				},
 			}
-			err = dbHandler.DBWriteDeployment(ctx, transaction, deployment, 0, true)
+			err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
 			if err != nil {
 				return fmt.Errorf("error writing Deployment to DB for app %s in env %s: %w", deployment.App, deployment.Env, err)
 			}
-		}
-	}
-	return nil
-}
-
-// WriteAllCurrentlyDeployed writes all active deployments for al apps
-func (s *State) WriteAllCurrentlyDeployed(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "WriteAllCurrentlyDeployed")
-	defer ddSpan.Finish()
-	_, envNames, err := s.GetEnvironmentConfigsSortedFromManifest() // this is intentional, when doing custom migrations (which is where this function is called), we want to read from the manifest repo explicitly
-	if err != nil {
-		return err
-	}
-	apps, err := s.GetApplicationsFromFile()
-	if err != nil {
-		return err
-	}
-
-	for _, appName := range apps {
-		deploymentsForApp := map[string]int64{}
-		for _, envName := range envNames {
-			var version *uint64
-			version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
-			if err != nil {
-				return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
-			}
-			if version != nil {
-				deploymentsForApp[envName] = int64(*version)
-			}
-		}
-		err = dbHandler.DBWriteAllDeploymentsForApp(ctx, transaction, 0, appName, deploymentsForApp)
-		if err != nil {
-			return fmt.Errorf("error writing all deployments to DB for app %s: %w", appName, err)
 		}
 	}
 	return nil
@@ -2422,9 +2438,9 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 	return nil
 }
 
-func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion db.EslVersion, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
+func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
 	h := s.DBHandler
-	err := h.DBInsertApplication(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+	err := h.DBInsertApplication(ctx, transaction, appName, stateChange, metaData)
 	if err != nil {
 		return err
 	}
@@ -2506,6 +2522,55 @@ func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn str
 	return nil
 }
 
+func addNewEnvToOverview(result *api.GetOverviewResponse, newGroup *api.EnvironmentGroup, newEnv *api.Environment) {
+	envGroupFoundInOverview := false
+	for groupIndex, overviewEnvGroup := range result.EnvironmentGroups {
+		if overviewEnvGroup.EnvironmentGroupName == newGroup.EnvironmentGroupName {
+			envGroupFoundInOverview = true
+			envInOverviewFound := false
+			for envIndex, overviewEnv := range overviewEnvGroup.Environments {
+				if overviewEnv.Name == newEnv.Name {
+					envInOverviewFound = true
+					overviewEnvGroup.Environments[envIndex] = newEnv
+				}
+			}
+			if !envInOverviewFound {
+				overviewEnvGroup.Environments = append(overviewEnvGroup.Environments, newEnv)
+			}
+		} else {
+			// If the environment was in another group and now its added to a new group, we should remove it from its previous group
+			for envIndex, overviewEnv := range overviewEnvGroup.Environments {
+				if overviewEnv.Name == newEnv.Name {
+					overviewEnvGroup.Environments = append(overviewEnvGroup.Environments[:envIndex], overviewEnvGroup.Environments[envIndex+1:]...)
+				}
+			}
+			if len(overviewEnvGroup.Environments) == 0 {
+				result.EnvironmentGroups = append(result.EnvironmentGroups[:groupIndex], result.EnvironmentGroups[groupIndex+1:]...)
+			}
+		}
+	}
+	if !envGroupFoundInOverview && newGroup != nil {
+		result.EnvironmentGroups = append(result.EnvironmentGroups, newGroup)
+	}
+}
+
+func updateEnvGroupsPriorities(result *api.GetOverviewResponse, newEnvGroups []*api.EnvironmentGroup) {
+	for groupIndex, overviewEnvGroup := range result.EnvironmentGroups {
+		for _, newEnvGroup := range newEnvGroups {
+			if newEnvGroup.EnvironmentGroupName == overviewEnvGroup.EnvironmentGroupName {
+				result.EnvironmentGroups[groupIndex].Priority = newEnvGroup.Priority
+				for envIndex, overviewEnv := range overviewEnvGroup.Environments {
+					for _, newEnv := range newEnvGroup.Environments {
+						if overviewEnv.Name == newEnv.Name {
+							overviewEnvGroup.Environments[envIndex].Priority = newEnv.Priority
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateEnvironmentsInOverview")
 	defer span.Finish()
@@ -2517,42 +2582,118 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 
-			argocd := &api.EnvironmentConfig_ArgoCD{
-				SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
-				Destination: &api.EnvironmentConfig_ArgoCD_Destination{
-					Name:                 "",
-					Server:               "",
-					Namespace:            nil,
-					AppProjectNamespace:  nil,
-					ApplicationNamespace: nil,
+			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, groupName, envInGroup)
+			if err2 != nil {
+				return err2
+			}
+		}
+	}
+	return nil
+}
+
+func (s *State) UpdateOneEnvironmentInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse, newEnvName string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateEnvironmentsInOverview")
+	defer span.Finish()
+	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
+		return err
+	} else {
+		newEnvGroups := mapper.MapEnvironmentsToGroups(envs)
+		for envName, config := range envs {
+			if envName != newEnvName {
+				logger.FromContext(ctx).Sugar().Infof("skipping environment %s because it's not the new environment %s", envName, newEnvName)
+				continue
+			}
+			var newGroupName = mapper.DeriveGroupName(config, envName)
+			var envInGroup = getEnvironmentInGroup(newEnvGroups, newGroupName, envName)
+			var newEnvsGroup *api.EnvironmentGroup
+			for _, envGroup := range newEnvGroups {
+				if envGroup.EnvironmentGroupName == newGroupName {
+					newEnvsGroup = envGroup
+				}
+			}
+
+			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, newGroupName, envInGroup)
+			if err2 != nil {
+				return err2
+			}
+			addNewEnvToOverview(result, newEnvsGroup, envInGroup)
+			updateEnvGroupsPriorities(result, newEnvGroups)
+		}
+	}
+	var rev string
+	if s.DBHandler.ShouldUseOtherTables() {
+		rev = "0000000000000000000000000000000000000000"
+	} else {
+		if s.Commit != nil {
+			rev = s.Commit.Id().String()
+		}
+	}
+	result.GitRevision = rev
+	return nil
+}
+
+func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.Tx, config config.EnvironmentConfig, envName string, groupName string, envInGroup *api.Environment) error {
+	argocd := &api.EnvironmentConfig_ArgoCD{
+		SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
+		Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+			Name:                 "",
+			Server:               "",
+			Namespace:            nil,
+			AppProjectNamespace:  nil,
+			ApplicationNamespace: nil,
+		},
+		AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+		ApplicationAnnotations: map[string]string{},
+		IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
+		SyncOptions:            []string{},
+	}
+	if config.ArgoCd != nil {
+		argocd = mapper.TransformArgocd(*config.ArgoCd)
+	}
+	env := api.Environment{
+		DistanceToUpstream: 0,
+		Priority:           api.Priority_PROD,
+		Name:               envName,
+		Config: &api.EnvironmentConfig{
+			Upstream:         mapper.TransformUpstream(config.Upstream),
+			Argocd:           argocd,
+			EnvironmentGroup: &groupName,
+		},
+		Locks:     map[string]*api.Lock{},
+		AppLocks:  make(map[string]*api.Locks),
+		TeamLocks: make(map[string]*api.Locks),
+	}
+	envInGroup.Config = env.Config
+	if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
+		return err
+	} else {
+		for lockId, lock := range locks {
+			env.Locks[lockId] = &api.Lock{
+				Message:   lock.Message,
+				LockId:    lockId,
+				CreatedAt: timestamppb.New(lock.CreatedAt),
+				CreatedBy: &api.Actor{
+					Name:  lock.CreatedBy.Name,
+					Email: lock.CreatedBy.Email,
 				},
-				AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
-				ApplicationAnnotations: map[string]string{},
-				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-				SyncOptions:            []string{},
 			}
-			if config.ArgoCd != nil {
-				argocd = mapper.TransformArgocd(*config.ArgoCd)
-			}
-			env := api.Environment{
-				DistanceToUpstream: 0,
-				Priority:           api.Priority_PROD,
-				Name:               envName,
-				Config: &api.EnvironmentConfig{
-					Upstream:         mapper.TransformUpstream(config.Upstream),
-					Argocd:           argocd,
-					EnvironmentGroup: &groupName,
-				},
-				Locks:     map[string]*api.Lock{},
-				AppLocks:  make(map[string]*api.Locks),
-				TeamLocks: make(map[string]*api.Locks),
-			}
-			envInGroup.Config = env.Config
-			if locks, err := s.GetEnvironmentLocks(ctx, transaction, envName); err != nil {
+		}
+		envInGroup.Locks = env.Locks
+	}
+
+	if apps, err := s.GetApplications(ctx, transaction); err != nil {
+		return err
+	} else {
+		for _, appName := range apps {
+
+			if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
 				return err
 			} else {
-				for lockId, lock := range locks {
-					env.Locks[lockId] = &api.Lock{
+				apiAppLocks := api.Locks{
+					Locks: make([]*api.Lock, 0),
+				}
+				for lockId, lock := range appLocks {
+					apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
 						Message:   lock.Message,
 						LockId:    lockId,
 						CreatedAt: timestamppb.New(lock.CreatedAt),
@@ -2560,70 +2701,42 @@ func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *s
 							Name:  lock.CreatedBy.Name,
 							Email: lock.CreatedBy.Email,
 						},
-					}
-				}
-				envInGroup.Locks = env.Locks
-			}
+					})
 
-			if apps, err := s.GetEnvironmentApplications(ctx, transaction, envName); err != nil {
+				}
+				if len(apiAppLocks.Locks) > 0 {
+					env.AppLocks[appName] = &apiAppLocks
+				}
+			}
+			team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
+			if err != nil {
+				return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
+			}
+			if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, team); err != nil {
 				return err
 			} else {
-				for _, appName := range apps {
-
-					if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
-						return err
-					} else {
-						apiAppLocks := api.Locks{
-							Locks: make([]*api.Lock, 0),
-						}
-						for lockId, lock := range appLocks {
-							apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
-								Message:   lock.Message,
-								LockId:    lockId,
-								CreatedAt: timestamppb.New(lock.CreatedAt),
-								CreatedBy: &api.Actor{
-									Name:  lock.CreatedBy.Name,
-									Email: lock.CreatedBy.Email,
-								},
-							})
-
-						}
-						if len(apiAppLocks.Locks) > 0 {
-							env.AppLocks[appName] = &apiAppLocks
-						}
-					}
-					team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
-					if err != nil {
-						return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
-					}
-					if teamLocks, err := s.GetEnvironmentTeamLocks(ctx, transaction, envName, team); err != nil {
-						return err
-					} else {
-						apiTeamLocks := api.Locks{
-							Locks: make([]*api.Lock, 0),
-						}
-						for lockId, lock := range teamLocks {
-							apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
-								Message:   lock.Message,
-								LockId:    lockId,
-								CreatedAt: timestamppb.New(lock.CreatedAt),
-								CreatedBy: &api.Actor{
-									Name:  lock.CreatedBy.Name,
-									Email: lock.CreatedBy.Email,
-								},
-							})
-						}
-						if len(apiTeamLocks.Locks) > 0 {
-							env.TeamLocks[appName] = &apiTeamLocks
-						}
-					}
+				apiTeamLocks := api.Locks{
+					Locks: make([]*api.Lock, 0),
+				}
+				for lockId, lock := range teamLocks {
+					apiTeamLocks.Locks = append(apiTeamLocks.Locks, &api.Lock{
+						Message:   lock.Message,
+						LockId:    lockId,
+						CreatedAt: timestamppb.New(lock.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  lock.CreatedBy.Name,
+							Email: lock.CreatedBy.Email,
+						},
+					})
+				}
+				if len(apiTeamLocks.Locks) > 0 {
+					env.TeamLocks[appName] = &apiTeamLocks
 				}
 			}
-			envInGroup.TeamLocks = env.TeamLocks
-			envInGroup.AppLocks = env.AppLocks
 		}
 	}
-
+	envInGroup.TeamLocks = env.TeamLocks
+	envInGroup.AppLocks = env.AppLocks
 	return nil
 }
 
@@ -2652,7 +2765,6 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 	if err != nil {
 		return fmt.Errorf("cannot get releases of app %s: %v", app, err)
 	}
-	releaseNumbers := []int64{}
 	for i := range releases {
 		releaseVersion := releases[i]
 		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
@@ -2682,7 +2794,6 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 
 		}
 		dbRelease := db.DBReleaseWithMetaData{
-			EslVersion:    db.InitialEslVersion,
 			Created:       *now,
 			ReleaseNumber: releaseVersion,
 			App:           app,
@@ -2699,32 +2810,26 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Deleted:      false,
 			Environments: []string{},
 		}
-		err = dbHandler.DBInsertRelease(ctx, transaction, dbRelease, db.InitialEslVersion-1)
+		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, dbRelease)
 		if err != nil {
 			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
 		}
-		releaseNumbers = append(releaseNumbers, int64(repoRelease.Version))
-	}
-	err = dbHandler.DBInsertAllReleases(ctx, transaction, app, releaseNumbers, db.InitialEslVersion-1)
-	if err != nil {
-		return fmt.Errorf("error writing all_releases to DB for app %s: %v", app, err)
 	}
 	return nil
 }
 
 func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
-		app, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+		releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 		if err != nil {
 			return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
 		}
-		if app == nil {
+		if releases == nil {
 			return nil, fmt.Errorf("could not get all releases of app %s (nil)", application)
 		}
-		res := conversion.ToUint64Slice(app.Metadata.Releases)
+		res := conversion.ToUint64Slice(releases)
 		return res, nil
 	} else {
 		return s.GetAllApplicationReleasesFromManifest(application)
@@ -3091,6 +3196,33 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 	}
 }
 
+func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx) (map[string]string, error) {
+	result := make(map[string]string)
+	if s.DBHandler.ShouldUseOtherTables() {
+		apps, err := s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
+		if err != nil {
+			return result, fmt.Errorf("could not get team of all apps: %w", err)
+		}
+		for _, app := range apps {
+			result[app.App] = app.Metadata.Team
+		}
+		return result, nil
+	} else {
+		apps, err := s.GetApplications(ctx, transaction)
+		if err != nil {
+			return result, err
+		}
+		for _, app := range apps {
+			teamOwner, err := s.GetApplicationTeamOwnerFromManifest(app)
+			if err != nil {
+				return result, err
+			}
+			result[app] = teamOwner
+		}
+		return result, nil
+	}
+}
+
 func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transaction *sql.Tx, application string, ts time.Time) (string, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		app, err := s.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, application, ts)
@@ -3192,6 +3324,36 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 			// whenever the next deployment happens:
 			err = s.DeleteQueuedVersion(ctx, transaction, environment, application, false)
 			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
+		}
+	}
+	return queueDeploymentMessage, nil
+}
+
+func (s *State) ProcessQueueAllApps(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment string) (string, error) {
+	queuedVersions, err := s.GetQueuedVersionOfAllApps(ctx, transaction, environment)
+	if err != nil {
+		return "", err
+	}
+	queueDeploymentMessage := ""
+	for application, queuedVersion := range queuedVersions {
+		if queuedVersion == nil {
+			continue
+		}
+
+		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
+		if err != nil {
+			return "", err
+		}
+
+		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
+			err = s.DeleteQueuedVersion(ctx, transaction, environment, application, false)
+			if err != nil {
+				return "", err
+			}
+			if queueDeploymentMessage != "" {
+				queueDeploymentMessage += "\n"
+			}
+			queueDeploymentMessage += fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment)
 		}
 	}
 	return queueDeploymentMessage, nil

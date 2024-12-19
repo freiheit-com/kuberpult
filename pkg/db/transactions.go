@@ -73,7 +73,7 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBTransactionWithRetries")
 	defer span.Finish()
 	span.SetTag("retries", maxRetries)
-	res, err := withTransactionAllOptions(h, ctx, transactionOptions{
+	res, err := withTransactionAllOptions[T](h, ctx, transactionOptions{
 		maxRetries: maxRetries,
 		readonly:   readonly,
 	}, func(ctx context.Context, transaction *sql.Tx) ([]T, error) {
@@ -95,7 +95,7 @@ func WithTransactionT[T any](h *DBHandler, ctx context.Context, maxRetries uint8
 
 // WithTransactionMultipleEntriesT is the same as WithTransaction, but you can also return and array of data, not just the error.
 func WithTransactionMultipleEntriesT[T any](h *DBHandler, ctx context.Context, readonly bool, f DBFunctionMultipleEntriesT[T]) ([]T, error) {
-	return withTransactionAllOptions(h, ctx, transactionOptions{
+	return withTransactionAllOptions[T](h, ctx, transactionOptions{
 		maxRetries: DefaultNumRetries,
 		readonly:   readonly,
 	}, f)
@@ -129,8 +129,8 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 			span.Finish(tracer.WithError(e))
 			time.Sleep(duration)
 			// We must use original ctx here so that a retry attempt registers
-			// A DBTransaction span independent from previous DBTransaction
-			return withTransactionAllOptions(h, ctx, transactionOptions{
+			// A DBTransaction span independent of previous DBTransaction
+			return withTransactionAllOptions[T](h, ctx, transactionOptions{
 				maxRetries: opts.maxRetries - 1,
 				readonly:   opts.readonly,
 			}, f)
@@ -163,7 +163,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 
 func (h *DBHandler) BeginTransaction(ctx context.Context, readonly bool) (*sql.Tx, error) {
 	return h.DB.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelRepeatableRead,
+		Isolation: sql.LevelReadCommitted, // Otherwise we would get pq: could not serialize access due to concurrent update error while creating releases in parallel
 		ReadOnly:  readonly,
 	})
 }

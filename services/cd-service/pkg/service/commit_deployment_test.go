@@ -96,50 +96,6 @@ func TestGetAllEnvironments(t *testing.T) {
 		})
 	}
 }
-
-func TestGetEnvironmentReleases(t *testing.T) {
-	tcs := []struct {
-		name            string
-		deploymentsJson []byte
-		expected        map[string]uint64
-	}{
-		{
-			name:            "One environment",
-			deploymentsJson: []byte(`{"dev":1}`),
-			expected:        map[string]uint64{"dev": 1},
-		},
-		{
-			name:            "Two environments",
-			deploymentsJson: []byte(`{"dev":2, "staging":2}`),
-			expected:        map[string]uint64{"dev": 2, "staging": 2},
-		},
-		{
-			name:            "No environments",
-			deploymentsJson: []byte(`{}`),
-			expected:        map[string]uint64{},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			environments, err := getEnvironmentReleases(tc.deploymentsJson)
-			if err != nil {
-				t.Fatalf("Error getting all environments: %v", err)
-			}
-			if len(environments) != len(tc.expected) {
-				t.Fatalf("Expected %d environments, got %d", len(tc.expected), len(environments))
-			}
-			for env, release := range environments {
-				if release != tc.expected[env] {
-					t.Fatalf("Expected %d, got %d", tc.expected[env], release)
-				}
-			}
-
-		})
-	}
-}
-
 func TestGetCommitStatus(t *testing.T) {
 	tcs := []struct {
 		name                string

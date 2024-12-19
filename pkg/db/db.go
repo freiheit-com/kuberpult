@@ -61,7 +61,7 @@ type DBConfig struct {
 	MaxOpenConnections uint
 }
 
-type InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error
+type InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error
 
 type DBHandler struct {
 	DbName         string
@@ -126,9 +126,9 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 		WriteEslOnly:   cfg.WriteEslOnly,
 		InsertAppFun:   nil,
 	}
-	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
+	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
 		// by default, we just insert the app
-		return handler.DBInsertApplication(ctx, transaction, appName, previousEslVersion, stateChange, metaData)
+		return handler.DBInsertApplication(ctx, transaction, appName, stateChange, metaData)
 	}
 	return handler, nil
 }
@@ -512,781 +512,6 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 		return nil, err
 	}
 	return row, nil
-}
-
-// RELEASES
-// Releases work a bit different, because they are already immutable.
-// We still store the eslVersion for consistency with other tables,
-// but technically it's not required here.
-
-type DBReleaseMetaData struct {
-	SourceAuthor    string
-	SourceCommitId  string
-	SourceMessage   string
-	DisplayVersion  string
-	UndeployVersion bool
-	IsMinor         bool
-	CiLink          string
-	IsPrepublish    bool
-}
-
-type DBReleaseManifests struct {
-	Manifests map[string]string
-}
-
-type DBReleaseWithMetaData struct {
-	EslVersion    EslVersion
-	ReleaseNumber uint64
-	Created       time.Time
-	App           string
-	Manifests     DBReleaseManifests
-	Metadata      DBReleaseMetaData
-	Deleted       bool
-	Environments  []string
-}
-
-type DBAllReleaseMetaData struct {
-	Releases []int64
-}
-type DBAllReleasesWithMetaData struct {
-	EslVersion EslVersion
-	Created    time.Time
-	App        string
-	Metadata   DBAllReleaseMetaData
-}
-
-func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, releaseVersion, deleted, environments " +
-			" FROM releases " +
-			" LIMIT 1;"))
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyRelease")
-	defer span.Finish()
-	span.SetTag("query", selectQuery)
-
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
-	if err != nil {
-		return nil, err
-	}
-	if len(processedRows) == 0 {
-		return nil, nil
-	}
-	return processedRows[0], nil
-}
-
-func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx *sql.Tx) ([]*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesWithoutEnvironments")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(`
-	SELECT DISTINCT
-		releases.eslVersion,
-		releases.created,
-		releases.appName,
-		releases.metadata,
-		releases.manifests,
-		releases.releaseVersion,
-		releases.deleted,
-		releases.environments
-	FROM (
-		SELECT
-			MAX(eslVersion) AS latestEslVersion,
-			appname,
-			releaseversion
-		FROM
-			"releases"
-		GROUP BY
-			appname, releaseversion) AS latest
-	JOIN
-		releases AS releases
-	ON
-		latest.latestEslVersion=releases.eslVersion
-		AND latest.releaseVersion=releases.releaseVersion
-		AND latest.appname=releases.appname
-	WHERE COALESCE(environments, '') = '' AND COALESCE(manifests, '') != ''
-	LIMIT 100;
-	`)
-	rows, err := tx.QueryContext(ctx, selectQuery)
-	processedRows, err := h.processReleaseRows(ctx, err, rows, true, true)
-	if err != nil {
-		return nil, err
-	}
-	return processedRows, nil
-}
-
-func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrePublishes bool) ([]*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersions")
-	defer span.Finish()
-
-	if len(releaseVersions) == 0 {
-		return []*DBReleaseWithMetaData{}, nil
-	}
-	repeatedQuestionMarks := strings.Repeat(",?", len(releaseVersions)-1)
-	selectQuery := h.AdaptQuery(`
-
-	SELECT DISTINCT
-		releases.eslVersion,
-		releases.created,
-		releases.appName,
-		releases.metadata,
-		releases.releaseVersion,
-		releases.deleted,
-		releases.environments
-	FROM 
-		( 	SELECT
-				MAX(eslVersion) AS latestEslVersion,
-				appname,
-				releaseversion
-			FROM
-				"releases"
-    		WHERE
-				appname=?
-          	AND
-				releaseversion IN (?` + repeatedQuestionMarks + `)
-		GROUP BY
-			appname, releaseversion
-      ) AS latest
-	JOIN
-		releases AS releases
-	ON
-		latest.latestEslVersion=releases.eslVersion
-		AND latest.releaseVersion=releases.releaseVersion
-		AND latest.appname=releases.appname
-	LIMIT ?
-	`)
-
-	span.SetTag("query", selectQuery)
-
-	args := []any{}
-	args = append(args, app)
-	for _, version := range releaseVersions {
-		args = append(args, version)
-	}
-	args = append(args, uint64(len(releaseVersions)))
-
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		args...,
-	)
-
-	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrePublishes, false)
-	if err != nil {
-		return nil, err
-	}
-	if len(processedRows) == 0 {
-		return nil, nil
-	}
-	return processedRows, nil
-}
-
-func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
-			" FROM releases " +
-			" WHERE appName=? AND releaseVersion=?" +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT 1;"))
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
-	defer span.Finish()
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		app,
-		releaseVersion,
-	)
-
-	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
-	if err != nil {
-		return nil, err
-	}
-	if len(processedRows) == 0 {
-		return nil, nil
-	}
-	return processedRows[0], nil
-}
-
-func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata, manifests, releaseVersion, deleted, environments " +
-			" FROM releases " +
-			" WHERE appName=? AND releaseVersion=? AND created <= (?)" +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT 1;"))
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
-	defer span.Finish()
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		app,
-		releaseVersion,
-		ts,
-	)
-
-	processedRows, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
-	if err != nil {
-		return nil, err
-	}
-	if len(processedRows) == 0 {
-		return nil, nil
-	}
-	return processedRows[0], nil
-}
-
-func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (map[string]map[uint64][]string, error) {
-	selectQuery := h.AdaptQuery(
-		`
-	SELECT DISTINCT
-		releases.appname,
-		releases.releaseVersion,
-		releases.environments
-	FROM (
-		SELECT
-			MAX(eslVersion) AS latestRelease,
-			appname,
-			releaseversion
-		FROM
-			"releases"
-		GROUP BY
-			appname, releaseversion) AS latest
-	JOIN
-		releases AS releases
-	ON
-		latest.latestRelease=releases.eslVersion
-		AND latest.releaseVersion=releases.releaseVersion
-		AND latest.appname=releases.appname;
-`)
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
-	defer span.Finish()
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-
-	return h.processReleaseManifestRows(ctx, err, rows)
-}
-
-func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (map[string]map[uint64][]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseManifestRows")
-	defer span.Finish()
-
-	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
-	//exhaustruct:ignore
-	var result = make(map[string]map[uint64][]string)
-	for rows.Next() {
-		var environmentsStr sql.NullString
-		var appName string
-		var releaseVersion uint64
-		err := rows.Scan(&appName, &releaseVersion, &environmentsStr)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
-		}
-		environments := make([]string, 0)
-		if environmentsStr.Valid && environmentsStr.String != "" {
-			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
-			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s\n", err, environmentsStr.String)
-			}
-		}
-		if _, exists := result[appName]; !exists {
-			result[appName] = make(map[uint64][]string)
-		}
-		result[appName][releaseVersion] = environments
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-// DBSelectReleasesByAppLatestEslVersion returns the latest eslversion
-// for each release of an app. It includes deleted releases and loads manifests.
-func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppLatestEslVersion")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(
-		`SELECT
-			releases.eslVersion,
-			releases.created,
-			releases.appName,
-			releases.metadata,
-			releases.manifests,
-			releases.releaseVersion,
-			releases.deleted,
-			releases.environments
-		FROM (
-			SELECT
-				MAX(eslVersion) AS latestEslVersion,
-				appname,
-				releaseversion
-			FROM
-				releases
-			WHERE 
-				appname=?
-			GROUP BY
-				appname, releaseversion
-		) as currentEslReleases
-		JOIN
-		  releases
-		ON 
-			currentEslReleases.appname 			= releases.appname
-		AND
-			currentEslReleases.latesteslversion = releases.eslversion
-		AND
-			currentEslReleases.releaseversion 	= releases.releaseversion
-		ORDER BY currentEslReleases.releaseversion DESC;`,
-	)
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		app,
-	)
-
-	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
-}
-
-func (h *DBHandler) DBSelectReleasesByAppOrderedByEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppOrderedByEslVersion")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(`
-SELECT
-	releases.eslVersion,
-	releases.created,
-	releases.appName,
-	releases.metadata,
-	releases.releaseVersion,
-	releases.deleted,
-	releases.environments
-FROM (
- 	SELECT max(eslVersion) as latestEslVersion, appName, releaseVersion
- 	FROM releases
- 	WHERE appName=?
- 	GROUP BY appName, releaseVersion
- 	) as c
-JOIN releases
-    ON  c.appName= releases.appName
-    AND c.latestEslVersion = releases.eslversion
-    AND c.releaseVersion = releases.releaseVersion
-ORDER BY c.releaseVersion DESC
-LIMIT 1;
-`,
-	)
-	span.SetTag("query", selectQuery)
-	span.SetTag("appName", app)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		app,
-	)
-
-	result, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
-	span.SetTag("resultCount", len(result))
-	if err != nil {
-		span.Finish(tracer.WithError(err))
-		return nil, err
-	}
-	if result == nil {
-		return nil, nil
-	}
-	return result[0], nil
-}
-
-func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (*DBAllReleasesWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, metadata " +
-			" FROM all_releases " +
-			" WHERE appName=?" +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		app,
-	)
-	return h.processAllReleasesRow(ctx, err, rows)
-}
-
-func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (map[string][]int64, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfAllApps")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(`SELECT
-	all_releases.appname,
-		all_releases.metadata
-	FROM (
-		SELECT
-	MAX(eslVersion) AS latest,
-		appname
-	FROM
-		all_releases
-	GROUP BY
-		appname) AS latest
-	JOIN
-		all_releases AS all_releases
-	ON
-		latest.latest=all_releases.eslVersion
-		AND latest.appname=all_releases.appname;`)
-
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	return h.processAllReleasesForAllAppsRow(ctx, err, rows)
-}
-
-func (h *DBHandler) processAllReleasesForAllAppsRow(ctx context.Context, err error, rows *sql.Rows) (map[string][]int64, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllReleasesForAllAppsRow")
-	defer span.Finish()
-
-	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
-
-	var result = make(map[string][]int64)
-	for rows.Next() {
-		var appName string
-		var jsonReleases string
-
-		err := rows.Scan(&appName, &jsonReleases)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
-		}
-		var metaData = DBAllReleaseMetaData{
-			Releases: []int64{},
-		}
-
-		err = json.Unmarshal(([]byte)(jsonReleases), &metaData)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of releases. Error: %w. Data: %s\n", err, jsonReleases)
-		}
-		result[appName] = metaData.Releases
-	}
-
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (h *DBHandler) processAllReleasesRow(ctx context.Context, err error, rows *sql.Rows) (*DBAllReleasesWithMetaData, error) {
-	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
-	//exhaustruct:ignore
-	var row = &DBAllReleasesWithMetaData{}
-	if rows.Next() {
-		var metadataStr string
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
-		}
-		var metaData = DBAllReleaseMetaData{
-			Releases: []int64{},
-		}
-		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of releases. Error: %w. Data: %s\n", err, metadataStr)
-		}
-		row.Metadata = metaData
-	} else {
-		row = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return row, nil
-}
-
-func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows, ignorePrepublishes bool, withManifests bool) ([]*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processReleaseRows")
-	defer span.Finish()
-
-	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
-	//exhaustruct:ignore
-	var result []*DBReleaseWithMetaData
-	var lastSeenRelease uint64 = 0
-	for rows.Next() {
-		//exhaustruct:ignore
-		var row = &DBReleaseWithMetaData{}
-		var metadataStr string
-		var manifestStr string
-		var environmentsStr sql.NullString
-		var err error
-		if withManifests {
-			err = rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
-		} else {
-			err = rows.Scan(&row.EslVersion, &row.Created, &row.App, &metadataStr /*manifests*/, &row.ReleaseNumber, &row.Deleted, &environmentsStr)
-		}
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning releases row from DB withManifests=%v. Error: %w\n", withManifests, err)
-		}
-		if row.ReleaseNumber != lastSeenRelease {
-			lastSeenRelease = row.ReleaseNumber
-		} else {
-			continue
-		}
-		// handle meta data
-		var metaData = DBReleaseMetaData{
-			SourceAuthor:    "",
-			SourceCommitId:  "",
-			SourceMessage:   "",
-			DisplayVersion:  "",
-			UndeployVersion: false,
-			IsMinor:         false,
-			CiLink:          "",
-			IsPrepublish:    false,
-		}
-		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
-		}
-		row.Metadata = metaData
-
-		// handle manifests
-		var manifestData = DBReleaseManifests{
-			Manifests: map[string]string{},
-		}
-		if withManifests {
-			err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
-			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
-			}
-		}
-		row.Manifests = manifestData
-		environments := make([]string, 0)
-		if environmentsStr.Valid && environmentsStr.String != "" {
-			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
-			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s\n", err, environmentsStr.String)
-			}
-		}
-		row.Environments = environments
-		if ignorePrepublishes && row.Metadata.IsPrepublish {
-			continue
-		}
-		result = append(result, row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (h *DBHandler) DBInsertRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, previousEslVersion EslVersion) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertRelease")
-	defer span.Finish()
-	metadataJson, err := json.Marshal(release.Metadata)
-	if err != nil {
-		return fmt.Errorf("insert release: could not marshal json data: %w", err)
-	}
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO releases (eslVersion, created, releaseVersion, appName, manifests, metadata, deleted, environments)  VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
-	)
-	span.SetTag("query", insertQuery)
-	manifestJson, err := json.Marshal(release.Manifests)
-	if err != nil {
-		return fmt.Errorf("could not marshal json data: %w", err)
-	}
-
-	envs := make([]string, 0)
-	for env := range release.Manifests.Manifests {
-		envs = append(envs, env)
-	}
-	release.Environments = envs
-	slices.Sort(release.Environments) // we don't really *need* the sorting, it's just for convenience
-	environmentStr, err := json.Marshal(release.Environments)
-	if err != nil {
-		return fmt.Errorf("could not marshal release environments: %w", err)
-	}
-
-	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
-	}
-	_, err = transaction.Exec(
-		insertQuery,
-		previousEslVersion+1,
-		*now,
-		release.ReleaseNumber,
-		release.App,
-		manifestJson,
-		metadataJson,
-		release.Deleted,
-		environmentStr,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"could not insert release for app '%s' and version '%v' and eslVersion '%v' into DB. Error: %w\n",
-			release.App,
-			release.ReleaseNumber,
-			previousEslVersion+1,
-			err)
-	}
-
-	logger.FromContext(ctx).Sugar().Infof(
-		"inserted release: app '%s' and version '%v' and eslVersion %v",
-		release.App,
-		release.ReleaseNumber,
-		previousEslVersion+1)
-	return nil
-}
-
-func (h *DBHandler) DBDeleteReleaseFromAllReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteReleaseFromAllReleases")
-	defer span.Finish()
-
-	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
-	if err != nil {
-		return err
-	}
-	if allReleases == nil {
-		logger.FromContext(ctx).Sugar().Infof("Could not find release '%d' for appliation '%s' to delete. No releases found.", releaseToDelete, application)
-		return nil
-	}
-	idxToDelete := slices.Index(allReleases.Metadata.Releases, int64(releaseToDelete))
-
-	if idxToDelete == -1 {
-		logger.FromContext(ctx).Sugar().Infof("Could not find release '%d' for appliation '%s' to delete.", releaseToDelete, application)
-		return nil //If we don't find it, not an error, but we do nothing
-	}
-	allReleases.Metadata.Releases = append(allReleases.Metadata.Releases[:idxToDelete], allReleases.Metadata.Releases[idxToDelete+1:]...)
-	if err := h.DBInsertAllReleases(ctx, transaction, application, allReleases.Metadata.Releases, allReleases.EslVersion); err != nil {
-		return err
-	}
-	return nil
-}
-
-// DBClearReleases : Sets all_releases for app to empty list and marks every release as deleted
-func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, application string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBClearReleases")
-	defer span.Finish()
-
-	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
-	if err != nil {
-		return err
-	}
-	if allReleases == nil {
-		logger.FromContext(ctx).Sugar().Infof("App %s does not contain any releases. No action taken", application)
-		return nil
-	}
-	for _, releaseToDelete := range allReleases.Metadata.Releases {
-		err = h.DBDeleteFromReleases(ctx, transaction, application, uint64(releaseToDelete))
-		if err != nil {
-			return err
-		}
-	}
-
-	return h.DBInsertAllReleases(ctx, transaction, application, []int64{}, allReleases.EslVersion)
-}
-
-func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete uint64) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
-	defer span.Finish()
-
-	targetRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, application, releaseToDelete, true)
-	if err != nil {
-		return err
-	}
-
-	if targetRelease.Deleted {
-		logger.FromContext(ctx).Sugar().Infof("Release '%d' for application '%s' has already been deleted.", releaseToDelete, application)
-		return nil
-	}
-
-	targetRelease.Deleted = true
-	if err := h.DBInsertRelease(ctx, transaction, *targetRelease, targetRelease.EslVersion); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (h *DBHandler) DBInsertAllReleases(ctx context.Context, transaction *sql.Tx, app string, allVersions []int64, previousEslVersion EslVersion) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertAllReleases")
-	defer span.Finish()
-	slices.Sort(allVersions)
-	metadataJson, err := json.Marshal(DBAllReleaseMetaData{
-		Releases: allVersions,
-	})
-	if err != nil {
-		return fmt.Errorf("insert release: could not marshal json data: %w", err)
-	}
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO all_releases (eslVersion, created, appName, metadata)  VALUES (?, ?, ?, ?);",
-	)
-
-	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("DBInsertAllReleases unable to get transaction timestamp: %w", err)
-	}
-
-	span.SetTag("query", insertQuery)
-
-	_, err = transaction.Exec(
-		insertQuery,
-		previousEslVersion+1,
-		*now,
-		app,
-		metadataJson,
-	)
-	if err != nil {
-		return fmt.Errorf("could not insert all_releases for app '%s' and esl '%v' into DB. Error: %w\n", app, previousEslVersion+1, err)
-	}
-	logger.FromContext(ctx).Sugar().Infof("inserted all_releases for app '%s'", app)
-	return nil
 }
 
 // APPS
@@ -1703,32 +928,6 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	return &resultGo, nil
 }
 
-type DBDeployment struct {
-	EslVersion     EslVersion
-	Created        time.Time
-	ReleaseVersion *int64
-	App            string
-	Env            string
-	TransformerID  TransformerID
-	Metadata       string // json
-}
-
-type Deployment struct {
-	EslVersion    EslVersion
-	Created       time.Time
-	App           string
-	Env           string
-	Version       *int64
-	Metadata      DeploymentMetadata
-	TransformerID TransformerID
-}
-
-type DeploymentMetadata struct {
-	DeployedByName  string
-	DeployedByEmail string
-	CiLink          string
-}
-
 type EnvironmentLock struct {
 	EslVersion EslVersion
 	Created    time.Time
@@ -1803,7 +1002,6 @@ func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
 	writeAllDeploymentsFun WriteAllDeploymentsFun,
-	writeAllCurrentlyDeployedFun WriteAllDeploymentsFun,
 	writeAllReleasesFun WriteAllReleasesFun,
 	writeAllEnvLocksFun WriteAllEnvLocksFun,
 	writeAllAppLocksFun WriteAllAppLocksFun,
@@ -1823,10 +1021,6 @@ func (h *DBHandler) RunCustomMigrations(
 		return err
 	}
 	err = h.RunCustomMigrationDeployments(ctx, writeAllDeploymentsFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationAllDeployments(ctx, writeAllCurrentlyDeployedFun) //TODO: Merge with RunCustomMigrationDeployments
 	if err != nil {
 		return err
 	}
@@ -1857,444 +1051,6 @@ func (h *DBHandler) RunCustomMigrations(
 	return nil
 }
 
-func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
-	defer span.Finish()
-
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
-			" FROM deployments " +
-			" WHERE appName=? AND envName=? " +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		appSelector,
-		envSelector,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
-	return processDeployment(rows)
-}
-
-func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName string) (map[string]Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeployments")
-	defer span.Finish()
-
-	selectQuery := h.AdaptQuery(
-		`
-	SELECT
-		deployments.eslVersion,
-		deployments.created,
-		deployments.appname,
-		deployments.releaseVersion,
-		deployments.envName,
-		deployments.metadata
-	FROM (
-	SELECT
-		MAX(eslVersion) AS latest,
-		appname,
-		envname
-	FROM
-		deployments
-	GROUP BY
-		envName, appname
-	) AS latest
-	JOIN
-		deployments AS deployments
-	ON
-		latest.latest=deployments.eslVersion
-		AND latest.appname=deployments.appname
-		AND latest.envName=deployments.envName
-	WHERE deployments.appname = (?) AND deployments.releaseVersion IS NOT NULL ;`)
-
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		appName,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
-	return processAllLatestDeploymentsForApp(rows)
-}
-
-func (h *DBHandler) DBSelectAllLatestDeployments(ctx context.Context, tx *sql.Tx, envName string) (map[string]*int64, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeployments")
-	defer span.Finish()
-
-	selectQuery := h.AdaptQuery(
-		`SELECT
- deployments.appname,
- deployments.releaseVersion
-FROM (
- SELECT
-   MAX(eslVersion) AS latest,
-   appname,
-   envname
- FROM
-   deployments
- GROUP BY
-   envName, appname) AS latest
-JOIN
- deployments AS deployments
-ON
- latest.latest=deployments.eslVersion
- AND latest.appname=deployments.appname
- AND latest.envName=deployments.envName
-WHERE deployments.envName= ?;
-`)
-
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		envName,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
-	return processAllLatestDeployments(rows)
-}
-
-func processAllLatestDeployments(rows *sql.Rows) (map[string]*int64, error) {
-	result := make(map[string]*int64)
-	for rows.Next() {
-		var releaseVersion sql.NullInt64
-		var appName string
-		err := rows.Scan(&appName, &releaseVersion)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
-		}
-
-		if releaseVersion.Valid {
-			result[appName] = &releaseVersion.Int64
-		}
-	}
-	err := rows.Close()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
-	}
-	return result, nil
-}
-
-func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, error) {
-	result := make(map[string]Deployment)
-	for rows.Next() {
-		var curr = Deployment{
-			EslVersion: 0,
-			Created:    time.Time{},
-			Env:        "",
-			App:        "",
-			Version:    nil,
-			Metadata: DeploymentMetadata{
-				DeployedByName:  "",
-				DeployedByEmail: "",
-				CiLink:          "",
-			},
-			TransformerID: 0,
-		}
-		var releaseVersion sql.NullInt64
-		var jsonMetadata string
-		err := rows.Scan(&curr.EslVersion, &curr.Created, &curr.App, &releaseVersion, &curr.Env, &jsonMetadata)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
-		}
-		err = json.Unmarshal(([]byte)(jsonMetadata), &curr.Metadata)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, jsonMetadata)
-		}
-		if releaseVersion.Valid {
-			curr.Version = &releaseVersion.Int64
-		}
-		result[curr.Env] = curr
-	}
-	err := rows.Close()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
-	}
-	return result, nil
-}
-
-func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeployment")
-	defer span.Finish()
-
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
-			" FROM deployments " +
-			" WHERE appName=? AND envName=? and releaseVersion=?" +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		appSelector,
-		envSelector,
-		releaseVersion,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select deployment from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
-	return processDeployment(rows)
-}
-
-func processDeployment(rows *sql.Rows) (*Deployment, error) {
-	var releaseVersion sql.NullInt64
-	var row = &DBDeployment{
-		EslVersion:     0,
-		Created:        time.Time{},
-		ReleaseVersion: nil,
-		App:            "",
-		Env:            "",
-		Metadata:       "",
-		TransformerID:  0,
-	}
-	//exhaustruct:ignore
-	var resultJson = DeploymentMetadata{}
-	if rows.Next() {
-		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
-		}
-		if releaseVersion.Valid {
-			row.ReleaseVersion = &releaseVersion.Int64
-		}
-
-		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
-		}
-	}
-	err := rows.Close()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row closing error: %v\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
-	}
-	return &Deployment{
-		EslVersion:    row.EslVersion,
-		Created:       row.Created,
-		App:           row.App,
-		Env:           row.Env,
-		Version:       row.ReleaseVersion,
-		Metadata:      resultJson,
-		TransformerID: row.TransformerID,
-	}, nil
-}
-
-func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, limit int) ([]Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistory")
-	defer span.Finish()
-
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
-			" FROM deployments " +
-			" WHERE appName=? AND envName=? " +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT ?;"))
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		appSelector,
-		envSelector,
-		limit,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select deployment history from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
-
-	result := make([]Deployment, 0)
-
-	for rows.Next() {
-		row, err := h.processSingleDeploymentRow(ctx, rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, *row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
-	defer span.Finish()
-
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion" +
-			" FROM deployments " +
-			" WHERE transformereslVersion=? " +
-			" ORDER BY eslVersion DESC " +
-			" LIMIT ?;"))
-
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		transformerID,
-		limit,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select deployments by transformer id from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
-	deployments := make([]Deployment, 0)
-	for rows.Next() {
-		row, err := h.processSingleDeploymentRow(ctx, rows)
-		if err != nil {
-			return nil, err
-		}
-		deployments = append(deployments, *row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return deployments, nil
-}
-
-func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBDeployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyDeployment")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, releaseVersion, appName, envName" +
-			" FROM deployments " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not select any deployments from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments row could not be closed: %v", err)
-		}
-	}(rows)
-	//exhaustruct:ignore
-	var row = &DBDeployment{}
-	if rows.Next() {
-		var releaseVersion sql.NullInt64
-		err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
-		}
-		if releaseVersion.Valid {
-			row.ReleaseVersion = &releaseVersion.Int64
-		}
-	} else {
-		row = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return row, nil
-}
-
-func (h *DBHandler) DBAllDeploymentsContainsData(ctx context.Context, tx *sql.Tx) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBAllDeploymentsContainsData")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, created, appName, json" +
-			" FROM all_deployments " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	if err != nil {
-		return false, fmt.Errorf("could not select any all_deployments from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("all_deployments row could not be closed: %v", err)
-		}
-	}(rows)
-	//exhaustruct:ignore
-	result := rows.Next()
-
-	err = closeRows(rows)
-	if err != nil {
-		return false, err
-	}
-	return result, nil
-}
-
 type DBApp struct {
 	EslVersion EslVersion
 	App        string
@@ -2305,13 +1061,12 @@ type DBAppMetaData struct {
 }
 
 type DBAppWithMetaData struct {
-	EslVersion  EslVersion
 	App         string
 	Metadata    DBAppMetaData
 	StateChange AppStateChange
 }
 
-func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, previousEslVersion EslVersion, stateChange AppStateChange, metaData DBAppMetaData) error {
+func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertApplication")
 	defer span.Finish()
 	log := logger.FromContext(ctx).Sugar()
@@ -2322,7 +1077,7 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO apps (eslVersion, created, appName, stateChange, metadata)  VALUES (?, ?, ?, ?, ?);",
+		"INSERT INTO apps (created, appName, stateChange, metadata)  VALUES (?, ?, ?, ?);",
 	)
 	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
@@ -2331,7 +1086,6 @@ func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx
 	span.SetTag("query", insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
-		previousEslVersion+1,
 		*now,
 		appName,
 		stateChange,
@@ -2360,7 +1114,7 @@ func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithM
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, metadata " +
+		"SELECT appName, metadata " +
 			" FROM apps " +
 			" LIMIT 1;"))
 	span.SetTag("query", selectQuery)
@@ -2381,7 +1135,7 @@ func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithM
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
-		err := rows.Scan(&row.EslVersion, &row.App, &metadataStr)
+		err := rows.Scan(&row.App, &metadataStr)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -2410,10 +1164,10 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, stateChange, metadata" +
+		"SELECT appName, stateChange, metadata" +
 			" FROM apps " +
 			" WHERE appName=? " +
-			" ORDER BY eslVersion DESC " +
+			" ORDER BY version DESC " +
 			" LIMIT 1;"))
 	span.SetTag("query", selectQuery)
 
@@ -2425,14 +1179,43 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	return h.processAppsRow(ctx, rows, err)
 }
 
+func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) ([]*DBAppWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`
+SELECT
+	apps.appname,
+	apps.stateChange,
+	apps.metadata
+FROM (
+	SELECT
+	MAX(version) AS latest,
+	appname
+FROM
+	"apps"
+GROUP BY
+	appName
+) AS latest
+JOIN
+	apps AS apps 
+ON
+latest.latest=apps.version
+AND latest.appname=apps.appname
+	`)
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(ctx, selectQuery)
+
+	return h.processAppsRows(ctx, rows, err)
+}
+
 func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*DBAppWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppAtTimestamp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT eslVersion, appName, stateChange, metadata" +
+		"SELECT appName, stateChange, metadata" +
 			" FROM apps " +
 			" WHERE appName=? AND created <= ?" +
-			" ORDER BY eslVersion DESC " +
+			" ORDER BY version DESC " +
 			" LIMIT 1;"))
 	span.SetTag("query", selectQuery)
 
@@ -2443,6 +1226,43 @@ func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appN
 		ts,
 	)
 	return h.processAppsRow(ctx, rows, err)
+}
+
+func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]*DBAppWithMetaData, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
+		}
+	}(rows)
+	var result []*DBAppWithMetaData
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row = &DBAppWithMetaData{}
+		var metadataStr string
+		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
+		}
+		var metaData = DBAppMetaData{Team: ""}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		row.Metadata = metaData
+		result = append(result, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err error) (*DBAppWithMetaData, error) {
@@ -2477,7 +1297,7 @@ func processAppRow(ctx context.Context, rows *sql.Rows) (*DBAppWithMetaData, err
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
 		var metadataStr string
-		err := rows.Scan(&row.EslVersion, &row.App, &row.StateChange, &metadataStr)
+		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -2498,170 +1318,6 @@ func processAppRow(ctx context.Context, rows *sql.Rows) (*DBAppWithMetaData, err
 		return nil, err
 	}
 	return row, nil
-}
-
-// DBWriteDeployment writes one deployment, meaning "what should be deployed"
-func (h *DBHandler) DBWriteDeployment(ctx context.Context, tx *sql.Tx, deployment Deployment, previousEslVersion EslVersion, skipOverview bool) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeployment")
-	defer span.Finish()
-	if h == nil {
-		return nil
-	}
-	if tx == nil {
-		return fmt.Errorf("DBWriteDeployment: no transaction provided")
-	}
-
-	jsonToInsert, err := json.Marshal(deployment.Metadata)
-	if err != nil {
-		return fmt.Errorf("could not marshal json data: %w", err)
-	}
-
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO deployments (eslVersion, created, releaseVersion, appName, envName, metadata, transformereslVersion) VALUES (?, ?, ?, ?, ?, ?, ?);")
-
-	now, err := h.DBReadTransactionTimestamp(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("DBWriteDeployment unable to get transaction timestamp: %w", err)
-	}
-	span.SetTag("query", insertQuery)
-	nullVersion := NewNullInt(deployment.Version)
-
-	_, err = tx.Exec(
-		insertQuery,
-		previousEslVersion+1,
-		*now,
-		nullVersion,
-		deployment.App,
-		deployment.Env,
-		jsonToInsert,
-		deployment.TransformerID)
-
-	if err != nil {
-		return fmt.Errorf("could not write deployment into DB. Error: %w\n", err)
-	}
-	return nil
-}
-
-// DBSelectAllDeploymentsForApp Returns most recent version of deployments for app with name 'appName'
-func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (*AllDeploymentsForApp, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
-	defer span.Finish()
-	if h == nil {
-		return nil, nil
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("DBSelectAllDeploymentsForApp: no transaction provided")
-	}
-
-	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, appName, json FROM all_deployments WHERE appName = (?) ORDER BY eslVersion DESC LIMIT 1;")
-
-	span.SetTag("query", insertQuery)
-	rows, err := tx.Query(
-		insertQuery,
-		appName,
-	)
-
-	return h.processAllDeploymentRow(ctx, err, rows)
-}
-
-// DBSelectAllDeploymentsForAppAtTimestamp Returns most recent version of deployments for app with name 'appName' at timestamp ts
-func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*AllDeploymentsForApp, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForAppAtTimestamp")
-	defer span.Finish()
-	if h == nil {
-		return nil, nil
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("DBSelectAllDeploymentsForAppAtTimestamp: no transaction provided")
-	}
-
-	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, appName, json " +
-			"FROM all_deployments " +
-			"WHERE appName = (?) AND created <= (?) " +
-			"ORDER BY eslVersion " +
-			"DESC LIMIT 1;")
-
-	span.SetTag("query", insertQuery)
-	rows, err := tx.Query(
-		insertQuery,
-		appName,
-		ts,
-	)
-
-	return h.processAllDeploymentRow(ctx, err, rows)
-}
-
-// DBUpdateAllDeploymentsForApp Updates table entry for application with name 'appName' with 'envName' -> 'version'
-func (h *DBHandler) DBUpdateAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName, envName string, version int64) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
-	defer span.Finish()
-	if h == nil {
-		return nil
-	}
-	if tx == nil {
-		return fmt.Errorf("DBUpdateAllDeploymentsForApp: no transaction provided")
-	}
-
-	//Get current deployment information for app
-	currentAllDeployments, err := h.DBSelectAllDeploymentsForApp(ctx, tx, appName)
-	if err != nil {
-		return fmt.Errorf("could not read current all deployments for app: '%s': %v", appName, err)
-	}
-
-	//Update current deployment layout with envName -> version
-	var deploymentsMap map[string]int64
-	var previousVersion EslVersion
-	if currentAllDeployments == nil { //New app
-		deploymentsMap = map[string]int64{}
-		previousVersion = 0
-	} else {
-		deploymentsMap = currentAllDeployments.Deployments
-		previousVersion = currentAllDeployments.Version
-
-	}
-	deploymentsMap[envName] = version
-
-	//Insert new information into the db
-	err = h.DBWriteAllDeploymentsForApp(ctx, tx, int(previousVersion), appName, deploymentsMap)
-	if err != nil {
-		return fmt.Errorf("could not write all deployments for app: '%s': %v", appName, err)
-	}
-	return nil
-}
-
-// DBClearAllDeploymentsForApp Clears all deployments map. Used when undeploying an application
-func (h *DBHandler) DBClearAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateAllDeploymentsForApp")
-	defer span.Finish()
-	if h == nil {
-		return nil
-	}
-	if tx == nil {
-		return fmt.Errorf("DBClearAllDeploymentsForApp: no transaction provided")
-	}
-
-	//Get current deployment information for app
-	currentAllDeployments, err := h.DBSelectAllDeploymentsForApp(ctx, tx, appName)
-	if err != nil {
-		return fmt.Errorf("could not read current all deployments for app: '%s': %v", appName, err)
-	}
-
-	deploymentsMap := map[string]int64{} //EmptyMap
-	var previousVersion EslVersion
-	if currentAllDeployments == nil {
-		previousVersion = 0
-	} else {
-		previousVersion = currentAllDeployments.Version
-	}
-
-	//Insert new information into the db
-	err = h.DBWriteAllDeploymentsForApp(ctx, tx, int(previousVersion), appName, deploymentsMap)
-	if err != nil {
-		return fmt.Errorf("could not write all deployments for app: '%s': %v", appName, err)
-	}
-	return nil
 }
 
 // CUSTOM MIGRATIONS
@@ -2731,27 +1387,6 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 	})
 }
 
-func (h *DBHandler) RunCustomMigrationAllDeployments(ctx context.Context, writeAllDeployments WriteAllDeploymentsFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsAllDeploymentsMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-		err = writeAllDeployments(ctx, transaction, h)
-		if err != nil {
-			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
-		}
-
-		return nil
-	})
-}
-
 func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
 	allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
@@ -2763,19 +1398,6 @@ func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction 
 		return false, nil
 	}
 	return true, nil
-}
-
-func (h *DBHandler) needsAllDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	contains, err := h.DBAllDeploymentsContainsData(ctx, transaction)
-	if err != nil {
-		return true, err
-	}
-	if contains {
-		l.Warnf("There are already all_deployments in the DB - skipping migrations")
-		return !contains, nil
-	}
-	return !contains, nil
 }
 
 type AllApplicationsJson struct {
@@ -2957,7 +1579,6 @@ func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 			(*DBHandler).needsTeamLocksMigrations,
 			(*DBHandler).needsCommitEventsMigrations,
 			(*DBHandler).needsEnvironmentsMigrations,
-			(*DBHandler).needsAllDeploymentsMigrations,
 		}
 		for i := range checkFunctions {
 			f := checkFunctions[i]
@@ -3111,7 +1732,7 @@ func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql
 	defer span.Finish()
 
 	for app, team := range *appsMap {
-		err := h.DBInsertApplication(ctx, transaction, app, InitialEslVersion, AppStateChangeMigrate, DBAppMetaData{Team: team})
+		err := h.DBInsertApplication(ctx, transaction, app, AppStateChangeMigrate, DBAppMetaData{Team: team})
 		if err != nil {
 			return fmt.Errorf("could not write dbApp %s: %v", app, err)
 		}
@@ -5036,6 +3657,94 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
+func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context, tx *sql.Tx, environmentName string) ([]*QueuedDeployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttemptOfAllApps")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectLatestDeploymentAttemptOfAllApps: no transaction provided")
+	}
+	query := h.AdaptQuery(
+		`
+	SELECT DISTINCT
+		deployment_attempts.eslversion,
+		deployment_attempts.created,
+		deployment_attempts.envName,
+		deployment_attempts.appName,
+		deployment_attempts.queuedReleaseVersion
+	FROM (
+		SELECT
+			MAX(eslversion) AS latestRelease,
+			appname,
+			envName
+		FROM
+			"deployment_attempts"
+		GROUP BY
+			envname, appname) AS latest
+	JOIN
+		deployment_attempts AS deployment_attempts 
+	ON
+		latest.latestRelease=deployment_attempts.eslVersion
+		AND latest.envName=deployment_attempts.envName
+		AND latest.appname=deployment_attempts.appname
+	WHERE deployment_attempts.envName=?
+	ORDER BY deployment_attempts.eslversion DESC;
+	`)
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(
+		ctx,
+		query,
+		environmentName)
+	return h.processDeploymentAttemptsRows(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context.Context, tx *sql.Tx, appName string) ([]*QueuedDeployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttemptOnAllEnvironments")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectLatestDeploymentAttemptOnAllEnvironments: no transaction provided")
+	}
+	query := h.AdaptQuery(
+		`
+	SELECT DISTINCT
+		deployment_attempts.eslversion,
+		deployment_attempts.created,
+		deployment_attempts.envname,
+		deployment_attempts.appname,
+		deployment_attempts.queuedReleaseVersion
+	FROM (
+		SELECT
+			MAX(eslversion) AS latestRelease,
+			appname,
+			envname
+		FROM
+			"deployment_attempts"
+		GROUP BY
+			envname, appname) AS latest
+	JOIN
+		deployment_attempts AS deployment_attempts
+	ON
+		latest.latestRelease=deployment_attempts.eslVersion
+		AND latest.envname=deployment_attempts.envname
+		AND latest.appname=deployment_attempts.appname
+	WHERE deployment_attempts.appname=?
+	ORDER BY deployment_attempts.eslversion DESC;
+	`)
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(
+		ctx,
+		query,
+		appName)
+	return h.processDeploymentAttemptsRows(ctx, rows, err)
+}
+
 func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64, skipOverview bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
@@ -5119,6 +3828,31 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	return nil
 }
 
+func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql.Rows, err error) ([]*QueuedDeployment, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	var results []*QueuedDeployment
+	for rows.Next() {
+		row, err := h.processSingleDeploymentAttemptsRow(ctx, rows)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows, err error) (*QueuedDeployment, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
@@ -5164,48 +3898,6 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 
 }
 
-// processSingleDeploymentRow only processes the row. It assumes that there is an element ready to be processed in rows.
-func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Rows) (*Deployment, error) {
-	var row = &DBDeployment{
-		EslVersion:     0,
-		Created:        time.Time{},
-		ReleaseVersion: nil,
-		App:            "",
-		Env:            "",
-		Metadata:       "",
-		TransformerID:  0,
-	}
-	var releaseVersion sql.NullInt64
-	//exhaustruct:ignore
-	var resultJson = DeploymentMetadata{}
-
-	err := rows.Scan(&row.EslVersion, &row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
-	}
-	if releaseVersion.Valid {
-		row.ReleaseVersion = &releaseVersion.Int64
-	}
-
-	err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
-	if err != nil {
-		return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
-	}
-
-	return &Deployment{
-		EslVersion:    row.EslVersion,
-		Created:       row.Created,
-		App:           row.App,
-		Env:           row.Env,
-		Version:       row.ReleaseVersion,
-		Metadata:      resultJson,
-		TransformerID: row.TransformerID,
-	}, nil
-}
-
 // Environments
 
 type DBAllEnvironments struct {
@@ -5222,7 +3914,6 @@ type DBAllEnvironmentsRow struct {
 
 type DBEnvironment struct {
 	Created      time.Time
-	Version      int64
 	Name         string
 	Config       config.EnvironmentConfig
 	Applications []string
@@ -5230,15 +3921,12 @@ type DBEnvironment struct {
 
 type DBEnvironmentRow struct {
 	Created      time.Time
-	Version      int64
 	Name         string
 	Config       string
 	Applications string
 }
 
-func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironment, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "EnvironmentFromRow")
-	defer span.Finish()
+func EnvironmentFromRow(_ context.Context, row *DBEnvironmentRow) (*DBEnvironment, error) {
 	//exhaustruct:ignore
 	parsedConfig := config.EnvironmentConfig{}
 	err := json.Unmarshal([]byte(row.Config), &parsedConfig)
@@ -5252,7 +3940,6 @@ func EnvironmentFromRow(ctx context.Context, row *DBEnvironmentRow) (*DBEnvironm
 	}
 	return &DBEnvironment{
 		Created:      row.Created,
-		Version:      row.Version,
 		Name:         row.Name,
 		Config:       parsedConfig,
 		Applications: applications,
@@ -5265,7 +3952,7 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 
 	selectQuery := h.AdaptQuery(
 		`
-SELECT created, version, name, json, applications
+SELECT created, name, json, applications
 FROM environments
 WHERE name=? AND deleted=false
 ORDER BY version DESC
@@ -5273,6 +3960,7 @@ LIMIT 1;
 `,
 	)
 	span.SetTag("query", selectQuery)
+	span.SetTag("name", environmentName)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -5292,7 +3980,7 @@ func (h *DBHandler) DBSelectEnvironmentAtTimestamp(ctx context.Context, tx *sql.
 
 	selectQuery := h.AdaptQuery(
 		`
-SELECT created, version, name, json, applications
+SELECT created, name, json, applications
 FROM environments
 WHERE name=? AND deleted=false AND created <= ? 
 ORDER BY version DESC
@@ -5325,7 +4013,7 @@ func (h *DBHandler) processEnvironmentRow(ctx context.Context, rows *sql.Rows) (
 	if rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
+		err := rows.Scan(&row.Created, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -5355,7 +4043,6 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 		`
 SELECT
   environments.created AS created,
-  environments.version AS version,
   environments.name AS name,
   environments.json AS json,
   environments.applications AS applications
@@ -5405,7 +4092,7 @@ LIMIT ?
 	for rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Version, &row.Name, &row.Config, &row.Applications)
+		err := rows.Scan(&row.Created, &row.Name, &row.Config, &row.Applications)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -5421,6 +4108,8 @@ LIMIT ?
 	return &envs, nil
 }
 
+// DBWriteEnvironment writes the env to the db
+// if the previousVersion is not supplied, it will do another request to get the environment.
 func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
@@ -5436,25 +4125,18 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	if err != nil {
 		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
 	}
-	existingEnvironment, err := h.DBSelectEnvironment(ctx, tx, environmentName)
 	if err != nil {
 		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
 	}
+
 	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
 	applicationsJson, err := json.Marshal(applications)
 	if err != nil {
 		return fmt.Errorf("could not marshal the application names list %v, error: %w", applicationsJson, err)
 	}
 
-	var existingEnvironmentVersion int64
-	if existingEnvironment == nil {
-		existingEnvironmentVersion = 0
-	} else {
-		existingEnvironmentVersion = existingEnvironment.Version
-	}
-
 	insertQuery := h.AdaptQuery(
-		"INSERT Into environments (created, version, name, json, applications, deleted) VALUES (?, ?, ?, ?, ?, ?);",
+		"INSERT Into environments (created, name, json, applications, deleted) VALUES (?, ?, ?, ?, ?);",
 	)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -5464,7 +4146,6 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	_, err = tx.Exec(
 		insertQuery,
 		*now,
-		existingEnvironmentVersion+1,
 		environmentName,
 		jsonToInsert,
 		string(applicationsJson),
@@ -5762,7 +4443,7 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) e
 			}
 			logger.FromContext(ctx).Sugar().Infof("updating %d releases environments", len(releasesWithoutEnvironments))
 			for _, release := range releasesWithoutEnvironments {
-				err = h.DBInsertRelease(ctx, transaction, *release, release.EslVersion)
+				err = h.DBUpdateOrCreateRelease(ctx, transaction, *release)
 				if err != nil {
 					return fmt.Errorf("could not insert release, error: %w", err)
 				}
@@ -5957,100 +4638,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 	return failedEsls, nil
 }
 
-type AllDeploymentsForApp struct {
-	Version     EslVersion       `json:"version"`
-	AppName     string           `json:"appName"`
-	Deployments map[string]int64 `json:"deployments"` //Maps environment name to release version
-}
-
-func (h *DBHandler) DBWriteAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, prev int, appName string, environmentDeployments map[string]int64) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllDeploymentsForApp")
-	defer span.Finish()
-
-	if h == nil {
-		return nil
-	}
-	if tx == nil {
-		return fmt.Errorf("attempting to write to the all_deployments table without a transaction")
-	}
-
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO all_deployments (eslVersion, created, appName, json) VALUES (?, ?, ?, ?);",
-	)
-	now, err := h.DBReadTransactionTimestamp(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("DBWriteAllDeploymentsForApp unable to get transaction timestamp: %w", err)
-	}
-	jsonDeployments, err := json.Marshal(environmentDeployments)
-	if err != nil {
-		return fmt.Errorf("could not marshall deployments for app: '%s': %v\n", appName, err)
-	}
-
-	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
-		insertQuery,
-		prev+1,
-		*now,
-		appName,
-		jsonDeployments,
-	)
-	if err != nil {
-		return fmt.Errorf("DBWriteAllDeploymentsForApp error executing query: %w", err)
-	}
-	return nil
-}
-
-type DBAllDeploymentsForAppRow struct {
-	EslVersion      EslVersion
-	Created         time.Time
-	AppName         string
-	DeploymentsJson string
-}
-
-func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (*AllDeploymentsForApp, error) {
-	if err != nil {
-		return nil, fmt.Errorf("could not query all_deployments table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("all_deployments: row could not be closed: %v", err)
-		}
-	}(rows)
-	//exhaustruct:ignore
-	var row = &DBAllDeploymentsForAppRow{}
-	//exhaustruct:ignore
-	var deployments = &AllDeploymentsForApp{}
-	if rows.Next() {
-
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.AppName, &row.DeploymentsJson)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning oldest_deployments row from DB. Error: %w\n", err)
-		}
-		err = json.Unmarshal([]byte(row.DeploymentsJson), &deployments.Deployments)
-		if err != nil {
-			return nil, fmt.Errorf("Error unmarshalling all deployments. Error: %w\n", err)
-		}
-		deployments.AppName = row.AppName
-		deployments.Version = row.EslVersion
-	} else {
-		row = nil
-		deployments = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return deployments, nil
-}
-
 func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) (*time.Time, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadTransactionTimestamp")
-	defer span.Finish()
-
 	if h == nil {
 		return nil, nil
 	}
@@ -6064,7 +4652,6 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	} else {
 		query = "select now();"
 	}
-	span.SetTag("query", query)
 	rows, err := tx.QueryContext(
 		ctx,
 		query,

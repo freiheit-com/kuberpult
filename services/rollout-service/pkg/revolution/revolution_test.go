@@ -133,6 +133,119 @@ func TestRevolution(t *testing.T) {
 							DeployedAt:     time.Date(2024, 2, 14, 12, 15, 0, 0, time.UTC),
 						},
 					},
+
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:  "foo",
+						Application:  "bar",
+						IsProduction: true,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Date(2024, 2, 15, 12, 15, 0, 0, time.UTC),
+						},
+					},
+
+					ExpectedRequest: nil,
+				},
+			},
+		},
+		{
+			Name: "don't notify on a lone kuberpult event",
+			Now:  time.Unix(123456789, 0).UTC(),
+			Steps: []step{
+				{
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:      "fakeprod",
+						Application:      "foo",
+						EnvironmentGroup: "prod",
+						IsProduction:     true,
+						Team:             "bar",
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					ExpectedRequest: nil,
+				},
+			},
+		},
+		{
+			Name: "don't notify on a lone argo event",
+			Now:  time.Unix(123456789, 0).UTC(),
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusDegraded,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					ExpectedRequest: nil,
+				},
+			},
+		},
+		{
+			Name: "don't notify on non production env",
+			Now:  time.Unix(123456789, 0).UTC(),
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:  "foo",
+						Application:  "bar",
+						IsProduction: false,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					ExpectedRequest: nil,
+				},
+			},
+		},
+		{
+			Name: "don't notify on non production env",
+			Now:  time.Unix(123456789, 0).UTC(),
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:  "foo",
+						Application:  "bar",
+						IsProduction: false,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
+						},
+					},
 					ExpectedRequest: nil,
 				},
 			},
@@ -142,17 +255,22 @@ func TestRevolution(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			reqCh := make(chan *request)
+			ctx, cancel := context.WithCancel(context.Background())
 			revolution := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, _ := io.ReadAll(r.Body)
 				hdr := r.Header.Clone()
 				hdr.Del("Accept-Encoding")
 				hdr.Del("Content-Length")
-				reqCh <- &request{
+				select {
+				case reqCh <- &request{
 					Url:    r.URL.String(),
 					Header: hdr,
 					Body:   string(body),
+				}:
+					w.WriteHeader(http.StatusOK)
+				case <-ctx.Done():
+					t.Errorf("Ended test with requests left to process")
 				}
-				w.WriteHeader(http.StatusOK)
 			}))
 			readyCh := make(chan struct{}, 1)
 			bc := service.New()
@@ -165,7 +283,6 @@ func TestRevolution(t *testing.T) {
 			})
 			cs.ready = func() { readyCh <- struct{}{} }
 			cs.now = func() time.Time { return tc.Now }
-			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
 				errCh <- cs.Subscribe(ctx, bc)
 			}()

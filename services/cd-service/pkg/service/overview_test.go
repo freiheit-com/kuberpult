@@ -358,9 +358,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
 									EnvironmentGroup: &dev,
 								},
 								Priority: api.Priority_UPSTREAM,
@@ -377,9 +375,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: &development,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
 									EnvironmentGroup: &staging,
 								},
 								DistanceToUpstream: 1,
@@ -793,6 +789,8 @@ func TestGetApplicationDetails(t *testing.T) {
 	var dev = "dev"
 	var env = "development"
 	var secondEnv = "development2"
+	var stagingGroup = "stagingGroup"
+	var thirdEnv = "staging"
 	var appName = "test-app"
 	tcs := []struct {
 		Name             string
@@ -955,6 +953,140 @@ func TestGetApplicationDetails(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:    "Get App details doesn't return deployments on releases without the corresponding environment",
+			AppName: appName,
+			ExpectedResponse: &api.GetAppDetailsResponse{
+				Application: &api.Application{
+					Name: appName,
+					Releases: []*api.Release{
+						{
+							Version:        3,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{env, thirdEnv},
+						},
+						{
+							Version:        2,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							IsMinor:        true,
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{env},
+						},
+						{
+							Version:        1,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{env},
+						},
+					},
+					Team: "team-123",
+				},
+				TeamLocks: map[string]*api.Locks{},
+				AppLocks:  map[string]*api.Locks{},
+				Deployments: map[string]*api.Deployment{
+					env: {
+						Version:         3,
+						QueuedVersion:   0,
+						UndeployVersion: false,
+						DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+							DeployAuthor: "test tester",
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: thirdEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: env,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &stagingGroup,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:      "v1",
+						thirdEnv: "v2",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:      "v1",
+						thirdEnv: "v2",
+					},
+				},
+				&repository.DeployApplicationVersion{
+					Environment: thirdEnv,
+					Application: appName,
+					Version:     1,
+				},
+				&repository.DeleteEnvFromApp{
+					Application: appName,
+					Environment: thirdEnv,
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               3,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:      "v1",
+						thirdEnv: "v2",
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -1011,12 +1143,16 @@ func TestGetApplicationDetails(t *testing.T) {
 			}
 
 			//Deployments
-			expectedDeployment := expected.Deployments[env]
-			resultDeployment := resp.Deployments[env]
-
-			if diff := cmp.Diff(expectedDeployment, resultDeployment, cmpopts.IgnoreUnexported(api.Deployment{}), cmpopts.IgnoreUnexported(api.Deployment_DeploymentMetaData{}), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime")); diff != "" {
-				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			environmentsToCheck := []string{env, thirdEnv}
+			for _, environmentToCheck := range environmentsToCheck {
+				t.Logf("Checking %s", environmentToCheck)
+				expectedDeployment := expected.Deployments[environmentToCheck]
+				resultDeployment := resp.Deployments[environmentToCheck]
+				if diff := cmp.Diff(expectedDeployment, resultDeployment, cmpopts.IgnoreUnexported(api.Deployment{}), cmpopts.IgnoreUnexported(api.Deployment_DeploymentMetaData{}), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
 			}
+
 			//Locks
 			if diff := cmp.Diff(expected.AppLocks, resp.AppLocks, cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{})); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)

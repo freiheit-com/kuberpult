@@ -481,7 +481,7 @@ func TestServer_Handle(t *testing.T) {
   "upstream": {
     "latest": true
   },
-  "environment_group": "*"
+  "environmentGroup": "*"
 }
 `},
 					},

@@ -1809,7 +1809,7 @@ func (u *UndeployApplication) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, u.Application, true)
+	lastRelease, err := state.DBHandler.DBSelectLatestReleaseOfApp(ctx, transaction, u.Application, true)
 	if err != nil {
 		return "", err
 	}

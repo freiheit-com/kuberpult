@@ -448,7 +448,7 @@ func TestDBDeleteOldOverview(t *testing.T) {
 			},
 			timeThresholdDiff:                  -300 * time.Second,
 			numberOfOverviewsToKeep:            0,
-			expectedNumberOfRemainingOverviews: 4,
+			expectedNumberOfRemainingOverviews: 5,
 		},
 		{
 			Name: "4 overviews, late time threshold, zero to remain",
@@ -643,7 +643,7 @@ func TestUpdateOverviewApplicationLock(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBInsertApplication(ctx, transaction, "test", 0, AppStateChangeCreate, DBAppMetaData{})
+				err := dbHandler.DBInsertApplication(ctx, transaction, "test", AppStateChangeCreate, DBAppMetaData{})
 				if err != nil {
 					return err
 				}

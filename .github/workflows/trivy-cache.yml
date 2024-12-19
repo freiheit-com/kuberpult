@@ -1,0 +1,53 @@
+name: "Trivy DB Caching"
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    env:
+      RETRIES: 10
+    steps: 
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install oras
+      uses: oras-project/setup-oras@v1
+      with:
+        url: https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz
+        checksum: 5b3f1cbb86d869eee68120b9b45b9be983f3738442f87ee5f06b00edd0bab336 
+
+    - uses: google-github-actions/auth@v2
+      name: "Authenticate to Google Cloud"
+      with:
+        credentials_json: '${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}'
+
+    - name: gcloud authorize
+      run: |
+        gcloud auth configure-docker europe-west3-docker.pkg.dev
+
+    - name: Cache trivy
+      run: |
+        ./trivy/cache_db_image.sh $RETRIES
+
+  send-alert:
+    name: "Send alert in cache failed."
+    if: ${{ failure() }}
+    needs: cache
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Run curl to the Slack webhook
+      run: |
+        curl \
+        --request POST \
+        --header "Content-Type: application/json" \
+        --data '{"text": ":warning::warning: Failed daily cache of the trivy-db image in <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>.\n"}' \
+        --fail \
+        ${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}

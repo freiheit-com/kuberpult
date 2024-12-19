@@ -57,11 +57,12 @@ type Config struct {
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
 
-	ArgocdServer             string `split_words:"true"`
-	ArgocdInsecure           bool   `default:"false" split_words:"true"`
-	ArgocdToken              string `split_words:"true"`
-	ArgocdRefreshEnabled     bool   `split_words:"true"`
-	ArgocdRefreshConcurrency int    `default:"50" split_words:"true"`
+	ArgocdServer                      string `split_words:"true"`
+	ArgocdInsecure                    bool   `default:"false" split_words:"true"`
+	ArgocdToken                       string `split_words:"true"`
+	ArgocdRefreshEnabled              bool   `split_words:"true"`
+	ArgocdRefreshConcurrency          int    `default:"50" split_words:"true"`
+	ArgocdRefreshClientTimeoutSeconds int    `default:"30" split_words:"true"`
 
 	RevolutionDoraEnabled     bool          `split_words:"true"`
 	RevolutionDoraUrl         string        `split_words:"true" default:""`
@@ -116,7 +117,7 @@ func RunServer() {
 		return runServer(ctx, config)
 	})
 	if err != nil {
-		fmt.Printf("error: %v %#v", err, err)
+		fmt.Printf("error: %v %#v\n", err, err)
 	}
 }
 
@@ -259,7 +260,7 @@ func runServer(ctx context.Context, config Config) error {
 			Shutdown: nil,
 			Name:     "refresh argocd",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				notify := notifier.New(appClient, config.ArgocdRefreshConcurrency)
+				notify := notifier.New(appClient, config.ArgocdRefreshConcurrency, config.ArgocdRefreshClientTimeoutSeconds)
 				return notifier.Subscribe(ctx, notify, broadcast, health)
 			},
 		})

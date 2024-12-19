@@ -519,11 +519,11 @@ func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, fs bill
 		if err != nil {
 			return 0, fmt.Errorf("could not get releases of app %s: %v", application, err)
 		}
-		if releases == nil || len(releases.Metadata.Releases) == 0 {
+		if len(releases) == 0 {
 			return 0, nil
 		}
-		l := len(releases.Metadata.Releases)
-		return uint64(releases.Metadata.Releases[l-1]), nil
+		l := len(releases)
+		return uint64(releases[l-1]), nil
 	} else {
 		return GetLastReleaseFromFile(fs, application)
 	}
@@ -584,21 +584,14 @@ func (c *CreateApplicationVersion) Transform(
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not read apps: %v", err))
 			}
-			var ver db.EslVersion
-			if app == nil {
-				ver = db.InitialEslVersion
-			} else {
-				if app.StateChange != db.AppStateChangeDelete {
-					return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app, app already exists: %v", err)) //Should never happen
-				}
-				ver = app.EslVersion + 1
+			if app != nil && app.StateChange != db.AppStateChangeDelete {
+				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app, app already exists: %v", err)) //Should never happen
 			}
 
 			err = state.DBHandler.InsertAppFun(
 				ctx,
 				transaction,
 				c.Application,
-				ver,
 				db.AppStateChangeCreate,
 				db.DBAppMetaData{Team: c.Team},
 			)
@@ -621,7 +614,6 @@ func (c *CreateApplicationVersion) Transform(
 					ctx,
 					transaction,
 					c.Application,
-					existingApp.EslVersion,
 					db.AppStateChangeUpdate,
 					newMeta,
 				)
@@ -741,14 +733,6 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleasesByAppOrderedByEslVersion(ctx, transaction, c.Application, false)
-		if err != nil {
-			return "", err
-		}
-		var v = db.InitialEslVersion - 1
-		if prevRelease != nil {
-			v = prevRelease.EslVersion
-		}
 		isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 		if err != nil {
 			return "", err
@@ -762,7 +746,6 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 		}
 		release := db.DBReleaseWithMetaData{
-			EslVersion:    0,
 			ReleaseNumber: version,
 			App:           c.Application,
 			Manifests: db.DBReleaseManifests{
@@ -780,32 +763,8 @@ func (c *CreateApplicationVersion) Transform(
 			},
 			Environments: []string{},
 			Created:      *now,
-			Deleted:      false,
 		}
-		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		allReleases, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if allReleases == nil {
-
-			allReleases = &db.DBAllReleasesWithMetaData{
-				EslVersion: db.InitialEslVersion - 1,
-				Created:    *now,
-				App:        c.Application,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{int64(release.ReleaseNumber)},
-				},
-			}
-		} else {
-			allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(release.ReleaseNumber))
-		}
-		if !c.IsPrepublish {
-			err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslVersion)
-		}
+		err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -891,14 +850,13 @@ func (c *CreateApplicationVersion) Transform(
 }
 
 func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64, minorRegexes []*regexp.Regexp) (bool, error) {
-	allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
+	releaseVersions, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
 	if err != nil {
 		return false, err
 	}
-	if allReleases == nil {
-		return false, err
+	if releaseVersions == nil {
+		return false, nil
 	}
-	releaseVersions := allReleases.Metadata.Releases
 	sort.Slice(releaseVersions, func(i, j int) bool { return releaseVersions[i] > releaseVersions[j] })
 	nextVersion := int64(-1)
 	previousVersion := int64(-1)
@@ -923,7 +881,7 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 			return false, fmt.Errorf("next release exists in the all releases but not in the release table!")
 		}
 		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
-		err = dbHandler.DBInsertRelease(ctx, transaction, *nextRelease, nextRelease.EslVersion)
+		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, *nextRelease)
 		if err != nil {
 			return false, err
 		}
@@ -1305,8 +1263,8 @@ func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, app
 		if all == nil {
 			rels = make([]uint64, 0)
 		} else {
-			rels = make([]uint64, len(all.Metadata.Releases))
-			for idx, rel := range all.Metadata.Releases {
+			rels = make([]uint64, len(all))
+			for idx, rel := range all {
 				rels[idx] = uint64(rel)
 			}
 		}
@@ -1359,20 +1317,11 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	if state.DBHandler.ShouldUseOtherTables() {
-		prevRelease, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, lastRelease, true)
-		if err != nil {
-			return "", err
-		}
-		var v = db.InitialEslVersion - 1
-		if prevRelease != nil {
-			v = prevRelease.EslVersion
-		}
 		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 		if err != nil {
 			return "", fmt.Errorf("could not get transaction timestamp")
 		}
 		release := db.DBReleaseWithMetaData{
-			EslVersion:    0,
 			ReleaseNumber: lastRelease + 1,
 			App:           c.Application,
 			Manifests: db.DBReleaseManifests{
@@ -1392,29 +1341,8 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			},
 			Environments: []string{},
 			Created:      *now,
-			Deleted:      false,
 		}
-		err = state.DBHandler.DBInsertRelease(ctx, transaction, release, v)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		allReleases, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if allReleases == nil {
-			allReleases = &db.DBAllReleasesWithMetaData{
-				EslVersion: db.InitialEslVersion - 1,
-				Created:    *now,
-				App:        c.Application,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{int64(release.ReleaseNumber)},
-				},
-			}
-		} else {
-			allReleases.Metadata.Releases = append(allReleases.Metadata.Releases, int64(release.ReleaseNumber))
-		}
-		err = state.DBHandler.DBInsertAllReleases(ctx, transaction, c.Application, allReleases.Metadata.Releases, allReleases.EslVersion)
+		err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -1621,7 +1549,7 @@ func (u *UndeployApplication) Transform(
 				deployment.Version = nil
 				deployment.Metadata.DeployedByName = user.Name
 				deployment.Metadata.DeployedByEmail = user.Email
-				err = state.DBHandler.DBWriteDeployment(ctx, transaction, *deployment, deployment.EslVersion, false)
+				err = state.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
 				if err != nil {
 					return "", err
 				}
@@ -1639,6 +1567,10 @@ func (u *UndeployApplication) Transform(
 					if err != nil {
 						return "", err
 					}
+				}
+				err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, locks.Version, env, u.Application, []string{})
+				if err != nil {
+					return "", err
 				}
 				continue
 			}
@@ -1689,7 +1621,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 		}
-		err = state.DBHandler.InsertAppFun(ctx, transaction, dbApp.App, dbApp.EslVersion, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
+		err = state.DBHandler.InsertAppFun(ctx, transaction, dbApp.App, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 		}
@@ -1700,10 +1632,6 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication: could not clear releases for app '%s': %v", u.Application, err)
 		}
 
-		err = state.DBHandler.DBClearAllDeploymentsForApp(ctx, transaction, u.Application)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not clear all deployments for app '%s': %v", u.Application, err)
-		}
 		allEnvs, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not get all environments: %v", err)
@@ -1798,6 +1726,8 @@ func (u *DeleteEnvFromApp) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DeleteEnvFromApp")
+	defer span.Finish()
 	err := state.checkUserPermissions(ctx, transaction, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig, true)
 	if err != nil {
 		return "", err
@@ -1820,16 +1750,14 @@ func (u *DeleteEnvFromApp) Transform(
 				return "", fmt.Errorf("could not get transaction timestamp")
 			}
 			newRelease := db.DBReleaseWithMetaData{
-				EslVersion:    dbReleaseWithMetadata.EslVersion + 1,
 				ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
 				App:           dbReleaseWithMetadata.App,
 				Created:       *now,
 				Manifests:     db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:      dbReleaseWithMetadata.Metadata,
-				Deleted:       dbReleaseWithMetadata.Deleted,
 				Environments:  []string{},
 			}
-			err = state.DBHandler.DBInsertRelease(ctx, transaction, newRelease, dbReleaseWithMetadata.EslVersion)
+			err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
 			if err != nil {
 				return "", err
 			}
@@ -1963,10 +1891,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 	msg := ""
 	for _, oldRelease := range oldVersions {
 		if state.DBHandler.ShouldUseOtherTables() {
-			// delete release from all_releases
-			if err := state.DBHandler.DBDeleteReleaseFromAllReleases(ctx, transaction, c.Application, oldRelease); err != nil {
-				return "", err
-			}
 			//'Delete' from releases table
 			if err := state.DBHandler.DBDeleteFromReleases(ctx, transaction, c.Application, oldRelease); err != nil {
 				return "", err
@@ -2282,20 +2206,10 @@ func (c *DeleteEnvironmentLock) Transform(
 			return "", err
 		}
 	}
-	apps, err := s.GetEnvironmentApplications(ctx, transaction, c.Environment)
-	if err != nil {
-		return "", fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
-	}
 
-	additionalMessageFromDeployment := ""
-	for _, appName := range apps {
-		queueMessage, err := s.ProcessQueue(ctx, transaction, fs, c.Environment, appName)
-		if err != nil {
-			return "", err
-		}
-		if queueMessage != "" {
-			additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
-		}
+	additionalMessageFromDeployment, err := s.ProcessQueueAllApps(ctx, transaction, fs, c.Environment)
+	if err != nil {
+		return "", err
 	}
 	GaugeEnvLockMetric(ctx, state, transaction, c.Environment)
 	return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), nil
@@ -2838,9 +2752,14 @@ func (c *CreateEnvironment) Transform(
 		return "", err
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
+		// first read the env to see if it has applications:
+		if err != nil {
+			return "", fmt.Errorf("could not select environment %s from database, error: %w", c.Environment, err)
+		}
+
 		// write to environments table
 		environmentApplications := make([]string, 0)
-		err = state.DBInsertEnvironmentWithOverview(ctx, transaction, c.Environment, c.Config, environmentApplications)
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)
 		if err != nil {
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 		}
@@ -2878,7 +2797,7 @@ func (c *CreateEnvironment) Transform(
 		if err != nil {
 			return "", fmt.Errorf("Unable to read overview cache, error: %w", err)
 		}
-		err = state.UpdateEnvironmentsInOverview(ctx, transaction, overview)
+		err = state.UpdateOneEnvironmentInOverview(ctx, transaction, overview, c.Environment)
 		if err != nil {
 			return "", fmt.Errorf("Unable to udpate overview cache, error: %w", err)
 		}
@@ -3148,7 +3067,6 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		var v = int64(c.Version)
 		newDeployment := db.Deployment{
-			EslVersion:    0,
 			Created:       time.Time{},
 			App:           c.Application,
 			Env:           c.Environment,
@@ -3160,19 +3078,9 @@ func (c *DeployApplicationVersion) Transform(
 				CiLink:          c.CiLink,
 			},
 		}
-		var previousVersion db.EslVersion
-		if existingDeployment == nil {
-			previousVersion = 0
-		} else {
-			previousVersion = existingDeployment.EslVersion
-		}
-		err = state.DBHandler.DBWriteDeployment(ctx, transaction, newDeployment, previousVersion, c.SkipOverview)
+		err = state.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, newDeployment)
 		if err != nil {
 			return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
-		}
-		err = state.DBHandler.DBUpdateAllDeploymentsForApp(ctx, transaction, c.Application, c.Environment, int64(c.Version))
-		if err != nil {
-			return "", fmt.Errorf("could not write oldest deployment for %v - %v", newDeployment, err)
 		}
 	} else {
 		//Check if there is a version of target app already deployed on target environment
@@ -3893,16 +3801,27 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 	span.SetTag("ConsideredApps", len(apps))
+	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction)
+	if err != nil {
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause:     nil,
+			Error:         err,
+			Locks:         nil,
+			AppsPrognoses: nil,
+		}
+	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
-			if team, err := state.GetApplicationTeamOwner(ctx, transaction, appName); err != nil {
+			team, ok := allTeams[appName]
+			if !ok {
 				return ReleaseTrainEnvironmentPrognosis{
 					SkipCause:     nil,
-					Error:         err,
+					Error:         fmt.Errorf("team for app %s not found", appName),
 					Locks:         nil,
 					AppsPrognoses: nil,
 				}
-			} else if c.Parent.Team != team {
+			}
+			if c.Parent.Team != team {
 				continue
 			}
 		}
@@ -4031,9 +3950,9 @@ func (c *envReleaseTrain) prognosis(
 			}
 		}
 
-		teamName, err := state.GetTeamName(ctx, transaction, appName)
+		teamName, ok := allTeams[appName]
 
-		if err == nil { //IF we find information for team
+		if ok { //IF we find information for team
 
 			err := state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
 

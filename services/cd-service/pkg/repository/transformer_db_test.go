@@ -640,7 +640,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		Name               string
 		Transformers       []Transformer
 		expectedDbContent  *db.DBAppWithMetaData
-		expectedDbReleases *db.DBAllReleasesWithMetaData
+		expectedDbReleases []int64
 	}{
 		{
 			Name: "create one version",
@@ -658,21 +658,13 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  2,
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
 					Team: "",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 1,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10000},
-				},
-			},
+			expectedDbReleases: []int64{10000},
 		},
 		{
 			Name: "create two versions, same team",
@@ -699,21 +691,13 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  2, // even when CreateApplicationVersion is called twice, we still write the app only once
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
 					Team: "noteam",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 2,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10, 11},
-				},
-			},
+			expectedDbReleases: []int64{10, 11},
 		},
 		{
 			Name: "create two versions, different teams",
@@ -740,21 +724,13 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
 				App:         appName,
 				StateChange: db.AppStateChangeUpdate,
 				Metadata: db.DBAppMetaData{
 					Team: "new",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 2,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10, 11},
-				},
-			},
+			expectedDbReleases: []int64{10, 11},
 		},
 	}
 	for _, tc := range tcs {
@@ -780,7 +756,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				if err3 != nil {
 					return fmt.Errorf("error: %v", err3)
 				}
-				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease, cmpopts.IgnoreFields(db.DBAllReleasesWithMetaData{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				environment, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
@@ -1513,7 +1489,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
-				if diff := cmp.Diff(tc.ExpectedActiveReleases, res.Metadata.Releases); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedActiveReleases, res); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -1675,9 +1651,7 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
 									EnvironmentGroup: &developmentEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
@@ -1692,6 +1666,97 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
 									},
 									EnvironmentGroup: &developmentEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+			},
+		},
+		{
+			Name: "updating the group of an env where the new group does not exist",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &stagingEnvGroup), // changing the group
+				},
+			},
+			ExpectedOverviewCache: &api.GetOverviewResponse{
+				GitRevision: "0000000000000000000000000000000000000000",
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: stagingEnvGroup,
+						Environments: []*api.Environment{
+							{
+								Name: "development",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &stagingEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+			},
+		},
+		{
+			Name: "updating the group of an env while the group already exists",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "development2",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &stagingEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &stagingEnvGroup), // changing the group
+				},
+			},
+			ExpectedOverviewCache: &api.GetOverviewResponse{
+				GitRevision: "0000000000000000000000000000000000000000",
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: stagingEnvGroup,
+						Environments: []*api.Environment{
+							{
+								Name: "development2",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &stagingEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+							{
+								Name: "development",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &stagingEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
 							},
@@ -1740,9 +1805,7 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
 									EnvironmentGroup: &developmentEnvGroup,
 								},
 								Priority: api.Priority_YOLO,
@@ -2978,13 +3041,13 @@ func TestCreateUndeployDBState(t *testing.T) {
 				if err2 != nil {
 					t.Fatal(err)
 				}
-				if allReleases == nil || len(allReleases.Metadata.Releases) == 0 {
+				if allReleases == nil || len(allReleases) == 0 {
 					t.Fatal("Expected some releases, but got none")
 				}
-				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases.Metadata.Releases); diff != "" {
+				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
-				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uint64(allReleases.Metadata.Releases[len(allReleases.Metadata.Releases)-1]), true)
+				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uint64(allReleases[len(allReleases)-1]), true)
 				if err2 != nil {
 					t.Fatal(err)
 				}
@@ -3041,10 +3104,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3077,10 +3139,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3113,10 +3174,9 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3196,7 +3256,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if diff := cmp.Diff(tc.expectedAllReleases, allReleases.Metadata.Releases); diff != "" {
+				if diff := cmp.Diff(tc.expectedAllReleases, allReleases); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
 
@@ -3263,10 +3323,9 @@ func TestUndeployDBState(t *testing.T) {
 			expectedAllReleases: []int64{},
 			expectedDeployments: []db.Deployment{
 				{
-					EslVersion: 3,
-					App:        appName,
-					Env:        envProduction,
-					Version:    nil,
+					App:     appName,
+					Env:     envProduction,
+					Version: nil,
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3274,10 +3333,9 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					EslVersion: 2,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(2),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(2),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3285,10 +3343,9 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					EslVersion: 1,
-					App:        appName,
-					Env:        envProduction,
-					Version:    version(1),
+					App:     appName,
+					Env:     envProduction,
+					Version: version(1),
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3317,7 +3374,7 @@ func TestUndeployDBState(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if diff := cmp.Diff(tc.expectedAllReleases, allReleases.Metadata.Releases); diff != "" {
+				if diff := cmp.Diff(tc.expectedAllReleases, allReleases); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
 
@@ -3334,7 +3391,7 @@ func TestUndeployDBState(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if len(allDeployments.Deployments) != 0 {
+				if len(allDeployments) != 0 {
 					t.Fatal("No deployments expected, but found some.")
 				}
 				return nil
@@ -3362,7 +3419,7 @@ func TestTransaction(t *testing.T) {
 		Name               string
 		Transformers       []Transformer
 		expectedDbContent  *db.DBAppWithMetaData
-		expectedDbReleases *db.DBAllReleasesWithMetaData
+		expectedDbReleases []int64
 	}{
 		{
 			Name: "create one version",
@@ -3380,21 +3437,13 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  2,
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
 					Team: "",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 1,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10000},
-				},
-			},
+			expectedDbReleases: []int64{10000},
 		},
 		{
 			Name: "create two versions, same team",
@@ -3421,21 +3470,13 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  2, // even when CreateApplicationVersion is called twice, we still write the app only once
 				App:         appName,
 				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
 					Team: "noteam",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 2,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10, 11},
-				},
-			},
+			expectedDbReleases: []int64{10, 11},
 		},
 		{
 			Name: "create two versions, different teams",
@@ -3462,21 +3503,13 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
-				EslVersion:  3, // CreateApplicationVersion was called twice with different teams, so there's 2 new entries, instead of onc
 				App:         appName,
 				StateChange: db.AppStateChangeUpdate,
 				Metadata: db.DBAppMetaData{
 					Team: "new",
 				},
 			},
-			expectedDbReleases: &db.DBAllReleasesWithMetaData{
-				EslVersion: 2,
-				Created:    gotime.Time{},
-				App:        appName,
-				Metadata: db.DBAllReleaseMetaData{
-					Releases: []int64{10, 11},
-				},
-			},
+			expectedDbReleases: []int64{10, 11},
 		},
 	}
 	for _, tc := range tcs {
@@ -3502,7 +3535,7 @@ func TestTransaction(t *testing.T) {
 				if err3 != nil {
 					return fmt.Errorf("error: %v", err3)
 				}
-				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease, cmpopts.IgnoreFields(db.DBAllReleasesWithMetaData{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -4041,6 +4074,24 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
 				t.Fatalf(msg)
 			}
+			sortGauges := func(gaugesList []Gauge) {
+				sort.Slice(gaugesList, func(i, j int) bool {
+					if len(gaugesList[i].Tags) == 0 && len(gaugesList[j].Tags) == 0 {
+						return gaugesList[i].Name > gaugesList[j].Name
+					} else if len(gaugesList[i].Tags) != len(gaugesList[j].Tags) {
+						return len(gaugesList[i].Tags) > len(gaugesList[j].Tags)
+					} else {
+						for tagIndex := range gaugesList[i].Tags {
+							if gaugesList[i].Tags[tagIndex] != gaugesList[j].Tags[tagIndex] {
+								return gaugesList[i].Tags[tagIndex] > gaugesList[j].Tags[tagIndex]
+							}
+						}
+						return true
+					}
+				})
+			}
+			sortGauges(tc.expectedGauges)
+			sortGauges(mockClient.gauges)
 			for i := range tc.expectedGauges {
 				var expectedGauge Gauge = tc.expectedGauges[i]
 				sort.Strings(expectedGauge.Tags)
@@ -4048,9 +4099,14 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				sort.Strings(actualGauge.Tags)
 				t.Logf("actualGauges:[%v] %v:%v", i, actualGauge.Name, actualGauge.Tags)
 				t.Logf("expectedGauges:[%v] %v:%v", i, expectedGauge.Name, expectedGauge.Tags)
+				if actualGauge.Name == "lastDeployed" {
+					if actualGauge.Value < 1 {
+						actualGauge.Value = 0
+					}
+				}
 
-				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
-					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
+				if diff := cmp.Diff(expectedGauge, actualGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+					t.Errorf("[%d] want %v, got %v, diff (-want +got) %s", i, expectedGauge, actualGauge, diff)
 				}
 			}
 		})

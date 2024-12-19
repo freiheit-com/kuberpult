@@ -85,26 +85,21 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 	}
 	eslVersion := 0
 	for _, app := range fixtureAppications {
-		err = dbHandler.DBInsertApplication(ctx, transaction, app, db.EslVersion(eslVersion), db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
+		err = dbHandler.DBInsertApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
 		if err != nil {
 			return err
 		}
 		for releaseNumber := 1; releaseNumber < 4; releaseNumber++ {
-			err = dbHandler.DBInsertRelease(ctx, transaction, db.DBReleaseWithMetaData{
-				EslVersion:    db.EslVersion(releaseNumber) + (db.EslVersion(eslVersion)-1)*3,
+			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 				ReleaseNumber: uint64(releaseNumber),
 				Created:       time.Time{},
 				App:           app,
 				Manifests:     db.DBReleaseManifests{},
 				Metadata:      db.DBReleaseMetaData{},
-			}, 0)
+			})
 			if err != nil {
 				return err
 			}
-		}
-		err = dbHandler.DBInsertAllReleases(ctx, transaction, app, []int64{1, 2, 3}, db.EslVersion(eslVersion))
-		if err != nil {
-			return err
 		}
 		eslVersion++
 	}
