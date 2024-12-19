@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/migrations"
 	"strconv"
 	"time"
 
@@ -185,6 +186,16 @@ func Run(ctx context.Context) error {
 	}
 	argoCdGenerateFiles := argoCdGenerateFilesString == "true"
 
+	kuberpultVersionRaw, err := valid.ReadEnvVar("KUBERPULT_VERSION")
+	if err != nil {
+		return err
+	}
+	logger.FromContext(ctx).Info("startup", zap.String("kuberpultVersion", kuberpultVersionRaw))
+	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
+	if err != nil {
+		return err
+	}
+
 	var dbCfg db.DBConfig
 	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
@@ -231,6 +242,16 @@ func Run(ctx context.Context) error {
 		}
 	}
 
+	migrationServer := &service.MigrationServer{DBHandler: dbHandler}
+	log.Infof("Running Custom Migrations")
+	_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+		Version: kuberpultVersion,
+	})
+	if err != nil {
+		return fmt.Errorf("error running custom migrations: %w", err)
+	}
+	log.Infof("Finished Custom Migrations successfully")
+
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
 		Path:           "./repository",
@@ -250,7 +271,6 @@ func Run(ctx context.Context) error {
 
 		DBHandler: dbHandler,
 	}
-
 	repo, err := repository.New(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("repository.new failed %v", err)
@@ -272,6 +292,7 @@ func Run(ctx context.Context) error {
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
+				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},
 		},
