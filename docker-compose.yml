@@ -75,6 +75,7 @@ services:
       - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=5
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=1
       - KUBERPULT_MINIMIZE_EXPORTED_DATA=true
+      - KUBERPULT_VERSION=v0.1.2
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database
