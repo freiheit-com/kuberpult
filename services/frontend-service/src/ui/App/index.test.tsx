@@ -18,7 +18,7 @@ import { render } from '@testing-library/react';
 import { Spy } from 'spy4js';
 import { AzureAuthSub } from '../utils/AzureAuthProvider';
 import { Observable } from 'rxjs';
-import { UpdateOverview } from '../utils/store';
+import { emptyAppLocks, UpdateOverview } from '../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 
 Spy.mockModule('../components/NavigationBar/NavigationBar', 'NavigationBar');
