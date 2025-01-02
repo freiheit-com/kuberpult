@@ -24,6 +24,7 @@ import {
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
+    UpdateAllApplicationLocks,
     updateAppDetails,
     UpdateFrontendConfig,
     UpdateOverview,
@@ -116,6 +117,17 @@ export const App: React.FC = () => {
                             }
                         });
                         updateAppDetails.set(details);
+                        // Get App Locks
+                        api.overviewService()
+                            .GetAllAppLocks({}, authHeader)
+                            .then((res) => {
+                                UpdateAllApplicationLocks.set(res.allAppLocks);
+                                // eslint-disable-next-line no-console
+                                console.log(res);
+                            })
+                            .catch((e) => {
+                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', e }) });
+                            });
                     },
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });

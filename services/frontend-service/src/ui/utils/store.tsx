@@ -33,6 +33,7 @@ import {
     GetFailedEslsResponse,
     GetAppDetailsResponse,
     OverviewApplication,
+    AllAppLocks,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -75,10 +76,16 @@ const emptyOverview: EnhancedOverview = {
     branch: '',
     manifestRepoUrl: '',
 };
+
 const [useOverview, UpdateOverview_] = createStore(emptyOverview);
 export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.
 
 export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => loaded);
+
+export const emptyAppLocks: { [key: string]: AllAppLocks } = {};
+export const [useAllApplicationLocks, UpdateAllApplicationLocks] = createStore<{ [key: string]: AllAppLocks }>(
+    emptyAppLocks
+);
 
 type TagsResponse = {
     response: GetGitTagsResponse;
