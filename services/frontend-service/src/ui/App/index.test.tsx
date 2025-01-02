@@ -18,7 +18,7 @@ import { render } from '@testing-library/react';
 import { Spy } from 'spy4js';
 import { AzureAuthSub } from '../utils/AzureAuthProvider';
 import { Observable } from 'rxjs';
-import { UpdateOverview } from '../utils/store';
+import { emptyAppLocks, UpdateOverview } from '../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 
 Spy.mockModule('../components/NavigationBar/NavigationBar', 'NavigationBar');
@@ -30,6 +30,7 @@ Spy.mockModule('../utils/AzureAuthProvider', 'AzureAuthProvider');
 
 const mock_GetConfig = Spy('Config');
 const mock_StreamOverview = Spy('Overview');
+const mock_GetAllAppLocks = Spy('AllAppLocks');
 const mock_StreamStatus = Spy('Status');
 
 jest.mock('../utils/GrpcApi', () => ({
@@ -41,6 +42,7 @@ jest.mock('../utils/GrpcApi', () => ({
             }),
             overviewService: () => ({
                 StreamOverview: () => mock_StreamOverview(),
+                GetAllAppLocks: () => mock_GetAllAppLocks(),
             }),
             rolloutService: () => ({
                 StreamStatus: () => mock_StreamStatus(),
@@ -73,6 +75,7 @@ describe('App uses the API', () => {
                 observer.next({ applications: 'test-application' });
             })
         );
+        mock_GetAllAppLocks.returns(Promise.resolve('test'));
         mock_GetConfig.returns(Promise.resolve('test-config'));
         AzureAuthSub.set({ authReady: true });
         mock_StreamStatus.returns(
@@ -102,6 +105,7 @@ describe('App uses the API', () => {
                 observer.next({});
             })
         );
+        mock_GetAllAppLocks.returns(Promise.resolve('test'));
         mock_GetConfig.returns(Promise.resolve('test-config'));
         AzureAuthSub.set({ authReady: true });
 
