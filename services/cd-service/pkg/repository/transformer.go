@@ -2361,13 +2361,21 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		if err != nil {
 			return "", err
 		}
+		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("could not get transaction timestamp: %v", err)
+		}
+		if now == nil {
+			return "", fmt.Errorf("could not get transaction timestamp: nil")
+		}
 		//Write to locks table
+
 		errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, db.LockMetadata{
 			CreatedByName:  user.Name,
 			CreatedByEmail: user.Email,
 			Message:        c.Message,
 			CiLink:         c.CiLink,
-			CreatedAt:      time.Time{},
+			CreatedAt:      *now,
 		})
 		if errW != nil {
 			return "", errW
@@ -2378,13 +2386,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		if err != nil {
 			return "", err
 		}
-		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-		if err != nil {
-			return "", fmt.Errorf("could not get transaction timestamp: %v", err)
-		}
-		if now == nil {
-			return "", fmt.Errorf("could not get transaction timestamp: nil")
-		}
+
 		if allAppLocks == nil {
 			allAppLocks = &db.AllAppLocksGo{
 				Version: 1,
