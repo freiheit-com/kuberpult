@@ -122,8 +122,6 @@ export const App: React.FC = () => {
                             .GetAllAppLocks({}, authHeader)
                             .then((res) => {
                                 UpdateAllApplicationLocks.set(res.allAppLocks);
-                                // eslint-disable-next-line no-console
-                                console.log(res);
                             })
                             .catch((e) => {
                                 PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', e }) });
