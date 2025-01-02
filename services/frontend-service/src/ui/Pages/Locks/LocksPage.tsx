@@ -84,9 +84,8 @@ export const LocksPage: React.FC = () => {
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
     allAppLocks.forEach((appLocksForEnv, env): void => {
         const currAppLocks = new Map<string, Locks>(Object.entries(appLocksForEnv.appLocks));
-
         currAppLocks.forEach((currentAppInfo, app) => {
-            currentAppInfo.locks.map((lock) => {
+            currentAppInfo.locks.map((lock) =>
                 allAppLocksDisplay.push({
                     date: lock.createdAt,
                     environment: env,
@@ -95,8 +94,8 @@ export const LocksPage: React.FC = () => {
                     message: lock.message,
                     authorName: lock.createdBy?.name,
                     authorEmail: lock.createdBy?.email,
-                });
-            });
+                })
+            );
         });
     });
     allAppLocksDisplay.flat().filter((lock) => searchCustomFilter(appNameParam, lock.application));
