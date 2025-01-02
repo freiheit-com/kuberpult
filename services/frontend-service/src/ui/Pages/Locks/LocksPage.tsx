@@ -69,17 +69,6 @@ export const LocksPage: React.FC = () => {
             ),
         [envs]
     );
-    const allAppLocksDisplay:
-        | DisplayLock[]
-        | {
-              date: Date | undefined;
-              environment: string;
-              application: string;
-              lockId: string;
-              message: string;
-              authorName: string | undefined;
-              authorEmail: string | undefined;
-          }[] = [];
 
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
     allAppLocks.forEach((appLocksForEnv, env): void => {
@@ -118,11 +107,7 @@ export const LocksPage: React.FC = () => {
             <TopAppBar showAppFilter={true} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content">
                 <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
-                <LocksTable
-                    headerTitle="Application Locks"
-                    columnHeaders={applicationFieldHeaders}
-                    locks={allAppLocksDisplay}
-                />
+                <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
                 <LocksTable headerTitle="Team Locks" columnHeaders={teamFieldHeaders} locks={teamLocks} />
             </main>
         </div>
