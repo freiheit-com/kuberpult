@@ -1929,6 +1929,17 @@ func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[string]config.Env
 	return configs, envNames, nil
 }
 
+func (s *State) GetAllEnvironmentNames(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
+	}
+	if dbAllEnvs == nil {
+		return []string{}, nil
+	}
+	return dbAllEnvs.Environments, nil
+}
+
 func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
 		return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)

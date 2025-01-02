@@ -312,6 +312,57 @@ func (o *OverviewServiceServer) GetOverview(
 	return o.getOverviewDB(ctx, o.Repository.State())
 }
 
+func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
+	in *api.GetAllAppLocksRequest) (*api.GetAllAppLocksResponse, error) {
+	// Get all Environments
+	// For each environment, get all applications
+	// Get all app locks for that environment
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllAppLocks")
+	defer span.Finish()
+
+	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllAppLocksResponse, error) {
+		state := o.Repository.State()
+
+		allAppNames, err := state.GetApplications(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+
+		response := api.GetAllAppLocksResponse{
+			AllAppLocks: make(map[string]*api.AllAppLocks),
+		}
+		for _, appName := range allAppNames {
+			if err != nil {
+				return nil, err
+			}
+			appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForApp(ctx, transaction, appName)
+			if err != nil {
+				return nil, fmt.Errorf("could not find application locks for app %s: %w", appName, err)
+			}
+			for _, currentLock := range appLocks {
+				if _, ok := response.AllAppLocks[currentLock.Env]; !ok {
+					response.AllAppLocks[currentLock.Env] = &api.AllAppLocks{AppLocks: make(map[string]*api.Locks)}
+
+				}
+				if _, ok := response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App]; !ok {
+					response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App] = &api.Locks{Locks: make([]*api.Lock, 0)}
+				}
+
+				response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks = append(response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks, &api.Lock{
+					LockId:    currentLock.LockID,
+					Message:   currentLock.Metadata.Message,
+					CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
+					CreatedBy: &api.Actor{
+						Name:  currentLock.Metadata.CreatedByName,
+						Email: currentLock.Metadata.CreatedByEmail,
+					},
+				})
+			}
+		}
+		return &response, nil
+	})
+}
+
 func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {

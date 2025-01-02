@@ -380,6 +380,7 @@ service OverviewService {
 
   rpc StreamChangedApps (GetChangedAppsRequest) returns (stream GetChangedAppsResponse) {}
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
+  rpc GetAllAppLocks (GetAllAppLocksRequest) returns (GetAllAppLocksResponse) {}
 }
 
 service EnvironmentService {
@@ -390,6 +391,16 @@ message GetChangedAppsRequest {}
 
 message GetChangedAppsResponse {
   repeated GetAppDetailsResponse changed_apps = 1;
+}
+
+message GetAllAppLocksRequest {}
+
+message GetAllAppLocksResponse {
+  map<string, AllAppLocks> all_app_locks = 1; //EnvName -> All app locks for that env
+}
+
+message AllAppLocks {
+  map<string, Locks> app_locks = 1; //AppName -> all locks for that app
 }
 
 message GetAppDetailsRequest {
