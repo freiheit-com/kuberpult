@@ -84,7 +84,6 @@ export const LocksPage: React.FC = () => {
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
     allAppLocks.forEach((appLocksForEnv, env): void => {
         const currAppLocks = new Map<string, Locks>(Object.entries(appLocksForEnv.appLocks));
-        
     const appLocks = useMemo(() => {
         const allAppLocksDisplay: DisplayLock[] = [];
         const map = new Map(Object.entries(allAppLocks));
