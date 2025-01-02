@@ -48,7 +48,7 @@ export const LocksPage: React.FC = () => {
     const appNameParam = params.get('application');
     const envs = useEnvironments();
     const allApps = useApplications();
-    const allAppLocks = new Map(Object.entries(useAllApplicationLocks((map) => map)));
+    const allAppLocks = useAllApplicationLocks((map) => map);
     let teamLocks = useTeamLocks(allApps);
     const envLocks = useMemo(
         () =>
@@ -69,64 +69,33 @@ export const LocksPage: React.FC = () => {
             ),
         [envs]
     );
-    const allAppLocksDisplay:
-        | DisplayLock[]
-        | {
-              date: Date | undefined;
-              environment: string;
-              application: string;
-              lockId: string;
-              message: string;
-              authorName: string | undefined;
-              authorEmail: string | undefined;
-          }[] = [];
 
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
-    allAppLocks.forEach((appLocksForEnv, env): void => {
-        const currAppLocks = new Map<string, Locks>(Object.entries(appLocksForEnv.appLocks));
-        currAppLocks.forEach((currentAppInfo, app) => {
-            currentAppInfo.locks.map((lock) =>
-                allAppLocksDisplay.push({
-                    date: lock.createdAt,
-                    environment: env,
-                    application: app,
-                    lockId: lock.lockId,
-                    message: lock.message,
-                    authorName: lock.createdBy?.name,
-                    authorEmail: lock.createdBy?.email,
-                })
-            );
+
+    const appLocks = useMemo(() => {
+        const allAppLocksDisplay: DisplayLock[] = [];
+        const map = new Map(Object.entries(allAppLocks));
+        map.forEach((appLocksForEnv, env): void => {
+            const currAppLocks = new Map<string, Locks>(Object.entries(appLocksForEnv.appLocks));
+            currAppLocks.forEach((currentAppInfo, app) => {
+                currentAppInfo.locks.map((lock) =>
+                    allAppLocksDisplay.push({
+                        date: lock.createdAt,
+                        environment: env,
+                        application: app,
+                        lockId: lock.lockId,
+                        message: lock.message,
+                        authorName: lock.createdBy?.name,
+                        authorEmail: lock.createdBy?.email,
+                    })
+                );
+            });
         });
-    });
-    allAppLocksDisplay.flat().filter((lock) => searchCustomFilter(appNameParam, lock.application));
-    // //Goes through all envs and all apps and checks for locks for each app
-    // const appLocks = useMemo(
-    //     () =>
-    //         sortLocks(
-    //             Object.values(envs)
-    //                 .map((env) =>
-    //                     allApps
-    //                         .map((app) =>
-    //                             env.appLocks[app.name]
-    //                                 ? env.appLocks[app.name].locks.map((lock) => ({
-    //                                       date: lock.createdAt,
-    //                                       environment: env.name,
-    //                                       application: app.name,
-    //                                       lockId: lock.lockId,
-    //                                       message: lock.message,
-    //                                       authorName: lock.createdBy?.name,
-    //                                       authorEmail: lock.createdBy?.email,
-    //                                   }))
-    //                                 : []
-    //                         )
-    //                         .flat()
-    //                 )
-    //                 .flat()
-    //                 .filter((lock) => searchCustomFilter(appNameParam, lock.application)),
-    //             'oldestToNewest'
-    //         ),
-    //     [appNameParam, envs, allApps]
-    // );
+        return sortLocks(
+            allAppLocksDisplay.flat().filter((lock) => searchCustomFilter(appNameParam, lock.application)),
+            'oldestToNewest'
+        );
+    }, [allAppLocks, appNameParam]);
 
     const element = useGlobalLoadingState();
     if (element) {
@@ -137,11 +106,7 @@ export const LocksPage: React.FC = () => {
             <TopAppBar showAppFilter={true} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content">
                 <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
-                <LocksTable
-                    headerTitle="Application Locks"
-                    columnHeaders={applicationFieldHeaders}
-                    locks={allAppLocksDisplay}
-                />
+                <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
                 <LocksTable headerTitle="Team Locks" columnHeaders={teamFieldHeaders} locks={teamLocks} />
             </main>
         </div>
