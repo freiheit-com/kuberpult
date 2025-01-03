@@ -15,8 +15,15 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Releases } from './Releases';
 import { render } from '@testing-library/react';
-import { AppDetailsResponse, AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 import {
+    AppDetailsResponse,
+    AppDetailsState,
+    UpdateAllApplicationLocks,
+    updateAppDetails,
+    UpdateOverview,
+} from '../../utils/store';
+import {
+    AllAppLocks,
     Environment,
     EnvironmentGroup,
     Lock,
@@ -36,6 +43,9 @@ describe('Release Dialog', () => {
         envGroups: EnvironmentGroup[];
         expectedAppLocksLength: number;
         appDetails: { [p: string]: AppDetailsResponse };
+        AppLocks: {
+            [key: string]: AllAppLocks;
+        };
     };
 
     const releases = [
@@ -209,6 +219,18 @@ describe('Release Dialog', () => {
                 },
             ],
             envGroups: [testEnvGroup1],
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        test: {
+                            locks: [testAppLock],
+                        },
+                        test2: {
+                            locks: [testAppLock2],
+                        },
+                    },
+                },
+            },
             expectedAppLocksLength: 1,
         },
         {
@@ -321,6 +343,7 @@ describe('Release Dialog', () => {
                 },
             ],
             envGroups: [],
+            AppLocks: {},
             expectedAppLocksLength: 0,
         },
         {
@@ -352,6 +375,7 @@ describe('Release Dialog', () => {
                 },
             },
             releases: [],
+            AppLocks: {},
             envGroups: [testEnvGroup1, testEnvGroup2],
             expectedAppLocksLength: 2,
         },
@@ -365,6 +389,7 @@ describe('Release Dialog', () => {
                 environmentGroups: testcase.envGroups,
             });
             updateAppDetails.set(testcase.appDetails);
+            UpdateAllApplicationLocks.set(testcase.AppLocks);
             render(
                 <MemoryRouter>
                     <Releases app="test" />
