@@ -299,11 +299,15 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 			}
 
 			//This might be problematic if a lot of apps x envs are here
+			numAppLocks := 0
 			allAppLocks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, envName, appName)
 			if err != nil {
 				return err
 			}
-			GaugeEnvAppLockMetric(ctx, len(allAppLocks.AppLocks), envName, appName)
+			if allAppLocks != nil {
+				numAppLocks = len(allAppLocks.AppLocks)
+			}
+			GaugeEnvAppLockMetric(ctx, numAppLocks, envName, appName)
 
 			_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
 			if err != nil {
