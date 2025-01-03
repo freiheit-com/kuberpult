@@ -278,8 +278,6 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 	}
 
 	for envName := range envConfigs {
-		envFromCache := db.GetEnvironmentByName(overviewCache.EnvironmentGroups, envName)
-
 		if even {
 			GaugeEnvLockMetric(ctx, state, transaction, envName)
 		}
@@ -299,14 +297,13 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 				// iterating over all apps can take a while, so we only do half the apps each run
 				continue
 			}
-			var envAppLockCount = 0
-			if envFromCache != nil && envFromCache.AppLocks != nil {
-				l := envFromCache.AppLocks[appName]
-				if l != nil {
-					envAppLockCount = len(l.Locks)
-				}
+
+			//This might be problematic if a lot of apps x envs are here
+			allAppLocks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, envName, appName)
+			if err != nil {
+				return err
 			}
-			GaugeEnvAppLockMetric(ctx, envAppLockCount, envName, appName)
+			GaugeEnvAppLockMetric(ctx, len(allAppLocks.AppLocks), envName, appName)
 
 			_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
 			if err != nil {

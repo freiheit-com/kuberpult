@@ -583,7 +583,6 @@ message Environment {
   map<string, Lock> locks = 3; //Environment Locks. Lock ID -> Lock
   uint32 distance_to_upstream = 5;
   Priority priority = 6;
-  map<string, Locks> app_locks = 7;  //Application Locks. AppName -> []Locks
   map<string, Locks> team_locks = 8; //Team Locks. TeamName -> []Locks
 }
 

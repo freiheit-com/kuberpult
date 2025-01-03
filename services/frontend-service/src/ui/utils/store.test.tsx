@@ -109,7 +109,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            appLocks: {},
                             teamLocks: {},
                         },
                     ],
@@ -147,7 +146,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            appLocks: {},
                             teamLocks: {},
                         },
                         {
@@ -157,7 +155,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            appLocks: {},
                             teamLocks: {},
                         },
                     ],
@@ -209,11 +206,6 @@ describe('Test useLocksSimilarTo', () => {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
                             teamLocks: {},
-                            appLocks: {
-                                betty: {
-                                    locks: [makeLock({ lockId: 'l1' })],
-                                },
-                            },
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -271,11 +263,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            appLocks: {
-                                betty: {
-                                    locks: [makeLock({ lockId: 'l1' })],
-                                },
-                            },
                             teamLocks: {
                                 'test-team': {
                                     locks: [makeLock({ lockId: 'l1' })],
@@ -289,7 +276,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            appLocks: {},
                             teamLocks: {},
                         },
                     ],
@@ -875,16 +861,6 @@ describe('Test useLocksConflictingWithActions', () => {
                             lockId: 'my-env-lock1',
                         }),
                     },
-                    appLocks: {
-                        app1: {
-                            locks: [
-                                makeLock({
-                                    lockId: 'app-lock-id',
-                                    message: 'i do not like this app',
-                                }),
-                            ],
-                        },
-                    },
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -950,16 +926,6 @@ describe('Test useLocksConflictingWithActions', () => {
                             message: 'locked because christmas',
                             lockId: 'my-env-lock1',
                         }),
-                    },
-                    appLocks: {
-                        anotherapp: {
-                            locks: [
-                                makeLock({
-                                    lockId: 'app-lock-id',
-                                    message: 'i do not like this app',
-                                }),
-                            ],
-                        },
                     },
                     teamLocks: {},
                     distanceToUpstream: 0,
@@ -1176,7 +1142,6 @@ describe('Test Calculate Release Difference', () => {
                                 name: envName,
                                 locks: {},
                                 teamLocks: {},
-                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1264,7 +1229,6 @@ describe('Test Calculate Release Difference', () => {
                                 name: 'exampleEnv',
                                 locks: {},
                                 teamLocks: {},
-                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1359,7 +1323,6 @@ describe('Test Calculate Release Difference', () => {
                                 name: envName,
                                 locks: {},
                                 teamLocks: {},
-                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1444,7 +1407,6 @@ describe('Test Calculate Release Difference', () => {
                                 name: envName,
                                 locks: {},
                                 teamLocks: {},
-                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1526,7 +1488,6 @@ describe('Test Calculate Release Difference', () => {
                             {
                                 name: envName,
                                 locks: {},
-                                appLocks: {},
                                 teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,

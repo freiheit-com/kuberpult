@@ -94,7 +94,6 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: {},
-                    appLocks: {},
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
@@ -140,7 +139,6 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: {},
-                    appLocks: {},
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
@@ -230,11 +228,6 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    appLocks: {
-                        test1: {
-                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
-                        },
-                    },
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
@@ -322,9 +315,6 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    appLocks: {
-                        test1: { locks: [{ message: 'appLock', lockId: 'ui-applock' }] },
-                    },
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
@@ -422,11 +412,6 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    appLocks: {
-                        test1: {
-                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
-                        },
-                    },
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
@@ -434,11 +419,6 @@ describe('Release Dialog', () => {
                 {
                     name: 'dev',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    appLocks: {
-                        test1: {
-                            locks: [{ message: 'appLock', lockId: 'ui-applock' }],
-                        },
-                    },
                     teamLocks: {
                         test1: {
                             locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],

@@ -15,26 +15,26 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { createStore } from 'react-use-sub';
 import {
+    AllAppLocks,
     BatchAction,
     BatchRequest,
     Environment,
     EnvironmentGroup,
-    GetFrontendConfigResponse,
-    GetOverviewResponse,
-    Priority,
-    Release,
-    StreamStatusResponse,
-    Warning,
-    GetGitTagsResponse,
-    RolloutStatus,
+    GetAppDetailsResponse,
     GetCommitInfoResponse,
     GetEnvironmentConfigResponse,
-    GetReleaseTrainPrognosisResponse,
     GetFailedEslsResponse,
-    GetAppDetailsResponse,
-    OverviewApplication,
-    AllAppLocks,
+    GetFrontendConfigResponse,
+    GetGitTagsResponse,
+    GetOverviewResponse,
+    GetReleaseTrainPrognosisResponse,
     Locks,
+    OverviewApplication,
+    Priority,
+    Release,
+    RolloutStatus,
+    StreamStatusResponse,
+    Warning,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -42,7 +42,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useIsAuthenticated } from '@azure/msal-react';
 import { useApi } from './GrpcApi';
 import { AuthHeader } from './AzureAuthProvider';
-import { LoginPage, isTokenValid } from '../utils/DexAuthProvider';
+import { isTokenValid, LoginPage } from '../utils/DexAuthProvider';
 import { LoadingStateSpinner } from '../utils/LoadingStateSpinner';
 
 // see maxBatchActions in batch.go
@@ -669,28 +669,30 @@ export interface DisplayApplicationLock {
 
 export const useDisplayApplicationLocks = (appName: string): DisplayApplicationLock[] => {
     const envGroups = useEnvironmentGroups();
-    const finalLocks = useMemo(() => {
+    const allAppLocks = useAllApplicationLocks((map) => map);
+    const appLocks = useAppLocks(new Map(Object.entries(allAppLocks)));
+    return useMemo(() => {
         const finalLocks: DisplayApplicationLock[] = [];
         Object.values(envGroups).forEach((envGroup) => {
-            Object.values(envGroup.environments).forEach((env) =>
-                env.appLocks[appName]
-                    ? Object.values(env.appLocks[appName].locks).forEach((lock) => {
-                          finalLocks.push({
+            Object.values(envGroup.environments).forEach((env: Environment) =>
+                appLocks.forEach((currentLock) =>
+                    currentLock.application && currentLock.application === appName
+                        ? finalLocks.push({
                               lock: {
-                                  date: lock.createdAt,
+                                  date: currentLock.date,
                                   application: appName,
                                   environment: env.name,
-                                  lockId: lock.lockId,
-                                  message: lock.message,
-                                  authorName: lock.createdBy?.name,
-                                  authorEmail: lock.createdBy?.email,
+                                  lockId: currentLock.lockId,
+                                  message: currentLock.message,
+                                  authorName: currentLock.authorName,
+                                  authorEmail: currentLock.authorEmail,
                               },
                               application: appName,
                               environment: env,
                               environmentGroup: envGroup,
-                          });
-                      })
-                    : []
+                          })
+                        : []
+                )
             );
         });
         finalLocks.sort((a: DisplayApplicationLock, b: DisplayApplicationLock) => {
@@ -699,8 +701,7 @@ export const useDisplayApplicationLocks = (appName: string): DisplayApplicationL
             return 0;
         });
         return finalLocks;
-    }, [appName, envGroups]);
-    return finalLocks;
+    }, [appName, envGroups, appLocks]);
 };
 
 export const useLocksConflictingWithActions = (): AllLocks => {

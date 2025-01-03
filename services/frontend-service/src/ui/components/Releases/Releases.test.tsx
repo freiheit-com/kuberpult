@@ -130,14 +130,6 @@ describe('Release Dialog', () => {
     const testEnv1: Environment = {
         name: 'dev',
         locks: {},
-        appLocks: {
-            test: {
-                locks: [testAppLock],
-            },
-            test2: {
-                locks: [testAppLock2],
-            },
-        },
         teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
@@ -145,11 +137,6 @@ describe('Release Dialog', () => {
     const testEnv2: Environment = {
         name: 'staging',
         locks: {},
-        appLocks: {
-            test: {
-                locks: [testApplock3],
-            },
-        },
         teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.PROD,

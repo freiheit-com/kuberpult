@@ -2671,7 +2671,6 @@ func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.
 			EnvironmentGroup: &groupName,
 		},
 		Locks:     map[string]*api.Lock{},
-		AppLocks:  make(map[string]*api.Locks),
 		TeamLocks: make(map[string]*api.Locks),
 	}
 	envInGroup.Config = env.Config
@@ -2696,29 +2695,6 @@ func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.
 		return err
 	} else {
 		for _, appName := range apps {
-
-			if appLocks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName); err != nil {
-				return err
-			} else {
-				apiAppLocks := api.Locks{
-					Locks: make([]*api.Lock, 0),
-				}
-				for lockId, lock := range appLocks {
-					apiAppLocks.Locks = append(apiAppLocks.Locks, &api.Lock{
-						Message:   lock.Message,
-						LockId:    lockId,
-						CreatedAt: timestamppb.New(lock.CreatedAt),
-						CreatedBy: &api.Actor{
-							Name:  lock.CreatedBy.Name,
-							Email: lock.CreatedBy.Email,
-						},
-					})
-
-				}
-				if len(apiAppLocks.Locks) > 0 {
-					env.AppLocks[appName] = &apiAppLocks
-				}
-			}
 			team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
 			if err != nil {
 				return fmt.Errorf("error obtaining team information for app '%s': %w\n", appName, err)
@@ -2747,7 +2723,6 @@ func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.
 		}
 	}
 	envInGroup.TeamLocks = env.TeamLocks
-	envInGroup.AppLocks = env.AppLocks
 	return nil
 }
 

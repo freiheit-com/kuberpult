@@ -52,7 +52,6 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 				EnvironmentGroup: &groupNameCopy,
 			},
 			Locks:     map[string]*api.Lock{},
-			AppLocks:  map[string]*api.Locks{},
 			TeamLocks: map[string]*api.Locks{},
 		}
 		bucket.Environments = append(bucket.Environments, newEnv)

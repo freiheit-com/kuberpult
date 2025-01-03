@@ -114,64 +114,6 @@ func (h *DBHandler) UpdateOverviewEnvironmentLock(ctx context.Context, transacti
 	return nil
 }
 
-func (h *DBHandler) UpdateOverviewApplicationLock(ctx context.Context, transaction *sql.Tx, applicationLock ApplicationLock, createdTime time.Time) error {
-	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	if h.IsOverviewEmpty(latestOverview) {
-		return nil
-	}
-	env := GetEnvironmentByName(latestOverview.EnvironmentGroups, applicationLock.Env)
-	if env == nil {
-		return fmt.Errorf("could not find environment %s in overview", applicationLock.Env)
-	}
-	selectApp, err := h.DBSelectExistingApp(ctx, transaction, applicationLock.App)
-	if err != nil {
-		return fmt.Errorf("could not find application '%s' in apps table, got an error: %w", applicationLock.App, err)
-	}
-	if selectApp == nil {
-		return fmt.Errorf("could not find application '%s' in apps table: got no result", applicationLock.App)
-	}
-	if env.AppLocks == nil {
-		env.AppLocks = make(map[string]*api.Locks)
-	}
-
-	if applicationLock.Deleted {
-		locksToKeep := make([]*api.Lock, 0)
-		for _, lock := range env.AppLocks[applicationLock.App].Locks {
-			if lock.LockId != applicationLock.LockID {
-				locksToKeep = append(locksToKeep, lock)
-			}
-		}
-		if len(locksToKeep) == 0 {
-			delete(env.AppLocks, applicationLock.App)
-		} else {
-			env.AppLocks[applicationLock.App].Locks = locksToKeep
-		}
-	} else {
-		if env.AppLocks[applicationLock.App] == nil {
-			env.AppLocks[applicationLock.App] = &api.Locks{
-				Locks: make([]*api.Lock, 0),
-			}
-		}
-		env.AppLocks[applicationLock.App].Locks = append(env.AppLocks[applicationLock.App].Locks, &api.Lock{
-			Message:   applicationLock.Metadata.Message,
-			LockId:    applicationLock.LockID,
-			CreatedAt: timestamppb.New(applicationLock.Created),
-			CreatedBy: &api.Actor{
-				Name:  applicationLock.Metadata.CreatedByName,
-				Email: applicationLock.Metadata.CreatedByEmail,
-			},
-		})
-	}
-	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (h *DBHandler) IsOverviewEmpty(overviewResp *api.GetOverviewResponse) bool {
 	if overviewResp == nil {
 		return true
