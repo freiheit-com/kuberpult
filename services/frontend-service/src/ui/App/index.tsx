@@ -124,7 +124,7 @@ export const App: React.FC = () => {
                                 UpdateAllApplicationLocks.set(res.allAppLocks);
                             })
                             .catch((e) => {
-                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', e }) });
+                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllAppLocks', e }) });
                             });
                     },
                     (error) => {
