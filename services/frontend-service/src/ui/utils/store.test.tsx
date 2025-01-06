@@ -25,6 +25,7 @@ import {
     SnackbarStatus,
     UpdateAction,
     updateActions,
+    UpdateAllApplicationLocks,
     updateAppDetails,
     UpdateOverview,
     UpdateRolloutStatus,
@@ -36,6 +37,7 @@ import {
     useRolloutStatus,
 } from './store';
 import {
+    AllAppLocks,
     BatchAction,
     Environment,
     EnvironmentGroup,
@@ -59,6 +61,7 @@ describe('Test useLocksSimilarTo', () => {
         inputAction: BatchAction; // the action we are rendering currently in the sidebar
         expectedLocks: AllLocks;
         OverviewApps: OverviewApplication[];
+        AppLocks: { [key: string]: AllAppLocks };
     };
 
     const testdata: TestDataStore[] = [
@@ -74,6 +77,7 @@ describe('Test useLocksSimilarTo', () => {
                 },
             },
             OverviewApps: [],
+            AppLocks: {},
             inputEnvGroups: [],
             expectedLocks: {
                 appLocks: [],
@@ -93,6 +97,7 @@ describe('Test useLocksSimilarTo', () => {
                 },
             },
             OverviewApps: [],
+            AppLocks: {},
             inputEnvGroups: [
                 {
                     environments: [
@@ -130,6 +135,7 @@ describe('Test useLocksSimilarTo', () => {
                 },
             },
             OverviewApps: [],
+            AppLocks: {},
             inputEnvGroups: [
                 {
                     environments: [
@@ -178,6 +184,15 @@ describe('Test useLocksSimilarTo', () => {
                     deleteEnvironmentLock: {
                         environment: 'dev',
                         lockId: 'l1',
+                    },
+                },
+            },
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        betty: {
+                            locks: [makeLock({ lockId: 'l1' })],
+                        },
                     },
                 },
             },
@@ -236,6 +251,15 @@ describe('Test useLocksSimilarTo', () => {
                     team: 'test-team',
                 },
             ],
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        betty: {
+                            locks: [makeLock({ lockId: 'l1' })],
+                        },
+                    },
+                },
+            },
             inputEnvGroups: [
                 {
                     environments: [
@@ -314,6 +338,7 @@ describe('Test useLocksSimilarTo', () => {
                 lightweightApps: testcase.OverviewApps,
                 environmentGroups: testcase.inputEnvGroups,
             });
+            UpdateAllApplicationLocks.set(testcase.AppLocks);
             // when
             const actions = renderHook(() => useLocksSimilarTo(testcase.inputAction)).result.current;
             // then
@@ -803,6 +828,9 @@ describe('Test useLocksConflictingWithActions', () => {
         expectedEnvLocks: DisplayLock[];
         environments: Environment[];
         OverviewApps: OverviewApplication[];
+        AppLocks: {
+            [key: string]: AllAppLocks;
+        };
     };
 
     const testdata: TestDataStore[] = [
@@ -813,6 +841,7 @@ describe('Test useLocksConflictingWithActions', () => {
             expectedEnvLocks: [],
             environments: [],
             OverviewApps: [],
+            AppLocks: {},
         },
         {
             name: 'deploy action and related app lock and env lock',
@@ -860,6 +889,20 @@ describe('Test useLocksConflictingWithActions', () => {
                     priority: 0,
                 },
             ],
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        app1: {
+                            locks: [
+                                makeLock({
+                                    lockId: 'app-lock-id',
+                                    message: 'i do not like this app',
+                                }),
+                            ],
+                        },
+                    },
+                },
+            },
             expectedAppLocks: [
                 makeDisplayLock({
                     lockId: 'app-lock-id',
@@ -890,7 +933,7 @@ describe('Test useLocksConflictingWithActions', () => {
                         $case: 'deploy',
                         deploy: {
                             environment: 'dev',
-                            application: 'app1',
+                            application: 'app2',
                             version: 1,
                             ignoreAllLocks: false,
                             lockBehavior: LockBehavior.IGNORE,
@@ -922,6 +965,20 @@ describe('Test useLocksConflictingWithActions', () => {
                     priority: 0,
                 },
             ],
+            AppLocks: {
+                staging: {
+                    appLocks: {
+                        anotherapp: {
+                            locks: [
+                                makeLock({
+                                    lockId: 'app-lock-id',
+                                    message: 'i do not like this app',
+                                }),
+                            ],
+                        },
+                    },
+                },
+            },
             expectedAppLocks: [],
             expectedEnvLocks: [],
         },
@@ -942,7 +999,7 @@ describe('Test useLocksConflictingWithActions', () => {
                     },
                 ],
             });
-
+            UpdateAllApplicationLocks.set(testcase.AppLocks);
             // when
             const actualLocks = renderHook(() => useLocksConflictingWithActions()).result.current;
             // then
