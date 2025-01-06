@@ -17,13 +17,14 @@ import { render, renderHook } from '@testing-library/react';
 import { LocksPage } from './LocksPage';
 import {
     DisplayLock,
+    UpdateAllApplicationLocks,
     UpdateOverview,
     useAllLocks,
     useEnvironmentLock,
     useFilteredEnvironmentLockIDs,
 } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
-import { Environment, OverviewApplication, Priority } from '../../../api/api';
+import { AllAppLocks, Environment, OverviewApplication, Priority } from '../../../api/api';
 import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 
 describe('LocksPage', () => {
@@ -332,6 +333,9 @@ describe('Test app locks', () => {
         name: string;
         envs: Environment[];
         OverviewApps: OverviewApplication[];
+        AppLocks: {
+            [key: string]: AllAppLocks;
+        };
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
@@ -343,6 +347,7 @@ describe('Test app locks', () => {
             OverviewApps: [],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
+            AppLocks: {},
         },
         {
             name: 'get one lock',
@@ -366,6 +371,15 @@ describe('Test app locks', () => {
                     priority: 0,
                 },
             ],
+            AppLocks: {
+                integration: {
+                    appLocks: {
+                        foo: {
+                            locks: [{ message: 'locktest', lockId: 'ui-v2-1337' }],
+                        },
+                    },
+                },
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-1337'],
         },
@@ -407,6 +421,31 @@ describe('Test app locks', () => {
                     priority: 0,
                 },
             ],
+            AppLocks: {
+                integration: {
+                    appLocks: {
+                        foo: {
+                            locks: [
+                                {
+                                    message: 'locktest',
+                                    lockId: 'ui-v2-1337',
+                                    createdAt: new Date(1995, 11, 17),
+                                },
+                                {
+                                    message: 'lockfoo',
+                                    lockId: 'ui-v2-123',
+                                    createdAt: new Date(1995, 11, 16),
+                                },
+                                {
+                                    message: 'lockbar',
+                                    lockId: 'ui-v2-321',
+                                    createdAt: new Date(1995, 11, 15),
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
             sortOrder: 'newestToOldest',
             expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
         },
@@ -460,6 +499,35 @@ describe('Test app locks', () => {
                     priority: 0,
                 },
             ],
+            AppLocks: {
+                integration: {
+                    appLocks: {
+                        foo: {
+                            locks: [
+                                {
+                                    message: 'lockbar',
+                                    lockId: 'ui-v2-321',
+                                    createdAt: new Date(1995, 11, 15),
+                                },
+                            ],
+                        },
+                        bar: {
+                            locks: [
+                                {
+                                    message: 'lockfoo',
+                                    lockId: 'ui-v2-123',
+                                    createdAt: new Date(1995, 11, 16),
+                                },
+                                {
+                                    message: 'locktest',
+                                    lockId: 'ui-v2-1337',
+                                    createdAt: new Date(1995, 11, 17),
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-321', 'ui-v2-123', 'ui-v2-1337'],
         },
@@ -480,6 +548,7 @@ describe('Test app locks', () => {
                     },
                 ],
             });
+            UpdateAllApplicationLocks.set(testcase.AppLocks);
 
             // when
             const obtained = renderHook(() => useAllLocks().appLocks).result.current;

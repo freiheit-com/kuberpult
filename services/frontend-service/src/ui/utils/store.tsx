@@ -33,6 +33,8 @@ import {
     GetFailedEslsResponse,
     GetAppDetailsResponse,
     OverviewApplication,
+    AllAppLocks,
+    Locks,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -75,10 +77,16 @@ const emptyOverview: EnhancedOverview = {
     branch: '',
     manifestRepoUrl: '',
 };
+
 const [useOverview, UpdateOverview_] = createStore(emptyOverview);
 export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.
 
 export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => loaded);
+
+export const emptyAppLocks: { [key: string]: AllAppLocks } = {};
+export const [useAllApplicationLocks, UpdateAllApplicationLocks] = createStore<{ [key: string]: AllAppLocks }>(
+    emptyAppLocks
+);
 
 type TagsResponse = {
     response: GetGitTagsResponse;
@@ -583,26 +591,26 @@ export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
                 )
         );
 
-export const useAppLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
-    Object.values(useEnvironments())
-        .map((env) =>
-            allApps
-                .map((app) =>
-                    env.appLocks[app.name]
-                        ? env.appLocks[app.name].locks.map((lock) => ({
-                              date: lock.createdAt,
-                              environment: env.name,
-                              application: app.name,
-                              lockId: lock.lockId,
-                              message: lock.message,
-                              authorName: lock.createdBy?.name,
-                              authorEmail: lock.createdBy?.email,
-                          }))
-                        : []
-                )
-                .flat()
-        )
-        .flat();
+export const useAppLocks = (allAppLocks: Map<string, AllAppLocks>): DisplayLock[] => {
+    const allAppLocksDisplay: DisplayLock[] = [];
+    allAppLocks.forEach((appLocksForEnv, env): void => {
+        const currAppLocks = new Map<string, Locks>(Object.entries(appLocksForEnv.appLocks));
+        currAppLocks.forEach((currentAppInfo, app) => {
+            currentAppInfo.locks.map((lock) =>
+                allAppLocksDisplay.push({
+                    date: lock.createdAt,
+                    environment: env,
+                    application: app,
+                    lockId: lock.lockId,
+                    message: lock.message,
+                    authorName: lock.createdBy?.name,
+                    authorEmail: lock.createdBy?.email,
+                })
+            );
+        });
+    });
+    return allAppLocksDisplay;
+};
 /**
  * returns the classname according to the priority of an environment, used to color environments
  */
@@ -795,9 +803,10 @@ export type AllLocks = {
 export const useAllLocks = (): AllLocks => {
     const envs = useEnvironments();
     const allApps = useApplications();
+    const allAppLocks = useAllApplicationLocks((map) => map);
     const teamLocks = useTeamLocks(allApps);
     const environmentLocks: DisplayLock[] = [];
-    const appLocks = useAppLocks(allApps);
+    const appLocks = useAppLocks(new Map(Object.entries(allAppLocks)));
     envs.forEach((env: Environment) => {
         for (const locksKey in env.locks) {
             const lock = env.locks[locksKey];
