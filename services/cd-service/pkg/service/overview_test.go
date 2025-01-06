@@ -390,20 +390,6 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						Environments: []*api.Environment{
 							{
 								Name: prod,
-								AppLocks: map[string]*api.Locks{
-									"test": {
-										Locks: []*api.Lock{
-											{
-												Message: "no",
-												LockId:  "manual",
-												CreatedBy: &api.Actor{
-													Name:  "test tester",
-													Email: "testmail@example.com",
-												},
-											},
-										},
-									},
-								},
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: &staging,

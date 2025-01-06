@@ -75,7 +75,6 @@ describe('Release Card Mini', () => {
                 {
                     name: 'other',
                     locks: {},
-                    appLocks: {},
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -92,7 +91,6 @@ describe('Release Card Mini', () => {
                 {
                     name: 'other',
                     locks: {},
-                    appLocks: {},
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,

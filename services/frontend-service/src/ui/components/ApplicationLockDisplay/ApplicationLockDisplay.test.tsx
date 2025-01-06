@@ -46,7 +46,6 @@ describe('ApplicationLockDisplay', () => {
     const testEnv1: Environment = {
         name: 'dev',
         locks: {},
-        appLocks: {},
         teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
@@ -54,7 +53,6 @@ describe('ApplicationLockDisplay', () => {
     const testEnv2: Environment = {
         name: 'staging',
         locks: {},
-        appLocks: {},
         teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.OTHER,

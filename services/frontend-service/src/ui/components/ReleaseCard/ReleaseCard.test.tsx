@@ -222,7 +222,6 @@ describe('Release Card', () => {
                 foo: {
                     name: 'foo',
                     locks: {},
-                    appLocks: {},
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -290,7 +289,6 @@ describe('Release Card', () => {
                 undeployed: {
                     name: 'undeployed',
                     locks: {},
-                    appLocks: {},
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -357,7 +355,6 @@ describe('Release Card', () => {
             environments: {
                 other: {
                     locks: {},
-                    appLocks: {},
                     teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -568,7 +565,6 @@ describe('Release Card Rollout Status', () => {
                         {
                             name: 'development',
                             locks: {},
-                            appLocks: {},
                             teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
@@ -576,7 +572,6 @@ describe('Release Card Rollout Status', () => {
                         {
                             name: 'development2',
                             locks: {},
-                            appLocks: {},
                             teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
@@ -591,7 +586,6 @@ describe('Release Card Rollout Status', () => {
                         {
                             name: 'staging',
                             locks: {},
-                            appLocks: {},
                             teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,

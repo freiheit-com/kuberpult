@@ -71,7 +71,6 @@ export const LocksPage: React.FC = () => {
     );
 
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
-
     const appLocks = useMemo(() => {
         const allAppLocksDisplay: DisplayLock[] = [];
         const map = new Map(Object.entries(allAppLocks));
