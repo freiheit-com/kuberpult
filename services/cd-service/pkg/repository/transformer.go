@@ -1321,13 +1321,23 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if err != nil {
 			return "", fmt.Errorf("could not get transaction timestamp")
 		}
+		envManifests := make(map[string]string)
+		envs := []string{}
+		allEnvsApps, err := state.DBHandler.FindEnvsAppsFromReleases(ctx, transaction)
+		if err != nil {
+			return "", fmt.Errorf("error while getting envs for this apps: %v", err)
+		}
+		for env, apps := range allEnvsApps {
+			if slices.Contains(apps, c.Application) {
+				envManifests[env] = "" //empty manifest
+				envs = append(envs, env)
+			}
+		}
 		release := db.DBReleaseWithMetaData{
 			ReleaseNumber: lastRelease + 1,
 			App:           c.Application,
 			Manifests: db.DBReleaseManifests{
-				Manifests: map[string]string{ //empty manifest
-					"": "",
-				},
+				Manifests: envManifests,
 			},
 			Metadata: db.DBReleaseMetaData{
 				SourceAuthor:    "",
@@ -1339,7 +1349,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Environments: []string{},
+			Environments: envs,
 			Created:      *now,
 		}
 		err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
