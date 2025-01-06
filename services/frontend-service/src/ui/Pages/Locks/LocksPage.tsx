@@ -69,17 +69,6 @@ export const LocksPage: React.FC = () => {
             ),
         [envs]
     );
-    const allAppLocksDisplay:
-        | DisplayLock[]
-        | {
-              date: Date | undefined;
-              environment: string;
-              application: string;
-              lockId: string;
-              message: string;
-              authorName: string | undefined;
-              authorEmail: string | undefined;
-          }[] = [];
 
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
     const appLocks = useMemo(() => {
