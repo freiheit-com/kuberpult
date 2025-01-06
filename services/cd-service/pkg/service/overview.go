@@ -329,34 +329,31 @@ func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 		response := api.GetAllAppLocksResponse{
 			AllAppLocks: make(map[string]*api.AllAppLocks),
 		}
-		for _, appName := range allAppNames {
-			if err != nil {
-				return nil, err
-			}
-			appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForApp(ctx, transaction, appName)
-			if err != nil {
-				return nil, fmt.Errorf("could not find application locks for app %s: %w", appName, err)
-			}
-			for _, currentLock := range appLocks {
-				if _, ok := response.AllAppLocks[currentLock.Env]; !ok {
-					response.AllAppLocks[currentLock.Env] = &api.AllAppLocks{AppLocks: make(map[string]*api.Locks)}
 
-				}
-				if _, ok := response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App]; !ok {
-					response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App] = &api.Locks{Locks: make([]*api.Lock, 0)}
-				}
-
-				response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks = append(response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks, &api.Lock{
-					LockId:    currentLock.LockID,
-					Message:   currentLock.Metadata.Message,
-					CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
-					CreatedBy: &api.Actor{
-						Name:  currentLock.Metadata.CreatedByName,
-						Email: currentLock.Metadata.CreatedByEmail,
-					},
-				})
-			}
+		appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForSliceApps(ctx, transaction, allAppNames)
+		if err != nil {
+			return nil, fmt.Errorf("error obtaining application locks: %w", err)
 		}
+		for _, currentLock := range appLocks {
+			if _, ok := response.AllAppLocks[currentLock.Env]; !ok {
+				response.AllAppLocks[currentLock.Env] = &api.AllAppLocks{AppLocks: make(map[string]*api.Locks)}
+
+			}
+			if _, ok := response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App]; !ok {
+				response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			}
+
+			response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks = append(response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks, &api.Lock{
+				LockId:    currentLock.LockID,
+				Message:   currentLock.Metadata.Message,
+				CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
+				CreatedBy: &api.Actor{
+					Name:  currentLock.Metadata.CreatedByName,
+					Email: currentLock.Metadata.CreatedByEmail,
+				},
+			})
+		}
+
 		return &response, nil
 	})
 }

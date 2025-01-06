@@ -2484,7 +2484,6 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 		return nil, fmt.Errorf("DBSelectAllActiveAppLocksForApp: no transaction provided")
 	}
 
-	var appLocks []ApplicationLock
 	var rows *sql.Rows
 	defer func(rows *sql.Rows) {
 		if rows == nil {
@@ -2529,13 +2528,82 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 		AND app_locks.appName = (?);
 		`)
 	rows, err = tx.QueryContext(ctx, selectQuery, appName)
+	return h.processAppLockRows(ctx, err, rows)
+}
+
+func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, tx *sql.Tx, appNames []string) ([]ApplicationLock, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveAppLocksForSliceApps")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllActiveAppLocksForSliceApps: no transaction provided")
+	}
+
+	var rows *sql.Rows
+	defer func(rows *sql.Rows) {
+		if rows == nil {
+			return
+		}
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	//Get the latest change to each lock
+	var err error
+	selectQuery := h.AdaptQuery(
+		`
+		SELECT
+			app_locks.eslversion,
+			app_locks.appname,
+			app_locks.envName,
+			app_locks.lockid,
+			app_locks.deleted,
+			app_locks.created,
+			app_locks.metadata
+		FROM (
+			SELECT
+			MAX(eslVersion) AS latest,
+			appname,
+			envName,
+			lockid
+		FROM
+			"app_locks"
+		GROUP BY
+			envName, appName, lockid
+		) AS latest
+		JOIN
+			app_locks AS app_locks
+		ON
+		latest.latest=app_locks.eslVersion
+		AND latest.appname=app_locks.appname
+		AND latest.envName=app_locks.envName
+		AND latest.lockid=app_locks.lockid
+		WHERE deleted = false
+		AND app_locks.appName IN (?` + strings.Repeat(",?", len(appNames)-1) + `);
+		`)
+	args := []any{}
+	for _, app := range appNames {
+		args = append(args, app)
+	}
+	args = append(args, len(appNames))
+	rows, err = tx.QueryContext(
+		ctx,
+		selectQuery,
+		args...,
+	)
+	return h.processAppLockRows(ctx, err, rows)
+}
+
+func (h *DBHandler) processAppLockRows(ctx context.Context, err error, rows *sql.Rows) ([]ApplicationLock, error) {
+	var appLocks []ApplicationLock
 	if err != nil {
 		return nil, fmt.Errorf("could not query application locks table from DB. Error: %w\n", err)
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
-	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
