@@ -314,6 +314,7 @@ func (o *OverviewServiceServer) GetOverview(
 
 func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 	in *api.GetAllAppLocksRequest) (*api.GetAllAppLocksResponse, error) {
+
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllAppLocks")
 	defer span.Finish()
 
@@ -352,7 +353,7 @@ func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 				},
 			})
 		}
-		
+
 		return &response, nil
 	})
 }
