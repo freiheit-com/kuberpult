@@ -4320,16 +4320,29 @@ func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environ
 		return fmt.Errorf("unable to read overview cache, error: %w", err)
 	}
 
-	var envGroupName string
-	if currentEnvState.Config.EnvironmentGroup == nil {
-		envGroupName = currentEnvState.Name
-	}
-	for _, group := range overview.EnvironmentGroups {
-		if group.EnvironmentGroupName == envGroupName {
-
+	fmt.Println(overview.EnvironmentGroups)
+	for gIdx, group := range overview.EnvironmentGroups {
+		for idx, currentEnv := range group.Environments {
+			if currentEnv.Name == environmentName {
+				fmt.Println(currentEnv.Name)
+				fmt.Println(group.Environments)
+				fmt.Println(len(group.Environments))
+				if len(group.Environments) == 1 { //Delete whole group
+					fmt.Println("//Delete whole group")
+					overview.EnvironmentGroups = append(overview.EnvironmentGroups[:gIdx], overview.EnvironmentGroups[gIdx+1:]...)
+				} else {
+					fmt.Println("//single env")
+					overview.EnvironmentGroups[gIdx].Environments = append(group.Environments[:idx], group.Environments[idx+1:]...)
+				}
+				fmt.Println(group)
+				break
+			}
 		}
 	}
-
+	err = h.WriteOverviewCache(ctx, tx, overview)
+	if err != nil {
+		return fmt.Errorf("Unable to write overview cache, error: %w", err)
+	}
 	return nil
 }
 

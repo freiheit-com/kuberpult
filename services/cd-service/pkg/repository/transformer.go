@@ -2898,7 +2898,7 @@ func (c *DeleteEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	if envLocks == nil || len(envLocks.EnvLocks) != 0 {
+	if envLocks != nil && len(envLocks.EnvLocks) != 0 {
 		return "", fmt.Errorf("Could not delete environment '%s'. Environment locks for this environment exist.", c.Environment)
 	}
 
@@ -2906,7 +2906,7 @@ func (c *DeleteEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	if appLocksForEnv == nil || len(appLocksForEnv.AppLocks) != 0 {
+	if appLocksForEnv != nil && len(appLocksForEnv.AppLocks) != 0 {
 		return "", fmt.Errorf("Could not delete environment '%s'. Application locks for this environment exist.", c.Environment)
 	}
 
@@ -2914,7 +2914,7 @@ func (c *DeleteEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	if teamLocksForEnv == nil || len(teamLocksForEnv.TeamLocks) != 0 {
+	if teamLocksForEnv != nil && len(teamLocksForEnv.TeamLocks) != 0 {
 		return "", fmt.Errorf("Could not delete environment '%s'. Team locks for this environment exist.", c.Environment)
 	}
 
@@ -2940,7 +2940,6 @@ func (c *DeleteEnvironment) Transform(
 		}
 	}
 
-	fmt.Printf("envIdx: %d\n", envIdx)
 	//Write new state of all environments
 	err = state.DBHandler.DBWriteAllEnvironments(ctx, transaction, append(allEnvs.Environments[:envIdx], allEnvs.Environments[envIdx+1:]...))
 
