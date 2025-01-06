@@ -1749,7 +1749,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 			},
 		},
 		{
-			Name: "Read two locks  from two app",
+			Name: "Read two locks  from two apps",
 			AppNames: []string{
 				"my-app", "my-app-2",
 			},
@@ -1769,7 +1769,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					Message:     "My application lock on dev for my-app-2",
 					AuthorName:  "myself",
 					AuthorEmail: "myself@example.com",
-					AppName:     "my-app",
+					AppName:     "my-app-2",
 					CiLink:      "www.test.com",
 				},
 			},
@@ -1795,7 +1795,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					Deleted:    false,
 					App:        "my-app-2",
 					Metadata: LockMetadata{
-						Message:        "My application lock on dev for my-app",
+						Message:        "My application lock on dev for my-app-2",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
 						CiLink:         "www.test.com",
@@ -1835,7 +1835,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 		{
 			Name: "Only read not deleted locks",
 			AppNames: []string{
-				"my-app",
+				"my-app", "my-app-2",
 			},
 			SetupLocks: []testLockInfo{
 				{
@@ -1863,6 +1863,15 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					AuthorName:  "myself",
 					AuthorEmail: "myself@example.com",
 					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+				{
+					Env:         "staging",
+					LockID:      "dev-app-lock-staging-2",
+					Message:     "My application lock on stagibg for my-app-2",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app-2",
 					CiLink:      "www.test.com",
 				},
 			},
@@ -1898,7 +1907,20 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					Deleted:    false,
 					App:        "my-app",
 					Metadata: LockMetadata{
-						Message:        "My application lock on dev for my-app",
+						Message:        "My application lock on stagibg for my-app",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+				{
+					Env:        "staging",
+					LockID:     "dev-app-lock-staging-2",
+					EslVersion: 1,
+					Deleted:    false,
+					App:        "my-app-2",
+					Metadata: LockMetadata{
+						Message:        "My application lock on stagibg for my-app-2",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
 						CiLink:         "www.test.com",
