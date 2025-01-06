@@ -69,10 +69,19 @@ export const LocksPage: React.FC = () => {
             ),
         [envs]
     );
+    const allAppLocksDisplay:
+        | DisplayLock[]
+        | {
+              date: Date | undefined;
+              environment: string;
+              application: string;
+              lockId: string;
+              message: string;
+              authorName: string | undefined;
+              authorEmail: string | undefined;
+          }[] = [];
 
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
-    allAppLocks.forEach((appLocksForEnv, env): void => {
-        const currAppLocks = new Map<string, Locks>(Object.entries(appLocksForEnv.appLocks));
     const appLocks = useMemo(() => {
         const allAppLocksDisplay: DisplayLock[] = [];
         const map = new Map(Object.entries(allAppLocks));

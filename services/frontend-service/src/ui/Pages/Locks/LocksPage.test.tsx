@@ -607,26 +607,6 @@ describe('Test Team locks', () => {
                     },
                     distanceToUpstream: 0,
                     priority: 0,
-                    // appLocks: {
-                    //     foo: {
-                    //         locks: [
-                    //             {
-                    //                 message: 'lockbar',
-                    //                 lockId: 'ui-v2-321',
-                    //                 createdAt: new Date(1995, 11, 15),
-                    //             },
-                    //         ],
-                    //     },
-                    //     bar: {
-                    //         locks: [
-                    //             {
-                    //                 message: 'lockfoo',
-                    //                 lockId: 'ui-v2-123',
-                    //                 createdAt: new Date(1995, 11, 16),
-                    //             },
-                    //         ],
-                    //     },
-                    // },
                     teamLocks: {
                         'test-team': {
                             locks: [
