@@ -676,7 +676,9 @@ export const useDisplayApplicationLocks = (appName: string): DisplayApplicationL
         Object.values(envGroups).forEach((envGroup) => {
             Object.values(envGroup.environments).forEach((env: Environment) =>
                 appLocks.forEach((currentLock) =>
-                    currentLock.application && currentLock.application === appName
+                    currentLock.application &&
+                    currentLock.application === appName &&
+                    currentLock.environment === env.name
                         ? finalLocks.push({
                               lock: {
                                   date: currentLock.date,

@@ -375,7 +375,25 @@ describe('Release Dialog', () => {
                 },
             },
             releases: [],
-            AppLocks: {},
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        test: {
+                            locks: [testAppLock],
+                        },
+                        test2: {
+                            locks: [testAppLock2],
+                        },
+                    },
+                },
+                staging: {
+                    appLocks: {
+                        test: {
+                            locks: [testApplock3],
+                        },
+                    },
+                },
+            },
             envGroups: [testEnvGroup1, testEnvGroup2],
             expectedAppLocksLength: 2,
         },
