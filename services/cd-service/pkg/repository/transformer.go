@@ -290,6 +290,30 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 		// in the future apps might be sorted, but currently they aren't
 		slices.Sort(envFromDb.Applications)
 		var appCounter = 0
+
+		//Get all locks at once, avoid round trips to DB
+		allAppLocks, err := state.DBHandler.DBSelectAllActiveAppLocksForSliceApps(ctx, transaction, envFromDb.Applications)
+		if err != nil {
+			return err
+		}
+
+		appLockMap := map[string]int{} //appName -> num of app locks
+		//Collect number of appLocks
+		for _, currentLock := range allAppLocks {
+			appCounter = appCounter + 1
+			actualEven := appCounter%2 == 0
+			if actualEven == even {
+				// iterating over all apps can take a while, so we only do half the apps each run
+				continue
+			}
+			if value, ok := appLockMap[currentLock.App]; !ok {
+				appLockMap[currentLock.App] = 1
+			} else {
+				appLockMap[currentLock.App] = value + 1
+			}
+		}
+
+		appCounter = 0
 		for _, appName := range envFromDb.Applications {
 			appCounter = appCounter + 1
 			actualEven := appCounter%2 == 0
@@ -297,18 +321,7 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 				// iterating over all apps can take a while, so we only do half the apps each run
 				continue
 			}
-
-			//This might be problematic if a lot of apps x envs are here
-			numAppLocks := 0
-			allAppLocks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, envName, appName)
-			if err != nil {
-				return err
-			}
-			if allAppLocks != nil {
-				numAppLocks = len(allAppLocks.AppLocks)
-			}
-			GaugeEnvAppLockMetric(ctx, numAppLocks, envName, appName)
-
+			GaugeEnvAppLockMetric(ctx, appLockMap[appName], envName, appName)
 			_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(ctx, transaction, envName, appName)
 			if err != nil {
 				return err

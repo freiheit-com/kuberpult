@@ -353,7 +353,6 @@ func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 				},
 			})
 		}
-
 		return &response, nil
 	})
 }
