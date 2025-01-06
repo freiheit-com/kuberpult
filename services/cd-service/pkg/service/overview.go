@@ -314,13 +314,7 @@ func (o *OverviewServiceServer) GetOverview(
 
 func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 	in *api.GetAllAppLocksRequest) (*api.GetAllAppLocksResponse, error) {
-<<<<<<< HEAD
-
-=======
-	// Get all Environments
-	// For each environment, get all applications
-	// Get all app locks for that environment
->>>>>>> 0a159ccd (Implement new endpoint for getting all app locks)
+	
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllAppLocks")
 	defer span.Finish()
 
