@@ -30,7 +30,6 @@ import {
     UpdateOverview,
     UpdateRolloutStatus,
     UpdateSnackbar,
-    useAllApplicationLocks,
     useLocksConflictingWithActions,
     useLocksSimilarTo,
     useNavigateWithSearchParams,
