@@ -4257,6 +4257,82 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	return nil
 }
 
+/*
+DBDeleteEnvironment takes the latest config for some env and sets its 'deleted' flag to true. Does not care
+if the applications list is empty or not
+*/
+/*
+DBDeleteEnvironment also updates the overview cache
+*/
+func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironment")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("attempting to write to the environments table without a transaction")
+	}
+
+	currentEnvState, err := h.DBSelectEnvironment(ctx, tx, environmentName)
+	if err != nil {
+		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
+	}
+
+	jsonToInsert, err := json.Marshal(currentEnvState.Config)
+	if err != nil {
+		return fmt.Errorf("error while marshalling the environment config %v, error: %w", currentEnvState.Config, err)
+	}
+
+	slices.Sort(currentEnvState.Applications) // we don't really *need* the sorting, it's just for convenience
+	applicationsJson, err := json.Marshal(currentEnvState.Applications)
+	if err != nil {
+		return fmt.Errorf("could not marshal the application names list %v, error: %w", applicationsJson, err)
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT Into environments (created, name, json, applications, deleted) VALUES (?, ?, ?, ?, ?);",
+	)
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteEnvironment unable to get transaction timestamp: %w", err)
+	}
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		*now,
+		environmentName,
+		jsonToInsert,
+		string(applicationsJson),
+		true,
+	)
+	if err != nil {
+		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, currentEnvState.Config, err)
+	}
+	//Overview cache
+	overview, err := h.ReadLatestOverviewCache(ctx, tx)
+	if overview == nil {
+		//If no overview, there is no need to update it
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("unable to read overview cache, error: %w", err)
+	}
+
+	var envGroupName string
+	if currentEnvState.Config.EnvironmentGroup == nil {
+		envGroupName = currentEnvState.Name
+	}
+	for _, group := range overview.EnvironmentGroups {
+		if group.EnvironmentGroupName == envGroupName {
+
+		}
+	}
+
+	return nil
+}
+
 func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
 	defer span.Finish()

@@ -2882,6 +2882,17 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 
+	allEnvs, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil || allEnvs == nil {
+		return "", fmt.Errorf("error getting all environments %v", err)
+	}
+
+	var envIdx int
+	var envExists bool
+	if envIdx, envExists = slices.BinarySearch(allEnvs.Environments, c.Environment); !envExists {
+		return "", fmt.Errorf("Could not delete environment '%s'. Environment does not exist", c.Environment)
+	}
+
 	/*Check for locks*/
 	envLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, c.Environment)
 	if err != nil {
@@ -2913,19 +2924,35 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 
+	//Delete env from apps
 	for _, app := range allAppsForEnv {
 		logger.FromContext(ctx).Sugar().Infof("Deleting environment '%s' from '%s'.", c.Environment, app)
-		//deleteEnvFromAppTransformer := DeleteEnvFromApp{
-		//	Authentication:        c.Authentication,
-		//	TransformerEslVersion: c.TransformerEslVersion,
-		//	Environment:           c.Environment,
-		//	Application:           app,
-		//}
-		//if ret, err := deleteEnvFromAppTransformer.Transform(ctx, state, t, transaction); err != nil {
-		//	return "", err
-		//} else {
-		//	logger.FromContext(ctx).Sugar().Infof(ret)
-		//}
+		deleteEnvFromAppTransformer := DeleteEnvFromApp{
+			Authentication:        c.Authentication,
+			TransformerEslVersion: c.TransformerEslVersion,
+			Environment:           c.Environment,
+			Application:           app,
+		}
+		if ret, err := deleteEnvFromAppTransformer.Transform(ctx, state, t, transaction); err != nil {
+			return "", err
+		} else {
+			logger.FromContext(ctx).Sugar().Infof(ret)
+		}
+	}
+
+	fmt.Printf("envIdx: %d\n", envIdx)
+	//Write new state of all environments
+	err = state.DBHandler.DBWriteAllEnvironments(ctx, transaction, append(allEnvs.Environments[:envIdx], allEnvs.Environments[envIdx+1:]...))
+
+	if err != nil {
+		return "", err
+	}
+
+	//Delete env fromm environments table
+	err = state.DBHandler.DBDeleteEnvironment(ctx, transaction, c.Environment)
+
+	if err != nil {
+		return "", err
 	}
 
 	return fmt.Sprintf("Successfully deleted environment '%s'", c.Environment), nil
