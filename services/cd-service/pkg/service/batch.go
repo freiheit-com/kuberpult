@@ -351,7 +351,15 @@ func (d *BatchServer) processAction(
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
+	case *api.BatchAction_DeleteEnvironment:
+		act := action.DeleteEnvironment
+		return &repository.DeleteEnvironment{
+			Environment:           act.Environment,
+			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslVersion: 0,
+		}, nil, nil
 	}
+
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
 }
 

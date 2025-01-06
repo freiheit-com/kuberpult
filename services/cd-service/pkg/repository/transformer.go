@@ -2857,6 +2857,80 @@ func (c *CreateEnvironment) Transform(
 	return fmt.Sprintf("create environment %q", c.Environment), nil
 }
 
+type DeleteEnvironment struct {
+	Authentication        `json:"-"`
+	Environment           string           `json:"env"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+
+}
+
+func (c *DeleteEnvironment) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironment
+}
+
+func (c *DeleteEnvironment) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+func (c *DeleteEnvironment) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	err := state.checkUserPermissions(ctx, transaction, c.Environment, "*", auth.PermissionDeleteEnvironment, "", c.RBACConfig, false)
+	if err != nil {
+		return "", err
+	}
+
+	/*Check for locks*/
+	envLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+	if envLocks == nil || len(envLocks.EnvLocks) != 0 {
+		return "", fmt.Errorf("Could not delete environment '%s'. Environment locks for this environment exist.", c.Environment)
+	}
+
+	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+	if appLocksForEnv == nil || len(appLocksForEnv.AppLocks) != 0 {
+		return "", fmt.Errorf("Could not delete environment '%s'. Application locks for this environment exist.", c.Environment)
+	}
+
+	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+	if teamLocksForEnv == nil || len(teamLocksForEnv.TeamLocks) != 0 {
+		return "", fmt.Errorf("Could not delete environment '%s'. Team locks for this environment exist.", c.Environment)
+	}
+
+	/*Remove environment from all apps*/
+	allAppsForEnv, err := state.GetEnvironmentApplications(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+
+	for _, app := range allAppsForEnv {
+		logger.FromContext(ctx).Sugar().Infof("Deleting environment '%s' from '%s'.", c.Environment, app)
+		//deleteEnvFromAppTransformer := DeleteEnvFromApp{
+		//	Authentication:        c.Authentication,
+		//	TransformerEslVersion: c.TransformerEslVersion,
+		//	Environment:           c.Environment,
+		//	Application:           app,
+		//}
+		//if ret, err := deleteEnvFromAppTransformer.Transform(ctx, state, t, transaction); err != nil {
+		//	return "", err
+		//} else {
+		//	logger.FromContext(ctx).Sugar().Infof(ret)
+		//}
+	}
+
+	return fmt.Sprintf("Successfully deleted environment '%s'", c.Environment), nil
+}
+
 type QueueApplicationVersion struct {
 	Environment  string
 	Application  string

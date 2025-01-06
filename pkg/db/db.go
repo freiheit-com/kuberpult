@@ -285,6 +285,7 @@ const (
 	EvtCreateEnvironmentGroupLock       EventType = "CreateEnvironmentGroupLock"
 	EvtDeleteEnvironmentGroupLock       EventType = "DeleteEnvironmentGroupLock"
 	EvtCreateEnvironment                EventType = "CreateEnvironment"
+	EvtDeleteEnvironment                EventType = "DeleteEnvironment"
 	EvtCreateEnvironmentApplicationLock EventType = "CreateEnvironmentApplicationLock"
 	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"
 	EvtReleaseTrain                     EventType = "ReleaseTrain"
@@ -2866,6 +2867,25 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 		ctx,
 		selectQuery,
 	)
+	return h.processAllAppLocksRows(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, environment string) (*AllAppLocksGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocksForEnv")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, appName, json FROM all_app_locks WHERE environment = (?) ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environment,
+	)
+	return h.processAllAppLocksRows(ctx, rows, err)
+}
+
+func (h *DBHandler) processAllAppLocksRows(ctx context.Context, rows *sql.Rows, err error) (*AllAppLocksGo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query all_app_locks table from DB. Error: %w\n", err)
 	}
@@ -3037,6 +3057,22 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
+	)
+	return h.processAllTeamLocksRow(ctx, err, rows)
+}
+
+func (h *DBHandler) DBSelectTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment string) (*AllTeamLocksGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLocksForEnv")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, teamName, json FROM all_team_locks WHERE environment = (?) ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environment,
 	)
 	return h.processAllTeamLocksRow(ctx, err, rows)
 }

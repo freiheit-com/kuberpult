@@ -63,6 +63,8 @@ func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tai
 	case "":
 		if tail == "/" && req.Method == http.MethodPost {
 			s.handleCreateEnvironment(w, req, environment, tail)
+		} else if tail == "/" && req.Method == http.MethodDelete {
+			s.handleDeleteEnvironment(w, req, environment, tail)
 		} else {
 			http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
 		}

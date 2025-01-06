@@ -37,6 +37,7 @@ const (
 	PermissionCreateUndeploy               = "CreateUndeploy"
 	PermissionDeployUndeploy               = "DeployUndeploy"
 	PermissionCreateEnvironment            = "CreateEnvironment"
+	PermissionDeleteEnvironment            = "DeleteEnvironment"
 	PermissionDeleteEnvironmentApplication = "DeleteEnvironmentApplication"
 	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
 	// The default permission template.
@@ -65,6 +66,7 @@ func initPolicyConfig() policyConfig {
 			PermissionCreateUndeploy,
 			PermissionDeployUndeploy,
 			PermissionCreateEnvironment,
+			PermissionDeleteEnvironment,
 			PermissionDeleteEnvironmentApplication,
 			PermissionDeployReleaseTrain},
 	}

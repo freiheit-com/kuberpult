@@ -93,3 +93,25 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+func (s Server) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request, environment, tail string) {
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf("Delete Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
+		return
+	}
+
+	_, err := s.BatchClient.ProcessBatch(req.Context(),
+		&api.BatchRequest{Actions: []*api.BatchAction{
+			{Action: &api.BatchAction_DeleteEnvironment{
+				DeleteEnvironment: &api.DeleteEnvironmentRequest{
+					Environment: environment,
+				}}},
+		},
+		})
+
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}

@@ -50,7 +50,7 @@ BEGIN
                FROM information_schema.columns 
                WHERE table_name = 'releases' 
                  AND column_name = 'eslversion') THEN
-        ALTER TABLE IF EXISTS releases
+        ALTER TABLE IF EXISTS releases 
         ALTER COLUMN version SET DEFAULT nextval('releases_version_seq');
     END IF;
 END $$;
