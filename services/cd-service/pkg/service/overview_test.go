@@ -1165,6 +1165,348 @@ func TestGetApplicationDetails(t *testing.T) {
 	}
 }
 
+func TestGetAllAppLocks(t *testing.T) {
+	var dev = "dev"
+	var env = "development"
+	var secondEnv = "development2"
+	var appName = "test-app"
+	var anotherAppName = "another-app-name"
+	tcs := []struct {
+		Name             string
+		Setup            []repository.Transformer
+		AppName          string
+		ExpectedResponse *api.GetAllAppLocksResponse
+	}{
+		{
+			Name:    "Get All Locks",
+			AppName: appName,
+			ExpectedResponse: &api.GetAllAppLocksResponse{
+				AllAppLocks: map[string]*api.AllAppLocks{
+					env: {
+						AppLocks: map[string]*api.Locks{
+							appName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "my-app-lock",
+										Message: "app lock for test-app",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+					secondEnv: {
+						AppLocks: map[string]*api.Locks{
+							appName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "my-app-lock",
+										Message: "app lock for test-app",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: secondEnv,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
+				},
+			},
+		},
+		{
+			Name:    "Get All Locks - no locks",
+			AppName: appName,
+			ExpectedResponse: &api.GetAllAppLocksResponse{
+				AllAppLocks: map[string]*api.AllAppLocks{},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+			},
+		},
+		{
+			Name:    "Get All Locks - multiple locks per environment",
+			AppName: appName,
+			ExpectedResponse: &api.GetAllAppLocksResponse{
+				AllAppLocks: map[string]*api.AllAppLocks{
+					secondEnv: {
+						AppLocks: map[string]*api.Locks{
+							appName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "my-app-lock",
+										Message: "app lock for test-app",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+					env: {
+						AppLocks: map[string]*api.Locks{
+							appName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "A-my-app-lock",
+										Message: "app lock for test-app (1) on env",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+									{
+										LockId:  "B-duplicate-app-lock",
+										Message: "app lock for test-app (2) on env",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+							anotherAppName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "my-app-lock",
+										Message: "my-app-lock message on anotherAppName",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           anotherAppName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "A-my-app-lock",
+					Message:     "app lock for test-app (1) on env",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "B-duplicate-app-lock",
+					Message:     "app lock for test-app (2) on env",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: anotherAppName,
+					Environment: env,
+					LockId:      "my-app-lock",
+					Message:     "my-app-lock message on anotherAppName",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: secondEnv,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := repository.RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+			}
+			svc := &OverviewServiceServer{
+				Repository:       repo,
+				RepositoryConfig: config,
+				DBHandler:        repo.State().DBHandler,
+				Shutdown:         shutdown,
+			}
+
+			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+				t.Fatal(err)
+			}
+
+			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+				Email: "app-email@example.com",
+				Name:  "overview tester",
+			})
+
+			resp, err := svc.GetAllAppLocks(ctx, &api.GetAllAppLocksRequest{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			//Locks
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, cmpopts.IgnoreUnexported(api.GetAllAppLocksResponse{}), cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{}), cmpopts.IgnoreUnexported(api.AllAppLocks{})); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+			close(shutdown)
+		})
+	}
+}
+
 func TestDeriveUndeploySummary(t *testing.T) {
 	var tcs = []struct {
 		Name           string
