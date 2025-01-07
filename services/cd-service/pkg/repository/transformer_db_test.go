@@ -3300,60 +3300,109 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedCommitMsg: "",
 		},
-		//{
-		//	Name: "Delete Env - release train after deleting upstream",
-		//	Transformers: []Transformer{
-		//		&CreateEnvironment{
-		//			Environment: envAcceptance,
-		//			Config: config.EnvironmentConfig{
-		//				ArgoCd: nil,
-		//				Upstream: &config.EnvironmentConfigUpstream{
-		//					Latest: true,
-		//				},
-		//				EnvironmentGroup: conversion.FromString(envAcceptance),
-		//			},
-		//		},
-		//		&CreateEnvironment{
-		//			Environment: envProduction,
-		//			Config: config.EnvironmentConfig{
-		//				ArgoCd: nil,
-		//				Upstream: &config.EnvironmentConfigUpstream{
-		//					Environment: envAcceptance,
-		//					Latest:      false,
-		//				},
-		//				EnvironmentGroup: conversion.FromString(envProduction),
-		//			},
-		//		},
-		//		&CreateApplicationVersion{
-		//			Application: testAppName,
-		//			Manifests: map[string]string{
-		//				envAcceptance: "acceptancemanifest",
-		//				envProduction: "productionmanifest",
-		//			},
-		//			WriteCommitData: true,
-		//			Team:            "test-team",
-		//			Version:         1,
-		//		},
-		//		&DeployApplicationVersion{
-		//			Environment: envProduction,
-		//			Application: testAppName,
-		//			Version:     1,
-		//		},
-		//		&DeleteEnvironment{
-		//			Environment: envAcceptance,
-		//		},
-		//		&ReleaseTrain{
-		//			Target:                envProduction,
-		//			WriteCommitData:       true,
-		//			TransformerEslVersion: 5,
-		//		},
-		//	},
-		//	expectedError: &TransformerBatchApplyError{
-		//		Index:            4,
-		//		TransformerError: errMatcher{"Could not delete environment 'production'. Team locks for this environment exist."},
-		//	},
-		//	expectedCommitMsg: "",
-		//},
+		{
+			Name: "Env to delete is upstream",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("production-group"),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						ArgoCd: nil,
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: envProduction,
+						},
+						EnvironmentGroup: conversion.FromString("acceptance-group"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Team:            "test-team",
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            4,
+				TransformerError: errMatcher{"error at index 4 of transformer batch: Could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Env to delete is upstream group",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("production-group"),
+					},
+				},
+				&CreateEnvironment{
+					Environment: "production-2",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("production-group"),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						ArgoCd: nil,
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: *conversion.FromString("production-group"),
+						},
+						EnvironmentGroup: conversion.FromString("acceptance-group"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Team:            "test-team",
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+				&DeleteEnvironment{
+					Environment: "production-2",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            6,
+				TransformerError: errMatcher{"Could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
+			},
+			expectedCommitMsg: "",
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc

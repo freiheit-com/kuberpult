@@ -2926,6 +2926,17 @@ func (c *DeleteEnvironment) Transform(
 
 	envConfigToDelete := allEnvConfigs[c.Environment]
 
+	//Find out if env to delete is last of its group, might be useful next
+	var envToDeleteGroupName = mapper.DeriveGroupName(envConfigToDelete, c.Environment)
+
+	var allEnvGroups = mapper.MapEnvironmentsToGroups(allEnvConfigs)
+	lastEnvOfGroup := false
+	for _, currGroup := range allEnvGroups {
+		if currGroup.EnvironmentGroupName == envToDeleteGroupName {
+			lastEnvOfGroup = (len(currGroup.Environments) == 1)
+		}
+	}
+
 	for envName, envConfig := range allEnvConfigs {
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == c.Environment {
 			return "", fmt.Errorf("Could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName)
@@ -2933,10 +2944,16 @@ func (c *DeleteEnvironment) Transform(
 
 		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
 		//If this group is upstream from another env, we need to block it aswell
-		if envConfig.Upstream != nil && envConfigToDelete.EnvironmentGroup != nil {
-			return "", fmt.Errorf("Could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName)
+		if envConfig.Upstream != nil && envConfig.Upstream.Environment == envToDeleteGroupName && lastEnvOfGroup {
+			return "", fmt.Errorf("Could not delete environment '%s'. '%s' is part of environment group '%s', "+
+				"which is upstream from '%s' and deleting '%s' would result in environment group deletion.",
+				c.Environment,
+				c.Environment,
+				envToDeleteGroupName,
+				envName,
+				c.Environment,
+			)
 		}
-
 	}
 
 	/*Remove environment from all apps*/
