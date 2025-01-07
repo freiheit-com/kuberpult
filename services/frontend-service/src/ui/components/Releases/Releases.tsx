@@ -53,11 +53,6 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
     const releases = useAppDetailsForApp(app).details?.application?.releases;
     const displayAppLocks = useDisplayApplicationLocks(app);
-    // eslint-disable-next-line no-console
-    console.log(displayAppLocks);
-    const allAppLocks = useAllApplicationLocks((map) => map);
-    // eslint-disable-next-line no-console
-    console.log(allAppLocks);
     const rel = getReleasesForAppGroupByDate(releases);
     return (
         <div className={classNames('timeline', className)}>
