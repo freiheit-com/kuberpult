@@ -2918,6 +2918,27 @@ func (c *DeleteEnvironment) Transform(
 		return "", fmt.Errorf("Could not delete environment '%s'. Team locks for this environment exist.", c.Environment)
 	}
 
+	/* Check that no environment has the one we are trying to delete as upstream */
+	allEnvConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+	if err != nil {
+		return "", err
+	}
+
+	envConfigToDelete := allEnvConfigs[c.Environment]
+
+	for envName, envConfig := range allEnvConfigs {
+		if envConfig.Upstream != nil && envConfig.Upstream.Environment == c.Environment {
+			return "", fmt.Errorf("Could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName)
+		}
+
+		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
+		//If this group is upstream from another env, we need to block it aswell
+		if envConfig.Upstream != nil && envConfigToDelete.EnvironmentGroup != nil {
+			return "", fmt.Errorf("Could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName)
+		}
+
+	}
+
 	/*Remove environment from all apps*/
 	allAppsForEnv, err := state.GetEnvironmentApplications(ctx, transaction, c.Environment)
 	if err != nil {
