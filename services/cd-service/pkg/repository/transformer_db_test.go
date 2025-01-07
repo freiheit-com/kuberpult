@@ -2764,6 +2764,225 @@ func TestReleaseTrain(t *testing.T) {
 	}
 }
 
+func TestDeleteEnvironmentDBState(t *testing.T) {
+
+	// Env removed from all Envs
+	// Env removed from all releases of that app
+	type TestCase struct {
+		Name                  string
+		Transformers          []Transformer
+		expectedLatestRelease map[string]db.DBReleaseWithMetaData
+		expectedAllEnvs       []string
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "remove env with deployed app",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeleteEnvironment{
+					Environment: "staging",
+				},
+			},
+			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+				"app": {
+					App:           "app",
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{},
+					},
+					Environments: []string{},
+				},
+			},
+			expectedAllEnvs: []string{},
+		},
+		{
+			Name: "multiple envs",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: "dev",
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+						"dev":     "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeleteEnvironment{
+					Environment: "staging",
+				},
+			},
+			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+				"app": {
+					App:           "app",
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "doesn't matter",
+						},
+					},
+					Environments: []string{"dev"},
+				},
+			},
+			expectedAllEnvs: []string{"dev"},
+		},
+		{
+			Name: "multiple envs, multiple apps",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: "dev",
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+						"dev":     "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&CreateApplicationVersion{
+					Application:    "app2",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+						"dev":     "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeleteEnvironment{
+					Environment: "staging",
+				},
+			},
+			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+				"app": {
+					App:           "app",
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "doesn't matter",
+						},
+					},
+					Environments: []string{"dev"},
+				},
+				"app2": {
+					App:           "app2",
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "doesn't matter",
+						},
+					},
+					Environments: []string{"dev"},
+				},
+			},
+			expectedAllEnvs: []string{"dev"},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			var err error = nil
+			repo = SetupRepositoryTestWithDB(t)
+			r := repo.(*repository)
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				var batchError *TransformerBatchApplyError = nil
+				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if batchError != nil {
+					return batchError
+				}
+				a, err := r.DB.DBSelectAllReleasesOfAllApps(ctx, transaction)
+				fmt.Println(a)
+				allEnvs, err := r.DB.DBSelectAllEnvironments(ctx, transaction)
+
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.expectedAllEnvs, allEnvs.Environments); diff != "" {
+					t.Errorf("all envs  mismatch (-want, +got):\n%s", diff)
+					return nil
+				}
+
+				for appName, appConfig := range tc.expectedLatestRelease {
+					app, err := r.DB.DBSelectReleaseByVersion(ctx, transaction, appName, 1, false)
+					if err != nil {
+						return err
+					}
+					fmt.Println(app)
+					if diff := cmp.Diff(appConfig, *app, cmpopts.IgnoreFields(db.DBReleaseWithMetaData{}, "Created"), cmpopts.IgnoreFields(db.DBReleaseWithMetaData{}, "Metadata")); diff != "" {
+						t.Errorf("all envs  mismatch (-want, +got):\n%s", diff)
+						return nil
+					}
+				}
+
+				return nil
+
+			})
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: '%v'", err)
+			}
+		})
+	}
+}
+
 func TestUndeployApplicationDB(t *testing.T) {
 	tcs := []struct {
 		Name              string
