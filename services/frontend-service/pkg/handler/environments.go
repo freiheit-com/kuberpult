@@ -20,7 +20,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
@@ -99,7 +101,36 @@ func (s Server) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request
 		http.Error(w, fmt.Sprintf("Delete Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
+	if s.AzureAuth {
+		if req.Body == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "missing request body")
+			return
+		}
+		signature, err := io.ReadAll(req.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Can't read request body %s", err)
+			return
+		}
 
+		if len(signature) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+			return
+		}
+
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), bytes.NewReader(signature), nil); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
+	}
 	_, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_DeleteEnvironment{
