@@ -185,7 +185,7 @@ func splitManifest(m []byte, req *argorepo.ManifestRequest) ([]string, error) {
 	}
 	for _, obj := range parts {
 		if req.AppLabelKey != "" && req.AppName != "" && !kube.IsCRD(obj) {
-			err = resourceTracking.SetAppInstance(obj, req.AppLabelKey, req.AppName, req.Namespace, v1alpha1.TrackingMethod(req.TrackingMethod), "")
+			err = resourceTracking.SetAppInstance(obj, req.AppLabelKey, req.AppName, req.Namespace, v1alpha1.TrackingMethod(req.TrackingMethod))
 			if err != nil {
 				return nil, err
 			}

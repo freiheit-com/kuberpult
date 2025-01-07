@@ -662,7 +662,7 @@ func testArgoServer(t *testing.T) argorepo.RepoServerServiceServer {
 		})
 	asrv := argosrv.NewService(
 		metrics.NewMetricsServer(),
-		cache.NewCache(cacheutil.NewCache(cacheutil.NewInMemoryCache(time.Hour)), time.Hour, time.Hour),
+		cache.NewCache(cacheutil.NewCache(cacheutil.NewInMemoryCache(time.Hour)), time.Hour, time.Hour, time.Hour),
 		argosrv.RepoServerInitConstants{},
 		argo.NewResourceTracking(),
 		&git.NoopCredsStore{},

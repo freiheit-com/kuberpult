@@ -7,7 +7,7 @@ toolchain go1.22.5
 require (
 	github.com/DataDog/datadog-go/v5 v5.5.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
-	github.com/argoproj/argo-cd/v2 v2.12.9
+	github.com/argoproj/argo-cd/v2 v2.11.7
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coreos/go-oidc/v3 v3.10.0
@@ -151,7 +151,6 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/distribution/reference v0.5.0 // indirect
-	github.com/dlclark/regexp2 v1.11.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.6.0-alpha.5 // indirect
 	github.com/go-git/go-git/v5 v5.13.0 // indirect
