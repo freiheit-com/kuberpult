@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import classNames from 'classnames';
 import { Release } from '../../../api/api';
-import { useAllApplicationLocks, useAppDetailsForApp, useDisplayApplicationLocks } from '../../utils/store';
+import { useAppDetailsForApp, useDisplayApplicationLocks } from '../../utils/store';
 import { ReleaseCardMini } from '../ReleaseCardMini/ReleaseCardMini';
 import './Releases.scss';
 import { ApplicationLockChip } from '../ApplicationLockDisplay/ApplicationLockDisplay';
