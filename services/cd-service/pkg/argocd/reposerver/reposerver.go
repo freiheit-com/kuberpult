@@ -214,11 +214,6 @@ func (*reposerver) GetHelmCharts(context.Context, *argorepo.HelmChartsRequest) (
 	return nil, notImplemented
 }
 
-// GetHelmCharts implements apiclient.RepoServerServiceServer.
-func (*reposerver) UpdateRevisionForPaths(context.Context, *argorepo.UpdateRevisionForPathsRequest) (*argorepo.UpdateRevisionForPathsResponse, error) {
-	return nil, notImplemented
-}
-
 // GetRevisionMetadata implements apiclient.RepoServerServiceServer.
 func (*reposerver) GetRevisionMetadata(ctx context.Context, req *argorepo.RepoServerRevisionMetadataRequest) (*v1alpha1.RevisionMetadata, error) {
 	// It doesn't matter too much what is in here as long as we don't give an error.
