@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import classNames from 'classnames';
 import { Release } from '../../../api/api';
-import { useAllApplicationLocks, useAppDetailsForApp, useDisplayApplicationLocks } from '../../utils/store';
+import { useAppDetailsForApp, useDisplayApplicationLocks } from '../../utils/store';
 import { ReleaseCardMini } from '../ReleaseCardMini/ReleaseCardMini';
 import './Releases.scss';
 import { ApplicationLockChip } from '../ApplicationLockDisplay/ApplicationLockDisplay';
@@ -53,11 +53,6 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
     const releases = useAppDetailsForApp(app).details?.application?.releases;
     const displayAppLocks = useDisplayApplicationLocks(app);
-    // eslint-disable-next-line no-console
-    console.log(displayAppLocks);
-    const allAppLocks = useAllApplicationLocks((map) => map);
-    // eslint-disable-next-line no-console
-    console.log(allAppLocks);
     const rel = getReleasesForAppGroupByDate(releases);
     return (
         <div className={classNames('timeline', className)}>
