@@ -2589,7 +2589,7 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, t
 	for _, app := range appNames {
 		args = append(args, app)
 	}
-
+	args = append(args, len(appNames))
 	rows, err = tx.QueryContext(
 		ctx,
 		selectQuery,
