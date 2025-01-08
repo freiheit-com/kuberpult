@@ -2542,6 +2542,9 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, t
 	if tx == nil {
 		return nil, fmt.Errorf("DBSelectAllActiveAppLocksForSliceApps: no transaction provided")
 	}
+	if len(appNames) == 0 {
+		return []ApplicationLock{}, nil
+	}
 
 	var rows *sql.Rows
 	defer func(rows *sql.Rows) {
