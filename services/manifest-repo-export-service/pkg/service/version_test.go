@@ -221,13 +221,9 @@ func TestVersion(t *testing.T) {
 						return err
 					}
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{"test"})
 				if err != nil {
 					return err
 				}
@@ -443,19 +439,15 @@ func TestGetManifests(t *testing.T) {
 						return err
 					}
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, appNameOther, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appNameOther, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName, appNameOther})
 				if err != nil {
 					return err
 				}

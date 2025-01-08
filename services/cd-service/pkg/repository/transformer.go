@@ -571,28 +571,11 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if allApps == nil {
-			now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
-			}
-
-			allApps = &db.AllApplicationsGo{
-				Version: 1,
-				AllApplicationsJson: db.AllApplicationsJson{
-					Apps: []string{},
-				},
-				Created: *now,
-			}
+			allApps = []string{}
 		}
 
-		if !slices.Contains(allApps.Apps, c.Application) {
+		if !slices.Contains(allApps, c.Application) {
 			// this app is new
-			allApps.Apps = append(allApps.Apps, c.Application)
-			err := state.DBHandler.DBWriteAllApplications(ctx, transaction, allApps.Version, allApps.Apps)
-			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write all apps: %w", err))
-			}
-
 			//We need to check that this is not an app that has been previously deleted
 			app, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
 			if err != nil {
@@ -624,7 +607,7 @@ func (c *CreateApplicationVersion) Transform(
 			newMeta := db.DBAppMetaData{Team: c.Team}
 			// only update the app, if something really changed:
 			if !cmp.Equal(newMeta, existingApp.Metadata) {
-				err = state.DBHandler.DBInsertApplication(
+				err = state.DBHandler.DBInsertOrUpdateApplication(
 					ctx,
 					transaction,
 					c.Application,
@@ -1622,15 +1605,6 @@ func (u *UndeployApplication) Transform(
 		}
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
-		applications, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not select all apps '%v': '%w'", u.Application, err)
-		}
-		applications.Apps = db.Remove(applications.Apps, u.Application)
-		err = state.DBHandler.DBWriteAllApplications(ctx, transaction, applications.Version, applications.Apps)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not write all apps '%v': '%w'", u.Application, err)
-		}
 		dbApp, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, u.Application)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)

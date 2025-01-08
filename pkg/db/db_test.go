@@ -94,28 +94,22 @@ func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		migrationFile string
-		expectedData  *AllApplicationsGo
+		expectedData  []string
 	}{
 		{
 			Name: "Simple migration",
 			migrationFile: `
-CREATE TABLE IF NOT EXISTS all_apps
+CREATE TABLE IF NOT EXISTS apps
 (
-    version BIGINT,
     created TIMESTAMP,
-    json VARCHAR(255),
-    PRIMARY KEY(version)
+    appName VARCHAR,
+    stateChange VARCHAR,
+    metadata VARCHAR,
+    PRIMARY KEY (appname)
 );
 
-INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
-INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
-			expectedData: &AllApplicationsGo{
-				Version: 1,
-				Created: time.Unix(1713218400, 0).UTC(),
-				AllApplicationsJson: AllApplicationsJson{
-					Apps: []string{"my-test-app"},
-				},
-			},
+INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('1713218400', 'my-test-app', 'AppStateChangeMigrate', '{}');`,
+			expectedData: []string{"my-test-app"},
 		},
 	}
 	for _, tc := range tcs {
@@ -356,7 +350,7 @@ func TestCustomMigrationsApps(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
-				if diff := cmp.Diff(tc.expectedAllApps, allApps.Apps); diff != "" {
+				if diff := cmp.Diff(tc.expectedAllApps, allApps); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				for i := range tc.expectedApps {
@@ -3449,22 +3443,15 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 func TestReadWriteAllApplications(t *testing.T) {
 	type TestCase struct {
 		Name           string
-		AllAppsToWrite [][]string
-		ExpectedEntry  *AllApplicationsGo
+		AllAppsToWrite []string
+		ExpectedEntry  []string
 	}
 
 	testCases := []TestCase{
 		{
-			Name: "test that app are ordered",
-			AllAppsToWrite: [][]string{
-				{"my_app", "ze_app", "the_app"},
-			},
-			ExpectedEntry: &AllApplicationsGo{
-				Version: 1,
-				AllApplicationsJson: AllApplicationsJson{
-					Apps: []string{"my_app", "the_app", "ze_app"},
-				},
-			},
+			Name:           "test that app are ordered",
+			AllAppsToWrite: []string{"my_app", "ze_app", "the_app"},
+			ExpectedEntry:  []string{"my_app", "the_app", "ze_app"},
 		},
 	}
 	for _, tc := range testCases {
@@ -3474,32 +3461,32 @@ func TestReadWriteAllApplications(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
 
-			for version, allApps := range tc.AllAppsToWrite {
-				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteAllApplications(ctx, transaction, int64(version), allApps)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, appname := range tc.AllAppsToWrite {
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appname, AppStateChangeCreate, DBAppMetaData{})
 					if err != nil {
-						return fmt.Errorf("error while writing application, error: %w", err)
+						return err
 					}
-					return nil
-				})
-				if err != nil {
-					t.Fatalf("error while running the transaction for writing all applications %v to the database, error: %v", allApps, err)
 				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing all applications %v to the database, error: %v", tc.AllAppsToWrite, err)
 			}
 
-			allAppsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
+			allAppsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
 				allAppsEntry, err := dbHandler.DBSelectAllApplications(ctx, transaction)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting application entry, error: %w", err)
 				}
-				return allAppsEntry, nil
+				return &allAppsEntry, nil
 			})
 
 			if err != nil {
 				t.Fatalf("error while running the transaction for selecting the target all applications, error: %v", err)
 			}
-			if diff := cmp.Diff(allAppsEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(AllApplicationsGo{}, "Created")); diff != "" {
-				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, allAppsEntry, diff)
+			if diff := cmp.Diff(*allAppsEntry, tc.ExpectedEntry); diff != "" {
+				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, *allAppsEntry, diff)
 			}
 		})
 	}

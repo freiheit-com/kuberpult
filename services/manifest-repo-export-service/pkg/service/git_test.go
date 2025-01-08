@@ -79,13 +79,9 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 		return err
 	}
 	fixtureAppications := []string{"app", "app-1", "app-2", "app-3"}
-	err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), fixtureAppications)
-	if err != nil {
-		return err
-	}
 	eslVersion := 0
 	for _, app := range fixtureAppications {
-		err = dbHandler.DBInsertApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
 		if err != nil {
 			return err
 		}
