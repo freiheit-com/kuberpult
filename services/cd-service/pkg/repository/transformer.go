@@ -2985,7 +2985,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 
-	//Delete env fromm environments table
+	//Delete env from environments table
 	err = state.DBHandler.DBDeleteEnvironment(ctx, transaction, c.Environment)
 
 	if err != nil {
