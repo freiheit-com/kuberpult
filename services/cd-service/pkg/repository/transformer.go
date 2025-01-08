@@ -2890,7 +2890,7 @@ func (c *DeleteEnvironment) Transform(
 	var envIdx int
 	var envExists bool
 	if envIdx, envExists = slices.BinarySearch(allEnvs.Environments, c.Environment); !envExists {
-		return "", fmt.Errorf("Could not delete environment '%s'. Environment does not exist", c.Environment)
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("Could not delete environment '%s'. Environment does not exist", c.Environment))
 	}
 
 	/*Check for locks*/
@@ -2899,7 +2899,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if envLocks != nil && len(envLocks.EnvLocks) != 0 {
-		return "", fmt.Errorf("Could not delete environment '%s'. Environment locks for this environment exist.", c.Environment)
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Environment locks for this environment exist.", c.Environment))
 	}
 
 	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
@@ -2907,7 +2907,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if appLocksForEnv != nil && len(appLocksForEnv.AppLocks) != 0 {
-		return "", fmt.Errorf("Could not delete environment '%s'. Application locks for this environment exist.", c.Environment)
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Application locks for this environment exist.", c.Environment))
 	}
 
 	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
@@ -2915,7 +2915,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if teamLocksForEnv != nil && len(teamLocksForEnv.TeamLocks) != 0 {
-		return "", fmt.Errorf("Could not delete environment '%s'. Team locks for this environment exist.", c.Environment)
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Team locks for this environment exist.", c.Environment))
 	}
 
 	/* Check that no environment has the one we are trying to delete as upstream */
@@ -2939,20 +2939,20 @@ func (c *DeleteEnvironment) Transform(
 
 	for envName, envConfig := range allEnvConfigs {
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == c.Environment {
-			return "", fmt.Errorf("Could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName)
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
 		}
 
 		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
 		//If this group is upstream from another env, we need to block it aswell
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == envToDeleteGroupName && lastEnvOfGroup {
-			return "", fmt.Errorf("Could not delete environment '%s'. '%s' is part of environment group '%s', "+
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. '%s' is part of environment group '%s', "+
 				"which is upstream from '%s' and deleting '%s' would result in environment group deletion.",
 				c.Environment,
 				c.Environment,
 				envToDeleteGroupName,
 				envName,
 				c.Environment,
-			)
+			))
 		}
 	}
 
