@@ -4310,6 +4310,11 @@ func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environ
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, currentEnvState.Config, err)
 	}
+
+	return h.UpdateOverviewDeleteEnvironment(ctx, tx, environmentName)
+}
+
+func (h *DBHandler) UpdateOverviewDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) error {
 	//Overview cache
 	overview, err := h.ReadLatestOverviewCache(ctx, tx)
 	if overview == nil {
