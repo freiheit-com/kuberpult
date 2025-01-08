@@ -85,6 +85,12 @@ func (s Server) handleApiEnvironments(w http.ResponseWriter, req *http.Request, 
 		s.handleApiEnvironmentReleaseTrain(w, req, environment, tail)
 	case "lock":
 		s.handleApiTeamLocks(w, req, environment, tail)
+	case "":
+		if tail == "/" && req.Method == http.MethodDelete {
+			s.handleDeleteEnvironment(w, req, environment, tail)
+		} else {
+			http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
+		}
 	default:
 		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
 	}

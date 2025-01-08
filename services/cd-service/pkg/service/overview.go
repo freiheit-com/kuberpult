@@ -430,7 +430,6 @@ func (o *OverviewServiceServer) getOverview(
 			}
 			result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 		}
-
 	}
 
 	return &result, nil

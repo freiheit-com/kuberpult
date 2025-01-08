@@ -134,6 +134,7 @@ message BatchAction {
     DeleteEnvironmentGroupLockRequest delete_environment_group_lock = 13;
     CreateEnvironmentTeamLockRequest create_environment_team_lock = 14;
     DeleteEnvironmentTeamLockRequest delete_environment_team_lock = 15;
+    DeleteEnvironmentRequest delete_environment = 16;
   }
 }
 
@@ -547,6 +548,10 @@ message EnvironmentConfig {
 message CreateEnvironmentRequest {
   string environment = 1;
   EnvironmentConfig config = 2;
+}
+
+message DeleteEnvironmentRequest {
+  string environment = 1;
 }
 
 message GetEnvironmentConfigRequest {

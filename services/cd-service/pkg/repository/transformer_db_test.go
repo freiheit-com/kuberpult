@@ -1865,6 +1865,212 @@ func TestCreateEnvironmentUpdatesOverview(t *testing.T) {
 	}
 }
 
+func TestDeleteEnvironmentUpdatesOverview(t *testing.T) {
+	upstreamLatest := true
+	developmentEnvGroup := "development"
+	stagingEnvGroup := "staging"
+	type TestCase struct {
+		Name                  string
+		Transformers          []Transformer
+		ExpectedOverviewCache *api.GetOverviewResponse
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "create and delete a single environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&DeleteEnvironment{
+					Environment: "development",
+				},
+			},
+			ExpectedOverviewCache: &api.GetOverviewResponse{
+				GitRevision:       "0000000000000000000000000000000000000000",
+				EnvironmentGroups: []*api.EnvironmentGroup{},
+			},
+		},
+		{
+			Name: "create two and delete one environment - same env group",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&DeleteEnvironment{
+					Environment: "development",
+				},
+			},
+			ExpectedOverviewCache: &api.GetOverviewResponse{
+				GitRevision: "0000000000000000000000000000000000000000",
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "development",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &developmentEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+			},
+		},
+		{
+			Name: "create two and delete one environment - more than one env group",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "development2",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &stagingEnvGroup),
+				},
+				&DeleteEnvironment{
+					Environment: "development",
+				},
+			},
+			ExpectedOverviewCache: &api.GetOverviewResponse{
+				GitRevision: "0000000000000000000000000000000000000000",
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "development",
+						Environments: []*api.Environment{
+							{
+								Name: "development2",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &developmentEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+					{
+						EnvironmentGroupName: "staging",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &stagingEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+			},
+		},
+		{
+			Name: "delete group one by one",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "development2",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &developmentEnvGroup),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, &stagingEnvGroup),
+				},
+				&DeleteEnvironment{
+					Environment: "development",
+				},
+				&DeleteEnvironment{
+					Environment: "development2",
+				},
+			},
+			ExpectedOverviewCache: &api.GetOverviewResponse{
+				GitRevision: "0000000000000000000000000000000000000000",
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+						EnvironmentGroupName: "staging",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &upstreamLatest,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
+									},
+									EnvironmentGroup: &stagingEnvGroup,
+								},
+								Priority: api.Priority_YOLO,
+							},
+						},
+						Priority: api.Priority_YOLO,
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			state := repo.State()
+			err := state.DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, transformerBatchErr := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if transformerBatchErr != nil {
+					return transformerBatchErr
+				}
+				overview, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.ExpectedOverviewCache, overview, protocmp.Transform(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Deployment_DeploymentMetaData{}, "deploy_time")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestEventGenerationFromTransformers(t *testing.T) {
 	type TestCase struct {
 		Name                      string
@@ -2558,6 +2764,223 @@ func TestReleaseTrain(t *testing.T) {
 	}
 }
 
+func TestDeleteEnvironmentDBState(t *testing.T) {
+
+	// Env removed from all Envs
+	// Env removed from all releases of that app
+	type TestCase struct {
+		Name                  string
+		Transformers          []Transformer
+		expectedLatestRelease map[string]db.DBReleaseWithMetaData
+		expectedAllEnvs       []string
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "remove env with deployed app",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeleteEnvironment{
+					Environment: "staging",
+				},
+			},
+			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+				"app": {
+					App:           "app",
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{},
+					},
+					Environments: []string{},
+				},
+			},
+			expectedAllEnvs: []string{},
+		},
+		{
+			Name: "multiple envs",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: "dev",
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+						"dev":     "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeleteEnvironment{
+					Environment: "staging",
+				},
+			},
+			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+				"app": {
+					App:           "app",
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "doesn't matter",
+						},
+					},
+					Environments: []string{"dev"},
+				},
+			},
+			expectedAllEnvs: []string{"dev"},
+		},
+		{
+			Name: "multiple envs, multiple apps",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: "dev",
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+						"dev":     "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&CreateApplicationVersion{
+					Application:    "app2",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+						"dev":     "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeleteEnvironment{
+					Environment: "staging",
+				},
+			},
+			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+				"app": {
+					App:           "app",
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "doesn't matter",
+						},
+					},
+					Environments: []string{"dev"},
+				},
+				"app2": {
+					App:           "app2",
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "doesn't matter",
+						},
+					},
+					Environments: []string{"dev"},
+				},
+			},
+			expectedAllEnvs: []string{"dev"},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			var err error = nil
+			repo = SetupRepositoryTestWithDB(t)
+			r := repo.(*repository)
+			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				var batchError *TransformerBatchApplyError = nil
+				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if batchError != nil {
+					return batchError
+				}
+
+				allEnvs, err := r.DB.DBSelectAllEnvironments(ctx, transaction)
+
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.expectedAllEnvs, allEnvs.Environments); diff != "" {
+					t.Errorf("all envs  mismatch (-want, +got):\n%s", diff)
+					return nil
+				}
+
+				for appName, appConfig := range tc.expectedLatestRelease {
+					app, err := r.DB.DBSelectReleaseByVersion(ctx, transaction, appName, 1, false)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(appConfig, *app, cmpopts.IgnoreFields(db.DBReleaseWithMetaData{}, "Created"), cmpopts.IgnoreFields(db.DBReleaseWithMetaData{}, "Metadata")); diff != "" {
+						t.Errorf("all envs  mismatch (-want, +got):\n%s", diff)
+						return nil
+					}
+				}
+
+				return nil
+
+			})
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: '%v'", err)
+			}
+		})
+	}
+}
+
 func TestUndeployApplicationDB(t *testing.T) {
 	tcs := []struct {
 		Name              string
@@ -2829,6 +3252,371 @@ func TestUndeployApplicationDB(t *testing.T) {
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
 				TransformerError: errMatcher{"UndeployApplication: error last release is not un-deployed application version of 'app1'"},
+			},
+			expectedCommitMsg: "",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+
+				if err != nil {
+					return err
+				}
+
+				actualMsg := ""
+				if len(commitMsg) > 0 {
+					actualMsg = commitMsg[len(commitMsg)-1]
+				}
+				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
+					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+					return nil
+				}
+				return nil
+			})
+			if tc.expectedError == nil && err != nil {
+				t.Fatalf("Did no expect error but got):\n%+v", err)
+			}
+			if err != nil {
+				applyErr := UnwrapUntilTransformerBatchApplyError(err)
+				if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteEnvironment(t *testing.T) {
+	const testAppName = "test-app"
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedError     *TransformerBatchApplyError
+		expectedCommitMsg string
+	}{
+		{
+			Name: "Delete non-existent environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&DeleteEnvironment{
+					Environment: "this-env-does-not-exist",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"error at index 1 of transformer batch: rpc error: code = InvalidArgument desc = error: Could not delete environment 'this-env-does-not-exist'. Environment does not exist"},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Delete Env - Simple case",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+			},
+			expectedCommitMsg: "Successfully deleted environment 'production'",
+		},
+		{
+			Name: "Delete Env - App in env",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+			},
+			expectedCommitMsg: "Successfully deleted environment 'production'",
+		},
+		{
+			Name: "Delete Env - App in env & has a deployment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+			},
+			expectedCommitMsg: "Successfully deleted environment 'production'",
+		},
+		{
+			Name: "Delete Env - Attempt to delete with env lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&CreateEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "my-lock-for-prod",
+					Message:     "This lock is for prod",
+					CiLink:      "",
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            4,
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment locks for this environment exist."},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Delete Env - Attempt to delete with app lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: testAppName,
+					LockId:      "my-lock-for-prod",
+					Message:     "This lock is for prod",
+					CiLink:      "",
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            4,
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Application locks for this environment exist."},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Delete Env - Attempt to delete with team lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Team:            "test-team",
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envProduction,
+					Team:        "test-team",
+					LockId:      "my-lock-for-prod",
+					Message:     "This lock is for prod",
+					CiLink:      "",
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            4,
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Team locks for this environment exist."},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Env to delete is upstream",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("production-group"),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						ArgoCd: nil,
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: envProduction,
+						},
+						EnvironmentGroup: conversion.FromString("acceptance-group"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Team:            "test-team",
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            4,
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
+			},
+			expectedCommitMsg: "",
+		},
+		{
+			Name: "Env to delete is upstream group",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("production-group"),
+					},
+				},
+				&CreateEnvironment{
+					Environment: "production-2",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("production-group"),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						ArgoCd: nil,
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: *conversion.FromString("production-group"),
+						},
+						EnvironmentGroup: conversion.FromString("acceptance-group"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Team:            "test-team",
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+				&DeleteEnvironment{
+					Environment: "production-2",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            6,
+				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
 			},
 			expectedCommitMsg: "",
 		},

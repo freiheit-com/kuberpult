@@ -285,6 +285,7 @@ const (
 	EvtCreateEnvironmentGroupLock       EventType = "CreateEnvironmentGroupLock"
 	EvtDeleteEnvironmentGroupLock       EventType = "DeleteEnvironmentGroupLock"
 	EvtCreateEnvironment                EventType = "CreateEnvironment"
+	EvtDeleteEnvironment                EventType = "DeleteEnvironment"
 	EvtCreateEnvironmentApplicationLock EventType = "CreateEnvironmentApplicationLock"
 	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"
 	EvtReleaseTrain                     EventType = "ReleaseTrain"
@@ -2866,6 +2867,25 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 		ctx,
 		selectQuery,
 	)
+	return h.processAllAppLocksRows(ctx, rows, err)
+}
+
+func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, environment string) (*AllAppLocksGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocksForEnv")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, appName, json FROM all_app_locks WHERE environment = (?) ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environment,
+	)
+	return h.processAllAppLocksRows(ctx, rows, err)
+}
+
+func (h *DBHandler) processAllAppLocksRows(ctx context.Context, rows *sql.Rows, err error) (*AllAppLocksGo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query all_app_locks table from DB. Error: %w\n", err)
 	}
@@ -3037,6 +3057,22 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
+	)
+	return h.processAllTeamLocksRow(ctx, err, rows)
+}
+
+func (h *DBHandler) DBSelectTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment string) (*AllTeamLocksGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLocksForEnv")
+	defer span.Finish()
+
+	selectQuery := h.AdaptQuery(
+		"SELECT version, created, environment, teamName, json FROM all_team_locks WHERE environment = (?) ORDER BY version DESC LIMIT 1;")
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		environment,
 	)
 	return h.processAllTeamLocksRow(ctx, err, rows)
 }
@@ -4217,6 +4253,93 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	)
 	if err != nil {
 		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, environmentConfig, err)
+	}
+	return nil
+}
+
+/*
+DBDeleteEnvironment takes the latest config for some env and sets its 'deleted' flag to true. Does not care
+if the applications list is empty or not
+*/
+/*
+DBDeleteEnvironment also updates the overview cache
+*/
+func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironment")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("attempting to write to the environments table without a transaction")
+	}
+
+	currentEnvState, err := h.DBSelectEnvironment(ctx, tx, environmentName)
+	if err != nil {
+		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
+	}
+
+	jsonToInsert, err := json.Marshal(currentEnvState.Config)
+	if err != nil {
+		return fmt.Errorf("error while marshalling the environment config %v, error: %w", currentEnvState.Config, err)
+	}
+
+	slices.Sort(currentEnvState.Applications) // we don't really *need* the sorting, it's just for convenience
+	applicationsJson, err := json.Marshal(currentEnvState.Applications)
+	if err != nil {
+		return fmt.Errorf("could not marshal the application names list %v, error: %w", applicationsJson, err)
+	}
+
+	insertQuery := h.AdaptQuery(
+		"INSERT Into environments (created, name, json, applications, deleted) VALUES (?, ?, ?, ?, ?);",
+	)
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteEnvironment unable to get transaction timestamp: %w", err)
+	}
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		*now,
+		environmentName,
+		jsonToInsert,
+		string(applicationsJson),
+		true,
+	)
+	if err != nil {
+		return fmt.Errorf("could not write environment %s with config %v to environments table, error: %w", environmentName, currentEnvState.Config, err)
+	}
+
+	return h.UpdateOverviewDeleteEnvironment(ctx, tx, environmentName)
+}
+
+func (h *DBHandler) UpdateOverviewDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) error {
+	//Overview cache
+	overview, err := h.ReadLatestOverviewCache(ctx, tx)
+	if overview == nil {
+		//If no overview, there is no need to update it
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("unable to read overview cache, error: %w", err)
+	}
+
+	for gIdx, group := range overview.EnvironmentGroups {
+		for idx, currentEnv := range group.Environments {
+			if currentEnv.Name == environmentName {
+				if len(group.Environments) == 1 { //Delete whole group
+					overview.EnvironmentGroups = append(overview.EnvironmentGroups[:gIdx], overview.EnvironmentGroups[gIdx+1:]...)
+				} else {
+					overview.EnvironmentGroups[gIdx].Environments = append(group.Environments[:idx], group.Environments[idx+1:]...)
+				}
+				break
+			}
+		}
+	}
+	err = h.WriteOverviewCache(ctx, tx, overview)
+	if err != nil {
+		return fmt.Errorf("Unable to write overview cache, error: %w", err)
 	}
 	return nil
 }
