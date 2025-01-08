@@ -2948,8 +2948,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				if batchError != nil {
 					return batchError
 				}
-				a, err := r.DB.DBSelectAllReleasesOfAllApps(ctx, transaction)
-				fmt.Println(a)
+
 				allEnvs, err := r.DB.DBSelectAllEnvironments(ctx, transaction)
 
 				if err != nil {
@@ -2966,7 +2965,6 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					fmt.Println(app)
 					if diff := cmp.Diff(appConfig, *app, cmpopts.IgnoreFields(db.DBReleaseWithMetaData{}, "Created"), cmpopts.IgnoreFields(db.DBReleaseWithMetaData{}, "Metadata")); diff != "" {
 						t.Errorf("all envs  mismatch (-want, +got):\n%s", diff)
 						return nil
@@ -3320,7 +3318,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"Could not delete environment 'this-env-does-not-exist'. Environment does not exist"},
+				TransformerError: errMatcher{"error at index 1 of transformer batch: rpc error: code = InvalidArgument desc = error: Could not delete environment 'this-env-does-not-exist'. Environment does not exist"},
 			},
 			expectedCommitMsg: "",
 		},
@@ -3432,7 +3430,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"Could not delete environment 'production'. Environment locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment locks for this environment exist."},
 			},
 			expectedCommitMsg: "",
 		},
@@ -3473,7 +3471,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"Could not delete environment 'production'. Application locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Application locks for this environment exist."},
 			},
 			expectedCommitMsg: "",
 		},
@@ -3515,7 +3513,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"Could not delete environment 'production'. Team locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Team locks for this environment exist."},
 			},
 			expectedCommitMsg: "",
 		},
@@ -3561,7 +3559,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: Could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
 			},
 			expectedCommitMsg: "",
 		},
@@ -3618,7 +3616,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            6,
-				TransformerError: errMatcher{"Could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
+				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
 			},
 			expectedCommitMsg: "",
 		},
