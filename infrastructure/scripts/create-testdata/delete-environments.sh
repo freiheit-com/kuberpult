@@ -9,6 +9,6 @@ FRONTEND_PORT=8081 # see docker-compose.yml
 env=${1}
 
 curl  -f -X DELETE  \
-    http://localhost:${FRONTEND_PORT}/environments/"${env}"
+    http://localhost:${FRONTEND_PORT}/api/environments/"${env}"
 
 echo # curl sometimes does not print a trailing \n
