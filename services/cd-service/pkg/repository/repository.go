@@ -2717,7 +2717,7 @@ func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.
 					})
 				}
 				if len(apiTeamLocks.Locks) > 0 {
-					env.TeamLocks[appName] = &apiTeamLocks
+					env.TeamLocks[team] = &apiTeamLocks
 				}
 			}
 		}
