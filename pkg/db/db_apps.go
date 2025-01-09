@@ -43,22 +43,6 @@ type DBAppWithMetaData struct {
 	StateChange AppStateChange
 }
 
-type AllApplicationsJson struct {
-	Apps []string `json:"apps"`
-}
-
-type AllApplicationsRow struct {
-	version int64
-	created time.Time
-	data    string
-}
-
-type AllApplicationsGo struct {
-	Version int64
-	Created time.Time
-	AllApplicationsJson
-}
-
 // SELECTS
 
 func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
