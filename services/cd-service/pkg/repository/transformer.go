@@ -1627,7 +1627,7 @@ func (u *UndeployApplication) Transform(
 		if allEnvs == nil {
 			return "", fmt.Errorf("UndeployApplication: all environments nil")
 		}
-		for _, envName := range allEnvs.Environments {
+		for _, envName := range allEnvs {
 			env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication: could not get environment %s: %v", envName, err)
@@ -2753,27 +2753,7 @@ func (c *CreateEnvironment) Transform(
 		if err != nil {
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 		}
-		// write to all_environments table
-		allEnvironments, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 
-		if err != nil {
-			return "", fmt.Errorf("unable to read from all_environments table, error: %w", err)
-		}
-
-		if allEnvironments == nil {
-			//exhaustruct:ignore
-			allEnvironments = &db.DBAllEnvironments{}
-		}
-
-		if !slices.Contains(allEnvironments.Environments, c.Environment) {
-			// this environment is new
-			allEnvironments.Environments = append(allEnvironments.Environments, c.Environment)
-			err = state.DBHandler.DBWriteAllEnvironments(ctx, transaction, allEnvironments.Environments)
-
-			if err != nil {
-				return "", fmt.Errorf("unable to write to all_environments table, error: %w", err)
-			}
-		}
 		overview, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
 		if overview == nil {
 			overview = &api.GetOverviewResponse{
@@ -2861,12 +2841,6 @@ func (c *DeleteEnvironment) Transform(
 		return "", fmt.Errorf("error getting all environments %v", err)
 	}
 
-	var envIdx int
-	var envExists bool
-	if envIdx, envExists = slices.BinarySearch(allEnvs.Environments, c.Environment); !envExists {
-		return "", grpc.InvalidArgument(ctx, fmt.Errorf("Could not delete environment '%s'. Environment does not exist", c.Environment))
-	}
-
 	/*Check for locks*/
 	envLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, c.Environment)
 	if err != nil {
@@ -2950,13 +2924,6 @@ func (c *DeleteEnvironment) Transform(
 		} else {
 			logger.FromContext(ctx).Sugar().Infof(ret)
 		}
-	}
-
-	//Write new state of all environments
-	err = state.DBHandler.DBWriteAllEnvironments(ctx, transaction, append(allEnvs.Environments[:envIdx], allEnvs.Environments[envIdx+1:]...))
-
-	if err != nil {
-		return "", err
 	}
 
 	//Delete env from environments table

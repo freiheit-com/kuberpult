@@ -2955,7 +2955,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					return err
 				}
 
-				if diff := cmp.Diff(tc.expectedAllEnvs, allEnvs.Environments); diff != "" {
+				if diff := cmp.Diff(tc.expectedAllEnvs, allEnvs); diff != "" {
 					t.Errorf("all envs  mismatch (-want, +got):\n%s", diff)
 					return nil
 				}
@@ -3318,7 +3318,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"error at index 1 of transformer batch: rpc error: code = InvalidArgument desc = error: Could not delete environment 'this-env-does-not-exist'. Environment does not exist"},
+				TransformerError: errMatcher{"error at index 1 of transformer batch: environment this-env-does-not-exist not found"},
 			},
 			expectedCommitMsg: "",
 		},
