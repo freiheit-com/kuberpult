@@ -2177,7 +2177,7 @@ func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]str
 		if applications == nil {
 			return make([]string, 0), nil
 		}
-		return applications.Apps, nil
+		return applications, nil
 	} else {
 		return s.GetApplicationsFromFile()
 	}
@@ -2451,7 +2451,7 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 
 func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
 	h := s.DBHandler
-	err := h.DBInsertApplication(ctx, transaction, appName, stateChange, metaData)
+	err := h.DBInsertOrUpdateApplication(ctx, transaction, appName, stateChange, metaData)
 	if err != nil {
 		return err
 	}

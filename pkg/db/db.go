@@ -33,7 +33,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -128,7 +127,7 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 	}
 	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
 		// by default, we just insert the app
-		return handler.DBInsertApplication(ctx, transaction, appName, stateChange, metaData)
+		return handler.DBInsertOrUpdateApplication(ctx, transaction, appName, stateChange, metaData)
 	}
 	return handler, nil
 }
@@ -515,37 +514,6 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 	return row, nil
 }
 
-// APPS
-
-func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql.Tx, previousVersion int64, applications []string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
-	defer span.Finish()
-	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
-	jsonToInsert, err := json.Marshal(AllApplicationsJson{
-		Apps: applications,
-	})
-	if err != nil {
-		return fmt.Errorf("could not marshal json data: %w", err)
-	}
-	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
-	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("DBWriteAllApplications unable to get transaction timestamp: %w", err)
-	}
-	span.SetTag("query", insertQuery)
-	nextVersion := previousVersion + 1
-	_, err = transaction.Exec(
-		insertQuery,
-		nextVersion,
-		*now,
-		jsonToInsert)
-
-	if err != nil {
-		return fmt.Errorf("could not insert all apps into DB with version=%d Error: %w\n", nextVersion, err)
-	}
-	return nil
-}
-
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "WriteEvent")
 	defer span.Finish()
@@ -885,50 +853,6 @@ func processSingleCommitEventRow(rows *sql.Rows) (*EventRow, error) {
 	return &row, nil
 }
 
-// DBSelectAllApplications returns (nil, nil) if there are no rows
-func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
-	if h == nil {
-		return nil, nil
-	}
-	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
-	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
-	defer span.Finish()
-	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
-	span.SetTag("query", query)
-	rows := transaction.QueryRowContext(ctx, query)
-	result := AllApplicationsRow{
-		version: 0,
-		created: time.Time{},
-		data:    "",
-	}
-	err := rows.Scan(&result.version, &result.created, &result.data)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("Error scanning all_apps row from DB. Error: %w\n", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("all_apps: row has error: %v\n", err)
-	}
-
-	//exhaustruct:ignore
-	var resultJson = AllApplicationsJson{}
-	err = json.Unmarshal(([]byte)(result.data), &resultJson)
-	if err != nil {
-		return nil, fmt.Errorf("Error during json unmarshal of all_apps. Error: %w. Data: %s\n", err, result.data)
-	}
-	var resultGo = AllApplicationsGo{
-		Version:             result.version,
-		Created:             result.created,
-		AllApplicationsJson: AllApplicationsJson{Apps: resultJson.Apps},
-	}
-	return &resultGo, nil
-}
-
 type EnvironmentLock struct {
 	EslVersion EslVersion
 	Created    time.Time
@@ -1052,52 +976,6 @@ func (h *DBHandler) RunCustomMigrations(
 	return nil
 }
 
-type DBApp struct {
-	EslVersion EslVersion
-	App        string
-}
-
-type DBAppMetaData struct {
-	Team string
-}
-
-type DBAppWithMetaData struct {
-	App         string
-	Metadata    DBAppMetaData
-	StateChange AppStateChange
-}
-
-func (h *DBHandler) DBInsertApplication(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertApplication")
-	defer span.Finish()
-	log := logger.FromContext(ctx).Sugar()
-	log.Warnf("plain dbinsert app: %s/%v", appName, stateChange)
-
-	jsonToInsert, err := json.Marshal(metaData)
-	if err != nil {
-		return fmt.Errorf("could not marshal json data: %w", err)
-	}
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO apps (created, appName, stateChange, metadata)  VALUES (?, ?, ?, ?);",
-	)
-	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("DBInsertApplication unable to get transaction timestamp: %w", err)
-	}
-	span.SetTag("query", insertQuery)
-	_, err = transaction.Exec(
-		insertQuery,
-		*now,
-		appName,
-		stateChange,
-		jsonToInsert,
-	)
-	if err != nil {
-		return fmt.Errorf("could not insert app %s into DB. Error: %w\n", appName, err)
-	}
-	return nil
-}
-
 func NewNullInt(s *int64) sql.NullInt64 {
 	if s == nil {
 		return sql.NullInt64{
@@ -1109,216 +987,6 @@ func NewNullInt(s *int64) sql.NullInt64 {
 		Int64: *s,
 		Valid: true,
 	}
-}
-
-func (h *DBHandler) DBSelectAnyApp(ctx context.Context, tx *sql.Tx) (*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyApp")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT appName, metadata " +
-			" FROM apps " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
-		}
-	}(rows)
-	//exhaustruct:ignore
-	var row = &DBAppWithMetaData{}
-	if rows.Next() {
-		var metadataStr string
-		err := rows.Scan(&row.App, &metadataStr)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
-		}
-		var metaData = DBAppMetaData{
-			Team: "",
-		}
-		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
-		}
-		row.Metadata = metaData
-	} else {
-		row = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return row, nil
-}
-
-func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT appName, stateChange, metadata" +
-			" FROM apps " +
-			" WHERE appName=? " +
-			" ORDER BY version DESC " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		appName,
-	)
-	return h.processAppsRow(ctx, rows, err)
-}
-
-func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) ([]*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(`
-SELECT
-	apps.appname,
-	apps.stateChange,
-	apps.metadata
-FROM (
-	SELECT
-	MAX(version) AS latest,
-	appname
-FROM
-	"apps"
-GROUP BY
-	appName
-) AS latest
-JOIN
-	apps AS apps 
-ON
-latest.latest=apps.version
-AND latest.appname=apps.appname
-	`)
-	span.SetTag("query", selectQuery)
-	rows, err := tx.QueryContext(ctx, selectQuery)
-
-	return h.processAppsRows(ctx, rows, err)
-}
-
-func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppAtTimestamp")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(fmt.Sprintf(
-		"SELECT appName, stateChange, metadata" +
-			" FROM apps " +
-			" WHERE appName=? AND created <= ?" +
-			" ORDER BY version DESC " +
-			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		appName,
-		ts,
-	)
-	return h.processAppsRow(ctx, rows, err)
-}
-
-func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]*DBAppWithMetaData, error) {
-	if err != nil {
-		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
-		}
-	}(rows)
-	var result []*DBAppWithMetaData
-	for rows.Next() {
-		//exhaustruct:ignore
-		var row = &DBAppWithMetaData{}
-		var metadataStr string
-		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
-		}
-		var metaData = DBAppMetaData{Team: ""}
-		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
-		}
-		row.Metadata = metaData
-		result = append(result, row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err error) (*DBAppWithMetaData, error) {
-	if err != nil {
-		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
-	}
-	return processAppRow(ctx, rows)
-}
-
-func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
-	app, err := h.DBSelectApp(ctx, tx, appName)
-	if err != nil {
-		return nil, err
-	}
-	if app == nil {
-		return nil, nil
-	}
-	if app.StateChange == AppStateChangeDelete {
-		return nil, nil
-	}
-	return app, nil
-}
-
-func processAppRow(ctx context.Context, rows *sql.Rows) (*DBAppWithMetaData, error) {
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
-		}
-	}(rows)
-	//exhaustruct:ignore
-	var row = &DBAppWithMetaData{}
-	if rows.Next() {
-		var metadataStr string
-		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
-		}
-		var metaData = DBAppMetaData{Team: ""}
-		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
-		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
-		}
-		row.Metadata = metaData
-	} else {
-		row = nil
-	}
-	err := closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return row, nil
 }
 
 // CUSTOM MIGRATIONS
@@ -1399,22 +1067,6 @@ func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction 
 		return false, nil
 	}
 	return true, nil
-}
-
-type AllApplicationsJson struct {
-	Apps []string `json:"apps"`
-}
-
-type AllApplicationsRow struct {
-	version int64
-	created time.Time
-	data    string
-}
-
-type AllApplicationsGo struct {
-	Version int64
-	Created time.Time
-	AllApplicationsJson
 }
 
 type EventRow struct {
@@ -1676,12 +1328,10 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	return nil
 }
 
-// RunAllCustomMigrationsForApps : Performs necessary migrations for the apps and all_apps table
 func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunAllCustomMigrationsForApps")
 	defer span.Finish()
 
-	//We need to join the all_apps and the apps table together as they need to be committed together on the same transaction
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needMigrating, err := h.needsAppsMigrations(ctx, transaction)
 		if err != nil {
@@ -1696,25 +1346,12 @@ func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllApp
 			return fmt.Errorf("could not get applications from manifest to run custom migrations: %v", err)
 		}
 
-		err = h.runCustomMigrationAllAppsTable(ctx, transaction, &allAppsRepo)
-
-		if err != nil {
-			return fmt.Errorf("could not perform all_apps table migration: %v\n", err)
-		}
-
 		err = h.runCustomMigrationApps(ctx, transaction, &allAppsRepo)
 		if err != nil {
 			return fmt.Errorf("could not perform apps table migration: %v\n", err)
 		}
 		return nil
 	})
-}
-
-func (h *DBHandler) runCustomMigrationAllAppsTable(ctx context.Context, transaction *sql.Tx, allAppsRepo *map[string]string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "runCustomMigrationAllAppsTable")
-	defer span.Finish()
-	sortedApps := sorting.SortKeys(*allAppsRepo)
-	return h.DBWriteAllApplications(ctx, transaction, 0, sortedApps)
 }
 
 func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
@@ -1724,7 +1361,7 @@ func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx
 		l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
 		return false, err
 	}
-	return allAppsDb == nil, nil
+	return len(allAppsDb) == 0, nil
 }
 
 // runCustomMigrationApps : Runs custom migrations for provided apps.
@@ -1733,7 +1370,7 @@ func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql
 	defer span.Finish()
 
 	for app, team := range *appsMap {
-		err := h.DBInsertApplication(ctx, transaction, app, AppStateChangeMigrate, DBAppMetaData{Team: team})
+		err := h.DBInsertOrUpdateApplication(ctx, transaction, app, AppStateChangeMigrate, DBAppMetaData{Team: team})
 		if err != nil {
 			return fmt.Errorf("could not write dbApp %s: %v", app, err)
 		}
