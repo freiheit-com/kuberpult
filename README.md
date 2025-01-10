@@ -98,3 +98,22 @@ See [Remove Env From Service](./docs/remove-env-from-service.md)
 ### Remove a service entirely
 See [Remove Service Entirely](./docs/remove-service.md)
 
+### CLI Debugging unittests in local containers
+To debug a unittest with [dlv](https://github.com/go-delve/delve), add the following to the Earthfile of the service:
+```
+debug-unit-test:
+    FROM +unit-test
+    RUN go install github.com/go-delve/delve/cmd/dlv@master
+    RUN false
+```
+and run:
+```
+earthly --interactive +debug-unit-test
+```
+This will run your unit-tests, install the debugger and then drop you in a
+shell inside the container. In there, you can run (e.g. for the cd-service):
+```
+dlv test ./pkg/repository
+```
+which will start the debugger. Press `c` to start the tests, `b` to set
+breakpoints or `help` for more info.
