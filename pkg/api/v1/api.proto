@@ -375,6 +375,24 @@ service VersionService {
   rpc GetManifests (GetManifestsRequest) returns (GetManifestsResponse) {}
 }
 
+service MigrationService {
+  rpc EnsureCustomMigrationApplied (EnsureCustomMigrationAppliedRequest) returns (EnsureCustomMigrationAppliedResponse) {}
+}
+
+message EnsureCustomMigrationAppliedRequest {
+  KuberpultVersion version = 1;
+}
+
+message EnsureCustomMigrationAppliedResponse {
+  bool migrations_applied = 1;
+}
+
+message KuberpultVersion {
+  int32 major = 1;
+  int32 minor = 2;
+  int32 patch = 3;
+}
+
 service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}

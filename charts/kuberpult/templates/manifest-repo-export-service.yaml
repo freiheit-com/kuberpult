@@ -149,6 +149,8 @@ spec:
           value: {{ .Values.argocd.generateFiles | quote }}
         - name: KUBERPULT_NETWORK_TIMEOUT_SECONDS
           value: {{ .Values.manifestRepoExport.networkTimeoutSeconds | quote }}
+        - name: KUBERPULT_VERSION
+          value: {{ $.Chart.AppVersion | quote}}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL

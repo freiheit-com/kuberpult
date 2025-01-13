@@ -1216,7 +1216,7 @@ func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction
 	return true, nil
 }
 
-// NeedsMigrations: Checks if we need migrations for any table.
+// NeedsMigrations checks if we need migrations for any table.
 func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "NeedsMigrations")
 	defer span.Finish()
