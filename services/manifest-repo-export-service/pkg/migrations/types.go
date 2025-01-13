@@ -24,7 +24,6 @@ import (
 )
 
 func ParseKuberpultVersion(version string) (*api.KuberpultVersion, error) {
-
 	splitDash := strings.Split(version, "-")
 	if len(splitDash) == 4 {
 		// we have a version in the form of pr-v11.6.10-7-g08f811e8
