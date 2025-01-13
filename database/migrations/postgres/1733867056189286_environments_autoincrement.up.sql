@@ -1,4 +1,13 @@
-ALTER TABLE IF EXISTS environments ADD COLUMN IF NOT EXISTS row_version INTEGER;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'environments' 
+                 AND column_name = 'version') THEN
+        ALTER TABLE IF EXISTS environments ADD COLUMN IF NOT EXISTS row_version INTEGER;
+    END IF;
+END $$;
+
 DO $$ 
 BEGIN
     IF EXISTS (SELECT 1 
@@ -16,13 +25,46 @@ BEGIN
     END IF;
 END $$;
 
-DROP SEQUENCE IF EXISTS environments_version_seq CASCADE;
-CREATE SEQUENCE IF NOT EXISTS environments_version_seq OWNED BY environments.row_version;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'environments' 
+                 AND column_name = 'version') THEN
+        DROP SEQUENCE IF EXISTS environments_version_seq CASCADE;
+    END IF;
+END $$;
 
-SELECT setval('environments_version_seq', coalesce(max(row_version), 0) + 1, false) FROM environments;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'environments' 
+                 AND column_name = 'version') THEN
+        CREATE SEQUENCE IF NOT EXISTS environments_version_seq OWNED BY environments.row_version;
+    END IF;
+END $$;
 
-ALTER TABLE IF EXISTS environments
-ALTER COLUMN row_version SET DEFAULT nextval('environments_version_seq');
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'environments' 
+                 AND column_name = 'version') THEN
+        PERFORM setval('environments_version_seq', coalesce(max(row_version), 0) + 1, false) FROM environments;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'environments' 
+                 AND column_name = 'version') THEN
+        ALTER TABLE IF EXISTS environments
+        ALTER COLUMN row_version SET DEFAULT nextval('environments_version_seq');
+    END IF;
+END $$;
 
 DO $$
 DECLARE
@@ -41,8 +83,32 @@ BEGIN
     END LOOP;
 END $$;
 
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'environments' 
+                 AND column_name = 'version') THEN
+        ALTER TABLE IF EXISTS environments ADD PRIMARY KEY (row_version, name);
+    END IF;
+END $$;
 
-ALTER TABLE IF EXISTS environments ADD PRIMARY KEY (row_version, name);
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'environments' 
+                 AND column_name = 'version') THEN
+        ALTER TABLE IF EXISTS environments DROP COLUMN IF EXISTS version;
+    END IF;
+END $$;
 
-ALTER TABLE IF EXISTS environments DROP COLUMN IF EXISTS version;
-ALTER TABLE IF EXISTS environments RENAME COLUMN row_version TO version;
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 
+               FROM information_schema.columns 
+               WHERE table_name = 'environments' 
+                 AND column_name = 'row_version') THEN
+        ALTER TABLE IF EXISTS environments RENAME COLUMN row_version TO version;
+    END IF;
+END $$;
