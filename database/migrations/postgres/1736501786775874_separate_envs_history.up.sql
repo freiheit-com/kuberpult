@@ -22,7 +22,18 @@ CREATE TABLE IF NOT EXISTS environments
     applications VARCHAR,
     PRIMARY KEY(name)
 );
-
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints
+        WHERE table_name = 'environments'
+          AND constraint_type = 'PRIMARY KEY'
+    ) THEN
+        ALTER TABLE environments
+        ADD CONSTRAINT environments_pkey PRIMARY KEY (name);
+    END IF;
+END $$;
 -- insert data into environments table from environments_history table if there's no data inside it
 DO $$
 BEGIN
