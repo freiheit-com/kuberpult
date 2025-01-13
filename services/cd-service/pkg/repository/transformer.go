@@ -34,6 +34,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -3714,30 +3715,87 @@ func (c *ReleaseTrain) Transform(
 	}
 	sort.Strings(envNames)
 	span.SetTag("environments", len(envNames))
-
-	for _, envName := range envNames {
-		var trainGroup *string
-		if isEnvGroup {
-			trainGroup = conversion.FromString(targetGroupName)
+	if state.DBHandler.ShouldUseOtherTables() && isEnvGroup {
+		var wg sync.WaitGroup
+		wg.Add(len(envNames))
+		errChan := make(chan error, len(envNames))
+		for _, envName := range envNames {
+			var trainGroup *string
+			if isEnvGroup {
+				trainGroup = conversion.FromString(targetGroupName)
+			}
+			go c.runEnvReleaseTrainBackground(ctx, state, t, envName, trainGroup, envGroupConfigs, configs, &wg, errChan)
+		}
+		wg.Wait()
+		close(errChan)
+		allErrorsMessage := ""
+		for err := range errChan {
+			if err != nil {
+				allErrorsMessage += err.Error()
+			}
 		}
 
-		if err := t.Execute(ctx, &envReleaseTrain{
-			Parent:                c,
-			Env:                   envName,
-			EnvConfigs:            configs,
-			EnvGroupConfigs:       envGroupConfigs,
-			WriteCommitData:       c.WriteCommitData,
-			TrainGroup:            trainGroup,
-			TransformerEslVersion: c.TransformerEslVersion,
-			CiLink:                c.CiLink,
-		}, transaction); err != nil {
-			return "", err
+		if allErrorsMessage != "" {
+			return "", grpc.PublicError(ctx, fmt.Errorf("Error in env Release Trains: %s", allErrorsMessage))
+		}
+	} else {
+		for _, envName := range envNames {
+			var trainGroup *string
+			if isEnvGroup {
+				trainGroup = conversion.FromString(targetGroupName)
+			}
+			err = t.Execute(ctx, &envReleaseTrain{
+				Parent:                c,
+				Env:                   envName,
+				EnvConfigs:            configs,
+				EnvGroupConfigs:       envGroupConfigs,
+				WriteCommitData:       c.WriteCommitData,
+				TrainGroup:            trainGroup,
+				TransformerEslVersion: c.TransformerEslVersion,
+				CiLink:                c.CiLink,
+			}, transaction)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 
 	return fmt.Sprintf(
 		"Release Train to environment/environment group '%s':\n",
 		targetGroupName), nil
+}
+
+func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context,
+	state *State,
+	t TransformerContext,
+	envName string,
+	trainGroup *string,
+	envGroupConfigs map[string]config.EnvironmentConfig,
+	configs map[string]config.EnvironmentConfig,
+	workerGroup *sync.WaitGroup,
+	errChan chan error) {
+	defer workerGroup.Done()
+	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
+		internal, err := state.DBHandler.DBReadEslEventInternal(ctx, transaction2, false)
+		if err != nil {
+			return err
+		}
+		if internal == nil {
+			return fmt.Errorf("could not find esl event that was just inserted")
+		}
+		err = t.Execute(ctx, &envReleaseTrain{
+			Parent:                c,
+			Env:                   envName,
+			EnvConfigs:            configs,
+			EnvGroupConfigs:       envGroupConfigs,
+			WriteCommitData:       c.WriteCommitData,
+			TrainGroup:            trainGroup,
+			TransformerEslVersion: db.TransformerID(internal.EslVersion),
+			CiLink:                c.CiLink,
+		}, transaction2)
+		return err
+	})
+	errChan <- err
 }
 
 type envReleaseTrain struct {
