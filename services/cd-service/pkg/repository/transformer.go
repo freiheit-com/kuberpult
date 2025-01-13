@@ -3717,9 +3717,17 @@ func (c *ReleaseTrain) Transform(
 	span.SetTag("environments", len(envNames))
 	if state.DBHandler.ShouldUseOtherTables() && isEnvGroup {
 		var wg sync.WaitGroup
-		wg.Add(len(envNames))
 		errChan := make(chan error, len(envNames))
-		for _, envName := range envNames {
+		for i, envName := range envNames {
+			if i%3 == 0 {
+				wg.Wait()
+				remainingEnvsCount := len(envNames) - i
+				if remainingEnvsCount > 3 {
+					wg.Add(3)
+				} else {
+					wg.Add(remainingEnvsCount)
+				}
+			}
 			var trainGroup *string
 			if isEnvGroup {
 				trainGroup = conversion.FromString(targetGroupName)
