@@ -810,10 +810,6 @@ func TestReleaseTrain(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{"staging", "production"})
-				if err != nil {
-					return err
-				}
 				var v int64
 				v = 1
 				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
@@ -1674,10 +1670,6 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance})
-				if err != nil {
-					return err
-				}
 
 				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
@@ -2529,10 +2521,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 				if err2 != nil {
 					return err2
 				}
-				err2 = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance, envAcceptance2})
-				if err2 != nil {
-					return err2
-				}
 
 				//populate the database
 				for _, tr := range tc.Transformers {
@@ -2924,10 +2912,6 @@ func TestUndeployLogic(t *testing.T) {
 					return err2
 				}
 				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, environmentConfigAcceptance2, []string{appName})
-				if err2 != nil {
-					return err2
-				}
-				err2 = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance, envAcceptance2})
 				if err2 != nil {
 					return err2
 				}

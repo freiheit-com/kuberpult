@@ -38,7 +38,7 @@ type CommitDeploymentServer struct {
 func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in *api.GetCommitDeploymentInfoRequest) (*api.GetCommitDeploymentInfoResponse, error) {
 	commitDeploymentStatus := make(map[string]*api.AppCommitDeploymentStatus, 0)
 	var jsonCommitEventsMetadata []byte
-	var jsonAllEnvironmentsMetadata []byte
+	allEnvironments := make([]string, 0)
 	applicationReleases := make(map[string]map[string]uint64, 0)
 	allApplicationReleasesQuery := `
 SELECT appname, envname, releaseVersion
@@ -63,14 +63,22 @@ WHERE releaseVersion IS NOT NULL;
 		}
 
 		// Get all environments
-		query = s.DBHandler.AdaptQuery("SELECT json FROM all_environments ORDER BY version DESC LIMIT 1;")
-		row = transaction.QueryRow(query)
-		err = row.Scan(&jsonAllEnvironmentsMetadata)
+		query = s.DBHandler.AdaptQuery("SELECT name FROM environments;")
+		envRows, err := transaction.QueryContext(ctx, query)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("no environments exist")
-			}
 			return err
+		}
+		defer envRows.Close()
+		for envRows.Next() {
+			var envName string
+			err = envRows.Scan(&envName)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return fmt.Errorf("no environments exist")
+				}
+				return err
+			}
+			allEnvironments = append(allEnvironments, envName)
 		}
 
 		// Get latest releases for all apps
@@ -102,10 +110,6 @@ WHERE releaseVersion IS NOT NULL;
 	releaseNumber, err := getCommitReleaseNumber(jsonCommitEventsMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get commit release number from commit_events metadata: %v", err)
-	}
-	allEnvironments, err := getAllEnvironments(jsonAllEnvironmentsMetadata)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get all environments from all_environments metadata: %v", err)
 	}
 
 	for app, releases := range applicationReleases {
@@ -175,13 +179,4 @@ func getCommitReleaseNumber(jsonInput []byte) (uint64, error) {
 		return 0, err
 	}
 	return releaseEvent.EventMetadata.ReleaseVersion, nil
-}
-
-func getAllEnvironments(jsonInput []byte) ([]string, error) {
-	environments := []string{}
-	err := json.Unmarshal(jsonInput, &environments)
-	if err != nil {
-		return nil, err
-	}
-	return environments, nil
 }

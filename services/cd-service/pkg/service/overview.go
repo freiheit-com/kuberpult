@@ -147,9 +147,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if dbAllEnvs == nil {
 			return nil, nil
 		}
-		envs, err := o.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs.Environments)
+		envs, err := o.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs)
 		if err != nil {
-			return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+			return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 		}
 
 		envMap := make(map[string]db.DBEnvironment)

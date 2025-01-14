@@ -1937,7 +1937,7 @@ func (s *State) GetAllEnvironmentNames(ctx context.Context, transaction *sql.Tx)
 	if dbAllEnvs == nil {
 		return []string{}, nil
 	}
-	return dbAllEnvs.Environments, nil
+	return dbAllEnvs, nil
 }
 
 func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
@@ -2025,9 +2025,9 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	if dbAllEnvs == nil {
 		return nil, nil
 	}
-	envs, err := s.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs.Environments)
+	envs, err := s.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs)
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 	}
 	ret := make(map[string]config.EnvironmentConfig)
 	for _, env := range *envs {
