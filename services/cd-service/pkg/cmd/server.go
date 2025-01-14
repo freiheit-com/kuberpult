@@ -87,6 +87,7 @@ type Config struct {
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 	AllowLongAppNames        bool          `default:"false" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
+	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
 	DbOption              string `default:"NO_DB" split_words:"true"`
 	DbLocation            string `default:"/kp/database" split_words:"true"`
@@ -318,6 +319,7 @@ func RunServer() {
 				KnownHostsFile: c.GitSshKnownHosts,
 			},
 			MinorRegexes:          minorRegexes,
+			MaxNumThreads:         c.MaxNumberOfThreads,
 			Branch:                c.GitBranch,
 			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
 			StorageBackend:        c.storageBackend(),

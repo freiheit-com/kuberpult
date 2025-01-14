@@ -238,6 +238,8 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
+        - name: KUBERPULT_MAX_NUMBER_OF_THREADS
+          value: "{{ .Values.cd.maxNumberOfThreads }}"
         - name: KUBERPULT_DB_OPTION # { postgreSQL}
           value: {{ .Values.db.dbOption }}
         - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY

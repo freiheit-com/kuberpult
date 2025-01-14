@@ -3723,11 +3723,11 @@ func (c *ReleaseTrain) Transform(
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(envNames))
 		for i, envName := range envNames {
-			if i%3 == 0 {
+			if i%state.MaxNumThreads == 0 {
 				wg.Wait()
 				remainingEnvsCount := len(envNames) - i
-				if remainingEnvsCount > 3 {
-					wg.Add(3)
+				if remainingEnvsCount > state.MaxNumThreads {
+					wg.Add(state.MaxNumThreads)
 				} else {
 					wg.Add(remainingEnvsCount)
 				}
