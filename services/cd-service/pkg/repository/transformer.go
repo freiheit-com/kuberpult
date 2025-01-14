@@ -34,7 +34,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -71,6 +70,7 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -440,7 +440,7 @@ func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transact
 		return err
 	}
 	idx := len(r.Stack) - 1
-	if len(r.Stack[idx]) != 0 {
+	if idx >= 0 && len(r.Stack[idx]) != 0 {
 		if msg != "" {
 			msg = msg + "\n" + strings.Join(r.Stack[idx], "\n")
 		} else {
@@ -448,9 +448,13 @@ func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transact
 		}
 	}
 	if msg != "" {
-		r.Stack[idx-1] = append(r.Stack[idx-1], msg)
+		if idx > 0 {
+			r.Stack[idx-1] = append(r.Stack[idx-1], msg)
+		}
 	}
-	r.Stack = r.Stack[:idx]
+	if idx > 0 {
+		r.Stack = r.Stack[:idx]
+	}
 	return nil
 }
 
@@ -2166,6 +2170,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		Commit:               nil,
 		MinorRegexes:         state.MinorRegexes,
 		Filesystem:           fs,
+		MaxNumThreads:        state.MaxNumThreads,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 		CloudRunClient:       state.CloudRunClient,
@@ -3246,6 +3251,7 @@ func (c *DeployApplicationVersion) Transform(
 	s := State{
 		Commit:               nil,
 		MinorRegexes:         state.MinorRegexes,
+		MaxNumThreads:        state.MaxNumThreads,
 		Filesystem:           fs,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
@@ -3683,27 +3689,18 @@ func (c *ReleaseTrain) Transform(
 	sort.Strings(envNames)
 	span.SetTag("environments", len(envNames))
 	if state.DBHandler.ShouldUseOtherTables() && isEnvGroup {
-		var wg sync.WaitGroup
-		wg.Add(len(envNames))
-		errChan := make(chan error, len(envNames))
+		releaseTrainErrGroup, _ := errgroup.WithContext(ctx)
+		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
 		for _, envName := range envNames {
-			var trainGroup *string
-			if isEnvGroup {
-				trainGroup = conversion.FromString(targetGroupName)
-			}
-			go c.runEnvReleaseTrainBackground(ctx, state, t, envName, trainGroup, envGroupConfigs, configs, &wg, errChan)
+			trainGroup := conversion.FromString(targetGroupName)
+			envNameLocal := envName
+			releaseTrainErrGroup.Go(func() error {
+				return c.runEnvReleaseTrainBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs)
+			})
 		}
-		wg.Wait()
-		close(errChan)
-		allErrorsMessage := ""
-		for err := range errChan {
-			if err != nil {
-				allErrorsMessage += err.Error()
-			}
-		}
-
-		if allErrorsMessage != "" {
-			return "", grpc.PublicError(ctx, fmt.Errorf("Error in env Release Trains: %s", allErrorsMessage))
+		err := releaseTrainErrGroup.Wait()
+		if err != nil {
+			return "", err
 		}
 	} else {
 		for _, envName := range envNames {
@@ -3738,10 +3735,7 @@ func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context,
 	envName string,
 	trainGroup *string,
 	envGroupConfigs map[string]config.EnvironmentConfig,
-	configs map[string]config.EnvironmentConfig,
-	workerGroup *sync.WaitGroup,
-	errChan chan error) {
-	defer workerGroup.Done()
+	configs map[string]config.EnvironmentConfig) error {
 	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
 		internal, err := state.DBHandler.DBReadEslEventInternal(ctx, transaction2, false)
 		if err != nil {
@@ -3762,7 +3756,7 @@ func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context,
 		}, transaction2)
 		return err
 	})
-	errChan <- err
+	return err
 }
 
 type envReleaseTrain struct {

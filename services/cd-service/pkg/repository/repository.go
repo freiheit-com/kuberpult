@@ -223,6 +223,7 @@ type RepositoryConfig struct {
 	WebhookResolver       WebhookResolver
 	MaximumCommitsPerPush uint
 	MaximumQueueSize      uint
+	MaxNumThreads         uint
 	// Extend maximum AppName length
 	AllowLongAppNames bool
 
@@ -1257,6 +1258,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
 						ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
 						MinorRegexes:         r.config.MinorRegexes,
+						MaxNumThreads:        int(r.config.MaxNumThreads),
 						DBHandler:            r.DB,
 						CloudRunClient:       r.config.CloudRunClient,
 					}, nil
@@ -1281,6 +1283,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:               commit,
 		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
 		MinorRegexes:         r.config.MinorRegexes,
+		MaxNumThreads:        int(r.config.MaxNumThreads),
 		DBHandler:            r.DB,
 		CloudRunClient:       r.config.CloudRunClient,
 	}, nil
@@ -1295,6 +1298,7 @@ type State struct {
 	Commit               *git.Commit
 	ReleaseVersionsLimit uint
 	MinorRegexes         []*regexp.Regexp
+	MaxNumThreads        int
 	// DbHandler will be nil if the DB is disabled
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient

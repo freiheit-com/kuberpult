@@ -92,6 +92,7 @@ cd:
 # List of allowed domains that the links provided in releases, release trains and locks must match
   allowedDomains: ""
   cacheTtlHours: 24
+  maxNumberOfThreads: 3
   service:
     annotations: {}
   pod:
