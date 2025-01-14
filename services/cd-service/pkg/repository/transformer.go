@@ -2170,6 +2170,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		Commit:               nil,
 		MinorRegexes:         state.MinorRegexes,
 		Filesystem:           fs,
+		MaxNumThreads:        state.MaxNumThreads,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 		CloudRunClient:       state.CloudRunClient,
@@ -3283,6 +3284,7 @@ func (c *DeployApplicationVersion) Transform(
 	s := State{
 		Commit:               nil,
 		MinorRegexes:         state.MinorRegexes,
+		MaxNumThreads:        state.MaxNumThreads,
 		Filesystem:           fs,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
