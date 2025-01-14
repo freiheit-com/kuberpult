@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"io"
 	"net/http"
 	"os"
@@ -1019,6 +1020,8 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "FetchAndReset")
+	defer span.Finish()
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
 	logger := logger.FromContext(ctx)
 	//exhaustruct:ignore
@@ -1045,10 +1048,10 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 		RemoteCallbacks: RemoteCallbacks,
 	}
 	err := r.useRemote(func(remote *git.Remote) error {
-		return remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+		return onErr(remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching"))
 	})
 	if err != nil {
-		return err
+		return onErr(err)
 	}
 	var zero git.Oid
 	var rev *git.Oid = &zero
@@ -1058,26 +1061,26 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 			// not found
 			// nothing to do
 		} else {
-			return err
+			return onErr(err)
 		}
 	} else {
 		rev = remoteRef.Target()
 		if _, err := r.repository.References.Create(fmt.Sprintf("refs/heads/%s", r.config.Branch), rev, true, "reset branch"); err != nil {
-			return err
+			return onErr(err)
 		}
 	}
 	obj, err := r.repository.Lookup(rev)
 	if err != nil {
-		return err
+		return onErr(err)
 	}
 	commit, err := obj.AsCommit()
 	if err != nil {
-		return err
+		return onErr(err)
 	}
 	//exhaustruct:ignore
 	err = r.repository.ResetToCommit(commit, git.ResetSoft, &git.CheckoutOptions{Strategy: git.CheckoutForce})
 	if err != nil {
-		return err
+		return onErr(err)
 	}
 	return nil
 }

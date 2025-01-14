@@ -29,6 +29,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/migrations"
 )
 
@@ -64,7 +65,7 @@ func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *
 		return nil, fmt.Errorf("could not check if migrations are done: %w", err)
 	}
 	if dbDone {
-		log.Warn("SU DEBUG: EnsureCustomMigrationApplied end 1 nothing to do")
+		log.Info("no migrations need to run")
 		return &api.EnsureCustomMigrationAppliedResponse{
 			MigrationsApplied: true,
 		}, nil
@@ -103,10 +104,12 @@ func (s *MigrationServer) CustomMigrationsDone(ctx context.Context, version *api
 }
 
 func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *api.KuberpultVersion) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "CustomMigrations")
+	defer span.Finish()
 	log := logger.FromContext(ctx).Sugar()
 
 	if kuberpultVersion == nil {
-		return fmt.Errorf("RunMigrations: kuberpult version is nil")
+		return onErr(fmt.Errorf("RunMigrations: kuberpult version is nil"))
 	}
 
 	log.Infof("Starting to run all migrations...")
@@ -114,12 +117,12 @@ func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *a
 	for _, m := range all {
 		err := m.Migration(ctx)
 		if err != nil {
-			return fmt.Errorf("error during migration for version %s: %w", migrations.FormatKuberpultVersion(m.Version), err)
+			return onErr(fmt.Errorf("error during migration for version %s: %w", migrations.FormatKuberpultVersion(m.Version), err))
 		}
 	}
 	log.Infof("All migrations are applied.")
 
-	return s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+	return onErr(s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		return migrations.DBWriteCustomMigrationCutoff(s.DBHandler, ctx, transaction, kuberpultVersion)
-	})
+	}))
 }
