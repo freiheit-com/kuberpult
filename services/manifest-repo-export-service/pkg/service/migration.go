@@ -91,6 +91,9 @@ func (s *MigrationServer) CustomMigrationsDone(ctx context.Context, version *api
 	if err != nil {
 		return false, fmt.Errorf("could not check if migrations are done: %w", err)
 	}
+	if dbVersion == nil {
+		return false, nil
+	}
 	if migrations.FormatKuberpultVersion(dbVersion) == migrations.FormatKuberpultVersion(version) {
 		return true, nil
 	}
