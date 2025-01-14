@@ -448,7 +448,9 @@ func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transact
 		}
 	}
 	if msg != "" {
-		r.Stack[idx-1] = append(r.Stack[idx-1], msg)
+		if idx > 0 {
+			r.Stack[idx-1] = append(r.Stack[idx-1], msg)
+		}
 	}
 	r.Stack = r.Stack[:idx]
 	return nil
