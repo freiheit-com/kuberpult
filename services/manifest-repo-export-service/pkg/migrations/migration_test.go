@@ -76,7 +76,7 @@ func TestRunMigrations(t *testing.T) {
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 
 				if tc.kuberpultVersionToInsert != nil {
-					err := DBWriteCustomMigrationCutoff(dbHandler, ctx, transaction, tc.kuberpultVersionToInsert)
+					err := DBUpsertCustomMigrationCutoff(dbHandler, ctx, transaction, tc.kuberpultVersionToInsert)
 					if err != nil {
 						t.Fatal("unexpected error when writing cutoff: %w", err)
 					}

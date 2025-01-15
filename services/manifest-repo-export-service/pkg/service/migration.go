@@ -42,27 +42,27 @@ type Migration struct {
 }
 
 type MigrationServer struct {
-	DBHandler  *db.DBHandler
-	Migrations []*Migration
+	KuberpultVersion *api.KuberpultVersion
+	DBHandler        *db.DBHandler
+	Migrations       []*Migration
 }
 
 func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *api.EnsureCustomMigrationAppliedRequest) (*api.EnsureCustomMigrationAppliedResponse, error) {
+	if s.KuberpultVersion == nil {
+		return nil, fmt.Errorf("configured kuberpult version is nil")
+	}
 	if in.Version == nil {
-		return nil, fmt.Errorf("kuberpult version is nil")
+		return nil, fmt.Errorf("requested kuberpult version is nil")
 	}
 
-	// 1) Check if migrations are done:
-	dbDone, err := s.CustomMigrationsDone(ctx, in.Version)
-	if err != nil {
-		return nil, fmt.Errorf("could not check if migrations are done: %w", err)
-	}
-	if dbDone {
-		return &api.EnsureCustomMigrationAppliedResponse{
-			MigrationsApplied: true,
-		}, nil
+	if !migrations2.IsKuberpultVersionEqual(in.Version, s.KuberpultVersion) {
+		return nil, fmt.Errorf("different versions of kuberpult are running: %s!=%s",
+			migrations2.FormatKuberpultVersion(in.Version),
+			migrations2.FormatKuberpultVersion(s.KuberpultVersion),
+		)
 	}
 
-	err = s.RunMigrations(ctx, in.Version)
+	err := s.RunMigrations(ctx, in.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
@@ -70,28 +70,6 @@ func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *
 	return &api.EnsureCustomMigrationAppliedResponse{
 		MigrationsApplied: true,
 	}, nil
-}
-
-func (s *MigrationServer) CustomMigrationsDone(ctx context.Context, version *api.KuberpultVersion) (bool, error) {
-	dbVersion, err := db.WithTransactionT(s.DBHandler, ctx, 0, true, func(ctx context.Context, transaction *sql.Tx) (*api.KuberpultVersion, error) {
-		dbVersion, tErr := migrations.DBReadCustomMigrationCutoff(s.DBHandler, ctx, transaction, version)
-		if tErr != nil {
-			return nil, tErr
-		}
-		return dbVersion, nil
-	})
-	if err != nil {
-		return false, fmt.Errorf("CustomMigrationsDone with error: %w", err)
-	}
-	if dbVersion == nil {
-		return false, nil
-	}
-	if migrations2.FormatKuberpultVersion(dbVersion) == migrations2.FormatKuberpultVersion(version) {
-		return true, nil
-	}
-	log := logger.FromContext(ctx).Sugar()
-	log.Infof("CustomMigrationsDone diff: %s!=%s", dbVersion, version)
-	return false, nil
 }
 
 func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *api.KuberpultVersion) error {
@@ -105,22 +83,34 @@ func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *a
 
 	log.Infof("Starting to run all migrations...")
 	for _, m := range s.Migrations {
-		err := m.Migration(ctx)
+		err := s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			// 1) Check if we need to run this migration:
+			dbVersion, err := migrations.DBReadCustomMigrationCutoff(s.DBHandler, ctx, transaction, m.Version)
+			if err != nil {
+				return onErr(fmt.Errorf("could not read cutoff: %w", err))
+			}
+			if migrations2.IsKuberpultVersionEqual(dbVersion, m.Version) {
+				log.Infof("migration for version %s already done according to DB", migrations2.FormatKuberpultVersion(m.Version))
+				return nil
+			}
+			log.Infof("running migration for dbVersion %s and migrationVersion %s",
+				migrations2.FormatKuberpultVersion(dbVersion),
+				migrations2.FormatKuberpultVersion(m.Version),
+			)
+
+			// 2) Actually run the migration:
+			err = m.Migration(ctx)
+			if err != nil {
+				return onErr(fmt.Errorf("could not run migration: %w", err))
+			}
+
+			// 2) Store that we did run the migration:
+			return migrations.DBUpsertCustomMigrationCutoff(s.DBHandler, ctx, transaction, kuberpultVersion)
+		})
 		if err != nil {
-			return onErr(fmt.Errorf("error during migration for version %s: %w", migrations2.FormatKuberpultVersion(m.Version), err))
+			return onErr(fmt.Errorf("RunMigrations: error for version %s: %w", migrations2.FormatKuberpultVersion(m.Version), err))
 		}
 	}
 	log.Infof("All migrations are applied.")
-
-	return s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		oldVersion, err := migrations.DBReadCustomMigrationCutoff(s.DBHandler, ctx, transaction, kuberpultVersion)
-		if err != nil {
-			return err
-		}
-		if migrations2.FormatKuberpultVersion(oldVersion) != migrations2.FormatKuberpultVersion(kuberpultVersion) {
-			return migrations.DBWriteCustomMigrationCutoff(s.DBHandler, ctx, transaction, kuberpultVersion)
-		}
-		// no need to write the same version again
-		return nil
-	})
+	return nil
 }

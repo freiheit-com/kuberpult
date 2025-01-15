@@ -281,24 +281,10 @@ func Run(ctx context.Context) error {
 
 	log.Infof("Running Custom Migrations")
 
-	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrations(
-			ctx,
-			repo.State().GetAppsAndTeams,
-			repo.State().WriteCurrentlyDeployed,
-			repo.State().WriteAllReleases,
-			repo.State().WriteCurrentEnvironmentLocks,
-			repo.State().WriteCurrentApplicationLocks,
-			repo.State().WriteCurrentTeamLocks,
-			repo.State().GetAllEnvironments,
-			repo.State().WriteAllQueuedAppVersions,
-			repo.State().WriteAllCommitEvents,
-		)
-	}
-
 	migrationServer := &service.MigrationServer{
-		DBHandler:  dbHandler,
-		Migrations: getAllMigrations(migrationFunc),
+		KuberpultVersion: kuberpultVersion,
+		DBHandler:        dbHandler,
+		Migrations:       getAllMigrations(dbHandler, repo),
 	}
 
 	_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
@@ -348,12 +334,49 @@ func Run(ctx context.Context) error {
 	return nil
 }
 
-func getAllMigrations(migrationFunc service.MigrationFunc) []*service.Migration {
+func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
+	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrations(
+			ctx,
+			repo.State().GetAppsAndTeams,
+			repo.State().WriteCurrentlyDeployed,
+			repo.State().WriteAllReleases,
+			repo.State().WriteCurrentEnvironmentLocks,
+			repo.State().WriteCurrentApplicationLocks,
+			repo.State().WriteCurrentTeamLocks,
+			repo.State().GetAllEnvironments,
+			repo.State().WriteAllQueuedAppVersions,
+			repo.State().WriteAllCommitEvents,
+		)
+	}
+
+	migrateReleases := func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrationReleaseEnvironments(ctx)
+	}
+	migrateEnvApps := func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
+	}
+
+	// Migrations here must be IN ORDER, oldest first:
 	return []*service.Migration{
 		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 0), // we set this to 0.0.0, because these migrations should always be executed
+			// This first migration is actually a list of migrations that are done in one step:
+			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
 			Migration: migrationFunc,
 		},
+		{
+			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
+			Migration: migrateReleases,
+		},
+		{
+			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
+			Migration: migrateEnvApps,
+		},
+		// New migrations should be added here:
+		// {
+		//   Version: ...
+		//   Migration: ...
+		// }
 	}
 }
 

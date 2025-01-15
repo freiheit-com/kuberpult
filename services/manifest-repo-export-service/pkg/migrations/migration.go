@@ -84,8 +84,8 @@ LIMIT 1;`)
 	return kuberpultVersion, nil
 }
 
-func DBWriteCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, kuberpultVersion *api.KuberpultVersion) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBWriteCustomMigrationCutoff")
+func DBUpsertCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, kuberpultVersion *api.KuberpultVersion) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBUpsertCustomMigrationCutoff")
 	defer span.Finish()
 
 	timestamp, err := h.DBReadTransactionTimestamp(ctx, tx)
@@ -93,7 +93,12 @@ func DBWriteCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql.
 		return onErr(fmt.Errorf("DBWriteCustomMigrationCutoff: Error reading transaction timestamp from DB. Error: %w", err))
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO custom_migration_cutoff (migration_done_at, kuberpult_version) VALUES (?, ?);")
+	insertQuery := h.AdaptQuery(`
+		INSERT INTO custom_migration_cutoff (migration_done_at, kuberpult_version)
+		VALUES (?, ?)
+		ON CONFLICT(kuberpult_version)
+		DO UPDATE SET migration_done_at = excluded.migration_done_at, kuberpult_version = excluded.kuberpult_version
+		;`)
 	span.SetTag("query", insertQuery)
 
 	_, err = tx.Exec(

@@ -82,3 +82,15 @@ func FormatKuberpultVersion(version *api.KuberpultVersion) string {
 	}
 	return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
 }
+
+func IsKuberpultVersionEqual(a, b *api.KuberpultVersion) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Major == b.Major &&
+		a.Minor == b.Minor &&
+		a.Patch == b.Patch
+}
