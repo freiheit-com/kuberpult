@@ -31,3 +31,4 @@ services/cd-service/known_hosts
 services/cd-service/repository_checked_out/
 CHANGELOG.tmp.md
 vendor/
+docker.env
