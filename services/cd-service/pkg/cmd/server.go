@@ -408,12 +408,14 @@ func RunServer() {
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error ensuring custom migrations are applied", zap.Error(migErr))
 			}
-			if response == nil || !response.MigrationsApplied {
-				logger.FromContext(ctx).Sugar().Fatalf("Custom database migrations returned empty result: %v", response)
+			if response == nil {
+				logger.FromContext(ctx).Sugar().Fatal("Custom database migrations returned nil response")
+			}
+			if !response.MigrationsApplied {
+				logger.FromContext(ctx).Sugar().Fatalf("Custom database migrations where not applied: %v", response)
 			}
 
 			logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
-			logger.FromContext(ctx).Sugar().Warnf("Skipping git-related custom migrations, because all tables contain data.")
 		} else {
 			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 		}
