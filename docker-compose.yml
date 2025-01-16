@@ -40,6 +40,10 @@ services:
       - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=10
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=5
       - KUBERPULT_ALLOWED_DOMAINS=localhost
+      - KUBERPULT_MIGRATION_SERVER=manifest-repo-export-service:8443
+      - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=4
+      - KUBERPULT_MIGRATION_SERVER_SECURE=false
+      - KUBERPULT_VERSION=v0.1.2
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -48,6 +52,8 @@ services:
       - ./database:/kp/database
     stop_grace_period: 0.5s
     depends_on:
+      manifest-repo-export-service:
+        condition: service_healthy
       postgres:
         condition: service_healthy
   manifest-repo-export-service:
@@ -61,6 +67,7 @@ services:
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
       - KUBERPULT_DB_USER_PASSWORD=mypassword
+      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
       - KUBERPULT_DB_AUTH_PROXY_PORT=5432
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
       - KUBERPULT_GIT_BRANCH=master
@@ -83,9 +90,12 @@ services:
       - "8090:8080"
       - "8444:8443"
     stop_grace_period: 0.5s
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
     depends_on:
-      cd-service:
-        condition: service_started
       postgres:
         condition: service_healthy
   frontend-service:

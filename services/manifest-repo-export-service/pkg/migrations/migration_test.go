@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -44,22 +45,22 @@ func TestRunMigrations(t *testing.T) {
 		{
 			name:                     "should read nothing if nothing was written",
 			kuberpultVersionToInsert: nil,
-			kuberpultVersionToQuery:  CreateKuberpultVersion(0, 1, 2),
+			kuberpultVersionToQuery:  migrations2.CreateKuberpultVersion(0, 1, 2),
 			expectedVersion:          nil,
 			expectedError:            nil,
 		},
 		{
 			name:                     "should read nothing if a different version was written",
-			kuberpultVersionToInsert: CreateKuberpultVersion(2, 3, 4),
-			kuberpultVersionToQuery:  CreateKuberpultVersion(0, 1, 2),
+			kuberpultVersionToInsert: migrations2.CreateKuberpultVersion(2, 3, 4),
+			kuberpultVersionToQuery:  migrations2.CreateKuberpultVersion(0, 1, 2),
 			expectedVersion:          nil,
 			expectedError:            nil,
 		},
 		{
 			name:                     "should read the same version that was written",
-			kuberpultVersionToInsert: CreateKuberpultVersion(0, 1, 2),
-			kuberpultVersionToQuery:  CreateKuberpultVersion(0, 1, 2),
-			expectedVersion:          CreateKuberpultVersion(0, 1, 2),
+			kuberpultVersionToInsert: migrations2.CreateKuberpultVersion(0, 1, 2),
+			kuberpultVersionToQuery:  migrations2.CreateKuberpultVersion(0, 1, 2),
+			expectedVersion:          migrations2.CreateKuberpultVersion(0, 1, 2),
 			expectedError:            nil,
 		},
 	}
@@ -75,7 +76,7 @@ func TestRunMigrations(t *testing.T) {
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 
 				if tc.kuberpultVersionToInsert != nil {
-					err := DBWriteCustomMigrationCutoff(dbHandler, ctx, transaction, tc.kuberpultVersionToInsert)
+					err := DBUpsertCustomMigrationCutoff(dbHandler, ctx, transaction, tc.kuberpultVersionToInsert)
 					if err != nil {
 						t.Fatal("unexpected error when writing cutoff: %w", err)
 					}

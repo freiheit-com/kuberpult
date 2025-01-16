@@ -1216,43 +1216,6 @@ func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction
 	return true, nil
 }
 
-// NeedsMigrations checks if we need migrations for any table.
-func (h *DBHandler) NeedsMigrations(ctx context.Context) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "NeedsMigrations")
-	defer span.Finish()
-	var needsMigration bool = false
-	txError := h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-		var checkFunctions = []CheckFun{
-			(*DBHandler).NeedsEventSourcingLightMigrations,
-			(*DBHandler).needsAppsMigrations,
-			(*DBHandler).needsDeploymentsMigrations,
-			(*DBHandler).needsReleasesMigrations,
-			(*DBHandler).needsEnvLocksMigrations,
-			(*DBHandler).needsAppLocksMigrations,
-			(*DBHandler).needsTeamLocksMigrations,
-			(*DBHandler).needsCommitEventsMigrations,
-			(*DBHandler).needsEnvironmentsMigrations,
-		}
-		for i := range checkFunctions {
-			f := checkFunctions[i]
-			needs, err := f(h, ctx, transaction)
-			if err != nil {
-				return err
-			}
-			if !needs {
-				logger.FromContext(ctx).Sugar().Warnf("migration skipped: %v", i)
-			}
-			if needs {
-				logger.FromContext(ctx).Sugar().Warnf("migration required: %v", i)
-				needsMigration = true
-				return nil
-			}
-		}
-		return nil
-	})
-	return needsMigration, txError
-}
-
 // For commit_events migrations, we need some transformer to be on the database before we run their migrations.
 func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -3680,7 +3643,7 @@ func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction
 		return true, err
 	}
 	if arbitraryAllEnvsRow != nil {
-		log.Infof("custom migration for environments already ran because row %v was found, skipping custom migration", arbitraryAllEnvsRow)
+		log.Infof("custom migration for environments already ran because row (%v) was found, skipping custom migration", arbitraryAllEnvsRow)
 		return false, nil
 	}
 	return true, nil
