@@ -26,6 +26,7 @@ import {
     UpdateAction,
     updateActions,
     UpdateAllApplicationLocks,
+    updateAllEnvLocks,
     updateAppDetails,
     UpdateOverview,
     UpdateRolloutStatus,
@@ -41,6 +42,7 @@ import {
     BatchAction,
     Environment,
     EnvironmentGroup,
+    GetAllEnvLocksResponse,
     GetOverviewResponse,
     LockBehavior,
     OverviewApplication,
@@ -61,12 +63,17 @@ describe('Test useLocksSimilarTo', () => {
         inputAction: BatchAction; // the action we are rendering currently in the sidebar
         expectedLocks: AllLocks;
         OverviewApps: OverviewApplication[];
+        allEnvLocks: GetAllEnvLocksResponse;
         AppLocks: { [key: string]: AllAppLocks };
     };
 
     const testdata: TestDataStore[] = [
         {
             name: 'empty data',
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -87,6 +94,14 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'one env lock: should not find another lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -120,6 +135,17 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'two env locks with same ID on different envs: should find the other lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                    staging: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -163,6 +189,14 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'env lock and app lock with same ID: deleting the env lock should find the other lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -211,6 +245,25 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'bug: delete-all button must appear for each entry. 2 Env Locks, 1 App lock exist. 1 Env lock, 1 app lock in cart',
+            allEnvLocks: {
+                allTeamLocks: {
+                    dev: {
+                        teamLocks: {
+                            'test-team': {
+                                locks: [makeLock({ lockId: 'l1' })],
+                            },
+                        },
+                    },
+                },
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                    dev2: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentApplicationLock',
@@ -297,6 +350,7 @@ describe('Test useLocksSimilarTo', () => {
                 environmentGroups: testcase.inputEnvGroups,
             });
             UpdateAllApplicationLocks.set(testcase.AppLocks);
+            updateAllEnvLocks.set(testcase.allEnvLocks);
             // when
             const actions = renderHook(() => useLocksSimilarTo(testcase.inputAction)).result.current;
             // then
@@ -782,6 +836,7 @@ describe('Test useLocksConflictingWithActions', () => {
     type TestDataStore = {
         name: string;
         actions: BatchAction[];
+        allEnvLocks: GetAllEnvLocksResponse;
         expectedAppLocks: DisplayLock[];
         expectedEnvLocks: DisplayLock[];
         environments: Environment[];
@@ -794,6 +849,10 @@ describe('Test useLocksConflictingWithActions', () => {
     const testdata: TestDataStore[] = [
         {
             name: 'empty actions empty locks',
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             actions: [],
             expectedAppLocks: [],
             expectedEnvLocks: [],
@@ -803,6 +862,19 @@ describe('Test useLocksConflictingWithActions', () => {
         },
         {
             name: 'deploy action and related app lock and env lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [
+                            makeLock({
+                                message: 'locked because christmas',
+                                lockId: 'my-env-lock1',
+                            }),
+                        ],
+                    },
+                },
+            },
             actions: [
                 {
                     action: {
@@ -862,6 +934,19 @@ describe('Test useLocksConflictingWithActions', () => {
         },
         {
             name: 'deploy action and unrelated locks',
+            allEnvLocks: {
+                allEnvLocks: {
+                    staging: {
+                        locks: [
+                            makeLock({
+                                message: 'locked because christmas',
+                                lockId: 'my-env-lock1',
+                            }),
+                        ],
+                    },
+                },
+                allTeamLocks: {},
+            },
             OverviewApps: [
                 {
                     name: 'anotherapp',
@@ -923,6 +1008,7 @@ describe('Test useLocksConflictingWithActions', () => {
                     },
                 ],
             });
+            updateAllEnvLocks.set(testcase.allEnvLocks);
             UpdateAllApplicationLocks.set(testcase.AppLocks);
             // when
             const actualLocks = renderHook(() => useLocksConflictingWithActions()).result.current;

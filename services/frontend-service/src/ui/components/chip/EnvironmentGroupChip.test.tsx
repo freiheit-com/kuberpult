@@ -15,17 +15,26 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { EnvironmentChip, EnvironmentChipProps, EnvironmentGroupChip } from './EnvironmentGroupChip';
 import { fireEvent, render } from '@testing-library/react';
-import { Environment, EnvironmentGroup, Priority } from '../../../api/api';
-import { EnvironmentGroupExtended, UpdateOverview } from '../../utils/store';
+import { Environment, EnvironmentGroup, Lock, Priority, GetAllEnvLocksResponse } from '../../../api/api';
+import { EnvironmentGroupExtended, UpdateOverview, updateAllEnvLocks } from '../../utils/store';
 import { Spy } from 'spy4js';
 
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
+
+const makeLock = (id: string): Lock => ({
+    message: id,
+    lockId: id,
+});
 
 describe('EnvironmentChip', () => {
     const env: Environment = {
         name: 'Test Me',
         distanceToUpstream: 0,
         priority: Priority.PROD,
+    };
+    const allEnvLocks: GetAllEnvLocksResponse = {
+        allEnvLocks: {},
+        allTeamLocks: {},
     };
     const envGroup: EnvironmentGroup = {
         distanceToUpstream: 0,
@@ -49,6 +58,7 @@ describe('EnvironmentChip', () => {
                 },
             ],
         });
+        updateAllEnvLocks.set(allEnvLocks);
         // then
         const { container } = getWrapper();
         expect(container.firstChild).toMatchInlineSnapshot(`
@@ -79,6 +89,15 @@ describe('EnvironmentChip', () => {
         `);
     });
     it('renders a short form tag chip', () => {
+        const allEnvLocks: GetAllEnvLocksResponse = {
+            allTeamLocks: {},
+            allEnvLocks: {
+                [env.name]: {
+                    locks: [makeLock('lock1'), makeLock('lock2')],
+                },
+            },
+        };
+        updateAllEnvLocks.set(allEnvLocks);
         const wrapper = getWrapper({
             smallEnvChip: true,
             env: {
@@ -91,6 +110,15 @@ describe('EnvironmentChip', () => {
         expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(1);
     });
     it('renders env locks in big env chip', () => {
+        const allEnvLocks: GetAllEnvLocksResponse = {
+            allTeamLocks: {},
+            allEnvLocks: {
+                [env.name]: {
+                    locks: [makeLock('test-lock1'), makeLock('test-lock2')],
+                },
+            },
+        };
+        updateAllEnvLocks.set(allEnvLocks);
         UpdateOverview.set({
             environmentGroups: [
                 {
