@@ -26,6 +26,7 @@ package logger
 import (
 	"context"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"os"
 
 	"github.com/blendle/zapdriver"
@@ -35,7 +36,21 @@ import (
 )
 
 func FromContext(ctx context.Context) *zap.Logger {
-	return ctxzap.Extract(ctx)
+	l := ctxzap.Extract(ctx)
+	span, ok := tracer.SpanFromContext(ctx)
+	if ok {
+		env := os.Getenv("DD_ENV")
+		service := os.Getenv("DD_SERVICE")
+		version := os.Getenv("DD_VERSION")
+		return l.With(
+			zap.Uint64("dd.trace_id", span.Context().TraceID()),
+			zap.Uint64("dd.span_id", span.Context().SpanID()),
+			zap.String("dd.env", env),
+			zap.String("dd.service", service),
+			zap.String("dd.version", version),
+		)
+	}
+	return l
 }
 
 func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
