@@ -21,11 +21,6 @@ import { Spy } from 'spy4js';
 
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 
-const makeLock = (id: string): Lock => ({
-    message: id,
-    lockId: id,
-});
-
 describe('EnvironmentChip', () => {
     const env: Environment = {
         name: 'Test Me',
