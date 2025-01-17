@@ -26,7 +26,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-
 func (h *DBHandler) UpdateOverviewDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) error {
 	//Overview cache
 	overview, err := h.ReadLatestOverviewCache(ctx, tx)

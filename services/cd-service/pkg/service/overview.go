@@ -365,7 +365,7 @@ func (o *OverviewServiceServer) GetAllEnvLocks(ctx context.Context,
 
 	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllEnvLocksResponse, error) {
 		response := api.GetAllEnvLocksResponse{
-			AllEnvLocks: make(map[string]*api.Locks),
+			AllEnvLocks:  make(map[string]*api.Locks),
 			AllTeamLocks: make(map[string]*api.AllTeamLocks),
 		}
 		allEnvLocks, err := o.DBHandler.DBSelectAllEnvLocksOfAllEnvs(ctx, transaction)
@@ -417,7 +417,6 @@ func (o *OverviewServiceServer) GetAllEnvLocks(ctx context.Context,
 		return &response, nil
 	})
 }
-
 
 func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,

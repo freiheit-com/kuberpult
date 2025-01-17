@@ -61,7 +61,7 @@ export type EnvironmentChipProps = {
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const { className, env, envGroup, smallEnvChip, app } = props;
-    const envLocks = useAllEnvLocks((map) => map)[env.name]?.locks ?? [];
+    const envLocks = useAllEnvLocks((map) => map.allEnvLocks)[env.name]?.locks ?? [];
 
     let fullClassName;
     if (props.useEnvColor || props.useEnvColor === undefined) {

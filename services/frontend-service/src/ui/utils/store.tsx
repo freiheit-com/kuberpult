@@ -89,10 +89,14 @@ export const [useAllApplicationLocks, UpdateAllApplicationLocks] = createStore<{
     emptyAppLocks
 );
 export const emptyEnvLocks: { [key: string]: Locks } = {};
-export const [useAllEnvLocks, updateAllEnvLocks] = createStore<{ [key: string]: Locks }>(emptyEnvLocks);
-
 export const emptyTeamLocks: { [key: string]: AllTeamLocks } = {};
-export const [useAllTeamLocks, updateAllTeamLocks] = createStore<{ [key: string]: AllTeamLocks }>(emptyTeamLocks);
+export const [useAllEnvLocks, updateAllEnvLocks] = createStore<{
+    allEnvLocks: { [key: string]: Locks };
+    allTeamLocks: { [key: string]: AllTeamLocks };
+}>({
+    allEnvLocks: emptyEnvLocks,
+    allTeamLocks: emptyTeamLocks,
+});
 
 type TagsResponse = {
     response: GetGitTagsResponse;
@@ -569,7 +573,7 @@ export const useEnvironments = (): Environment[] =>
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
 export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] => {
-    const allTeamLocks = useAllTeamLocks((map) => map);
+    const allTeamLocks = useAllEnvLocks((map) => map.allTeamLocks);
     return Object.keys(allTeamLocks)
         .map((env) =>
             allApps
@@ -767,10 +771,10 @@ export const useLocksConflictingWithActions = (): AllLocks => {
 
 // return env lock IDs from given env
 export const useFilteredEnvironmentLockIDs = (envName: string): string[] =>
-    (useAllEnvLocks((map) => map)[envName]?.locks ?? []).map((lock) => lock.lockId);
+    (useAllEnvLocks((map) => map.allEnvLocks)[envName]?.locks ?? []).map((lock) => lock.lockId);
 
 export const useEnvironmentLock = (lockId: string): DisplayLock => {
-    const envLocks = useAllEnvLocks((map) => map);
+    const envLocks = useAllEnvLocks((map) => map.allEnvLocks);
     for (const env in envLocks) {
         for (const lock of envLocks[env]?.locks ?? []) {
             if (lock.lockId === lockId) {
@@ -808,7 +812,7 @@ export type AllLocks = {
 export const useAllLocks = (): AllLocks => {
     const allApps = useApplications();
     const allAppLocks = useAllApplicationLocks((map) => map);
-    const allEnvLocks = useAllEnvLocks((map) => map);
+    const allEnvLocks = useAllEnvLocks((map) => map.allEnvLocks);
     const teamLocks = useTeamLocks(allApps);
     const environmentLocks: DisplayLock[] = [];
     const appLocks = useAppLocks(new Map(Object.entries(allAppLocks)));

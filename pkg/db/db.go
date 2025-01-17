@@ -1659,7 +1659,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 
 func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (map[string][]EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvLocksOfAllEnvs")
-	defer span.Finish()	
+	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
@@ -1749,7 +1749,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 
 func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (map[string]map[string][]TeamLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocksOfAllEnvs")
-	defer span.Finish()	
+	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
@@ -1832,7 +1832,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 			Created:    row.Created,
 			LockID:     row.LockID,
 			Env:        row.Env,
-			Team: row.TeamName,
+			Team:       row.TeamName,
 			Deleted:    row.Deleted,
 			Metadata:   resultJson,
 		})

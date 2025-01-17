@@ -600,7 +600,7 @@ describe('Release Dialog', () => {
             expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
 
             testcase.envs.forEach((env) => {
-                const envLocks = useAllEnvLocks((map) => map)[env.name]?.locks ?? [];
+                const envLocks = useAllEnvLocks((map) => map.allEnvLocks)[env.name]?.locks ?? [];
                 expect(document.querySelector('.env-locks')?.children).toHaveLength(envLocks.length);
             });
         });

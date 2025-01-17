@@ -48,7 +48,7 @@ export const LocksPage: React.FC = () => {
     const appNameParam = params.get('application');
     const allApps = useApplications();
     const allAppLocks = useAllApplicationLocks((map) => map);
-    const allEnvLocks = useAllEnvLocks((map) => map);
+    const allEnvLocks = useAllEnvLocks((map) => map.allEnvLocks);
     let teamLocks = useTeamLocks(allApps);
     const envLocks = useMemo(() => {
         const allEnvLocksDisplay: DisplayLock[] = [];
