@@ -22,11 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"slices"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type DBReleaseMetaData struct {
@@ -594,6 +596,9 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 	if err != nil {
 		return nil, err
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i] < result[j]
+	})
 	return result, nil
 }
 

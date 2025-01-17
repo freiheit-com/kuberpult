@@ -25,6 +25,8 @@ import {
     PanicOverview,
     showSnackbarWarn,
     UpdateAllApplicationLocks,
+    updateAllEnvLocks,
+    updateAllTeamLocks,
     updateAppDetails,
     UpdateFrontendConfig,
     UpdateOverview,
@@ -125,6 +127,16 @@ export const App: React.FC = () => {
                             })
                             .catch((e) => {
                                 PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllAppLocks', e }) });
+                            });
+                        // Get Env Locks
+                        api.overviewService()
+                            .GetAllEnvLocks({}, authHeader)
+                            .then((res) => {
+                                updateAllEnvLocks.set(res.allEnvLocks);
+                                updateAllTeamLocks.set(res.allTeamLocks);
+                            })
+                            .catch((e) => {
+                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllEnvLocks', e }) });
                             });
                     },
                     (error) => {

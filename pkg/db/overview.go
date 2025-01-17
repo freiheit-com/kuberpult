@@ -23,96 +23,9 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-func (h *DBHandler) UpdateOverviewTeamLock(ctx context.Context, transaction *sql.Tx, teamLock TeamLock) error {
-	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	if h.IsOverviewEmpty(latestOverview) {
-		return nil
-	}
-	env := GetEnvironmentByName(latestOverview.EnvironmentGroups, teamLock.Env)
-	if env == nil {
-		return fmt.Errorf("could not find environment %s in overview", teamLock.Env)
-	}
-
-	if env.TeamLocks == nil {
-		env.TeamLocks = make(map[string]*api.Locks)
-	}
-
-	if teamLock.Deleted {
-		locksToKeep := make([]*api.Lock, 0)
-		for _, lock := range env.TeamLocks[teamLock.Team].Locks {
-			if lock.LockId != teamLock.LockID {
-				locksToKeep = append(locksToKeep, lock)
-			}
-		}
-		if len(locksToKeep) == 0 {
-			delete(env.TeamLocks, teamLock.Team)
-		} else {
-			env.TeamLocks[teamLock.Team].Locks = locksToKeep
-		}
-	} else {
-		if env.TeamLocks[teamLock.Team] == nil {
-			env.TeamLocks[teamLock.Team] = &api.Locks{
-				Locks: make([]*api.Lock, 0),
-			}
-		}
-		env.TeamLocks[teamLock.Team].Locks = append(env.TeamLocks[teamLock.Team].Locks, &api.Lock{
-			Message:   teamLock.Metadata.Message,
-			LockId:    teamLock.LockID,
-			CreatedAt: timestamppb.New(teamLock.Created),
-			CreatedBy: &api.Actor{
-				Name:  teamLock.Metadata.CreatedByName,
-				Email: teamLock.Metadata.CreatedByEmail,
-			},
-		})
-	}
-
-	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (h *DBHandler) UpdateOverviewEnvironmentLock(ctx context.Context, transaction *sql.Tx, environmentLock EnvironmentLock) error {
-	latestOverview, err := h.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	if h.IsOverviewEmpty(latestOverview) {
-		return nil
-	}
-	env := GetEnvironmentByName(latestOverview.EnvironmentGroups, environmentLock.Env)
-	if env == nil {
-		return fmt.Errorf("could not find environment %s in overview", environmentLock.Env)
-	}
-	if env.Locks == nil {
-		env.Locks = map[string]*api.Lock{}
-	}
-	env.Locks[environmentLock.LockID] = &api.Lock{
-		Message:   environmentLock.Metadata.Message,
-		LockId:    environmentLock.LockID,
-		CreatedAt: timestamppb.New(environmentLock.Created),
-		CreatedBy: &api.Actor{
-			Name:  environmentLock.Metadata.CreatedByName,
-			Email: environmentLock.Metadata.CreatedByEmail,
-		},
-	}
-	if environmentLock.Deleted {
-		delete(env.Locks, environmentLock.LockID)
-	}
-	err = h.WriteOverviewCache(ctx, transaction, latestOverview)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func (h *DBHandler) UpdateOverviewDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) error {
 	//Overview cache

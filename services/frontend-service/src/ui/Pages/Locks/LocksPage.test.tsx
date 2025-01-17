@@ -86,8 +86,6 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
@@ -100,12 +98,6 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
@@ -118,13 +110,6 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                    },
-
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
@@ -178,8 +163,6 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -192,20 +175,11 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
                 {
                     name: 'development',
-                    locks: {
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -218,20 +192,11 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
                 {
                     name: 'development',
-                    locks: {
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -274,15 +239,6 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        locktest: {
-                            message: 'locktest',
-                            lockId: 'ui-v2-1337',
-                            createdAt: new Date(1995, 11, 17),
-                            createdBy: { email: 'kuberpult@fdc.com', name: 'kuberpultUser' },
-                        },
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -352,8 +308,6 @@ describe('Test app locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -381,8 +335,6 @@ describe('Test app locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -430,12 +382,6 @@ describe('Test app locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -527,17 +473,6 @@ describe('Test Team locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {},
-                    teamLocks: {
-                        'lock-test': {
-                            locks: [
-                                {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                },
-                            ],
-                        },
-                    },
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -556,28 +491,6 @@ describe('Test Team locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {},
-                    teamLocks: {
-                        'test-team': {
-                            locks: [
-                                {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                    createdAt: new Date(1995, 11, 17),
-                                },
-                                {
-                                    message: 'lockfoo',
-                                    lockId: 'ui-v2-123',
-                                    createdAt: new Date(1995, 11, 16),
-                                },
-                                {
-                                    message: 'lockbar',
-                                    lockId: 'ui-v2-321',
-                                    createdAt: new Date(1995, 11, 16),
-                                },
-                            ],
-                        },
-                    },
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -600,29 +513,8 @@ describe('Test Team locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                    },
                     distanceToUpstream: 0,
                     priority: 0,
-                    teamLocks: {
-                        'test-team': {
-                            locks: [
-                                {
-                                    message: 'team lock 1',
-                                    lockId: 'ui-v2-t-lock-1',
-                                    createdAt: new Date(1995, 11, 15),
-                                },
-                                {
-                                    message: 'team lock 2',
-                                    lockId: 'ui-v2-t-lock-2',
-                                    createdAt: new Date(1995, 11, 15),
-                                },
-                            ],
-                        },
-                    },
                 },
             ],
             sortOrder: 'oldestToNewest',

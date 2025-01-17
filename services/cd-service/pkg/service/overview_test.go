@@ -330,16 +330,6 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						Environments: []*api.Environment{
 							{
 								Name: development,
-								Locks: map[string]*api.Lock{
-									"manual": {
-										Message: "please",
-										LockId:  "manual",
-										CreatedBy: &api.Actor{
-											Name:  "test tester",
-											Email: "testmail@example.com",
-										},
-									},
-								},
 								TeamLocks: map[string]*api.Locks{
 									"test-team": {
 										Locks: []*api.Lock{
@@ -539,7 +529,6 @@ func TestOverviewService(t *testing.T) {
 				if overview1 == nil {
 					t.Fatal("overview is nil")
 				}
-				v1 := overview1.GetEnvironmentGroups()[0].GetEnvironments()[0].GetLocks()
 
 				// Update a version and see that the version changed
 				err := svc.Repository.Apply(ctx, &repository.CreateEnvironmentLock{
@@ -559,10 +548,6 @@ func TestOverviewService(t *testing.T) {
 				overview2 := <-ch
 				if overview2 == nil {
 					t.Fatal("overview is nil")
-				}
-				v2 := overview2.GetEnvironmentGroups()[0].GetEnvironments()[0].GetLocks()
-				if diff := cmp.Diff(v1, v2); diff == "" {
-					t.Fatalf("Versions are not different: %q vs %q", v1, v2)
 				}
 
 				cancel()

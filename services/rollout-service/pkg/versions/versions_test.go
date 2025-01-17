@@ -68,6 +68,7 @@ type mockOverviewClient struct {
 	grpc.ClientStream
 	OverviewResponse       *api.GetOverviewResponse
 	GetAllAppLocksResponse *api.GetAllAppLocksResponse
+	GetAllEnvLocksResponse *api.GetAllEnvLocksResponse
 	AppDetailsResponses    map[string]*api.GetAppDetailsResponse
 	LastMetadata           metadata.MD
 	StartStep              chan struct{}
@@ -81,9 +82,14 @@ func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOvervie
 	return m.OverviewResponse, nil
 }
 
-// GetOverview implements api.OverviewServiceClient
+// GetOverview implements api.GetAllAppLocks
 func (m *mockOverviewClient) GetAllAppLocks(ctx context.Context, in *api.GetAllAppLocksRequest, opts ...grpc.CallOption) (*api.GetAllAppLocksResponse, error) {
 	return m.GetAllAppLocksResponse, nil
+}
+
+// GetOverview implements api.GetAllEnvLocks
+func (m *mockOverviewClient) GetAllEnvLocks(ctx context.Context, in *api.GetAllEnvLocksRequest, opts ...grpc.CallOption) (*api.GetAllEnvLocksResponse, error) {
+	return m.GetAllEnvLocksResponse, nil
 }
 
 // GetOverview implements api.GetAppDetails

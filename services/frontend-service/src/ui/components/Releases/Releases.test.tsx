@@ -139,15 +139,11 @@ describe('Release Dialog', () => {
 
     const testEnv1: Environment = {
         name: 'dev',
-        locks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     };
     const testEnv2: Environment = {
         name: 'staging',
-        locks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.PROD,
     };

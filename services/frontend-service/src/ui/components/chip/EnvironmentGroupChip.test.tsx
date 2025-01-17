@@ -15,24 +15,17 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { EnvironmentChip, EnvironmentChipProps, EnvironmentGroupChip } from './EnvironmentGroupChip';
 import { fireEvent, render } from '@testing-library/react';
-import { Environment, EnvironmentGroup, Lock, Priority } from '../../../api/api';
+import { Environment, EnvironmentGroup, Priority } from '../../../api/api';
 import { EnvironmentGroupExtended, UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
-
-const makeLock = (id: string): Lock => ({
-    message: id,
-    lockId: id,
-});
 
 describe('EnvironmentChip', () => {
     const env: Environment = {
         name: 'Test Me',
         distanceToUpstream: 0,
         priority: Priority.PROD,
-        locks: {},
-        teamLocks: {},
     };
     const envGroup: EnvironmentGroup = {
         distanceToUpstream: 0,
@@ -90,10 +83,6 @@ describe('EnvironmentChip', () => {
             smallEnvChip: true,
             env: {
                 ...env,
-                locks: {
-                    lock1: makeLock('lock1'),
-                    lock2: makeLock('lock2'),
-                },
             },
         });
         const { container } = wrapper;
@@ -108,10 +97,6 @@ describe('EnvironmentChip', () => {
                     environments: [
                         {
                             ...env,
-                            locks: {
-                                'test-lock1': makeLock('test-lock1'),
-                                'test-lock2': makeLock('test-lock2'),
-                            },
                         },
                     ],
                     priority: Priority.UNRECOGNIZED,
@@ -126,10 +111,6 @@ describe('EnvironmentChip', () => {
             smallEnvChip: false,
             env: {
                 ...env,
-                locks: {
-                    'test-lock1': makeLock('test-lock1'),
-                    'test-lock2': makeLock('test-lock2'),
-                },
             },
         });
 
@@ -151,8 +132,6 @@ const envGroupPairFromPrios = (
 ): { env: Environment; envGroup: EnvironmentGroup } => {
     const env: Environment = {
         distanceToUpstream: -1, // shouldn't matter, if this value is used an error will be thrown
-        locks: {},
-        teamLocks: {},
         name: 'Test me',
         priority: envPrio,
     };
@@ -235,8 +214,6 @@ const envFromPrio = (prio: Priority): Environment => ({
     name: 'Test Me',
     distanceToUpstream: 0,
     priority: prio,
-    locks: {},
-    teamLocks: {},
 });
 
 const envGroupChipData: Array<TestDataGroups> = [

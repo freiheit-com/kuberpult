@@ -16,6 +16,7 @@ Copyright freiheit.com*/
 import { createStore } from 'react-use-sub';
 import {
     AllAppLocks,
+    AllTeamLocks,
     BatchAction,
     BatchRequest,
     Environment,
@@ -87,6 +88,11 @@ export const emptyAppLocks: { [key: string]: AllAppLocks } = {};
 export const [useAllApplicationLocks, UpdateAllApplicationLocks] = createStore<{ [key: string]: AllAppLocks }>(
     emptyAppLocks
 );
+export const emptyEnvLocks: { [key: string]: Locks } = {};
+export const [useAllEnvLocks, updateAllEnvLocks] = createStore<{ [key: string]: Locks }>(emptyEnvLocks);
+
+export const emptyTeamLocks: { [key: string]: AllTeamLocks } = {};
+export const [useAllTeamLocks, updateAllTeamLocks] = createStore<{ [key: string]: AllTeamLocks }>(emptyTeamLocks);
 
 type TagsResponse = {
     response: GetGitTagsResponse;
@@ -562,15 +568,16 @@ export const useEnvironments = (): Environment[] =>
  */
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
-export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
-    Object.values(useEnvironments())
+export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] => {
+    const allTeamLocks = useAllTeamLocks((map) => map);
+    return Object.keys(allTeamLocks)
         .map((env) =>
             allApps
                 .map((app) =>
-                    env.teamLocks[app.team]
-                        ? env.teamLocks[app.team].locks.map((lock) => ({
+                    allTeamLocks[env].teamLocks[app.team]
+                        ? allTeamLocks[env].teamLocks[app.team].locks.map((lock) => ({
                               date: lock.createdAt,
-                              environment: env.name,
+                              environment: env,
                               team: app.team,
                               lockId: lock.lockId,
                               message: lock.message,
@@ -590,6 +597,7 @@ export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
                         t.lockId === value.lockId && t.team === value.team && t.environment === value.environment
                 )
         );
+};
 
 export const useAppLocks = (allAppLocks: Map<string, AllAppLocks>): DisplayLock[] => {
     const allAppLocksDisplay: DisplayLock[] = [];
@@ -759,18 +767,12 @@ export const useLocksConflictingWithActions = (): AllLocks => {
 
 // return env lock IDs from given env
 export const useFilteredEnvironmentLockIDs = (envName: string): string[] =>
-    useEnvironments()
-        .filter((env) => envName === '' || env.name === envName)
-        .map((env) => Object.values(env.locks))
-        .flat()
-        .map((lock) => lock.lockId);
+    (useAllEnvLocks((map) => map)[envName]?.locks ?? []).map((lock) => lock.lockId);
 
 export const useEnvironmentLock = (lockId: string): DisplayLock => {
-    const envs = useEnvironments();
-    for (let i = 0; i < envs.length; i++) {
-        const env = envs[i];
-        for (const locksKey in env.locks) {
-            const lock = env.locks[locksKey];
+    const envLocks = useAllEnvLocks((map) => map);
+    for (const env in envLocks) {
+        for (const lock of envLocks[env]?.locks ?? []) {
             if (lock.lockId === lockId) {
                 return {
                     date: lock.createdAt,
@@ -778,7 +780,7 @@ export const useEnvironmentLock = (lockId: string): DisplayLock => {
                     lockId: lock.lockId,
                     authorName: lock.createdBy?.name,
                     authorEmail: lock.createdBy?.email,
-                    environment: env.name,
+                    environment: env,
                 };
             }
         }
@@ -804,19 +806,18 @@ export type AllLocks = {
 };
 
 export const useAllLocks = (): AllLocks => {
-    const envs = useEnvironments();
     const allApps = useApplications();
     const allAppLocks = useAllApplicationLocks((map) => map);
+    const allEnvLocks = useAllEnvLocks((map) => map);
     const teamLocks = useTeamLocks(allApps);
     const environmentLocks: DisplayLock[] = [];
     const appLocks = useAppLocks(new Map(Object.entries(allAppLocks)));
-    envs.forEach((env: Environment) => {
-        for (const locksKey in env.locks) {
-            const lock = env.locks[locksKey];
+    Object.keys(allEnvLocks).forEach((env: string) => {
+        for (const lock of allEnvLocks[env]?.locks ?? []) {
             const displayLock: DisplayLock = {
                 lockId: lock.lockId,
                 date: lock.createdAt,
-                environment: env.name,
+                environment: env,
                 message: lock.message,
                 authorName: lock.createdBy?.name,
                 authorEmail: lock.createdBy?.email,
@@ -1238,6 +1239,7 @@ export const invalidateAppDetailsForApp = (appName: string): void => {
     };
     updateAppDetails.set(details);
 };
+
 export const EnableRolloutStatus = (): void => {
     rolloutStatus.set({ enabled: true });
 };

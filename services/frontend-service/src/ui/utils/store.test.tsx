@@ -105,10 +105,6 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -142,19 +138,11 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                         {
                             name: 'staging',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -201,10 +189,6 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -259,23 +243,11 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {
-                                'test-team': {
-                                    locks: [makeLock({ lockId: 'l1' })],
-                                },
-                            },
                         },
                         {
                             name: 'dev2',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -854,13 +826,6 @@ describe('Test useLocksConflictingWithActions', () => {
             environments: [
                 {
                     name: 'dev',
-                    locks: {
-                        'lock-env-dev': makeLock({
-                            message: 'locked because christmas',
-                            lockId: 'my-env-lock1',
-                        }),
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -920,13 +885,6 @@ describe('Test useLocksConflictingWithActions', () => {
             environments: [
                 {
                     name: 'staging', // this lock differs by stage
-                    locks: {
-                        'lock-env-dev': makeLock({
-                            message: 'locked because christmas',
-                            lockId: 'my-env-lock1',
-                        }),
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -1139,8 +1097,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1226,8 +1182,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: 'exampleEnv',
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1320,8 +1274,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1404,8 +1356,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1486,8 +1436,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },

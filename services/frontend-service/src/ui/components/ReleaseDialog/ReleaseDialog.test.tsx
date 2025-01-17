@@ -22,6 +22,7 @@ import {
     updateAppDetails,
     UpdateOverview,
     UpdateRolloutStatus,
+    useAllEnvLocks,
 } from '../../utils/store';
 import { Environment, EnvironmentGroup, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
@@ -93,8 +94,6 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -138,8 +137,6 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -227,8 +224,6 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -314,8 +309,6 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -411,19 +404,11 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
                 {
                     name: 'dev',
-                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {
-                        test1: {
-                            locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
-                        },
-                    },
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -615,7 +600,8 @@ describe('Release Dialog', () => {
             expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
 
             testcase.envs.forEach((env) => {
-                expect(document.querySelector('.env-locks')?.children).toHaveLength(Object.values(env.locks).length);
+                const envLocks = useAllEnvLocks((map) => map)[env.name]?.locks ?? [];
+                expect(document.querySelector('.env-locks')?.children).toHaveLength(envLocks.length);
             });
         });
     });

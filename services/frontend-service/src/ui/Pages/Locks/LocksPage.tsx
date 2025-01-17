@@ -20,8 +20,8 @@ import {
     searchCustomFilter,
     sortLocks,
     useAllApplicationLocks,
+    useAllEnvLocks,
     useApplications,
-    useEnvironments,
     useGlobalLoadingState,
     useTeamLocks,
 } from '../../utils/store';
@@ -46,30 +46,26 @@ const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'A
 export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
-    const envs = useEnvironments();
     const allApps = useApplications();
     const allAppLocks = useAllApplicationLocks((map) => map);
+    const allEnvLocks = useAllEnvLocks((map) => map);
     let teamLocks = useTeamLocks(allApps);
-    const envLocks = useMemo(
-        () =>
-            sortLocks(
-                Object.values(envs)
-                    .map((env) =>
-                        Object.values(env.locks).map((lock) => ({
-                            date: lock.createdAt,
-                            environment: env.name,
-                            lockId: lock.lockId,
-                            message: lock.message,
-                            authorName: lock.createdBy?.name,
-                            authorEmail: lock.createdBy?.email,
-                        }))
-                    )
-                    .flat(),
-                'oldestToNewest'
-            ),
-        [envs]
-    );
-
+    const envLocks = useMemo(() => {
+        const allEnvLocksDisplay: DisplayLock[] = [];
+        Object.entries(allEnvLocks).forEach(([env, envLocks]): void => {
+            for (const lock of envLocks?.locks ?? []) {
+                allEnvLocksDisplay.push({
+                    date: lock.createdAt,
+                    environment: env,
+                    lockId: lock.lockId,
+                    message: lock.message,
+                    authorName: lock.createdBy?.name,
+                    authorEmail: lock.createdBy?.email,
+                });
+            }
+        });
+        return sortLocks(allEnvLocksDisplay.flat(), 'oldestToNewest');
+    }, [allEnvLocks]);
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
     const appLocks = useMemo(() => {
         const allAppLocksDisplay: DisplayLock[] = [];
