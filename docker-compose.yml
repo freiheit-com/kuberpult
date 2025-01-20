@@ -94,7 +94,7 @@ services:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz"]
       interval: 1s
       timeout: 5s
-      retries: 5
+      retries: 50
     depends_on:
       postgres:
         condition: service_healthy
