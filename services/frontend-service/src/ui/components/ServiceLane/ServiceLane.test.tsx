@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import { fireEvent, render, screen } from '@testing-library/react';
-import { DiffElement, ServiceLane } from './ServiceLane';
+import { DiffElement, GeneralServiceLane, ServiceLane } from './ServiceLane';
 import { AppDetailsResponse, AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 import {
@@ -63,10 +63,10 @@ describe('Service Lane', () => {
     it('Renders a row of releases', () => {
         // when
         const appDetails = {
-            test2: {
+            test3: {
                 details: {
                     application: {
-                        name: 'test2',
+                        name: 'test3',
                         releases: [
                             extendRelease({ version: 2 }),
                             extendRelease({ version: 3 }),
@@ -87,7 +87,7 @@ describe('Service Lane', () => {
             },
         };
         const sampleApp: Application = {
-            name: 'test2',
+            name: 'test3',
             releases: [extendRelease({ version: 5 }), extendRelease({ version: 2 }), extendRelease({ version: 3 })],
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
@@ -95,8 +95,8 @@ describe('Service Lane', () => {
             warnings: [],
         };
         const sampleLightWeightApp: OverviewApplication = {
-            name: 'test2',
-            team: '',
+            name: 'test3',
+            team: 'example',
         };
         UpdateOverview.set({});
         updateAppDetails.set(appDetails);
@@ -114,11 +114,43 @@ type TestDataServiceLaneState = { name: string; appDetails: AppDetailsResponse }
 
 const serviceLaneStates: TestDataServiceLaneState[] = [
     {
+        name: 'Ready',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test-ready',
+                    team: 'test-team',
+                    releases: [makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                },
+            },
+            appDetailState: AppDetailsState.READY,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+    {
         name: 'loading',
         appDetails: {
             details: {
                 application: {
-                    name: 'test2',
+                    name: 'test-loading',
                     team: 'test-team',
                     releases: [makeRelease(4), makeRelease(2), makeRelease(1)],
                     sourceRepoUrl: '',
@@ -150,7 +182,7 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
         appDetails: {
             details: {
                 application: {
-                    name: 'test2',
+                    name: 'test-not-found',
                     team: 'test-team',
                     releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
                     sourceRepoUrl: '',
@@ -177,66 +209,13 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
             errorMessage: '',
         },
     },
-    {
-        name: 'Ready',
-        appDetails: {
-            details: {
-                application: {
-                    name: 'test2',
-                    team: 'test-team',
-                    releases: [makeRelease(1)],
-                    sourceRepoUrl: '',
-                    undeploySummary: UndeploySummary.MIXED,
-                    warnings: [],
-                },
-                appLocks: {},
-                teamLocks: {},
-                deployments: {
-                    foo: {
-                        version: 1,
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                    foo2: {
-                        version: 1,
-                        queuedVersion: 0,
-                        undeployVersion: false,
-                    },
-                },
-            },
-            appDetailState: AppDetailsState.READY,
-            updatedAt: new Date(Date.now()),
-            errorMessage: '',
-        },
-    },
-    {
-        name: 'NotRequested',
-        appDetails: {
-            details: {
-                application: {
-                    name: 'test2',
-                    team: 'test-team',
-                    releases: [makeRelease(1)],
-                    sourceRepoUrl: '',
-                    undeploySummary: UndeploySummary.MIXED,
-                    warnings: [],
-                },
-                appLocks: {},
-                teamLocks: {},
-                deployments: {},
-            },
-            appDetailState: AppDetailsState.NOTREQUESTED,
-            updatedAt: new Date(Date.now()),
-            errorMessage: '',
-        },
-    },
 
     {
-        name: 'NotRequested',
+        name: 'Error',
         appDetails: {
             details: {
                 application: {
-                    name: 'test2',
+                    name: 'test-error',
                     team: 'test-team',
                     releases: [makeRelease(1)],
                     sourceRepoUrl: '',
@@ -252,43 +231,70 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
             errorMessage: '',
         },
     },
+    {
+        name: 'NotRequested',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test-not-requested',
+                    team: 'test-team-testtest',
+                    releases: [],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {},
+            },
+            appDetailState: AppDetailsState.NOTREQUESTED,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
 ];
 
 describe('Service Lane States', () => {
     const getNode = (overrides: {
         application: OverviewApplication;
-        allAppDetails: { [p: string]: AppDetailsResponse };
+        hideMinors: boolean;
+        allAppData: AppDetailsResponse;
     }) => (
         <MemoryRouter>
-            <ServiceLane {...overrides} hideMinors={false} />
+            <GeneralServiceLane
+                application={overrides.application}
+                hideMinors={false}
+                allAppData={overrides.allAppData}
+            />
         </MemoryRouter>
     );
     const getWrapper = (overrides: {
         application: OverviewApplication;
-        allAppDetails: { [p: string]: AppDetailsResponse };
+        hideMinors: boolean;
+        allAppData: AppDetailsResponse;
     }) => render(getNode(overrides));
     describe.each(serviceLaneStates)('Service Lane states', (testcase) => {
         it(testcase.name, () => {
-            UpdateOverview.set({
-                environmentGroups: [],
-            });
-            updateAppDetails.set({
-                test2: testcase.appDetails,
-            });
             const sampleLightweightApp: OverviewApplication = {
-                name: 'test2',
-                team: 'test-team',
+                name: testcase.appDetails.details?.application?.name
+                    ? testcase.appDetails.details?.application?.name
+                    : '',
+                team: testcase.appDetails.details?.application?.team
+                    ? testcase.appDetails.details?.application?.team
+                    : '',
             };
+
+            const appDetails = updateAppDetails.get();
+            appDetails[sampleLightweightApp.name] = testcase.appDetails;
+
             const { container } = getWrapper({
                 application: sampleLightweightApp,
-                allAppDetails: {
-                    test2: testcase.appDetails,
-                },
+                hideMinors: false,
+                allAppData: testcase.appDetails,
             });
-
             if (testcase.appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
                 expect(container.querySelector('.service-lane')).toBeInTheDocument();
-                expect(container.querySelector('.service-lane__header__error')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header__not_requested')).toBeInTheDocument();
             } else if (testcase.appDetails.appDetailState === AppDetailsState.NOTFOUND) {
                 expect(container.querySelector('.service-lane')).toBeInTheDocument();
                 expect(container.querySelector('.service-lane__header__warn')).toBeInTheDocument();
@@ -296,6 +302,7 @@ describe('Service Lane States', () => {
                 expect(container.querySelector('.service-lane')).toBeInTheDocument();
                 expect(container.querySelector('.service-lane__header__error')).toBeInTheDocument();
             } else {
+                //READY and LOADING are represented the same way
                 expect(container.querySelector('.service-lane')).toBeInTheDocument();
                 expect(container.querySelector('.service-lane__header')).toBeInTheDocument();
             }

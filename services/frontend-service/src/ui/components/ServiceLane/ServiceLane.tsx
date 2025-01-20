@@ -135,16 +135,6 @@ export const ServiceLane: React.FC<{
             };
         }
     }, [appDetails, application, authHeader, searchParams]);
-
-    // if (!appDetails || !appDetails.details) {
-    //     return <NoDataServiceLane application={application} componentRef={componentRef}></NoDataServiceLane>;
-    // } else {
-    //     return (
-    //         <div ref={componentRef}>
-    //             <ErrorServiceLane application={application} componentRef={componentRef}></ErrorServiceLane>;
-    //         </div>
-    //     );
-    // }
     return (
         <div ref={componentRef}>
             <GeneralServiceLane
@@ -154,16 +144,6 @@ export const ServiceLane: React.FC<{
                 key={application.name}></GeneralServiceLane>
         </div>
     );
-    //
-    // return (
-    //     <div ref={componentRef}>
-    //         <GeneralServiceLane
-    //             application={application}
-    //             hideMinors={hideMinors}
-    //             allAppData={appDetails}
-    //             key={application.name}></GeneralServiceLane>
-    //     </div>
-    // );
 };
 
 function getAppDetailsIfInView(
@@ -223,8 +203,11 @@ export const GeneralServiceLane: React.FC<{
             onClick={onReload}
         />
     );
-
+    // eslint-disable-next-line no-console
+    console.log(props);
     if (props.allAppData.appDetailState === AppDetailsState.READY) {
+        // eslint-disable-next-line no-console
+        console.log('READY');
         return (
             <ReadyServiceLane
                 application={props.application}
@@ -234,19 +217,7 @@ export const GeneralServiceLane: React.FC<{
     } else if (props.allAppData.appDetailState === AppDetailsState.NOTFOUND) {
         return <NoDataServiceLane application={props.application} reloadButton={reloadButton}></NoDataServiceLane>;
     } else if (props.allAppData.appDetailState === AppDetailsState.NOTREQUESTED) {
-        // eslint-disable-next-line no-console
-        console.log('NOT REQUESTED');
-        //return <NotRequestedServiceLane application={props.application}></NotRequestedServiceLane>;
-        return (
-            <ErrorServiceLane
-                application={props.application}
-                reloadButton={reloadButton}
-                errorMessage={
-                    props.allAppData.errorMessage && props.allAppData.errorMessage !== ''
-                        ? props.allAppData.errorMessage
-                        : 'no error message was provided.'
-                }></ErrorServiceLane>
-        );
+        return <NotRequestedServiceLane application={props.application}></NotRequestedServiceLane>;
     } else if (props.allAppData.appDetailState === AppDetailsState.ERROR) {
         return (
             <ErrorServiceLane
