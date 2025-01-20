@@ -26,11 +26,14 @@ describe('ExpandButton', () => {
         onClickLock: onClickLockMock,
         disabled: false,
         defaultButtonLabel: 'default-button',
+        releaseDifference: 0,
     };
 
-    const getNode = (): JSX.Element => <ExpandButton {...defaultProps} />;
+    const getNode = (props: Partial<ExpandButtonProps>): JSX.Element => (
+        <ExpandButton {...Object.assign({}, defaultProps, props)} />
+    );
 
-    const getWrapper = () => render(getNode());
+    const getWrapper = (props: Partial<ExpandButtonProps>) => render(getNode(props));
 
     type TestData = {
         name: string;
@@ -42,6 +45,7 @@ describe('ExpandButton', () => {
         expectSubmitCalledTimes: number;
         expectSubmitCalledWith: Object; // only relevant if expectCalledTimes != 0
         expectLockCalledTimes: number;
+        expectedLabel: string;
     };
 
     const data: TestData[] = [
@@ -53,6 +57,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
+            expectedLabel: 'Deploy only',
         },
         {
             name: 'click expand twice',
@@ -62,6 +67,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
+            expectedLabel: 'Deploy only',
         },
         {
             name: 'click Main button',
@@ -71,6 +77,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 1,
             expectSubmitCalledWith: true,
             expectLockCalledTimes: 0,
+            expectedLabel: 'Deploy only',
         },
         {
             name: 'click expand, then alternative button',
@@ -80,6 +87,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 1,
             expectSubmitCalledWith: false,
             expectLockCalledTimes: 0,
+            expectedLabel: 'Deploy only',
         },
         {
             name: 'click expand, then lock button',
@@ -89,13 +97,34 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: true,
             expectLockCalledTimes: 1,
+            expectedLabel: 'Deploy only',
+        },
+        {
+            name: 'click expand once, with positive release difference',
+            props: { releaseDifference: 1 },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabel: 'Rollback only',
+        },
+        {
+            name: 'click expand once, with positive release difference',
+            props: { releaseDifference: -1 },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabel: 'Update only',
         },
     ];
 
     describe.each(data)(`Renders a navigation item with selected`, (testcase) => {
         it(testcase.name, () => {
             mySubmitSpy.mockReset();
-            const { container } = getWrapper();
+            const { container } = getWrapper(testcase.props);
 
             expect(document.getElementsByClassName('expand-dialog').length).toBe(0);
             expect(mySubmitSpy).toHaveBeenCalledTimes(0);
@@ -109,6 +138,12 @@ describe('ExpandButton', () => {
 
             const expectedCount = testcase.expectExpanded ? 1 : 0;
             expect(document.getElementsByClassName('expand-dialog').length).toBe(expectedCount);
+
+            if (expectedCount > 0) {
+                const buttons = Array.from(document.getElementsByClassName('mdc-button__label'));
+                const labels = buttons.map((button) => button.textContent);
+                expect(labels).toEqual(expect.arrayContaining([testcase.expectedLabel]));
+            }
 
             expect(mySubmitSpy).toHaveBeenCalledTimes(testcase.expectSubmitCalledTimes);
             if (testcase.expectSubmitCalledTimes !== 0) {
