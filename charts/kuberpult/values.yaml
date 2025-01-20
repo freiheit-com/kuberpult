@@ -105,6 +105,8 @@ cd:
 # With the queue, the cd-service processes only one request at a time, which is very much required when using git.
 # With the database, this is not required anymore.
     disableQueue: false
+  # The maximum message size in megabytes the client can receive.
+  grpcMaxRecvMsgSize: 4
   resources:
     limits:
       cpu: 2
@@ -212,7 +214,7 @@ frontend:
   batchClient:
     # This value needs to be higher than the network timeout for git
     timeout: 2m
-  # The maximum message size in mega bytes the client can receive.
+  # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
 rollout:
   enabled: false
@@ -228,7 +230,7 @@ rollout:
     requests:
       cpu: 500m
       memory: 250Mi
-  # The maximum message size in mega bytes the client can receive.
+  # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
 
 ingress:
