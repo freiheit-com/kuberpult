@@ -3830,6 +3830,11 @@ func (c *envReleaseTrain) prognosis(
 	}
 	sort.Strings(apps)
 
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, apps)
+	if err != nil {
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
+	}
+
 	appsPrognoses := make(map[string]ReleaseTrainApplicationPrognosis)
 	if len(envLocks) > 0 {
 		locksList := []*api.Lock{}
@@ -3861,7 +3866,7 @@ func (c *envReleaseTrain) prognosis(
 			Error:             nil,
 			Locks:             locksList,
 			AppsPrognoses:     appsPrognoses,
-			AllLatestReleases: nil,
+			AllLatestReleases: allLatestReleases,
 		}
 	}
 	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, apps)
@@ -3875,10 +3880,6 @@ func (c *envReleaseTrain) prognosis(
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)))
 	}
 
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, apps)
-	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
-	}
 	var allLatestReleaseEnvironments map[string]map[uint64][]string
 	if state.DBHandler.ShouldUseOtherTables() {
 		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
