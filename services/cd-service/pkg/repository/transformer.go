@@ -3519,8 +3519,7 @@ type ReleaseTrainEnvironmentPrognosis struct {
 	Error     error
 	Locks     []*api.Lock
 	// map key is the name of the app
-	AppsPrognoses     map[string]ReleaseTrainApplicationPrognosis
-	AllLatestReleases map[string][]int64 // all latest releases as they appear in the DB
+	AppsPrognoses map[string]ReleaseTrainApplicationPrognosis
 }
 
 type ReleaseTrainPrognosisOutcome = uint64
@@ -3532,11 +3531,10 @@ type ReleaseTrainPrognosis struct {
 
 func failedPrognosis(err error) ReleaseTrainEnvironmentPrognosis {
 	return ReleaseTrainEnvironmentPrognosis{
-		SkipCause:         nil,
-		Error:             err,
-		Locks:             nil,
-		AppsPrognoses:     nil,
-		AllLatestReleases: nil,
+		SkipCause:     nil,
+		Error:         err,
+		Locks:         nil,
+		AppsPrognoses: nil,
 	}
 }
 
@@ -3567,6 +3565,14 @@ func (c *ReleaseTrain) Prognosis(
 		}
 	}
 
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, nil)
+	if err != nil {
+		return ReleaseTrainPrognosis{
+			Error:                grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err)),
+			EnvironmentPrognoses: nil,
+		}
+	}
+
 	// this to sort the env, to make sure that for the same input we always got the same output
 	envGroups := make([]string, 0, len(envGroupConfigs))
 	for env := range envGroupConfigs {
@@ -3582,17 +3588,18 @@ func (c *ReleaseTrain) Prognosis(
 		}
 
 		envReleaseTrain := &envReleaseTrain{
-			Parent:                c,
-			Env:                   envName,
-			EnvConfigs:            configs,
-			EnvGroupConfigs:       envGroupConfigs,
-			WriteCommitData:       c.WriteCommitData,
-			TrainGroup:            trainGroup,
-			TransformerEslVersion: c.TransformerEslVersion,
-			CiLink:                c.CiLink,
+			Parent:                 c,
+			Env:                    envName,
+			EnvConfigs:             configs,
+			EnvGroupConfigs:        envGroupConfigs,
+			WriteCommitData:        c.WriteCommitData,
+			TrainGroup:             trainGroup,
+			TransformerEslVersion:  c.TransformerEslVersion,
+			CiLink:                 c.CiLink,
+			AllLatestReleasesCache: allLatestReleases,
 		}
 
-		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction)
+		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction, allLatestReleases)
 
 		if envPrognosis.Error != nil {
 			return ReleaseTrainPrognosis{
@@ -3647,6 +3654,12 @@ func (c *ReleaseTrain) Transform(
 	}
 	sort.Strings(envNames)
 	span.SetTag("environments", len(envNames))
+
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, nil)
+	if err != nil {
+		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
+	}
+
 	if state.DBHandler.ShouldUseOtherTables() && isEnvGroup {
 		releaseTrainErrGroup, _ := errgroup.WithContext(ctx)
 		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
@@ -3654,7 +3667,7 @@ func (c *ReleaseTrain) Transform(
 			trainGroup := conversion.FromString(targetGroupName)
 			envNameLocal := envName
 			releaseTrainErrGroup.Go(func() error {
-				return c.runEnvReleaseTrainBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs)
+				return c.runEnvReleaseTrainBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs, allLatestReleases)
 			})
 		}
 		err := releaseTrainErrGroup.Wait()
@@ -3668,14 +3681,15 @@ func (c *ReleaseTrain) Transform(
 				trainGroup = conversion.FromString(targetGroupName)
 			}
 			err = t.Execute(ctx, &envReleaseTrain{
-				Parent:                c,
-				Env:                   envName,
-				EnvConfigs:            configs,
-				EnvGroupConfigs:       envGroupConfigs,
-				WriteCommitData:       c.WriteCommitData,
-				TrainGroup:            trainGroup,
-				TransformerEslVersion: c.TransformerEslVersion,
-				CiLink:                c.CiLink,
+				Parent:                 c,
+				Env:                    envName,
+				EnvConfigs:             configs,
+				EnvGroupConfigs:        envGroupConfigs,
+				WriteCommitData:        c.WriteCommitData,
+				TrainGroup:             trainGroup,
+				TransformerEslVersion:  c.TransformerEslVersion,
+				CiLink:                 c.CiLink,
+				AllLatestReleasesCache: allLatestReleases,
 			}, transaction)
 			if err != nil {
 				return "", err
@@ -3688,13 +3702,7 @@ func (c *ReleaseTrain) Transform(
 		targetGroupName), nil
 }
 
-func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context,
-	state *State,
-	t TransformerContext,
-	envName string,
-	trainGroup *string,
-	envGroupConfigs map[string]config.EnvironmentConfig,
-	configs map[string]config.EnvironmentConfig) error {
+func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName string, trainGroup *string, envGroupConfigs map[string]config.EnvironmentConfig, configs map[string]config.EnvironmentConfig, releases map[string][]int64) error {
 	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
 		internal, err := state.DBHandler.DBReadEslEventInternal(ctx, transaction2, false)
 		if err != nil {
@@ -3704,29 +3712,33 @@ func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context,
 			return fmt.Errorf("could not find esl event that was just inserted")
 		}
 		err = t.Execute(ctx, &envReleaseTrain{
-			Parent:                c,
-			Env:                   envName,
-			EnvConfigs:            configs,
-			EnvGroupConfigs:       envGroupConfigs,
-			WriteCommitData:       c.WriteCommitData,
-			TrainGroup:            trainGroup,
-			TransformerEslVersion: db.TransformerID(internal.EslVersion),
-			CiLink:                c.CiLink,
+			Parent:                 c,
+			Env:                    envName,
+			EnvConfigs:             configs,
+			EnvGroupConfigs:        envGroupConfigs,
+			WriteCommitData:        c.WriteCommitData,
+			TrainGroup:             trainGroup,
+			TransformerEslVersion:  db.TransformerID(internal.EslVersion),
+			CiLink:                 c.CiLink,
+			AllLatestReleasesCache: releases,
 		}, transaction2)
 		return err
 	})
 	return err
 }
 
+type AllLatestReleasesCache map[string][]int64
+
 type envReleaseTrain struct {
-	Parent                *ReleaseTrain
-	Env                   string
-	EnvConfigs            map[string]config.EnvironmentConfig
-	EnvGroupConfigs       map[string]config.EnvironmentConfig
-	WriteCommitData       bool
-	TrainGroup            *string
-	TransformerEslVersion db.TransformerID
-	CiLink                string
+	Parent                 *ReleaseTrain
+	Env                    string
+	EnvConfigs             map[string]config.EnvironmentConfig
+	EnvGroupConfigs        map[string]config.EnvironmentConfig
+	WriteCommitData        bool
+	TrainGroup             *string
+	TransformerEslVersion  db.TransformerID
+	CiLink                 string
+	AllLatestReleasesCache AllLatestReleasesCache
 }
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
@@ -3737,11 +3749,7 @@ func (c *envReleaseTrain) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
-func (c *envReleaseTrain) prognosis(
-	ctx context.Context,
-	state *State,
-	transaction *sql.Tx,
-) ReleaseTrainEnvironmentPrognosis {
+func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	defer span.Finish()
 	span.SetTag("env", c.Env)
@@ -3752,10 +3760,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 			},
-			Error:             nil,
-			Locks:             nil,
-			AppsPrognoses:     nil,
-			AllLatestReleases: nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3781,10 +3788,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 			},
-			Error:             nil,
-			Locks:             nil,
-			AppsPrognoses:     nil,
-			AllLatestReleases: nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3793,10 +3799,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 			},
-			Error:             nil,
-			Locks:             nil,
-			AppsPrognoses:     nil,
-			AllLatestReleases: nil,
+			Error:         nil,
+			Locks:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -3807,10 +3812,9 @@ func (c *envReleaseTrain) prognosis(
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
 				},
-				Error:             nil,
-				Locks:             nil,
-				AppsPrognoses:     nil,
-				AllLatestReleases: nil,
+				Error:         nil,
+				Locks:         nil,
+				AppsPrognoses: nil,
 			}
 		}
 	}
@@ -3829,11 +3833,6 @@ func (c *envReleaseTrain) prognosis(
 		return failedPrognosis(err)
 	}
 	sort.Strings(apps)
-
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, apps)
-	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
-	}
 
 	appsPrognoses := make(map[string]ReleaseTrainApplicationPrognosis)
 	if len(envLocks) > 0 {
@@ -3863,10 +3862,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 			},
-			Error:             nil,
-			Locks:             locksList,
-			AppsPrognoses:     appsPrognoses,
-			AllLatestReleases: allLatestReleases,
+			Error:         nil,
+			Locks:         locksList,
+			AppsPrognoses: appsPrognoses,
 		}
 	}
 	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, apps)
@@ -4073,11 +4071,10 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 	return ReleaseTrainEnvironmentPrognosis{
-		SkipCause:         nil,
-		Error:             nil,
-		Locks:             nil,
-		AppsPrognoses:     appsPrognoses,
-		AllLatestReleases: allLatestReleases,
+		SkipCause:     nil,
+		Error:         nil,
+		Locks:         nil,
+		AppsPrognoses: appsPrognoses,
 	}
 }
 
@@ -4132,7 +4129,7 @@ func (c *envReleaseTrain) Transform(
 		}
 	}
 
-	prognosis := c.prognosis(ctx, state, transaction)
+	prognosis := c.prognosis(ctx, state, transaction, nil)
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
@@ -4142,7 +4139,7 @@ func (c *envReleaseTrain) Transform(
 			return renderEnvironmentSkipCause(prognosis.SkipCause), nil
 		}
 		for appName := range prognosis.AppsPrognoses {
-			releases := prognosis.AllLatestReleases[appName]
+			releases := c.AllLatestReleasesCache[appName]
 			var release uint64
 			if releases == nil {
 				release = 0
