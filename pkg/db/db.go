@@ -28,9 +28,7 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
-	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
@@ -60,8 +58,6 @@ type DBConfig struct {
 	MaxOpenConnections uint
 }
 
-type InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error
-
 type DBHandler struct {
 	DbName         string
 	DriverName     string
@@ -76,9 +72,6 @@ type DBHandler struct {
 		3) DBHandler!=nil && WriteEslOnly==false: write everything to the database.
 	*/
 	WriteEslOnly bool
-
-	// InsertAppFun is intended to be used to add more to inserting an app: specifically to update the overview cache
-	InsertAppFun InsertAppFun
 }
 
 type EslVersion int64
@@ -123,11 +116,6 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 		DB:             db,
 		DBDriver:       &driver,
 		WriteEslOnly:   cfg.WriteEslOnly,
-		InsertAppFun:   nil,
-	}
-	handler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
-		// by default, we just insert the app
-		return handler.DBInsertOrUpdateApplication(ctx, transaction, appName, stateChange, metaData)
 	}
 	return handler, nil
 }
@@ -3627,7 +3615,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context
 	return h.processDeploymentAttemptsRows(ctx, rows, err)
 }
 
-func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64, skipOverview bool) error {
+func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -3643,10 +3631,10 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 		Env:        envName,
 		App:        appName,
 		Version:    version,
-	}, skipOverview)
+	})
 }
 
-func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, skipOverview bool) error {
+func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -3662,10 +3650,10 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		Env:        envName,
 		App:        appName,
 		Version:    nil,
-	}, skipOverview)
+	})
 }
 
-func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment, skipOverview bool) error {
+func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
 	defer span.Finish()
 
@@ -3918,109 +3906,6 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) e
 	return nil
 }
 
-type OverviewCacheRow struct {
-	EslVersion EslVersion
-	Timestamp  time.Time
-	Json       string
-}
-
-func (h *DBHandler) ReadLatestOverviewCache(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "readLatestOverviewCache")
-	defer span.Finish()
-	if h == nil {
-		return nil, fmt.Errorf("readLatestOverviewCache: DBHandler is nil")
-	}
-	if transaction == nil {
-		return nil, fmt.Errorf("readLatestOverviewCache: no transaction provided")
-	}
-
-	selectQuery := h.AdaptQuery(
-		"SELECT eslVersion, timestamp, json FROM overview_cache ORDER BY eslVersion DESC LIMIT 1;",
-	)
-
-	span.SetTag("query", selectQuery)
-	rows, err := transaction.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not query overview_cache table from DB. Error: %w", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-	var row = &OverviewCacheRow{
-		EslVersion: 0,
-		Timestamp:  time.Unix(0, 0),
-		Json:       "",
-	}
-	if rows.Next() {
-		err := rows.Scan(&row.EslVersion, &row.Timestamp, &row.Json)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning overview_cache row from DB. Error: %w", err)
-		}
-	} else {
-		row = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	if row != nil {
-		result := &api.GetOverviewResponse{
-			Branch:            "",
-			ManifestRepoUrl:   "",
-			LightweightApps:   []*api.OverviewApplication{},
-			EnvironmentGroups: []*api.EnvironmentGroup{},
-			GitRevision:       "",
-		}
-		err = protojson.Unmarshal([]byte(row.Json), result)
-		if err != nil {
-			return nil, err
-		}
-		return result, nil
-	}
-	return nil, nil
-}
-
-func (h *DBHandler) WriteOverviewCache(ctx context.Context, transaction *sql.Tx, overviewResponse *api.GetOverviewResponse) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "writeOverviewCache")
-	defer span.Finish()
-	if h == nil {
-		return fmt.Errorf("writeOverviewCache: DBHandler is nil")
-	}
-	if transaction == nil {
-		return fmt.Errorf("writeOverviewCache: no transaction provided")
-	}
-
-	insertQuery := h.AdaptQuery(
-		"INSERT INTO overview_cache (timestamp, Json) VALUES (?, ?);",
-	)
-	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("WriteOverviewCache unable to get transaction timestamp: %w", err)
-	}
-	span.SetTag("query", insertQuery)
-	jsonResponse, err := protojson.Marshal(overviewResponse)
-	if err != nil {
-		return fmt.Errorf("could not marshal overview json data: %w", err)
-	}
-	_, err = transaction.Exec(
-		insertQuery,
-		*now,
-		jsonResponse,
-	)
-	if err != nil {
-		return fmt.Errorf("could not insert overview_cache row into DB. Error: %w", err)
-	}
-	return nil
-}
 func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslEventRow) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
 	defer span.Finish()

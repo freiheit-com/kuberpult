@@ -425,19 +425,7 @@ func (o *OverviewServiceServer) getOverviewDB(
 	if s.DBHandler.ShouldUseOtherTables() {
 		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
 			var err2 error
-			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-			if err2 != nil {
-				return nil, err2
-			}
-			if !s.DBHandler.IsOverviewEmpty(cached_result) {
-				return cached_result, nil
-			}
-
 			response, err2 := o.getOverview(ctx, s, transaction)
-			if err2 != nil {
-				return nil, err2
-			}
-			err2 = s.DBHandler.WriteOverviewCache(ctx, transaction, response)
 			if err2 != nil {
 				return nil, err2
 			}
@@ -475,25 +463,67 @@ func (o *OverviewServiceServer) getOverview(
 	}
 	result.ManifestRepoUrl = o.RepositoryConfig.URL
 	result.Branch = o.RepositoryConfig.Branch
-	err := s.UpdateEnvironmentsInOverview(ctx, transaction, &result)
-	if err != nil {
-		return nil, err
-	}
-
-	if apps, err := s.GetApplications(ctx, transaction); err != nil {
+	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
 		return nil, err
 	} else {
-		for _, appName := range apps {
+		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
+		for envName, config := range envs {
+			var groupName = mapper.DeriveGroupName(config, envName)
+			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 
-			team, err := s.GetTeamName(ctx, transaction, appName)
-			if err != nil {
-				return nil, err
+			argocd := &api.EnvironmentConfig_ArgoCD{
+				SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
+				Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+					Name:                 "",
+					Server:               "",
+					Namespace:            nil,
+					AppProjectNamespace:  nil,
+					ApplicationNamespace: nil,
+				},
+				AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+				ApplicationAnnotations: map[string]string{},
+				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
+				SyncOptions:            []string{},
 			}
+			if config.ArgoCd != nil {
+				argocd = mapper.TransformArgocd(*config.ArgoCd)
+			}
+			env := api.Environment{
+				DistanceToUpstream: 0,
+				Priority:           api.Priority_PROD,
+				Name:               envName,
+				Config: &api.EnvironmentConfig{
+					Upstream:         mapper.TransformUpstream(config.Upstream),
+					Argocd:           argocd,
+					EnvironmentGroup: &groupName,
+				},
+			}
+			envInGroup.Config = env.Config
+		}
+	}
+
+	if appTeams, err := s.GetAllApplicationsTeamOwner(ctx, transaction); err != nil {
+		return nil, err
+	} else {
+		for appName, team := range appTeams {
 			result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 		}
 	}
 
 	return &result, nil
+}
+
+func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
+	for _, currentGroup := range groups {
+		if currentGroup.EnvironmentGroupName == groupNameToReturn {
+			for _, currentEnv := range currentGroup.Environments {
+				if currentEnv.Name == envNameToReturn {
+					return currentEnv
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,

@@ -270,14 +270,6 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 		return err
 	}
 
-	overviewCache, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	if overviewCache == nil {
-		return fmt.Errorf("UpdateLockMetrics could not get overview: nil")
-	}
-
 	for envName := range envConfigs {
 		if even {
 			GaugeEnvLockMetric(ctx, state, transaction, envName)
@@ -361,26 +353,6 @@ func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository, ev
 	} else {
 		if err := UpdateDatadogMetrics(ctx, nil, s, repo, nil, time.Now(), even); err != nil {
 			panic(err.Error())
-		}
-	}
-}
-
-func RegularlyCleanupOverviewCache(ctx context.Context, repo Repository, interval time.Duration, cacheTtlHours uint) {
-	cleanupEventTimer := time.NewTicker(interval * time.Second)
-	for range cleanupEventTimer.C {
-		logger.FromContext(ctx).Sugar().Warn("Cleaning up old overview caches")
-		s := repo.State()
-		if s.DBHandler.ShouldUseOtherTables() {
-			err := s.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := s.DBHandler.DBDeleteOldOverviews(ctx, transaction, 5, time.Now().Add(-time.Duration(cacheTtlHours)*time.Hour))
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			if err != nil {
-				panic(err.Error())
-			}
 		}
 	}
 }
@@ -590,7 +562,7 @@ func (c *CreateApplicationVersion) Transform(
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app, app already exists: %v", err)) //Should never happen
 			}
 
-			err = state.DBHandler.InsertAppFun(
+			err = state.DBHandler.DBInsertOrUpdateApplication(
 				ctx,
 				transaction,
 				c.Application,
@@ -835,7 +807,7 @@ func (c *CreateApplicationVersion) Transform(
 				Author:                c.SourceAuthor,
 				CiLink:                c.CiLink,
 				TransformerEslVersion: c.TransformerEslVersion,
-				SkipOverview:          false,
+				SkipCleanup:           false,
 			}
 			err := t.Execute(ctx, d, transaction)
 			if err != nil {
@@ -1419,7 +1391,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				Author:                "",
 				TransformerEslVersion: c.TransformerEslVersion,
 				CiLink:                "",
-				SkipOverview:          false,
+				SkipCleanup:           false,
 			}
 			err := t.Execute(ctx, d, transaction)
 			if err != nil {
@@ -1624,7 +1596,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 		}
-		err = state.DBHandler.InsertAppFun(ctx, transaction, dbApp.App, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
+		err = state.DBHandler.DBInsertOrUpdateApplication(ctx, transaction, dbApp.App, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 		}
@@ -1781,7 +1753,7 @@ func (u *DeleteEnvFromApp) Transform(
 				}
 			}
 		}
-		err = state.DBInsertEnvironmentWithOverview(ctx, transaction, env.Name, env.Config, newApps)
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config, newApps)
 		if err != nil {
 			return "", fmt.Errorf("Couldn't write environment: %s into environments table, error: %w", u.Environment, err)
 		}
@@ -2770,28 +2742,6 @@ func (c *CreateEnvironment) Transform(
 			return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 		}
 
-		overview, err := state.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-		if overview == nil {
-			overview = &api.GetOverviewResponse{
-				Branch:            "",
-				ManifestRepoUrl:   "",
-				EnvironmentGroups: []*api.EnvironmentGroup{},
-				GitRevision:       "0000000000000000000000000000000000000000",
-				LightweightApps:   make([]*api.OverviewApplication, 0),
-			}
-		}
-		if err != nil {
-			return "", fmt.Errorf("Unable to read overview cache, error: %w", err)
-		}
-		err = state.UpdateOneEnvironmentInOverview(ctx, transaction, overview, c.Environment)
-		if err != nil {
-			return "", fmt.Errorf("Unable to udpate overview cache, error: %w", err)
-		}
-		err = state.DBHandler.WriteOverviewCache(ctx, transaction, overview)
-		if err != nil {
-			return "", fmt.Errorf("Unable to write overview cache, error: %w", err)
-		}
-
 		//Should be empty on new environments
 		envApps, err := state.GetEnvironmentApplications(ctx, transaction, c.Environment)
 		if err != nil {
@@ -2953,10 +2903,9 @@ func (c *DeleteEnvironment) Transform(
 }
 
 type QueueApplicationVersion struct {
-	Environment  string
-	Application  string
-	Version      uint64
-	SkipOverview bool
+	Environment string
+	Application string
+	Version     uint64
 }
 
 func (c *QueueApplicationVersion) Transform(
@@ -2967,7 +2916,7 @@ func (c *QueueApplicationVersion) Transform(
 ) (string, error) {
 	if state.DBHandler.ShouldUseOtherTables() {
 		version := int64(c.Version)
-		err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, c.Environment, c.Application, &version, c.SkipOverview)
+		err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, c.Environment, c.Application, &version)
 		if err != nil {
 			return "", err
 		}
@@ -3001,7 +2950,7 @@ type DeployApplicationVersion struct {
 	Author                string                          `json:"author"`
 	CiLink                string                          `json:"cilink"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-	SkipOverview          bool                            `json:"-"`
+	SkipCleanup           bool                            `json:"-"`
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
@@ -3130,10 +3079,9 @@ func (c *DeployApplicationVersion) Transform(
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
-					Environment:  c.Environment,
-					Application:  c.Application,
-					Version:      c.Version,
-					SkipOverview: c.SkipOverview,
+					Environment: c.Environment,
+					Application: c.Application,
+					Version:     c.Version,
 				}
 				return q.Transform(ctx, state, t, transaction)
 			case api.LockBehavior_FAIL:
@@ -3257,11 +3205,11 @@ func (c *DeployApplicationVersion) Transform(
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 		CloudRunClient:       state.CloudRunClient,
 	}
-	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application, c.SkipOverview)
+	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}
-	if !c.SkipOverview {
+	if !c.SkipCleanup {
 		d := &CleanupOldApplicationVersions{
 			Application:           c.Application,
 			TransformerEslVersion: c.TransformerEslVersion,
@@ -4309,7 +4257,7 @@ func (c *envReleaseTrain) Transform(
 			Author:                "",
 			TransformerEslVersion: c.TransformerEslVersion,
 			CiLink:                c.CiLink,
-			SkipOverview:          true,
+			SkipCleanup:           true,
 		}
 		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))

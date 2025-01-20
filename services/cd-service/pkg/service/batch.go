@@ -237,7 +237,7 @@ func (d *BatchServer) processAction(
 			Author:                "",
 			CiLink:                "", //Only gets populated when a release is created or release train is conducted.
 			TransformerEslVersion: 0,
-			SkipOverview:          false,
+			SkipCleanup:           false,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp

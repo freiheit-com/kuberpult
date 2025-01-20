@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"sync"
 	"testing"
 
@@ -174,6 +173,71 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				},
 			},
 			ExpectedAppDetails: map[string]*api.GetAppDetailsResponse{
+				"test-with-incorrect-pr-number": {
+					Application: &api.Application{
+						Name: "test-with-incorrect-pr-number",
+						Releases: []*api.Release{
+							{
+								Version:        3,
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "changed something (#678",
+								Environments:   []string{"development"},
+							},
+						},
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UpstreamNotDeployed{
+									UpstreamNotDeployed: &api.UpstreamNotDeployed{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         3,
+										ThisEnvironment:     "production",
+									},
+								},
+							},
+						},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:         3,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+					},
+					AppLocks:  map[string]*api.Locks{},
+					TeamLocks: map[string]*api.Locks{},
+				},
+				"test-with-only-pr-number": {
+					Application: &api.Application{
+						Name: "test-with-only-pr-number",
+						Releases: []*api.Release{
+							{
+								Version:        4,
+								PrNumber:       "678",
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "(#678)",
+								Environments:   []string{"development"},
+							},
+						},
+						Warnings: []*api.Warning{},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:         4,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+					},
+					AppLocks:  map[string]*api.Locks{},
+					TeamLocks: map[string]*api.Locks{},
+				},
 				"test": {
 					Application: &api.Application{
 						Name:          "test",
@@ -256,71 +320,6 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						},
 					},
 					AppLocks: map[string]*api.Locks{},
-				},
-				"test-with-incorrect-pr-number": {
-					Application: &api.Application{
-						Name: "test-with-incorrect-pr-number",
-						Releases: []*api.Release{
-							{
-								Version:        3,
-								SourceAuthor:   "example <example@example.com>",
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceMessage:  "changed something (#678",
-								Environments:   []string{"development"},
-							},
-						},
-						Warnings: []*api.Warning{
-							{
-								WarningType: &api.Warning_UpstreamNotDeployed{
-									UpstreamNotDeployed: &api.UpstreamNotDeployed{
-										UpstreamEnvironment: "staging",
-										ThisVersion:         3,
-										ThisEnvironment:     "production",
-									},
-								},
-							},
-						},
-					},
-					Deployments: map[string]*api.Deployment{
-						"development": {
-							Version:         3,
-							QueuedVersion:   0,
-							UndeployVersion: false,
-							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-								DeployAuthor: "test tester",
-							},
-						},
-					},
-					AppLocks:  map[string]*api.Locks{},
-					TeamLocks: map[string]*api.Locks{},
-				},
-				"test-with-only-pr-number": {
-					Application: &api.Application{
-						Name: "test-with-only-pr-number",
-						Releases: []*api.Release{
-							{
-								Version:        4,
-								PrNumber:       "678",
-								SourceAuthor:   "example <example@example.com>",
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceMessage:  "(#678)",
-								Environments:   []string{"development"},
-							},
-						},
-						Warnings: []*api.Warning{},
-					},
-					Deployments: map[string]*api.Deployment{
-						"development": {
-							Version:         4,
-							QueuedVersion:   0,
-							UndeployVersion: false,
-							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-								DeployAuthor: "test tester",
-							},
-						},
-					},
-					AppLocks:  map[string]*api.Locks{},
-					TeamLocks: map[string]*api.Locks{},
 				},
 			},
 			ExpectedOverview: &api.GetOverviewResponse{
@@ -459,14 +458,12 @@ func TestOverviewAndAppDetails(t *testing.T) {
 }
 func TestOverviewService(t *testing.T) {
 	var dev = "dev"
-	var upstreamLatest = true
 	tcs := []struct {
-		Name                   string
-		Setup                  []repository.Transformer
-		Test                   func(t *testing.T, svc *OverviewServiceServer)
-		DB                     bool
-		ExpectedCachedOverview *api.GetOverviewResponse
-		ExpectedAppDetails     map[string]*api.GetAppDetailsResponse //appName -> appDetails
+		Name               string
+		Setup              []repository.Transformer
+		Test               func(t *testing.T, svc *OverviewServiceServer)
+		DB                 bool
+		ExpectedAppDetails map[string]*api.GetAppDetailsResponse //appName -> appDetails
 	}{
 		{
 			Name: "A stream overview works",
@@ -543,36 +540,6 @@ func TestOverviewService(t *testing.T) {
 		{
 			Name: "Test with DB",
 			DB:   true,
-			ExpectedCachedOverview: &api.GetOverviewResponse{
-				EnvironmentGroups: []*api.EnvironmentGroup{
-					{
-						EnvironmentGroupName: "dev",
-						Environments: []*api.Environment{
-							{
-								Name: "development",
-								Config: &api.EnvironmentConfig{
-									Upstream: &api.EnvironmentConfig_Upstream{
-										Latest: &upstreamLatest,
-									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
-									EnvironmentGroup: &dev,
-								},
-								Priority: api.Priority_YOLO,
-							},
-						},
-						Priority: api.Priority_YOLO,
-					},
-				},
-				LightweightApps: []*api.OverviewApplication{
-					{
-						Name: "test",
-						Team: "team-123",
-					},
-				},
-				GitRevision: "0",
-			},
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",
@@ -724,19 +691,6 @@ func TestOverviewService(t *testing.T) {
 				Context:    ctx,
 			}
 			tc.Test(t, svc)
-			if tc.DB {
-				repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					cachedResponse, err := repo.State().DBHandler.ReadLatestOverviewCache(ctx, transaction)
-					if err != nil {
-						return err
-					}
-					cachedResponse.GitRevision = "0"
-					if diff := cmp.Diff(tc.ExpectedCachedOverview, cachedResponse, protocmp.Transform(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
-						t.Errorf("latest overview cache mismatch (-want +got):\n%s", diff)
-					}
-					return nil
-				})
-			}
 			close(shutdown)
 		})
 	}

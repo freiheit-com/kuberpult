@@ -18,7 +18,6 @@ package reposerver
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -641,9 +640,6 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 	)
 	if err != nil {
 		t.Fatal(err)
-	}
-	repo.State().DBHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-		return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, stateChange, metaData)
 	}
 	return repo, &repoCfg
 }

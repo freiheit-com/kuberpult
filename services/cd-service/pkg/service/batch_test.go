@@ -679,11 +679,6 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 		t.Fatal(err)
 	}
 
-	if dbConfig != nil {
-		repo.State().DBHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-			return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, stateChange, metaData)
-		}
-	}
 	return repo, nil
 }
 
