@@ -203,11 +203,7 @@ export const GeneralServiceLane: React.FC<{
             onClick={onReload}
         />
     );
-    // eslint-disable-next-line no-console
-    console.log(props);
     if (props.allAppData.appDetailState === AppDetailsState.READY) {
-        // eslint-disable-next-line no-console
-        console.log('READY');
         return (
             <ReadyServiceLane
                 application={props.application}
