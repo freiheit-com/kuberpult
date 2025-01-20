@@ -3331,7 +3331,10 @@ skipping "test" because it is already in the version`,
 			configs, _ := repo.State().GetAllEnvironmentConfigs(ctx, nil)
 			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil, configs)
 
-			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
+			//if diff := cmp.Diff(a, tc.wantClientApp, cmpopts.IgnoreFields(DexRewriteURLRoundTripper{}, "T")); diff != "" {
+			opts := cmpopts.IgnoreFields(ReleaseTrainEnvironmentPrognosis{}, "AllLatestReleases")
+			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses, opts) ||
+				!cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
 				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
 			}
 

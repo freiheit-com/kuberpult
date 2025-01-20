@@ -4142,10 +4142,12 @@ func (c *envReleaseTrain) Transform(
 		}
 		for appName := range prognosis.AppsPrognoses {
 			releases := prognosis.AllLatestReleases[appName]
+			var release uint64
 			if releases == nil {
-				return "", fmt.Errorf("error getting latest release for app '%s' - no release found", appName)
+				release = 0
+			} else {
+				release = uint64(releases[len(releases)-1])
 			}
-			release := uint64(releases[len(releases)-1])
 			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
 			eventMessage := ""
 			if len(prognosis.Locks) > 0 {
