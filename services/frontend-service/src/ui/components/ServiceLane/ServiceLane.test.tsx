@@ -83,6 +83,7 @@ describe('Service Lane', () => {
                 },
                 appDetailState: AppDetailsState.READY,
                 updatedAt: new Date(Date.now()),
+                errorMessage: '',
             },
         };
         const sampleApp: Application = {
@@ -106,6 +107,199 @@ describe('Service Lane', () => {
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: sampleApp.name, version: 3 });
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: sampleApp.name, version: 2 });
         mock_ReleaseCard.ReleaseCard.wasCalled(3);
+    });
+});
+
+type TestDataServiceLaneState = { name: string; appDetails: AppDetailsResponse };
+
+const serviceLaneStates: TestDataServiceLaneState[] = [
+    {
+        name: 'loading',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(4), makeRelease(2), makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 4,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                },
+            },
+            appDetailState: AppDetailsState.LOADING,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+    {
+        name: 'NotFound',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 2,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 5,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                },
+            },
+            appDetailState: AppDetailsState.NOTFOUND,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+    {
+        name: 'Ready',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                },
+            },
+            appDetailState: AppDetailsState.READY,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+    {
+        name: 'NotRequested',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {},
+            },
+            appDetailState: AppDetailsState.NOTREQUESTED,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+
+    {
+        name: 'NotRequested',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test2',
+                    team: 'test-team',
+                    releases: [makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {},
+            },
+            appDetailState: AppDetailsState.ERROR,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+];
+
+describe('Service Lane States', () => {
+    const getNode = (overrides: {
+        application: OverviewApplication;
+        allAppDetails: { [p: string]: AppDetailsResponse };
+    }) => (
+        <MemoryRouter>
+            <ServiceLane {...overrides} hideMinors={false} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: {
+        application: OverviewApplication;
+        allAppDetails: { [p: string]: AppDetailsResponse };
+    }) => render(getNode(overrides));
+    describe.each(serviceLaneStates)('Service Lane states', (testcase) => {
+        it(testcase.name, () => {
+            UpdateOverview.set({
+                environmentGroups: [],
+            });
+            updateAppDetails.set({
+                test2: testcase.appDetails,
+            });
+            const sampleLightweightApp: OverviewApplication = {
+                name: 'test2',
+                team: 'test-team',
+            };
+            const { container } = getWrapper({
+                application: sampleLightweightApp,
+                allAppDetails: {
+                    test2: testcase.appDetails,
+                },
+            });
+
+            if (testcase.appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
+                expect(container.querySelector('.service-lane')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header__error')).toBeInTheDocument();
+            } else if (testcase.appDetails.appDetailState === AppDetailsState.NOTFOUND) {
+                expect(container.querySelector('.service-lane')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header__warn')).toBeInTheDocument();
+            } else if (testcase.appDetails.appDetailState === AppDetailsState.ERROR) {
+                expect(container.querySelector('.service-lane')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header__error')).toBeInTheDocument();
+            } else {
+                expect(container.querySelector('.service-lane')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header')).toBeInTheDocument();
+            }
+        });
     });
 });
 
@@ -148,6 +342,7 @@ const data: TestDataDiff[] = [
             },
             appDetailState: AppDetailsState.READY,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         },
         envs: [
             {
@@ -197,6 +392,7 @@ const data: TestDataDiff[] = [
             },
             appDetailState: AppDetailsState.READY,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         },
         envs: [
             {
@@ -246,6 +442,7 @@ const data: TestDataDiff[] = [
             },
             appDetailState: AppDetailsState.READY,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         },
         envs: [
             {
@@ -295,6 +492,7 @@ const data: TestDataDiff[] = [
             },
             appDetailState: AppDetailsState.READY,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         },
         envs: [
             {
@@ -480,6 +678,7 @@ describe('Service Lane Important Releases', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             });
             // when
@@ -612,6 +811,7 @@ describe('Service Lane ⋮ menu', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             });
 
@@ -839,6 +1039,7 @@ describe('Service Lane AppLockSummary', () => {
                     details: testcase.renderedApp,
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             });
 

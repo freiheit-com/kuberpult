@@ -117,6 +117,7 @@ export type AppDetailsResponse = {
     details: GetAppDetailsResponse | undefined;
     appDetailState: AppDetailsState;
     updatedAt: Date | undefined;
+    errorMessage: string | undefined;
 };
 
 export enum FailedEslsState {
@@ -172,6 +173,7 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
         details: details[appName] ? details[appName].details : undefined,
         appDetailState: AppDetailsState.LOADING,
         updatedAt: undefined,
+        errorMessage: '',
     };
     updateAppDetails.set(details);
     useApi
@@ -179,7 +181,12 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
         .GetAppDetails({ appName: appName }, authHeader)
         .then((result: GetAppDetailsResponse) => {
             const d = updateAppDetails.get();
-            d[appName] = { details: result, appDetailState: AppDetailsState.READY, updatedAt: new Date(Date.now()) };
+            d[appName] = {
+                details: result,
+                appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
+                errorMessage: '',
+            };
             updateAppDetails.set(d);
         })
         .catch((e) => {
@@ -189,12 +196,14 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
                     details: undefined,
                     appDetailState: AppDetailsState.NOTFOUND,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: e.message,
                 };
             } else {
                 details[appName] = {
                     details: undefined,
                     appDetailState: AppDetailsState.ERROR,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: e.message,
                 };
             }
             updateAppDetails.set(details);
@@ -1235,6 +1244,7 @@ export const invalidateAppDetailsForApp = (appName: string): void => {
         appDetailState: AppDetailsState.NOTREQUESTED,
         details: undefined,
         updatedAt: undefined,
+        errorMessage: undefined,
     };
     updateAppDetails.set(details);
 };

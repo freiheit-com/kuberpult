@@ -89,6 +89,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -142,6 +143,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -201,6 +203,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -268,6 +271,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -335,6 +339,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -402,6 +407,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -541,6 +547,7 @@ describe('Release Card Rollout Status', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
