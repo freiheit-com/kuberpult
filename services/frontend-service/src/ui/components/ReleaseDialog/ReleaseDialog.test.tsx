@@ -23,7 +23,6 @@ import {
     updateAppDetails,
     UpdateOverview,
     UpdateRolloutStatus,
-    useAllEnvLocks,
 } from '../../utils/store';
 import {
     Environment,
