@@ -231,6 +231,15 @@ export const GeneralServiceLane: React.FC<{
     return <LoadingServiceLane application={props.application}></LoadingServiceLane>;
 };
 
+const ServiceLaneHeaderData: React.FC<{
+    application: OverviewApplication;
+}> = (props) => (
+    <div className={'service-lane-name'}>
+        <span title={'team name'}>{props.application.team ? props.application.team : '<No Team> '} </span>
+        {' | '} <span title={'app name'}> {props.application.name}</span>
+    </div>
+);
+
 export const NoDataServiceLane: React.FC<{
     application: OverviewApplication;
     reloadButton: JSX.Element;
@@ -243,12 +252,7 @@ export const NoDataServiceLane: React.FC<{
             }>
             <div className="service-lane__header__warn tooltip">
                 <div className="service-lane-wrapper">
-                    <div className={'service-lane-name'}>
-                        <span title={'team name'}>
-                            {props.application.team ? props.application.team : '<No Team> '}{' '}
-                        </span>
-                        {' | '} <span title={'app name'}> {props.application.name}</span>
-                    </div>
+                    <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
                 </div>
                 <div className="service-lane-wrapper">
                     <div>{props.reloadButton}</div>
@@ -266,10 +270,7 @@ export const LoadingServiceLane: React.FC<{
     <div className="service-lane">
         <div className="service-lane__header">
             <div className="service-lane-wrapper">
-                <div className={'service-lane-name'}>
-                    <span title={'team name'}>{props.application.team ? props.application.team : '<No Team> '} </span>
-                    {' | '} <span title={'app name'}> {props.application.name}</span>
-                </div>
+                <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
                 <SmallSpinner appName={props.application.name} key={props.application.name} />
             </div>
         </div>
@@ -282,10 +283,7 @@ export const NotRequestedServiceLane: React.FC<{
     <div className="service-lane">
         <div className="service-lane__header__not_requested">
             <div className="service-lane-wrapper">
-                <div className={'service-lane-name'}>
-                    <span title={'team name'}>{props.application.team ? props.application.team : '<No Team> '} </span>
-                    {' | '} <span title={'app name'}> {props.application.name}</span>
-                </div>
+                <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
             </div>
         </div>
         <div className="service__releases" key={props.application.name + '-' + props.application.team}></div>
@@ -307,12 +305,7 @@ export const ErrorServiceLane: React.FC<{
             }>
             <div className="service-lane__header__error">
                 <div className="service-lane-wrapper">
-                    <div className={'service-lane-name'}>
-                        <span title={'team name'}>
-                            {props.application.team ? props.application.team : '<No Team> '}{' '}
-                        </span>
-                        {' | '} <span title={'app name'}> {props.application.name}</span>
-                    </div>
+                    <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
                 </div>
                 <div className="service-lane-wrapper">
                     <div>{props.reloadButton}</div>
@@ -494,10 +487,7 @@ export const ReadyServiceLane: React.FC<{
                             <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
                         </div>
                     )}
-                    <div className={'service-lane-name'}>
-                        <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
-                        {' | '} <span title={'app name'}> {application.name}</span>
-                    </div>
+                    <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
                 </div>
                 <div className="service-lane-wrapper">
                     <div>{reloadButton}</div>
