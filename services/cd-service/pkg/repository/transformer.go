@@ -3530,6 +3530,16 @@ type ReleaseTrainPrognosis struct {
 	EnvironmentPrognoses map[string]ReleaseTrainEnvironmentPrognosis
 }
 
+func failedPrognosis(err error) ReleaseTrainEnvironmentPrognosis {
+	return ReleaseTrainEnvironmentPrognosis{
+		SkipCause:         nil,
+		Error:             err,
+		Locks:             nil,
+		AppsPrognoses:     nil,
+		AllLatestReleases: nil,
+	}
+}
+
 func (c *ReleaseTrain) Prognosis(
 	ctx context.Context,
 	state *State,
@@ -3742,9 +3752,10 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 			},
-			Error:         nil,
-			Locks:         nil,
-			AppsPrognoses: nil,
+			Error:             nil,
+			Locks:             nil,
+			AppsPrognoses:     nil,
+			AllLatestReleases: nil,
 		}
 	}
 
@@ -3760,12 +3771,7 @@ func (c *envReleaseTrain) prognosis(
 	)
 
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         err,
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(err)
 	}
 
 	upstreamLatest := envConfig.Upstream.Latest
@@ -3775,9 +3781,10 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 			},
-			Error:         nil,
-			Locks:         nil,
-			AppsPrognoses: nil,
+			Error:             nil,
+			Locks:             nil,
+			AppsPrognoses:     nil,
+			AllLatestReleases: nil,
 		}
 	}
 
@@ -3786,9 +3793,10 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 			},
-			Error:         nil,
-			Locks:         nil,
-			AppsPrognoses: nil,
+			Error:             nil,
+			Locks:             nil,
+			AppsPrognoses:     nil,
+			AllLatestReleases: nil,
 		}
 	}
 
@@ -3799,20 +3807,16 @@ func (c *envReleaseTrain) prognosis(
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
 				},
-				Error:         nil,
-				Locks:         nil,
-				AppsPrognoses: nil,
+				Error:             nil,
+				Locks:             nil,
+				AppsPrognoses:     nil,
+				AllLatestReleases: nil,
 			}
 		}
 	}
 	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)))
 	}
 
 	source := upstreamEnvName
@@ -3822,12 +3826,7 @@ func (c *envReleaseTrain) prognosis(
 
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash, c.Env)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         err,
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(err)
 	}
 	sort.Strings(apps)
 
@@ -3859,73 +3858,44 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 			},
-			Error:         nil,
-			Locks:         locksList,
-			AppsPrognoses: appsPrognoses,
+			Error:             nil,
+			Locks:             locksList,
+			AppsPrognoses:     appsPrognoses,
+			AllLatestReleases: nil,
 		}
 	}
 	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, apps)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)))
 	}
 
 	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
 
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)))
 	}
 
 	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, apps)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
 	}
 	var allLatestReleaseEnvironments map[string]map[uint64][]string
 	if state.DBHandler.ShouldUseOtherTables() {
 		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
 	}
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
 	}
 	span.SetTag("ConsideredApps", len(apps))
 	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         err,
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(err)
 	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
 			if !ok {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         fmt.Errorf("team for app %s not found", appName),
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
+				return failedPrognosis(fmt.Errorf("team for app %s not found", appName))
 			}
 			if c.Parent.Team != team {
 				continue
@@ -3976,12 +3946,7 @@ func (c *envReleaseTrain) prognosis(
 		appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, c.Env, appName)
 
 		if err != nil {
-			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:     nil,
-				Error:         err,
-				Locks:         nil,
-				AppsPrognoses: nil,
-			}
+			return failedPrognosis(err)
 		}
 
 		if len(appLocks) > 0 {
@@ -4013,12 +3978,7 @@ func (c *envReleaseTrain) prognosis(
 		if state.DBHandler.ShouldUseOtherTables() {
 			releaseEnvs, exists := allLatestReleaseEnvironments[appName][versionToDeploy]
 			if !exists {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy),
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
+				return failedPrognosis(fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy))
 			}
 
 			found := false
@@ -4076,12 +4036,7 @@ func (c *envReleaseTrain) prognosis(
 			teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
 
 			if err != nil {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         err,
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
+				return failedPrognosis(err)
 			}
 
 			if len(teamLocks) > 0 {
