@@ -105,7 +105,7 @@ func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *a
 			}
 
 			// 2) Store that we did run the migration:
-			return migrations.DBUpsertCustomMigrationCutoff(s.DBHandler, ctx, transaction, kuberpultVersion)
+			return migrations.DBUpsertCustomMigrationCutoff(s.DBHandler, ctx, transaction, m.Version)
 		})
 		if err != nil {
 			return onErr(fmt.Errorf("RunMigrations: error for version %s: %w", migrations2.FormatKuberpultVersion(m.Version), err))
