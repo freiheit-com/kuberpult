@@ -3519,7 +3519,8 @@ type ReleaseTrainEnvironmentPrognosis struct {
 	Error     error
 	Locks     []*api.Lock
 	// map key is the name of the app
-	AppsPrognoses map[string]ReleaseTrainApplicationPrognosis
+	AppsPrognoses     map[string]ReleaseTrainApplicationPrognosis
+	AllLatestReleases map[string][]int64 // all latest releases as they appear in the DB
 }
 
 type ReleaseTrainPrognosisOutcome = uint64
@@ -4116,10 +4117,11 @@ func (c *envReleaseTrain) prognosis(
 		}
 	}
 	return ReleaseTrainEnvironmentPrognosis{
-		SkipCause:     nil,
-		Error:         nil,
-		Locks:         nil,
-		AppsPrognoses: appsPrognoses,
+		SkipCause:         nil,
+		Error:             nil,
+		Locks:             nil,
+		AppsPrognoses:     appsPrognoses,
+		AllLatestReleases: allLatestReleases,
 	}
 }
 
@@ -4184,10 +4186,11 @@ func (c *envReleaseTrain) Transform(
 			return renderEnvironmentSkipCause(prognosis.SkipCause), nil
 		}
 		for appName := range prognosis.AppsPrognoses {
-			release, err := state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
-			if err != nil {
-				return "", fmt.Errorf("error getting latest release for app '%s' - %v", appName, err)
+			releases := prognosis.AllLatestReleases[appName]
+			if releases == nil {
+				return "", fmt.Errorf("error getting latest release for app '%s' - no release found", appName)
 			}
+			release := uint64(releases[len(releases)-1])
 			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
 			eventMessage := ""
 			if len(prognosis.Locks) > 0 {
