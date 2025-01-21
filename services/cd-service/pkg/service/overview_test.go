@@ -173,71 +173,6 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				},
 			},
 			ExpectedAppDetails: map[string]*api.GetAppDetailsResponse{
-				"test-with-incorrect-pr-number": {
-					Application: &api.Application{
-						Name: "test-with-incorrect-pr-number",
-						Releases: []*api.Release{
-							{
-								Version:        3,
-								SourceAuthor:   "example <example@example.com>",
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceMessage:  "changed something (#678",
-								Environments:   []string{"development"},
-							},
-						},
-						Warnings: []*api.Warning{
-							{
-								WarningType: &api.Warning_UpstreamNotDeployed{
-									UpstreamNotDeployed: &api.UpstreamNotDeployed{
-										UpstreamEnvironment: "staging",
-										ThisVersion:         3,
-										ThisEnvironment:     "production",
-									},
-								},
-							},
-						},
-					},
-					Deployments: map[string]*api.Deployment{
-						"development": {
-							Version:         3,
-							QueuedVersion:   0,
-							UndeployVersion: false,
-							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-								DeployAuthor: "test tester",
-							},
-						},
-					},
-					AppLocks:  map[string]*api.Locks{},
-					TeamLocks: map[string]*api.Locks{},
-				},
-				"test-with-only-pr-number": {
-					Application: &api.Application{
-						Name: "test-with-only-pr-number",
-						Releases: []*api.Release{
-							{
-								Version:        4,
-								PrNumber:       "678",
-								SourceAuthor:   "example <example@example.com>",
-								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-								SourceMessage:  "(#678)",
-								Environments:   []string{"development"},
-							},
-						},
-						Warnings: []*api.Warning{},
-					},
-					Deployments: map[string]*api.Deployment{
-						"development": {
-							Version:         4,
-							QueuedVersion:   0,
-							UndeployVersion: false,
-							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-								DeployAuthor: "test tester",
-							},
-						},
-					},
-					AppLocks:  map[string]*api.Locks{},
-					TeamLocks: map[string]*api.Locks{},
-				},
 				"test": {
 					Application: &api.Application{
 						Name:          "test",
@@ -321,6 +256,71 @@ func TestOverviewAndAppDetails(t *testing.T) {
 					},
 					AppLocks: map[string]*api.Locks{},
 				},
+				"test-with-incorrect-pr-number": {
+					Application: &api.Application{
+						Name: "test-with-incorrect-pr-number",
+						Releases: []*api.Release{
+							{
+								Version:        3,
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "changed something (#678",
+								Environments:   []string{"development"},
+							},
+						},
+						Warnings: []*api.Warning{
+							{
+								WarningType: &api.Warning_UpstreamNotDeployed{
+									UpstreamNotDeployed: &api.UpstreamNotDeployed{
+										UpstreamEnvironment: "staging",
+										ThisVersion:         3,
+										ThisEnvironment:     "production",
+									},
+								},
+							},
+						},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:         3,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+					},
+					AppLocks:  map[string]*api.Locks{},
+					TeamLocks: map[string]*api.Locks{},
+				},
+				"test-with-only-pr-number": {
+					Application: &api.Application{
+						Name: "test-with-only-pr-number",
+						Releases: []*api.Release{
+							{
+								Version:        4,
+								PrNumber:       "678",
+								SourceAuthor:   "example <example@example.com>",
+								SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+								SourceMessage:  "(#678)",
+								Environments:   []string{"development"},
+							},
+						},
+						Warnings: []*api.Warning{},
+					},
+					Deployments: map[string]*api.Deployment{
+						"development": {
+							Version:         4,
+							QueuedVersion:   0,
+							UndeployVersion: false,
+							DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+								DeployAuthor: "test tester",
+							},
+						},
+					},
+					AppLocks:  map[string]*api.Locks{},
+					TeamLocks: map[string]*api.Locks{},
+				},
 			},
 			ExpectedOverview: &api.GetOverviewResponse{
 				EnvironmentGroups: []*api.EnvironmentGroup{
@@ -384,7 +384,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				},
 				LightweightApps: []*api.OverviewApplication{
 					{
-						Name: "test",
+						Name: "test-with-only-pr-number",
 						Team: "",
 					},
 					{
@@ -392,11 +392,11 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						Team: "test-team",
 					},
 					{
-						Name: "test-with-incorrect-pr-number",
+						Name: "test",
 						Team: "",
 					},
 					{
-						Name: "test-with-only-pr-number",
+						Name: "test-with-incorrect-pr-number",
 						Team: "",
 					},
 				},

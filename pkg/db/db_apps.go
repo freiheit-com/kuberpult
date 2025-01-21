@@ -69,7 +69,8 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) ([]
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, stateChange, metadata
-		FROM apps;
+		FROM apps
+		ORDER BY appname;
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery)
@@ -123,7 +124,8 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	defer span.Finish()
 	query := h.AdaptQuery(`
 		SELECT appname
-		FROM apps;
+		FROM apps
+		ORDER BY appname;
 	`)
 	span.SetTag("query", query)
 	rows, err := transaction.QueryContext(ctx, query)
