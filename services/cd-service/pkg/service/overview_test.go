@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"testing"
 
@@ -384,20 +385,20 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				},
 				LightweightApps: []*api.OverviewApplication{
 					{
-						Name: "test-with-only-pr-number",
-						Team: "",
-					},
-					{
-						Name: "test-with-team",
-						Team: "test-team",
-					},
-					{
 						Name: "test",
 						Team: "",
 					},
 					{
 						Name: "test-with-incorrect-pr-number",
 						Team: "",
+					},
+					{
+						Name: "test-with-only-pr-number",
+						Team: "",
+					},
+					{
+						Name: "test-with-team",
+						Team: "test-team",
 					},
 				},
 				GitRevision: "0000000000000000000000000000000000000000",
@@ -440,6 +441,9 @@ func TestOverviewAndAppDetails(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
+			sort.Slice(ov.LightweightApps, func(i, j int) bool {
+				return ov.LightweightApps[i].Name < ov.LightweightApps[j].Name
+			})
 			if diff := cmp.Diff(tc.ExpectedOverview, ov, protocmp.Transform(), getOverviewIgnoredTypes(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
 				t.Errorf("overview missmatch (-want, +got): %s\n", diff)
 			}
