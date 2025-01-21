@@ -24,15 +24,11 @@ import { MemoryRouter } from 'react-router-dom';
 const sampleEnvsA: Environment[] = [
     {
         name: 'foo',
-        locks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.YOLO,
     },
     {
         name: 'moreTest',
-        locks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.YOLO,
     },
@@ -41,15 +37,11 @@ const sampleEnvsA: Environment[] = [
 const sampleEnvsB: Environment[] = [
     {
         name: 'fooB',
-        locks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.YOLO,
     },
     {
         name: 'moreTestB',
-        locks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.YOLO,
     },

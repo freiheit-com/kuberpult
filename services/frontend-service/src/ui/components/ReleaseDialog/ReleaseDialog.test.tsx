@@ -19,11 +19,20 @@ import {
     AppDetailsResponse,
     AppDetailsState,
     UpdateAction,
+    updateAllEnvLocks,
     updateAppDetails,
     UpdateOverview,
     UpdateRolloutStatus,
 } from '../../utils/store';
-import { Environment, EnvironmentGroup, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
+import {
+    Environment,
+    EnvironmentGroup,
+    GetAllEnvTeamLocksResponse,
+    Priority,
+    Release,
+    RolloutStatus,
+    UndeploySummary,
+} from '../../../api/api';
 import { Spy } from 'spy4js';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -43,6 +52,7 @@ describe('Release Dialog', () => {
         appDetails: { [p: string]: AppDetailsResponse };
         rels: Release[];
         envs: Environment[];
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         envGroups: EnvironmentGroup[];
         expect_message: boolean;
         expect_queues: number;
@@ -60,6 +70,7 @@ describe('Release Dialog', () => {
         props: ReleaseDialogProps;
         rels: Release[];
         envs: Environment[];
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         appDetails: { [p: string]: AppDetailsResponse };
         envGroups: EnvironmentGroup[];
         expect_message: boolean;
@@ -73,6 +84,10 @@ describe('Release Dialog', () => {
             props: {
                 app: 'test1',
                 version: 2,
+            },
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {},
             },
             appDetails: {},
             rels: [
@@ -93,8 +108,6 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -120,6 +133,10 @@ describe('Release Dialog', () => {
                 version: 2,
             },
             appDetails: {},
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {},
+            },
             rels: [
                 {
                     version: 2,
@@ -138,8 +155,6 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -162,6 +177,14 @@ describe('Release Dialog', () => {
     const data: dataT[] = [
         {
             name: 'normal release',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    prod: {
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                    },
+                },
+            },
             props: {
                 app: 'test1',
                 version: 2,
@@ -207,6 +230,7 @@ describe('Release Dialog', () => {
                     },
                     updatedAt: new Date(Date.now()),
                     appDetailState: AppDetailsState.READY,
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -227,8 +251,6 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -249,6 +271,14 @@ describe('Release Dialog', () => {
         },
         {
             name: 'normal release with deploymentMetadata set',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    prod: {
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                    },
+                },
+            },
             props: {
                 app: 'test1',
                 version: 2,
@@ -294,6 +324,7 @@ describe('Release Dialog', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -314,8 +345,6 @@ describe('Release Dialog', () => {
             envs: [
                 {
                     name: 'prod',
-                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -336,6 +365,25 @@ describe('Release Dialog', () => {
         },
         {
             name: 'two envs release',
+            allEnvLocks: {
+                allTeamLocks: {
+                    dev: {
+                        teamLocks: {
+                            test1: {
+                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
+                            },
+                        },
+                    },
+                },
+                allEnvLocks: {
+                    prod: {
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                    },
+                    dev: {
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                    },
+                },
+            },
             props: {
                 app: 'test1',
                 version: 2,
@@ -406,24 +454,17 @@ describe('Release Dialog', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             envs: [
                 {
                     name: 'prod',
-                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
                 {
                     name: 'dev',
-                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {
-                        test1: {
-                            locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
-                        },
-                    },
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
                 },
@@ -486,6 +527,10 @@ describe('Release Dialog', () => {
         },
         {
             name: 'undeploy version release',
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             props: {
                 app: 'test1',
                 version: 4,
@@ -521,6 +566,7 @@ describe('Release Dialog', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -563,6 +609,7 @@ describe('Release Dialog', () => {
             ],
         });
         updateAppDetails.set(testcase.appDetails);
+        updateAllEnvLocks.set(testcase.allEnvLocks);
         const status = testcase.rolloutStatus;
         if (status !== undefined) {
             for (const app of status) {
@@ -613,9 +660,9 @@ describe('Release Dialog', () => {
             getWrapper(testcase.props);
             expect(document.body).toMatchSnapshot();
             expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
-
             testcase.envs.forEach((env) => {
-                expect(document.querySelector('.env-locks')?.children).toHaveLength(Object.values(env.locks).length);
+                const envLocks = testcase.allEnvLocks.allEnvLocks[env.name]?.locks ?? [];
+                expect(document.querySelector('.env-locks')?.children).toHaveLength(envLocks.length);
             });
         });
     });

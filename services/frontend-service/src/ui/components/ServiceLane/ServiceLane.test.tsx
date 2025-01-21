@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import { fireEvent, render, screen } from '@testing-library/react';
-import { DiffElement, ServiceLane } from './ServiceLane';
+import { DiffElement, GeneralServiceLane, ServiceLane } from './ServiceLane';
 import { AppDetailsResponse, AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 import {
@@ -63,10 +63,10 @@ describe('Service Lane', () => {
     it('Renders a row of releases', () => {
         // when
         const appDetails = {
-            test2: {
+            test3: {
                 details: {
                     application: {
-                        name: 'test2',
+                        name: 'test3',
                         releases: [
                             extendRelease({ version: 2 }),
                             extendRelease({ version: 3 }),
@@ -83,10 +83,11 @@ describe('Service Lane', () => {
                 },
                 appDetailState: AppDetailsState.READY,
                 updatedAt: new Date(Date.now()),
+                errorMessage: '',
             },
         };
         const sampleApp: Application = {
-            name: 'test2',
+            name: 'test3',
             releases: [extendRelease({ version: 5 }), extendRelease({ version: 2 }), extendRelease({ version: 3 })],
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
@@ -94,8 +95,8 @@ describe('Service Lane', () => {
             warnings: [],
         };
         const sampleLightWeightApp: OverviewApplication = {
-            name: 'test2',
-            team: '',
+            name: 'test3',
+            team: 'example',
         };
         UpdateOverview.set({});
         updateAppDetails.set(appDetails);
@@ -106,6 +107,206 @@ describe('Service Lane', () => {
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: sampleApp.name, version: 3 });
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: sampleApp.name, version: 2 });
         mock_ReleaseCard.ReleaseCard.wasCalled(3);
+    });
+});
+
+type TestDataServiceLaneState = { name: string; appDetails: AppDetailsResponse };
+
+const serviceLaneStates: TestDataServiceLaneState[] = [
+    {
+        name: 'Ready',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test-ready',
+                    team: 'test-team',
+                    releases: [makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                },
+            },
+            appDetailState: AppDetailsState.READY,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+    {
+        name: 'loading',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test-loading',
+                    team: 'test-team',
+                    releases: [makeRelease(4), makeRelease(2), makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 1,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 4,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                },
+            },
+            appDetailState: AppDetailsState.LOADING,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+    {
+        name: 'NotFound',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test-not-found',
+                    team: 'test-team',
+                    releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {
+                    foo: {
+                        version: 2,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                    foo2: {
+                        version: 5,
+                        queuedVersion: 0,
+                        undeployVersion: false,
+                    },
+                },
+            },
+            appDetailState: AppDetailsState.NOTFOUND,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+
+    {
+        name: 'Error',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test-error',
+                    team: 'test-team',
+                    releases: [makeRelease(1)],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {},
+            },
+            appDetailState: AppDetailsState.ERROR,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+    {
+        name: 'NotRequested',
+        appDetails: {
+            details: {
+                application: {
+                    name: 'test-not-requested',
+                    team: 'test-team-testtest',
+                    releases: [],
+                    sourceRepoUrl: '',
+                    undeploySummary: UndeploySummary.MIXED,
+                    warnings: [],
+                },
+                appLocks: {},
+                teamLocks: {},
+                deployments: {},
+            },
+            appDetailState: AppDetailsState.NOTREQUESTED,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        },
+    },
+];
+
+describe('Service Lane States', () => {
+    const getNode = (overrides: {
+        application: OverviewApplication;
+        hideMinors: boolean;
+        allAppData: AppDetailsResponse;
+    }) => (
+        <MemoryRouter>
+            <GeneralServiceLane
+                application={overrides.application}
+                hideMinors={false}
+                allAppData={overrides.allAppData}
+            />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: {
+        application: OverviewApplication;
+        hideMinors: boolean;
+        allAppData: AppDetailsResponse;
+    }) => render(getNode(overrides));
+    describe.each(serviceLaneStates)('Service Lane states', (testcase) => {
+        it(testcase.name, () => {
+            const sampleLightweightApp: OverviewApplication = {
+                name: testcase.appDetails.details?.application?.name
+                    ? testcase.appDetails.details?.application?.name
+                    : '',
+                team: testcase.appDetails.details?.application?.team
+                    ? testcase.appDetails.details?.application?.team
+                    : '',
+            };
+
+            const appDetails = updateAppDetails.get();
+            appDetails[sampleLightweightApp.name] = testcase.appDetails;
+
+            const { container } = getWrapper({
+                application: sampleLightweightApp,
+                hideMinors: false,
+                allAppData: testcase.appDetails,
+            });
+            if (testcase.appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
+                expect(container.querySelector('.service-lane')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header__not_requested')).toBeInTheDocument();
+            } else if (testcase.appDetails.appDetailState === AppDetailsState.NOTFOUND) {
+                expect(container.querySelector('.service-lane')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header__warn')).toBeInTheDocument();
+            } else if (testcase.appDetails.appDetailState === AppDetailsState.ERROR) {
+                expect(container.querySelector('.service-lane')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header__error')).toBeInTheDocument();
+            } else {
+                //READY and LOADING are represented the same way
+                expect(container.querySelector('.service-lane')).toBeInTheDocument();
+                expect(container.querySelector('.service-lane__header')).toBeInTheDocument();
+            }
+        });
     });
 });
 
@@ -148,21 +349,18 @@ const data: TestDataDiff[] = [
             },
             appDetailState: AppDetailsState.READY,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         },
         envs: [
             {
                 name: 'foo',
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
-                locks: {},
-                teamLocks: {},
             },
             {
                 name: 'foo2',
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
-                locks: {},
-                teamLocks: {},
             },
         ],
     },
@@ -197,21 +395,18 @@ const data: TestDataDiff[] = [
             },
             appDetailState: AppDetailsState.READY,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         },
         envs: [
             {
                 name: 'foo',
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
-                locks: {},
-                teamLocks: {},
             },
             {
                 name: 'foo2',
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
-                locks: {},
-                teamLocks: {},
             },
         ],
     },
@@ -246,19 +441,16 @@ const data: TestDataDiff[] = [
             },
             appDetailState: AppDetailsState.READY,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         },
         envs: [
             {
                 name: 'foo',
-                locks: {},
-                teamLocks: {},
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
             },
             {
                 name: 'foo2',
-                locks: {},
-                teamLocks: {},
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
             },
@@ -295,21 +487,18 @@ const data: TestDataDiff[] = [
             },
             appDetailState: AppDetailsState.READY,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         },
         envs: [
             {
                 name: 'foo',
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
-                locks: {},
-                teamLocks: {},
             },
             {
                 name: 'foo2',
                 distanceToUpstream: 0,
                 priority: Priority.UPSTREAM,
-                locks: {},
-                teamLocks: {},
             },
         ],
     },
@@ -454,8 +643,6 @@ describe('Service Lane Important Releases', () => {
                                 name: 'foo',
                                 distanceToUpstream: 0,
                                 priority: Priority.UPSTREAM,
-                                locks: {},
-                                teamLocks: {},
                             },
                         ],
                         environmentGroupName: 'group1',
@@ -480,6 +667,7 @@ describe('Service Lane Important Releases', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             });
             // when
@@ -537,8 +725,6 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                     name: 'foo2',
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
-                    locks: {},
-                    teamLocks: {},
                 },
             ],
             expectedUndeployButton: '⋮',
@@ -564,8 +750,6 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                     name: 'foo2',
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
-                    locks: {},
-                    teamLocks: {},
                 },
             ],
             expectedUndeployButton: '⋮',
@@ -612,6 +796,7 @@ describe('Service Lane ⋮ menu', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             });
 
@@ -741,13 +926,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     name: 'foo2',
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
-                    locks: {
-                        envLockThatDoesNotMatter: {
-                            message: 'I am an env lock, I should not count',
-                            lockId: '487329463874223',
-                        },
-                    },
-                    teamLocks: {},
                 },
             ],
             expected: undefined,
@@ -760,8 +938,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     name: 'foo2',
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
-                    locks: {},
-                    teamLocks: {},
                 },
             ],
             expected: '"test1" has 1 lock. Click on a tile to see details.',
@@ -774,8 +950,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     name: 'foo2',
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
-                    locks: {},
-                    teamLocks: {},
                 },
             ],
             expected: '"test1" has 2 locks. Click on a tile to see details.',
@@ -788,8 +962,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     name: 'foo2',
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
-                    locks: {},
-                    teamLocks: {},
                 },
             ],
             expected: '"test1" has 1 lock. Click on a tile to see details.',
@@ -802,8 +974,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     name: 'foo2',
                     distanceToUpstream: 0,
                     priority: Priority.UPSTREAM,
-                    locks: {},
-                    teamLocks: {},
                 },
             ],
             expected: '"test1" has 2 locks. Click on a tile to see details.',
@@ -839,6 +1009,7 @@ describe('Service Lane AppLockSummary', () => {
                     details: testcase.renderedApp,
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             });
 

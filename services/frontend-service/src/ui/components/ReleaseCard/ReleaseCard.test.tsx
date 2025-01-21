@@ -89,6 +89,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -142,6 +143,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -201,6 +203,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -221,8 +224,6 @@ describe('Release Card', () => {
             environments: {
                 foo: {
                     name: 'foo',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -268,6 +269,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -288,8 +290,6 @@ describe('Release Card', () => {
             environments: {
                 undeployed: {
                     name: 'undeployed',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -335,6 +335,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -354,8 +355,6 @@ describe('Release Card', () => {
             ],
             environments: {
                 other: {
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     name: 'other',
@@ -402,6 +401,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -541,6 +541,7 @@ describe('Release Card Rollout Status', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -564,15 +565,11 @@ describe('Release Card Rollout Status', () => {
                     environments: [
                         {
                             name: 'development',
-                            locks: {},
-                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },
                         {
                             name: 'development2',
-                            locks: {},
-                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },
@@ -585,8 +582,6 @@ describe('Release Card Rollout Status', () => {
                     environments: [
                         {
                             name: 'staging',
-                            locks: {},
-                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },

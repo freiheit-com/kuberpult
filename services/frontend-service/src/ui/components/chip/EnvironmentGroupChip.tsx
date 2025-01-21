@@ -21,6 +21,7 @@ import {
     getPriorityClassName,
     useCurrentlyDeployedAtGroup,
     useArgoCDNamespace,
+    useAllEnvLocks,
 } from '../../utils/store';
 import { LocksWhite } from '../../../images';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
@@ -60,6 +61,7 @@ export type EnvironmentChipProps = {
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const { className, env, envGroup, smallEnvChip, app } = props;
+    const envLocks = useAllEnvLocks((map) => map.allEnvLocks)[env.name]?.locks ?? [];
 
     let fullClassName;
     if (props.useEnvColor || props.useEnvColor === undefined) {
@@ -80,7 +82,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
             : '';
     const locks = !smallEnvChip ? (
         <div className={classNames(className, 'env-locks')}>
-            {Object.values(env.locks).map((lock) => (
+            {envLocks.map((lock) => (
                 <EnvironmentLockDisplay
                     env={env.name}
                     lockId={lock.lockId}
@@ -90,7 +92,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
             ))}
         </div>
     ) : (
-        !!Object.entries(env.locks).length && (
+        !!envLocks.length && (
             <div className={classNames(className, 'env-locks')}>
                 <LocksWhite className="env-card-env-lock-icon" width="12px" height="12px" />
             </div>
