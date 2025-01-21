@@ -41,6 +41,7 @@ import { SmallSpinner } from '../Spinner/Spinner';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { Button } from '../button';
 import { useSearchParams } from 'react-router-dom';
+import { Tooltip } from '../tooltip/tooltip';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -134,31 +135,13 @@ export const ServiceLane: React.FC<{
             };
         }
     }, [appDetails, application, authHeader, searchParams]);
-
-    if (!appDetails || !appDetails.details) {
-        return (
-            <div ref={componentRef} className="service-lane">
-                <div className="service-lane__header">
-                    <div className="service-lane-wrapper">
-                        <div className={'service-lane-name'}>
-                            <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
-                            {' | '} <span title={'app name'}> {application.name}</span>
-                        </div>
-                        <SmallSpinner appName={application.name} key={application.name} />
-                    </div>
-                </div>
-                <div className="service__releases" key={application.name + '-' + application.team}></div>
-            </div>
-        );
-    }
-
     return (
         <div ref={componentRef}>
-            <ReadyServiceLane
+            <GeneralServiceLane
                 application={application}
                 hideMinors={hideMinors}
                 allAppData={appDetails}
-                key={application.name}></ReadyServiceLane>
+                key={application.name}></GeneralServiceLane>
         </div>
     );
 };
@@ -178,6 +161,161 @@ function getAppDetailsIfInView(
         }
     }
 }
+
+export const GeneralServiceLane: React.FC<{
+    application: OverviewApplication;
+    hideMinors: boolean;
+    allAppData: AppDetailsResponse;
+}> = (props) => {
+    const onReload = useCallback(() => {
+        const details = updateAppDetails.get();
+        details[props.application.name] = {
+            details: undefined,
+            appDetailState: AppDetailsState.NOTREQUESTED,
+            updatedAt: new Date(Date.now()),
+            errorMessage: '',
+        };
+        updateAppDetails.set(details);
+    }, [props.application.name]);
+
+    let buttonClassName: string;
+
+    switch (props.allAppData.appDetailState) {
+        case AppDetailsState.ERROR: {
+            buttonClassName = 'servicelane__reload__error';
+            break;
+        }
+        case AppDetailsState.NOTFOUND: {
+            buttonClassName = 'servicelane__reload__warn';
+            break;
+        }
+        default: {
+            buttonClassName = 'servicelane__reload';
+        }
+    }
+
+    const reloadButton = (
+        <Button
+            id={props.application.name + '-reloadButton'}
+            className={buttonClassName + ' mdc-button--unelevated'}
+            label={'⟳'}
+            highlightEffect={false}
+            onClick={onReload}
+        />
+    );
+    if (props.allAppData.appDetailState === AppDetailsState.READY) {
+        return (
+            <ReadyServiceLane
+                application={props.application}
+                hideMinors={props.hideMinors}
+                allAppData={props.allAppData}></ReadyServiceLane>
+        );
+    } else if (props.allAppData.appDetailState === AppDetailsState.NOTFOUND) {
+        return <NoDataServiceLane application={props.application} reloadButton={reloadButton}></NoDataServiceLane>;
+    } else if (props.allAppData.appDetailState === AppDetailsState.NOTREQUESTED) {
+        return <NotRequestedServiceLane application={props.application}></NotRequestedServiceLane>;
+    } else if (props.allAppData.appDetailState === AppDetailsState.ERROR) {
+        return (
+            <ErrorServiceLane
+                application={props.application}
+                reloadButton={reloadButton}
+                errorMessage={
+                    props.allAppData.errorMessage && props.allAppData.errorMessage !== ''
+                        ? props.allAppData.errorMessage
+                        : 'no error message was provided.'
+                }></ErrorServiceLane>
+        );
+    } else if (props.allAppData.appDetailState === AppDetailsState.LOADING) {
+        return <LoadingServiceLane application={props.application}></LoadingServiceLane>;
+    }
+    return <LoadingServiceLane application={props.application}></LoadingServiceLane>;
+};
+
+const ServiceLaneHeaderData: React.FC<{
+    application: OverviewApplication;
+}> = (props) => (
+    <div className={'service-lane-name'}>
+        <span title={'team name'}>{props.application.team ? props.application.team : '<No Team> '} </span>
+        {' | '} <span title={'app name'}> {props.application.name}</span>
+    </div>
+);
+
+export const NoDataServiceLane: React.FC<{
+    application: OverviewApplication;
+    reloadButton: JSX.Element;
+}> = (props) => (
+    <div className="service-lane">
+        <Tooltip
+            id={props.application.name}
+            tooltipContent={
+                <span>Kuberpult could not find any data for this application. Try reloading the application.</span>
+            }>
+            <div className="service-lane__header__warn tooltip">
+                <div className="service-lane-wrapper">
+                    <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
+                </div>
+                <div className="service-lane-wrapper">
+                    <div>{props.reloadButton}</div>
+                </div>
+
+                {/*<div className="service__actions__">{dotsMenu}</div>*/}
+            </div>
+        </Tooltip>
+        <div className="service__releases">{}</div>
+    </div>
+);
+export const LoadingServiceLane: React.FC<{
+    application: OverviewApplication;
+}> = (props) => (
+    <div className="service-lane">
+        <div className="service-lane__header">
+            <div className="service-lane-wrapper">
+                <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
+                <SmallSpinner appName={props.application.name} key={props.application.name} />
+            </div>
+        </div>
+        <div className="service__releases" key={props.application.name + '-' + props.application.team}></div>
+    </div>
+);
+export const NotRequestedServiceLane: React.FC<{
+    application: OverviewApplication;
+}> = (props) => (
+    <div className="service-lane">
+        <div className="service-lane__header__not_requested">
+            <div className="service-lane-wrapper">
+                <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
+            </div>
+        </div>
+        <div className="service__releases" key={props.application.name + '-' + props.application.team}></div>
+    </div>
+);
+
+export const ErrorServiceLane: React.FC<{
+    application: OverviewApplication;
+    reloadButton: JSX.Element;
+    errorMessage: string;
+}> = (props) => (
+    <div className="service-lane">
+        <Tooltip
+            id={props.application.name}
+            tooltipContent={
+                <span>
+                    {'Kuberpult got an error retrieving the information for this app. Error: ' + props.errorMessage}
+                </span>
+            }>
+            <div className="service-lane__header__error">
+                <div className="service-lane-wrapper">
+                    <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
+                </div>
+                <div className="service-lane-wrapper">
+                    <div>{props.reloadButton}</div>
+                </div>
+                {/*<div className="service__actions__">{dotsMenu}</div>*/}
+            </div>
+        </Tooltip>
+        <div className="service__releases">{}</div>
+    </div>
+);
 
 export const ReadyServiceLane: React.FC<{
     application: OverviewApplication;
@@ -288,6 +426,7 @@ export const ReadyServiceLane: React.FC<{
             details: undefined,
             appDetailState: AppDetailsState.NOTREQUESTED,
             updatedAt: new Date(Date.now()),
+            errorMessage: '',
         };
         updateAppDetails.set(details);
     }, [application.name]);
@@ -348,10 +487,7 @@ export const ReadyServiceLane: React.FC<{
                             <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
                         </div>
                     )}
-                    <div className={'service-lane-name'}>
-                        <span title={'team name'}>{application.team ? application.team : '<No Team> '} </span>
-                        {' | '} <span title={'app name'}> {application.name}</span>
-                    </div>
+                    <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
                 </div>
                 <div className="service-lane-wrapper">
                     <div>{reloadButton}</div>

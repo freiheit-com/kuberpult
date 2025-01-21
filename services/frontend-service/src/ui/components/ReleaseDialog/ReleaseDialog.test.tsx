@@ -207,6 +207,7 @@ describe('Release Dialog', () => {
                     },
                     updatedAt: new Date(Date.now()),
                     appDetailState: AppDetailsState.READY,
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -294,6 +295,7 @@ describe('Release Dialog', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -406,6 +408,7 @@ describe('Release Dialog', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             envs: [
@@ -521,6 +524,7 @@ describe('Release Dialog', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [

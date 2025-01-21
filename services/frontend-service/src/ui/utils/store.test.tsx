@@ -1217,6 +1217,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             inputOverview: {
@@ -1311,6 +1312,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             inputOverview: {
@@ -1395,6 +1397,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             inputOverview: {
@@ -1477,6 +1480,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             inputOverview: {

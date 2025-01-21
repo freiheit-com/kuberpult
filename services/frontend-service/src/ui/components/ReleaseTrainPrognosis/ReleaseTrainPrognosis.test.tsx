@@ -279,6 +279,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
                 'app-3': {
                     details: {
@@ -309,6 +310,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             applicationsOverview: {

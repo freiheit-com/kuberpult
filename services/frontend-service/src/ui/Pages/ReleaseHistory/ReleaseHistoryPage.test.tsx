@@ -92,6 +92,7 @@ describe('ReleaseHistoryPage', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             });
             const { container } = getWrapper();

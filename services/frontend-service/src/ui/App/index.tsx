@@ -113,6 +113,7 @@ export const App: React.FC = () => {
                                     appDetailState: AppDetailsState.NOTREQUESTED,
                                     details: undefined,
                                     updatedAt: undefined,
+                                    errorMessage: '',
                                 };
                             }
                         });

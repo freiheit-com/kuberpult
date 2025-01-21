@@ -146,6 +146,7 @@ describe('Release Card Mini', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             });
             const { container } = getWrapper(testcase.props);
