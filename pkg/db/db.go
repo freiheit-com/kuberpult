@@ -93,6 +93,12 @@ func (h *DBHandler) ShouldUseOtherTables() bool {
 	return h != nil && !h.WriteEslOnly
 }
 
+// AllowParallelTransactions returns true if the underlying database does allow multiple transactions in parallel
+// Postgres allows this, and sqlite does not (in sqlite you would need to open a new connection).
+func (h *DBHandler) AllowParallelTransactions() bool {
+	return h.DriverName == "postgres"
+}
+
 func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 	db, driver, err := GetConnectionAndDriverWithRetries(ctx, cfg)
 
@@ -765,7 +771,12 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE transformereslVersion = (?) ORDER BY timestamp DESC LIMIT 100;")
+	query := h.AdaptQuery(`
+		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
+		FROM commit_events
+		WHERE transformereslVersion = (?)
+		ORDER BY timestamp DESC, uuid ASC
+		LIMIT 100;`)
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, transformerID)

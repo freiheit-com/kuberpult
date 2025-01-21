@@ -362,6 +362,7 @@ type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
 	SetEslVersion(eslVersion db.TransformerID)
+	GetEslVersion() db.TransformerID
 }
 
 type TransformerContext interface {
@@ -473,6 +474,10 @@ func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
 
 func (c *CreateApplicationVersion) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CreateApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -1275,6 +1280,10 @@ func (c *CreateUndeployApplicationVersion) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *CreateUndeployApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *CreateUndeployApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
@@ -1476,6 +1485,10 @@ func (u *UndeployApplication) GetDBEventType() db.EventType {
 
 func (u *UndeployApplication) SetEslVersion(id db.TransformerID) {
 	u.TransformerEslVersion = id
+}
+
+func (c *UndeployApplication) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (u *UndeployApplication) Transform(
@@ -1691,8 +1704,12 @@ func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvFromApp
 }
 
-func (c *DeleteEnvFromApp) SetEslVersion(id db.TransformerID) {
-	c.TransformerEslVersion = id
+func (u *DeleteEnvFromApp) SetEslVersion(id db.TransformerID) {
+	u.TransformerEslVersion = id
+}
+
+func (u *DeleteEnvFromApp) GetEslVersion() db.TransformerID {
+	return u.TransformerEslVersion
 }
 
 func (u *DeleteEnvFromApp) Transform(
@@ -1805,6 +1822,10 @@ func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 
 func (c *CleanupOldApplicationVersions) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 // Finds old releases for an application
@@ -1931,6 +1952,10 @@ func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
 
 func (c *CreateEnvironmentLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig, checkTeam bool) error {
@@ -2127,6 +2152,10 @@ func (c *DeleteEnvironmentLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *DeleteEnvironmentLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironmentLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2210,6 +2239,10 @@ func (c *CreateEnvironmentGroupLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *CreateEnvironmentGroupLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *CreateEnvironmentGroupLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2265,6 +2298,11 @@ func (c *DeleteEnvironmentGroupLock) GetDBEventType() db.EventType {
 func (c *DeleteEnvironmentGroupLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
+
+func (c *DeleteEnvironmentGroupLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironmentGroupLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2312,6 +2350,10 @@ func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
 
 func (c *CreateEnvironmentApplicationLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CreateEnvironmentApplicationLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *CreateEnvironmentApplicationLock) Transform(
@@ -2424,6 +2466,10 @@ func (c *DeleteEnvironmentApplicationLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *DeleteEnvironmentApplicationLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironmentApplicationLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2500,6 +2546,10 @@ func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
 
 func (c *CreateEnvironmentTeamLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CreateEnvironmentTeamLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *CreateEnvironmentTeamLock) Transform(
@@ -2639,6 +2689,10 @@ func (c *DeleteEnvironmentTeamLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *DeleteEnvironmentTeamLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2719,6 +2773,10 @@ func (c *CreateEnvironment) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *CreateEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *CreateEnvironment) Transform(
 	ctx context.Context,
 	state *State,
@@ -2791,6 +2849,11 @@ func (c *DeleteEnvironment) GetDBEventType() db.EventType {
 func (c *DeleteEnvironment) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
+
+func (c *DeleteEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironment) Transform(
 	ctx context.Context,
 	state *State,
@@ -2961,6 +3024,10 @@ func (c *DeployApplicationVersion) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *DeployApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 type DeployApplicationVersionSource struct {
 	TargetGroup *string `json:"targetGroup"`
 	Upstream    string  `json:"upstream"`
@@ -3019,17 +3086,13 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 
-		appDir := applicationDirectory(fs, c.Application)
-
-		team, err := util.ReadFile(fs, fs.Join(appDir, "team"))
-
-		if errors.Is(err, os.ErrNotExist) {
-			teamLocks = map[string]Lock{} //If we do not find the team file, there is no team for application, meaning there can't be any team locks
-		} else {
-			teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, string(team))
-			if err != nil {
-				return "", err
-			}
+		team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+		if err != nil {
+			return "", fmt.Errorf("could not determine team for deployment: %w", err)
+		}
+		teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, string(team))
+		if err != nil {
+			return "", err
 		}
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			if c.WriteCommitData {
@@ -3401,6 +3464,10 @@ func (c *ReleaseTrain) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *ReleaseTrain) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 type Overview struct {
 	App     string
 	Version uint64
@@ -3660,9 +3727,11 @@ func (c *ReleaseTrain) Transform(
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
 	}
 
-	if state.DBHandler.ShouldUseOtherTables() && isEnvGroup {
+	if state.DBHandler.ShouldUseOtherTables() && isEnvGroup && state.DBHandler.AllowParallelTransactions() {
 		releaseTrainErrGroup, _ := errgroup.WithContext(ctx)
-		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
+		if state.MaxNumThreads > 0 {
+			releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
+		}
 		for _, envName := range envNames {
 			trainGroup := conversion.FromString(targetGroupName)
 			envNameLocal := envName
@@ -3704,21 +3773,14 @@ func (c *ReleaseTrain) Transform(
 
 func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName string, trainGroup *string, envGroupConfigs map[string]config.EnvironmentConfig, configs map[string]config.EnvironmentConfig, releases map[string][]int64) error {
 	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
-		internal, err := state.DBHandler.DBReadEslEventInternal(ctx, transaction2, false)
-		if err != nil {
-			return err
-		}
-		if internal == nil {
-			return fmt.Errorf("could not find esl event that was just inserted")
-		}
-		err = t.Execute(ctx, &envReleaseTrain{
+		err := t.Execute(ctx, &envReleaseTrain{
 			Parent:                 c,
 			Env:                    envName,
 			EnvConfigs:             configs,
 			EnvGroupConfigs:        envGroupConfigs,
 			WriteCommitData:        c.WriteCommitData,
 			TrainGroup:             trainGroup,
-			TransformerEslVersion:  db.TransformerID(internal.EslVersion),
+			TransformerEslVersion:  c.TransformerEslVersion,
 			CiLink:                 c.CiLink,
 			AllLatestReleasesCache: releases,
 		}, transaction2)
@@ -3747,6 +3809,10 @@ func (c *envReleaseTrain) GetDBEventType() db.EventType {
 
 func (c *envReleaseTrain) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *envReleaseTrain) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) ReleaseTrainEnvironmentPrognosis {
@@ -4263,6 +4329,10 @@ func (c *skippedServices) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *skippedServices) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *skippedServices) Transform(
 	ctx context.Context,
 	_ *State,
@@ -4292,6 +4362,10 @@ func (c *skippedService) GetDBEventType() db.EventType {
 
 func (c *skippedService) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *skippedService) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *skippedService) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (string, error) {
