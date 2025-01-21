@@ -171,6 +171,32 @@ spec:
           value: "2h"
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.rollout.grpcMaxRecvMsgSize }}"
+        - name: KUBERPULT_DB_OPTION
+          value: {{ .Values.db.dbOption }} # { postgreSQL}
+        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
+          value: "false"
+{{- if (eq .Values.db.dbOption "postgreSQL") }}
+        - name: KUBERPULT_DB_LOCATION
+          value: {{ .Values.db.location }}
+        - name: KUBERPULT_DB_NAME
+          value: "{{ .Values.db.dbName }}"
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "{{ .Values.db.sslMode }}"
+        - name: KUBERPULT_DB_USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: username
+        - name: KUBERPULT_DB_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: password
+        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
+          value: "{{ .Values.db.connections.cd.maxOpen }}"
+        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
+          value: "{{ .Values.db.connections.cd.maxIdle }}"
+{{- end }}
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp

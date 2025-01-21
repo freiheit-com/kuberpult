@@ -28,6 +28,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
@@ -63,6 +64,21 @@ type Config struct {
 	DogstatsdAddr  string `default:"127.0.0.1:8125" split_words:"true"`
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
+
+	EnableSqlite bool `default:"true" split_words:"true"`
+
+	DbOption              string `default:"NO_DB" split_words:"true"`
+	DbLocation            string `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance    string `default:"" split_words:"true"`
+	DbName                string `default:"" split_words:"true"`
+	DbUserName            string `default:"" split_words:"true"`
+	DbUserPassword        string `default:"" split_words:"true"`
+	DbAuthProxyPort       string `default:"5432" split_words:"true"`
+	DbMigrationsLocation  string `default:"" split_words:"true"`
+	DexDefaultRoleEnabled bool   `default:"false" split_words:"true"`
+	DbWriteEslTableOnly   bool   `default:"false" split_words:"true"`
+	DbMaxIdleConnections  uint   `required:"true" split_words:"true"`
+	DbMaxOpenConnections  uint   `required:"true" split_words:"true"`
 
 	ArgocdServer                      string `split_words:"true"`
 	ArgocdInsecure                    bool   `default:"false" split_words:"true"`
@@ -207,6 +223,50 @@ func runServer(ctx context.Context, config Config) error {
 		return err
 	}
 
+	var dbHandler *db.DBHandler = nil
+	if config.DbOption != "NO_DB" {
+		var dbCfg db.DBConfig
+		if config.DbOption == "postgreSQL" {
+			dbCfg = db.DBConfig{
+				DbHost:         config.DbLocation,
+				DbPort:         config.DbAuthProxyPort,
+				DriverName:     "postgres",
+				DbName:         config.DbName,
+				DbPassword:     config.DbUserPassword,
+				DbUser:         config.DbUserName,
+				MigrationsPath: config.DbMigrationsLocation,
+				WriteEslOnly:   config.DbWriteEslTableOnly,
+				SSLMode:        "verify-full",
+
+				MaxIdleConnections: config.DbMaxIdleConnections,
+				MaxOpenConnections: config.DbMaxOpenConnections,
+			}
+		} else if config.DbOption == "sqlite" {
+			dbCfg = db.DBConfig{
+				DbHost:         config.DbLocation,
+				DbPort:         config.DbAuthProxyPort,
+				DriverName:     "sqlite3",
+				DbName:         config.DbName,
+				DbPassword:     config.DbUserPassword,
+				DbUser:         config.DbUserName,
+				MigrationsPath: config.DbMigrationsLocation,
+				WriteEslOnly:   config.DbWriteEslTableOnly,
+				SSLMode:        "verify-full",
+
+				MaxIdleConnections: config.DbMaxIdleConnections,
+				MaxOpenConnections: config.DbMaxOpenConnections,
+			}
+		}
+		dbHandler, err = db.Connect(ctx, dbCfg)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+		}
+		pErr := dbHandler.DB.Ping()
+		if pErr != nil {
+			logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
+		}
+	}
+
 	logger.FromContext(ctx).Info("argocd.connecting", zap.String("argocd.addr", opts.ServerAddr))
 	client, err := apiclient.NewClient(&opts)
 	if err != nil {
@@ -234,7 +294,7 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter)
+	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter, *dbHandler)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{
@@ -257,11 +317,6 @@ func runServer(ctx context.Context, config Config) error {
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return versionC.GetArgoProcessor().Consume(ctx, health)
 			},
-		},
-		{
-			Shutdown: nil,
-			Name:     "dispatch argocd events",
-			Run:      dispatcher.Work,
 		},
 	}
 
