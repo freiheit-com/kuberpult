@@ -29,10 +29,11 @@ export type ExpandButtonProps = {
     onClickLock: () => void;
     defaultButtonLabel: string;
     disabled: boolean;
+    releaseDifference: number;
 };
 
 export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
-    const { onClickSubmit, onClickLock } = props;
+    const { onClickSubmit, onClickLock, releaseDifference } = props;
 
     const [expanded, setExpanded] = useState(false);
 
@@ -91,7 +92,13 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                                 onClick={onClickSubmitAlternative}
                                 className={'button-popup-deploy env-card-deploy-btn mdc-button--unelevated'}
                                 key={'button-second-key'}
-                                label={'Deploy only'}
+                                label={
+                                    releaseDifference < 0
+                                        ? 'Update only'
+                                        : releaseDifference === 0
+                                          ? 'Deploy only'
+                                          : 'Rollback only'
+                                }
                                 icon={undefined}
                                 highlightEffect={true}
                                 disabled={props.disabled}

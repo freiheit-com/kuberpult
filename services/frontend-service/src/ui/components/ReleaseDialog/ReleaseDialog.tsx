@@ -309,7 +309,14 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             <ExpandButton
                                 onClickSubmit={deployAndLockClick}
                                 onClickLock={createAppLock}
-                                defaultButtonLabel={'Deploy & Lock'}
+                                defaultButtonLabel={
+                                    releaseDifference < 0
+                                        ? 'Update & Lock'
+                                        : releaseDifference === 0
+                                          ? 'Deploy & Lock'
+                                          : 'Rollback & Lock'
+                                }
+                                releaseDifference={releaseDifference}
                                 disabled={!allowDeployment}
                             />
                         </div>
@@ -548,6 +555,7 @@ export const EnvironmentGroupLane: React.FC<{
                             onClickLock={createEnvGroupLock}
                             defaultButtonLabel={'Deploy & Lock'}
                             disabled={!allowGroupDeployment}
+                            releaseDifference={0}
                         />
                     </div>
                 </div>
