@@ -297,7 +297,7 @@ func TestRevolution(t *testing.T) {
 				if s.ExpectedRequest != nil {
 					select {
 					case <-time.After(5 * time.Second):
-						t.Fatalf("expexted request in step %d, but didn't receive any", i)
+						t.Fatalf("expected request in step %d, but didn't receive any", i)
 					case req := <-reqCh:
 						d := cmp.Diff(req, s.ExpectedRequest)
 						if d != "" {

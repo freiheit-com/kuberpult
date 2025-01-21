@@ -117,25 +117,56 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 				continue
 			}
 			l.Info("registering event app: " + ev.Key.Application + ", environment: " + ev.Key.Environment)
-			if shouldNotify(s.state[ev.Key], ev) {
+			if shouldNotify(ctx, s.state[ev.Key], ev) {
 				s.group.Go(s.notify(ctx, ev))
 			}
 			s.state[ev.Key] = ev
 		}
 	}
 }
+func shouldNotifyValidate(l *zap.Logger, e *service.BroadcastEvent) bool {
+	versionIsNil := e.ArgocdVersion == nil
+	isProductionIsNil := e.IsProduction == nil
+	commitIdIsNil := e.ArgocdVersion == nil || e.ArgocdVersion.SourceCommitId == ""
+	if versionIsNil || isProductionIsNil || commitIdIsNil {
+		nilValues := []string{}
+		if versionIsNil {
+			nilValues = append(nilValues, "version")
+		}
+		if isProductionIsNil {
+			nilValues = append(nilValues, "isProduction")
+		}
+		if commitIdIsNil {
+			nilValues = append(nilValues, "commitId")
+		}
+		l.Info("Skipped notify as event has the following values nil: %s", zap.Strings("nil values", nilValues))
+		return false
+	}
+	return true
+}
 
-func shouldNotify(old *service.BroadcastEvent, nu *service.BroadcastEvent) bool {
+func shouldNotify(ctx context.Context, old *service.BroadcastEvent, nu *service.BroadcastEvent) bool {
+	l := logger.FromContext(ctx).With(zap.String("revolution", "processing"))
 	// check for fields that must be present to generate the request
-	if nu.ArgocdVersion == nil || nu.IsProduction == nil || nu.ArgocdVersion.SourceCommitId == "" {
+	if !shouldNotifyValidate(l, nu) {
 		return false
 	}
 	if old == nil || old.ArgocdVersion == nil || old.IsProduction == nil {
 		return true
 	}
-	if old.ArgocdVersion.SourceCommitId != nu.ArgocdVersion.SourceCommitId || old.ArgocdVersion.DeployedAt != nu.ArgocdVersion.DeployedAt {
+	sameCommitId := old.ArgocdVersion.SourceCommitId != nu.ArgocdVersion.SourceCommitId
+	sameDeployAt := old.ArgocdVersion.DeployedAt != nu.ArgocdVersion.DeployedAt
+	if sameCommitId && sameDeployAt {
 		return true
 	}
+	mismatchingValues := []string{}
+	if !sameCommitId {
+		mismatchingValues = append(mismatchingValues, "CommitId")
+	}
+	if !sameDeployAt {
+		mismatchingValues = append(mismatchingValues, "DeployAt")
+	}
+	l.Info("Skipped notify due to old vs. new mismatch: %v", zap.Strings("mismatches", mismatchingValues))
 	return false
 }
 
