@@ -26,6 +26,7 @@ import {
     UpdateAction,
     updateActions,
     UpdateAllApplicationLocks,
+    updateAllEnvLocks,
     updateAppDetails,
     UpdateOverview,
     UpdateRolloutStatus,
@@ -41,6 +42,7 @@ import {
     BatchAction,
     Environment,
     EnvironmentGroup,
+    GetAllEnvTeamLocksResponse,
     GetOverviewResponse,
     LockBehavior,
     OverviewApplication,
@@ -61,12 +63,17 @@ describe('Test useLocksSimilarTo', () => {
         inputAction: BatchAction; // the action we are rendering currently in the sidebar
         expectedLocks: AllLocks;
         OverviewApps: OverviewApplication[];
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         AppLocks: { [key: string]: AllAppLocks };
     };
 
     const testdata: TestDataStore[] = [
         {
             name: 'empty data',
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -87,6 +94,14 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'one env lock: should not find another lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -105,10 +120,6 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -124,6 +135,17 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'two env locks with same ID on different envs: should find the other lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                    staging: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -142,19 +164,11 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                         {
                             name: 'staging',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -175,6 +189,14 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'env lock and app lock with same ID: deleting the env lock should find the other lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -201,10 +223,6 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -227,6 +245,25 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'bug: delete-all button must appear for each entry. 2 Env Locks, 1 App lock exist. 1 Env lock, 1 app lock in cart',
+            allEnvLocks: {
+                allTeamLocks: {
+                    dev: {
+                        teamLocks: {
+                            'test-team': {
+                                locks: [makeLock({ lockId: 'l1' })],
+                            },
+                        },
+                    },
+                },
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                    dev2: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentApplicationLock',
@@ -259,23 +296,11 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {
-                                'test-team': {
-                                    locks: [makeLock({ lockId: 'l1' })],
-                                },
-                            },
                         },
                         {
                             name: 'dev2',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -325,6 +350,7 @@ describe('Test useLocksSimilarTo', () => {
                 environmentGroups: testcase.inputEnvGroups,
             });
             UpdateAllApplicationLocks.set(testcase.AppLocks);
+            updateAllEnvLocks.set(testcase.allEnvLocks);
             // when
             const actions = renderHook(() => useLocksSimilarTo(testcase.inputAction)).result.current;
             // then
@@ -810,6 +836,7 @@ describe('Test useLocksConflictingWithActions', () => {
     type TestDataStore = {
         name: string;
         actions: BatchAction[];
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         expectedAppLocks: DisplayLock[];
         expectedEnvLocks: DisplayLock[];
         environments: Environment[];
@@ -822,6 +849,10 @@ describe('Test useLocksConflictingWithActions', () => {
     const testdata: TestDataStore[] = [
         {
             name: 'empty actions empty locks',
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             actions: [],
             expectedAppLocks: [],
             expectedEnvLocks: [],
@@ -831,6 +862,19 @@ describe('Test useLocksConflictingWithActions', () => {
         },
         {
             name: 'deploy action and related app lock and env lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [
+                            makeLock({
+                                message: 'locked because christmas',
+                                lockId: 'my-env-lock1',
+                            }),
+                        ],
+                    },
+                },
+            },
             actions: [
                 {
                     action: {
@@ -854,13 +898,6 @@ describe('Test useLocksConflictingWithActions', () => {
             environments: [
                 {
                     name: 'dev',
-                    locks: {
-                        'lock-env-dev': makeLock({
-                            message: 'locked because christmas',
-                            lockId: 'my-env-lock1',
-                        }),
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -897,6 +934,19 @@ describe('Test useLocksConflictingWithActions', () => {
         },
         {
             name: 'deploy action and unrelated locks',
+            allEnvLocks: {
+                allEnvLocks: {
+                    staging: {
+                        locks: [
+                            makeLock({
+                                message: 'locked because christmas',
+                                lockId: 'my-env-lock1',
+                            }),
+                        ],
+                    },
+                },
+                allTeamLocks: {},
+            },
             OverviewApps: [
                 {
                     name: 'anotherapp',
@@ -920,13 +970,6 @@ describe('Test useLocksConflictingWithActions', () => {
             environments: [
                 {
                     name: 'staging', // this lock differs by stage
-                    locks: {
-                        'lock-env-dev': makeLock({
-                            message: 'locked because christmas',
-                            lockId: 'my-env-lock1',
-                        }),
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -965,6 +1008,7 @@ describe('Test useLocksConflictingWithActions', () => {
                     },
                 ],
             });
+            updateAllEnvLocks.set(testcase.allEnvLocks);
             UpdateAllApplicationLocks.set(testcase.AppLocks);
             // when
             const actualLocks = renderHook(() => useLocksConflictingWithActions()).result.current;
@@ -1139,8 +1183,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1227,8 +1269,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: 'exampleEnv',
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1322,8 +1362,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1407,8 +1445,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1490,8 +1526,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },

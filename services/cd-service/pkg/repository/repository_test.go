@@ -2199,7 +2199,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 							{
 								Name:               "dev",
 								Config:             nil,
-								Locks:              nil,
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},
@@ -2224,25 +2223,8 @@ func TestUpdateOverviewCache(t *testing.T) {
 						EnvironmentGroupName: "dev",
 						Environments: []*api.Environment{
 							{
-								Name:   "dev",
-								Config: nil,
-								Locks:  nil,
-								//Applications: map[string]*api.Environment_Application{
-								//	"app1": {
-								//		Name:            "app1",
-								//		Version:         0,
-								//		Locks:           nil,
-								//		QueuedVersion:   0,
-								//		UndeployVersion: false,
-								//		ArgoCd:          nil,
-								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-								//			DeployAuthor: "",
-								//			DeployTime:   "",
-								//		},
-								//		TeamLocks: nil,
-								//		Team:      "",
-								//	},
-								//},
+								Name:               "dev",
+								Config:             nil,
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},
@@ -2265,25 +2247,8 @@ func TestUpdateOverviewCache(t *testing.T) {
 						EnvironmentGroupName: "dev",
 						Environments: []*api.Environment{
 							{
-								Name:   "dev",
-								Config: nil,
-								Locks:  nil,
-								//Applications: map[string]*api.Environment_Application{
-								//	"app1": {
-								//		Name:            "app1",
-								//		Version:         0,
-								//		Locks:           nil,
-								//		QueuedVersion:   0,
-								//		UndeployVersion: false,
-								//		ArgoCd:          nil,
-								//		DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-								//			DeployAuthor: "",
-								//			DeployTime:   "",
-								//		},
-								//		TeamLocks: nil,
-								//		Team:      "",
-								//	},
-								//},
+								Name:               "dev",
+								Config:             nil,
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},
@@ -2310,7 +2275,6 @@ func TestUpdateOverviewCache(t *testing.T) {
 							{
 								Name:               "dev",
 								Config:             nil,
-								Locks:              nil,
 								DistanceToUpstream: 0,
 								Priority:           0,
 							},

@@ -357,6 +357,67 @@ func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 	})
 }
 
+func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
+	in *api.GetAllEnvTeamLocksRequest) (*api.GetAllEnvTeamLocksResponse, error) {
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllEnvTeamLocks")
+	defer span.Finish()
+
+	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllEnvTeamLocksResponse, error) {
+		response := api.GetAllEnvTeamLocksResponse{
+			AllEnvLocks:  make(map[string]*api.Locks),
+			AllTeamLocks: make(map[string]*api.AllTeamLocks),
+		}
+		allEnvLocks, err := o.DBHandler.DBSelectAllEnvLocksOfAllEnvs(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		for envName, envLocks := range allEnvLocks {
+			for _, currentLock := range envLocks {
+				if _, ok := response.AllEnvLocks[envName]; !ok {
+					response.AllEnvLocks[envName] = &api.Locks{Locks: make([]*api.Lock, 0)}
+
+				}
+				response.AllEnvLocks[envName].Locks = append(response.AllEnvLocks[envName].Locks, &api.Lock{
+					LockId:    currentLock.LockID,
+					Message:   currentLock.Metadata.Message,
+					CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
+					CreatedBy: &api.Actor{
+						Name:  currentLock.Metadata.CreatedByName,
+						Email: currentLock.Metadata.CreatedByEmail,
+					},
+				})
+			}
+		}
+		allTeamLocks, err := o.DBHandler.DBSelectAllTeamLocksOfAllEnvs(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		for envName, teams := range allTeamLocks {
+			for team, locks := range teams {
+				for _, currentLock := range locks {
+					if _, ok := response.AllTeamLocks[envName]; !ok {
+						response.AllTeamLocks[envName] = &api.AllTeamLocks{TeamLocks: map[string]*api.Locks{}}
+					}
+					if _, ok := response.AllTeamLocks[envName].TeamLocks[team]; !ok {
+						response.AllTeamLocks[envName].TeamLocks[team] = &api.Locks{Locks: make([]*api.Lock, 0)}
+					}
+					response.AllTeamLocks[envName].TeamLocks[team].Locks = append(response.AllTeamLocks[envName].TeamLocks[team].Locks, &api.Lock{
+						LockId:    currentLock.LockID,
+						Message:   currentLock.Metadata.Message,
+						CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  currentLock.Metadata.CreatedByName,
+							Email: currentLock.Metadata.CreatedByEmail,
+						},
+					})
+				}
+			}
+		}
+		return &response, nil
+	})
+}
+
 func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {

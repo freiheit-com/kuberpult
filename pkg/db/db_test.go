@@ -4527,6 +4527,460 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 	}
 }
 
+func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
+
+	tcs := []struct {
+		Name             string
+		EnvironmentLocks []EnvironmentLock
+		Expected         map[string][]EnvironmentLock
+	}{
+		{
+			Name: "Retrieve All Environment locks",
+			EnvironmentLocks: []EnvironmentLock{
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId2",
+					Env:        "staging",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author2",
+						CreatedByEmail: "email2",
+						Message:        "message2",
+						CiLink:         "cilink2",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
+			Expected: map[string][]EnvironmentLock{
+				"development": {
+					{
+						EslVersion: 1,
+						Created:    time.Now(),
+						LockID:     "lockId1",
+						Env:        "development",
+						Deleted:    false,
+						Metadata: LockMetadata{
+							CreatedByName:  "author1",
+							CreatedByEmail: "email1",
+							Message:        "message1",
+							CiLink:         "cilink1",
+							CreatedAt:      time.Now(),
+						},
+					},
+				},
+				"staging": {
+					{
+						EslVersion: 1,
+						Created:    time.Now(),
+						LockID:     "lockId2",
+						Env:        "staging",
+						Deleted:    false,
+						Metadata: LockMetadata{
+							CreatedByName:  "author2",
+							CreatedByEmail: "email2",
+							Message:        "message2",
+							CiLink:         "cilink2",
+							CreatedAt:      time.Now(),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Different esl versions and deleted",
+			EnvironmentLocks: []EnvironmentLock{
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId2",
+					Env:        "staging",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author2",
+						CreatedByEmail: "email2",
+						Message:        "message2",
+						CiLink:         "cilink2",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 2,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author3",
+						CreatedByEmail: "email3",
+						Message:        "message3",
+						CiLink:         "cilink3",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId4",
+					Env:        "development",
+					Deleted:    true,
+					Metadata: LockMetadata{
+						CreatedByName:  "author4",
+						CreatedByEmail: "email4",
+						Message:        "message4",
+						CiLink:         "cilink4",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
+			Expected: map[string][]EnvironmentLock{
+				"development": {
+					{
+						EslVersion: 2,
+						Created:    time.Now(),
+						LockID:     "lockId1",
+						Env:        "development",
+						Deleted:    false,
+						Metadata: LockMetadata{
+							CreatedByName:  "author3",
+							CreatedByEmail: "email3",
+							Message:        "message3",
+							CiLink:         "cilink3",
+							CreatedAt:      time.Now(),
+						},
+					},
+				},
+				"staging": {
+					{
+						EslVersion: 1,
+						Created:    time.Now(),
+						LockID:     "lockId2",
+						Env:        "staging",
+						Deleted:    false,
+						Metadata: LockMetadata{
+							CreatedByName:  "author2",
+							CreatedByEmail: "email2",
+							Message:        "message2",
+							CiLink:         "cilink2",
+							CreatedAt:      time.Now(),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, envLock := range tc.EnvironmentLocks {
+					err := dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, envLock, envLock.EslVersion-1)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				envLocks, err := dbHandler.DBSelectAllEnvLocksOfAllEnvs(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+				if diff := cmp.Diff(tc.Expected, envLocks, cmpopts.IgnoreFields(EnvironmentLock{}, "Created"), cmpopts.IgnoreFields(LockMetadata{}, "CreatedAt")); diff != "" {
+					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
+func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
+
+	tcs := []struct {
+		Name      string
+		TeamLocks []TeamLock
+		Expected  map[string]map[string][]TeamLock
+	}{
+		{
+			Name: "Retrieve All Environment locks",
+			TeamLocks: []TeamLock{
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Team:       "team1",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId3",
+					Env:        "development",
+					Team:       "team2",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author3",
+						CreatedByEmail: "email3",
+						Message:        "message3",
+						CiLink:         "cilink3",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId2",
+					Env:        "staging",
+					Team:       "team2",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author2",
+						CreatedByEmail: "email2",
+						Message:        "message2",
+						CiLink:         "cilink2",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
+			Expected: map[string]map[string][]TeamLock{
+				"development": {
+					"team1": {
+						{
+							EslVersion: 1,
+							Created:    time.Now(),
+							LockID:     "lockId1",
+							Env:        "development",
+							Team:       "team1",
+							Deleted:    false,
+							Metadata: LockMetadata{
+								CreatedByName:  "author1",
+								CreatedByEmail: "email1",
+								Message:        "message1",
+								CiLink:         "cilink1",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+					"team2": {
+						{
+							EslVersion: 1,
+							Created:    time.Now(),
+							LockID:     "lockId3",
+							Env:        "development",
+							Team:       "team2",
+							Deleted:    false,
+							Metadata: LockMetadata{
+								CreatedByName:  "author3",
+								CreatedByEmail: "email3",
+								Message:        "message3",
+								CiLink:         "cilink3",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+				},
+				"staging": {
+					"team2": {
+						{
+							EslVersion: 1,
+							Created:    time.Now(),
+							LockID:     "lockId2",
+							Env:        "staging",
+							Team:       "team2",
+							Deleted:    false,
+							Metadata: LockMetadata{
+								CreatedByName:  "author2",
+								CreatedByEmail: "email2",
+								Message:        "message2",
+								CiLink:         "cilink2",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Different esl versions and deleted",
+			TeamLocks: []TeamLock{
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Team:       "team1",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId2",
+					Env:        "staging",
+					Team:       "team2",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author2",
+						CreatedByEmail: "email2",
+						Message:        "message2",
+						CiLink:         "cilink2",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 2,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Team:       "team1",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author3",
+						CreatedByEmail: "email3",
+						Message:        "message3",
+						CiLink:         "cilink3",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId4",
+					Env:        "development",
+					Team:       "team4",
+					Deleted:    true,
+					Metadata: LockMetadata{
+						CreatedByName:  "author4",
+						CreatedByEmail: "email4",
+						Message:        "message4",
+						CiLink:         "cilink4",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
+			Expected: map[string]map[string][]TeamLock{
+				"development": {
+					"team1": {
+						{
+							EslVersion: 2,
+							Created:    time.Now(),
+							LockID:     "lockId1",
+							Env:        "development",
+							Team:       "team1",
+							Deleted:    false,
+							Metadata: LockMetadata{
+								CreatedByName:  "author3",
+								CreatedByEmail: "email3",
+								Message:        "message3",
+								CiLink:         "cilink3",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+				},
+				"staging": {
+					"team2": {
+						{
+							EslVersion: 1,
+							Created:    time.Now(),
+							LockID:     "lockId2",
+							Env:        "staging",
+							Team:       "team2",
+							Deleted:    false,
+							Metadata: LockMetadata{
+								CreatedByName:  "author2",
+								CreatedByEmail: "email2",
+								Message:        "message2",
+								CiLink:         "cilink2",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, teamLock := range tc.TeamLocks {
+					err := dbHandler.DBWriteTeamLockInternal(ctx, transaction, teamLock, teamLock.EslVersion-1)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				teamLocks, err := dbHandler.DBSelectAllTeamLocksOfAllEnvs(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+				if diff := cmp.Diff(tc.Expected, teamLocks, cmpopts.IgnoreFields(TeamLock{}, "Created"), cmpopts.IgnoreFields(LockMetadata{}, "CreatedAt")); diff != "" {
+					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
 // DBInsertReleaseWithoutEnvironment inserts a release with mismatching manifest and environments into the database.
 // This behaviour is intended to test the `DBSelectReleasesWithoutEnvironments` method which exists only for migration purposes.
 func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {

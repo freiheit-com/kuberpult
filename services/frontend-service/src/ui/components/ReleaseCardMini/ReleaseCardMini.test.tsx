@@ -74,8 +74,6 @@ describe('Release Card Mini', () => {
             environments: [
                 {
                     name: 'other',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -90,8 +88,6 @@ describe('Release Card Mini', () => {
             environments: [
                 {
                     name: 'other',
-                    locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },

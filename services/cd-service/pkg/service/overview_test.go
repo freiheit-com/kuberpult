@@ -330,30 +330,6 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						Environments: []*api.Environment{
 							{
 								Name: development,
-								Locks: map[string]*api.Lock{
-									"manual": {
-										Message: "please",
-										LockId:  "manual",
-										CreatedBy: &api.Actor{
-											Name:  "test tester",
-											Email: "testmail@example.com",
-										},
-									},
-								},
-								TeamLocks: map[string]*api.Locks{
-									"test-team": {
-										Locks: []*api.Lock{
-											{
-												Message: "team lock message",
-												LockId:  "manual-team-lock",
-												CreatedBy: &api.Actor{
-													Name:  "test tester",
-													Email: "testmail@example.com",
-												},
-											},
-										},
-									},
-								},
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
@@ -539,7 +515,6 @@ func TestOverviewService(t *testing.T) {
 				if overview1 == nil {
 					t.Fatal("overview is nil")
 				}
-				v1 := overview1.GetEnvironmentGroups()[0].GetEnvironments()[0].GetLocks()
 
 				// Update a version and see that the version changed
 				err := svc.Repository.Apply(ctx, &repository.CreateEnvironmentLock{
@@ -559,10 +534,6 @@ func TestOverviewService(t *testing.T) {
 				overview2 := <-ch
 				if overview2 == nil {
 					t.Fatal("overview is nil")
-				}
-				v2 := overview2.GetEnvironmentGroups()[0].GetEnvironments()[0].GetLocks()
-				if diff := cmp.Diff(v1, v2); diff == "" {
-					t.Fatalf("Versions are not different: %q vs %q", v1, v2)
 				}
 
 				cancel()
@@ -1486,6 +1457,158 @@ func TestGetAllAppLocks(t *testing.T) {
 
 			//Locks
 			if diff := cmp.Diff(tc.ExpectedResponse, resp, cmpopts.IgnoreUnexported(api.GetAllAppLocksResponse{}), cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{}), cmpopts.IgnoreUnexported(api.AllAppLocks{})); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+			close(shutdown)
+		})
+	}
+}
+func TestGetAllEnvTeamLocks(t *testing.T) {
+	var dev = "dev"
+	var env = "development"
+	var secondEnv = "development2"
+	var team = "team"
+	tcs := []struct {
+		Name             string
+		Setup            []repository.Transformer
+		ExpectedResponse *api.GetAllEnvTeamLocksResponse
+	}{
+		{
+			Name: "Get All Locks",
+			ExpectedResponse: &api.GetAllEnvTeamLocksResponse{
+				AllEnvLocks: map[string]*api.Locks{
+					env: &api.Locks{
+						Locks: []*api.Lock{
+							{
+								Message:   "message1",
+								LockId:    "lockId1",
+								CreatedAt: &timestamppb.Timestamp{},
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+					secondEnv: &api.Locks{
+						Locks: []*api.Lock{
+							{
+								Message:   "message2",
+								LockId:    "lockId2",
+								CreatedAt: &timestamppb.Timestamp{},
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+				},
+				AllTeamLocks: map[string]*api.AllTeamLocks{
+					env: &api.AllTeamLocks{
+						TeamLocks: map[string]*api.Locks{
+							team: &api.Locks{
+								Locks: []*api.Lock{
+									{
+										Message:   "message3",
+										LockId:    "lockId3",
+										CreatedAt: &timestamppb.Timestamp{},
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironmentLock{
+					Environment: env,
+					LockId:      "lockId1",
+					Message:     "message1",
+				},
+				&repository.CreateEnvironmentLock{
+					Environment: secondEnv,
+					LockId:      "lockId2",
+					Message:     "message2",
+				},
+				&repository.CreateEnvironmentTeamLock{
+					Environment: env,
+					LockId:      "lockId3",
+					Message:     "message3",
+					Team:        team,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := repository.RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+			}
+			svc := &OverviewServiceServer{
+				Repository:       repo,
+				RepositoryConfig: config,
+				DBHandler:        repo.State().DBHandler,
+				Shutdown:         shutdown,
+			}
+
+			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+				t.Fatal(err)
+			}
+
+			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+				Email: "app-email@example.com",
+				Name:  "overview tester",
+			})
+
+			resp, err := svc.GetAllEnvTeamLocks(ctx, &api.GetAllEnvTeamLocksRequest{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			//Locks
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, cmpopts.IgnoreUnexported(api.GetAllEnvTeamLocksResponse{}), cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{}), cmpopts.IgnoreUnexported(api.AllTeamLocks{})); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			close(shutdown)

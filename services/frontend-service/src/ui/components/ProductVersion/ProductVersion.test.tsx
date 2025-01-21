@@ -61,8 +61,6 @@ jest.mock('../../utils/GrpcApi', () => ({
 const sampleEnvsA: Environment[] = [
     {
         name: 'tester',
-        locks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     },

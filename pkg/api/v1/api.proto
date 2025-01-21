@@ -400,6 +400,7 @@ service OverviewService {
   rpc StreamChangedApps (GetChangedAppsRequest) returns (stream GetChangedAppsResponse) {}
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
   rpc GetAllAppLocks (GetAllAppLocksRequest) returns (GetAllAppLocksResponse) {}
+  rpc GetAllEnvTeamLocks (GetAllEnvTeamLocksRequest) returns (GetAllEnvTeamLocksResponse) {}
 }
 
 service EnvironmentService {
@@ -431,6 +432,17 @@ message GetAppDetailsResponse {
   map<string, Deployment> deployments = 2; // Env -> Release
   map<string, Locks> app_locks = 3; //EnvName -> []AppLocks
   map<string, Locks> team_locks= 4; //EnvName -> []TeamLocks
+}
+
+message GetAllEnvTeamLocksRequest {}
+
+message GetAllEnvTeamLocksResponse {
+  map<string, Locks> all_env_locks = 1; //EnvName -> All env locks for that env
+  map<string, AllTeamLocks> all_team_locks = 2; //EnvName -> All team locks for that env
+}
+
+message AllTeamLocks {
+  map<string, Locks> team_locks = 1; //TeamName -> all locks for that team 
 }
 
 
@@ -603,10 +615,8 @@ message UpstreamNotDeployed {
 message Environment {
   string name = 1;
   EnvironmentConfig config = 2;
-  map<string, Lock> locks = 3; //Environment Locks. Lock ID -> Lock
   uint32 distance_to_upstream = 5;
   Priority priority = 6;
-  map<string, Locks> team_locks = 8; //Team Locks. TeamName -> []Locks
 }
 
 message Release {
