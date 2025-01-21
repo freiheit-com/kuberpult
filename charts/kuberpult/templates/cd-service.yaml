@@ -147,6 +147,8 @@ spec:
           value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
         - name: KUBERPULT_GIT_BRANCH
           value: {{ .Values.git.branch | quote }}
+        - name: KUBERPULT_VERSION
+          value: {{ $.Chart.AppVersion | quote}}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
@@ -280,6 +282,12 @@ spec:
         - name: KUBERPULT_MINOR_REGEXES
           value: {{ .Values.cd.minorRegexes | join "," | quote }}
 {{- end }}
+        - name: KUBERPULT_MIGRATION_SERVER
+          value: kuberpult-manifest-repo-export-service:8443
+        - name: KUBERPULT_MIGRATION_SERVER_SECURE
+          value: "false"
+        - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
+          value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
         volumeMounts:
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: migrations

@@ -229,7 +229,8 @@ func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, releaseVersion 
-		FROM releases;
+		FROM releases
+		ORDER BY releaseVersion;
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(

@@ -185,6 +185,8 @@ spec:
 {{- end }}
         - name: KUBERPULT_DB_LOCATION
           value: "{{ .Values.db.location }}"
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: {{ .Values.db.migrations }}
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
@@ -207,8 +209,6 @@ spec:
           value: "{{ .Values.db.connections.manifestRepoExport.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.manifestRepoExport.maxIdle }}"
-        - name: KUBERPULT_ARGO_CD_GENERATE_FILES
-          value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"
@@ -242,6 +242,9 @@ spec:
           # We mount the volume to the parent because kubernetes volumes belong to root.
           # This way the container can create /kp/repository itself without any permission issues.
           mountPath: /kp/
+        - name: migrations
+          mountPath: {{ .Values.db.migrations }}
+          readOnly: false
         - name: ssh
           mountPath: /etc/ssh
 {{- if .Values.datadogProfiling.enabled }}
@@ -273,6 +276,9 @@ spec:
         hostPath:
           path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
 {{- end }}
+      - name: migrations
+        configMap:
+          name: kuberpult-migrations-cloudsql
 ---
 apiVersion: v1
 kind: Service

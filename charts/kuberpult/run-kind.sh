@@ -186,14 +186,14 @@ docker pull "$REDIS_IMAGE_URI"
 print 'loading docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
-kind load docker-image "$cd_imagename"
-kind load docker-image "$manifest_repo_export_imagename"
-kind load docker-image "$frontend_imagename"
-kind load docker-image "$rollout_imagename"
-kind load docker-image "$ARGOCD_IMAGE_URI"
-kind load docker-image "$DEX_IMAGE_URI"
-kind load docker-image "$CLOUDSQL_PROXY_IMAGE_URI"
-kind load docker-image "$REDIS_IMAGE_URI"
+(
+  for image in "$cd_imagename" "$manifest_repo_export_imagename" "$frontend_imagename" "$ARGOCD_IMAGE_URI" "$DEX_IMAGE_URI" "$CLOUDSQL_PROXY_IMAGE_URI" "$REDIS_IMAGE_URI"
+  do
+    kind load docker-image "${image}" &
+  done
+  print "waiting to load all docker images..."
+  wait
+)
 
 ## argoCd
 
