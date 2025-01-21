@@ -42,7 +42,7 @@ import {
     BatchAction,
     Environment,
     EnvironmentGroup,
-    GetAllEnvLocksResponse,
+    GetAllEnvTeamLocksResponse,
     GetOverviewResponse,
     LockBehavior,
     OverviewApplication,
@@ -63,7 +63,7 @@ describe('Test useLocksSimilarTo', () => {
         inputAction: BatchAction; // the action we are rendering currently in the sidebar
         expectedLocks: AllLocks;
         OverviewApps: OverviewApplication[];
-        allEnvLocks: GetAllEnvLocksResponse;
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         AppLocks: { [key: string]: AllAppLocks };
     };
 
@@ -836,7 +836,7 @@ describe('Test useLocksConflictingWithActions', () => {
     type TestDataStore = {
         name: string;
         actions: BatchAction[];
-        allEnvLocks: GetAllEnvLocksResponse;
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         expectedAppLocks: DisplayLock[];
         expectedEnvLocks: DisplayLock[];
         environments: Environment[];

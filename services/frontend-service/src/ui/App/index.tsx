@@ -129,12 +129,12 @@ export const App: React.FC = () => {
                             });
                         // Get Env Locks
                         api.overviewService()
-                            .GetAllEnvLocks({}, authHeader)
+                            .GetAllEnvTeamLocks({}, authHeader)
                             .then((res) => {
                                 updateAllEnvLocks.set(res);
                             })
                             .catch((e) => {
-                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllEnvLocks', e }) });
+                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllEnvTeamLocks', e }) });
                             });
                     },
                     (error) => {

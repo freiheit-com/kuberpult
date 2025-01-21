@@ -27,7 +27,7 @@ import {
 import {
     Environment,
     EnvironmentGroup,
-    GetAllEnvLocksResponse,
+    GetAllEnvTeamLocksResponse,
     Priority,
     Release,
     RolloutStatus,
@@ -52,7 +52,7 @@ describe('Release Dialog', () => {
         appDetails: { [p: string]: AppDetailsResponse };
         rels: Release[];
         envs: Environment[];
-        allEnvLocks: GetAllEnvLocksResponse;
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         envGroups: EnvironmentGroup[];
         expect_message: boolean;
         expect_queues: number;
@@ -70,7 +70,7 @@ describe('Release Dialog', () => {
         props: ReleaseDialogProps;
         rels: Release[];
         envs: Environment[];
-        allEnvLocks: GetAllEnvLocksResponse;
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         appDetails: { [p: string]: AppDetailsResponse };
         envGroups: EnvironmentGroup[];
         expect_message: boolean;

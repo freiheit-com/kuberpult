@@ -66,15 +66,15 @@ type mockOverviewStreamMessage struct {
 
 type mockOverviewClient struct {
 	grpc.ClientStream
-	OverviewResponse       *api.GetOverviewResponse
-	GetAllAppLocksResponse *api.GetAllAppLocksResponse
-	GetAllEnvLocksResponse *api.GetAllEnvLocksResponse
-	AppDetailsResponses    map[string]*api.GetAppDetailsResponse
-	LastMetadata           metadata.MD
-	StartStep              chan struct{}
-	Steps                  chan step
-	savedStep              *step
-	current                int
+	OverviewResponse           *api.GetOverviewResponse
+	GetAllAppLocksResponse     *api.GetAllAppLocksResponse
+	GetAllEnvTeamLocksResponse *api.GetAllEnvTeamLocksResponse
+	AppDetailsResponses        map[string]*api.GetAppDetailsResponse
+	LastMetadata               metadata.MD
+	StartStep                  chan struct{}
+	Steps                      chan step
+	savedStep                  *step
+	current                    int
 }
 
 // GetOverview implements api.OverviewServiceClient
@@ -88,8 +88,8 @@ func (m *mockOverviewClient) GetAllAppLocks(ctx context.Context, in *api.GetAllA
 }
 
 // GetOverview implements api.GetAllEnvLocks
-func (m *mockOverviewClient) GetAllEnvLocks(ctx context.Context, in *api.GetAllEnvLocksRequest, opts ...grpc.CallOption) (*api.GetAllEnvLocksResponse, error) {
-	return m.GetAllEnvLocksResponse, nil
+func (m *mockOverviewClient) GetAllEnvTeamLocks(ctx context.Context, in *api.GetAllEnvTeamLocksRequest, opts ...grpc.CallOption) (*api.GetAllEnvTeamLocksResponse, error) {
+	return m.GetAllEnvTeamLocksResponse, nil
 }
 
 // GetOverview implements api.GetAppDetails

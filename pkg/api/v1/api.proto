@@ -400,7 +400,7 @@ service OverviewService {
   rpc StreamChangedApps (GetChangedAppsRequest) returns (stream GetChangedAppsResponse) {}
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
   rpc GetAllAppLocks (GetAllAppLocksRequest) returns (GetAllAppLocksResponse) {}
-  rpc GetAllEnvLocks (GetAllEnvLocksRequest) returns (GetAllEnvLocksResponse) {}
+  rpc GetAllEnvTeamLocks (GetAllEnvTeamLocksRequest) returns (GetAllEnvTeamLocksResponse) {}
 }
 
 service EnvironmentService {
@@ -434,9 +434,9 @@ message GetAppDetailsResponse {
   map<string, Locks> team_locks= 4; //EnvName -> []TeamLocks
 }
 
-message GetAllEnvLocksRequest {}
+message GetAllEnvTeamLocksRequest {}
 
-message GetAllEnvLocksResponse {
+message GetAllEnvTeamLocksResponse {
   map<string, Locks> all_env_locks = 1; //EnvName -> All env locks for that env
   map<string, AllTeamLocks> all_team_locks = 2; //EnvName -> All team locks for that env
 }

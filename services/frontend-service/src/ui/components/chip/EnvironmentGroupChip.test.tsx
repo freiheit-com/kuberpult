@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { EnvironmentChip, EnvironmentChipProps, EnvironmentGroupChip } from './EnvironmentGroupChip';
 import { fireEvent, render } from '@testing-library/react';
-import { Environment, EnvironmentGroup, Lock, Priority, GetAllEnvLocksResponse } from '../../../api/api';
+import { Environment, EnvironmentGroup, Lock, Priority, GetAllEnvTeamLocksResponse } from '../../../api/api';
 import { EnvironmentGroupExtended, UpdateOverview, updateAllEnvLocks } from '../../utils/store';
 import { Spy } from 'spy4js';
 
@@ -32,7 +32,7 @@ describe('EnvironmentChip', () => {
         distanceToUpstream: 0,
         priority: Priority.PROD,
     };
-    const allEnvLocks: GetAllEnvLocksResponse = {
+    const allEnvLocks: GetAllEnvTeamLocksResponse = {
         allEnvLocks: {},
         allTeamLocks: {},
     };
@@ -89,7 +89,7 @@ describe('EnvironmentChip', () => {
         `);
     });
     it('renders a short form tag chip', () => {
-        const allEnvLocks: GetAllEnvLocksResponse = {
+        const allEnvLocks: GetAllEnvTeamLocksResponse = {
             allTeamLocks: {},
             allEnvLocks: {
                 [env.name]: {
@@ -110,7 +110,7 @@ describe('EnvironmentChip', () => {
         expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(1);
     });
     it('renders env locks in big env chip', () => {
-        const allEnvLocks: GetAllEnvLocksResponse = {
+        const allEnvLocks: GetAllEnvTeamLocksResponse = {
             allTeamLocks: {},
             allEnvLocks: {
                 [env.name]: {

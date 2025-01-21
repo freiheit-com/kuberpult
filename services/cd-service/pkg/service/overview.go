@@ -357,14 +357,14 @@ func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 	})
 }
 
-func (o *OverviewServiceServer) GetAllEnvLocks(ctx context.Context,
-	in *api.GetAllEnvLocksRequest) (*api.GetAllEnvLocksResponse, error) {
+func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
+	in *api.GetAllEnvTeamLocksRequest) (*api.GetAllEnvTeamLocksResponse, error) {
 
-	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllEnvLocks")
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllEnvTeamLocks")
 	defer span.Finish()
 
-	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllEnvLocksResponse, error) {
-		response := api.GetAllEnvLocksResponse{
+	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllEnvTeamLocksResponse, error) {
+		response := api.GetAllEnvTeamLocksResponse{
 			AllEnvLocks:  make(map[string]*api.Locks),
 			AllTeamLocks: make(map[string]*api.AllTeamLocks),
 		}

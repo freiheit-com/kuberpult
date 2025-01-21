@@ -32,7 +32,7 @@ import {
     Priority,
     Locks,
     AllTeamLocks,
-    GetAllEnvLocksResponse,
+    GetAllEnvTeamLocksResponse,
 } from '../../../api/api';
 import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 
@@ -79,7 +79,7 @@ describe('Test env locks', () => {
     interface dataEnvT {
         name: string;
         envs: Environment[];
-        allEnvLocks: GetAllEnvLocksResponse;
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
@@ -194,7 +194,7 @@ describe('Test env locks', () => {
     interface dataEnvFilteredT {
         name: string;
         envs: Environment[];
-        allEnvLocks: GetAllEnvLocksResponse;
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         filter: string;
         expectedLockIDs: string[];
     }
@@ -317,7 +317,7 @@ describe('Test env locks', () => {
 
     interface dataTranslateEnvLockT {
         name: string;
-        allEnvLocks: GetAllEnvLocksResponse;
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         envs: [Environment];
         id: string;
         expectedLock: DisplayLock;

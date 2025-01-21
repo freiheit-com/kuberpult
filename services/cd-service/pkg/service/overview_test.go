@@ -1463,7 +1463,7 @@ func TestGetAllAppLocks(t *testing.T) {
 		})
 	}
 }
-func TestGetAllEnvLocks(t *testing.T) {
+func TestGetAllEnvTeamLocks(t *testing.T) {
 	var dev = "dev"
 	var env = "development"
 	var secondEnv = "development2"
@@ -1471,11 +1471,11 @@ func TestGetAllEnvLocks(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Setup            []repository.Transformer
-		ExpectedResponse *api.GetAllEnvLocksResponse
+		ExpectedResponse *api.GetAllEnvTeamLocksResponse
 	}{
 		{
 			Name: "Get All Locks",
-			ExpectedResponse: &api.GetAllEnvLocksResponse{
+			ExpectedResponse: &api.GetAllEnvTeamLocksResponse{
 				AllEnvLocks: map[string]*api.Locks{
 					env: &api.Locks{
 						Locks: []*api.Lock{
@@ -1602,13 +1602,13 @@ func TestGetAllEnvLocks(t *testing.T) {
 				Name:  "overview tester",
 			})
 
-			resp, err := svc.GetAllEnvLocks(ctx, &api.GetAllEnvLocksRequest{})
+			resp, err := svc.GetAllEnvTeamLocks(ctx, &api.GetAllEnvTeamLocksRequest{})
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			//Locks
-			if diff := cmp.Diff(tc.ExpectedResponse, resp, cmpopts.IgnoreUnexported(api.GetAllEnvLocksResponse{}), cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{}), cmpopts.IgnoreUnexported(api.AllTeamLocks{})); diff != "" {
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, cmpopts.IgnoreUnexported(api.GetAllEnvTeamLocksResponse{}), cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{}), cmpopts.IgnoreUnexported(api.AllTeamLocks{})); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			close(shutdown)
