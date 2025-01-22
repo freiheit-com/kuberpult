@@ -375,7 +375,7 @@ export const ReadyServiceLane: React.FC<{
                 showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in unknown state.');
                 break;
         }
-    }, [application.name, appDetails?.application?.undeploySummary]);
+    }, [application.name, appDetails?.application?.undeploySummary, allReleases.length]);
     let minorReleases = useMinorsForApp(application.name);
     if (!minorReleases) {
         minorReleases = [];
