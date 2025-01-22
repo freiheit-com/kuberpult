@@ -28,6 +28,17 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
+type AppStateChange string
+
+const (
+	InitialEslVersion EslVersion = 1
+
+	AppStateChangeMigrate AppStateChange = "AppStateChangeMigrate"
+	AppStateChangeCreate  AppStateChange = "AppStateChangeCreate"
+	AppStateChangeUpdate  AppStateChange = "AppStateChangeUpdate"
+	AppStateChangeDelete  AppStateChange = "AppStateChangeDelete"
+)
+
 type DBApp struct {
 	EslVersion EslVersion
 	App        string
@@ -70,6 +81,7 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) ([]
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, stateChange, metadata
 		FROM apps
+		WHERE stateChange <> 'AppStateChangeDelete'
 		ORDER BY appname;
 	`)
 	span.SetTag("query", selectQuery)
@@ -125,6 +137,7 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	query := h.AdaptQuery(`
 		SELECT appname
 		FROM apps
+		WHERE stateChange <> 'AppStateChangeDelete'
 		ORDER BY appname;
 	`)
 	span.SetTag("query", query)

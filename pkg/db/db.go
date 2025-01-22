@@ -76,16 +76,6 @@ type DBHandler struct {
 
 type EslVersion int64
 type TransformerID EslVersion
-type AppStateChange string
-
-const (
-	InitialEslVersion EslVersion = 1
-
-	AppStateChangeMigrate AppStateChange = "AppStateChangeMigrate"
-	AppStateChangeCreate  AppStateChange = "AppStateChangeCreate"
-	AppStateChangeUpdate  AppStateChange = "AppStateChangeUpdate"
-	AppStateChangeDelete  AppStateChange = "AppStateChangeDelete"
-)
 
 const (
 	MigrationCommitEventUUID = "00000000-0000-0000-0000-000000000000"
