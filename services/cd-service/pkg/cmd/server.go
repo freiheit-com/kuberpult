@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"database/sql"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"google.golang.org/grpc/credentials"
@@ -362,10 +361,6 @@ func RunServer() {
 			}
 
 		if dbHandler.ShouldUseOtherTables() {
-			// we overwrite InsertApp in order to also update the overview:
-			dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-				return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, stateChange, metaData)
-			}
 			//Check for migrations -> for pulling
 			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")
 
@@ -484,7 +479,6 @@ func RunServer() {
 					reposerver.Register(srv, repo, cfg)
 					if dbHandler != nil {
 						api.RegisterCommitDeploymentServiceServer(srv, &service.CommitDeploymentServer{DBHandler: dbHandler})
-						_, _ = overviewSrv.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: ""})
 					}
 				},
 			},
@@ -497,15 +491,6 @@ func RunServer() {
 						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository, even bool) {
 							repository.GetRepositoryStateAndUpdateMetrics(ctx, repository2, even)
 						})
-						return nil
-					},
-				},
-				{
-					Shutdown: nil,
-					Name:     "cache cleanup",
-					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
-						reporter.ReportReady("Cache cleanup started")
-						repository.RegularlyCleanupOverviewCache(ctx, repo, 3600, c.CacheTtlHours)
 						return nil
 					},
 				},

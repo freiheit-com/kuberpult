@@ -1728,19 +1728,19 @@ func (s *State) GetQueuedVersionFromManifest(environment string, application str
 	return s.readSymlink(environment, application, queueFileName)
 }
 
-func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string, skipOverview bool) error {
-	return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application, skipOverview)
+func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
+	return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application)
 }
 
-func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string, skipOverview bool) error {
+func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
 	if s.DBHandler.ShouldUseOtherTables() {
-		return s.DeleteQueuedVersionFromDB(ctx, transaction, environment, application, skipOverview)
+		return s.DeleteQueuedVersionFromDB(ctx, transaction, environment, application)
 	}
 	queuedVersion := s.Filesystem.Join("environments", environment, "applications", application, queueFileName)
 	return s.Filesystem.Remove(queuedVersion)
 }
 
-func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment string, application string, skipOverview bool) error {
+func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
 	queuedVersion, err := s.GetQueuedVersion(ctx, transaction, environment, application)
 	if err != nil {
 		return err
@@ -1748,7 +1748,7 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 	if queuedVersion == nil {
 		return nil // nothing to do
 	}
-	return s.DeleteQueuedVersion(ctx, transaction, environment, application, skipOverview)
+	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
 func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
@@ -2112,233 +2112,6 @@ func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]str
 	} else {
 		return s.GetApplicationsFromFile()
 	}
-}
-
-func (s *State) DBInsertApplicationWithOverview(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-	h := s.DBHandler
-	err := h.DBInsertOrUpdateApplication(ctx, transaction, appName, stateChange, metaData)
-	if err != nil {
-		return err
-	}
-
-	cache, err := h.ReadLatestOverviewCache(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	if cache == nil {
-		logger.FromContext(ctx).Sugar().Warnf("overview was nil, will skip update for app %s", appName)
-		return nil
-	}
-
-	shouldDelete := stateChange == db.AppStateChangeDelete
-	if shouldDelete {
-		lApps := make([]*api.OverviewApplication, 0)
-
-		for _, curr := range cache.LightweightApps {
-			if curr != nil && curr.Name != appName {
-				lApps = append(lApps, curr)
-			}
-		}
-		cache.LightweightApps = lApps
-	} else {
-		team, err := s.GetApplicationTeamOwner(ctx, transaction, appName)
-		if err != nil {
-			return fmt.Errorf("could not obtain application team owner to update top level app in overview: %w", err)
-		}
-		cache.LightweightApps = append(cache.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
-	}
-
-	err = h.WriteOverviewCache(ctx, transaction, cache)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *State) DBInsertEnvironmentWithOverview(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
-	h := s.DBHandler
-	err := h.DBWriteEnvironment(ctx, tx, environmentName, environmentConfig, applications)
-	if err != nil {
-		return err
-	}
-
-	cache, err := h.ReadLatestOverviewCache(ctx, tx)
-	if err != nil {
-		return err
-	}
-	if cache == nil {
-		logger.FromContext(ctx).Sugar().Warnf("overview was nil, will skip update for env %s", environmentName)
-		return nil
-	}
-
-	err = s.UpdateEnvironmentsInOverview(ctx, tx, cache)
-	if err != nil {
-		return err
-	}
-
-	err = h.WriteOverviewCache(ctx, tx, cache)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
-	for _, currentGroup := range groups {
-		if currentGroup.EnvironmentGroupName == groupNameToReturn {
-			for _, currentEnv := range currentGroup.Environments {
-				if currentEnv.Name == envNameToReturn {
-					return currentEnv
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func addNewEnvToOverview(result *api.GetOverviewResponse, newGroup *api.EnvironmentGroup, newEnv *api.Environment) {
-	envGroupFoundInOverview := false
-	for groupIndex, overviewEnvGroup := range result.EnvironmentGroups {
-		if overviewEnvGroup.EnvironmentGroupName == newGroup.EnvironmentGroupName {
-			envGroupFoundInOverview = true
-			envInOverviewFound := false
-			for envIndex, overviewEnv := range overviewEnvGroup.Environments {
-				if overviewEnv.Name == newEnv.Name {
-					envInOverviewFound = true
-					overviewEnvGroup.Environments[envIndex] = newEnv
-				}
-			}
-			if !envInOverviewFound {
-				overviewEnvGroup.Environments = append(overviewEnvGroup.Environments, newEnv)
-			}
-		} else {
-			// If the environment was in another group and now its added to a new group, we should remove it from its previous group
-			for envIndex, overviewEnv := range overviewEnvGroup.Environments {
-				if overviewEnv.Name == newEnv.Name {
-					overviewEnvGroup.Environments = append(overviewEnvGroup.Environments[:envIndex], overviewEnvGroup.Environments[envIndex+1:]...)
-				}
-			}
-			if len(overviewEnvGroup.Environments) == 0 {
-				result.EnvironmentGroups = append(result.EnvironmentGroups[:groupIndex], result.EnvironmentGroups[groupIndex+1:]...)
-			}
-		}
-	}
-	if !envGroupFoundInOverview && newGroup != nil {
-		result.EnvironmentGroups = append(result.EnvironmentGroups, newGroup)
-	}
-}
-
-func updateEnvGroupsPriorities(result *api.GetOverviewResponse, newEnvGroups []*api.EnvironmentGroup) {
-	for groupIndex, overviewEnvGroup := range result.EnvironmentGroups {
-		for _, newEnvGroup := range newEnvGroups {
-			if newEnvGroup.EnvironmentGroupName == overviewEnvGroup.EnvironmentGroupName {
-				result.EnvironmentGroups[groupIndex].Priority = newEnvGroup.Priority
-				for envIndex, overviewEnv := range overviewEnvGroup.Environments {
-					for _, newEnv := range newEnvGroup.Environments {
-						if overviewEnv.Name == newEnv.Name {
-							overviewEnvGroup.Environments[envIndex].Priority = newEnv.Priority
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-func (s *State) UpdateEnvironmentsInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateEnvironmentsInOverview")
-	defer span.Finish()
-	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
-		return err
-	} else {
-		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
-		for envName, config := range envs {
-			var groupName = mapper.DeriveGroupName(config, envName)
-			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
-
-			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, groupName, envInGroup)
-			if err2 != nil {
-				return err2
-			}
-		}
-	}
-	return nil
-}
-
-func (s *State) UpdateOneEnvironmentInOverview(ctx context.Context, transaction *sql.Tx, result *api.GetOverviewResponse, newEnvName string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateEnvironmentsInOverview")
-	defer span.Finish()
-	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
-		return err
-	} else {
-		newEnvGroups := mapper.MapEnvironmentsToGroups(envs)
-		for envName, config := range envs {
-			if envName != newEnvName {
-				logger.FromContext(ctx).Sugar().Infof("skipping environment %s because it's not the new environment %s", envName, newEnvName)
-				continue
-			}
-			var newGroupName = mapper.DeriveGroupName(config, envName)
-			var envInGroup = getEnvironmentInGroup(newEnvGroups, newGroupName, envName)
-			var newEnvsGroup *api.EnvironmentGroup
-			for _, envGroup := range newEnvGroups {
-				if envGroup.EnvironmentGroupName == newGroupName {
-					newEnvsGroup = envGroup
-				}
-			}
-
-			err2 := s.UpdateEnvironmentInternal(ctx, transaction, config, envName, newGroupName, envInGroup)
-			if err2 != nil {
-				return err2
-			}
-			addNewEnvToOverview(result, newEnvsGroup, envInGroup)
-			updateEnvGroupsPriorities(result, newEnvGroups)
-		}
-	}
-	var rev string
-	if s.DBHandler.ShouldUseOtherTables() {
-		rev = "0000000000000000000000000000000000000000"
-	} else {
-		if s.Commit != nil {
-			rev = s.Commit.Id().String()
-		}
-	}
-	result.GitRevision = rev
-	return nil
-}
-
-func (s *State) UpdateEnvironmentInternal(ctx context.Context, transaction *sql.Tx, config config.EnvironmentConfig, envName string, groupName string, envInGroup *api.Environment) error {
-	argocd := &api.EnvironmentConfig_ArgoCD{
-		SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
-		Destination: &api.EnvironmentConfig_ArgoCD_Destination{
-			Name:                 "",
-			Server:               "",
-			Namespace:            nil,
-			AppProjectNamespace:  nil,
-			ApplicationNamespace: nil,
-		},
-		AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
-		ApplicationAnnotations: map[string]string{},
-		IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-		SyncOptions:            []string{},
-	}
-	if config.ArgoCd != nil {
-		argocd = mapper.TransformArgocd(*config.ArgoCd)
-	}
-	env := api.Environment{
-		DistanceToUpstream: 0,
-		Priority:           api.Priority_PROD,
-		Name:               envName,
-		Config: &api.EnvironmentConfig{
-			Upstream:         mapper.TransformUpstream(config.Upstream),
-			Argocd:           argocd,
-			EnvironmentGroup: &groupName,
-		},
-	}
-	envInGroup.Config = env.Config
-
-	return nil
 }
 
 func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
@@ -2753,7 +2526,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
 			// delete queue, it's outdated! But if we can't, that's not really a problem, as it would be overwritten
 			// whenever the next deployment happens:
-			err = s.DeleteQueuedVersion(ctx, transaction, environment, application, false)
+			err = s.DeleteQueuedVersion(ctx, transaction, environment, application)
 			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
 		}
 	}
@@ -2777,7 +2550,7 @@ func (s *State) ProcessQueueAllApps(ctx context.Context, transaction *sql.Tx, fs
 		}
 
 		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
-			err = s.DeleteQueuedVersion(ctx, transaction, environment, application, false)
+			err = s.DeleteQueuedVersion(ctx, transaction, environment, application)
 			if err != nil {
 				return "", err
 			}

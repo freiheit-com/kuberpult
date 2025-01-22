@@ -7130,9 +7130,6 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repositor
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo.State().DBHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-		return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, stateChange, metaData)
-	}
 	return repo
 }
 func SetupRepositoryTestWithoutDB(t *testing.T, repositoryConfig *RepositoryConfig) Repository {

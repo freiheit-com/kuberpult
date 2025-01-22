@@ -262,7 +262,7 @@ func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environ
 	if err != nil {
 		return err
 	}
-	return h.UpdateOverviewDeleteEnvironment(ctx, tx, environmentName)
+	return nil
 }
 
 // actual changes in tables

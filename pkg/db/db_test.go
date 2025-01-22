@@ -32,7 +32,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -2315,7 +2314,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
 					if err != nil {
 						return err
 					}
@@ -2377,12 +2376,12 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version, false)
+				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version)
 				if err != nil {
 					return err
 				}
 
-				err = dbHandler.DBDeleteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, false)
+				err = dbHandler.DBDeleteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName)
 				if err != nil {
 					return err
 				}
@@ -2464,7 +2463,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
 					if err != nil {
 						return err
 					}
@@ -2556,7 +2555,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
 					if err != nil {
 						return err
 					}
@@ -4063,144 +4062,6 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
 			}
 
-		})
-	}
-}
-
-func TestReadWriteOverviewCache(t *testing.T) {
-	var upstreamLatest = true
-	var dev = "dev"
-	type TestCase struct {
-		Name      string
-		Overviews []*api.GetOverviewResponse
-	}
-	tcs := []TestCase{
-		{
-			Name: "Read and write",
-			Overviews: []*api.GetOverviewResponse{
-				&api.GetOverviewResponse{
-					EnvironmentGroups: []*api.EnvironmentGroup{
-						{
-							EnvironmentGroupName: "dev",
-							Environments: []*api.Environment{
-								{
-									Name: "development",
-									Config: &api.EnvironmentConfig{
-										Upstream: &api.EnvironmentConfig_Upstream{
-											Latest: &upstreamLatest,
-										},
-										Argocd:           &api.EnvironmentConfig_ArgoCD{},
-										EnvironmentGroup: &dev,
-									},
-									Priority: api.Priority_YOLO,
-								},
-							},
-							Priority: api.Priority_YOLO,
-						},
-					},
-					LightweightApps: []*api.OverviewApplication{
-						{
-							Name: "test",
-							Team: "team-123",
-						},
-					},
-					GitRevision: "0",
-				},
-			},
-		},
-		{
-			Name: "Read and write multiple",
-			Overviews: []*api.GetOverviewResponse{
-				&api.GetOverviewResponse{
-					EnvironmentGroups: []*api.EnvironmentGroup{
-						{
-							EnvironmentGroupName: "dev",
-							Environments: []*api.Environment{
-								{
-									Name: "development",
-									Config: &api.EnvironmentConfig{
-										Upstream: &api.EnvironmentConfig_Upstream{
-											Latest: &upstreamLatest,
-										},
-										Argocd:           &api.EnvironmentConfig_ArgoCD{},
-										EnvironmentGroup: &dev,
-									},
-									Priority: api.Priority_YOLO,
-								},
-							},
-							Priority: api.Priority_YOLO,
-						},
-					},
-					LightweightApps: []*api.OverviewApplication{
-						{
-							Name: "test",
-							Team: "team-123",
-						},
-					},
-					GitRevision: "0",
-				},
-				&api.GetOverviewResponse{
-					EnvironmentGroups: []*api.EnvironmentGroup{
-						{
-							EnvironmentGroupName: "test",
-							Environments: []*api.Environment{
-								{
-									Name: "testing",
-									Config: &api.EnvironmentConfig{
-										Upstream: &api.EnvironmentConfig_Upstream{
-											Latest: &upstreamLatest,
-										},
-										Argocd:           &api.EnvironmentConfig_ArgoCD{},
-										EnvironmentGroup: &dev,
-									},
-									Priority: api.Priority_CANARY,
-								},
-							},
-							Priority: api.Priority_CANARY,
-						},
-					},
-					LightweightApps: []*api.OverviewApplication{
-						{
-							Name: "test2",
-							Team: "team-123",
-						},
-					},
-					GitRevision: "0",
-				},
-			},
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			ctx := testutil.MakeTestContext()
-			dbHandler := setupDB(t)
-
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				for _, overview := range tc.Overviews {
-					err := dbHandler.WriteOverviewCache(ctx, transaction, overview)
-					if err != nil {
-						return fmt.Errorf("error while writing release, error: %w", err)
-					}
-				}
-
-				result, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
-				if err != nil {
-					return fmt.Errorf("error while selecting release, error: %w", err)
-				}
-
-				opts := getOverviewIgnoredTypes()
-				if diff := cmp.Diff(tc.Overviews[len(tc.Overviews)-1], result, opts); diff != "" {
-					return fmt.Errorf("overview cache ESL ID mismatch (-want +got):\n%s", diff)
-				}
-
-				return nil
-			})
-			if err != nil {
-				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
-			}
 		})
 	}
 }
