@@ -44,12 +44,12 @@ func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailed
 			failedEslItems := make([]*api.EslFailedItem, len(failedEslRows))
 			for i, failedEslRow := range failedEslRows {
 				failedEslItems[i] = &api.EslFailedItem{
-					EslVersion:				 int64(failedEslRow.EslVersion),
-					CreatedAt:				 timestamppb.New(failedEslRow.Created),
-					EventType:				 string(failedEslRow.EventType),
-					Json:					 failedEslRow.EventJson,
-					Reason:					 failedEslRow.Reason,
-					TransformerEslVersion:	 int64(failedEslRow.TransformerEslVersion),
+					EslVersion:            int64(failedEslRow.EslVersion),
+					CreatedAt:             timestamppb.New(failedEslRow.Created),
+					EventType:             string(failedEslRow.EventType),
+					Json:                  failedEslRow.EventJson,
+					Reason:                failedEslRow.Reason,
+					TransformerEslVersion: int64(failedEslRow.TransformerEslVersion),
 				}
 			}
 			response = &api.GetFailedEslsResponse{

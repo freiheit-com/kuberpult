@@ -355,12 +355,12 @@ type EslEventRow struct {
 }
 
 type EslFailedEventRow struct {
-	EslVersion				 EslVersion
-	Created					 time.Time
-	EventType				 EventType
-	EventJson				 string
-	Reason					 string
-	TransformerEslVersion	 EslVersion
+	EslVersion            EslVersion
+	Created               time.Time
+	EventType             EventType
+	EventJson             string
+	Reason                string
+	TransformerEslVersion EslVersion
 }
 
 // DBDiscoverCurrentEsldID: Returns the current sequence number of event_sourcing_light table.
@@ -3973,12 +3973,12 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 
 	for rows.Next() {
 		row := &EslFailedEventRow{
-			EslVersion:				 0,
-			Created:				 time.Unix(0, 0),
-			EventType:				 "",
-			EventJson:				 "",
-			Reason:					 "",
-			TransformerEslVersion:	 0,
+			EslVersion:            0,
+			Created:               time.Unix(0, 0),
+			EventType:             "",
+			EventJson:             "",
+			Reason:                "",
+			TransformerEslVersion: 0,
 		}
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
 		if err != nil {
