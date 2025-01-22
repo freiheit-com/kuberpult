@@ -100,6 +100,8 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                                 <th className={'date'}>Date:</th>
                                 <th className={'Event Type'}>Event Type:</th>
                                 <th className={'Json'}>Json:</th>
+                                <th className={'Reason'}>Reason:</th>
+                                <th className={'TransformerEslVersion'}>TransformerEslVersion:</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -111,6 +113,8 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                                         <td>{createdAt}</td>
                                         <td>{eslItem.eventType}</td>
                                         <td>{eslItem.json}</td>
+                                        <td>{eslItem.reason}</td>
+                                        <td>{eslItem.transformerEslVersion}</td>
                                     </tr>
                                 );
                             })}

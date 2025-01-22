@@ -33,7 +33,7 @@ type EslServiceServer struct {
 func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailedEslsRequest) (*api.GetFailedEslsResponse, error) {
 	state := s.Repository.State()
 	var response *api.GetFailedEslsResponse = &api.GetFailedEslsResponse{
-		FailedEsls: make([]*api.EslItem, 0),
+		FailedEsls: make([]*api.EslFailedItem, 0),
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -41,13 +41,15 @@ func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailed
 			if err != nil {
 				return err
 			}
-			failedEslItems := make([]*api.EslItem, len(failedEslRows))
+			failedEslItems := make([]*api.EslFailedItem, len(failedEslRows))
 			for i, failedEslRow := range failedEslRows {
-				failedEslItems[i] = &api.EslItem{
-					EslVersion: int64(failedEslRow.EslVersion),
-					CreatedAt:  timestamppb.New(failedEslRow.Created),
-					EventType:  string(failedEslRow.EventType),
-					Json:       failedEslRow.EventJson,
+				failedEslItems[i] = &api.EslFailedItem{
+					EslVersion:            int64(failedEslRow.EslVersion),
+					CreatedAt:             timestamppb.New(failedEslRow.Created),
+					EventType:             string(failedEslRow.EventType),
+					Json:                  failedEslRow.EventJson,
+					Reason:                failedEslRow.Reason,
+					TransformerEslVersion: int64(failedEslRow.TransformerEslVersion),
 				}
 			}
 			response = &api.GetFailedEslsResponse{

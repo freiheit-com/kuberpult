@@ -784,8 +784,17 @@ message EslItem {
   string json = 4;
 }
 
+message EslFailedItem {
+  int64 esl_version = 1;
+  google.protobuf.Timestamp created_at = 2;
+  string event_type = 3;
+  string json = 4;
+  string reason = 5;
+  int64 transformer_esl_version = 6;
+}
+
 message GetFailedEslsResponse {
-  repeated EslItem failed_esls = 1;
+  repeated EslFailedItem failed_esls = 1;
 }
 
 enum CommitDeploymentStatus {
