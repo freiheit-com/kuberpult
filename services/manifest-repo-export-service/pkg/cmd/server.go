@@ -402,7 +402,14 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			log.Errorf("skipping esl event, because it returned an error: %v", err)
 			// after this many tries, we can just skip it:
 			err2 := dbHandler.WithTransactionR(ctx, transactionRetries, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err3 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
+				err3 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, &db.EslFailedEventRow {
+					EslVersion:				 0, // This is overwritten by the DB
+					Created:				 esl.Created,
+					EventType:				 esl.EventType,
+					EventJson:				 esl.EventJson,
+					Reason:					 err.Error(),
+					TransformerEslVersion:	 esl.EslVersion,
+				})
 				if err3 != nil {
 					return err3
 				}

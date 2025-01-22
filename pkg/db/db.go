@@ -354,6 +354,15 @@ type EslEventRow struct {
 	EventJson  string
 }
 
+type EslFailedEventRow struct {
+	EslVersion				 EslVersion
+	Created					 time.Time
+	EventType				 EventType
+	EventJson				 string
+	Reason					 string
+	TransformerEslVersion	 EslVersion
+}
+
 // DBDiscoverCurrentEsldID: Returns the current sequence number of event_sourcing_light table.
 // Next value should be the returned on + 1
 func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*int, error) {
@@ -3906,7 +3915,7 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) e
 	return nil
 }
 
-func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslEventRow) error {
+func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
 	defer span.Finish()
 	if h == nil {
@@ -3916,7 +3925,7 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 		return fmt.Errorf("DBWriteFailedEslEvent: no transaction provided")
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type , json)  VALUES (?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type, json, reason, transformerEslVersion)  VALUES (?, ?, ?, ?, ?);")
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("DBWriteFailedEslEvent unable to get transaction timestamp: %w", err)
@@ -3926,7 +3935,9 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 		insertQuery,
 		*now,
 		eslEvent.EventType,
-		eslEvent.EventJson)
+		eslEvent.EventJson,
+		eslEvent.Reason,
+		eslEvent.TransformerEslVersion)
 
 	if err != nil {
 		return fmt.Errorf("could not write failed esl event into DB. Error: %w\n", err)
@@ -3934,7 +3945,7 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 	return nil
 }
 
-func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslEventRow, error) {
+func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslFailedEventRow, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
 	defer span.Finish()
 	if h == nil {
@@ -3944,7 +3955,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light_failed ORDER BY eslVersion DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json, reason, transformerEslVersion FROM event_sourcing_light_failed ORDER BY eslVersion DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
@@ -3958,16 +3969,18 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 		}
 	}(rows)
 
-	failedEsls := make([]*EslEventRow, 0)
+	failedEsls := make([]*EslFailedEventRow, 0)
 
 	for rows.Next() {
-		row := &EslEventRow{
-			EslVersion: 0,
-			Created:    time.Unix(0, 0),
-			EventType:  "",
-			EventJson:  "",
+		row := &EslFailedEventRow{
+			EslVersion:				 0,
+			Created:				 time.Unix(0, 0),
+			EventType:				 "",
+			EventJson:				 "",
+			Reason:					 "",
+			TransformerEslVersion:	 0,
 		}
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
 		if err != nil {
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
 		}

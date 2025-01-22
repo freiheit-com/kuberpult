@@ -3239,77 +3239,93 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 
 	tcs := []struct {
 		Name   string
-		Events []EslEventRow
+		Events []EslFailedEventRow
 		Limit  int
 	}{
 		{
 			Name: "Write and read once",
-			Events: []EslEventRow{
+			Events: []EslFailedEventRow{
 				{
-					EventType:  EvtCreateApplicationVersion,
-					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 1,
+					EventType:				 EvtCreateApplicationVersion,
+					EventJson:				 string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:				 time.Now(),
+					EslVersion:				 1,
+					Reason:					 "",
+					TransformerEslVersion:	 0,
 				},
 			},
 			Limit: 1,
 		},
 		{
 			Name: "Write and read multiple",
-			Events: []EslEventRow{
+			Events: []EslFailedEventRow{
 				{
-					EventType:  EvtCreateApplicationVersion,
-					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 1,
+					EventType:				 EvtCreateApplicationVersion,
+					EventJson:				 string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:				 time.Now(),
+					EslVersion:				 1,
+					Reason:					 "",
+					TransformerEslVersion:	 0,
 				},
 				{
-					EventType:  EvtCreateEnvironmentApplicationLock,
-					EventJson:  string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 2,
+					EventType:				 EvtCreateEnvironmentApplicationLock,
+					EventJson:				 string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:				 time.Now(),
+					EslVersion:				 2,
+					Reason:					 "",
+					TransformerEslVersion:	 0,
 				},
 				{
-					EventType:  EvtCreateEnvironment,
-					EventJson:  string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 3,
+					EventType:				 EvtCreateEnvironment,
+					EventJson:				 string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:				 time.Now(),
+					EslVersion:				 3,
+					Reason:					 "",
+					TransformerEslVersion:	 0,
 				},
 			},
 			Limit: 3,
 		},
 		{
 			Name: "More than limit",
-			Events: []EslEventRow{
+			Events: []EslFailedEventRow{
 				{
-					EventType:  EvtCreateApplicationVersion,
-					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 1,
+					EventType:				 EvtCreateApplicationVersion,
+					EventJson:				 string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:				 time.Now(),
+					EslVersion:				 1,
+					Reason:					 "",
+					TransformerEslVersion:	 0,
 				},
 				{
-					EventType:  EvtCreateEnvironmentGroupLock,
-					EventJson:  string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 2,
+					EventType:				 EvtCreateEnvironmentGroupLock,
+					EventJson:				 string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:				 time.Now(),
+					EslVersion:				 2,
+					Reason:					 "",
+					TransformerEslVersion:	 0,
 				},
 				{
-					EventType:  EvtCreateEnvironment,
-					EventJson:  string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 3,
+					EventType:				 EvtCreateEnvironment,
+					EventJson:				 string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:				 time.Now(),
+					EslVersion:				 3,
+					Reason:					 "",
+					TransformerEslVersion:	 0,
 				},
 			},
 			Limit: 2,
 		},
 		{
 			Name: "Less than limit",
-			Events: []EslEventRow{
+			Events: []EslFailedEventRow{
 				{
-					EventType:  EvtCreateApplicationVersion,
-					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 1,
+					EventType:				 EvtCreateApplicationVersion,
+					EventJson:				 string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:				 time.Now(),
+					EslVersion:				 1,
+					Reason:					 "",
+					TransformerEslVersion:	 0,
 				},
 			},
 			Limit: 3,
@@ -3323,6 +3339,11 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
 				for _, event := range tc.Events {
 					err := dbHandler.DBWriteFailedEslEvent(ctx, transaction, &event)
 					if err != nil {
@@ -3349,6 +3370,12 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 					}
 					if diff := cmp.Diff(tc.Events[reverse_index].EventJson, actualEvent.EventJson); diff != "" {
 						t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
+					}
+					if diff := cmp.Diff(tc.Events[reverse_index].Reason, actualEvent.Reason); diff != "" {
+						t.Fatalf("event reason mismatch (-want, +got):\n%s", diff)
+					}
+					if diff := cmp.Diff(tc.Events[reverse_index].TransformerEslVersion, actualEvent.TransformerEslVersion); diff != "" {
+						t.Fatalf("event transformer mismatch (-want, +got):\n%s", diff)
 					}
 				}
 
