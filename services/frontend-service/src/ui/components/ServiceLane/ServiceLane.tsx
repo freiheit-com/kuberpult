@@ -334,6 +334,23 @@ export const ReadyServiceLane: React.FC<{
     const deployedReleases = [...new Set(allDeployedReleaseNumbers.map((v) => v).sort((n1, n2) => n2 - n1))];
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
+        if (allReleases.length === 0) {
+            // if there are no releases, we have to first create the undeploy release
+            // and then undeploy:
+            addAction({
+                action: {
+                    $case: 'prepareUndeploy',
+                    prepareUndeploy: { application: application.name },
+                },
+            });
+            addAction({
+                action: {
+                    $case: 'undeploy',
+                    undeploy: { application: application.name },
+                },
+            });
+            return;
+        }
         switch (appDetails?.application?.undeploySummary) {
             case UndeploySummary.UNDEPLOY:
                 addAction({
