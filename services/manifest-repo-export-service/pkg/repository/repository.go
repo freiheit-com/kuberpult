@@ -1390,17 +1390,15 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 		}
 
 		for _, currentApp := range appNames {
-			var activeLockIds []string
 			ls, err := s.GetEnvironmentApplicationLocksFromManifest(envName, currentApp)
 			if err != nil {
 				return err
 			}
 			for lockId, lock := range ls {
 				currentAppLock := db.ApplicationLock{
-					EslVersion: 0,
-					Env:        envName,
-					LockID:     lockId,
-					Created:    time.Time{},
+					Env:     envName,
+					LockID:  lockId,
+					Created: time.Time{},
 					Metadata: db.LockMetadata{
 						CreatedByName:  lock.CreatedBy.Name,
 						CreatedByEmail: lock.CreatedBy.Email,
@@ -1408,23 +1406,13 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 						CiLink:         "", //CI links are not written into the manifest
 						CreatedAt:      lock.CreatedAt,
 					},
-					App:     currentApp,
-					Deleted: false,
+					App: currentApp,
 				}
-				activeLockIds = append(activeLockIds, currentAppLock.LockID)
-				err = dbHandler.DBWriteApplicationLockInternal(ctx, transaction, currentAppLock, 0)
+				err = dbHandler.DBWriteApplicationLock(ctx, transaction, currentAppLock.LockID, currentAppLock.Env, currentAppLock.App, currentAppLock.Metadata)
 				if err != nil {
 					return fmt.Errorf("error writing application locks to DB for application '%s' on '%s': %w",
 						currentApp, envName, err)
 				}
-			}
-			if len(activeLockIds) == 0 {
-				activeLockIds = []string{}
-			}
-			err = dbHandler.DBWriteAllAppLocks(ctx, transaction, 0, envName, currentApp, activeLockIds)
-			if err != nil {
-				return fmt.Errorf("error writing existing locks to DB for application '%s' on environment '%s': %w",
-					currentApp, envName, err)
 			}
 		}
 	}
@@ -1710,13 +1698,9 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 	if transaction == nil {
 		return nil, fmt.Errorf("GetEnvironmentApplicationLocksFromDB: No transaction provided")
 	}
-	activeLockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
+	lockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
 	if err != nil {
 		return nil, err
-	}
-	var lockIds []string
-	if activeLockIds != nil {
-		lockIds = activeLockIds.AppLocks
 	}
 	locks, err := s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
 

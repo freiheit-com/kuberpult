@@ -1559,15 +1559,11 @@ func (u *UndeployApplication) Transform(
 				if locks == nil {
 					continue
 				}
-				for _, currentLockID := range locks.AppLocks {
+				for _, currentLockID := range locks {
 					err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, env, u.Application, currentLockID)
 					if err != nil {
 						return "", err
 					}
-				}
-				err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, locks.Version, env, u.Application, []string{})
-				if err != nil {
-					return "", err
 				}
 				continue
 			}
@@ -2404,27 +2400,14 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		if err != nil {
 			return "", err
 		}
-
 		if allAppLocks == nil {
-			allAppLocks = &db.AllAppLocksGo{
-				Version: 1,
-				AllAppLocksJson: db.AllAppLocksJson{
-					AppLocks: []string{},
-				},
-				Created:     *now,
-				Environment: c.Environment,
-				AppName:     c.Application,
-			}
+			allAppLocks = make([]string, 0)
 		}
 
-		if !slices.Contains(allAppLocks.AppLocks, c.LockId) {
-			allAppLocks.AppLocks = append(allAppLocks.AppLocks, c.LockId)
-			err := state.DBHandler.DBWriteAllAppLocks(ctx, transaction, allAppLocks.Version, c.Environment, c.Application, allAppLocks.AppLocks)
-			if err != nil {
-				return "", err
-			}
+		if !slices.Contains(allAppLocks, c.LockId) {
+			allAppLocks = append(allAppLocks, c.LockId)
 		}
-		GaugeEnvAppLockMetric(ctx, len(allAppLocks.AppLocks), c.Environment, c.Application)
+		GaugeEnvAppLockMetric(ctx, len(allAppLocks), c.Environment, c.Application)
 	} else {
 		fs := state.Filesystem
 		envDir := fs.Join("environments", c.Environment)
@@ -2492,16 +2475,10 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 			return "", fmt.Errorf("DeleteEnvironmentApplicationLock: could not select all env app locks for app '%v' on '%v': '%w'", c.Application, c.Environment, err)
 		}
 		var locks []string
-		var version = int64(db.InitialEslVersion)
 		if allAppLocks != nil {
-			locks = db.Remove(allAppLocks.AppLocks, c.LockId)
-			version = allAppLocks.Version
+			locks = db.Remove(allAppLocks, c.LockId)
 		}
 
-		err = state.DBHandler.DBWriteAllAppLocks(ctx, transaction, version, c.Environment, c.Application, locks)
-		if err != nil {
-			return "", fmt.Errorf("DeleteEnvironmentApplicationLock: could not write app locks for app '%v' on '%v': '%w'", c.Application, c.Environment, err)
-		}
 		GaugeEnvAppLockMetric(ctx, len(locks), c.Environment, c.Application)
 	} else {
 		fs := state.Filesystem
@@ -2883,7 +2860,7 @@ func (c *DeleteEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	if appLocksForEnv != nil && len(appLocksForEnv.AppLocks) != 0 {
+	if len(appLocksForEnv) != 0 {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Application locks for this environment exist.", c.Environment))
 	}
 
