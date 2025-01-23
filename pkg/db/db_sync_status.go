@@ -18,7 +18,7 @@ const (
 	SYNC_FAILED
 )
 
-const BULK_INSERT_BATCH_SIZE = 2
+const BULK_INSERT_BATCH_SIZE = 500
 
 type GitSyncData struct {
 	AppName       string
