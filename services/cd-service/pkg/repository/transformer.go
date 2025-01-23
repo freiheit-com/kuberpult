@@ -4171,11 +4171,22 @@ func (c *envReleaseTrain) Transform(
 			return fmt.Sprintf("Environment '%s' is skipped for an unrecognized reason", c.Env)
 		}
 	}
+	allApps, err := state.GetApplications(ctx, transaction)
+	if err != nil {
+		return "", err
+	}
+	allLatestDeployments, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, allApps)
+	if err != nil {
+		return "", err
+	}
 
 	renderApplicationSkipCause := func(SkipCause *api.ReleaseTrainAppPrognosis_SkipCause, appName string) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
-		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(ctx, transaction, c.Env, appName)
+		var currentlyDeployedVersion uint64
+		if latestDeploymentVersion, found := allLatestDeployments[appName]; found && latestDeploymentVersion != nil {
+			currentlyDeployedVersion = uint64(*latestDeploymentVersion)
+		}
 		teamName, _ := state.GetTeamName(ctx, transaction, appName)
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
