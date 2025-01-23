@@ -34,7 +34,7 @@ const (
 	SYNC_FAILED
 )
 
-const BULK_INSERT_BATCH_SIZE = 500 //500 is an arbi
+const BULK_INSERT_BATCH_SIZE = 500
 
 type GitSyncData struct {
 	AppName       string
