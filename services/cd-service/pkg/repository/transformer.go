@@ -362,6 +362,7 @@ type Transformer interface {
 	Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (commitMsg string, e error)
 	GetDBEventType() db.EventType
 	SetEslVersion(eslVersion db.TransformerID)
+	GetEslVersion() db.TransformerID
 }
 
 type TransformerContext interface {
@@ -473,6 +474,10 @@ func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
 
 func (c *CreateApplicationVersion) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CreateApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -1275,6 +1280,10 @@ func (c *CreateUndeployApplicationVersion) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *CreateUndeployApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *CreateUndeployApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
@@ -1476,6 +1485,10 @@ func (u *UndeployApplication) GetDBEventType() db.EventType {
 
 func (u *UndeployApplication) SetEslVersion(id db.TransformerID) {
 	u.TransformerEslVersion = id
+}
+
+func (c *UndeployApplication) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (u *UndeployApplication) Transform(
@@ -1691,8 +1704,12 @@ func (u *DeleteEnvFromApp) GetDBEventType() db.EventType {
 	return db.EvtDeleteEnvFromApp
 }
 
-func (c *DeleteEnvFromApp) SetEslVersion(id db.TransformerID) {
-	c.TransformerEslVersion = id
+func (u *DeleteEnvFromApp) SetEslVersion(id db.TransformerID) {
+	u.TransformerEslVersion = id
+}
+
+func (u *DeleteEnvFromApp) GetEslVersion() db.TransformerID {
+	return u.TransformerEslVersion
 }
 
 func (u *DeleteEnvFromApp) Transform(
@@ -1805,6 +1822,10 @@ func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
 
 func (c *CleanupOldApplicationVersions) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 // Finds old releases for an application
@@ -1931,6 +1952,10 @@ func (c *CreateEnvironmentLock) GetDBEventType() db.EventType {
 
 func (c *CreateEnvironmentLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig, checkTeam bool) error {
@@ -2127,6 +2152,10 @@ func (c *DeleteEnvironmentLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *DeleteEnvironmentLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironmentLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2210,6 +2239,10 @@ func (c *CreateEnvironmentGroupLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *CreateEnvironmentGroupLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *CreateEnvironmentGroupLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2265,6 +2298,11 @@ func (c *DeleteEnvironmentGroupLock) GetDBEventType() db.EventType {
 func (c *DeleteEnvironmentGroupLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
+
+func (c *DeleteEnvironmentGroupLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironmentGroupLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2312,6 +2350,10 @@ func (c *CreateEnvironmentApplicationLock) GetDBEventType() db.EventType {
 
 func (c *CreateEnvironmentApplicationLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CreateEnvironmentApplicationLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *CreateEnvironmentApplicationLock) Transform(
@@ -2424,6 +2466,10 @@ func (c *DeleteEnvironmentApplicationLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *DeleteEnvironmentApplicationLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironmentApplicationLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2500,6 +2546,10 @@ func (c *CreateEnvironmentTeamLock) GetDBEventType() db.EventType {
 
 func (c *CreateEnvironmentTeamLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *CreateEnvironmentTeamLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *CreateEnvironmentTeamLock) Transform(
@@ -2639,6 +2689,10 @@ func (c *DeleteEnvironmentTeamLock) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *DeleteEnvironmentTeamLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -2719,6 +2773,10 @@ func (c *CreateEnvironment) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *CreateEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *CreateEnvironment) Transform(
 	ctx context.Context,
 	state *State,
@@ -2791,6 +2849,11 @@ func (c *DeleteEnvironment) GetDBEventType() db.EventType {
 func (c *DeleteEnvironment) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
+
+func (c *DeleteEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *DeleteEnvironment) Transform(
 	ctx context.Context,
 	state *State,
@@ -2961,6 +3024,10 @@ func (c *DeployApplicationVersion) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *DeployApplicationVersion) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 type DeployApplicationVersionSource struct {
 	TargetGroup *string `json:"targetGroup"`
 	Upstream    string  `json:"upstream"`
@@ -3019,17 +3086,13 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 
-		appDir := applicationDirectory(fs, c.Application)
-
-		team, err := util.ReadFile(fs, fs.Join(appDir, "team"))
-
-		if errors.Is(err, os.ErrNotExist) {
-			teamLocks = map[string]Lock{} //If we do not find the team file, there is no team for application, meaning there can't be any team locks
-		} else {
-			teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, string(team))
-			if err != nil {
-				return "", err
-			}
+		team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+		if err != nil {
+			return "", fmt.Errorf("could not determine team for deployment: %w", err)
+		}
+		teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, string(team))
+		if err != nil {
+			return "", err
 		}
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			if c.WriteCommitData {
@@ -3401,6 +3464,10 @@ func (c *ReleaseTrain) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *ReleaseTrain) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 type Overview struct {
 	App     string
 	Version uint64
@@ -3529,6 +3596,15 @@ type ReleaseTrainPrognosis struct {
 	EnvironmentPrognoses map[string]ReleaseTrainEnvironmentPrognosis
 }
 
+func failedPrognosis(err error) ReleaseTrainEnvironmentPrognosis {
+	return ReleaseTrainEnvironmentPrognosis{
+		SkipCause:     nil,
+		Error:         err,
+		Locks:         nil,
+		AppsPrognoses: nil,
+	}
+}
+
 func (c *ReleaseTrain) Prognosis(
 	ctx context.Context,
 	state *State,
@@ -3556,6 +3632,14 @@ func (c *ReleaseTrain) Prognosis(
 		}
 	}
 
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, nil)
+	if err != nil {
+		return ReleaseTrainPrognosis{
+			Error:                grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err)),
+			EnvironmentPrognoses: nil,
+		}
+	}
+
 	// this to sort the env, to make sure that for the same input we always got the same output
 	envGroups := make([]string, 0, len(envGroupConfigs))
 	for env := range envGroupConfigs {
@@ -3571,17 +3655,18 @@ func (c *ReleaseTrain) Prognosis(
 		}
 
 		envReleaseTrain := &envReleaseTrain{
-			Parent:                c,
-			Env:                   envName,
-			EnvConfigs:            configs,
-			EnvGroupConfigs:       envGroupConfigs,
-			WriteCommitData:       c.WriteCommitData,
-			TrainGroup:            trainGroup,
-			TransformerEslVersion: c.TransformerEslVersion,
-			CiLink:                c.CiLink,
+			Parent:                 c,
+			Env:                    envName,
+			EnvConfigs:             configs,
+			EnvGroupConfigs:        envGroupConfigs,
+			WriteCommitData:        c.WriteCommitData,
+			TrainGroup:             trainGroup,
+			TransformerEslVersion:  c.TransformerEslVersion,
+			CiLink:                 c.CiLink,
+			AllLatestReleasesCache: allLatestReleases,
 		}
 
-		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction)
+		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction, allLatestReleases)
 
 		if envPrognosis.Error != nil {
 			return ReleaseTrainPrognosis{
@@ -3636,14 +3721,22 @@ func (c *ReleaseTrain) Transform(
 	}
 	sort.Strings(envNames)
 	span.SetTag("environments", len(envNames))
-	if state.DBHandler.ShouldUseOtherTables() && isEnvGroup {
+
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, nil)
+	if err != nil {
+		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
+	}
+
+	if state.DBHandler.ShouldUseOtherTables() && isEnvGroup && state.DBHandler.AllowParallelTransactions() {
 		releaseTrainErrGroup, _ := errgroup.WithContext(ctx)
-		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
+		if state.MaxNumThreads > 0 {
+			releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
+		}
 		for _, envName := range envNames {
 			trainGroup := conversion.FromString(targetGroupName)
 			envNameLocal := envName
 			releaseTrainErrGroup.Go(func() error {
-				return c.runEnvReleaseTrainBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs)
+				return c.runEnvReleaseTrainBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs, allLatestReleases)
 			})
 		}
 		err := releaseTrainErrGroup.Wait()
@@ -3657,14 +3750,15 @@ func (c *ReleaseTrain) Transform(
 				trainGroup = conversion.FromString(targetGroupName)
 			}
 			err = t.Execute(ctx, &envReleaseTrain{
-				Parent:                c,
-				Env:                   envName,
-				EnvConfigs:            configs,
-				EnvGroupConfigs:       envGroupConfigs,
-				WriteCommitData:       c.WriteCommitData,
-				TrainGroup:            trainGroup,
-				TransformerEslVersion: c.TransformerEslVersion,
-				CiLink:                c.CiLink,
+				Parent:                 c,
+				Env:                    envName,
+				EnvConfigs:             configs,
+				EnvGroupConfigs:        envGroupConfigs,
+				WriteCommitData:        c.WriteCommitData,
+				TrainGroup:             trainGroup,
+				TransformerEslVersion:  c.TransformerEslVersion,
+				CiLink:                 c.CiLink,
+				AllLatestReleasesCache: allLatestReleases,
 			}, transaction)
 			if err != nil {
 				return "", err
@@ -3677,45 +3771,36 @@ func (c *ReleaseTrain) Transform(
 		targetGroupName), nil
 }
 
-func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context,
-	state *State,
-	t TransformerContext,
-	envName string,
-	trainGroup *string,
-	envGroupConfigs map[string]config.EnvironmentConfig,
-	configs map[string]config.EnvironmentConfig) error {
+func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName string, trainGroup *string, envGroupConfigs map[string]config.EnvironmentConfig, configs map[string]config.EnvironmentConfig, releases map[string][]int64) error {
 	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
-		internal, err := state.DBHandler.DBReadEslEventInternal(ctx, transaction2, false)
-		if err != nil {
-			return err
-		}
-		if internal == nil {
-			return fmt.Errorf("could not find esl event that was just inserted")
-		}
-		err = t.Execute(ctx, &envReleaseTrain{
-			Parent:                c,
-			Env:                   envName,
-			EnvConfigs:            configs,
-			EnvGroupConfigs:       envGroupConfigs,
-			WriteCommitData:       c.WriteCommitData,
-			TrainGroup:            trainGroup,
-			TransformerEslVersion: db.TransformerID(internal.EslVersion),
-			CiLink:                c.CiLink,
+		err := t.Execute(ctx, &envReleaseTrain{
+			Parent:                 c,
+			Env:                    envName,
+			EnvConfigs:             configs,
+			EnvGroupConfigs:        envGroupConfigs,
+			WriteCommitData:        c.WriteCommitData,
+			TrainGroup:             trainGroup,
+			TransformerEslVersion:  c.TransformerEslVersion,
+			CiLink:                 c.CiLink,
+			AllLatestReleasesCache: releases,
 		}, transaction2)
 		return err
 	})
 	return err
 }
 
+type AllLatestReleasesCache map[string][]int64
+
 type envReleaseTrain struct {
-	Parent                *ReleaseTrain
-	Env                   string
-	EnvConfigs            map[string]config.EnvironmentConfig
-	EnvGroupConfigs       map[string]config.EnvironmentConfig
-	WriteCommitData       bool
-	TrainGroup            *string
-	TransformerEslVersion db.TransformerID
-	CiLink                string
+	Parent                 *ReleaseTrain
+	Env                    string
+	EnvConfigs             map[string]config.EnvironmentConfig
+	EnvGroupConfigs        map[string]config.EnvironmentConfig
+	WriteCommitData        bool
+	TrainGroup             *string
+	TransformerEslVersion  db.TransformerID
+	CiLink                 string
+	AllLatestReleasesCache AllLatestReleasesCache
 }
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
@@ -3726,11 +3811,11 @@ func (c *envReleaseTrain) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
-func (c *envReleaseTrain) prognosis(
-	ctx context.Context,
-	state *State,
-	transaction *sql.Tx,
-) ReleaseTrainEnvironmentPrognosis {
+func (c *envReleaseTrain) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	defer span.Finish()
 	span.SetTag("env", c.Env)
@@ -3759,12 +3844,7 @@ func (c *envReleaseTrain) prognosis(
 	)
 
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         err,
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(err)
 	}
 
 	upstreamLatest := envConfig.Upstream.Latest
@@ -3806,12 +3886,7 @@ func (c *envReleaseTrain) prognosis(
 	}
 	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, c.Env)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)))
 	}
 
 	source := upstreamEnvName
@@ -3821,12 +3896,7 @@ func (c *envReleaseTrain) prognosis(
 
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash, c.Env)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         err,
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(err)
 	}
 	sort.Strings(apps)
 
@@ -3865,66 +3935,32 @@ func (c *envReleaseTrain) prognosis(
 	}
 	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployments(ctx, transaction, c.Env, apps)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)))
 	}
 
 	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
 
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)))
 	}
 
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, apps)
-	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
-	}
 	var allLatestReleaseEnvironments map[string]map[uint64][]string
 	if state.DBHandler.ShouldUseOtherTables() {
 		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
 	}
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)),
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
 	}
 	span.SetTag("ConsideredApps", len(apps))
 	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction)
 	if err != nil {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         err,
-			Locks:         nil,
-			AppsPrognoses: nil,
-		}
+		return failedPrognosis(err)
 	}
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
 			if !ok {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         fmt.Errorf("team for app %s not found", appName),
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
+				return failedPrognosis(fmt.Errorf("team for app %s not found", appName))
 			}
 			if c.Parent.Team != team {
 				continue
@@ -3975,12 +4011,7 @@ func (c *envReleaseTrain) prognosis(
 		appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, c.Env, appName)
 
 		if err != nil {
-			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:     nil,
-				Error:         err,
-				Locks:         nil,
-				AppsPrognoses: nil,
-			}
+			return failedPrognosis(err)
 		}
 
 		if len(appLocks) > 0 {
@@ -4012,12 +4043,7 @@ func (c *envReleaseTrain) prognosis(
 		if state.DBHandler.ShouldUseOtherTables() {
 			releaseEnvs, exists := allLatestReleaseEnvironments[appName][versionToDeploy]
 			if !exists {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy),
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
+				return failedPrognosis(fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy))
 			}
 
 			found := false
@@ -4075,12 +4101,7 @@ func (c *envReleaseTrain) prognosis(
 			teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
 
 			if err != nil {
-				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         err,
-					Locks:         nil,
-					AppsPrognoses: nil,
-				}
+				return failedPrognosis(err)
 			}
 
 			if len(teamLocks) > 0 {
@@ -4174,7 +4195,7 @@ func (c *envReleaseTrain) Transform(
 		}
 	}
 
-	prognosis := c.prognosis(ctx, state, transaction)
+	prognosis := c.prognosis(ctx, state, transaction, nil)
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
@@ -4184,9 +4205,12 @@ func (c *envReleaseTrain) Transform(
 			return renderEnvironmentSkipCause(prognosis.SkipCause), nil
 		}
 		for appName := range prognosis.AppsPrognoses {
-			release, err := state.GetLastRelease(ctx, transaction, state.Filesystem, appName)
-			if err != nil {
-				return "", fmt.Errorf("error getting latest release for app '%s' - %v", appName, err)
+			releases := c.AllLatestReleasesCache[appName]
+			var release uint64
+			if releases == nil {
+				release = 0
+			} else {
+				release = uint64(releases[len(releases)-1])
 			}
 			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
 			eventMessage := ""
@@ -4305,6 +4329,10 @@ func (c *skippedServices) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
 }
 
+func (c *skippedServices) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
 func (c *skippedServices) Transform(
 	ctx context.Context,
 	_ *State,
@@ -4334,6 +4362,10 @@ func (c *skippedService) GetDBEventType() db.EventType {
 
 func (c *skippedService) SetEslVersion(id db.TransformerID) {
 	c.TransformerEslVersion = id
+}
+
+func (c *skippedService) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
 }
 
 func (c *skippedService) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (string, error) {

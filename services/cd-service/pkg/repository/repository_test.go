@@ -787,9 +787,14 @@ type SlowTransformer struct {
 func (s *SlowTransformer) GetDBEventType() db.EventType {
 	return "invalid"
 }
-func (p *SlowTransformer) SetEslVersion(_ db.TransformerID) {
+func (s *SlowTransformer) SetEslVersion(_ db.TransformerID) {
 	//Does nothing
 }
+
+func (s *SlowTransformer) GetEslVersion() db.TransformerID {
+	return 0
+}
+
 func (s *SlowTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	s.started <- struct{}{}
 	<-s.finished
@@ -800,6 +805,10 @@ type EmptyTransformer struct{}
 
 func (p *EmptyTransformer) SetEslVersion(_ db.TransformerID) {
 	//Does nothing
+}
+
+func (p *EmptyTransformer) GetEslVersion() db.TransformerID {
+	return 0
 }
 
 func (p *EmptyTransformer) GetDBEventType() db.EventType {
@@ -814,6 +823,10 @@ type PanicTransformer struct{}
 
 func (p *PanicTransformer) GetDBEventType() db.EventType {
 	return "invalid"
+}
+
+func (p *PanicTransformer) GetEslVersion() db.TransformerID {
+	return 0
 }
 
 func (p *PanicTransformer) SetEslVersion(_ db.TransformerID) {
@@ -840,6 +853,10 @@ func (p *ErrorTransformer) SetEslVersion(_ db.TransformerID) {
 	//Does nothing
 }
 
+func (p *ErrorTransformer) GetEslVersion() db.TransformerID {
+	return 0
+}
+
 type InvalidJsonTransformer struct{}
 
 func (p *InvalidJsonTransformer) GetDBEventType() db.EventType {
@@ -848,6 +865,10 @@ func (p *InvalidJsonTransformer) GetDBEventType() db.EventType {
 
 func (p *InvalidJsonTransformer) SetEslVersion(_ db.TransformerID) {
 	//Does nothing
+}
+
+func (p *InvalidJsonTransformer) GetEslVersion() db.TransformerID {
+	return 0
 }
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {

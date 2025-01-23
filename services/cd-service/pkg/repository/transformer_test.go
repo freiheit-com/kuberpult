@@ -1409,12 +1409,35 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 	type TestCase struct {
 		Name             string
 		Transformers     []Transformer
-		expectedContent  []FileWithContent
 		db               bool
-		expectedDBEvents []event.Event
+		expectedDBEvents []db.EventRow // the events that the last transformer created
 	}
 
 	tcs := []TestCase{
+		{
+			Name: "Create a single application version without deploying it",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+			expectedDBEvents: []db.EventRow{
+				{
+					Uuid:          "00000000-0000-0000-0000-000000000001",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					EventType:     "new-release",
+					EventJson:     "{}",
+					TransformerID: 1,
+				},
+			},
+		},
 		{
 			Name: "Create a single application version and deploy it",
 			// no need to bother with environments here
@@ -1426,6 +1449,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Application:     "app",
@@ -1434,23 +1458,18 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Version:         1,
 				},
 			},
-			expectedContent: []FileWithContent{
+			expectedDBEvents: []db.EventRow{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
-					Content: "app",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
+					Uuid:          "00000000-0000-0000-0000-000000000002",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					EventType:     "deployment",
+					EventJson:     "{}",
+					TransformerID: 2,
 				},
 			},
 		},
 		{
-			Name: "Trigger a deployment via a relase train with environment target",
+			Name: "Trigger a deployment via a release train with environment target",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "production",
@@ -1477,6 +1496,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						"staging":    "some staging manifest 2",
 					},
 					WriteCommitData: true,
+					Version:         1,
 				},
 				&DeployApplicationVersion{
 					Environment:     "staging",
@@ -1489,22 +1509,13 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedContent: []FileWithContent{
+			expectedDBEvents: []db.EventRow{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
-					Content: "app",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
-					Content: "production",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_upstream",
-					Content: "staging",
+					Uuid:       "00000000-0000-0000-0000-000000000005",
+					CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:  "deployment",
+					//EventJson:     "{}",
+					TransformerID: 5,
 				},
 			},
 		},
@@ -1550,26 +1561,13 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedContent: []FileWithContent{
+			expectedDBEvents: []db.EventRow{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
-					Content: "app",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
-					Content: "production",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_upstream",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_environment_group",
-					Content: "production-group",
+					Uuid:          "00000000-0000-0000-0000-000000000005",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "deployment",
+					EventJson:     "{}",
+					TransformerID: 5,
 				},
 			},
 		},
@@ -1620,26 +1618,13 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedContent: []FileWithContent{
+			expectedDBEvents: []db.EventRow{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
-					Content: "replaced-by",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
-					Content: "lock-prevented-deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/lock_message",
-					Content: "lock msg 1",
+					Uuid:          "00000000-0000-0000-0000-000000000005",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "lock-prevented-deployment",
+					EventJson:     "{}",
+					TransformerID: 6,
 				},
 			},
 		},
@@ -1678,38 +1663,27 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Version:         3,
 				},
 			},
-			expectedContent: []FileWithContent{
+			expectedDBEvents: []db.EventRow{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
+					Uuid:          "00000000-0000-0000-0000-000000000001",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "new-release",
+					EventJson:     "{}",
+					TransformerID: 4,
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
-					Content: "myapp",
+					Uuid:          "00000000-0000-0000-0000-000000000002",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "deployment",
+					EventJson:     "{}",
+					TransformerID: 4,
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
-					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
-					Content: "lock-prevented-deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
-					Content: "lock staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
-					Content: "environment",
+					Uuid:          "00000000-0000-0000-0000-000000000003",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "lock-prevented-deployment",
+					EventJson:     "{}",
+					TransformerID: 4,
 				},
 			},
 		},
@@ -1754,38 +1728,27 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Version:         4,
 				},
 			},
-			expectedContent: []FileWithContent{
+			expectedDBEvents: []db.EventRow{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
+					Uuid:          "00000000-0000-0000-0000-000000000001",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "new-release",
+					EventJson:     "{}",
+					TransformerID: 4,
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
-					Content: "myapp",
+					Uuid:          "00000000-0000-0000-0000-000000000002",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "deployment",
+					EventJson:     "{}",
+					TransformerID: 4,
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
-					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
-					Content: "lock-prevented-deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
-					Content: "lock myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
-					Content: "application",
+					Uuid:          "00000000-0000-0000-0000-000000000003",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "lock-prevented-deployment",
+					EventJson:     "{}",
+					TransformerID: 4,
 				},
 			},
 		},
@@ -1827,26 +1790,20 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Version:         6,
 				},
 			},
-			expectedContent: []FileWithContent{
+			expectedDBEvents: []db.EventRow{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
-					Content: "lock-prevented-deployment",
+					Uuid:          "00000000-0000-0000-0000-000000000004",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "new-release",
+					EventJson:     "{}",
+					TransformerID: 4,
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
-					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/lock_message",
-					Content: "lock sreteam",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/lock_type",
-					Content: "team",
+					Uuid:          "00000000-0000-0000-0000-000000000005",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					EventType:     "lock-prevented-deployment",
+					EventJson:     "{}",
+					TransformerID: 4,
 				},
 			},
 		},
@@ -1860,22 +1817,46 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			var repo Repository
 			var err error = nil
-			var updatedState *State = nil
-			repo = setupRepositoryTest(t)
-			var batchError *TransformerBatchApplyError = nil
-			_, updatedState, _, batchError = repo.ApplyTransformersInternal(ctx, nil, tc.Transformers...)
-			if batchError != nil {
-				t.Fatalf("2 encountered error but no error is expected here: '%v'", batchError)
+			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
+			var lastTransformerId db.TransformerID = -1
+			for index, transformer := range tc.Transformers {
+				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+					var batchError *TransformerBatchApplyError = nil
+					_, _, _, batchError = repo.ApplyTransformersInternal(ctx, tx, transformer)
+					if batchError != nil {
+						t.Fatalf("encountered error but no error is expected here: %d '%v'", index, batchError)
+					}
+					lastTransformerId = transformer.GetEslVersion()
+					return nil
+				})
 			}
+
+			t.Logf("last Transformer id: %v", lastTransformerId)
+
+			commitEvents, _ := db.WithTransactionT[[]db.EventRow](dbHandler, ctx, 0, true, func(ctx context.Context, tx *sql.Tx) (*[]db.EventRow, error) {
+				events, err := dbHandler.DBSelectAllCommitEventsForTransformerID(ctx, tx, lastTransformerId)
+				if err != nil {
+					t.Fatalf("2 encountered error but no error is expected here: '%v'", err)
+				}
+				return &events, nil
+			})
+
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: '%v'", err)
 			}
-			fs := updatedState.Filesystem
-			if err := verifyContent(fs, tc.expectedContent); err != nil {
-				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
+
+			if diff := cmp.Diff(tc.expectedDBEvents, *commitEvents, cmpopts.IgnoreFields(db.EventRow{}, "Timestamp", "EventJson")); diff != "" {
+				t.Errorf("result mismatch (-want, +got):\n%s", diff)
 			}
+			if diff := cmp.Diff(len(tc.expectedDBEvents), len(*commitEvents)); diff != "" {
+				t.Errorf("result mismatch in number of events (-want, +got):\n%s", diff)
+			}
+
+			//fs := updatedState.Filesystem
+			//if err := verifyContent(fs, tc.expectedContent); err != nil {
+			//	t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
+			//}
 		})
 	}
 }
@@ -2988,7 +2969,6 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 		ExpectedPrognosis  ReleaseTrainPrognosis
 		testTeamPermission bool
 	}{
-
 		{
 			Name:               "User is not on the team of the application",
 			testTeamPermission: true,
@@ -3331,7 +3311,10 @@ skipping "test" because it is already in the version`,
 			configs, _ := repo.State().GetAllEnvironmentConfigs(ctx, nil)
 			prognosis := releaseTrain.Prognosis(ctx, repo.State(), nil, configs)
 
-			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
+			//if diff := cmp.Diff(a, tc.wantClientApp, cmpopts.IgnoreFields(DexRewriteURLRoundTripper{}, "T")); diff != "" {
+			//opts := cmpopts.IgnoreFields(ReleaseTrainEnvironmentPrognosis{}, "AllLatestReleases")
+			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) ||
+				!cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
 				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
 			}
 
@@ -7071,11 +7054,11 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 }
 
 func SetupRepositoryTestWithDB(t *testing.T) Repository {
-	r := SetupRepositoryTestWithDBOptions(t, false)
+	r, _ := SetupRepositoryTestWithDBOptions(t, false)
 	return r
 }
 
-func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repository {
+func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
@@ -7094,12 +7077,12 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repositor
 	err = cmd.Start()
 	if err != nil {
 		t.Fatalf("error starting %v", err)
-		return nil
+		return nil, nil
 	}
 	err = cmd.Wait()
 	if err != nil {
 		t.Fatalf("error waiting %v", err)
-		return nil
+		return nil, nil
 	}
 	t.Logf("test created dir: %s", localDir)
 
@@ -7130,8 +7113,9 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) Repositor
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repo
+	return repo, dbHandler
 }
+
 func SetupRepositoryTestWithoutDB(t *testing.T, repositoryConfig *RepositoryConfig) Repository {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
