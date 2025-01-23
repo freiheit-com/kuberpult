@@ -1981,12 +1981,16 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
 
 	err := fs.Remove(envDir)
-	if err != nil {
+	if errors.Is(err, os.ErrNotExist) {
+		logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment directory %q does not exist.", envDir)
+	} else if err != nil {
 		return "", fmt.Errorf("error deleting the environment directory %q: %w", envDir, err)
 	}
 
 	err = fs.Remove(argoCdAppFile)
-	if err != nil {
+	if errors.Is(err, os.ErrNotExist) {
+		logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment's argocd app file %q does not exist.", envDir)
+	} else if err != nil {
 		return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
 	}
 

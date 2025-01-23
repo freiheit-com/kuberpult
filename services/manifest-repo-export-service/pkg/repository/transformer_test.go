@@ -3161,7 +3161,7 @@ spec:
 					TransformerEslVersion: 1,
 				},
 			},
-			expectedError: errMatcher{msg: `error within transaction: first apply failed, aborting: error at index 0 of transformer batch: error deleting the environment directory "environments/acceptance": file does not exist`},
+			expectedMessage: "delete environment \"acceptance\"",
 		},
 	}
 
