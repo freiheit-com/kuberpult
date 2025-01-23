@@ -18,7 +18,7 @@ const (
 	SYNC_FAILED
 )
 
-const BULK_INSERT_BATCH_SIZE = 500
+const BULK_INSERT_BATCH_SIZE = 500 //500 is an arbi
 
 type GitSyncData struct {
 	AppName       string
@@ -71,7 +71,7 @@ func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id 
 		return fmt.Errorf("DBWriteNewSyncEventBulk unable to get transaction timestamp: %w", err)
 	}
 
-	err = h.executeBulkInsert(ctx, tx, envApps, *now, id, status)
+	err = h.executeBulkInsert(ctx, tx, envApps, *now, id, status, BULK_INSERT_BATCH_SIZE)
 
 	if err != nil {
 		return fmt.Errorf("could not write sync event into DB. Error: %w\n", err)
@@ -155,7 +155,7 @@ func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id
 		return fmt.Errorf("DBBulkUpdateUnsyncedApps unable to get transaction timestamp: %w", err)
 	}
 
-	return h.executeBulkInsert(ctx, tx, allCombs, *now, id, status)
+	return h.executeBulkInsert(ctx, tx, allCombs, *now, id, status, BULK_INSERT_BATCH_SIZE)
 }
 
 func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName, envName string) (*GitSyncData, error) {
@@ -203,13 +203,15 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 }
 
 // These queries can get long. Because of this, we insert these values in batches of BULK_INSERT_BATCH_SIZE
-func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus) error {
+func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus, batchSize int) error {
 	queryPrefix := "INSERT INTO git_sync_status (created, transformerid, envName, appName, status) VALUES"
 	currentQuery := queryPrefix
-
+	if batchSize < 1 {
+		return fmt.Errorf("batch size needs to be a positive number")
+	}
 	for idx, currComb := range allEnvApps {
 		format := " ('%s', %d, '%s', '%s', %d)"
-		if idx%BULK_INSERT_BATCH_SIZE == 0 || idx == len(allEnvApps)-1 { // Is end of batch "" tail
+		if idx%batchSize == 0 || idx == len(allEnvApps)-1 { // Is end of batch || tail
 			format += ";"
 			currentQuery += fmt.Sprintf(format, now.Format(time.RFC3339), id, currComb.EnvName, currComb.AppName, status)
 			_, err := tx.ExecContext(ctx, currentQuery)

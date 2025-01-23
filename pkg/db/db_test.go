@@ -4251,6 +4251,93 @@ func TestBulkUpdateUnsynced(t *testing.T) {
 	}
 }
 
+func TestBulkInsertFunction(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		NumberOfApps  int
+		BatchSize     int
+		expectedError error
+	}{
+		{
+			Name:         "Insert No apps",
+			NumberOfApps: 0,
+			BatchSize:    BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:         "one app",
+			NumberOfApps: 1,
+			BatchSize:    BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:         "One batch, just shy",
+			NumberOfApps: BULK_INSERT_BATCH_SIZE - 1,
+			BatchSize:    BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:         "Just enough",
+			NumberOfApps: BULK_INSERT_BATCH_SIZE,
+			BatchSize:    BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:         "Two batches, one too many",
+			NumberOfApps: BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:    BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:         "Many apps batches",
+			NumberOfApps: 15*BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:    BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:          "Batch size 0",
+			NumberOfApps:  BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:     0,
+			expectedError: errMatcher{msg: "batch size needs to be a positive number"},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				n := 0
+				envApps := make([]EnvApp, 0)
+				for n < tc.NumberOfApps {
+					appName := "app-" + strconv.Itoa(n)
+					envName := "app-" + strconv.Itoa(n)
+					envApps = append(envApps, EnvApp{AppName: appName, EnvName: envName})
+					n += 1
+				}
+				err := dbHandler.executeBulkInsert(ctx, transaction, envApps, time.Now(), TransformerID(0), UNSYNCED, tc.BatchSize)
+				if err != nil {
+					if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+
+					}
+					return nil
+				}
+
+				apps, err := dbHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, TransformerID(0))
+				if err != nil {
+					if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				if diff := cmp.Diff(tc.NumberOfApps, len(apps)); diff != "" {
+					t.Fatalf("mismatch number of apps (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestBulkReadUnsynced(t *testing.T) {
 	tcs := []struct {
 		Name                string
