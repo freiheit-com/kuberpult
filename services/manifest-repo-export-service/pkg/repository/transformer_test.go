@@ -3193,65 +3193,8 @@ spec:
 					if err2 != nil {
 						t.Fatal(err2)
 					}
-					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
-						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumber: concreteTransformer.Version,
-							App:           concreteTransformer.Application,
-							Manifests: db.DBReleaseManifests{
-								Manifests: concreteTransformer.Manifests,
-							},
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-
-					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
-						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, db.LockMetadata{
-							CreatedByName:  concreteTransformer.AuthorName,
-							CreatedByEmail: concreteTransformer.AuthorEmail,
-							Message:        concreteTransformer.Message,
-							CiLink:         "", //not transported to repo
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, concreteTransformer.Environment, []string{concreteTransformer.LockId})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
-						concreteTransformer := tr.(*CreateUndeployApplicationVersion)
-						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumber: 2,
-							App:           concreteTransformer.Application,
-							Manifests: db.DBReleaseManifests{
-								Manifests: map[string]string{ //empty manifest
-									"": "",
-								},
-							},
-							Metadata: db.DBReleaseMetaData{
-								SourceAuthor:    "",
-								SourceCommitId:  "",
-								SourceMessage:   "",
-								DisplayVersion:  "",
-								UndeployVersion: true,
-							},
-							Created: time.Now(),
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
 				}
-				var commitMsg []string
+
 				for _, t := range tc.Transformers {
 					err := repo.Apply(ctx, transaction, t)
 					if err != nil {
@@ -3265,14 +3208,8 @@ spec:
 						return err
 					}
 				}
-				actualMsg := ""
 
-				actualMsg = repo.State().Commit.Message()
-
-				// note that we only check the LAST error here:
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
+				actualMsg := repo.State().Commit.Message()
 				if diff := cmp.Diff(tc.expectedMessage, actualMsg); diff != "" {
 					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 				}
@@ -3280,10 +3217,8 @@ spec:
 				return nil
 			})
 
-			if err != nil {
-				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			updatedState := repo.State()
 
