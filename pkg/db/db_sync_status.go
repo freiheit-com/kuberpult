@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright freiheit.com*/
+Copyright freiheit.com
+*/
 package db
 
 import (
@@ -217,7 +219,7 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 	return &syncData, nil
 }
 
-// These queries can get long. Because of this, we insert these values in batches of BULK_INSERT_BATCH_SIZE
+// These queries can get long. Because of this, we insert these values in batches
 func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus, batchSize int) error {
 	queryPrefix := "INSERT INTO git_sync_status (created, transformerid, envName, appName, status) VALUES"
 	currentQuery := queryPrefix
