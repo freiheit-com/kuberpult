@@ -26,6 +26,7 @@ import (
 	"slices"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -1954,4 +1955,40 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 ) (string, error) {
 	// group locks are handled on the cd-service, and split into environment locks
 	return "empty commit for group lock deletion", nil
+}
+
+type DeleteEnvironment struct {
+	Environment           string `json:"env"`
+	TransformerMetadata   `json:"metadata"`
+	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+func (d *DeleteEnvironment) GetEslVersion() db.TransformerID {
+	return d.TransformerEslVersion
+}
+
+func (d *DeleteEnvironment) SetEslVersion(id db.TransformerID) {
+	d.TransformerEslVersion = id
+}
+
+func (d *DeleteEnvironment) GetDBEventType() db.EventType {
+	return db.EvtDeleteEnvironment
+}
+
+func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
+	fs := state.Filesystem
+	envDir := fs.Join("environments", d.Environment)
+	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
+
+	err := fs.Remove(envDir)
+	if err != nil {
+		return "", fmt.Errorf("error deleting the environment directory %q: %w", envDir, err)
+	}
+
+	err = fs.Remove(argoCdAppFile)
+	if err != nil {
+		return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
+	}
+
+	return fmt.Sprintf("delete environment %q", d.Environment), nil
 }
