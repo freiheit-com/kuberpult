@@ -18,6 +18,8 @@ const (
 	SYNC_FAILED
 )
 
+const BULK_INSERT_BATCH_SIZE = 2
+
 type GitSyncData struct {
 	AppName       string
 	EnvName       string
@@ -68,18 +70,9 @@ func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id 
 	if err != nil {
 		return fmt.Errorf("DBWriteNewSyncEventBulk unable to get transaction timestamp: %w", err)
 	}
-	insertAllQuery := "INSERT INTO git_sync_status (created, transformerid, envName, appName, status) VALUES"
-	for idx, currComb := range envApps {
-		format := " ('%s', %d, '%s', '%s', %d)"
-		if idx == len(envApps)-1 {
-			format += ";"
-		} else {
-			format += ","
-		}
-		insertAllQuery += fmt.Sprintf(format, now.Format(time.RFC3339), id, currComb.EnvName, currComb.AppName, status)
-	}
-	_, err = tx.Exec(
-		insertAllQuery)
+
+	err = h.executeBulkInsert(ctx, tx, envApps, *now, id, status)
+
 	if err != nil {
 		return fmt.Errorf("could not write sync event into DB. Error: %w\n", err)
 	}
@@ -158,33 +151,11 @@ func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id
 		return nil
 	}
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
-
 	if err != nil {
 		return fmt.Errorf("DBBulkUpdateUnsyncedApps unable to get transaction timestamp: %w", err)
 	}
 
-	insertAllQuery := "INSERT INTO git_sync_status (created, transformerid, envName, appName, status) VALUES"
-	for idx, currComb := range allCombs {
-		format := " ('%s', %d, '%s', '%s', %d)"
-		if idx == len(allCombs)-1 {
-			format += ";"
-		} else {
-			format += ","
-		}
-
-		if err != nil {
-			return fmt.Errorf("DBBulkUpdateUnsyncedApps unable to parse timestamp: %w", err)
-
-		}
-		insertAllQuery += fmt.Sprintf(format, now.Format(time.RFC3339), id, currComb.EnvName, currComb.AppName, status)
-	}
-
-	_, err = tx.Exec(
-		insertAllQuery)
-	if err != nil {
-		return fmt.Errorf("DBBulkUpdateUnsyncedApps: could not write sync events into DB. Error: %w\n", err)
-	}
-	return nil
+	return h.executeBulkInsert(ctx, tx, allCombs, *now, id, status)
 }
 
 func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName, envName string) (*GitSyncData, error) {
@@ -229,4 +200,27 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 		return nil, err
 	}
 	return &syncData, nil
+}
+
+// These queries can get long. Because of this, we insert these values in batches of BULK_INSERT_BATCH_SIZE
+func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus) error {
+	queryPrefix := "INSERT INTO git_sync_status (created, transformerid, envName, appName, status) VALUES"
+	currentQuery := queryPrefix
+
+	for idx, currComb := range allEnvApps {
+		format := " ('%s', %d, '%s', '%s', %d)"
+		if idx%BULK_INSERT_BATCH_SIZE == 0 || idx == len(allEnvApps)-1 { // Is end of batch "" tail
+			format += ";"
+			currentQuery += fmt.Sprintf(format, now.Format(time.RFC3339), id, currComb.EnvName, currComb.AppName, status)
+			_, err := tx.ExecContext(ctx, currentQuery)
+			if err != nil {
+				return err
+			}
+			currentQuery = queryPrefix
+		} else {
+			format += ","
+			currentQuery += fmt.Sprintf(format, now.Format(time.RFC3339), id, currComb.EnvName, currComb.AppName, status)
+		}
+	}
+	return nil
 }
