@@ -109,7 +109,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	if tx == nil {
 		return nil, fmt.Errorf("DBReadUnsyncedAppsForTransfomerID: no transaction provided")
 	}
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT appName, envName FROM git_sync_status WHERE transformerid = ? AND status = ? ORDER BY eslVersion;"))
+	selectQuery := h.AdaptQuery("SELECT appName, envName FROM git_sync_status WHERE transformerid = ? AND status = ? ORDER BY eslVersion;")
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
