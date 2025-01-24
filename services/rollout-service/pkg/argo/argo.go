@@ -57,7 +57,7 @@ type Processor interface {
 type ArgoAppProcessor struct {
 	trigger               chan *ArgoOverview
 	lastOverview          *ArgoOverview
-	argoApps              chan *v1alpha1.ApplicationWatchEvent
+	ArgoApps              chan *v1alpha1.ApplicationWatchEvent
 	ApplicationClient     application.ApplicationServiceClient
 	ManageArgoAppsEnabled bool
 	ManageArgoAppsFilter  []string
@@ -70,7 +70,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
 		ManageArgoAppsFilter:  manageArgoApplicationFilter,
 		trigger:               make(chan *ArgoOverview, 50),
-		argoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
+		ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
 	}
 }
 
@@ -110,7 +110,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			case argoOv := <-a.trigger:
 				l.Info("self-manage.trigger")
 				a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
-			case ev := <-a.argoApps:
+			case ev := <-a.ArgoApps:
 				a.ProcessArgoWatchEvent(ctx, l, appsKnownToArgo, ev)
 			case <-ctx.Done():
 				return nil
@@ -272,13 +272,14 @@ func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthRe
 
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
-				a.argoApps <- ev
+				a.ArgoApps <- ev
 			}
 		}
 	})
 }
 
 func calculateFinalizers() []string {
+
 	return []string{
 		"resources-finalizer.argocd.argoproj.io",
 	}

@@ -223,7 +223,7 @@ func runServer(ctx context.Context, config Config) error {
 			Shutdown: nil,
 			Name:     "consume argocd events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return service.ConsumeEvents(ctx, appClient, dispatcher, health)
+				return service.ConsumeEvents(ctx, appClient, dispatcher, health, versionC.GetArgoProcessor())
 			},
 		},
 		{
@@ -238,13 +238,6 @@ func runServer(ctx context.Context, config Config) error {
 			Name:     "consume self-manage events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return versionC.GetArgoProcessor().Consume(ctx, health)
-			},
-		},
-		{
-			Shutdown: nil,
-			Name:     "consume argo events",
-			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return versionC.GetArgoProcessor().ConsumeArgo(ctx, health)
 			},
 		},
 		{

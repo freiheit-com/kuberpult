@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"io"
 	"testing"
 	"time"
@@ -383,7 +384,12 @@ func TestArgoConection(t *testing.T) {
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
 			go dispatcher.Work(ctx, hlth.Reporter("dispatcher"))
-			err := ConsumeEvents(ctx, &as, dispatcher, hlth.Reporter("consume"))
+			err := ConsumeEvents(ctx, &as, dispatcher, hlth.Reporter("consume"), &argo.ArgoAppProcessor{
+				ApplicationClient:     nil,
+				ManageArgoAppsEnabled: true,
+				ManageArgoAppsFilter:  []string{},
+				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
+			})
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
