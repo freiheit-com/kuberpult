@@ -449,8 +449,8 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 	for _, contentRequirement := range required {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
-		} else if string(data) != string(contentRequirement.fileData) {
-			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
+		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
 		}
 	}
 	return nil
@@ -3009,6 +3009,216 @@ func TestUndeployLogic(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
+			}
+			updatedState := repo.State()
+
+			if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
+				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestDeleteEnvironment(t *testing.T) {
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	envAcceptanceConfig := config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true},
+		ArgoCd:   &config.EnvironmentConfigArgoCd{},
+	}
+	envAcceptance2Config := config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true},
+		ArgoCd:   &config.EnvironmentConfigArgoCd{},
+	}
+
+	tcs := []struct {
+		Name            string
+		Transformers    []Transformer
+		expectedData    []*FilenameAndData
+		expectedMissing []*FilenameAndData
+		expectedMessage string
+		expectedError   error
+	}{
+		{
+			Name: "create an environment and delete it",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptanceConfig,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&DeleteEnvironment{
+					Environment: envAcceptance,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/environments/acceptance",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/argocd/v1alpha1/acceptance.yaml",
+					fileData: []byte(authorEmail),
+				},
+			},
+			expectedMessage: "delete environment \"acceptance\"",
+		},
+		{
+			Name: "create two environments and delete one of them",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptanceConfig,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance2,
+					Config:      envAcceptance2Config,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+				&DeleteEnvironment{
+					Environment: envAcceptance,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 3,
+				},
+			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/environments/acceptance",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/argocd/v1alpha1/acceptance.yaml",
+					fileData: []byte(authorEmail),
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{
+					path: "/environments/acceptance2/config.json",
+					fileData: []byte(`{
+  "upstream": {
+    "environment": "acceptance2",
+    "latest": true
+  },
+  "argocd": {
+    "destination": {
+      "name": "",
+      "server": ""
+    }
+  }
+}
+`),
+				},
+				{
+					path: "/argocd/v1alpha1/acceptance2.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: acceptance2
+spec:
+  description: acceptance2
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+`),
+				},
+			},
+			expectedMessage: "delete environment \"acceptance\"",
+		},
+		{
+			Name: "delete an environment that does not exist",
+			Transformers: []Transformer{
+				&DeleteEnvironment{
+					Environment: envAcceptance,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+			},
+			expectedMessage: "delete environment \"acceptance\"",
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err2 != nil {
+					t.Fatal(err2)
+				}
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig, []string{})
+				if err2 != nil {
+					return err2
+				}
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config, []string{})
+				if err2 != nil {
+					return err2
+				}
+				//populate the database
+				for _, tr := range tc.Transformers {
+					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err2 != nil {
+						t.Fatal(err2)
+					}
+				}
+
+				for _, t := range tc.Transformers {
+					err := repo.Apply(ctx, transaction, t)
+					if err != nil {
+						return err
+					}
+					// just for testing, we push each transformer change separately.
+					// if you need to debug this test, you can git clone the repo
+					// and we will only see anything if we push.
+					err = repo.PushRepo(ctx)
+					if err != nil {
+						return err
+					}
+				}
+
+				actualMsg := repo.State().Commit.Message()
+				if diff := cmp.Diff(tc.expectedMessage, actualMsg); diff != "" {
+					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			updatedState := repo.State()
 
