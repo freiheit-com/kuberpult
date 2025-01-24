@@ -388,7 +388,7 @@ func TestArgoConection(t *testing.T) {
 				ApplicationClient:     nil,
 				ManageArgoAppsEnabled: true,
 				ManageArgoAppsFilter:  []string{},
-				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
+				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
 			})
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
