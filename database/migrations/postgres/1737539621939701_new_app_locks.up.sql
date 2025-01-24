@@ -39,6 +39,3 @@ BEGIN
     END IF;
 END
 $$;
-
--- Remove all_app_locks table
-DROP TABLE IF EXISTS all_app_locks;
