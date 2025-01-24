@@ -1,29 +1,4 @@
--- rename app_locks table to app_locks_history if it doesn't exist
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'app_locks'
-    ) AND NOT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'app_locks_history'
-    ) THEN
-        ALTER TABLE app_locks RENAME TO app_locks_history;
-    END IF;
-END
-$$;
-
--- create app_locks table if it doesn't exist
-CREATE TABLE IF NOT EXISTS app_locks
-(
-    created TIMESTAMP,
-    lockid VARCHAR,
-    envname VARCHAR,
-    appname VARCHAR,
-    metadata VARCHAR,
-    PRIMARY KEY(appname, envname, lockid)
-);
-
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 -- insert data into app_locks table from app_locks_history table if there's no data inside it
 DO $$
 BEGIN
