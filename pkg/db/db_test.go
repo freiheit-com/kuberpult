@@ -4253,46 +4253,46 @@ func TestBulkUpdateUnsynced(t *testing.T) {
 
 func TestBulkInsertFunction(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		NumberOfApps  int
-		BatchSize     int
-		expectedError error
+		Name                 string
+		ExpectedNumberOfApps int
+		BatchSize            int
+		expectedError        error
 	}{
 		{
-			Name:         "Insert No apps",
-			NumberOfApps: 0,
-			BatchSize:    BULK_INSERT_BATCH_SIZE,
+			Name:                 "Insert No apps",
+			ExpectedNumberOfApps: 0,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
 		},
 		{
-			Name:         "one app",
-			NumberOfApps: 1,
-			BatchSize:    BULK_INSERT_BATCH_SIZE,
+			Name:                 "one app",
+			ExpectedNumberOfApps: 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
 		},
 		{
-			Name:         "One batch, just shy",
-			NumberOfApps: BULK_INSERT_BATCH_SIZE - 1,
-			BatchSize:    BULK_INSERT_BATCH_SIZE,
+			Name:                 "One batch, just shy",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE - 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
 		},
 		{
-			Name:         "Just enough",
-			NumberOfApps: BULK_INSERT_BATCH_SIZE,
-			BatchSize:    BULK_INSERT_BATCH_SIZE,
+			Name:                 "Just enough",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
 		},
 		{
-			Name:         "Two batches, one too many",
-			NumberOfApps: BULK_INSERT_BATCH_SIZE + 1,
-			BatchSize:    BULK_INSERT_BATCH_SIZE,
+			Name:                 "Two batches, one too many",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
 		},
 		{
-			Name:         "Many apps batches",
-			NumberOfApps: 15*BULK_INSERT_BATCH_SIZE + 1,
-			BatchSize:    BULK_INSERT_BATCH_SIZE,
+			Name:                 "Many apps batches",
+			ExpectedNumberOfApps: 15*BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
 		},
 		{
-			Name:          "Batch size 0",
-			NumberOfApps:  BULK_INSERT_BATCH_SIZE + 1,
-			BatchSize:     0,
-			expectedError: errMatcher{msg: "batch size needs to be a positive number"},
+			Name:                 "Batch size 0",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            0,
+			expectedError:        errMatcher{msg: "batch size needs to be a positive number"},
 		},
 	}
 	for _, tc := range tcs {
@@ -4305,28 +4305,31 @@ func TestBulkInsertFunction(t *testing.T) {
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				n := 0
 				envApps := make([]EnvApp, 0)
-				for n < tc.NumberOfApps {
+				for n < tc.ExpectedNumberOfApps {
 					appName := "app-" + strconv.Itoa(n)
-					envName := "app-" + strconv.Itoa(n)
+					envName := "env-" + strconv.Itoa(n)
 					envApps = append(envApps, EnvApp{AppName: appName, EnvName: envName})
 					n += 1
 				}
 				err := dbHandler.executeBulkInsert(ctx, transaction, envApps, time.Now(), TransformerID(0), UNSYNCED, tc.BatchSize)
+				fmt.Println(err)
 				if err != nil {
 					if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-
 					}
 					return nil
+				} else {
+					if tc.expectedError != nil {
+						t.Fatalf("expected error but got none\n")
+					}
 				}
 
 				apps, err := dbHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, TransformerID(0))
 				if err != nil {
-					if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-					}
+					t.Fatalf("did not expect error here but got\n %s", err)
 				}
-				if diff := cmp.Diff(tc.NumberOfApps, len(apps)); diff != "" {
+
+				if diff := cmp.Diff(tc.ExpectedNumberOfApps, len(apps)); diff != "" {
 					t.Fatalf("mismatch number of apps (-want, +got):\n%s", diff)
 				}
 				return nil
