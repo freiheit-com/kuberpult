@@ -88,7 +88,6 @@ func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id 
 	}
 
 	err = h.executeBulkInsert(ctx, tx, envApps, *now, id, status, BULK_INSERT_BATCH_SIZE)
-
 	if err != nil {
 		return onErr(fmt.Errorf("could not write sync event into DB. Error: %w\n", err))
 	}
