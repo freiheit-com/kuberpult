@@ -4152,6 +4152,47 @@ func TestDBWriteReadUnsynced(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Read Unsynced apps for transformer, some synced",
+			SyncDataToWrite: []GitSyncData{
+				{
+					AppName:       "app-1",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(1),
+					SyncStatus:    SYNCED,
+				},
+				{
+					AppName:       "app-2",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(2),
+					SyncStatus:    SYNCED,
+				},
+				{
+					AppName:       "app-3",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-4",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+			},
+			ExpectedSyncEvents: map[int][]EnvApp{
+				3: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -4312,7 +4353,6 @@ func TestBulkInsertFunction(t *testing.T) {
 					n += 1
 				}
 				err := dbHandler.executeBulkInsert(ctx, transaction, envApps, time.Now(), TransformerID(0), UNSYNCED, tc.BatchSize)
-				fmt.Println(err)
 				if err != nil {
 					if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
@@ -4344,13 +4384,13 @@ func TestBulkInsertFunction(t *testing.T) {
 func TestBulkReadUnsynced(t *testing.T) {
 	tcs := []struct {
 		Name                string
-		UnsyncedData        map[int][]EnvApp
+		UnsyncedData        map[TransformerID][]EnvApp
 		TargetTransformerID int
 	}{
 		{
 			Name:                "All for one transformer",
 			TargetTransformerID: 0,
-			UnsyncedData: map[int][]EnvApp{
+			UnsyncedData: map[TransformerID][]EnvApp{
 				0: {
 					{
 						AppName: "app-1",
@@ -4374,7 +4414,7 @@ func TestBulkReadUnsynced(t *testing.T) {
 		{
 			Name:                "Split",
 			TargetTransformerID: 0,
-			UnsyncedData: map[int][]EnvApp{
+			UnsyncedData: map[TransformerID][]EnvApp{
 				0: {
 					{
 						AppName: "app-1",
@@ -4400,7 +4440,7 @@ func TestBulkReadUnsynced(t *testing.T) {
 		{
 			Name:                "Maps to no transformer",
 			TargetTransformerID: 3,
-			UnsyncedData: map[int][]EnvApp{ //transformer ID -> EnvApp
+			UnsyncedData: map[TransformerID][]EnvApp{ //transformer ID -> EnvApp
 				0: {
 					{
 						AppName: "app-1",
