@@ -179,7 +179,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 }
             }
         },
-        [release.version, app, env.name, createAppLock]
+        [release.version, release.environments, app, env.name, createAppLock]
     );
 
     const queueInfo =
