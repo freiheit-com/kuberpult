@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"io"
@@ -415,7 +416,7 @@ func TestArgoConection(t *testing.T) {
 				},
 			},
 			ExpectedReady: true,
-			channelSize:   0,
+			channelSize:   0, //Ok to get discarded events, as there is nobody listening to them
 			expectedGauges: []Gauge{
 				makeGauge("argo_discarded_events", 1, []string{}, 1),
 				makeGauge("argo_events_fill_rate", 1, []string{}, 1),
