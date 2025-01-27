@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -46,7 +47,7 @@ type ArgoEventProcessor interface {
 	ProcessArgoEvent(ctx context.Context, ev ArgoEvent)
 }
 
-func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter) error {
+func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter, a *argo.ArgoAppProcessor) error {
 	return hlth.Retry(ctx, func() error {
 		//exhaustruct:ignore
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
@@ -75,6 +76,12 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
 				dispatcher.Dispatch(ctx, k, ev)
+				select {
+				case a.ArgoApps <- ev:
+				default:
+					logger.FromContext(ctx).Sugar().Warnf("argo apps channel at full capacity of %d. Discarding event: %v", cap(a.ArgoApps), ev)
+				}
+				//TODO SRX-7BZWPD: Send Metrics to datadog (requires datadog configuration for the rollout service)
 			case "BOOKMARK":
 				// ignore this event
 			default:

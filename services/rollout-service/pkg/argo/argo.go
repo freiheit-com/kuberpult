@@ -48,7 +48,6 @@ type Processor interface {
 	Push(ctx context.Context, last *ArgoOverview) error
 	Consume(ctx context.Context, hlth *setup.HealthReporter) error
 	CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application)
-	ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error
 	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment)
 	GetManageArgoAppsFilter() []string
 	GetManageArgoAppsEnabled() bool
@@ -57,7 +56,7 @@ type Processor interface {
 type ArgoAppProcessor struct {
 	trigger               chan *ArgoOverview
 	lastOverview          *ArgoOverview
-	argoApps              chan *v1alpha1.ApplicationWatchEvent
+	ArgoApps              chan *v1alpha1.ApplicationWatchEvent
 	ApplicationClient     application.ApplicationServiceClient
 	ManageArgoAppsEnabled bool
 	ManageArgoAppsFilter  []string
@@ -70,7 +69,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
 		ManageArgoAppsFilter:  manageArgoApplicationFilter,
 		trigger:               make(chan *ArgoOverview, 50),
-		argoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
+		ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
 	}
 }
 
@@ -110,7 +109,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			case argoOv := <-a.trigger:
 				l.Info("self-manage.trigger")
 				a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
-			case ev := <-a.argoApps:
+			case ev := <-a.ArgoApps:
 				a.ProcessArgoWatchEvent(ctx, l, appsKnownToArgo, ev)
 			case <-ctx.Done():
 				return nil
@@ -248,37 +247,8 @@ func IsSelfManagedFilterActive(team string, processor Processor) (bool, error) {
 	return isSelfManaged, nil
 }
 
-func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error {
-	return hlth.Retry(ctx, func() error {
-		//exhaustruct:ignore
-		watch, err := a.ApplicationClient.Watch(ctx, &application.ApplicationQuery{})
-		if err != nil {
-			if status.Code(err) == codes.Canceled {
-				// context is cancelled -> we are shutting down
-				return setup.Permanent(nil)
-			}
-			return fmt.Errorf("watching applications: %w", err)
-		}
-		hlth.ReportReady("consuming argo events")
-		for {
-			ev, err := watch.Recv()
-			if err != nil {
-				if status.Code(err) == codes.Canceled {
-					// context is cancelled -> we are shutting down
-					return setup.Permanent(nil)
-				}
-				return err
-			}
-
-			switch ev.Type {
-			case "ADDED", "MODIFIED", "DELETED":
-				a.argoApps <- ev
-			}
-		}
-	})
-}
-
 func calculateFinalizers() []string {
+
 	return []string{
 		"resources-finalizer.argocd.argoproj.io",
 	}
