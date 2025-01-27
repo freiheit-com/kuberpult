@@ -20,6 +20,7 @@ import {
     addAction,
     getPriorityClassName,
     showSnackbarWarn,
+    useActions,
     useAppDetailsForApp,
     useApplications,
     useCloseReleaseDialog,
@@ -246,6 +247,16 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         return <div>same version</div>;
     };
 
+    const actions = useActions();
+    const alreadyPlanned = actions.some(
+        (action) =>
+            action.action?.$case === 'deploy' &&
+            action.action.deploy.application === app &&
+            action.action.deploy.environment === env.name
+    );
+    const defaultLabel =
+        releaseDifference < 0 ? 'Update & Lock' : releaseDifference === 0 ? 'Deploy & Lock' : 'Rollback & Lock';
+
     return (
         <li key={env.name} className={classNames('env-card')}>
             <div className="env-card-header">
@@ -309,15 +320,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             <ExpandButton
                                 onClickSubmit={deployAndLockClick}
                                 onClickLock={createAppLock}
-                                defaultButtonLabel={
-                                    releaseDifference < 0
-                                        ? 'Update & Lock'
-                                        : releaseDifference === 0
-                                          ? 'Deploy & Lock'
-                                          : 'Rollback & Lock'
-                                }
+                                defaultButtonLabel={alreadyPlanned ? `Cancel ${defaultLabel}` : defaultLabel}
                                 releaseDifference={releaseDifference}
                                 disabled={!allowDeployment}
+                                alreadyPlanned={alreadyPlanned}
                             />
                         </div>
                     </div>
@@ -446,6 +452,26 @@ export const EnvironmentGroupLane: React.FC<{
         (releaseEnvGroup) => releaseEnvGroup.environmentGroupName === environmentGroup.environmentGroupName
     );
 
+    const actions = useActions();
+    const envsWithoutPlannedDeployments = environmentGroup.environments.filter(
+        (env) =>
+            !actions.some(
+                (action) =>
+                    action.action?.$case === 'deploy' &&
+                    action.action.deploy.application === app &&
+                    action.action.deploy.environment === env.name
+            )
+    );
+    const envsWithPlannedDeployments = environmentGroup.environments.filter((env) =>
+        actions.some(
+            (action) =>
+                action.action?.$case === 'deploy' &&
+                action.action.deploy.application === app &&
+                action.action.deploy.environment === env.name
+        )
+    );
+    const alreadyPlanned = envsWithoutPlannedDeployments.length === 0;
+
     const createEnvGroupLock = React.useCallback(() => {
         environmentGroup.environments.forEach((environment) => {
             addAction({
@@ -464,8 +490,9 @@ export const EnvironmentGroupLane: React.FC<{
     }, [environmentGroup, app]);
     const deployAndLockClick = React.useCallback(
         (shouldLockToo: boolean) => {
-            var skippedEnvs: string[] = [];
-            environmentGroup.environments.forEach((environment) => {
+            var skippedEnvs: string[] = alreadyPlanned ? [] : envsWithPlannedDeployments.map((env) => env.name);
+            const envs = alreadyPlanned ? environmentGroup.environments : envsWithoutPlannedDeployments;
+            envs.forEach((environment) => {
                 if (
                     allReleases &&
                     allReleases.length !== 0 &&
@@ -508,7 +535,16 @@ export const EnvironmentGroupLane: React.FC<{
                 showSnackbarWarn(`Environments skipped: ${skippedEnvs}`);
             }
         },
-        [environmentGroup.environments, allReleases, release.environments, release.version, app]
+        [
+            environmentGroup.environments,
+            allReleases,
+            release.environments,
+            release.version,
+            app,
+            alreadyPlanned,
+            envsWithoutPlannedDeployments,
+            envsWithPlannedDeployments,
+        ]
     );
 
     React.useEffect(() => {
@@ -553,9 +589,10 @@ export const EnvironmentGroupLane: React.FC<{
                         <ExpandButton
                             onClickSubmit={deployAndLockClick}
                             onClickLock={createEnvGroupLock}
-                            defaultButtonLabel={'Deploy & Lock'}
+                            defaultButtonLabel={alreadyPlanned ? 'Cancel Deploy & Lock' : 'Deploy & Lock'}
                             disabled={!allowGroupDeployment}
                             releaseDifference={0}
+                            alreadyPlanned={alreadyPlanned}
                         />
                     </div>
                 </div>

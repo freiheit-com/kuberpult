@@ -210,6 +210,14 @@ button.button-lock {
 button.mdc-button.env-card-deploy-btn {
     border-radius: $release-dialog-inner-border-radius;
     @extend .text-bold;
+
+    &.button-main.deploy-button-cancel {
+        background-color: var(--mdc-theme-error);
+    }
+
+    &.deploy-button-cancel:not(.button-main) {
+        color: var(--mdc-theme-error);
+    }
 }
 button.mdc-button.env-card-lock-btn {
     border-radius: $release-dialog-inner-border-radius;

@@ -524,6 +524,7 @@ describe('Test addAction duplicate detection', () => {
         name: string;
         firstAction: BatchAction;
         differentAction: BatchAction;
+        shouldCancel: boolean;
     };
 
     const testdata: TestDataStore[] = [
@@ -551,6 +552,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'delete environment lock',
@@ -572,6 +574,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'create app lock',
@@ -599,6 +602,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'delete app lock',
@@ -622,6 +626,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'create team lock',
@@ -649,6 +654,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'delete team lock',
@@ -672,6 +678,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'deploy',
@@ -699,6 +706,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: true,
         },
         {
             name: 'undeploy',
@@ -718,6 +726,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'prepare undeploy',
@@ -737,6 +746,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
     ];
 
@@ -756,18 +766,18 @@ describe('Test addAction duplicate detection', () => {
             // when
             addAction(testcase.firstAction);
             // then
-            expect(UpdateAction.get().actions.length).toStrictEqual(1);
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.shouldCancel ? 0 : 1);
             //and
-            expect(UpdateSnackbar.get().show).toStrictEqual(true);
+            expect(UpdateSnackbar.get().show).toStrictEqual(!testcase.shouldCancel);
 
             // when
             addAction(testcase.differentAction);
             // then
-            expect(UpdateAction.get().actions.length).toStrictEqual(2);
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.shouldCancel ? 1 : 2);
             // when
             addAction(testcase.differentAction);
             // then
-            expect(UpdateAction.get().actions.length).toStrictEqual(2);
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.shouldCancel ? 0 : 2);
         });
     });
 });

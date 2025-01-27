@@ -477,7 +477,10 @@ export const addAction = (action: BatchAction): void => {
 
             break;
     }
-    if (isDuplicate) {
+
+    if (isDuplicate && action.action?.$case === 'deploy') {
+        deleteAction(action);
+    } else if (isDuplicate) {
         showSnackbarSuccess('This action was already added.');
     } else {
         UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
