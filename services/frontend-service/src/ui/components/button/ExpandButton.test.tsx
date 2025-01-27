@@ -27,6 +27,7 @@ describe('ExpandButton', () => {
         disabled: false,
         defaultButtonLabel: 'default-button',
         releaseDifference: 0,
+        alreadyPlanned: false,
     };
 
     const getNode = (props: Partial<ExpandButtonProps>): JSX.Element => (
@@ -118,6 +119,46 @@ describe('ExpandButton', () => {
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
             expectedLabel: 'Update only',
+        },
+        {
+            name: 'click expand once, with positive release difference and planned rollback',
+            props: { releaseDifference: 1, alreadyPlanned: true },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabel: 'Cancel Rollback only',
+        },
+        {
+            name: 'click expand once, with positive release difference and planned update',
+            props: { releaseDifference: -1, alreadyPlanned: true },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabel: 'Cancel Update only',
+        },
+        {
+            name: 'click cancel deployment button',
+            props: { alreadyPlanned: true },
+            clickThis: ['.deploy-button-cancel'],
+            expectExpanded: false,
+            expectSubmitCalledTimes: 1,
+            expectSubmitCalledWith: true,
+            expectLockCalledTimes: 0,
+            expectedLabel: 'Deploy only',
+        },
+        {
+            name: 'click expand, then cancel deploy button',
+            props: { alreadyPlanned: true },
+            clickThis: ['.button-expand', '.button-popup-deploy.deploy-button-cancel'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 1,
+            expectSubmitCalledWith: false,
+            expectLockCalledTimes: 0,
+            expectedLabel: 'Cancel Deploy only',
         },
     ];
 
