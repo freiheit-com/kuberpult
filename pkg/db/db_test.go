@@ -1441,7 +1441,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 		AuthorName   string
 		AuthorEmail  string
 		CiLink       string
-		ExpectedLock *ApplicationLock
+		ExpectedLock *ApplicationLockHistory
 	}{
 		{
 			Name:        "Simple application lock",
@@ -1452,12 +1452,11 @@ func TestReadWriteApplicationLock(t *testing.T) {
 			AuthorEmail: "myself@example.com",
 			AppName:     "my-app",
 			CiLink:      "www.test.com",
-			ExpectedLock: &ApplicationLock{
-				Env:        "dev",
-				LockID:     "dev-app-lock",
-				EslVersion: 1,
-				Deleted:    false,
-				App:        "my-app",
+			ExpectedLock: &ApplicationLockHistory{
+				Env:     "dev",
+				LockID:  "dev-app-lock",
+				Deleted: false,
+				App:     "my-app",
 				Metadata: LockMetadata{
 					Message:        "My application lock on dev for my-app",
 					CreatedByName:  "myself",
@@ -1502,7 +1501,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 				target := actual[0]
-				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(ApplicationLockHistory{}, "Created")); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -1550,11 +1549,9 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 			DeleteLocks: []testLockInfo{},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1627,11 +1624,9 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 			},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1727,11 +1722,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 			DeleteLocks: []testLockInfo{},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1769,11 +1762,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 			DeleteLocks: []testLockInfo{},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1782,11 +1773,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					},
 				},
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock-2",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app-2",
+					Env:    "dev",
+					LockID: "dev-app-lock-2",
+					App:    "my-app-2",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app-2",
 						CreatedByName:  "myself",
@@ -1881,11 +1870,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 			},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1894,11 +1881,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					},
 				},
 				{
-					Env:        "staging",
-					LockID:     "dev-app-lock-staging",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "staging",
+					LockID: "dev-app-lock-staging",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on stagibg for my-app",
 						CreatedByName:  "myself",
@@ -1907,11 +1892,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					},
 				},
 				{
-					Env:        "staging",
-					LockID:     "dev-app-lock-staging-2",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app-2",
+					Env:    "staging",
+					LockID: "dev-app-lock-staging-2",
+					App:    "my-app-2",
 					Metadata: LockMetadata{
 						Message:        "My application lock on stagibg for my-app-2",
 						CreatedByName:  "myself",
@@ -2153,7 +2136,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 		AppName       string
 		AuthorName    string
 		AuthorEmail   string
-		ExpectedLocks []ApplicationLock
+		ExpectedLocks []ApplicationLockHistory
 		ExpectedError error
 	}{
 		{
@@ -2164,13 +2147,12 @@ func TestDeleteApplicationLock(t *testing.T) {
 			Message:     "My lock on dev",
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
-			ExpectedLocks: []ApplicationLock{
+			ExpectedLocks: []ApplicationLockHistory{
 				{ //Sort DESC
-					Env:        "dev",
-					App:        "myApp",
-					LockID:     "dev-lock",
-					EslVersion: 2,
-					Deleted:    true,
+					Env:     "dev",
+					App:     "myApp",
+					LockID:  "dev-lock",
+					Deleted: true,
 					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
@@ -2178,11 +2160,10 @@ func TestDeleteApplicationLock(t *testing.T) {
 					},
 				},
 				{
-					Env:        "dev",
-					LockID:     "dev-lock",
-					App:        "myApp",
-					EslVersion: 1,
-					Deleted:    false,
+					Env:     "dev",
+					LockID:  "dev-lock",
+					App:     "myApp",
+					Deleted: false,
 					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
@@ -2232,8 +2213,8 @@ func TestDeleteApplicationLock(t *testing.T) {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 
-				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
-					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(ApplicationLockHistory{}, "Created")); diff != "" {
+					t.Fatalf("app locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -4089,6 +4070,409 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
 			}
 
+		})
+	}
+}
+
+func TestDBWriteReadUnsynced(t *testing.T) {
+	tcs := []struct {
+		Name               string
+		SyncDataToWrite    []GitSyncData
+		ExpectedSyncEvents map[int][]EnvApp
+	}{
+		{
+			Name: "Read Unsynced apps for transformer",
+			SyncDataToWrite: []GitSyncData{
+				{
+					AppName:       "app-1",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(1),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-2",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(2),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-3",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-4",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+			},
+			ExpectedSyncEvents: map[int][]EnvApp{
+				1: {
+					{
+						AppName: "app-1",
+						EnvName: "env-1",
+					},
+				},
+				2: {
+					{
+						AppName: "app-2",
+						EnvName: "env-1",
+					},
+				},
+				3: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
+		{
+			Name: "Read Unsynced apps for transformer, some synced",
+			SyncDataToWrite: []GitSyncData{
+				{
+					AppName:       "app-1",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(1),
+					SyncStatus:    SYNCED,
+				},
+				{
+					AppName:       "app-2",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(2),
+					SyncStatus:    SYNCED,
+				},
+				{
+					AppName:       "app-3",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-4",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+			},
+			ExpectedSyncEvents: map[int][]EnvApp{
+				3: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, currentSyncData := range tc.SyncDataToWrite {
+					err := dbHandler.DBWriteNewSyncEvent(ctx, transaction, &currentSyncData)
+					if err != nil {
+						return fmt.Errorf("error while writing currentSyncData, error: %w", err)
+					}
+				}
+				for tId, currentExpecteSyncStatus := range tc.ExpectedSyncEvents {
+					changes, err := dbHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, TransformerID(tId))
+					if err != nil {
+						return fmt.Errorf("error while writing currentSyncData, error: %w", err)
+					}
+					if diff := cmp.Diff(currentExpecteSyncStatus, changes); diff != "" {
+						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+		})
+	}
+}
+
+func TestBulkUpdateUnsynced(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		UnsyncedData        []EnvApp
+		TargetTransformerID int
+	}{
+		{
+			Name:                "Update all from SYNCED to Unsynced",
+			TargetTransformerID: 0,
+			UnsyncedData: []EnvApp{
+				{
+					AppName: "app-1",
+					EnvName: "env-1",
+				},
+				{
+					AppName: "app-2",
+					EnvName: "env-1",
+				},
+				{
+					AppName: "app-3",
+					EnvName: "env-3",
+				},
+				{
+					AppName: "app-4",
+					EnvName: "env-3",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
+				err := dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, TransformerID(0), tc.UnsyncedData, UNSYNCED)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, TransformerID(0), SYNCED)
+				if err != nil {
+					return err
+				}
+				for _, curr := range tc.UnsyncedData {
+					status, err := dbHandler.DBRetrieveSyncStatus(ctx, transaction, curr.AppName, curr.EnvName)
+					if err != nil {
+						return err
+					}
+					if status == nil || status.SyncStatus != SYNCED {
+						t.Fatalf("UNSYNCED app should be SYNCED: Appname: %q, Envname: %q", curr.AppName, curr.EnvName)
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestBulkInsertFunction(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		ExpectedNumberOfApps int
+		BatchSize            int
+		expectedError        error
+	}{
+		{
+			Name:                 "Insert No apps",
+			ExpectedNumberOfApps: 0,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "one app",
+			ExpectedNumberOfApps: 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "One batch, just shy",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE - 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "Just enough",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "Two batches, one too many",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "Many apps batches",
+			ExpectedNumberOfApps: 15*BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "Batch size 0",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            0,
+			expectedError:        errMatcher{msg: "batch size needs to be a positive number"},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				n := 0
+				envApps := make([]EnvApp, 0)
+				for n < tc.ExpectedNumberOfApps {
+					appName := "app-" + strconv.Itoa(n)
+					envName := "env-" + strconv.Itoa(n)
+					envApps = append(envApps, EnvApp{AppName: appName, EnvName: envName})
+					n += 1
+				}
+				err := dbHandler.executeBulkInsert(ctx, transaction, envApps, time.Now(), TransformerID(0), UNSYNCED, tc.BatchSize)
+				if err != nil {
+					if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+					}
+					return nil
+				} else {
+					if tc.expectedError != nil {
+						t.Fatalf("expected error but got none\n")
+					}
+				}
+
+				apps, err := dbHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, TransformerID(0))
+				if err != nil {
+					t.Fatalf("did not expect error here but got\n %s", err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedNumberOfApps, len(apps)); diff != "" {
+					t.Fatalf("mismatch number of apps (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestBulkReadUnsynced(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		UnsyncedData        map[TransformerID][]EnvApp
+		TargetTransformerID int
+	}{
+		{
+			Name:                "All for one transformer",
+			TargetTransformerID: 0,
+			UnsyncedData: map[TransformerID][]EnvApp{
+				0: {
+					{
+						AppName: "app-1",
+						EnvName: "env-1",
+					},
+					{
+						AppName: "app-2",
+						EnvName: "env-1",
+					},
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
+		{
+			Name:                "Split",
+			TargetTransformerID: 0,
+			UnsyncedData: map[TransformerID][]EnvApp{
+				0: {
+					{
+						AppName: "app-1",
+						EnvName: "env-1",
+					},
+					{
+						AppName: "app-2",
+						EnvName: "env-1",
+					},
+				},
+				1: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
+		{
+			Name:                "Maps to no transformer",
+			TargetTransformerID: 3,
+			UnsyncedData: map[TransformerID][]EnvApp{ //transformer ID -> EnvApp
+				0: {
+					{
+						AppName: "app-1",
+						EnvName: "env-1",
+					},
+					{
+						AppName: "app-2",
+						EnvName: "env-1",
+					},
+				},
+				1: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for tId, currEnvApps := range tc.UnsyncedData {
+					err := dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, TransformerID(tId), currEnvApps, UNSYNCED)
+					if err != nil {
+						return err
+					}
+					apps, err := dbHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, TransformerID(tId))
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(currEnvApps, apps); diff != "" {
+						return fmt.Errorf("unsynced apps mismatch (-want +got):\n%s", diff)
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction error: %v", err)
+			}
 		})
 	}
 }

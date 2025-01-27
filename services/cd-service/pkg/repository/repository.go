@@ -814,6 +814,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				AuthorName:  user.Name,
 				AuthorEmail: user.Email,
 			}
+			transfomerId := db.EslVersion(0)
 			if r.DB.ShouldUseEslTable() {
 				err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
 				if err != nil {
@@ -854,8 +855,8 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 						}
 						return nil, nil, nil, &applyErr
 					}
-
 				}
+				transfomerId = internal.EslVersion
 			}
 
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
@@ -867,6 +868,26 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 			} else {
 				commitMsg = append(commitMsg, msg)
 				changes = append(changes, subChanges)
+				//Sync Status Update
+				envApps := make([]db.EnvApp, 0)
+				for _, currentResult := range subChanges.ChangedApps {
+					if currentResult.App == "" || currentResult.Env == "" {
+						logger.FromContext(ctx).Sugar().Warnf("Empty changed app or environment: App = '%s', Env = '%s'", currentResult.App, currentResult.Env)
+						continue
+					}
+					envApps = append(envApps, db.EnvApp{
+						AppName: currentResult.App,
+						EnvName: currentResult.Env,
+					})
+				}
+				err := state.DBHandler.DBWriteNewSyncEventBulk(ctx, transaction, db.TransformerID(transfomerId), envApps, db.UNSYNCED)
+				if err != nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: fmt.Errorf("failed writing new sync events for transformer '%d': %w", int(transfomerId), err),
+						Index:            -1,
+					}
+				}
+				logger.FromContext(ctx).Sugar().Infof("Transformer modified %d app/envs", len(envApps))
 			}
 		}
 		return commitMsg, state, changes, nil
@@ -1464,13 +1485,9 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 	if transaction == nil {
 		return nil, fmt.Errorf("GetEnvironmentApplicationLocksFromDB: No transaction provided")
 	}
-	activeLockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
+	lockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
 	if err != nil {
 		return nil, err
-	}
-	var lockIds []string
-	if activeLockIds != nil {
-		lockIds = activeLockIds.AppLocks
 	}
 	locks, err := s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
 

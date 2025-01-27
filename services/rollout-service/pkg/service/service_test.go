@@ -19,7 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
+
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"io"
 	"testing"
@@ -439,7 +439,6 @@ func TestArgoConection(t *testing.T) {
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
 			go dispatcher.Work(ctx, hlth.Reporter("dispatcher"))
-
 			err := ConsumeEvents(ctx, &as, dispatcher, hlth.Reporter("consume"), &argo.ArgoAppProcessor{
 				ApplicationClient:     nil,
 				ManageArgoAppsEnabled: true,

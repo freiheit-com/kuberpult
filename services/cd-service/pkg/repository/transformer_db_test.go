@@ -44,7 +44,8 @@ import (
 )
 
 var (
-	testAppName = "test"
+	testAppName     = "test"
+	nextTestAppName = "test2"
 )
 
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
@@ -4496,6 +4497,183 @@ func TestChangedApps(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("Did no expect error but got:\n%+v", err)
+			}
+		})
+	}
+}
+
+func TestChangedAppsSyncStatus(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		changes           []db.EnvApp
+		targetTransformer db.TransformerID
+	}{
+		{
+			Name:              "Create Release",
+			targetTransformer: db.TransformerID(3),
+			changes: []db.EnvApp{
+				{
+					AppName: testAppName,
+					EnvName: envAcceptance,
+				},
+				{
+					AppName: testAppName,
+					EnvName: envProduction,
+				},
+			},
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      false,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+		},
+		{
+			Name:              "Deploy Release",
+			targetTransformer: db.TransformerID(4),
+			changes: []db.EnvApp{
+				{
+					AppName: testAppName,
+					EnvName: envAcceptance,
+				},
+			},
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      false,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Application:     testAppName,
+					Environment:     envAcceptance,
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+		},
+		{
+			Name:              "Release train",
+			targetTransformer: db.TransformerID(5),
+			changes: []db.EnvApp{
+				{
+					AppName: testAppName,
+					EnvName: envProduction,
+				},
+				{
+					AppName: nextTestAppName,
+					EnvName: envProduction,
+				},
+			},
+			Transformers: []Transformer{
+				&CreateEnvironment{ //ID: 1
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+				},
+				&CreateEnvironment{ //ID: 2
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{ //ID: 3
+					Application: testAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&CreateApplicationVersion{ //ID: 4
+					Application: nextTestAppName,
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&ReleaseTrain{ //ID: 5
+					Target: envProduction,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			//check deployments
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				if err2 != nil {
+					return err2
+				}
+				changes, err := state.DBHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, tc.targetTransformer)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.changes, changes); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Err: %v\n", err)
 			}
 		})
 	}

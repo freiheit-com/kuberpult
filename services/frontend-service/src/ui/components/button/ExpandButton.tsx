@@ -17,6 +17,7 @@ import { useCallback, useState } from 'react';
 import * as React from 'react';
 import { Button } from './button';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
+import classNames from 'classnames';
 
 /**
  * Two buttons combined into one.
@@ -30,10 +31,11 @@ export type ExpandButtonProps = {
     defaultButtonLabel: string;
     disabled: boolean;
     releaseDifference: number;
+    alreadyPlanned: boolean;
 };
 
 export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
-    const { onClickSubmit, onClickLock, releaseDifference } = props;
+    const { onClickSubmit, onClickLock, releaseDifference, alreadyPlanned } = props;
 
     const [expanded, setExpanded] = useState(false);
 
@@ -57,6 +59,9 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
         onClickLock();
     }, [onClickLock]);
 
+    const deployLabel =
+        releaseDifference < 0 ? 'Update only' : releaseDifference === 0 ? 'Deploy only' : 'Rollback only';
+
     return (
         <div className={'expand-button'}>
             <div className={'first-two'}>
@@ -64,7 +69,9 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                 <Button
                     onClick={onClickSubmitMain}
                     disabled={props.disabled}
-                    className={'button-main env-card-deploy-btn mdc-button--unelevated'}
+                    className={classNames('button-main', 'env-card-deploy-btn', 'mdc-button--unelevated', {
+                        'deploy-button-cancel': alreadyPlanned,
+                    })}
                     key={'button-first-key'}
                     label={props.defaultButtonLabel}
                     highlightEffect={false}
@@ -90,15 +97,14 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                         <div>
                             <Button
                                 onClick={onClickSubmitAlternative}
-                                className={'button-popup-deploy env-card-deploy-btn mdc-button--unelevated'}
+                                className={classNames(
+                                    'button-popup-deploy',
+                                    'env-card-deploy-btn',
+                                    'mdc-button--unelevated',
+                                    { 'deploy-button-cancel': alreadyPlanned }
+                                )}
                                 key={'button-second-key'}
-                                label={
-                                    releaseDifference < 0
-                                        ? 'Update only'
-                                        : releaseDifference === 0
-                                          ? 'Deploy only'
-                                          : 'Rollback only'
-                                }
+                                label={alreadyPlanned ? `Cancel ${deployLabel}` : deployLabel}
                                 icon={undefined}
                                 highlightEffect={true}
                                 disabled={props.disabled}
