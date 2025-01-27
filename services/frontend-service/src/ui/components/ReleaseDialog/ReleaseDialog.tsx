@@ -462,6 +462,14 @@ export const EnvironmentGroupLane: React.FC<{
                     action.action.deploy.environment === env.name
             )
     );
+    const envsWithPlannedDeployments = environmentGroup.environments.filter((env) =>
+        actions.some(
+            (action) =>
+                action.action?.$case === 'deploy' &&
+                action.action.deploy.application === app &&
+                action.action.deploy.environment === env.name
+        )
+    );
     const alreadyPlanned = envsWithoutPlannedDeployments.length === 0;
 
     const createEnvGroupLock = React.useCallback(() => {
@@ -482,7 +490,7 @@ export const EnvironmentGroupLane: React.FC<{
     }, [environmentGroup, app]);
     const deployAndLockClick = React.useCallback(
         (shouldLockToo: boolean) => {
-            var skippedEnvs: string[] = [];
+            var skippedEnvs: string[] = alreadyPlanned ? [] : envsWithPlannedDeployments.map((env) => env.name);
             const envs = alreadyPlanned ? environmentGroup.environments : envsWithoutPlannedDeployments;
             envs.forEach((environment) => {
                 if (
@@ -527,7 +535,16 @@ export const EnvironmentGroupLane: React.FC<{
                 showSnackbarWarn(`Environments skipped: ${skippedEnvs}`);
             }
         },
-        [environmentGroup.environments, allReleases, release.environments, release.version, app]
+        [
+            environmentGroup.environments,
+            allReleases,
+            release.environments,
+            release.version,
+            app,
+            alreadyPlanned,
+            envsWithoutPlannedDeployments,
+            envsWithPlannedDeployments,
+        ]
     );
 
     React.useEffect(() => {
