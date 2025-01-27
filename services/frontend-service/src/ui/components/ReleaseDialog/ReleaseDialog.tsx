@@ -156,6 +156,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     }, [app, env.name]);
     const deployAndLockClick = useCallback(
         (shouldLockToo: boolean) => {
+            if (!release.environments.includes(env.name)) {
+                showSnackbarWarn(`Environments skipped: ${env.name}`);
+                return;
+            }
             if (release.version) {
                 addAction({
                     action: {
@@ -225,6 +229,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
         return otherRelease.version !== release.version;
     })();
+
     const releaseDifference = useReleaseDifference(release.version, app, env.name);
     const getReleaseDiffContent = (): JSX.Element => {
         if (!otherRelease || !deployment) {
