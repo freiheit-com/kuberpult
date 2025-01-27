@@ -102,7 +102,7 @@ describe('Release Dialog', () => {
                     displayVersion: '2',
                     isMinor: false,
                     isPrepublish: false,
-                    environments: [],
+                    environments: ['prod'],
                 },
             ],
             envs: [
