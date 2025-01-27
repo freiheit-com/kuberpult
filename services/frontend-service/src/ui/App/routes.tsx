@@ -1,30 +1,15 @@
-/*This file is part of kuberpult.
-
-Kuberpult is free software: you can redistribute it and/or modify
-it under the terms of the Expat(MIT) License as published by
-the Free Software Foundation.
-
-Kuberpult is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-MIT License for more details.
-
-You should have received a copy of the MIT License
-along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
-
-Copyright freiheit.com*/
-import { Home } from '../Pages/Home/Home';
-import { EnvironmentsPage } from '../Pages/Environments/EnvironmentsPage';
-import { ReleaseHistoryPage } from '../Pages/ReleaseHistory/ReleaseHistoryPage';
-import { LocksPage } from '../Pages/Locks/LocksPage';
-import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
-import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
+import { Navigate } from 'react-router-dom';
 import { CommitInfoPage } from '../Pages/CommitInfo/CommitInfoPage';
-import { ReleaseTrainPage } from '../Pages/ReleaseTrain/ReleaseTrainPage';
+import { EnvironmentsPage } from '../Pages/Environments/EnvironmentsPage';
 import { EslWarningsPage } from '../Pages/EslWarnings/EslWarningsPage';
+import { Home } from '../Pages/Home/Home';
+import { LocksPage } from '../Pages/Locks/LocksPage';
+import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
+import { ReleaseHistoryPage } from '../Pages/ReleaseHistory/ReleaseHistoryPage';
+import { ReleaseTrainPage } from '../Pages/ReleaseTrain/ReleaseTrainPage';
 import { CompliancePage } from '../Pages/Compliance/CompliancePage';
 
-const routes = [
+export const routes = [
     {
         path: `/ui/environments/*`,
         element: <EnvironmentsPage />,
@@ -70,11 +55,3 @@ const routes = [
         element: <Navigate replace to="/ui/home" />,
     },
 ];
-
-export const PageRoutes: React.FC = () => (
-    <ReactRoutes>
-        {routes.map((route) => (
-            <Route key={route.path} path={route.path} element={route.element} />
-        ))}
-    </ReactRoutes>
-);

@@ -734,6 +734,30 @@ func (p *GrpcProxy) StreamChangedApps(
 	}
 }
 
+func (p *GrpcProxy) StreamDeploymentHistory(
+	in *api.DeploymentHistoryRequest,
+	stream api.OverviewService_StreamDeploymentHistoryServer) error {
+	// if resp, err := p.OverviewClient.StreamChangedApps(stream.Context(), in); err != nil {
+	// 	return err
+	// } else {
+	// 	for {
+	// 		if item, err := resp.Recv(); err != nil {
+	// 			return err
+	// 		} else {
+	// 			if err := stream.Send(item); err != nil {
+	// 				return err
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+	stream.Send(&api.DeploymentHistoryResponse{Deployment: "1,hello\n"})
+	stream.Send(&api.DeploymentHistoryResponse{Deployment: "2,world\n"})
+	stream.Send(&api.DeploymentHistoryResponse{Deployment: "3,hello from frontend service\n"})
+
+	return nil
+}
+
 func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.RolloutService_StreamStatusServer) error {
 	if p.RolloutServiceClient == nil {
 		return status.Error(codes.Unimplemented, "rollout service not configured")

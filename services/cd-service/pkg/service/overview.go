@@ -745,3 +745,9 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 	}
 	return result
 }
+
+func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistoryRequest,
+	stream api.OverviewService_StreamDeploymentHistoryServer) error {
+	// lines := []string{"1,hello\n", "2,world\n"}
+	return nil
+}
