@@ -50,6 +50,10 @@ import (
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 )
 
+type contextKey string
+
+const DdMetricsKey contextKey = "ddMetrics"
+
 type Config struct {
 	CdServer       string `default:"kuberpult-cd-service:8443"`
 	CdServerSecure bool   `default:"false" split_words:"true"`
@@ -195,8 +199,7 @@ func runServer(ctx context.Context, config Config) error {
 		if err != nil {
 			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 		}
-		ctx = context.WithValue(ctx, "ddMetrics", ddMetrics)
-
+		ctx = context.WithValue(ctx, DdMetricsKey, ddMetrics)
 	}
 
 	opts, err := config.ClientConfig()

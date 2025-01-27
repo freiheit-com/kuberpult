@@ -74,7 +74,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 				continue
 			}
 			k := Key{Application: application, Environment: environment}
-			var ddError error = nil
+
 			var eventDiscarded = false
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
@@ -88,7 +88,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 
 				if ddMetrics != nil { //If DD is enabled, send metrics
 					if eventDiscarded {
-						ddError = ddMetrics.Gauge("argo_discarded_events", 1, []string{}, 1)
+						ddError := ddMetrics.Gauge("argo_discarded_events", 1, []string{}, 1)
 						if ddError != nil {
 							logger.FromContext(ctx).Sugar().Warnf("could not send argo_discarded_events metric to datadog! Err: %v", ddError)
 						}
@@ -99,7 +99,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 					} else {
 						fillRate = 1 // If capacity is 0, we are always at 100%
 					}
-					ddError = ddMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
+					ddError := ddMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
 					if ddError != nil {
 						logger.FromContext(ctx).Sugar().Warnf("could not send argo_events_fill_rate metric to datadog! Err: %v", ddError)
 					}
