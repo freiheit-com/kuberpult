@@ -1441,7 +1441,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 		AuthorName   string
 		AuthorEmail  string
 		CiLink       string
-		ExpectedLock *ApplicationLock
+		ExpectedLock *ApplicationLockHistory
 	}{
 		{
 			Name:        "Simple application lock",
@@ -1452,12 +1452,11 @@ func TestReadWriteApplicationLock(t *testing.T) {
 			AuthorEmail: "myself@example.com",
 			AppName:     "my-app",
 			CiLink:      "www.test.com",
-			ExpectedLock: &ApplicationLock{
-				Env:        "dev",
-				LockID:     "dev-app-lock",
-				EslVersion: 1,
-				Deleted:    false,
-				App:        "my-app",
+			ExpectedLock: &ApplicationLockHistory{
+				Env:     "dev",
+				LockID:  "dev-app-lock",
+				Deleted: false,
+				App:     "my-app",
 				Metadata: LockMetadata{
 					Message:        "My application lock on dev for my-app",
 					CreatedByName:  "myself",
@@ -1502,7 +1501,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 				target := actual[0]
-				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(ApplicationLockHistory{}, "Created")); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -1550,11 +1549,9 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 			DeleteLocks: []testLockInfo{},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1627,11 +1624,9 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 			},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1727,11 +1722,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 			DeleteLocks: []testLockInfo{},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1769,11 +1762,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 			DeleteLocks: []testLockInfo{},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1782,11 +1773,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					},
 				},
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock-2",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app-2",
+					Env:    "dev",
+					LockID: "dev-app-lock-2",
+					App:    "my-app-2",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app-2",
 						CreatedByName:  "myself",
@@ -1881,11 +1870,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 			},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1894,11 +1881,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					},
 				},
 				{
-					Env:        "staging",
-					LockID:     "dev-app-lock-staging",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "staging",
+					LockID: "dev-app-lock-staging",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on stagibg for my-app",
 						CreatedByName:  "myself",
@@ -1907,11 +1892,9 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 					},
 				},
 				{
-					Env:        "staging",
-					LockID:     "dev-app-lock-staging-2",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app-2",
+					Env:    "staging",
+					LockID: "dev-app-lock-staging-2",
+					App:    "my-app-2",
 					Metadata: LockMetadata{
 						Message:        "My application lock on stagibg for my-app-2",
 						CreatedByName:  "myself",
@@ -2153,7 +2136,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 		AppName       string
 		AuthorName    string
 		AuthorEmail   string
-		ExpectedLocks []ApplicationLock
+		ExpectedLocks []ApplicationLockHistory
 		ExpectedError error
 	}{
 		{
@@ -2164,13 +2147,12 @@ func TestDeleteApplicationLock(t *testing.T) {
 			Message:     "My lock on dev",
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
-			ExpectedLocks: []ApplicationLock{
+			ExpectedLocks: []ApplicationLockHistory{
 				{ //Sort DESC
-					Env:        "dev",
-					App:        "myApp",
-					LockID:     "dev-lock",
-					EslVersion: 2,
-					Deleted:    true,
+					Env:     "dev",
+					App:     "myApp",
+					LockID:  "dev-lock",
+					Deleted: true,
 					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
@@ -2178,11 +2160,10 @@ func TestDeleteApplicationLock(t *testing.T) {
 					},
 				},
 				{
-					Env:        "dev",
-					LockID:     "dev-lock",
-					App:        "myApp",
-					EslVersion: 1,
-					Deleted:    false,
+					Env:     "dev",
+					LockID:  "dev-lock",
+					App:     "myApp",
+					Deleted: false,
 					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
@@ -2232,8 +2213,8 @@ func TestDeleteApplicationLock(t *testing.T) {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 
-				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
-					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(ApplicationLockHistory{}, "Created")); diff != "" {
+					t.Fatalf("app locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
