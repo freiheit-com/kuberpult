@@ -79,8 +79,9 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 				select {
 				case a.ArgoApps <- ev:
 				default:
-					//TODO: Send something to someone
+					logger.FromContext(ctx).Sugar().Warnf("argo apps channel at full capacity of %d. Discarding event: %v", cap(a.ArgoApps), ev)
 				}
+				//TODO SRX-7BZWPD: Send Metrics to datadog (requires datadog configuration for the rollout service)
 			case "BOOKMARK":
 				// ignore this event
 			default:

@@ -413,6 +413,13 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				if err3 != nil {
 					return err3
 				}
+
+				//If we fail to process the transformer, we say that SYNC has failed
+				err3 = dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
+				if err3 != nil {
+					return err3
+				}
+
 				return db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 			})
 			if err2 != nil {
@@ -453,11 +460,23 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
 			})
 			if err != nil {
+				//If we fail to push to repo or to update the cutoff, we say that SYNC has failed
+				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+					return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
+				})
 				err3 := repo.FetchAndReset(ctx)
 				if err3 != nil {
 					d := sleepDuration.NextBackOff()
 					logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
 					time.Sleep(d)
+				}
+			} else {
+				//After a successful transformer processing and pushing to manifest repo, we write that apps are now SYNCED
+				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+					return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNCED)
+				})
+				if err != nil {
+					logger.FromContext(ctx).Sugar().Warnf("Failed writing sync status after successful operation! Repo has been updated, but sync status has not. Error: %v", err)
 				}
 			}
 		}
@@ -638,6 +657,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtUndeployApplication:
 		//exhaustruct:ignore
 		return &repository.UndeployApplication{}, nil
+	case db.EvtDeleteEnvironment:
+		//exhaustruct:ignore
+		return &repository.DeleteEnvironment{}, nil
 	}
 	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }
