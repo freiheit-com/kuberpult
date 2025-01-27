@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"io"
 	"testing"
@@ -141,7 +142,38 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 
 var _ versions.VersionClient = (*mockVersionClient)(nil)
 
+type Gauge struct {
+	Name  string
+	Value float64
+	Tags  []string
+	Rate  float64
+}
+
+type MockClient struct {
+	events []*statsd.Event
+	Gauges []Gauge
+	statsd.ClientInterface
+}
+
+func (c *MockClient) Gauge(name string, value float64, tags []string, rate float64) error {
+	c.Gauges = append(c.Gauges, Gauge{
+		Name:  name,
+		Value: value,
+		Tags:  tags,
+		Rate:  rate,
+	})
+	return nil
+}
+
 func TestArgoConection(t *testing.T) {
+	makeGauge := func(name string, val float64, tags []string, rate float64) Gauge {
+		return Gauge{
+			Name:  name,
+			Value: val,
+			Tags:  tags,
+			Rate:  rate,
+		}
+	}
 	tcs := []struct {
 		Name          string
 		KnownVersions []version
@@ -149,6 +181,10 @@ func TestArgoConection(t *testing.T) {
 
 		ExpectedError error
 		ExpectedReady bool
+
+		expectedGauges []Gauge
+
+		channelSize int
 	}{
 		{
 			Name: "stops without error when ctx is closed on Recv call",
@@ -158,6 +194,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: false,
 		},
 		{
@@ -171,7 +208,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
-
+			channelSize:   10,
 			ExpectedReady: false,
 		},
 		{
@@ -182,6 +219,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
 		},
 		{
@@ -195,6 +233,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
 		},
 		{
@@ -226,6 +265,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
 		},
 		{
@@ -270,7 +310,11 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
+			expectedGauges: []Gauge{
+				makeGauge("argo_events_fill_rate", 0.1, []string{}, 1),
+			},
 		},
 		{
 			Name: "doesnt generate events for deleted",
@@ -314,7 +358,11 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
+			expectedGauges: []Gauge{
+				makeGauge("argo_events_fill_rate", 0.1, []string{}, 1),
+			},
 		},
 		{
 			Name: "recovers from errors",
@@ -367,6 +415,11 @@ func TestArgoConection(t *testing.T) {
 				},
 			},
 			ExpectedReady: true,
+			channelSize:   0,
+			expectedGauges: []Gauge{
+				makeGauge("argo_discarded_events", 1, []string{}, 1),
+				makeGauge("argo_events_fill_rate", 1, []string{}, 1),
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -380,16 +433,19 @@ func TestArgoConection(t *testing.T) {
 				t:         t,
 				lastEvent: make(chan *ArgoEvent, 10),
 			}
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
 			hlth := &setup.HealthServer{}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
 			go dispatcher.Work(ctx, hlth.Reporter("dispatcher"))
+
 			err := ConsumeEvents(ctx, &as, dispatcher, hlth.Reporter("consume"), &argo.ArgoAppProcessor{
 				ApplicationClient:     nil,
 				ManageArgoAppsEnabled: true,
 				ManageArgoAppsFilter:  []string{},
-				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
-			})
+				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, tc.channelSize),
+			}, client)
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -397,7 +453,11 @@ func TestArgoConection(t *testing.T) {
 			if tc.ExpectedReady != ready {
 				t.Errorf("expected ready to be %t but got %t", tc.ExpectedReady, ready)
 			}
+			if diff := cmp.Diff(tc.expectedGauges, mockClient.Gauges); diff != "" {
+				t.Errorf("gauges mismatch (-want, +got):\n%s", diff)
+			}
 			as.testAllConsumed(t)
+
 		})
 	}
 }

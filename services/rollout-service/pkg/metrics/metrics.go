@@ -39,6 +39,7 @@ func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 		default:
 		}
 	}
+
 }
 
 func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.MeterProvider, clock func() time.Time, done func()) error {

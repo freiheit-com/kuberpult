@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/url"
 	"time"
 
@@ -54,6 +55,8 @@ type Config struct {
 	CdServerSecure bool   `default:"false" split_words:"true"`
 	VersionServer  string `default:"kuberpult-manifest-repo-export-service:8443"`
 	EnableTracing  bool   `default:"false" split_words:"true"`
+	EnableMetrics  bool   `default:"false" split_words:"true"`
+	DogstatsdAddr  string `default:"127.0.0.1:8125" split_words:"true"`
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
 
@@ -184,6 +187,18 @@ func runServer(ctx context.Context, config Config) error {
 		)
 	}
 
+	//Datadog metrics
+	var ddMetrics statsd.ClientInterface
+	var err error
+	if config.EnableMetrics {
+		ddMetrics, err = statsd.New(config.DogstatsdAddr, statsd.WithNamespace("Kuberpult"))
+		if err != nil {
+			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
+		}
+		ctx = context.WithValue(ctx, "ddMetrics", ddMetrics)
+
+	}
+
 	opts, err := config.ClientConfig()
 	if err != nil {
 		return err
@@ -223,7 +238,7 @@ func runServer(ctx context.Context, config Config) error {
 			Shutdown: nil,
 			Name:     "consume argocd events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return service.ConsumeEvents(ctx, appClient, dispatcher, health, versionC.GetArgoProcessor())
+				return service.ConsumeEvents(ctx, appClient, dispatcher, health, versionC.GetArgoProcessor(), ddMetrics)
 			},
 		},
 		{
