@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -47,7 +48,7 @@ type ArgoEventProcessor interface {
 	ProcessArgoEvent(ctx context.Context, ev ArgoEvent)
 }
 
-func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter, a *argo.ArgoAppProcessor) error {
+func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter, a *argo.ArgoAppProcessor, ddMetrics statsd.ClientInterface) error {
 	return hlth.Retry(ctx, func() error {
 		//exhaustruct:ignore
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
@@ -73,15 +74,36 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 				continue
 			}
 			k := Key{Application: application, Environment: environment}
+
+			var eventDiscarded = false
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
 				dispatcher.Dispatch(ctx, k, ev)
 				select {
 				case a.ArgoApps <- ev:
 				default:
+					eventDiscarded = true
 					logger.FromContext(ctx).Sugar().Warnf("argo apps channel at full capacity of %d. Discarding event: %v", cap(a.ArgoApps), ev)
 				}
-				//TODO SRX-7BZWPD: Send Metrics to datadog (requires datadog configuration for the rollout service)
+
+				if ddMetrics != nil { //If DD is enabled, send metrics
+					if eventDiscarded {
+						ddError := ddMetrics.Gauge("argo_discarded_events", 1, []string{}, 1)
+						if ddError != nil {
+							logger.FromContext(ctx).Sugar().Warnf("could not send argo_discarded_events metric to datadog! Err: %v", ddError)
+						}
+					}
+					fillRate := 0.0
+					if cap(a.ArgoApps) != 0 {
+						fillRate = float64(len(a.ArgoApps)) / float64(cap(a.ArgoApps))
+					} else {
+						fillRate = 1 // If capacity is 0, we are always at 100%
+					}
+					ddError := ddMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
+					if ddError != nil {
+						logger.FromContext(ctx).Sugar().Warnf("could not send argo_events_fill_rate metric to datadog! Err: %v", ddError)
+					}
+				}
 			case "BOOKMARK":
 				// ignore this event
 			default:
