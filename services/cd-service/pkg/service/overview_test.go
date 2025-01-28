@@ -2329,7 +2329,6 @@ func TestDeploymentHistory(t *testing.T) {
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
-				DBHandler:  repo.State().DBHandler,
 				Context:    ctx,
 			}
 			tc.Test(t, svc)
