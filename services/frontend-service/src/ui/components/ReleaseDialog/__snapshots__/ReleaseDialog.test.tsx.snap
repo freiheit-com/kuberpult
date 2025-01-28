@@ -1240,8 +1240,8 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                         class="first-two"
                       >
                         <button
-                          aria-label="Cancel Deploy & Lock"
-                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated deploy-button-cancel"
+                          aria-label="Deploy & Lock"
+                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
                         >
                           <div
                             class="mdc-button__ripple"
@@ -1249,7 +1249,7 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                           <span
                             class="mdc-button__label"
                           >
-                            Cancel Deploy & Lock
+                            Deploy & Lock
                           </span>
                         </button>
                         <button

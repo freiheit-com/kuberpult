@@ -475,7 +475,9 @@ export const EnvironmentGroupLane: React.FC<{
                 action.action.deploy.environment === env.name
         )
     );
-    const alreadyPlanned = envsWithoutPlannedDeployments.length === 0;
+    const alreadyPlanned =
+        envsWithoutPlannedDeployments.filter((env) => release.environments.includes(env.name)).length === 0 &&
+        environmentGroup.environments.filter((env) => release.environments.includes(env.name)).length > 0;
 
     const createEnvGroupLock = React.useCallback(() => {
         environmentGroup.environments.forEach((environment) => {
