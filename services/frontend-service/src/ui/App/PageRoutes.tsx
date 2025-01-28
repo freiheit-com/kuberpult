@@ -22,6 +22,7 @@ import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
 import { CommitInfoPage } from '../Pages/CommitInfo/CommitInfoPage';
 import { ReleaseTrainPage } from '../Pages/ReleaseTrain/ReleaseTrainPage';
 import { EslWarningsPage } from '../Pages/EslWarnings/EslWarningsPage';
+import { CompliancePage } from '../Pages/Compliance/CompliancePage';
 
 const routes = [
     {
@@ -59,6 +60,10 @@ const routes = [
     {
         path: `/ui/failedEvents`,
         element: <EslWarningsPage />,
+    },
+    {
+        path: `/ui/compliance`,
+        element: <CompliancePage />,
     },
     {
         path: `/*`,

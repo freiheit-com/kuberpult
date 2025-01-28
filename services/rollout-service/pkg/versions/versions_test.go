@@ -119,6 +119,11 @@ func (m *mockOverviewClient) StreamChangedApps(ctx context.Context, in *api.GetC
 	return m, nil
 }
 
+// StreamOverview implements api.OverviewServiceClient
+func (m *mockOverviewClient) StreamDeploymentHistory(ctx context.Context, in *api.DeploymentHistoryRequest, opts ...grpc.CallOption) (api.OverviewService_StreamDeploymentHistoryClient, error) {
+	return nil, nil
+}
+
 func (m *mockOverviewClient) Recv() (*api.GetChangedAppsResponse, error) {
 	var reply step
 	var ok bool

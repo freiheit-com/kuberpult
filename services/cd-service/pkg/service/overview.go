@@ -745,3 +745,17 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 	}
 	return result
 }
+
+func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistoryRequest,
+	stream api.OverviewService_StreamDeploymentHistoryServer) error {
+	// this is temporary, the endpoint will return actual data when SRX-AJJ2X3 is completed
+	dummyCsvLines := []string{"1,hello\n", "2,world\n", "3,from the\n", "4,cd-service\n"}
+	for _, line := range dummyCsvLines {
+		err := stream.Send(&api.DeploymentHistoryResponse{Deployment: line})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

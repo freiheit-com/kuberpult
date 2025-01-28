@@ -50,6 +50,21 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
+type mockOverviewService_DeploymentHistoryServer struct {
+	grpc.ServerStream
+	Results chan *api.DeploymentHistoryResponse
+	Ctx     context.Context
+}
+
+func (m *mockOverviewService_DeploymentHistoryServer) Send(msg *api.DeploymentHistoryResponse) error {
+	m.Results <- msg
+	return nil
+}
+
+func (m *mockOverviewService_DeploymentHistoryServer) Context() context.Context {
+	return m.Ctx
+}
+
 func TestOverviewAndAppDetails(t *testing.T) {
 	var dev = "dev"
 	var development = "development"
@@ -2261,6 +2276,63 @@ func TestCalculateWarnings(t *testing.T) {
 					t.Errorf("response missmatch (-want, +got): %s\n", diff)
 				}
 			}
+		})
+	}
+}
+
+func TestDeploymentHistory(t *testing.T) {
+	tcs := []struct {
+		Name string
+		Test func(t *testing.T, svc *OverviewServiceServer)
+	}{
+		{
+			Name: "Test deployment history stream",
+			Test: func(t *testing.T, svc *OverviewServiceServer) {
+				ctx := testutil.MakeTestContext()
+				ch := make(chan *api.DeploymentHistoryResponse)
+				stream := mockOverviewService_DeploymentHistoryServer{
+					Results: ch,
+					Ctx:     ctx,
+				}
+
+				wg := sync.WaitGroup{}
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					err := svc.StreamDeploymentHistory(&api.DeploymentHistoryRequest{}, &stream)
+					close(ch)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}()
+
+				// this is temporary, the endpoint will return actual data when SRX-AJJ2X3 is completed
+				dummyCsvLines := []string{"1,hello\n", "2,world\n", "3,from the\n", "4,cd-service\n"}
+				line := 0
+				for got := range ch {
+					if got.Deployment != dummyCsvLines[line] {
+						t.Errorf("%q doesn't match %q from line %d of dummy csv file", got.Deployment, dummyCsvLines[line], line)
+					}
+					line += 1
+				}
+
+				wg.Wait()
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+			ctx := testutil.MakeTestContext()
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				Shutdown:   shutdown,
+				Context:    ctx,
+			}
+			tc.Test(t, svc)
+			close(shutdown)
 		})
 	}
 }
