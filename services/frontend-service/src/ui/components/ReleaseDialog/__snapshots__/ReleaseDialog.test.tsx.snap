@@ -119,8 +119,8 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                         class="first-two"
                       >
                         <button
-                          aria-label="Deploy & Lock"
-                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                          aria-label="Cancel Deploy & Lock"
+                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated deploy-button-cancel"
                         >
                           <div
                             class="mdc-button__ripple"
@@ -128,7 +128,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                           <span
                             class="mdc-button__label"
                           >
-                            Deploy & Lock
+                            Cancel Deploy & Lock
                           </span>
                         </button>
                         <button
@@ -431,8 +431,8 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                         class="first-two"
                       >
                         <button
-                          aria-label="Deploy & Lock"
-                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                          aria-label="Cancel Deploy & Lock"
+                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated deploy-button-cancel"
                         >
                           <div
                             class="mdc-button__ripple"
@@ -440,7 +440,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                           <span
                             class="mdc-button__label"
                           >
-                            Deploy & Lock
+                            Cancel Deploy & Lock
                           </span>
                         </button>
                         <button
@@ -743,8 +743,8 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         class="first-two"
                       >
                         <button
-                          aria-label="Deploy & Lock"
-                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                          aria-label="Cancel Deploy & Lock"
+                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated deploy-button-cancel"
                         >
                           <div
                             class="mdc-button__ripple"
@@ -752,7 +752,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           <span
                             class="mdc-button__label"
                           >
-                            Deploy & Lock
+                            Cancel Deploy & Lock
                           </span>
                         </button>
                         <button
