@@ -19,9 +19,9 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"io"
 	"testing"
 	"time"
