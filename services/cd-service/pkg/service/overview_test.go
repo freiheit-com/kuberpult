@@ -50,6 +50,21 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
+type mockOverviewService_DeploymentHistoryServer struct {
+	grpc.ServerStream
+	Results chan *api.DeploymentHistoryResponse
+	Ctx     context.Context
+}
+
+func (m *mockOverviewService_DeploymentHistoryServer) Send(msg *api.DeploymentHistoryResponse) error {
+	m.Results <- msg
+	return nil
+}
+
+func (m *mockOverviewService_DeploymentHistoryServer) Context() context.Context {
+	return m.Ctx
+}
+
 func TestOverviewAndAppDetails(t *testing.T) {
 	var dev = "dev"
 	var development = "development"
@@ -653,6 +668,40 @@ func TestOverviewService(t *testing.T) {
 				if _, err := svc.GetOverview(ctx, &api.GetOverviewRequest{}); err != nil {
 					t.Errorf("expected no error getting overview from cache, got %q", err)
 				}
+			},
+		},
+		{
+			Name:  "Test deployment history stream",
+			Setup: []repository.Transformer{},
+			Test: func(t *testing.T, svc *OverviewServiceServer) {
+				ctx := testutil.MakeTestContext()
+				ch := make(chan *api.DeploymentHistoryResponse)
+				stream := mockOverviewService_DeploymentHistoryServer{
+					Results: ch,
+					Ctx:     ctx,
+				}
+
+				wg := sync.WaitGroup{}
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					err := svc.StreamDeploymentHistory(&api.DeploymentHistoryRequest{}, &stream)
+					close(ch)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}()
+
+				dummyCsvLines := []string{"1,hello\n", "2,world\n", "3,from the\n", "4,cd-service\n"}
+				line := 0
+				for got := range ch {
+					if got.Deployment != dummyCsvLines[line] {
+						t.Errorf("%q doesn't match %q from line %d of dummy csv file", got.Deployment, dummyCsvLines[line], line)
+					}
+					line += 1
+				}
+
+				wg.Wait()
 			},
 		},
 	}
