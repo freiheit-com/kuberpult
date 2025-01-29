@@ -65,20 +65,16 @@ type Config struct {
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
 
-	EnableSqlite bool `default:"true" split_words:"true"`
-
-	DbOption              string `default:"NO_DB" split_words:"true"`
-	DbLocation            string `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance    string `default:"" split_words:"true"`
-	DbName                string `default:"" split_words:"true"`
-	DbUserName            string `default:"" split_words:"true"`
-	DbUserPassword        string `default:"" split_words:"true"`
-	DbAuthProxyPort       string `default:"5432" split_words:"true"`
-	DbMigrationsLocation  string `default:"" split_words:"true"`
-	DexDefaultRoleEnabled bool   `default:"false" split_words:"true"`
-	DbWriteEslTableOnly   bool   `default:"false" split_words:"true"`
-	DbMaxIdleConnections  uint   `required:"true" split_words:"true"`
-	DbMaxOpenConnections  uint   `required:"true" split_words:"true"`
+	DbOption             string `default:"NO_DB" split_words:"true"`
+	DbLocation           string `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance   string `default:"" split_words:"true"`
+	DbName               string `default:"" split_words:"true"`
+	DbUserName           string `default:"" split_words:"true"`
+	DbUserPassword       string `default:"" split_words:"true"`
+	DbAuthProxyPort      string `default:"5432" split_words:"true"`
+	DbMigrationsLocation string `default:"" split_words:"true"`
+	DbMaxIdleConnections uint   `required:"true" split_words:"true"`
+	DbMaxOpenConnections uint   `required:"true" split_words:"true"`
 
 	ArgocdServer                      string `split_words:"true"`
 	ArgocdInsecure                    bool   `default:"false" split_words:"true"`
@@ -235,8 +231,8 @@ func runServer(ctx context.Context, config Config) error {
 				DbPassword:     config.DbUserPassword,
 				DbUser:         config.DbUserName,
 				MigrationsPath: config.DbMigrationsLocation,
-				WriteEslOnly:   config.DbWriteEslTableOnly,
-				SSLMode:        "verify-full",
+				WriteEslOnly:   false,
+				SSLMode:        "disable",
 
 				MaxIdleConnections: config.DbMaxIdleConnections,
 				MaxOpenConnections: config.DbMaxOpenConnections,
@@ -250,8 +246,8 @@ func runServer(ctx context.Context, config Config) error {
 				DbPassword:     config.DbUserPassword,
 				DbUser:         config.DbUserName,
 				MigrationsPath: config.DbMigrationsLocation,
-				WriteEslOnly:   config.DbWriteEslTableOnly,
-				SSLMode:        "verify-full",
+				WriteEslOnly:   false,
+				SSLMode:        "disable",
 
 				MaxIdleConnections: config.DbMaxIdleConnections,
 				MaxOpenConnections: config.DbMaxOpenConnections,
