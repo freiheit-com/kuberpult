@@ -62,7 +62,7 @@ func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, 
 			select {
 			case lastEvent := <-m.lastEvent:
 				if !cmp.Equal(lastReply.ExpectedEvent, lastEvent) {
-					//m.t.Errorf("step %d did not generate the expected event, diff: %s", m.current-1, cmp.Diff(lastReply.ExpectedEvent, lastEvent))
+					m.t.Errorf("step %d did not generate the expected event, diff: %s", m.current-1, cmp.Diff(lastReply.ExpectedEvent, lastEvent))
 				}
 			case <-time.After(time.Second):
 				m.t.Errorf("step %d timed out waiting for event", m.current-1)
@@ -353,7 +353,7 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{Version: 0},
+						Version:     &versions.VersionInfo{Version: 42},
 					},
 				},
 				{
@@ -409,7 +409,7 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{},
 					},
 				},
 				{
