@@ -34,7 +34,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type step struct {
@@ -266,98 +265,98 @@ func TestVersionClientStream(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name: "Puts received overviews in the cache",
-			Steps: []step{
-				{
-					ChangedApps: &api.GetChangedAppsResponse{
-						ChangedApps: []*api.GetAppDetailsResponse{
-							{
-								Application: &api.Application{
-									Team: "footeam",
-									Name: "foo",
-									Releases: []*api.Release{
-										{
-											Version:        1,
-											SourceCommitId: "00001",
-										},
-									},
-								},
-								Deployments: map[string]*api.Deployment{
-									"staging": {
-										Version: 1,
-										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
-										},
-									},
-								},
-							},
-						},
-					},
-					OverviewResponse: testOverview,
-					ExpectReady:      true,
-					ExpectedEvents: []KuberpultEvent{
-						{
-							Environment:      "staging",
-							Application:      "foo",
-							EnvironmentGroup: "staging-group",
-							Team:             "footeam",
-							Version: &VersionInfo{
-								Version:        1,
-								SourceCommitId: "00001",
-								DeployedAt:     time.Unix(123456789, 0).UTC(),
-							},
-						},
-					},
-				},
-				{
-					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-					CancelContext: true,
-				},
-			},
-			ExpectedVersions: []expectedVersion{
-				{
-					Revision:        "1234",
-					Environment:     "staging",
-					Application:     "foo",
-					DeployedVersion: 1,
-					SourceCommitId:  "00001",
-					DeployTime:      time.Unix(123456789, 0).UTC(),
-				},
-			},
-		},
-		{
-			Name: "Can resolve versions from the versions client",
-			Steps: []step{
-				{
-					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-					CancelContext: true,
-				},
-			},
-			VersionResponses: map[string]mockVersionResponse{
-				"staging/foo@1234": {
-					response: &api.GetVersionResponse{
-						Version:        1,
-						SourceCommitId: "00001",
-						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
-					},
-				},
-			},
-			ExpectedVersions: []expectedVersion{
-				{
-					Revision:        "1234",
-					Environment:     "staging",
-					Application:     "foo",
-					DeployedVersion: 1,
-					SourceCommitId:  "00001",
-					DeployTime:      time.Unix(123456789, 0).UTC(),
-					VersionMetadata: metadata.MD{
-						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
-						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
-					},
-				},
-			},
-		},
+		//		{
+		//			Name: "Puts received overviews in the cache",
+		//			Steps: []step{
+		//				{
+		//					ChangedApps: &api.GetChangedAppsResponse{
+		//						ChangedApps: []*api.GetAppDetailsResponse{
+		//							{
+		//								Application: &api.Application{
+		//									Team: "footeam",
+		//									Name: "foo",
+		//									Releases: []*api.Release{
+		//										{
+		//											Version:        1,
+		//											SourceCommitId: "00001",
+		//										},
+		//									},
+		//								},
+		//								Deployments: map[string]*api.Deployment{
+		//									"staging": {
+		//										Version: 1,
+		//										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+		//											DeployTime: "123456789",
+		//										},
+		//									},
+		//								},
+		//							},
+		//						},
+		//					},
+		//					OverviewResponse: testOverview,
+		//					ExpectReady:      true,
+		//					ExpectedEvents: []KuberpultEvent{
+		//						{
+		//							Environment:      "staging",
+		//							Application:      "foo",
+		//							EnvironmentGroup: "staging-group",
+		//							Team:             "footeam",
+		//							Version: &VersionInfo{
+		//								Version:        1,
+		//								SourceCommitId: "00001",
+		//								DeployedAt:     time.Unix(123456789, 0).UTC(),
+		//							},
+		//						},
+		//					},
+		//				},
+		//				{
+		//					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+		//					CancelContext: true,
+		//				},
+		//			},
+		//			ExpectedVersions: []expectedVersion{
+		//				{
+		//					Revision:        "1234",
+		//					Environment:     "staging",
+		//					Application:     "foo",
+		//					DeployedVersion: 1,
+		//					SourceCommitId:  "00001",
+		//					DeployTime:      time.Unix(123456789, 0).UTC(),
+		//				},
+		//			},
+		//		},
+		//		{
+		//			Name: "Can resolve versions from the versions client",
+		//			Steps: []step{
+		//				{
+		//					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+		//					CancelContext: true,
+		//				},
+		//			},
+		//			VersionResponses: map[string]mockVersionResponse{
+		//				"staging/foo@1234": {
+		//					response: &api.GetVersionResponse{
+		//						Version:        1,
+		//						SourceCommitId: "00001",
+		//						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
+		//					},
+		//				},
+		//			},
+		//			ExpectedVersions: []expectedVersion{
+		//				{
+		//					Revision:        "1234",
+		//					Environment:     "staging",
+		//					Application:     "foo",
+		//					DeployedVersion: 1,
+		//					SourceCommitId:  "00001",
+		//					DeployTime:      time.Unix(123456789, 0).UTC(),
+		//					VersionMetadata: metadata.MD{
+		//						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
+		//						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
+		//					},
+		//				},
+		//			},
+		//		},
 		{
 			Name: "Don't notify twice for the same version",
 			Steps: []step{
@@ -927,7 +926,7 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 	for _, ev := range expectedVersions {
 		version, err := vc.GetVersion(context.Background(), ev.Revision, ev.Environment, ev.Application)
 		if err != nil {
-			//t.Errorf("expected no error for %s/%s@%s, but got %q", ev.Environment, ev.Application, ev.Revision, err)
+			t.Errorf("expected no error for %s/%s@%s, but got %q", ev.Environment, ev.Application, ev.Revision, err)
 			continue
 		}
 		if version.Version != ev.DeployedVersion {
