@@ -18,6 +18,7 @@ package versions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"sort"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -34,6 +36,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type step struct {
@@ -265,98 +268,95 @@ func TestVersionClientStream(t *testing.T) {
 				},
 			},
 		},
-		//		{
-		//			Name: "Puts received overviews in the cache",
-		//			Steps: []step{
-		//				{
-		//					ChangedApps: &api.GetChangedAppsResponse{
-		//						ChangedApps: []*api.GetAppDetailsResponse{
-		//							{
-		//								Application: &api.Application{
-		//									Team: "footeam",
-		//									Name: "foo",
-		//									Releases: []*api.Release{
-		//										{
-		//											Version:        1,
-		//											SourceCommitId: "00001",
-		//										},
-		//									},
-		//								},
-		//								Deployments: map[string]*api.Deployment{
-		//									"staging": {
-		//										Version: 1,
-		//										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-		//											DeployTime: "123456789",
-		//										},
-		//									},
-		//								},
-		//							},
-		//						},
-		//					},
-		//					OverviewResponse: testOverview,
-		//					ExpectReady:      true,
-		//					ExpectedEvents: []KuberpultEvent{
-		//						{
-		//							Environment:      "staging",
-		//							Application:      "foo",
-		//							EnvironmentGroup: "staging-group",
-		//							Team:             "footeam",
-		//							Version: &VersionInfo{
-		//								Version:        1,
-		//								SourceCommitId: "00001",
-		//								DeployedAt:     time.Unix(123456789, 0).UTC(),
-		//							},
-		//						},
-		//					},
-		//				},
-		//				{
-		//					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-		//					CancelContext: true,
-		//				},
-		//			},
-		//			ExpectedVersions: []expectedVersion{
-		//				{
-		//					Revision:        "1234",
-		//					Environment:     "staging",
-		//					Application:     "foo",
-		//					DeployedVersion: 1,
-		//					SourceCommitId:  "00001",
-		//					DeployTime:      time.Unix(123456789, 0).UTC(),
-		//				},
-		//			},
-		//		},
-		//		{
-		//			Name: "Can resolve versions from the versions client",
-		//			Steps: []step{
-		//				{
-		//					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-		//					CancelContext: true,
-		//				},
-		//			},
-		//			VersionResponses: map[string]mockVersionResponse{
-		//				"staging/foo@1234": {
-		//					response: &api.GetVersionResponse{
-		//						Version:        1,
-		//						SourceCommitId: "00001",
-		//						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
-		//					},
-		//				},
-		//			},
-		//			ExpectedVersions: []expectedVersion{
-		//				{
-		//					Revision:        "1234",
-		//					Environment:     "staging",
-		//					Application:     "foo",
-		//					DeployedVersion: 1,
-		//					SourceCommitId:  "00001",
-		//					DeployTime:      time.Unix(123456789, 0).UTC(),
-		//					VersionMetadata: metadata.MD{
-		//						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
-		//						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
-		//					},
-		//				},
-		//			},
-		//		},
+		{
+			Name: "Puts received overviews in the cache",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1234,
+											SourceCommitId: "",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1234,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1234,
+								SourceCommitId: "",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Revision:        "1234",
+					Environment:     "staging",
+					Application:     "foo",
+					DeployedVersion: 1234,
+					SourceCommitId:  "",
+					DeployTime:      time.Time{},
+				},
+			},
+		},
+		{
+			Name: "Can resolve versions from the versions client",
+			Steps: []step{
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			VersionResponses: map[string]mockVersionResponse{
+				"staging/foo@1234": {
+					response: &api.GetVersionResponse{
+						Version:        1234,
+						SourceCommitId: "",
+						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
+					},
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Revision:        "1234",
+					Environment:     "staging",
+					Application:     "foo",
+					DeployedVersion: 1234,
+					SourceCommitId:  "",
+					DeployTime:      time.Time{},
+					VersionMetadata: nil,
+				},
+			},
+		},
 		{
 			Name: "Don't notify twice for the same version",
 			Steps: []step{
@@ -970,6 +970,26 @@ func setupDB(t *testing.T) *db.DBHandler {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []string{})
+		dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{})
+		dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+			ReleaseNumber: 1234,
+			Created:       time.Unix(123456789, 0).UTC(),
+			App:           "foo",
+			Manifests: db.DBReleaseManifests{
+				Manifests: map[string]string{"staging": ""},
+			},
+			Metadata: db.DBReleaseMetaData{},
+		})
+		var version int64 = 1234
+		dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+			Created: time.Unix(123456789, 0).UTC(),
+			App:     "foo",
+			Env:     "staging",
+			Version: &version,
+		})
+		return nil
+	})
 	return dbHandler
 }
