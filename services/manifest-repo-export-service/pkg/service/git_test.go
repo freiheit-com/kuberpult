@@ -1038,7 +1038,6 @@ func TestGetSyncData(t *testing.T) {
 		name             string
 		dbInput          []TestSyncData
 		expectedResponse *api.GetGitSyncStatusResponse
-		expectedError    error
 	}
 
 	tcs := []TestCase{
@@ -1049,7 +1048,6 @@ func TestGetSyncData(t *testing.T) {
 				Unsynced:   make([]*api.EnvApp, 0),
 				SyncFailed: make([]*api.EnvApp, 0),
 			},
-			expectedError: nil,
 		},
 		{
 			name: "One Unsynced app",
@@ -1070,7 +1068,6 @@ func TestGetSyncData(t *testing.T) {
 				},
 				SyncFailed: make([]*api.EnvApp, 0),
 			},
-			expectedError: nil,
 		},
 		{
 			name: "One SYNC_FAILED app",
@@ -1091,7 +1088,6 @@ func TestGetSyncData(t *testing.T) {
 				},
 				Unsynced: make([]*api.EnvApp, 0),
 			},
-			expectedError: nil,
 		},
 		{
 			name: "Multiple UNSYNCED app",
@@ -1122,7 +1118,6 @@ func TestGetSyncData(t *testing.T) {
 				},
 				SyncFailed: make([]*api.EnvApp, 0),
 			},
-			expectedError: nil,
 		},
 		{
 			name: "Multiple SYNC and SYNC failed apps, with some SYNCED aswell",
@@ -1169,7 +1164,6 @@ func TestGetSyncData(t *testing.T) {
 					},
 				},
 			},
-			expectedError: nil,
 		},
 		{
 			name: "All SYNCED returns nothing",
@@ -1199,7 +1193,6 @@ func TestGetSyncData(t *testing.T) {
 				Unsynced:   make([]*api.EnvApp, 0),
 				SyncFailed: make([]*api.EnvApp, 0),
 			},
-			expectedError: nil,
 		},
 	}
 	for _, tc := range tcs {
