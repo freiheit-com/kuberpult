@@ -56,6 +56,10 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 	return &api.GetGitTagsResponse{TagData: tags}, nil
 }
 
+func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
 	if in.Environment == nil && in.EnvironmentGroup == nil {
 		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")

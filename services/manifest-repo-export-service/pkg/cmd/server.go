@@ -383,7 +383,7 @@ func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*se
 func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {
 	log := logger.FromContext(ctx).Sugar()
 	sleepDuration := createBackOffProvider(time.Second * time.Duration(eslProcessingIdleTimeSeconds))
-
+	
 	const transactionRetries = 10
 	for {
 		var transformer repository.Transformer = nil

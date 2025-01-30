@@ -12,6 +12,7 @@ service GitService {
   // By "Product" we mean the entire collection of apps
   rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
   rpc GetCommitInfo(GetCommitInfoRequest) returns(GetCommitInfoResponse) {}
+  rpc GetGitSyncStatus(GetGitSyncStatusRequest) returns(GetGitSyncStatusResponse) {}
 }
 
 message GetGitTagsRequest {
@@ -56,6 +57,28 @@ message GetCommitInfoResponse {
   string next_commit_hash = 5;
   string previous_commit_hash = 6;
   bool load_more = 7;
+}
+
+enum GitSyncStatus {
+  SYNC_UNKNOWN = 0;
+  UNSYNCED    = 1;
+  SYNCED      = 2;
+  SYNC_FAILED = 3;
+}
+
+message GetGitSyncStatusRequest {
+
+}
+
+message GetGitSyncStatusResponse {
+  repeated EnvApp unsynced = 1;
+  repeated EnvApp sync_failed = 2;
+}
+
+message EnvApp {
+  string application_name = 1;
+  string environment_name = 2;
+  GitSyncStatus status    = 3;
 }
 
 message Event {

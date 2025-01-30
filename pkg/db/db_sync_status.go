@@ -174,6 +174,60 @@ func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id
 	return h.executeBulkInsert(ctx, tx, allCombs, *now, id, status, BULK_INSERT_BATCH_SIZE)
 }
 
+func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) ([]GitSyncData, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, onErr(fmt.Errorf("DBRetrieveAppsByStatus: no transaction provided"))
+	}
+
+	selectQuery := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE status = ? ORDER BY created DESC;")
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		status)
+	result, err := processGitSyncStatusRows(ctx, rows, err)
+
+	if err != nil {
+		return nil, onErr(err)
+	}
+	return result, nil
+}
+
+func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([]GitSyncData, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not get git sync status for apps. Error: %w\n", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	var syncData []GitSyncData
+	for rows.Next() {
+		curr := GitSyncData{}
+		err := rows.Scan(&curr.TransformerID, &curr.EnvName, &curr.AppName, &curr.SyncStatus)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error table scanning git_sync_status. Error: %w\n", err)
+		}
+		syncData = append(syncData, curr)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return syncData, nil
+}
+
 func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName, envName string) (*GitSyncData, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
 	defer span.Finish()
@@ -190,32 +244,16 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 		selectQuerry,
 		appName,
 		envName)
-	if err != nil {
-		return nil, onErr(fmt.Errorf("could not get git sync status for %q %q. Error: %w\n", envName, appName, err))
-	}
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	result, err := processGitSyncStatusRows(ctx, rows, err)
 
-	var syncData GitSyncData
-	if rows.Next() {
-		err := rows.Scan(&syncData.TransformerID, &syncData.EnvName, &syncData.AppName, &syncData.SyncStatus)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error table scanning git_sync_status. Error: %w\n", err)
-		}
-	}
-	err = closeRows(rows)
 	if err != nil {
 		return nil, onErr(err)
 	}
-	return &syncData, nil
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return &result[0], nil
 }
 
 // These queries can get long. Because of this, we insert these values in batches

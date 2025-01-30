@@ -698,6 +698,12 @@ func (p *GrpcProxy) GetEnvironmentConfig(
 	return p.EnvironmentServiceClient.GetEnvironmentConfig(ctx, in)
 }
 
+func (p *GrpcProxy) GetGitSyncStatus(
+	ctx context.Context,
+	in *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
+	return p.GitClient.GetGitSyncStatus(ctx, in)
+}
+
 func (p *GrpcProxy) StreamOverview(
 	in *api.GetOverviewRequest,
 	stream api.OverviewService_StreamOverviewServer) error {

@@ -1023,3 +1023,228 @@ func TestGetCommitInfo(t *testing.T) {
 		})
 	}
 }
+
+func TestGetSyncData(t *testing.T) {
+	const appName = "test-app-name"
+	const anotherAppName = "yet-another-app-name"
+	const envName = "test-env-name"
+	const anotherEnvName = "yet-another-env-name"
+	type TestSyncData struct {
+		AppName string
+		EnvName string
+		status  db.SyncStatus
+	}
+	type TestCase struct {
+		name             string
+		dbInput          []TestSyncData
+		expectedResponse *api.GetGitSyncStatusResponse
+		expectedError    error
+	}
+
+	tcs := []TestCase{
+		{
+			name:    "No data",
+			dbInput: []TestSyncData{},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				Unsynced:   make([]*api.EnvApp, 0),
+				SyncFailed: make([]*api.EnvApp, 0),
+			},
+			expectedError: nil,
+		},
+		{
+			name: "One Unsynced app",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.UNSYNCED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				Unsynced: []*api.EnvApp{
+					{
+						ApplicationName: appName,
+						EnvironmentName: envName,
+						Status:          api.GitSyncStatus_UNSYNCED,
+					},
+				},
+				SyncFailed: make([]*api.EnvApp, 0),
+			},
+			expectedError: nil,
+		},
+		{
+			name: "One SYNC_FAILED app",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.SYNC_FAILED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				SyncFailed: []*api.EnvApp{
+					{
+						ApplicationName: appName,
+						EnvironmentName: envName,
+						Status:          api.GitSyncStatus_SYNC_FAILED,
+					},
+				},
+				Unsynced: make([]*api.EnvApp, 0),
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Multiple UNSYNCED app",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.UNSYNCED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: envName,
+					status:  db.UNSYNCED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				Unsynced: []*api.EnvApp{
+					{
+						ApplicationName: appName,
+						EnvironmentName: envName,
+						Status:          api.GitSyncStatus_UNSYNCED,
+					},
+					{
+						ApplicationName: anotherAppName,
+						EnvironmentName: envName,
+						Status:          api.GitSyncStatus_UNSYNCED,
+					},
+				},
+				SyncFailed: make([]*api.EnvApp, 0),
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Multiple SYNC and SYNC failed apps, with some SYNCED aswell",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.UNSYNCED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: envName,
+					status:  db.SYNCED,
+				},
+				{
+					AppName: appName,
+					EnvName: anotherEnvName,
+					status:  db.SYNC_FAILED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: anotherEnvName,
+					status:  db.SYNC_FAILED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				Unsynced: []*api.EnvApp{
+					{
+						ApplicationName: appName,
+						EnvironmentName: envName,
+						Status:          api.GitSyncStatus_UNSYNCED,
+					},
+				},
+				SyncFailed: []*api.EnvApp{
+					{
+						ApplicationName: appName,
+						EnvironmentName: anotherEnvName,
+						Status:          api.GitSyncStatus_SYNC_FAILED,
+					},
+					{
+						ApplicationName: anotherAppName,
+						EnvironmentName: anotherEnvName,
+						Status:          api.GitSyncStatus_SYNC_FAILED,
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "All SYNCED returns nothing",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.SYNCED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: envName,
+					status:  db.SYNCED,
+				},
+				{
+					AppName: appName,
+					EnvName: anotherEnvName,
+					status:  db.SYNCED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: anotherEnvName,
+					status:  db.SYNCED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				Unsynced:   make([]*api.EnvApp, 0),
+				SyncFailed: make([]*api.EnvApp, 0),
+			},
+			expectedError: nil,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			repo, _ := setupRepositoryTestWithPath(t)
+			pageSize := 100
+			ctx := testutil.MakeTestContext()
+			config := rp.RepositoryConfig{
+				ArgoCdGenerateFiles:  true,
+				DBHandler:            repo.State().DBHandler,
+				MinimizeExportedData: false,
+			}
+			sv := &GitServer{
+				Repository: repo,
+				Config:     config,
+				PageSize:   uint64(pageSize),
+			}
+			//DB setup
+			err := repo.State().DBHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, in := range tc.dbInput {
+					err := repo.State().DBHandler.DBWriteNewSyncEvent(ctx, transaction, &db.GitSyncData{
+						EnvName:    in.EnvName,
+						AppName:    in.AppName,
+						SyncStatus: in.status,
+					})
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("DB error no expected: %v", err)
+			}
+			response, err := sv.GetGitSyncStatus(ctx, &api.GetGitSyncStatusRequest{})
+
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.expectedResponse, response, protocmp.Transform()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+		})
+	}
+}
