@@ -126,7 +126,7 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockid, environment, teamName, metadata 
+		SELECT created, lockid, envname, teamName, metadata 
 		FROM team_locks 
 		LIMIT 1;`)
 	span.SetTag("query", selectQuery)
