@@ -226,33 +226,6 @@ func findCommitID(
 	return commitID, nil
 }
 
-func (s *GitServer) StreamGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
-	defer span.Finish()
-	//Query for UNSYNCED
-	dbHandler := s.Repository.State().DBHandler
-	response := &api.GetGitSyncStatusResponse{
-		Unsynced:   make([]*api.EnvApp, 0),
-		SyncFailed: make([]*api.EnvApp, 0),
-	}
-	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
-		statuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
-		if err != nil {
-			return err
-		}
-		fmt.Println(statuses)
-		response.Unsynced = toApiStatuses(statuses, api.GitSyncStatus_UNSYNCED)
-
-		statuses, err = dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
-		if err != nil {
-			return err
-		}
-		response.SyncFailed = toApiStatuses(statuses, api.GitSyncStatus_SYNC_FAILED)
-		return nil
-	})
-	return response, onErr(err)
-}
-
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
 	defer span.Finish()
