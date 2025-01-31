@@ -2132,3 +2132,45 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 	}
 	return timestamp, nil
 }
+
+func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transaction *sql.Tx) error {
+	if h == nil {
+		return nil
+	}
+	if transaction == nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer: no transaction provided")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
+	defer span.Finish()
+
+	dataMap := make(map[string]interface{})
+	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
+	metadataMap, err := convertObjectToMap(metadata)
+	if err != nil {
+		return fmt.Errorf("could not convert object to map: %w", err)
+	}
+	dataMap["metadata"] = metadataMap
+	dataMap["eslVersion"] = 0
+	jsonToInsert, err := json.Marshal(dataMap)
+
+	if err != nil {
+		return fmt.Errorf("could not marshal json transformer: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
+	ts, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
+	}
+	span.SetTag("query", insertQuery)
+	_, err2 := transaction.Exec(
+		insertQuery,
+		ts,
+		EvtMigrationTransformer,
+		jsonToInsert)
+	if err2 != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err2)
+	}
+	return nil
+}
