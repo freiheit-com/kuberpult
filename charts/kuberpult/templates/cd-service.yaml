@@ -282,10 +282,6 @@ spec:
         - name: KUBERPULT_MINOR_REGEXES
           value: {{ .Values.cd.minorRegexes | join "," | quote }}
 {{- end }}
-        - name: KUBERPULT_MIGRATION_SERVER
-          value: kuberpult-manifest-repo-export-service:8443
-        - name: KUBERPULT_MIGRATION_SERVER_SECURE
-          value: "false"
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
         volumeMounts:

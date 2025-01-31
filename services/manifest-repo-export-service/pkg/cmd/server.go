@@ -19,7 +19,6 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"strconv"
 	"time"
 
@@ -191,10 +190,6 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	logger.FromContext(ctx).Info("startup", zap.String("kuberpultVersion", kuberpultVersionRaw))
-	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
-	if err != nil {
-		return err
-	}
 
 	dbMigrationLocation, err := valid.ReadEnvVar("KUBERPULT_DB_MIGRATIONS_LOCATION")
 	if err != nil {
@@ -281,20 +276,6 @@ func Run(ctx context.Context) error {
 
 	log.Infof("Running Custom Migrations")
 
-	migrationServer := &service.MigrationServer{
-		KuberpultVersion: kuberpultVersion,
-		DBHandler:        dbHandler,
-		Migrations:       getAllMigrations(dbHandler, repo),
-	}
-
-	_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
-		Version: kuberpultVersion,
-	})
-	if err != nil {
-		return fmt.Errorf("error running custom migrations: %w", err)
-	}
-	log.Infof("Finished Custom Migrations successfully")
-
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
@@ -312,7 +293,6 @@ func Run(ctx context.Context) error {
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
-				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},
 		},
@@ -332,52 +312,6 @@ func Run(ctx context.Context) error {
 		},
 	})
 	return nil
-}
-
-func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
-	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrations(
-			ctx,
-			repo.State().GetAppsAndTeams,
-			repo.State().WriteCurrentlyDeployed,
-			repo.State().WriteAllReleases,
-			repo.State().WriteCurrentEnvironmentLocks,
-			repo.State().WriteCurrentApplicationLocks,
-			repo.State().WriteCurrentTeamLocks,
-			repo.State().GetAllEnvironments,
-			repo.State().WriteAllQueuedAppVersions,
-			repo.State().WriteAllCommitEvents,
-		)
-	}
-
-	migrateReleases := func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrationReleaseEnvironments(ctx)
-	}
-	migrateEnvApps := func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
-	}
-
-	// Migrations here must be IN ORDER, oldest first:
-	return []*service.Migration{
-		{
-			// This first migration is actually a list of migrations that are done in one step:
-			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
-			Migration: migrationFunc,
-		},
-		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
-			Migration: migrateReleases,
-		},
-		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
-			Migration: migrateEnvApps,
-		},
-		// New migrations should be added here:
-		// {
-		//   Version: ...
-		//   Migration: ...
-		// }
-	}
 }
 
 func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {

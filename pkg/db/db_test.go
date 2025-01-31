@@ -163,262 +163,6 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('1713218400'
 	}
 }
 
-func TestCustomMigrationReleases(t *testing.T) {
-	var getAllApps = /*GetAllAppsFun*/ func() (map[string]string, error) {
-		result := map[string]string{
-			"app1": "team1",
-		}
-		return result, nil
-	}
-	var writeAllReleases = /*writeAllReleases*/ func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error {
-		releases := AllReleases{
-			1: ReleaseWithManifest{
-				Version:         666,
-				UndeployVersion: false,
-				SourceAuthor:    "auth1",
-				SourceCommitId:  "commit1",
-				SourceMessage:   "msg1",
-				CreatedAt:       time.Time{},
-				DisplayVersion:  "display1",
-				Manifests: map[string]string{
-					"dev": "manifest1",
-				},
-			},
-			2: ReleaseWithManifest{
-				Version:         777,
-				UndeployVersion: false,
-				SourceAuthor:    "auth2",
-				SourceCommitId:  "commit2",
-				SourceMessage:   "msg2",
-				CreatedAt:       time.Time{},
-				DisplayVersion:  "display2",
-				Manifests: map[string]string{
-					"dev": "manifest2",
-				},
-			},
-		}
-		for _, r := range releases {
-			dbRelease := DBReleaseWithMetaData{
-				Created:       time.Now().UTC(),
-				ReleaseNumber: r.Version,
-				App:           app,
-				Manifests: DBReleaseManifests{
-					Manifests: r.Manifests,
-				},
-				Metadata: DBReleaseMetaData{
-					UndeployVersion: r.UndeployVersion,
-					SourceAuthor:    r.SourceAuthor,
-					SourceCommitId:  r.SourceCommitId,
-					SourceMessage:   r.SourceMessage,
-					DisplayVersion:  r.DisplayVersion,
-				},
-			}
-			err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, dbRelease)
-			if err != nil {
-				return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
-			}
-		}
-		return nil
-	}
-	tcs := []struct {
-		Name             string
-		expectedReleases []*DBReleaseWithMetaData
-	}{
-		{
-			Name: "Simple migration",
-			expectedReleases: []*DBReleaseWithMetaData{
-				{
-					ReleaseNumber: 666,
-					App:           "app1",
-					Manifests: DBReleaseManifests{
-						Manifests: map[string]string{
-							"dev": "manifest1",
-						},
-					},
-					Metadata: DBReleaseMetaData{
-						SourceAuthor:   "auth1",
-						SourceCommitId: "commit1",
-						SourceMessage:  "msg1",
-						DisplayVersion: "display1",
-					},
-					Environments: []string{"dev"},
-				},
-				{
-					ReleaseNumber: 777,
-					App:           "app1",
-					Manifests: DBReleaseManifests{
-						Manifests: map[string]string{
-							"dev": "manifest2",
-						},
-					},
-					Metadata: DBReleaseMetaData{
-						SourceAuthor:   "auth2",
-						SourceCommitId: "commit2",
-						SourceMessage:  "msg2",
-						DisplayVersion: "display2",
-					},
-					Environments: []string{"dev"},
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			ctx := context.Background()
-
-			dbHandler := SetupRepositoryTestWithDB(t)
-			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, writeAllReleases)
-				if err2 != nil {
-					return fmt.Errorf("error: %v", err2)
-				}
-				for i := range tc.expectedReleases {
-					expectedRelease := tc.expectedReleases[i]
-
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumber, true)
-					if err != nil {
-						return err
-					}
-					if diff := cmp.Diff(expectedRelease, release, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
-						t.Errorf("error mismatch (-want, +got):\n%s", diff)
-					}
-				}
-				return nil
-			})
-			if err3 != nil {
-				t.Fatalf("expected no error, got %v", err3)
-			}
-		})
-	}
-}
-
-func TestCustomMigrationsApps(t *testing.T) {
-	const appName = "my-app"
-	const teamName = "my-team"
-	tcs := []struct {
-		Name            string
-		expectedApps    []*DBAppWithMetaData
-		expectedAllApps []string
-		allAppsFunc     GetAllAppsFun
-	}{
-		{
-			Name: "Simple migration",
-			expectedApps: []*DBAppWithMetaData{
-				{
-					App:         appName,
-					StateChange: AppStateChangeMigrate,
-					Metadata: DBAppMetaData{
-						Team: teamName,
-					},
-				},
-			},
-			expectedAllApps: []string{appName},
-			allAppsFunc: func() (map[string]string, error) {
-				result := map[string]string{
-					appName: teamName,
-				}
-				return result, nil
-			},
-		},
-		{
-			Name:            "No apps still populate all_apps table",
-			expectedApps:    []*DBAppWithMetaData{},
-			expectedAllApps: []string{},
-			allAppsFunc: func() (map[string]string, error) {
-				result := map[string]string{}
-				return result, nil
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			ctx := context.Background()
-
-			dbHandler := SetupRepositoryTestWithDB(t)
-			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := dbHandler.RunAllCustomMigrationsForApps(ctx, tc.allAppsFunc)
-				if err2 != nil {
-					return fmt.Errorf("error: %v", err2)
-				}
-
-				allApps, err2 := dbHandler.DBSelectAllApplications(ctx, transaction)
-				if err2 != nil {
-					return fmt.Errorf("error: %v", err2)
-				}
-				if diff := cmp.Diff(tc.expectedAllApps, allApps); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
-				for i := range tc.expectedApps {
-					expectedApp := tc.expectedApps[i]
-
-					app, err := dbHandler.DBSelectApp(ctx, transaction, appName)
-					if err != nil {
-						return err
-					}
-					if diff := cmp.Diff(expectedApp, app); diff != "" {
-						t.Errorf("error mismatch (-want, +got):\n%s", diff)
-					}
-				}
-				return nil
-			})
-			if err3 != nil {
-				t.Fatalf("expected no error, got %v", err3)
-			}
-		})
-	}
-}
-
-func TestMigrationCommitEvent(t *testing.T) {
-	var writeAllCommitEvents = /*writeAllCommitEvents*/ func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error {
-		return nil
-	}
-	tcs := []struct {
-		Name           string
-		expectedEvents []*event.DBEventGo
-	}{
-		{
-			Name: "Test migration event",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			ctx := context.Background()
-
-			dbHandler := SetupRepositoryTestWithDB(t)
-			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
-				if err2 != nil {
-					return fmt.Errorf("error: %v", err2)
-				}
-
-				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, writeAllCommitEvents)
-				if err2 != nil {
-					return fmt.Errorf("error: %v", err2)
-				}
-				//Check for migration event
-				contains, err := dbHandler.DBContainsMigrationCommitEvent(ctx, transaction)
-				if err != nil {
-					t.Errorf("could not get migration event: %v\n", err)
-
-				}
-				if !contains {
-					t.Errorf("migration event was not created: %v\n", err)
-				}
-				return nil
-			})
-			if err3 != nil {
-				t.Fatalf("expected no error, got %v", err3)
-			}
-		})
-	}
-}
-
 func TestCommitEvents(t *testing.T) {
 
 	tcs := []struct {
@@ -519,15 +263,13 @@ func TestCommitEvents(t *testing.T) {
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-
-			err = db.RunCustomMigrationsEventSourcingLight(ctx)
-			if err != nil {
-				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
-
-			}
 			err = db.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
 				if err != nil {
 					t.Fatalf("Error creating transaction. Error: %v\n", err)
+				}
+				err = db.DBWriteMigrationsTransformer(ctx, tx)
+				if err != nil {
+					return err
 				}
 				err := writeEventAux(ctx, db, tx, tc.commitHash, tc.event)
 				if err != nil {
@@ -670,12 +412,11 @@ func TestReadLockPreventedEvents(t *testing.T) {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
 
-			err = db.RunCustomMigrationsEventSourcingLight(ctx)
-			if err != nil {
-				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
-
-			}
 			err = db.WithTransactionR(ctx, 0, false, func(ctx context.Context, tx *sql.Tx) error {
+				err = db.DBWriteMigrationsTransformer(ctx, tx)
+				if err != nil {
+					return err
+				}
 				for i, event := range tc.Events {
 					err = db.DBWriteLockPreventedDeploymentEvent(ctx, tx, 0, "00000000-0000-0000-0000-00000000000"+strconv.Itoa(i), "test", event)
 					if err != nil {
