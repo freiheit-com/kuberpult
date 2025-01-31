@@ -33,6 +33,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	git "github.com/libgit2/git2go/v34"
@@ -749,7 +750,7 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 
 func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistoryRequest,
 	stream api.OverviewService_StreamDeploymentHistoryServer) error {
-	span, ctx := tracer.StartSpanFromContext(stream.Context(), "StreamDeploymentHistory")
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamDeploymentHistory")
 	defer span.Finish()
 
 	now := time.Now()
@@ -757,7 +758,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 
 	err := stream.Send(&api.DeploymentHistoryResponse{Deployment: "time,app,environment,deployed release version,previous release version\n"})
 	if err != nil {
-		return err
+		return onErr(err)
 	}
 
 	err = o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
@@ -812,7 +813,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 	})
 
 	if err != nil {
-		return err
+		return onErr(err)
 	}
 
 	return nil
