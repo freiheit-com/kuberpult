@@ -13,6 +13,7 @@ service GitService {
   rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
   rpc GetCommitInfo(GetCommitInfoRequest) returns(GetCommitInfoResponse) {}
   rpc GetGitSyncStatus(GetGitSyncStatusRequest) returns(GetGitSyncStatusResponse) {}
+  rpc StreamGitSyncStatus(GetGitSyncStatusRequest) returns(stream GetGitSyncStatusResponse) {}
 }
 
 message GetGitTagsRequest {

@@ -25,23 +25,31 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type GitServer struct {
 	Config     repository.RepositoryConfig
 	Repository repository.Repository
 	PageSize   uint64
+
+	shutdown                    <-chan struct{}
+	streamGitSyncStatusInitFunc sync.Once
+	notify                      notify.Notify
 }
 
 func (s *GitServer) GetProductSummary(_ context.Context, _ *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
@@ -261,4 +269,51 @@ func toApiStatuses(statuses []db.GitSyncData) []*api.EnvApp {
 		})
 	}
 	return toFill
+}
+
+func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscribe) {
+	s.streamGitSyncStatusInitFunc.Do(func() {
+		ch, unsub := s.Repository.Notify().Subscribe()
+		// Channels obtained from subscribe are by default triggered
+		<-ch
+		go func() {
+			defer unsub()
+			for {
+				select {
+				case <-s.shutdown:
+					return
+				case <-ch:
+
+					s.notify.Notify()
+				}
+			}
+		}()
+	})
+	return s.notify.Subscribe()
+}
+
+func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
+	stream api.GitService_StreamGitSyncStatusServer) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
+	defer span.Finish()
+	ch, unsubscribe := s.subscribeGitSyncStatus()
+	defer unsubscribe()
+	done := stream.Context().Done()
+	for {
+		select {
+		case <-s.shutdown:
+			return nil
+		case <-ch:
+			response, err := s.GetGitSyncStatus(ctx, in)
+			if err != nil {
+				return onErr(err)
+			}
+			if err := stream.Send(response); err != nil {
+				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
+				return onErr(err)
+			}
+		case <-done:
+			return nil
+		}
+	}
 }

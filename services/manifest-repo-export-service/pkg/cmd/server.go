@@ -480,6 +480,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				}
 			}
 		}
+		repo.Notify().Notify() // Notify git sync status
 	}
 }
 

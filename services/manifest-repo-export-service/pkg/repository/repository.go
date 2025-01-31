@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"io"
 	"os"
 	"path/filepath"
@@ -65,6 +66,7 @@ type Repository interface {
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
 	GetHeadCommitId() (*git.Oid, error)
+	Notify() *notify.Notify
 }
 
 type TransformerBatchApplyError struct {
@@ -112,6 +114,8 @@ type repository struct {
 	certificates *certificateStore
 
 	repository *git.Repository
+
+	notify notify.Notify
 
 	backOffProvider func() backoff.BackOff
 
@@ -220,7 +224,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
 			return nil, err
 		} else {
-
 			result := &repository{
 				config:          &cfg,
 				credentials:     credentials,
@@ -228,6 +231,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				repository:      repo2,
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
+				notify:          notify.Notify{},
 			}
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 			//exhaustruct:ignore
@@ -2321,4 +2325,8 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	}
 
 	return tags, nil
+}
+
+func (r *repository) Notify() *notify.Notify {
+	return &r.notify
 }
