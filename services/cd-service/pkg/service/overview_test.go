@@ -18,9 +18,12 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -2281,42 +2284,60 @@ func TestCalculateWarnings(t *testing.T) {
 }
 
 func TestDeploymentHistory(t *testing.T) {
+	created := time.Now()
+	versionOne := int64(1)
+	versionTwo := int64(2)
+
 	tcs := []struct {
-		Name string
-		Test func(t *testing.T, svc *OverviewServiceServer)
+		Name             string
+		Setup            []db.Deployment
+		ExpectedCsvLines []string
 	}{
 		{
-			Name: "Test deployment history stream",
-			Test: func(t *testing.T, svc *OverviewServiceServer) {
-				ctx := testutil.MakeTestContext()
-				ch := make(chan *api.DeploymentHistoryResponse)
-				stream := mockOverviewService_DeploymentHistoryServer{
-					Results: ch,
-					Ctx:     ctx,
-				}
-
-				wg := sync.WaitGroup{}
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					err := svc.StreamDeploymentHistory(&api.DeploymentHistoryRequest{}, &stream)
-					close(ch)
-					if err != nil {
-						t.Fatal(err)
-					}
-				}()
-
-				// this is temporary, the endpoint will return actual data when SRX-AJJ2X3 is completed
-				dummyCsvLines := []string{"1,hello\n", "2,world\n", "3,from the\n", "4,cd-service\n"}
-				line := 0
-				for got := range ch {
-					if got.Deployment != dummyCsvLines[line] {
-						t.Errorf("%q doesn't match %q from line %d of dummy csv file", got.Deployment, dummyCsvLines[line], line)
-					}
-					line += 1
-				}
-
-				wg.Wait()
+			Name:  "Test empty deployment history",
+			Setup: []db.Deployment{},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,previous release version\n",
+			},
+		},
+		{
+			Name: "Test non-empty deployment history",
+			Setup: []db.Deployment{
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           "testapp",
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "staging",
+					App:           "testapp",
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           "testapp2",
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           "testapp",
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,previous release version\n",
+				"testapp,dev,1,nil\n",
+				"testapp,staging,1,nil\n",
+				"testapp2,dev,2,nil\n",
+				"testapp,dev,2,1\n",
 			},
 		},
 	}
@@ -2325,13 +2346,104 @@ func TestDeploymentHistory(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
+
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			ctx := testutil.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
+				DBHandler:  repo.State().DBHandler,
 				Context:    ctx,
 			}
-			tc.Test(t, svc)
+
+			err = svc.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := svc.DBHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				for _, deployment := range tc.Setup {
+					if err := svc.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment); err != nil {
+						return err
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var expectedLinesWithCreated []string
+			expectedLinesWithCreated = append(expectedLinesWithCreated, "time,app,environment,deployed release version,previous release version\n")
+
+			err = svc.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				query := svc.DBHandler.AdaptQuery(`
+					SELECT created FROM deployments_history
+					WHERE releaseversion IS NOT NULL
+					ORDER BY created ASC;
+				`)
+
+				rows, err := transaction.QueryContext(ctx, query)
+				if err != nil {
+					return err
+				}
+
+				defer rows.Close()
+				for i := 1; rows.Next() && i < len(tc.ExpectedCsvLines); i++ {
+					var createdAt time.Time
+					rows.Scan(&createdAt)
+					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[i])
+					expectedLinesWithCreated = append(expectedLinesWithCreated, line)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			ch := make(chan *api.DeploymentHistoryResponse)
+			stream := mockOverviewService_DeploymentHistoryServer{
+				Results: ch,
+				Ctx:     ctx,
+			}
+
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := svc.StreamDeploymentHistory(&api.DeploymentHistoryRequest{}, &stream)
+				close(ch)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}()
+
+			var got []string
+			for res := range ch {
+				got = append(got, res.Deployment)
+			}
+
+			if diff := cmp.Diff(expectedLinesWithCreated, got); diff != "" {
+				t.Errorf("deployment history csv lines mismatch (-want, +got):\n%s", diff)
+			}
+
+			wg.Wait()
 			close(shutdown)
 		})
 	}

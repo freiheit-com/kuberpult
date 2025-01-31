@@ -25,6 +25,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -32,6 +33,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	git "github.com/libgit2/git2go/v34"
@@ -748,13 +750,70 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 
 func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistoryRequest,
 	stream api.OverviewService_StreamDeploymentHistoryServer) error {
-	// this is temporary, the endpoint will return actual data when SRX-AJJ2X3 is completed
-	dummyCsvLines := []string{"1,hello\n", "2,world\n", "3,from the\n", "4,cd-service\n"}
-	for _, line := range dummyCsvLines {
-		err := stream.Send(&api.DeploymentHistoryResponse{Deployment: line})
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamDeploymentHistory")
+	defer span.Finish()
+
+	now := time.Now()
+	twoWeeksBefore := now.AddDate(0, 0, -14)
+
+	err := stream.Send(&api.DeploymentHistoryResponse{Deployment: "time,app,environment,deployed release version,previous release version\n"})
+	if err != nil {
+		return onErr(err)
+	}
+
+	err = o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		query := o.DBHandler.AdaptQuery(`
+			SELECT created, releaseversion, appname, envname FROM deployments_history
+			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?)
+			ORDER BY created ASC;
+		`)
+
+		rows, err := transaction.QueryContext(ctx, query, twoWeeksBefore, now)
 		if err != nil {
 			return err
 		}
+
+		type AppEnvPair struct {
+			App string
+			Env string
+		}
+		previousReleaseVersions := make(map[AppEnvPair]uint64)
+
+		defer rows.Close()
+		for rows.Next() {
+			var created time.Time
+			var releaseVersion uint64
+			var appName string
+			var envName string
+
+			err := rows.Scan(&created, &releaseVersion, &appName, &envName)
+			if err != nil {
+				return err
+			}
+
+			appEnvPair := AppEnvPair{App: appName, Env: envName}
+			previousReleaseVersion, hasPreviousVersion := previousReleaseVersions[appEnvPair]
+			var line string
+
+			if hasPreviousVersion {
+				line = fmt.Sprintf("%s,%s,%s,%d,%d\n", created.Format(time.RFC3339), appName, envName, releaseVersion, previousReleaseVersion)
+			} else {
+				line = fmt.Sprintf("%s,%s,%s,%d,nil\n", created.Format(time.RFC3339), appName, envName, releaseVersion)
+			}
+
+			err = stream.Send(&api.DeploymentHistoryResponse{Deployment: line})
+			if err != nil {
+				return err
+			}
+
+			previousReleaseVersions[appEnvPair] = releaseVersion
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return onErr(err)
 	}
 
 	return nil
