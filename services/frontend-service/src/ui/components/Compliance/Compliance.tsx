@@ -29,7 +29,7 @@ export const Compliance: React.FC = () => {
                     content.push(res.deployment);
                 },
                 complete: () => {
-                    const filename = 'dummy.csv';
+                    const filename = 'deployments.csv';
                     const file = new File(content, filename);
                     const anchor = document.createElement('a');
                     anchor.href = URL.createObjectURL(file);
