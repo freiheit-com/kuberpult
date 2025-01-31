@@ -311,7 +311,7 @@ func Run(ctx context.Context) error {
 			Opts:     []grpc.ServerOption{},
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
-				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
+				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10, Shutdown: make(<-chan struct{})})
 				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},

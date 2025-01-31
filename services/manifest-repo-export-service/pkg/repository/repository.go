@@ -25,7 +25,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
-
 	"io"
 	"os"
 	"path/filepath"
@@ -225,7 +224,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
 			return nil, err
 		} else {
-
 			result := &repository{
 				config:          &cfg,
 				credentials:     credentials,
@@ -233,6 +231,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				repository:      repo2,
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
+				notify:          notify.Notify{},
 			}
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 			//exhaustruct:ignore
