@@ -211,6 +211,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 
 	var syncData []GitSyncData
 	for rows.Next() {
+		//exhaustruct:ignore
 		curr := GitSyncData{}
 		err := rows.Scan(&curr.TransformerID, &curr.EnvName, &curr.AppName, &curr.SyncStatus)
 		if err != nil {
