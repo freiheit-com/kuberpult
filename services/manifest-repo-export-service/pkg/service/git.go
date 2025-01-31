@@ -240,25 +240,24 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 		if err != nil {
 			return err
 		}
-		response.Unsynced = toApiStatuses(statuses, api.GitSyncStatus_UNSYNCED)
+		response.Unsynced = toApiStatuses(statuses)
 
 		statuses, err = dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
 		if err != nil {
 			return err
 		}
-		response.SyncFailed = toApiStatuses(statuses, api.GitSyncStatus_SYNC_FAILED)
+		response.SyncFailed = toApiStatuses(statuses)
 		return nil
 	})
 	return response, onErr(err)
 }
 
-func toApiStatuses(statuses []db.GitSyncData, status api.GitSyncStatus) []*api.EnvApp {
+func toApiStatuses(statuses []db.GitSyncData) []*api.EnvApp {
 	toFill := make([]*api.EnvApp, 0)
 	for _, currStatus := range statuses {
 		toFill = append(toFill, &api.EnvApp{
 			ApplicationName: currStatus.AppName,
 			EnvironmentName: currStatus.EnvName,
-			Status:          status,
 		})
 	}
 	return toFill

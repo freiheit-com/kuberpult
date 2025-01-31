@@ -1063,7 +1063,6 @@ func TestGetSyncData(t *testing.T) {
 					{
 						ApplicationName: appName,
 						EnvironmentName: envName,
-						Status:          api.GitSyncStatus_UNSYNCED,
 					},
 				},
 				SyncFailed: make([]*api.EnvApp, 0),
@@ -1083,7 +1082,6 @@ func TestGetSyncData(t *testing.T) {
 					{
 						ApplicationName: appName,
 						EnvironmentName: envName,
-						Status:          api.GitSyncStatus_SYNC_FAILED,
 					},
 				},
 				Unsynced: make([]*api.EnvApp, 0),
@@ -1108,12 +1106,10 @@ func TestGetSyncData(t *testing.T) {
 					{
 						ApplicationName: appName,
 						EnvironmentName: envName,
-						Status:          api.GitSyncStatus_UNSYNCED,
 					},
 					{
 						ApplicationName: anotherAppName,
 						EnvironmentName: envName,
-						Status:          api.GitSyncStatus_UNSYNCED,
 					},
 				},
 				SyncFailed: make([]*api.EnvApp, 0),
@@ -1148,19 +1144,16 @@ func TestGetSyncData(t *testing.T) {
 					{
 						ApplicationName: appName,
 						EnvironmentName: envName,
-						Status:          api.GitSyncStatus_UNSYNCED,
 					},
 				},
 				SyncFailed: []*api.EnvApp{
 					{
 						ApplicationName: appName,
 						EnvironmentName: anotherEnvName,
-						Status:          api.GitSyncStatus_SYNC_FAILED,
 					},
 					{
 						ApplicationName: anotherAppName,
 						EnvironmentName: anotherEnvName,
-						Status:          api.GitSyncStatus_SYNC_FAILED,
 					},
 				},
 			},
