@@ -1230,7 +1230,7 @@ func TestGetSyncData(t *testing.T) {
 			}
 			response, err := sv.GetGitSyncStatus(ctx, &api.GetGitSyncStatusRequest{})
 			if err != nil {
-				t.Errorf(err)
+				t.Error(err)
 			}
 			if diff := cmp.Diff(tc.expectedResponse, response, protocmp.Transform()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
