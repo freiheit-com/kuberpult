@@ -271,40 +271,40 @@ func toApiStatuses(statuses []db.GitSyncData) []*api.EnvApp {
 	return toFill
 }
 
-func (o *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscribe) {
-	o.streamGitSyncStatusInitFunc.Do(func() {
-		ch, unsub := o.Repository.Notify().Subscribe()
+func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscribe) {
+	s.streamGitSyncStatusInitFunc.Do(func() {
+		ch, unsub := s.Repository.Notify().Subscribe()
 		// Channels obtained from subscribe are by default triggered
 		<-ch
 		go func() {
 			defer unsub()
 			for {
 				select {
-				case <-o.shutdown:
+				case <-s.shutdown:
 					return
 				case <-ch:
 
-					o.notify.Notify()
+					s.notify.Notify()
 				}
 			}
 		}()
 	})
-	return o.notify.Subscribe()
+	return s.notify.Subscribe()
 }
 
-func (o *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
+func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 	stream api.GitService_StreamGitSyncStatusServer) error {
 	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
 	defer span.Finish()
-	ch, unsubscribe := o.subscribeGitSyncStatus()
+	ch, unsubscribe := s.subscribeGitSyncStatus()
 	defer unsubscribe()
 	done := stream.Context().Done()
 	for {
 		select {
-		case <-o.shutdown:
+		case <-s.shutdown:
 			return nil
 		case <-ch:
-			response, err := o.GetGitSyncStatus(ctx, in)
+			response, err := s.GetGitSyncStatus(ctx, in)
 			if err != nil {
 				return onErr(err)
 			}
