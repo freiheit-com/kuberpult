@@ -47,8 +47,8 @@ type GitServer struct {
 	Repository repository.Repository
 	PageSize   uint64
 
-	Shutdown                    <-chan struct{}
-	StreamGitSyncStatusInitFunc sync.Once
+	shutdown                    <-chan struct{}
+	streamGitSyncStatusInitFunc sync.Once
 	notify                      notify.Notify
 }
 
@@ -272,7 +272,7 @@ func toApiStatuses(statuses []db.GitSyncData) []*api.EnvApp {
 }
 
 func (o *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscribe) {
-	o.StreamGitSyncStatusInitFunc.Do(func() {
+	o.streamGitSyncStatusInitFunc.Do(func() {
 		ch, unsub := o.Repository.Notify().Subscribe()
 		// Channels obtained from subscribe are by default triggered
 		<-ch
