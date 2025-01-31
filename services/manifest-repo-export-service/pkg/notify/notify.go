@@ -27,6 +27,7 @@ type Notify struct {
 
 type Unsubscribe = func()
 
+// Meant to be called when service wants to subscribe to any updates
 func (n *Notify) Subscribe() (<-chan struct{}, Unsubscribe) {
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}
@@ -45,6 +46,7 @@ func (n *Notify) Subscribe() (<-chan struct{}, Unsubscribe) {
 	}
 }
 
+// Meant to be called when service needs to be notified on new change
 func (n *Notify) Notify() {
 	n.mx.Lock()
 	defer n.mx.Unlock()
