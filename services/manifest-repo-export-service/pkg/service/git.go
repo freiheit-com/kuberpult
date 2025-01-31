@@ -280,7 +280,7 @@ func (o *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 			defer unsub()
 			for {
 				select {
-				case <-o.Shutdown:
+				case <-o.shutdown:
 					return
 				case <-ch:
 
@@ -301,7 +301,7 @@ func (o *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 	done := stream.Context().Done()
 	for {
 		select {
-		case <-o.Shutdown:
+		case <-o.shutdown:
 			return nil
 		case <-ch:
 			response, err := o.GetGitSyncStatus(ctx, in)
