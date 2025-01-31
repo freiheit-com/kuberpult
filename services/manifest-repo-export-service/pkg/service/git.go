@@ -275,8 +275,6 @@ func (o *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 	o.StreamGitSyncStatusInitFunc.Do(func() {
 		ch, unsub := o.Repository.Notify().Subscribe()
 		// Channels obtained from subscribe are by default triggered
-		//
-		// This means, we have to wait here until the first overview is loaded.
 		<-ch
 		go func() {
 			defer unsub()
@@ -296,6 +294,8 @@ func (o *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 
 func (o *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 	stream api.GitService_StreamGitSyncStatusServer) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
+	defer span.Finish()
 	ch, unsubscribe := o.subscribeGitSyncStatus()
 	defer unsubscribe()
 	done := stream.Context().Done()
@@ -304,13 +304,13 @@ func (o *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 		case <-o.Shutdown:
 			return nil
 		case <-ch:
-			response, err := o.GetGitSyncStatus(stream.Context(), in)
+			response, err := o.GetGitSyncStatus(ctx, in)
 			if err != nil {
-				return err
+				return onErr(err)
 			}
 			if err := stream.Send(response); err != nil {
-				logger.FromContext(stream.Context()).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
-				return err
+				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
+				return onErr(err)
 			}
 		case <-done:
 			return nil
