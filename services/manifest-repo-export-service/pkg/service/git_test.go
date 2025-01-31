@@ -1229,11 +1229,9 @@ func TestGetSyncData(t *testing.T) {
 				t.Fatalf("DB error no expected: %v", err)
 			}
 			response, err := sv.GetGitSyncStatus(ctx, &api.GetGitSyncStatusRequest{})
-
-			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			if err != nil {
+				t.Errorf(err)
 			}
-
 			if diff := cmp.Diff(tc.expectedResponse, response, protocmp.Transform()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
