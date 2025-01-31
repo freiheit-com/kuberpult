@@ -276,7 +276,6 @@ func Run(ctx context.Context) error {
 
 	log.Infof("Running Custom Migrations")
 
-
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{

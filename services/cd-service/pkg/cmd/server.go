@@ -55,8 +55,6 @@ const (
 	datadogNameCd           = "kuberpult-cd-service"
 	minReleaseVersionsLimit = 5
 	maxReleaseVersionsLimit = 30
-
-	megaBytes int = 1024 * 1024
 )
 
 type Config struct {
@@ -114,7 +112,7 @@ type Config struct {
 	DisableQueue bool `required:"true" split_words:"true"`
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
-	GrpcMaxRecvMsgSize    int    `required:"true" split_words:"true"`
+	GrpcMaxRecvMsgSize int `required:"true" split_words:"true"`
 
 	Version string `required:"true" split_words:"true"`
 }
