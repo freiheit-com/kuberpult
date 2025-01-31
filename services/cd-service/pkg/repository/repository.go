@@ -573,6 +573,8 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 				return subChanges, nil
 			})
 
+			r.notify.NotifyGitSyncStatus()
+
 			if txErr != nil {
 				logger.FromContext(e.ctx).Sugar().Warnf("txError in applyTransformerBatches: %w", txErr)
 				e.finish(txErr)
@@ -1117,6 +1119,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		}
 		r.notify.Notify()
 		r.notifyChangedApps(changes)
+		r.notify.NotifyGitSyncStatus()
 		return nil
 	} else {
 		eCh := r.applyDeferred(ctx, transformers...)
