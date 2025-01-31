@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
+
 	"io"
 	"os"
 	"path/filepath"
@@ -65,6 +67,7 @@ type Repository interface {
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
 	GetHeadCommitId() (*git.Oid, error)
+	Notify() *notify.Notify
 }
 
 type TransformerBatchApplyError struct {
@@ -112,6 +115,8 @@ type repository struct {
 	certificates *certificateStore
 
 	repository *git.Repository
+
+	notify notify.Notify
 
 	backOffProvider func() backoff.BackOff
 
@@ -2321,4 +2326,8 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	}
 
 	return tags, nil
+}
+
+func (r *repository) Notify() *notify.Notify {
+	return &r.notify
 }

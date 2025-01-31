@@ -414,3 +414,8 @@ func findCommitID(
 	}
 	return commitID, nil
 }
+
+func (s *GitServer) StreamGitSyncStatus(_ *api.GetGitSyncStatusRequest,
+	_ api.GitService_StreamGitSyncStatusServer) error {
+	return status.Error(codes.Unimplemented, "not implemented")
+}

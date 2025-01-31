@@ -704,6 +704,12 @@ func (p *GrpcProxy) GetGitSyncStatus(
 	return p.GitClient.GetGitSyncStatus(ctx, in)
 }
 
+func (p *GrpcProxy) StreamGitSyncStatus(
+	in *api.GetGitSyncStatusRequest,
+	stream api.GitService_StreamGitSyncStatusServer) error {
+	return status.Error(codes.Unimplemented, "rollout service not configured")
+}
+
 func (p *GrpcProxy) StreamOverview(
 	in *api.GetOverviewRequest,
 	stream api.OverviewService_StreamOverviewServer) error {
