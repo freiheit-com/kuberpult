@@ -494,12 +494,10 @@ func (s *GitServer) StreamGitSyncStatus(_ *api.GetGitSyncStatusRequest,
 		case <-s.shutdown:
 			return nil
 		case <-ch:
-			fmt.Println("YEET THIS SHIT")
 			response, err := s.ReadSyncStatuses(ctx)
 			if err != nil {
 				return onErr(err)
 			}
-			fmt.Println(response)
 			if err := stream.Send(response); err != nil {
 				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
 				return onErr(err)
