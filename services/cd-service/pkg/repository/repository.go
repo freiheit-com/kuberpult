@@ -1540,15 +1540,11 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 	if transaction == nil {
 		return nil, fmt.Errorf("GetEnvironmentTeamLocksFromDB: No transaction provided")
 	}
-	activeLockIDs, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
+	lockIds, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
 	if err != nil {
 		return nil, err
 	}
 
-	var lockIds []string
-	if activeLockIDs != nil {
-		lockIds = activeLockIDs.TeamLocks
-	}
 	locks, err := s.DBHandler.DBSelectTeamLockSet(ctx, transaction, environment, team, lockIds)
 
 	if err != nil {

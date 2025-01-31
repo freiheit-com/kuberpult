@@ -2572,31 +2572,6 @@ func (c *CreateEnvironmentTeamLock) Transform(
 			return "", errW
 		}
 
-		//Add it to all locks
-		allTeamLocks, err := state.DBHandler.DBSelectAllTeamLocks(ctx, transaction, c.Environment, c.Team)
-		if err != nil {
-			return "", err
-		}
-
-		if allTeamLocks == nil {
-			allTeamLocks = &db.AllTeamLocksGo{
-				Version: 1,
-				AllTeamLocksJson: db.AllTeamLocksJson{
-					TeamLocks: []string{},
-				},
-				Created:     *now,
-				Environment: c.Environment,
-				Team:        c.Team,
-			}
-		}
-
-		if !slices.Contains(allTeamLocks.TeamLocks, c.LockId) {
-			allTeamLocks.TeamLocks = append(allTeamLocks.TeamLocks, c.LockId)
-			err := state.DBHandler.DBWriteAllTeamLocks(ctx, transaction, allTeamLocks.Version, c.Environment, c.Team, allTeamLocks.TeamLocks)
-			if err != nil {
-				return "", err
-			}
-		}
 	} else {
 		if !valid.EnvironmentName(c.Environment) {
 			return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
@@ -2685,21 +2660,6 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		err := state.DBHandler.DBDeleteTeamLock(ctx, transaction, c.Environment, c.Team, c.LockId)
 		if err != nil {
 			return "", err
-		}
-		allTeamLocks, err := state.DBHandler.DBSelectAllTeamLocks(ctx, transaction, c.Environment, c.Team)
-		if err != nil {
-			return "", fmt.Errorf("DeleteEnvironmentTeamLock: could not select all env team locks for team '%v' on '%v': '%w'", c.Team, c.Environment, err)
-		}
-		var locks []string
-		var oldVersion = int64(db.InitialEslVersion)
-		if allTeamLocks != nil {
-			locks = db.Remove(allTeamLocks.TeamLocks, c.LockId)
-			oldVersion = allTeamLocks.Version
-		}
-
-		err = state.DBHandler.DBWriteAllTeamLocks(ctx, transaction, oldVersion, c.Environment, c.Team, locks)
-		if err != nil {
-			return "", fmt.Errorf("DeleteEnvironmentTeamLock: could not write team locks for team '%v' on '%v': '%w'", c.Team, c.Environment, err)
 		}
 	} else {
 
@@ -2868,7 +2828,7 @@ func (c *DeleteEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	if teamLocksForEnv != nil && len(teamLocksForEnv.TeamLocks) != 0 {
+	if len(teamLocksForEnv) != 0 {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Team locks for this environment exist.", c.Environment))
 	}
 

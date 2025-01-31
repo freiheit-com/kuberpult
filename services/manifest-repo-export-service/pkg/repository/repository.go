@@ -1463,7 +1463,6 @@ func (s *State) WriteCurrentTeamLocks(ctx context.Context, transaction *sql.Tx, 
 		}
 
 		for _, currentApp := range appNames {
-			var activeLockIds []string
 
 			teamName, err := s.GetTeamNameFromManifest(currentApp)
 			if err != nil {
@@ -1485,10 +1484,9 @@ func (s *State) WriteCurrentTeamLocks(ctx context.Context, transaction *sql.Tx, 
 			}
 			for lockId, lock := range ls {
 				currentTeamLock := db.TeamLock{
-					EslVersion: 0,
-					Env:        envName,
-					LockID:     lockId,
-					Created:    time.Time{},
+					Env:     envName,
+					LockID:  lockId,
+					Created: time.Time{},
 					Metadata: db.LockMetadata{
 						CreatedByName:  lock.CreatedBy.Name,
 						CreatedByEmail: lock.CreatedBy.Email,
@@ -1496,23 +1494,13 @@ func (s *State) WriteCurrentTeamLocks(ctx context.Context, transaction *sql.Tx, 
 						CiLink:         "", //CI links are not written into the manifest
 						CreatedAt:      lock.CreatedAt,
 					},
-					Team:    teamName,
-					Deleted: false,
+					Team: teamName,
 				}
-				activeLockIds = append(activeLockIds, currentTeamLock.LockID)
-				err = dbHandler.DBWriteTeamLockInternal(ctx, transaction, currentTeamLock, 0)
+				err = dbHandler.DBWriteTeamLock(ctx, transaction, currentTeamLock.LockID, currentTeamLock.Env, currentTeamLock.Team, currentTeamLock.Metadata)
 				if err != nil {
 					return fmt.Errorf("error writing team locks to DB for team '%s' on '%s': %w",
 						teamName, envName, err)
 				}
-			}
-			if len(activeLockIds) == 0 {
-				activeLockIds = []string{}
-			}
-			err = dbHandler.DBWriteAllTeamLocks(ctx, transaction, 0, envName, teamName, activeLockIds)
-			if err != nil {
-				return fmt.Errorf("error writing existing locks to DB for team '%s' on environment '%s': %w",
-					teamName, envName, err)
 			}
 		}
 	}
@@ -1730,15 +1718,11 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 	if transaction == nil {
 		return nil, fmt.Errorf("GetEnvironmentTeamLocksFromDB: No transaction provided")
 	}
-	activeLockIDs, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
+	lockIds, err := s.DBHandler.DBSelectAllTeamLocks(ctx, transaction, environment, team)
 	if err != nil {
 		return nil, err
 	}
 
-	var lockIds []string
-	if activeLockIDs != nil {
-		lockIds = activeLockIDs.TeamLocks
-	}
 	locks, err := s.DBHandler.DBSelectTeamLockSet(ctx, transaction, environment, team, lockIds)
 
 	if err != nil {

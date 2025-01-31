@@ -619,15 +619,16 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.AllTeamLocksGo, error) {
-				return repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
+			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
+				locks, err := repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
+				return &locks, err
 			})
 
 			if locks == nil {
 				t.Fatalf("Expected locks but got none")
 			}
 
-			if diff := cmp.Diff(tc.ExpectedLockIds, locks.TeamLocks); diff != "" {
+			if diff := cmp.Diff(tc.ExpectedLockIds, *locks); diff != "" {
 				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 			}
 		})
