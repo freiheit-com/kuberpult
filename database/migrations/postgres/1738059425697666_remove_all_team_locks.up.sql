@@ -1,0 +1,4 @@
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+-- Remove all_team_locks table
+DROP TABLE IF EXISTS all_team_locks;

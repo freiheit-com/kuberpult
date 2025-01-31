@@ -21,14 +21,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"os"
-	"sort"
-	"strings"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
@@ -36,6 +33,9 @@ import (
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"os"
+	"sort"
+	"strings"
 )
 
 type GitServer struct {
@@ -224,4 +224,41 @@ func findCommitID(
 			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
 	}
 	return commitID, nil
+}
+
+func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
+	defer span.Finish()
+	//Query for UNSYNCED
+	dbHandler := s.Repository.State().DBHandler
+	response := &api.GetGitSyncStatusResponse{
+		Unsynced:   make([]*api.EnvApp, 0),
+		SyncFailed: make([]*api.EnvApp, 0),
+	}
+	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
+		statuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
+		if err != nil {
+			return err
+		}
+		response.Unsynced = toApiStatuses(statuses)
+
+		statuses, err = dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
+		if err != nil {
+			return err
+		}
+		response.SyncFailed = toApiStatuses(statuses)
+		return nil
+	})
+	return response, onErr(err)
+}
+
+func toApiStatuses(statuses []db.GitSyncData) []*api.EnvApp {
+	toFill := make([]*api.EnvApp, 0)
+	for _, currStatus := range statuses {
+		toFill = append(toFill, &api.EnvApp{
+			ApplicationName: currStatus.AppName,
+			EnvironmentName: currStatus.EnvName,
+		})
+	}
+	return toFill
 }
