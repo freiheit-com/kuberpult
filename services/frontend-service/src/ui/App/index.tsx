@@ -91,6 +91,27 @@ export const App: React.FC = () => {
                 }
             );
     }, [api]);
+    React.useEffect(() => {
+        if (authReady) {
+            const subscription = api
+                .gitService()
+                .StreamGitSyncStatus({}, authHeader)
+                .pipe(retryWhen(retryStrategy(1)))
+                .subscribe(
+                    (result) => {
+                        // eslint-disable-next-line no-console
+                        console.log(result);
+                    },
+                    (error) => {
+                        PanicOverview.set({
+                            error: JSON.stringify({ msg: 'error in StreamGitSyncStatus', error }),
+                        });
+                        showSnackbarWarn('Connection Error: Refresh the page');
+                    }
+                );
+            return (): void => subscription.unsubscribe();
+        }
+    }, [api, authHeader, authReady]);
 
     React.useEffect(() => {
         if (authReady) {
