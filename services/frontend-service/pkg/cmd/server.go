@@ -271,6 +271,10 @@ func runServer(ctx context.Context) error {
 	if err != nil {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
+	exportCon, err := grpc.Dial(c.ManifestExportServer, grpcClientOpts...)
+	if err != nil {
+		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
+	}
 	var rolloutClient api.RolloutServiceClient = nil
 	if c.RolloutServer != "" {
 		rolloutCon, err := grpc.Dial(c.RolloutServer, grpcClientOpts...)
@@ -288,13 +292,14 @@ func runServer(ctx context.Context) error {
 	releaseTrainPrognosisClient := api.NewReleaseTrainPrognosisServiceClient(cdCon)
 	commitDeploymentsClient := api.NewCommitDeploymentServiceClient(cdCon)
 	gproxy := &GrpcProxy{
-		OverviewClient:              api.NewOverviewServiceClient(cdCon),
-		BatchClient:                 batchClient,
-		RolloutServiceClient:        rolloutClient,
-		GitClient:                   api.NewGitServiceClient(cdCon),
-		EnvironmentServiceClient:    api.NewEnvironmentServiceClient(cdCon),
-		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
-		EslServiceClient:            api.NewEslServiceClient(cdCon),
+		OverviewClient:                 api.NewOverviewServiceClient(cdCon),
+		BatchClient:                    batchClient,
+		RolloutServiceClient:           rolloutClient,
+		GitClient:                      api.NewGitServiceClient(cdCon),
+		ManifestExportServiceGitClient: api.NewGitServiceClient(exportCon),
+		EnvironmentServiceClient:       api.NewEnvironmentServiceClient(cdCon),
+		ReleaseTrainPrognosisClient:    releaseTrainPrognosisClient,
+		EslServiceClient:               api.NewEslServiceClient(cdCon),
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
@@ -621,13 +626,14 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL,
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	OverviewClient              api.OverviewServiceClient
-	BatchClient                 api.BatchServiceClient
-	RolloutServiceClient        api.RolloutServiceClient
-	GitClient                   api.GitServiceClient
-	EnvironmentServiceClient    api.EnvironmentServiceClient
-	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
-	EslServiceClient            api.EslServiceClient
+	OverviewClient                 api.OverviewServiceClient
+	BatchClient                    api.BatchServiceClient
+	RolloutServiceClient           api.RolloutServiceClient
+	GitClient                      api.GitServiceClient
+	ManifestExportServiceGitClient api.GitServiceClient
+	EnvironmentServiceClient       api.EnvironmentServiceClient
+	ReleaseTrainPrognosisClient    api.ReleaseTrainPrognosisServiceClient
+	EslServiceClient               api.EslServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -707,7 +713,43 @@ func (p *GrpcProxy) GetGitSyncStatus(
 func (p *GrpcProxy) StreamGitSyncStatus(
 	in *api.GetGitSyncStatusRequest,
 	stream api.GitService_StreamGitSyncStatusServer) error {
-	return status.Error(codes.Unimplemented, "rollout service not configured")
+	if p.ManifestExportServiceGitClient == nil || p.GitClient == nil {
+		return status.Error(codes.Unimplemented, "git client not configured")
+	} else if p.RolloutServiceClient != nil {
+		return status.Error(codes.Unimplemented, "rollout service enabled. git sync status is not supported.")
+	}
+
+	c := make(chan *api.GetGitSyncStatusResponse, 10)
+	errCh := make(chan error, 2)
+	go p.listenGitSyncStatus(in, stream, c, errCh, p.ManifestExportServiceGitClient)
+	go p.listenGitSyncStatus(in, stream, c, errCh, p.GitClient)
+	for {
+		select {
+		case item := <-c:
+			err := stream.Send(item)
+			if err != nil {
+				return err
+			}
+		case err := <-errCh:
+			return err
+		}
+	}
+
+}
+
+func (p *GrpcProxy) listenGitSyncStatus(in *api.GetGitSyncStatusRequest, stream api.GitService_StreamGitSyncStatusServer, c chan *api.GetGitSyncStatusResponse, errCh chan error, gitClient api.GitServiceClient) {
+	if resp, err := gitClient.StreamGitSyncStatus(stream.Context(), in); err != nil {
+		errCh <- err
+	} else {
+		for {
+			item, err := resp.Recv()
+			if err != nil {
+				errCh <- err
+				break
+			}
+			c <- item
+		}
+	}
 }
 
 func (p *GrpcProxy) StreamOverview(

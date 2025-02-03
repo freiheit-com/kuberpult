@@ -20,6 +20,7 @@ import "time"
 
 type ServerConfig struct {
 	CdServer                           string        `default:"kuberpult-cd-service:8443"`
+	ManifestExportServer               string        `default:"manifest-repo-export-service:8443"`
 	CdServerSecure                     bool          `default:"false" split_words:"true"`
 	RolloutServer                      string        `default:""`
 	HttpCdServer                       string        `default:"http://kuberpult-cd-service:80" split_words:"true"`
