@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { from, Observable } from 'rxjs';
+import { from } from 'rxjs';
 import { SnackbarStatus, UpdateSnackbar } from '../../utils/store';
 import { Compliance } from './Compliance';
 import { fireEvent, render } from '@testing-library/react';
@@ -51,10 +51,8 @@ describe('Compliance', () => {
         const startDate = container.querySelector('input#start-date');
         const endDate = container.querySelector('input#end-date');
 
-        if (endDate instanceof HTMLInputElement)
-            fireEvent.change(endDate, { target: { value: '2001-12-09' } });
-        if (startDate instanceof HTMLInputElement)
-            fireEvent.change(startDate, { target: { value: '2025-01-20' } });
+        if (endDate instanceof HTMLInputElement) fireEvent.change(endDate, { target: { value: '2001-12-09' } });
+        if (startDate instanceof HTMLInputElement) fireEvent.change(startDate, { target: { value: '2025-01-20' } });
 
         downloadButton?.click();
 
@@ -69,12 +67,10 @@ describe('Compliance', () => {
         const startDate = container.querySelector('input#start-date');
         const endDate = container.querySelector('input#end-date');
         const content = ['test', 'test2'];
-        mockStreamDeploymentHistory.returns(from(content.map(line => ({ deployment: line }))));
+        mockStreamDeploymentHistory.returns(from(content.map((line) => ({ deployment: line }))));
 
-        if (endDate instanceof HTMLInputElement)
-            fireEvent.change(endDate, { target: { value: '2025-01-21' } });
-        if (startDate instanceof HTMLInputElement)
-            fireEvent.change(startDate, { target: { value: '2025-01-20' } });
+        if (endDate instanceof HTMLInputElement) fireEvent.change(endDate, { target: { value: '2025-01-21' } });
+        if (startDate instanceof HTMLInputElement) fireEvent.change(startDate, { target: { value: '2025-01-20' } });
 
         downloadButton?.click();
 
