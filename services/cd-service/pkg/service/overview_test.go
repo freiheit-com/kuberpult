@@ -2285,17 +2285,25 @@ func TestCalculateWarnings(t *testing.T) {
 
 func TestDeploymentHistory(t *testing.T) {
 	created := time.Now()
+	yesterday := created.Round(time.Hour*24).AddDate(0, 0, -1)
+	tomorrow := yesterday.AddDate(0, 0, 2)
 	versionOne := int64(1)
 	versionTwo := int64(2)
 
 	tcs := []struct {
 		Name             string
 		Setup            []db.Deployment
+		Request          api.DeploymentHistoryRequest
 		ExpectedCsvLines []string
+		ExpectedError    string
 	}{
 		{
 			Name:  "Test empty deployment history",
 			Setup: []db.Deployment{},
+			Request: api.DeploymentHistoryRequest{
+				StartDate: timestamppb.New(yesterday),
+				EndDate:   timestamppb.New(tomorrow),
+			},
 			ExpectedCsvLines: []string{
 				"time,app,environment,deployed release version,previous release version\n",
 			},
@@ -2332,6 +2340,10 @@ func TestDeploymentHistory(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
+			Request: api.DeploymentHistoryRequest{
+				StartDate: timestamppb.New(yesterday),
+				EndDate:   timestamppb.New(tomorrow),
+			},
 			ExpectedCsvLines: []string{
 				"time,app,environment,deployed release version,previous release version\n",
 				"testapp,dev,1,nil\n",
@@ -2340,9 +2352,36 @@ func TestDeploymentHistory(t *testing.T) {
 				"testapp,dev,2,1\n",
 			},
 		},
+		{
+			Name: "Test no deployment in the specified time frame",
+			Setup: []db.Deployment{
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           "testapp",
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+			},
+			Request: api.DeploymentHistoryRequest{
+				StartDate: timestamppb.New(yesterday.AddDate(0, 0, -4)),
+				EndDate:   timestamppb.New(tomorrow.AddDate(0, 0, -4)),
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,previous release version\n",
+			},
+		},
+		{
+			Name:          "Test end date before start date error",
+			Setup:         []db.Deployment{},
+			ExpectedError: fmt.Sprintf("end date (%s) happens before start date (%s)", yesterday.Format(time.DateOnly), tomorrow.Format(time.DateOnly)),
+			Request: api.DeploymentHistoryRequest{
+				StartDate: timestamppb.New(tomorrow),
+				EndDate:   timestamppb.New(yesterday),
+			},
+		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
@@ -2427,10 +2466,12 @@ func TestDeploymentHistory(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err := svc.StreamDeploymentHistory(&api.DeploymentHistoryRequest{}, &stream)
+				err := svc.StreamDeploymentHistory(&tc.Request, &stream)
 				close(ch)
 				if err != nil {
-					t.Fatal(err)
+					if diff := cmp.Diff(tc.ExpectedError, err.Error()); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
 				}
 			}()
 
@@ -2439,7 +2480,7 @@ func TestDeploymentHistory(t *testing.T) {
 				got = append(got, res.Deployment)
 			}
 
-			if diff := cmp.Diff(expectedLinesWithCreated, got); diff != "" {
+			if diff := cmp.Diff(expectedLinesWithCreated, got); tc.ExpectedError == "" && diff != "" {
 				t.Errorf("deployment history csv lines mismatch (-want, +got):\n%s", diff)
 			}
 

@@ -447,7 +447,10 @@ message GetAllEnvTeamLocksResponse {
   map<string, AllTeamLocks> all_team_locks = 2; //EnvName -> All team locks for that env
 }
 
-message DeploymentHistoryRequest {}
+message DeploymentHistoryRequest {
+  google.protobuf.Timestamp start_date = 1;
+  google.protobuf.Timestamp end_date = 2;
+}
 
 message DeploymentHistoryResponse {
   string deployment = 1;
