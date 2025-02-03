@@ -921,59 +921,6 @@ type GetAllAppsFun = func() (map[string]string, error)
 // return value is a map from environment name to environment config
 type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.EnvironmentConfig, error)
 
-func (h *DBHandler) RunCustomMigrations(
-	ctx context.Context,
-	getAllAppsFun GetAllAppsFun,
-	writeAllDeploymentsFun WriteAllDeploymentsFun,
-	writeAllReleasesFun WriteAllReleasesFun,
-	writeAllEnvLocksFun WriteAllEnvLocksFun,
-	writeAllAppLocksFun WriteAllAppLocksFun,
-	writeAllTeamLocksFun WriteAllTeamLocksFun,
-	getAllEnvironmentsFun GetAllEnvironmentsFun,
-	writeAllQueuedVersionsFun WriteAllQueuedVersionsFun,
-	writeAllEventsFun WriteAllEventsFun,
-) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
-	defer span.Finish()
-	err := h.RunCustomMigrationsEventSourcingLight(ctx)
-	if err != nil {
-		return err
-	}
-	err = h.RunAllCustomMigrationsForApps(ctx, getAllAppsFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationDeployments(ctx, writeAllDeploymentsFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationReleases(ctx, getAllAppsFun, writeAllReleasesFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationEnvLocks(ctx, writeAllEnvLocksFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationAppLocks(ctx, writeAllAppLocksFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationTeamLocks(ctx, writeAllTeamLocksFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationsCommitEvents(ctx, writeAllEventsFun)
-	if err != nil {
-		return err
-	}
-	err = h.RunCustomMigrationEnvironments(ctx, getAllEnvironmentsFun)
-	if err != nil {
-		return err // better wrap the error in a descriptive message?
-	}
-	return nil
-}
-
 func NewNullInt(s *int64) sql.NullInt64 {
 	if s == nil {
 		return sql.NullInt64{
@@ -987,86 +934,6 @@ func NewNullInt(s *int64) sql.NullInt64 {
 	}
 }
 
-// CUSTOM MIGRATIONS
-
-func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		l := logger.FromContext(ctx).Sugar()
-		needsMigrating, err := h.needsReleasesMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-		allAppsMap, err := getAllAppsFun()
-		if err != nil {
-			return err
-		}
-		for app := range allAppsMap {
-			l.Infof("processing app %s ...", app)
-
-			err := writeAllReleasesFun(ctx, transaction, app, h)
-			if err != nil {
-				return fmt.Errorf("could not migrate releases to database: %v", err)
-			}
-			l.Infof("done with app %s", app)
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allReleasesDb, err := h.DBSelectAnyRelease(ctx, transaction, true)
-	if err != nil {
-		return true, err
-	}
-	if allReleasesDb != nil {
-		l.Warnf("There are already deployments in the DB - skipping migrations")
-		return false, nil
-	}
-	return true, nil
-
-}
-
-func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun WriteAllDeploymentsFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsDeploymentsMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-		err = getAllDeploymentsFun(ctx, transaction, h)
-		if err != nil {
-			return fmt.Errorf("could not get current deployments to run custom migrations: %v", err)
-		}
-
-		return nil
-	})
-}
-
-func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
-	if err != nil {
-		return true, err
-	}
-	if allAppsDb != nil {
-		l.Warnf("There are already deployments in the DB - skipping migrations")
-		return false, nil
-	}
-	return true, nil
-}
-
 type EventRow struct {
 	Uuid          string
 	Timestamp     time.Time
@@ -1076,268 +943,7 @@ type EventRow struct {
 	TransformerID TransformerID
 }
 
-func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, writeAllEnvLocksFun WriteAllEnvLocksFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvLocks")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsEnvLocksMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-		err = writeAllEnvLocksFun(ctx, transaction, h)
-		if err != nil {
-			return fmt.Errorf("could not get current environment locks to run custom migrations: %w", err)
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsEnvLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allEnvLocksDb, err := h.DBSelectAnyActiveEnvLocks(ctx, transaction)
-	if err != nil {
-		return true, err
-	}
-	if allEnvLocksDb != nil {
-		l.Infof("There are already environment locks in the DB - skipping migrations")
-		return false, nil
-	}
-	return true, nil
-}
-
-func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, writeAllAppLocksFun WriteAllAppLocksFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppLocks")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsAppLocksMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-		err = writeAllAppLocksFun(ctx, transaction, h)
-		if err != nil {
-			return fmt.Errorf("could not get current application locks to run custom migrations: %w", err)
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsAppLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
-	if err != nil {
-		return true, err
-	}
-	if allAppLocksDb != nil {
-		l.Infof("There are already application locks in the DB - skipping migrations")
-		return false, nil
-	}
-	return true, nil
-}
-
-func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, writeAllTeamLocksFun WriteAllTeamLocksFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationTeamLocks")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsTeamLocksMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-
-		err = writeAllTeamLocksFun(ctx, transaction, h)
-		if err != nil {
-			return fmt.Errorf("could not get current team locks to run custom migrations: %w", err)
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsTeamLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allTeamLocksDb, err := h.DBSelectAnyActiveTeamLock(ctx, transaction)
-	if err != nil {
-		return true, err
-	}
-	if allTeamLocksDb != nil {
-		l.Infof("There are already team locks in the DB - skipping migrations")
-		return false, nil
-	}
-	return true, nil
-}
-
-func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, writeAllEvents WriteAllEventsFun) error {
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsCommitEventsMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-
-		err = writeAllEvents(ctx, transaction, h)
-		if err != nil {
-			return fmt.Errorf("could not get current commit events to run custom migrations: %w", err)
-		}
-		//Migration event
-		err = h.WriteEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
-		if err != nil {
-			return fmt.Errorf("error writing migration commit event to the database: %w\n", err)
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-
-	//Checks for 'migration' commit event with hash 0000(...)0000
-	contains, err := h.DBContainsMigrationCommitEvent(ctx, transaction)
-	if err != nil {
-		return true, err
-	}
-	if contains {
-		l.Infof("detected migration commit event on the database - skipping migrations")
-		return false, nil
-	}
-	return true, nil
-}
-
-// For commit_events migrations, we need some transformer to be on the database before we run their migrations.
-func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
-		defer span.Finish()
-
-		needsMigrating, err := h.NeedsEventSourcingLightMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-
-		return h.DBWriteMigrationsTransformer(ctx, transaction)
-	})
-}
-
 type CheckFun = func(handler *DBHandler, ctx context.Context, transaction *sql.Tx) (bool, error)
-
-func (h *DBHandler) NeedsEventSourcingLightMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, true) //true sorts by asc
-	if err != nil {
-		return true, err
-	}
-	if eslEvent != nil && eslEvent.EslVersion == 0 { //Check if there is a 0th transformer already
-		l.Infof("Found Migrations transformer on database.")
-		return false, nil
-	}
-	return true, nil
-}
-
-func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transaction *sql.Tx) error {
-	if h == nil {
-		return nil
-	}
-	if transaction == nil {
-		return fmt.Errorf("DBWriteMigrationsTransformer: no transaction provided")
-	}
-
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
-	defer span.Finish()
-
-	dataMap := make(map[string]interface{})
-	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
-	metadataMap, err := convertObjectToMap(metadata)
-	if err != nil {
-		return fmt.Errorf("could not convert object to map: %w", err)
-	}
-	dataMap["metadata"] = metadataMap
-	dataMap["eslVersion"] = 0
-	jsonToInsert, err := json.Marshal(dataMap)
-
-	if err != nil {
-		return fmt.Errorf("could not marshal json transformer: %w", err)
-	}
-
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
-	ts, err := h.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
-	}
-	span.SetTag("query", insertQuery)
-	_, err2 := transaction.Exec(
-		insertQuery,
-		ts,
-		EvtMigrationTransformer,
-		jsonToInsert)
-	if err2 != nil {
-		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err2)
-	}
-	return nil
-}
-
-func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllAppsFun GetAllAppsFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunAllCustomMigrationsForApps")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needMigrating, err := h.needsAppsMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needMigrating {
-			return nil
-		}
-
-		allAppsRepo, err := getAllAppsFun()
-		if err != nil {
-			return fmt.Errorf("could not get applications from manifest to run custom migrations: %v", err)
-		}
-
-		err = h.runCustomMigrationApps(ctx, transaction, &allAppsRepo)
-		if err != nil {
-			return fmt.Errorf("could not perform apps table migration: %v\n", err)
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
-	if err != nil {
-		l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
-		return false, err
-	}
-	return len(allAppsDb) == 0, nil
-}
-
-// runCustomMigrationApps : Runs custom migrations for provided apps.
-func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql.Tx, appsMap *map[string]string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "runCustomMigrationApps")
-	defer span.Finish()
-
-	for app, team := range *appsMap {
-		err := h.DBInsertOrUpdateApplication(ctx, transaction, app, AppStateChangeMigrate, DBAppMetaData{Team: team})
-		if err != nil {
-			return fmt.Errorf("could not write dbApp %s: %v", app, err)
-		}
-	}
-	return nil
-}
 
 // ENV LOCKS
 
@@ -2288,91 +1894,6 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 
 }
 
-func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEnvironmentsFun GetAllEnvironmentsFun) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironments")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsEnvironmentsMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-		allEnvironments, err := getAllEnvironmentsFun(ctx)
-		if err != nil {
-			return fmt.Errorf("could not get environments, error: %w", err)
-		}
-
-		allEnvsApps, err := h.FindEnvsAppsFromReleases(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		for envName, config := range allEnvironments {
-			if allEnvsApps[envName] == nil {
-				allEnvsApps[envName] = make([]string, 0)
-			}
-			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allEnvsApps[envName])
-			if err != nil {
-				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
-			}
-		}
-		return nil
-	})
-}
-
-func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	log := logger.FromContext(ctx).Sugar()
-
-	arbitraryAllEnvsRow, err := h.DBSelectAnyEnvironment(ctx, transaction)
-
-	if err != nil {
-		return true, err
-	}
-	if arbitraryAllEnvsRow != nil {
-		log.Infof("custom migration for environments already ran because row (%v) was found, skipping custom migration", arbitraryAllEnvsRow)
-		return false, nil
-	}
-	return true, nil
-}
-
-func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Context) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironmentApplications")
-	defer span.Finish()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		allEnvironments, err := h.DBSelectAllEnvironments(ctx, transaction)
-		if err != nil {
-			return fmt.Errorf("could not get environments, error: %w", err)
-		}
-		var allEnvsApps map[string][]string
-		for _, envName := range allEnvironments {
-			env, err := h.DBSelectEnvironment(ctx, transaction, envName)
-			if err != nil {
-				return fmt.Errorf("could not get env: %s, error: %w", envName, err)
-			}
-
-			if env.Applications == nil || len(env.Applications) == 0 {
-				if allEnvsApps == nil {
-					allEnvsApps, err = h.FindEnvsAppsFromReleases(ctx, transaction)
-					if err != nil {
-						return fmt.Errorf("could not find all applications of all environments, error: %w", err)
-					}
-				}
-				if allEnvsApps[envName] == nil {
-					allEnvsApps[envName] = make([]string, 0)
-				}
-				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allEnvsApps[envName])
-				if err != nil {
-					return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
-				}
-			}
-		}
-		return nil
-	})
-}
-
 func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[string][]string, error) {
 	envsApps := make(map[string][]string)
 	releases, err := h.DBSelectAllManifestsForAllReleases(ctx, tx)
@@ -2391,39 +1912,6 @@ func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (m
 		}
 	}
 	return envsApps, nil
-}
-
-func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleaseEnvironments")
-	defer span.Finish()
-	for {
-		shouldContinueMigration := true
-		err := h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-			releasesWithoutEnvironments, err := h.DBSelectReleasesWithoutEnvironments(ctx, transaction)
-			if len(releasesWithoutEnvironments) == 0 {
-				shouldContinueMigration = false
-				return nil
-			}
-			if err != nil {
-				return fmt.Errorf("could not get releases without environments, error: %w", err)
-			}
-			logger.FromContext(ctx).Sugar().Infof("updating %d releases environments", len(releasesWithoutEnvironments))
-			for _, release := range releasesWithoutEnvironments {
-				err = h.DBUpdateOrCreateRelease(ctx, transaction, *release)
-				if err != nil {
-					return fmt.Errorf("could not insert release, error: %w", err)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		if !shouldContinueMigration {
-			break
-		}
-	}
-	return nil
 }
 
 func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
@@ -2643,4 +2131,46 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
 	}
 	return timestamp, nil
+}
+
+func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transaction *sql.Tx) error {
+	if h == nil {
+		return nil
+	}
+	if transaction == nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer: no transaction provided")
+	}
+
+	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
+	defer span.Finish()
+
+	dataMap := make(map[string]interface{})
+	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
+	metadataMap, err := convertObjectToMap(metadata)
+	if err != nil {
+		return fmt.Errorf("could not convert object to map: %w", err)
+	}
+	dataMap["metadata"] = metadataMap
+	dataMap["eslVersion"] = 0
+	jsonToInsert, err := json.Marshal(dataMap)
+
+	if err != nil {
+		return fmt.Errorf("could not marshal json transformer: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
+	ts, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
+	}
+	span.SetTag("query", insertQuery)
+	_, err2 := transaction.Exec(
+		insertQuery,
+		ts,
+		EvtMigrationTransformer,
+		jsonToInsert)
+	if err2 != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err2)
+	}
+	return nil
 }
