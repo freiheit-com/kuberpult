@@ -133,6 +133,8 @@ integration-test:
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
     COPY infrastructure/scripts/create-testdata/create-release.sh .
+    COPY infrastructure/scripts/create-testdata/create-environments.sh .
+    COPY infrastructure/scripts/create-testdata/testdata_template/environments ./testdata_template/environments
     COPY tests/integration-tests tests/integration-tests
     COPY ./pkg+artifacts/pkg pkg
 
