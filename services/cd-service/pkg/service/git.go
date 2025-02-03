@@ -437,13 +437,13 @@ func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatus
 	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
 		statuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
 		if err != nil {
-			return err
+			return onErr(err)
 		}
 		response.Unsynced = toApiStatuses(statuses)
 
 		statuses, err = dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
 		if err != nil {
-			return err
+			return onErr(err)
 		}
 		response.SyncFailed = toApiStatuses(statuses)
 		return nil
