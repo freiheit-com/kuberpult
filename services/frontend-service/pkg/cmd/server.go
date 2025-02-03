@@ -715,7 +715,10 @@ func (p *GrpcProxy) StreamGitSyncStatus(
 	stream api.GitService_StreamGitSyncStatusServer) error {
 	if p.ManifestExportServiceGitClient == nil || p.GitClient == nil {
 		return status.Error(codes.Unimplemented, "git client not configured")
+	} else if p.RolloutServiceClient != nil {
+		return status.Error(codes.Unimplemented, "rollout service enabled. git sync status is not supported.")
 	}
+
 	c := make(chan *api.GetGitSyncStatusResponse, 10)
 	errCh := make(chan error, 2)
 	go p.listenGitSyncStatus(in, stream, c, errCh, p.ManifestExportServiceGitClient)
@@ -744,7 +747,6 @@ func (p *GrpcProxy) listenGitSyncStatus(in *api.GetGitSyncStatusRequest, stream 
 				errCh <- err
 				break
 			}
-			fmt.Println("GOT ONE")
 			c <- item
 		}
 	}

@@ -21,6 +21,7 @@ import * as React from 'react';
 import {
     AppDetailsState,
     EnableRolloutStatus,
+    FlushGitSyncStatus,
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
@@ -28,6 +29,7 @@ import {
     updateAllEnvLocks,
     updateAppDetails,
     UpdateFrontendConfig,
+    UpdateGitSyncStatus,
     UpdateOverview,
     UpdateRolloutStatus,
     useKuberpultVersion,
@@ -99,10 +101,14 @@ export const App: React.FC = () => {
                 .pipe(retryWhen(retryStrategy(1)))
                 .subscribe(
                     (result) => {
-                        // eslint-disable-next-line no-console
-                        console.log(result);
+                        UpdateGitSyncStatus(result);
                     },
                     (error) => {
+                        if (error.code === 12) {
+                            // Error code 12 means "not implemented". That is what we get when the rollout service is not enabled.
+                            FlushGitSyncStatus();
+                            return;
+                        }
                         PanicOverview.set({
                             error: JSON.stringify({ msg: 'error in StreamGitSyncStatus', error }),
                         });
