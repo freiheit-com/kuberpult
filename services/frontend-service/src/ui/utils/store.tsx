@@ -19,6 +19,7 @@ import {
     AllTeamLocks,
     BatchAction,
     BatchRequest,
+    EnvApp,
     Environment,
     EnvironmentGroup,
     GetAppDetailsResponse,
@@ -26,6 +27,7 @@ import {
     GetEnvironmentConfigResponse,
     GetFailedEslsResponse,
     GetFrontendConfigResponse,
+    GetGitSyncStatusResponse,
     GetGitTagsResponse,
     GetOverviewResponse,
     GetReleaseTrainPrognosisResponse,
@@ -1199,7 +1201,6 @@ type RolloutStatusStore = {
 };
 
 const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({ enabled: false, applications: {} });
-
 class RolloutStatusGetter {
     private readonly store: RolloutStatusStore;
 
@@ -1265,6 +1266,10 @@ export const FlushRolloutStatus = (): void => {
     rolloutStatus.set({ enabled: false, applications: {} });
 };
 
+export const FlushGitSyncStatus = (): void => {
+    gitSyncStatus.set({ enabled: false, sync_failed: [], unsyced: [] });
+};
+
 export const GetEnvironmentConfigPretty = (environmentName: string): Promise<string> =>
     useApi
         .environmentService()
@@ -1277,3 +1282,23 @@ export const GetEnvironmentConfigPretty = (environmentName: string): Promise<str
         });
 
 export const useArgoCDNamespace = (): string | undefined => useFrontendConfig((c) => c.configs.argoCd?.namespace);
+
+type GitSyncStatusStore = {
+    enabled: boolean;
+    unsyced: EnvApp[];
+    sync_failed: EnvApp[];
+};
+
+export const [, gitSyncStatus] = createStore<GitSyncStatusStore>({
+    enabled: false,
+    sync_failed: [],
+    unsyced: [],
+});
+
+export const UpdateGitSyncStatus = (ev: GetGitSyncStatusResponse): void => {
+    gitSyncStatus.set({
+        enabled: true,
+        unsyced: ev.unsynced,
+        sync_failed: ev.syncFailed,
+    });
+};
