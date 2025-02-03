@@ -121,7 +121,6 @@ services:
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=8
     ports:
       - "8081:8081"
-      - "8445:8443"
     depends_on:
       - cd-service
     volumes:
