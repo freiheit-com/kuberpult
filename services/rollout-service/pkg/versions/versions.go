@@ -23,8 +23,6 @@ import (
 	"strconv"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
@@ -34,6 +32,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"k8s.io/utils/lru"
@@ -83,7 +82,7 @@ var ZeroVersion VersionInfo
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	// use db access see cd-service/pkg/services/version
-	span, ctx := tracer.StartSpanFromContext(ctx, "GetVersion")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetVersion")
 	defer span.Finish()
 	span.SetTag("GitRevision", revision)
 	span.SetTag("Environment", environment)
@@ -97,14 +96,14 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
 		deployment, err := v.db.DBSelectSpecificDeployment(ctx, tx, environment, application, releaseVersion)
 		if err != nil || deployment == nil {
-			return nil, fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, application, err)
+			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, application, err))
 		}
 		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, application, releaseVersion, true)
 		if err != nil {
-			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
+			return nil, onErr(fmt.Errorf("could not get release of app %s: %v", application, err))
 		}
 		if release == nil {
-			return nil, fmt.Errorf("no release found for env='%s' and app='%s'", environment, application)
+			return nil, onErr(fmt.Errorf("no release found for env='%s' and app='%s'", environment, application))
 		}
 		return &VersionInfo{
 			Version:        releaseVersion,
