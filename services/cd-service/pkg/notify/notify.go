@@ -21,9 +21,10 @@ import (
 )
 
 type Notify struct {
-	mx                 sync.Mutex
-	oveviewListener    map[chan struct{}]struct{}
-	changeAppsListener map[chan ChangedAppNames]struct{}
+	mx                    sync.Mutex
+	oveviewListener       map[chan struct{}]struct{}
+	changeAppsListener    map[chan ChangedAppNames]struct{}
+	gitSyncStatusListener map[chan struct{}]struct{}
 }
 
 type Unsubscribe = func()
@@ -82,6 +83,35 @@ func (n *Notify) NotifyChangedApps(changedApps ChangedAppNames) {
 	for ch := range n.changeAppsListener {
 		select {
 		case ch <- changedApps:
+		default:
+		}
+	}
+}
+
+func (n *Notify) SubscribeGitSyncStatus() (<-chan struct{}, Unsubscribe) {
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	if n.gitSyncStatusListener == nil {
+		n.gitSyncStatusListener = map[chan struct{}]struct{}{}
+	}
+
+	n.gitSyncStatusListener[ch] = struct{}{}
+	return ch, func() {
+		n.mx.Lock()
+		defer n.mx.Unlock()
+		delete(n.gitSyncStatusListener, ch)
+	}
+}
+
+func (n *Notify) NotifyGitSyncStatus() {
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	for ch := range n.gitSyncStatusListener {
+		select {
+		case ch <- struct{}{}:
 		default:
 		}
 	}

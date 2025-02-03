@@ -22,7 +22,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
+	"go.uber.org/zap"
+	"sync"
 
 	"os"
 	"sort"
@@ -45,6 +50,10 @@ type GitServer struct {
 	Config          repository.RepositoryConfig
 	OverviewService *OverviewServiceServer
 	PageSize        uint64
+
+	shutdown                    <-chan struct{}
+	streamGitSyncStatusInitFunc sync.Once
+	notify                      notify.Notify
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
@@ -54,10 +63,6 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 	}
 
 	return &api.GetGitTagsResponse{TagData: tags}, nil
-}
-
-func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
@@ -415,7 +420,90 @@ func findCommitID(
 	return commitID, nil
 }
 
+// Implements api.GitServer.GetGitSyncStatus
+func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented.  cd-service")
+}
+
+func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatusResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "ReadSyncStatuses")
+	defer span.Finish()
+	//Query for UNSYNCED
+	dbHandler := s.Config.DBHandler
+	response := &api.GetGitSyncStatusResponse{
+		Unsynced:   make([]*api.EnvApp, 0),
+		SyncFailed: make([]*api.EnvApp, 0),
+	}
+	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
+		statuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
+		if err != nil {
+			return onErr(err)
+		}
+		response.Unsynced = toApiStatuses(statuses)
+
+		statuses, err = dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
+		if err != nil {
+			return onErr(err)
+		}
+		response.SyncFailed = toApiStatuses(statuses)
+		return nil
+	})
+	return response, onErr(err)
+}
+
+func toApiStatuses(statuses []db.GitSyncData) []*api.EnvApp {
+	toFill := make([]*api.EnvApp, 0)
+	for _, currStatus := range statuses {
+		toFill = append(toFill, &api.EnvApp{
+			ApplicationName: currStatus.AppName,
+			EnvironmentName: currStatus.EnvName,
+		})
+	}
+	return toFill
+}
+
+func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscribe) {
+	s.streamGitSyncStatusInitFunc.Do(func() {
+		ch, unsub := s.OverviewService.Repository.Notify().SubscribeGitSyncStatus()
+		// Channels obtained from subscribe are by default triggered
+		<-ch
+		go func() {
+			defer unsub()
+			for {
+				select {
+				case <-s.shutdown:
+					return
+				case <-ch:
+					s.notify.NotifyGitSyncStatus()
+				}
+			}
+		}()
+	})
+	return s.notify.SubscribeGitSyncStatus()
+}
+
 func (s *GitServer) StreamGitSyncStatus(_ *api.GetGitSyncStatusRequest,
-	_ api.GitService_StreamGitSyncStatusServer) error {
-	return status.Error(codes.Unimplemented, "not implemented")
+	stream api.GitService_StreamGitSyncStatusServer) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
+	defer span.Finish()
+	ch, unsubscribe := s.subscribeGitSyncStatus()
+	defer unsubscribe()
+	done := stream.Context().Done()
+	for {
+		select {
+		case <-s.shutdown:
+			return nil
+		case <-ch:
+			response, err := s.ReadSyncStatuses(ctx)
+			if err != nil {
+				return onErr(err)
+			}
+			if err := stream.Send(response); err != nil {
+				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
+				return onErr(err)
+			}
+		case <-done:
+			return nil
+		}
+	}
 }
