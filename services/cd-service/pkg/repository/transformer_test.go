@@ -994,7 +994,7 @@ func TestUndeployErrors(t *testing.T) {
 					SourceAuthor:    "",
 					SourceMessage:   "",
 					WriteCommitData: true,
-					Version:         3,
+					Version: 3,
 				},
 			},
 			expectedCommitMsg: "created version 3 of \"app1\"",
@@ -1675,7 +1675,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application:    "app1",
@@ -1714,7 +1714,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application:    "app1",
@@ -1754,7 +1754,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team-1",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application:    "app1",
@@ -1799,7 +1799,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application:    "app1",
@@ -1880,7 +1880,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1916,7 +1916,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1954,7 +1954,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team-1",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1995,7 +1995,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2036,7 +2036,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2116,7 +2116,7 @@ func TestRbacTransformerTest(t *testing.T) {
 							"testmail@example.com": []string{"team"},
 						}}}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 			},
 		},
@@ -2141,7 +2141,7 @@ func TestRbacTransformerTest(t *testing.T) {
 							"testmail@example.com": []string{"*"},
 						}}}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 			},
 		},
@@ -2166,7 +2166,7 @@ func TestRbacTransformerTest(t *testing.T) {
 							"testmail@example.com": []string{"team"},
 						}}}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(
@@ -2198,7 +2198,7 @@ func TestRbacTransformerTest(t *testing.T) {
 							"testmail@example.com": []string{"*"},
 						}}}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(
@@ -2227,7 +2227,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(
@@ -2255,7 +2255,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team",
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2285,7 +2285,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2316,7 +2316,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team-1",
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2352,7 +2352,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:    envAcceptance,
@@ -2504,7 +2504,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -2535,7 +2535,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team-1",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -2571,7 +2571,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment:    "production",
@@ -2602,7 +2602,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -2633,7 +2633,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -2675,7 +2675,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team-1",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -2722,7 +2722,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment:    "production",
@@ -2759,7 +2759,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -2801,7 +2801,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",
@@ -2832,7 +2832,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team-1",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",
@@ -2869,7 +2869,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment:    "production",
@@ -2902,7 +2902,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",
@@ -2933,7 +2933,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",
@@ -2964,7 +2964,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",
@@ -3006,7 +3006,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",
@@ -3054,7 +3054,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment:    "production",
@@ -3093,7 +3093,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "sre-team",
-					Version:         1,
+					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",
@@ -3136,7 +3136,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team",
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:    envProduction,
@@ -3173,7 +3173,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Team:            "team-1",
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:    envProduction,
@@ -3215,7 +3215,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:    envProduction,
@@ -3252,7 +3252,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:    envProduction,
@@ -3330,7 +3330,7 @@ func ReleaseTrainTestSetup(releaseTrainTransformer Transformer) []Transformer {
 			},
 			WriteCommitData: true,
 			Team:            "team-1",
-			Version:         1,
+			Version: 1,
 		},
 		&DeployApplicationVersion{
 			Environment: envProduction,
@@ -3344,7 +3344,7 @@ func ReleaseTrainTestSetup(releaseTrainTransformer Transformer) []Transformer {
 				envAcceptance: "acceptancenmanifest",
 			},
 			WriteCommitData: true,
-			Version:         2,
+			Version: 2,
 		},
 		&DeployApplicationVersion{
 			Environment: envAcceptance,
@@ -3564,7 +3564,7 @@ func TestDatadogQueueMetric(t *testing.T) {
 						"envA": "envA-manifest-1",
 					},
 					WriteCommitData: false,
-					Version:         1,
+					Version: 1,
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
@@ -3572,7 +3572,7 @@ func TestDatadogQueueMetric(t *testing.T) {
 						"envA": "envA-manifest-2",
 					},
 					WriteCommitData: false,
-					Version:         2,
+					Version: 2,
 				},
 			},
 			expectedGauges: 1,
@@ -3626,7 +3626,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envProduction,
@@ -3655,7 +3655,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envProduction,
@@ -3688,7 +3688,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envProduction,
@@ -3720,7 +3720,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
-					Version:         1,
+					Version: 1,
 				},
 				&DeployApplicationVersion{
 					Environment:   envProduction,
