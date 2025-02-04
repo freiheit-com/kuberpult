@@ -768,11 +768,11 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 	err = o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		query := o.DBHandler.AdaptQuery(`
 			SELECT created, releaseversion, appname, envname FROM deployments_history
-			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?)
+			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?)
 			ORDER BY created ASC;
 		`)
 
-		rows, err := transaction.QueryContext(ctx, query, startDate, endDate)
+		rows, err := transaction.QueryContext(ctx, query, startDate, endDate, in.Environment)
 		if err != nil {
 			return err
 		}

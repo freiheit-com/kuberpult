@@ -450,6 +450,7 @@ message GetAllEnvTeamLocksResponse {
 message DeploymentHistoryRequest {
   google.protobuf.Timestamp start_date = 1;
   google.protobuf.Timestamp end_date = 2;
+  string environment = 3;
 }
 
 message DeploymentHistoryResponse {
