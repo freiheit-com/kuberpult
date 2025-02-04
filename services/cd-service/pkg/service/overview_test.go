@@ -2290,10 +2290,12 @@ func TestDeploymentHistory(t *testing.T) {
 	tomorrow := yesterday.AddDate(0, 0, 2)
 	versionOne := int64(1)
 	versionTwo := int64(2)
+	dev := "dev"
 
 	tcs := []struct {
 		Name             string
 		Setup            []db.Deployment
+		SetupEnvs        []repository.CreateEnvironment
 		Request          *api.DeploymentHistoryRequest
 		ExpectedCsvLines []string
 		ExpectedError    string
@@ -2301,9 +2303,19 @@ func TestDeploymentHistory(t *testing.T) {
 		{
 			Name:  "Test empty deployment history",
 			Setup: []db.Deployment{},
+			SetupEnvs: []repository.CreateEnvironment{
+				repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+			},
 			Request: &api.DeploymentHistoryRequest{
-				StartDate: timestamppb.New(yesterday),
-				EndDate:   timestamppb.New(tomorrow),
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "dev",
 			},
 			ExpectedCsvLines: []string{
 				"time,app,environment,deployed release version,previous release version\n",
@@ -2341,16 +2353,90 @@ func TestDeploymentHistory(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
+			SetupEnvs: []repository.CreateEnvironment{
+				repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+			},
 			Request: &api.DeploymentHistoryRequest{
-				StartDate: timestamppb.New(yesterday),
-				EndDate:   timestamppb.New(tomorrow),
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "dev",
 			},
 			ExpectedCsvLines: []string{
 				"time,app,environment,deployed release version,previous release version\n",
 				"testapp,dev,1,nil\n",
-				"testapp,staging,1,nil\n",
 				"testapp2,dev,2,nil\n",
 				"testapp,dev,2,1\n",
+			},
+		},
+		{
+			Name: "Test non-empty deployment history for a different environment",
+			Setup: []db.Deployment{
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           "testapp",
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "staging",
+					App:           "testapp",
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           "testapp2",
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           "testapp",
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+			},
+			SetupEnvs: []repository.CreateEnvironment{
+				repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+			},
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "staging",
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,previous release version\n",
+				"testapp,staging,1,nil\n",
 			},
 		},
 		{
@@ -2364,9 +2450,19 @@ func TestDeploymentHistory(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
+			SetupEnvs: []repository.CreateEnvironment{
+				repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+			},
 			Request: &api.DeploymentHistoryRequest{
-				StartDate: timestamppb.New(yesterday.AddDate(0, 0, -4)),
-				EndDate:   timestamppb.New(tomorrow.AddDate(0, 0, -4)),
+				StartDate:   timestamppb.New(yesterday.AddDate(0, 0, -4)),
+				EndDate:     timestamppb.New(tomorrow.AddDate(0, 0, -4)),
+				Environment: "dev",
 			},
 			ExpectedCsvLines: []string{
 				"time,app,environment,deployed release version,previous release version\n",
@@ -2388,6 +2484,17 @@ func TestDeploymentHistory(t *testing.T) {
 			Request: &api.DeploymentHistoryRequest{
 				StartDate: timestamppb.New(today),
 				EndDate:   timestamppb.New(yesterday),
+			},
+		},
+		{
+			Name:          "Test with environment that does not exist",
+			Setup:         []db.Deployment{},
+			SetupEnvs:     []repository.CreateEnvironment{},
+			ExpectedError: `environment "dev" does not exist`,
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "dev",
 			},
 		},
 	}
@@ -2417,6 +2524,12 @@ func TestDeploymentHistory(t *testing.T) {
 				Shutdown:   shutdown,
 				DBHandler:  repo.State().DBHandler,
 				Context:    ctx,
+			}
+
+			for _, tr := range tc.SetupEnvs {
+				if err := repo.Apply(ctx, &tr); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			err = svc.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
