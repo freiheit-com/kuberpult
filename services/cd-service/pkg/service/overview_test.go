@@ -2285,7 +2285,8 @@ func TestCalculateWarnings(t *testing.T) {
 
 func TestDeploymentHistory(t *testing.T) {
 	created := time.Now()
-	yesterday := created.Round(time.Hour*24).AddDate(0, 0, -1)
+	today := created.Round(time.Hour * 24)
+	yesterday := today.AddDate(0, 0, -1)
 	tomorrow := yesterday.AddDate(0, 0, 2)
 	versionOne := int64(1)
 	versionTwo := int64(2)
@@ -2293,14 +2294,14 @@ func TestDeploymentHistory(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Setup            []db.Deployment
-		Request          api.DeploymentHistoryRequest
+		Request          *api.DeploymentHistoryRequest
 		ExpectedCsvLines []string
 		ExpectedError    string
 	}{
 		{
 			Name:  "Test empty deployment history",
 			Setup: []db.Deployment{},
-			Request: api.DeploymentHistoryRequest{
+			Request: &api.DeploymentHistoryRequest{
 				StartDate: timestamppb.New(yesterday),
 				EndDate:   timestamppb.New(tomorrow),
 			},
@@ -2340,7 +2341,7 @@ func TestDeploymentHistory(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
-			Request: api.DeploymentHistoryRequest{
+			Request: &api.DeploymentHistoryRequest{
 				StartDate: timestamppb.New(yesterday),
 				EndDate:   timestamppb.New(tomorrow),
 			},
@@ -2363,7 +2364,7 @@ func TestDeploymentHistory(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
-			Request: api.DeploymentHistoryRequest{
+			Request: &api.DeploymentHistoryRequest{
 				StartDate: timestamppb.New(yesterday.AddDate(0, 0, -4)),
 				EndDate:   timestamppb.New(tomorrow.AddDate(0, 0, -4)),
 			},
@@ -2375,8 +2376,17 @@ func TestDeploymentHistory(t *testing.T) {
 			Name:          "Test end date before start date error",
 			Setup:         []db.Deployment{},
 			ExpectedError: fmt.Sprintf("end date (%s) happens before start date (%s)", yesterday.Format(time.DateOnly), tomorrow.Format(time.DateOnly)),
-			Request: api.DeploymentHistoryRequest{
+			Request: &api.DeploymentHistoryRequest{
 				StartDate: timestamppb.New(tomorrow),
+				EndDate:   timestamppb.New(yesterday),
+			},
+		},
+		{
+			Name:          "Test time frame from today to yesterday",
+			Setup:         []db.Deployment{},
+			ExpectedError: fmt.Sprintf("end date (%s) happens before start date (%s)", yesterday.Format(time.DateOnly), today.Format(time.DateOnly)),
+			Request: &api.DeploymentHistoryRequest{
+				StartDate: timestamppb.New(today),
 				EndDate:   timestamppb.New(yesterday),
 			},
 		},
@@ -2466,7 +2476,7 @@ func TestDeploymentHistory(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err := svc.StreamDeploymentHistory(&tc.Request, &stream)
+				err := svc.StreamDeploymentHistory(tc.Request, &stream)
 				close(ch)
 				if err != nil {
 					if diff := cmp.Diff(tc.ExpectedError, err.Error()); diff != "" {
