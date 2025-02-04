@@ -31,6 +31,7 @@ import { RolloutStatus } from '../../../api/api';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 import { GitSyncStatus, GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
+import { Git, Argo } from '../../../images';
 
 export type ReleaseCardProps = {
     className?: string;
@@ -266,7 +267,17 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                     <thead>
                         <tr>
                             <th>Environment group</th>
-                            {syncStatus.isEnabled() ? <th>Sync Status</th> : <th>Rollout</th>}
+
+                            {syncStatus.isEnabled() ? (
+                                <th className="release-card__statusth">
+                                    Sync Status
+                                    <Git className="status-logo" />
+                                </th>
+                            ) : (
+                                <th className="release-card__statusth">
+                                    Rollout Status <Argo className="status-logo" />
+                                </th>
+                            )}
                         </tr>
                     </thead>
                     <tbody>

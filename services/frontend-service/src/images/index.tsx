@@ -30,7 +30,8 @@ import { ReactComponent as HideBarWhite } from './HideBar_White.svg';
 import { ReactComponent as History } from './History.svg';
 import { ReactComponent as SortAscending } from './Up_White.svg';
 import { ReactComponent as SortDescending } from './Down_White.svg';
-
+import { ReactComponent as Git } from './Git-Icon-Black.svg';
+import { ReactComponent as Argo } from './argocd.svg';
 export {
     Logo,
     Home,
@@ -49,4 +50,6 @@ export {
     HideBarWhite,
     SortAscending,
     SortDescending,
+    Git,
+    Argo,
 };
