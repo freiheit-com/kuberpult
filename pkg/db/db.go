@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -2141,7 +2142,7 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 		return fmt.Errorf("DBWriteMigrationsTransformer: no transaction provided")
 	}
 
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
 	defer span.Finish()
 
 	dataMap := make(map[string]interface{})
@@ -2155,7 +2156,7 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	jsonToInsert, err := json.Marshal(dataMap)
 
 	if err != nil {
-		return fmt.Errorf("could not marshal json transformer: %w", err)
+		return onErr(err)
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
