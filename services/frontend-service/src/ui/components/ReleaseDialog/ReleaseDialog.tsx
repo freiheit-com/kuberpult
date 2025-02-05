@@ -19,6 +19,7 @@ import { Deployment, Environment, EnvironmentGroup, Lock, LockBehavior, Release 
 import {
     addAction,
     getPriorityClassName,
+    gitSyncStatus,
     showSnackbarWarn,
     useActions,
     useAppDetailsForApp,
@@ -26,6 +27,7 @@ import {
     useCloseReleaseDialog,
     useCurrentlyDeployedAtGroup,
     useEnvironmentGroups,
+    useGitSyncStatus,
     useReleaseDifference,
     useReleaseOptional,
     useRolloutStatus,
@@ -47,6 +49,7 @@ import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { ExpandButton } from '../button/ExpandButton';
 import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
+import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -216,6 +219,8 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
 
         return [returnString, time];
     };
+    const syncStatus = useGitSyncStatus((getter) => getter.getAppStatus(app, env.name));
+    const appGitSyncStatus = gitSyncStatus.get();
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
@@ -293,7 +298,11 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             ))}
                         </div>
                     )}
-                    {appRolloutStatus !== undefined && <RolloutStatusDescription status={appRolloutStatus} />}
+                    {appGitSyncStatus.enabled ? (
+                        <GitSyncStatusDescription status={syncStatus}></GitSyncStatusDescription>
+                    ) : (
+                        appRolloutStatus !== undefined && <RolloutStatusDescription status={appRolloutStatus} />
+                    )}
                 </div>
             </div>
             <div className="content-area">

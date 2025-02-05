@@ -21,6 +21,7 @@ import {
     AppDetailsState,
     appendAction,
     DisplayLock,
+    FlushGitSyncStatus,
     FlushRolloutStatus,
     SnackbarStatus,
     UpdateAction,
@@ -28,9 +29,11 @@ import {
     UpdateAllApplicationLocks,
     updateAllEnvLocks,
     updateAppDetails,
+    UpdateGitSyncStatus,
     UpdateOverview,
     UpdateRolloutStatus,
     UpdateSnackbar,
+    useGitSyncStatus,
     useLocksConflictingWithActions,
     useLocksSimilarTo,
     useNavigateWithSearchParams,
@@ -43,6 +46,7 @@ import {
     Environment,
     EnvironmentGroup,
     GetAllEnvTeamLocksResponse,
+    GetGitSyncStatusResponse,
     GetOverviewResponse,
     LockBehavior,
     OverviewApplication,
@@ -55,6 +59,7 @@ import {
 import { makeDisplayLock, makeLock } from '../../setupTests';
 import { BrowserRouter } from 'react-router-dom';
 import { ReactNode } from 'react';
+import { GitSyncStatus } from '../components/GitSyncStatusDescription/GitSyncStatusDescription';
 
 describe('Test useLocksSimilarTo', () => {
     type TestDataStore = {
@@ -514,6 +519,124 @@ describe('Rollout Status', () => {
                     useRolloutStatus((getter) => getter.getAppStatus(app.application, app.version, app.environment))
                 );
                 expect(rollout.result.current).toEqual(app.rolloutStatus);
+            });
+        });
+    });
+});
+
+describe('Git Sync Status', () => {
+    type Testcase = {
+        name: string;
+        events: Array<GetGitSyncStatusResponse | { error: true }>;
+        expectedApps: Array<{
+            application: string;
+            environment: string;
+            gitSynStatus: GitSyncStatus | undefined;
+        }>;
+    };
+
+    const testdata: Array<Testcase> = [
+        {
+            name: 'not enabled if empty',
+            events: [],
+
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    gitSynStatus: undefined,
+                },
+            ],
+        },
+        {
+            name: 'updates one app',
+            events: [
+                {
+                    unsynced: [
+                        {
+                            environmentName: 'env1',
+                            applicationName: 'app1',
+                        },
+                    ],
+                    syncFailed: [],
+                },
+            ],
+
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+
+                    gitSynStatus: GitSyncStatus.GIT_SYNC_STATUS_SYNCING,
+                },
+            ],
+        },
+        {
+            name: 'keep the latest entry per app and environment',
+            events: [
+                {
+                    unsynced: [
+                        {
+                            environmentName: 'env1',
+                            applicationName: 'app1',
+                        },
+                    ],
+                    syncFailed: [],
+                },
+                {
+                    unsynced: [],
+                    syncFailed: [],
+                },
+            ],
+
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    gitSynStatus: GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL,
+                },
+            ],
+        },
+        {
+            name: 'flushes the state',
+            events: [
+                {
+                    unsynced: [
+                        {
+                            environmentName: 'env1',
+                            applicationName: 'app1',
+                        },
+                    ],
+                    syncFailed: [],
+                },
+                { error: true },
+            ],
+
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    gitSynStatus: undefined,
+                },
+            ],
+        },
+    ];
+
+    describe.each(testdata)('with', (testcase) => {
+        it(testcase.name, () => {
+            FlushGitSyncStatus();
+            testcase.events.forEach((ev) => {
+                if ('error' in ev) {
+                    FlushGitSyncStatus();
+                } else {
+                    UpdateGitSyncStatus(ev);
+                }
+            });
+            testcase.expectedApps.forEach((app) => {
+                const syncStatus = renderHook(() =>
+                    useGitSyncStatus((getter) => getter.getAppStatus(app.application, app.environment))
+                );
+                expect(syncStatus.result.current).toEqual(app.gitSynStatus);
             });
         });
     });

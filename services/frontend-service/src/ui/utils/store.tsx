@@ -47,6 +47,7 @@ import { useApi } from './GrpcApi';
 import { AuthHeader } from './AzureAuthProvider';
 import { isTokenValid, LoginPage } from '../utils/DexAuthProvider';
 import { LoadingStateSpinner } from '../utils/LoadingStateSpinner';
+import { GitSyncStatus } from '../components/GitSyncStatusDescription/GitSyncStatusDescription';
 
 // see maxBatchActions in batch.go
 export const maxBatchActions = 100;
@@ -1289,7 +1290,9 @@ type GitSyncStatusStore = {
     sync_failed: EnvApp[];
 };
 
-export const [, gitSyncStatus] = createStore<GitSyncStatusStore>({
+export const useGitSyncStatus = <T,>(f: (getter: GitSyncStatusGetter) => T): T =>
+    useEntireGitSyncStatus((data) => f(new GitSyncStatusGetter(data)));
+export const [useEntireGitSyncStatus, gitSyncStatus] = createStore<GitSyncStatusStore>({
     enabled: false,
     sync_failed: [],
     unsyced: [],
@@ -1302,3 +1305,35 @@ export const UpdateGitSyncStatus = (ev: GetGitSyncStatusResponse): void => {
         sync_failed: ev.syncFailed,
     });
 };
+
+class GitSyncStatusGetter {
+    private readonly store: GitSyncStatusStore;
+
+    constructor(store: GitSyncStatusStore) {
+        this.store = store;
+    }
+
+    isEnabled(): boolean {
+        return this.store.enabled;
+    }
+
+    getAppStatus(application: string, environment: string): number | undefined {
+        if (!this.store.enabled) {
+            return undefined;
+        }
+
+        let status = this.store.unsyced.find(
+            (val) => val.applicationName === application && val.environmentName === environment
+        );
+        if (status) {
+            return GitSyncStatus.GIT_SYNC_STATUS_SYNCING;
+        }
+        status = this.store.sync_failed.find(
+            (val) => val.applicationName === application && val.environmentName === environment
+        );
+        if (status) {
+            return GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR;
+        }
+        return GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL;
+    }
+}

@@ -86,7 +86,10 @@ Copyright freiheit.com*/
     margin-left: -10px;
     border-spacing: 10px;
 }
-
+.status-logo {
+    width: 20%;
+    height: auto;
+}
 .release__status {
     position: absolute;
     height: $release-card-hash-height;
@@ -106,4 +109,11 @@ Copyright freiheit.com*/
 .rollout__icon_progressing,
 .rollout__icon_pending {
     color: var(--mdc-theme-secondary);
+}
+
+.release-card__statusth {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    width: 130px;
 }
