@@ -63,7 +63,7 @@ const GitSyncStatusIcon: React.FC<{ status: GitSyncStatus }> = (props) => {
             return <span className="rollout__icon_successful">✓</span>;
         case GitSyncStatus.GIT_SYNC_STATUS_SYNCING:
             return <span className="rollout__icon_progressing">↻</span>;
-        case GitSyncStatus.GIT_SYNC_STATUS_STATUS_SYNC_ERROR:
+        case GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR:
             return <span className="rollout__icon_error">!</span>;
     }
     return <span className="rollout__icon_unknown">?</span>;
@@ -88,7 +88,7 @@ const rolloutStatusPriority = [
 ];
 
 const gitSyncStatusPriority = [
-    GitSyncStatus.GIT_SYNC_STATUS_STATUS_SYNC_ERROR,
+    GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR,
     GitSyncStatus.GIT_SYNC_STATUS_SYNCING,
     GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL,
 ];

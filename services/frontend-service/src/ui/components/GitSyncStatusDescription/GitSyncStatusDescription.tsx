@@ -20,7 +20,7 @@ export enum GitSyncStatus {
     /** ROLLOUT_STATUS_SUCCESFUL - sync succesful */
     GIT_SYNC_STATUS_SYNCING = 1,
     /** ROLLOUT_STATUS_PROGRESSING - argocd picked up the change but didn't apply it yet */
-    GIT_SYNC_STATUS_STATUS_SYNC_ERROR = 2,
+    GIT_SYNC_STATUS_SYNC_ERROR = 2,
     GIT_SYNC_STATUS_UNRECOGNIZED = -1,
 }
 
@@ -30,11 +30,11 @@ export const GitSyncStatusDescription: React.FC<{ status: number | undefined }> 
         return <span className="rollout__description_unknown">? Unknown</span>;
     }
     switch (status) {
-        case GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL: //SYNCED
+        case GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL:
             return <span className="rollout__description_successful">✓ Done</span>;
         case GitSyncStatus.GIT_SYNC_STATUS_SYNCING:
             return <span className="rollout__description_progressing">↻ In progress</span>;
-        case GitSyncStatus.GIT_SYNC_STATUS_STATUS_SYNC_ERROR:
+        case GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR:
             return <span className="rollout__description_error">! Failed</span>;
     }
     return <span className="rollout__description_unknown">? Unknown</span>;

@@ -1332,7 +1332,7 @@ class GitSyncStatusGetter {
             (val) => val.applicationName === application && val.environmentName === environment
         );
         if (status) {
-            return GitSyncStatus.GIT_SYNC_STATUS_STATUS_SYNC_ERROR;
+            return GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR;
         }
         return GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL;
     }
