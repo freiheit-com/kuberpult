@@ -13,13 +13,25 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Compliance } from '../../components/Compliance/Compliance';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
-export const CompliancePage: React.FC = () => (
-    <div>
-        <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
-        <Compliance />
-    </div>
-);
+export const CompliancePage: React.FC = () => {
+    const saveFile = useCallback((lines: string[]) => {
+        const filename = 'deployments.csv';
+        const file = new File(lines, filename);
+        const anchor = document.createElement('a');
+        anchor.href = URL.createObjectURL(file);
+        anchor.download = filename;
+        anchor.click();
+        URL.revokeObjectURL(anchor.href);
+    }, []);
+
+    return (
+        <div>
+            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+            <Compliance saveFile={saveFile} />
+        </div>
+    );
+};
