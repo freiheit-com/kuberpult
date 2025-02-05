@@ -18,6 +18,7 @@ package versions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"sort"
@@ -26,7 +27,10 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -276,14 +280,14 @@ func TestVersionClientStream(t *testing.T) {
 									Name: "foo",
 									Releases: []*api.Release{
 										{
-											Version:        1,
-											SourceCommitId: "00001",
+											Version:        1234,
+											SourceCommitId: "",
 										},
 									},
 								},
 								Deployments: map[string]*api.Deployment{
 									"staging": {
-										Version: 1,
+										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
 											DeployTime: "123456789",
 										},
@@ -301,8 +305,8 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup: "staging-group",
 							Team:             "footeam",
 							Version: &VersionInfo{
-								Version:        1,
-								SourceCommitId: "00001",
+								Version:        1234,
+								SourceCommitId: "",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
 						},
@@ -318,9 +322,9 @@ func TestVersionClientStream(t *testing.T) {
 					Revision:        "1234",
 					Environment:     "staging",
 					Application:     "foo",
-					DeployedVersion: 1,
-					SourceCommitId:  "00001",
-					DeployTime:      time.Unix(123456789, 0).UTC(),
+					DeployedVersion: 1234,
+					SourceCommitId:  "",
+					DeployTime:      time.Time{},
 				},
 			},
 		},
@@ -335,8 +339,8 @@ func TestVersionClientStream(t *testing.T) {
 			VersionResponses: map[string]mockVersionResponse{
 				"staging/foo@1234": {
 					response: &api.GetVersionResponse{
-						Version:        1,
-						SourceCommitId: "00001",
+						Version:        1234,
+						SourceCommitId: "",
 						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
 					},
 				},
@@ -346,13 +350,10 @@ func TestVersionClientStream(t *testing.T) {
 					Revision:        "1234",
 					Environment:     "staging",
 					Application:     "foo",
-					DeployedVersion: 1,
-					SourceCommitId:  "00001",
-					DeployTime:      time.Unix(123456789, 0).UTC(),
-					VersionMetadata: metadata.MD{
-						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
-						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
-					},
+					DeployedVersion: 1234,
+					SourceCommitId:  "",
+					DeployTime:      time.Time{},
+					VersionMetadata: nil,
 				},
 			},
 		},
@@ -864,7 +865,7 @@ func TestVersionClientStream(t *testing.T) {
 				tc.VersionResponses = map[string]mockVersionResponse{}
 			}
 			mvc := &mockVersionClient{responses: tc.VersionResponses}
-			vc := New(moc, mvc, nil, false, []string{})
+			vc := New(moc, mvc, nil, false, []string{}, *setupDB(t))
 			hs := &setup.HealthServer{}
 			hs.BackOffFactory = func() backoff.BackOff {
 				return backoff.NewConstantBackOff(time.Millisecond)
@@ -907,7 +908,6 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	if hs.IsReady("versions") != s.ExpectReady {
 		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
 	}
-
 	//Sort this to avoid flakeyness based on order
 	sort.Slice(vp.events, func(i, j int) bool {
 		return vp.events[i].Environment < vp.events[j].Environment
@@ -946,4 +946,50 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 		}
 
 	}
+}
+
+// setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
+func setupDB(t *testing.T) *db.DBHandler {
+	ctx := context.Background()
+	dir, err := testutil.CreateMigrationsPath(2)
+	tmpDir := t.TempDir()
+	t.Logf("directory for DB migrations: %s", dir)
+	t.Logf("tmp dir for DB data: %s", tmpDir)
+	cfg := db.DBConfig{
+		MigrationsPath: dir,
+		DriverName:     "sqlite3",
+		DbHost:         tmpDir,
+	}
+
+	migErr := db.RunDBMigrations(ctx, cfg)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := db.Connect(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []string{})
+		dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{})
+		dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+			ReleaseNumber: 1234,
+			Created:       time.Unix(123456789, 0).UTC(),
+			App:           "foo",
+			Manifests: db.DBReleaseManifests{
+				Manifests: map[string]string{"staging": ""},
+			},
+			Metadata: db.DBReleaseMetaData{},
+		})
+		var version int64 = 1234
+		dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+			Created: time.Unix(123456789, 0).UTC(),
+			App:     "foo",
+			Env:     "staging",
+			Version: &version,
+		})
+		return nil
+	})
+	return dbHandler
 }

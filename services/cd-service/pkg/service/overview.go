@@ -753,8 +753,12 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamDeploymentHistory")
 	defer span.Finish()
 
-	now := time.Now()
-	twoWeeksBefore := now.AddDate(0, 0, -14)
+	startDate := in.StartDate.AsTime()
+	endDate := in.EndDate.AsTime().AddDate(0, 0, 1)
+	if !endDate.After(startDate) {
+		providedEndDate := endDate.AddDate(0, 0, -1)
+		return onErr(fmt.Errorf("end date (%s) happens before start date (%s)", providedEndDate.Format(time.DateOnly), startDate.Format(time.DateOnly)))
+	}
 
 	err := stream.Send(&api.DeploymentHistoryResponse{Deployment: "time,app,environment,deployed release version,previous release version\n"})
 	if err != nil {
@@ -764,11 +768,11 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 	err = o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		query := o.DBHandler.AdaptQuery(`
 			SELECT created, releaseversion, appname, envname FROM deployments_history
-			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?)
+			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?)
 			ORDER BY created ASC;
 		`)
 
-		rows, err := transaction.QueryContext(ctx, query, twoWeeksBefore, now)
+		rows, err := transaction.QueryContext(ctx, query, startDate, endDate, in.Environment)
 		if err != nil {
 			return err
 		}
