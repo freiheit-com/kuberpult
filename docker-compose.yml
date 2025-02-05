@@ -103,6 +103,7 @@ services:
     environment:
       - KUBERPULT_CDSERVER=cd-service:8443
       - KUBERPULT_VERSIONSERVER=manifest-repo-export-service:8443
+      - KUBERPULT_MANIFESTEXPORTSERVER=manifest-repo-export-service:8443
       - KUBERPULT_CD_SERVER_SECURE=false
       - LOG_LEVEL=INFO
       - KUBERPULT_ALLOWED_ORIGINS=localhost:*
