@@ -27,7 +27,8 @@ describe('ExpandButton', () => {
         disabled: false,
         defaultButtonLabel: 'default-button',
         releaseDifference: 0,
-        alreadyPlanned: false,
+        deployAlreadyPlanned: false,
+        lockAlreadyPlanned: false,
     };
 
     const getNode = (props: Partial<ExpandButtonProps>): JSX.Element => (
@@ -46,7 +47,7 @@ describe('ExpandButton', () => {
         expectSubmitCalledTimes: number;
         expectSubmitCalledWith: Object; // only relevant if expectCalledTimes != 0
         expectLockCalledTimes: number;
-        expectedLabel: string;
+        expectedLabels: string[];
     };
 
     const data: TestData[] = [
@@ -58,7 +59,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
-            expectedLabel: 'Deploy only',
+            expectedLabels: ['Deploy only'],
         },
         {
             name: 'click expand twice',
@@ -68,7 +69,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
-            expectedLabel: 'Deploy only',
+            expectedLabels: ['Deploy only'],
         },
         {
             name: 'click Main button',
@@ -78,7 +79,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 1,
             expectSubmitCalledWith: true,
             expectLockCalledTimes: 0,
-            expectedLabel: 'Deploy only',
+            expectedLabels: ['Deploy only'],
         },
         {
             name: 'click expand, then alternative button',
@@ -88,7 +89,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 1,
             expectSubmitCalledWith: false,
             expectLockCalledTimes: 0,
-            expectedLabel: 'Deploy only',
+            expectedLabels: ['Deploy only'],
         },
         {
             name: 'click expand, then lock button',
@@ -98,7 +99,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: true,
             expectLockCalledTimes: 1,
-            expectedLabel: 'Deploy only',
+            expectedLabels: ['Deploy only'],
         },
         {
             name: 'click expand once, with positive release difference',
@@ -108,7 +109,7 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
-            expectedLabel: 'Rollback only',
+            expectedLabels: ['Rollback only'],
         },
         {
             name: 'click expand once, with positive release difference',
@@ -118,47 +119,67 @@ describe('ExpandButton', () => {
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
-            expectedLabel: 'Update only',
+            expectedLabels: ['Update only'],
         },
         {
             name: 'click expand once, with positive release difference and planned rollback',
-            props: { releaseDifference: 1, alreadyPlanned: true },
+            props: { releaseDifference: 1, deployAlreadyPlanned: true, lockAlreadyPlanned: true },
             clickThis: ['.button-expand'],
             expectExpanded: true,
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
-            expectedLabel: 'Cancel Rollback only',
+            expectedLabels: ['Cancel Rollback only', 'Cancel Lock only'],
         },
         {
             name: 'click expand once, with positive release difference and planned update',
-            props: { releaseDifference: -1, alreadyPlanned: true },
+            props: { releaseDifference: -1, deployAlreadyPlanned: true },
             clickThis: ['.button-expand'],
             expectExpanded: true,
             expectSubmitCalledTimes: 0,
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
-            expectedLabel: 'Cancel Update only',
+            expectedLabels: ['Cancel Update only'],
         },
         {
             name: 'click cancel deployment button',
-            props: { alreadyPlanned: true },
+            props: { deployAlreadyPlanned: true, lockAlreadyPlanned: true },
             clickThis: ['.deploy-button-cancel'],
             expectExpanded: false,
             expectSubmitCalledTimes: 1,
             expectSubmitCalledWith: true,
             expectLockCalledTimes: 0,
-            expectedLabel: 'Deploy only',
+            expectedLabels: ['Deploy only'],
         },
         {
             name: 'click expand, then cancel deploy button',
-            props: { alreadyPlanned: true },
+            props: { deployAlreadyPlanned: true },
             clickThis: ['.button-expand', '.button-popup-deploy.deploy-button-cancel'],
             expectExpanded: true,
             expectSubmitCalledTimes: 1,
             expectSubmitCalledWith: false,
             expectLockCalledTimes: 0,
-            expectedLabel: 'Cancel Deploy only',
+            expectedLabels: ['Cancel Deploy only', 'Lock only'],
+        },
+        {
+            name: 'click expand once, with a lock already planned but no deploy',
+            props: { lockAlreadyPlanned: true },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabels: ['Deploy only', 'Cancel Lock only'],
+        },
+        {
+            name: 'click expand once, with a deploy already planned but no lock',
+            props: { deployAlreadyPlanned: true },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabels: ['Cancel Deploy only', 'Lock only'],
         },
     ];
 
@@ -183,7 +204,7 @@ describe('ExpandButton', () => {
             if (expectedCount > 0) {
                 const buttons = Array.from(document.getElementsByClassName('mdc-button__label'));
                 const labels = buttons.map((button) => button.textContent);
-                expect(labels).toEqual(expect.arrayContaining([testcase.expectedLabel]));
+                expect(labels).toEqual(expect.arrayContaining(testcase.expectedLabels));
             }
 
             expect(mySubmitSpy).toHaveBeenCalledTimes(testcase.expectSubmitCalledTimes);

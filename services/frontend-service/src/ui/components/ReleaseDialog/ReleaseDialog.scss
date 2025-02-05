@@ -222,6 +222,10 @@ button.mdc-button.env-card-deploy-btn {
 button.mdc-button.env-card-lock-btn {
     border-radius: $release-dialog-inner-border-radius;
     @extend .text-bold;
+
+    &.deploy-button-cancel:not(.button-main) {
+        color: var(--mdc-theme-error);
+    }
 }
 
 .release-dialog-environment-group-lane {

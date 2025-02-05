@@ -725,7 +725,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
-            shouldCancel: false,
+            shouldCancel: true,
         },
         {
             name: 'delete app lock',
