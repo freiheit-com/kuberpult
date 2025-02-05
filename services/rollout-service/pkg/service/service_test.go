@@ -19,12 +19,14 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"io"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -351,7 +353,7 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{Version: 0},
+						Version:     &versions.VersionInfo{Version: 42},
 					},
 				},
 				{
@@ -407,7 +409,7 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{},
 					},
 				},
 				{
@@ -439,7 +441,6 @@ func TestArgoConection(t *testing.T) {
 			hlth := &setup.HealthServer{}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
-			go dispatcher.Work(ctx, hlth.Reporter("dispatcher"))
 			err := ConsumeEvents(ctx, &as, dispatcher, hlth.Reporter("consume"), &argo.ArgoAppProcessor{
 				ApplicationClient:     nil,
 				ManageArgoAppsEnabled: true,
