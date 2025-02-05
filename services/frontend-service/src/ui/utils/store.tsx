@@ -1307,6 +1307,10 @@ export const UpdateGitSyncStatus = (ev: GetGitSyncStatusResponse): void => {
     });
 };
 
+export const EnableGitSyncStatus = (): void => {
+    gitSyncStatus.set({ enabled: true });
+};
+
 class GitSyncStatusGetter {
     private readonly store: GitSyncStatusStore;
 
