@@ -4,6 +4,6 @@
     "tabWidth": 4,
     "singleQuote": true,
     "trailingComma": "es5",
-    "jsxBracketSameLine": true,
+    "bracketSameLine": true,
     "parser": "typescript"
 }
