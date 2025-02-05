@@ -20,6 +20,7 @@ import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
     AppDetailsState,
+    EnableGitSyncStatus,
     EnableRolloutStatus,
     FlushGitSyncStatus,
     FlushRolloutStatus,
@@ -113,6 +114,7 @@ export const App: React.FC = () => {
                             error: JSON.stringify({ msg: 'error in StreamGitSyncStatus', error }),
                         });
                         showSnackbarWarn('Connection Error: Refresh the page');
+                        EnableGitSyncStatus();
                     }
                 );
             return (): void => subscription.unsubscribe();
