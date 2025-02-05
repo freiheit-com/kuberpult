@@ -29,6 +29,8 @@ describe('ExpandButton', () => {
         releaseDifference: 0,
         deployAlreadyPlanned: false,
         lockAlreadyPlanned: false,
+        hasLocks: false,
+        unlockAlreadyPlanned: false,
     };
 
     const getNode = (props: Partial<ExpandButtonProps>): JSX.Element => (
@@ -180,6 +182,46 @@ describe('ExpandButton', () => {
             expectSubmitCalledWith: {},
             expectLockCalledTimes: 0,
             expectedLabels: ['Cancel Deploy only', 'Lock only'],
+        },
+        {
+            name: 'click expand once, with already existing locks',
+            props: { hasLocks: true },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabels: ['Remove locks'],
+        },
+        {
+            name: 'click expand once, with already existing locks and planned removal',
+            props: { hasLocks: true, unlockAlreadyPlanned: true },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabels: ['Keep locks'],
+        },
+        {
+            name: 'click expand once, with already existing locks and new lock planned',
+            props: { hasLocks: true, lockAlreadyPlanned: true },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabels: ['Cancel Lock only'],
+        },
+        {
+            name: 'click expand once, with already existing locks and new lock planned and planned removal of existing',
+            props: { hasLocks: true, unlockAlreadyPlanned: true, lockAlreadyPlanned: true },
+            clickThis: ['.button-expand'],
+            expectExpanded: true,
+            expectSubmitCalledTimes: 0,
+            expectSubmitCalledWith: {},
+            expectLockCalledTimes: 0,
+            expectedLabels: ['Cancel Lock only'],
         },
     ];
 

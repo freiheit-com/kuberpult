@@ -33,10 +33,20 @@ export type ExpandButtonProps = {
     releaseDifference: number;
     deployAlreadyPlanned: boolean;
     lockAlreadyPlanned: boolean;
+    hasLocks: boolean;
+    unlockAlreadyPlanned: boolean;
 };
 
 export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
-    const { onClickSubmit, onClickLock, releaseDifference, deployAlreadyPlanned, lockAlreadyPlanned } = props;
+    const {
+        onClickSubmit,
+        onClickLock,
+        releaseDifference,
+        deployAlreadyPlanned,
+        lockAlreadyPlanned,
+        hasLocks,
+        unlockAlreadyPlanned,
+    } = props;
 
     const [expanded, setExpanded] = useState(false);
 
@@ -62,6 +72,14 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
 
     const deployLabel =
         releaseDifference < 0 ? 'Update only' : releaseDifference === 0 ? 'Deploy only' : 'Rollback only';
+
+    const lockLabel = lockAlreadyPlanned
+        ? 'Cancel Lock only'
+        : !hasLocks
+          ? 'Lock only'
+          : unlockAlreadyPlanned
+            ? 'Keep locks'
+            : 'Remove locks';
 
     return (
         <div className={'expand-button'}>
@@ -118,10 +136,12 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                                     'button-popup-lock',
                                     'env-card-lock-btn',
                                     'mdc-button--unelevated',
-                                    { 'deploy-button-cancel': lockAlreadyPlanned }
+                                    {
+                                        'deploy-button-cancel': lockAlreadyPlanned || unlockAlreadyPlanned,
+                                    }
                                 )}
                                 key={'button-third-key'}
-                                label={lockAlreadyPlanned ? 'Cancel Lock only' : 'Lock only'}
+                                label={lockLabel}
                                 icon={undefined}
                                 highlightEffect={true}
                             />

@@ -481,7 +481,7 @@ export const addAction = (action: BatchAction): void => {
             break;
     }
 
-    const shouldCancel = ['deploy', 'createEnvironmentApplicationLock'];
+    const shouldCancel = ['deploy', 'createEnvironmentApplicationLock', 'deleteEnvironmentApplicationLock'];
     if (isDuplicate && shouldCancel.includes(action.action?.$case || '')) {
         deleteAction(action);
     } else if (isDuplicate) {
