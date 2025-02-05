@@ -31,11 +31,12 @@ export type ExpandButtonProps = {
     defaultButtonLabel: string;
     disabled: boolean;
     releaseDifference: number;
-    alreadyPlanned: boolean;
+    deployAlreadyPlanned: boolean;
+    lockAlreadyPlanned: boolean;
 };
 
 export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
-    const { onClickSubmit, onClickLock, releaseDifference, alreadyPlanned } = props;
+    const { onClickSubmit, onClickLock, releaseDifference, deployAlreadyPlanned, lockAlreadyPlanned } = props;
 
     const [expanded, setExpanded] = useState(false);
 
@@ -70,7 +71,7 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                     onClick={onClickSubmitMain}
                     disabled={props.disabled}
                     className={classNames('button-main', 'env-card-deploy-btn', 'mdc-button--unelevated', {
-                        'deploy-button-cancel': alreadyPlanned,
+                        'deploy-button-cancel': lockAlreadyPlanned && deployAlreadyPlanned,
                     })}
                     key={'button-first-key'}
                     label={props.defaultButtonLabel}
@@ -101,10 +102,10 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                                     'button-popup-deploy',
                                     'env-card-deploy-btn',
                                     'mdc-button--unelevated',
-                                    { 'deploy-button-cancel': alreadyPlanned }
+                                    { 'deploy-button-cancel': deployAlreadyPlanned }
                                 )}
                                 key={'button-second-key'}
-                                label={alreadyPlanned ? `Cancel ${deployLabel}` : deployLabel}
+                                label={deployAlreadyPlanned ? `Cancel ${deployLabel}` : deployLabel}
                                 icon={undefined}
                                 highlightEffect={true}
                                 disabled={props.disabled}
@@ -113,9 +114,14 @@ export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
                         <div>
                             <Button
                                 onClick={onClickSubmitLockOnly}
-                                className={'button-popup-lock env-card-lock-btn mdc-button--unelevated'}
+                                className={classNames(
+                                    'button-popup-lock',
+                                    'env-card-lock-btn',
+                                    'mdc-button--unelevated',
+                                    { 'deploy-button-cancel': lockAlreadyPlanned }
+                                )}
                                 key={'button-third-key'}
-                                label={'Lock only'}
+                                label={lockAlreadyPlanned ? 'Cancel Lock only' : 'Lock only'}
                                 icon={undefined}
                                 highlightEffect={true}
                             />
