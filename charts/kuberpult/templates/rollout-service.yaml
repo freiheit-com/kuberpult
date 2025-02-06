@@ -158,8 +158,6 @@ spec:
           value: "{{ .Values.db.location }}"
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
           value: {{ .Values.db.migrations }}
-        - name: KUBERPULT_DB_NAME
-          value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
           valueFrom:
             secretKeyRef:
