@@ -583,10 +583,29 @@ export const EnvironmentGroupLane: React.FC<{
                     return;
                 }
                 if (!release.environments.includes(environment.name)) {
+                    // Make sure there are no locks in skipped environments when canceling all deploy and locks
+                    if (shouldLockToo && alreadyPlanned) {
+                        addAction({
+                            action: {
+                                $case: 'createEnvironmentApplicationLock',
+                                createEnvironmentApplicationLock: {
+                                    environment: environment.name,
+                                    application: app,
+                                    lockId: '',
+                                    message: '',
+                                    ciLink: '',
+                                },
+                            },
+                        });
+                    }
                     skippedEnvs.push(environment.name);
                     return;
                 }
-                if (alreadyPlanned || envsWithoutPlannedDeployments.includes(environment)) {
+                if (
+                    alreadyPlanned ||
+                    envsWithoutPlannedDeployments.includes(environment) ||
+                    (deploysAlreadyPlanned && !shouldLockToo)
+                ) {
                     addAction({
                         action: {
                             $case: 'deploy',
@@ -626,6 +645,7 @@ export const EnvironmentGroupLane: React.FC<{
             release.version,
             app,
             alreadyPlanned,
+            deploysAlreadyPlanned,
             envsWithoutPlannedDeployments,
             envsWithoutPlannedLocks,
             envsWithPlannedDeploysLocks,
