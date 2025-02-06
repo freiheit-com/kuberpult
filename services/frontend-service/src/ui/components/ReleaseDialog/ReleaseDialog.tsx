@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import classNames from 'classnames';
-import React, { ReactElement, useCallback } from 'react';
+import React, { ReactElement, useCallback, useMemo } from 'react';
 import { Deployment, Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
@@ -157,59 +157,13 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             action.action.createEnvironmentApplicationLock.application === app &&
             action.action.createEnvironmentApplicationLock.environment === env.name
     );
-    const alreadyPlanned = lockAlreadyPlanned && deployAlreadyPlanned;
-
-    const createAppLock = useCallback(() => {
-        addAction({
-            action: {
-                $case: 'createEnvironmentApplicationLock',
-                createEnvironmentApplicationLock: {
-                    environment: env.name,
-                    application: app,
-                    lockId: '',
-                    message: '',
-                    ciLink: '',
-                },
-            },
-        });
-    }, [app, env.name]);
-    const deployAndLockClick = useCallback(
-        (shouldLockToo: boolean) => {
-            if (!release.environments.includes(env.name)) {
-                showSnackbarWarn(`Environments skipped: ${env.name}`);
-                return;
-            }
-            if (release.version) {
-                if (!shouldLockToo || alreadyPlanned || !deployAlreadyPlanned) {
-                    addAction({
-                        action: {
-                            $case: 'deploy',
-                            deploy: {
-                                environment: env.name,
-                                application: app,
-                                version: release.version,
-                                ignoreAllLocks: false,
-                                lockBehavior: LockBehavior.IGNORE,
-                            },
-                        },
-                    });
-                }
-                if (shouldLockToo && (alreadyPlanned || !lockAlreadyPlanned)) {
-                    createAppLock();
-                }
-            }
-        },
-        [
-            release.version,
-            release.environments,
-            app,
-            env.name,
-            createAppLock,
-            alreadyPlanned,
-            deployAlreadyPlanned,
-            lockAlreadyPlanned,
-        ]
+    const unlockAlreadyPlanned = actions.some(
+        (action) =>
+            action.action?.$case === 'deleteEnvironmentApplicationLock' &&
+            action.action.deleteEnvironmentApplicationLock.application === app &&
+            action.action.deleteEnvironmentApplicationLock.environment === env.name
     );
+    const alreadyPlanned = lockAlreadyPlanned && deployAlreadyPlanned;
 
     const queueInfo =
         queuedVersion === 0 ? null : (
@@ -250,7 +204,77 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
-    const appEnvLocks = appDetails?.details?.appLocks?.[env.name]?.locks ?? [];
+    const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
+
+    const createAppLock = useCallback(
+        (lockOnly = true) => {
+            if (appEnvLocks.length > 0 && lockOnly && !lockAlreadyPlanned) {
+                appEnvLocks.forEach((lock) =>
+                    addAction({
+                        action: {
+                            $case: 'deleteEnvironmentApplicationLock',
+                            deleteEnvironmentApplicationLock: {
+                                environment: env.name,
+                                application: app,
+                                lockId: lock.lockId,
+                            },
+                        },
+                    })
+                );
+            } else {
+                addAction({
+                    action: {
+                        $case: 'createEnvironmentApplicationLock',
+                        createEnvironmentApplicationLock: {
+                            environment: env.name,
+                            application: app,
+                            lockId: '',
+                            message: '',
+                            ciLink: '',
+                        },
+                    },
+                });
+            }
+        },
+        [app, env.name, appEnvLocks, lockAlreadyPlanned]
+    );
+    const deployAndLockClick = useCallback(
+        (shouldLockToo: boolean) => {
+            if (!release.environments.includes(env.name)) {
+                showSnackbarWarn(`Environments skipped: ${env.name}`);
+                return;
+            }
+            if (release.version) {
+                if (!shouldLockToo || alreadyPlanned || !deployAlreadyPlanned) {
+                    addAction({
+                        action: {
+                            $case: 'deploy',
+                            deploy: {
+                                environment: env.name,
+                                application: app,
+                                version: release.version,
+                                ignoreAllLocks: false,
+                                lockBehavior: LockBehavior.IGNORE,
+                            },
+                        },
+                    });
+                }
+                if (shouldLockToo && (alreadyPlanned || !lockAlreadyPlanned)) {
+                    createAppLock(false);
+                }
+            }
+        },
+        [
+            release.version,
+            release.environments,
+            app,
+            env.name,
+            createAppLock,
+            alreadyPlanned,
+            deployAlreadyPlanned,
+            lockAlreadyPlanned,
+        ]
+    );
 
     const allowDeployment: boolean = ((): boolean => {
         if (release.isPrepublish) {
@@ -360,6 +384,8 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                 disabled={!allowDeployment}
                                 deployAlreadyPlanned={deployAlreadyPlanned}
                                 lockAlreadyPlanned={lockAlreadyPlanned}
+                                hasLocks={appEnvLocks.length > 0}
+                                unlockAlreadyPlanned={unlockAlreadyPlanned}
                             />
                         </div>
                     </div>
@@ -653,6 +679,8 @@ export const EnvironmentGroupLane: React.FC<{
                             releaseDifference={0}
                             deployAlreadyPlanned={deploysAlreadyPlanned}
                             lockAlreadyPlanned={locksAlreadyPlanned}
+                            hasLocks={false}
+                            unlockAlreadyPlanned={false}
                         />
                     </div>
                 </div>

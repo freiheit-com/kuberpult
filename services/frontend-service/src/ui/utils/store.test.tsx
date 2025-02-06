@@ -749,7 +749,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
-            shouldCancel: false,
+            shouldCancel: true,
         },
         {
             name: 'create team lock',
