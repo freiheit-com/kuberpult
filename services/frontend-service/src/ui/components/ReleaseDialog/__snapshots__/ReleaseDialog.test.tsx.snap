@@ -113,38 +113,34 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                     title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
-                      class="expand-button"
+                      class="deploy-lock-buttons"
                     >
-                      <div
-                        class="first-two"
+                      <button
+                        aria-label="Add Lock Only"
+                        class="mdc-button button-popup-lock env-card-lock-btn mdc-button--unelevated highlight"
                       >
-                        <button
-                          aria-label="Deploy & Lock"
-                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <span
-                            class="mdc-button__label"
-                          >
-                            Deploy & Lock
-                          </span>
-                        </button>
-                        <button
-                          aria-label=""
-                          class="mdc-button button-expand"
+                          Add Lock Only
+                        </span>
+                      </button>
+                      <button
+                        aria-label="Deploy and Lock"
+                        class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                      >
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <div
-                            class="dropdown-arrow"
-                          >
-                            ⌄
-                          </div>
-                        </button>
-                      </div>
+                          Deploy and Lock
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -261,38 +257,34 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                           title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                         >
                           <div
-                            class="expand-button"
+                            class="deploy-lock-buttons"
                           >
-                            <div
-                              class="first-two"
+                            <button
+                              aria-label="Add Lock Only"
+                              class="mdc-button button-popup-lock env-card-lock-btn mdc-button--unelevated highlight"
                             >
-                              <button
-                                aria-label="Deploy & Lock"
-                                class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <span
+                                class="mdc-button__label"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <span
-                                  class="mdc-button__label"
-                                >
-                                  Deploy & Lock
-                                </span>
-                              </button>
-                              <button
-                                aria-label=""
-                                class="mdc-button button-expand"
+                                Add Lock Only
+                              </span>
+                            </button>
+                            <button
+                              aria-label="Deploy and Lock"
+                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <span
+                                class="mdc-button__label"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <div
-                                  class="dropdown-arrow"
-                                >
-                                  ⌄
-                                </div>
-                              </button>
-                            </div>
+                                Deploy and Lock
+                              </span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -425,38 +417,34 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                     title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
-                      class="expand-button"
+                      class="deploy-lock-buttons"
                     >
-                      <div
-                        class="first-two"
+                      <button
+                        aria-label="Add Lock Only"
+                        class="mdc-button button-popup-lock env-card-lock-btn mdc-button--unelevated highlight"
                       >
-                        <button
-                          aria-label="Deploy & Lock"
-                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <span
-                            class="mdc-button__label"
-                          >
-                            Deploy & Lock
-                          </span>
-                        </button>
-                        <button
-                          aria-label=""
-                          class="mdc-button button-expand"
+                          Add Lock Only
+                        </span>
+                      </button>
+                      <button
+                        aria-label="Deploy and Lock"
+                        class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                      >
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <div
-                            class="dropdown-arrow"
-                          >
-                            ⌄
-                          </div>
-                        </button>
-                      </div>
+                          Deploy and Lock
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -573,38 +561,34 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                           title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                         >
                           <div
-                            class="expand-button"
+                            class="deploy-lock-buttons"
                           >
-                            <div
-                              class="first-two"
+                            <button
+                              aria-label="Add Lock Only"
+                              class="mdc-button button-popup-lock env-card-lock-btn mdc-button--unelevated highlight"
                             >
-                              <button
-                                aria-label="Deploy & Lock"
-                                class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <span
+                                class="mdc-button__label"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <span
-                                  class="mdc-button__label"
-                                >
-                                  Deploy & Lock
-                                </span>
-                              </button>
-                              <button
-                                aria-label=""
-                                class="mdc-button button-expand"
+                                Add Lock Only
+                              </span>
+                            </button>
+                            <button
+                              aria-label="Deploy and Lock"
+                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <span
+                                class="mdc-button__label"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <div
-                                  class="dropdown-arrow"
-                                >
-                                  ⌄
-                                </div>
-                              </button>
-                            </div>
+                                Deploy and Lock
+                              </span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -737,38 +721,34 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
-                      class="expand-button"
+                      class="deploy-lock-buttons"
                     >
-                      <div
-                        class="first-two"
+                      <button
+                        aria-label="Add Lock Only"
+                        class="mdc-button button-popup-lock env-card-lock-btn mdc-button--unelevated highlight"
                       >
-                        <button
-                          aria-label="Deploy & Lock"
-                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <span
-                            class="mdc-button__label"
-                          >
-                            Deploy & Lock
-                          </span>
-                        </button>
-                        <button
-                          aria-label=""
-                          class="mdc-button button-expand"
+                          Add Lock Only
+                        </span>
+                      </button>
+                      <button
+                        aria-label="Deploy and Lock"
+                        class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                      >
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <div
-                            class="dropdown-arrow"
-                          >
-                            ⌄
-                          </div>
-                        </button>
-                      </div>
+                          Deploy and Lock
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -890,39 +870,35 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                         >
                           <div
-                            class="expand-button"
+                            class="deploy-lock-buttons"
                           >
-                            <div
-                              class="first-two"
+                            <button
+                              aria-label="Add Lock Only"
+                              class="mdc-button button-popup-lock env-card-lock-btn mdc-button--unelevated highlight"
                             >
-                              <button
-                                aria-label="Deploy & Lock"
-                                class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
-                                disabled=""
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <span
+                                class="mdc-button__label"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <span
-                                  class="mdc-button__label"
-                                >
-                                  Deploy & Lock
-                                </span>
-                              </button>
-                              <button
-                                aria-label=""
-                                class="mdc-button button-expand"
+                                Add Lock Only
+                              </span>
+                            </button>
+                            <button
+                              aria-label="Deploy and Lock"
+                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              disabled=""
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <span
+                                class="mdc-button__label"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <div
-                                  class="dropdown-arrow"
-                                >
-                                  ⌄
-                                </div>
-                              </button>
-                            </div>
+                                Deploy and Lock
+                              </span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1078,38 +1054,34 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                         >
                           <div
-                            class="expand-button"
+                            class="deploy-lock-buttons"
                           >
-                            <div
-                              class="first-two"
+                            <button
+                              aria-label="Remove Locks"
+                              class="mdc-button button-popup-lock env-card-lock-btn mdc-button--unelevated highlight"
                             >
-                              <button
-                                aria-label="Update & Lock"
-                                class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <span
+                                class="mdc-button__label"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <span
-                                  class="mdc-button__label"
-                                >
-                                  Update & Lock
-                                </span>
-                              </button>
-                              <button
-                                aria-label=""
-                                class="mdc-button button-expand"
+                                Remove Locks
+                              </span>
+                            </button>
+                            <button
+                              aria-label="Update and Lock"
+                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <span
+                                class="mdc-button__label"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <div
-                                  class="dropdown-arrow"
-                                >
-                                  ⌄
-                                </div>
-                              </button>
-                            </div>
+                                Update and Lock
+                              </span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1234,38 +1206,34 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                     title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow."
                   >
                     <div
-                      class="expand-button"
+                      class="deploy-lock-buttons"
                     >
-                      <div
-                        class="first-two"
+                      <button
+                        aria-label="Add Lock Only"
+                        class="mdc-button button-popup-lock env-card-lock-btn mdc-button--unelevated highlight"
                       >
-                        <button
-                          aria-label="Deploy & Lock"
-                          class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <span
-                            class="mdc-button__label"
-                          >
-                            Deploy & Lock
-                          </span>
-                        </button>
-                        <button
-                          aria-label=""
-                          class="mdc-button button-expand"
+                          Add Lock Only
+                        </span>
+                      </button>
+                      <button
+                        aria-label="Deploy and Lock"
+                        class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                      >
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <div
-                            class="dropdown-arrow"
-                          >
-                            ⌄
-                          </div>
-                        </button>
-                      </div>
+                          Deploy and Lock
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
