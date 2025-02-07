@@ -640,8 +640,8 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	if state.Commit != nil {
 		rev = state.Commit.Id()
 	}
-	oldCommitId := rev
 
+	oldCommitId := rev
 	newCommitId, createErr := r.repository.CreateCommitFromIds(
 		fmt.Sprintf("refs/heads/%s", r.config.Branch),
 		author,
@@ -650,6 +650,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 		treeId,
 		rev,
 	)
+
 	if createErr != nil {
 		return nil, &TransformerBatchApplyError{
 			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),

@@ -82,6 +82,13 @@ message EnvApp {
   string environment_name = 2;
 }
 
+message SkipEslEventRequest {
+  uint64 event_esl_version = 1;
+}
+
+message SkipEslEventResponse {
+}
+
 message Event {
   // data that ALL events have:
   google.protobuf.Timestamp created_at = 1;
@@ -798,6 +805,7 @@ message QueueDeploymentResponse {}
 
 service EslService {
   rpc GetFailedEsls (GetFailedEslsRequest) returns (GetFailedEslsResponse) {}
+  rpc SkipEslEvent(SkipEslEventRequest) returns (SkipEslEventResponse) {}
 }
 
 message GetFailedEslsRequest {}

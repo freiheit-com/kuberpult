@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -65,4 +67,17 @@ func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailed
 		return nil, fmt.Errorf("GetFailedEsls is only implemented for the database")
 	}
 	return response, nil
+}
+
+func (s *EslServiceServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "SkipEslEvent")
+	defer span.Finish()
+
+	//Query for UNSYNCED
+	dbHandler := s.Repository.State().DBHandler
+
+	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+		return dbHandler.DBSkipFailedEslEvent(ctx, transaction, db.TransformerID(in.EventEslVersion))
+	})
+	return &api.SkipEslEventResponse{}, onErr(err)
 }

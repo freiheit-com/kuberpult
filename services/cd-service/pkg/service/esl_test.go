@@ -136,7 +136,7 @@ func TestGetFailedEslsService(t *testing.T) {
 				}
 
 				for _, failedEsl := range tc.FailedEsls {
-					err := repo.State().DBHandler.DBWriteFailedEslEvent(ctx, transaction, failedEsl)
+					err := repo.State().DBHandler.DBWriteFailedEslEvent(ctx, transaction, "event_sourcing_light_failed", failedEsl)
 					if err != nil {
 						return err
 					}

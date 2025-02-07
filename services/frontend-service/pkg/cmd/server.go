@@ -847,3 +847,10 @@ func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.Releas
 	}
 	return p.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(ctx, in)
 }
+
+func (p *GrpcProxy) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
+	if p.RolloutServiceClient != nil {
+		return nil, status.Error(codes.Unimplemented, "rollout service is enabled.")
+	}
+	return p.EslServiceClient.SkipEslEvent(ctx, in)
+}
