@@ -68,7 +68,6 @@ type contextKey string
 
 const DdMetricsKey contextKey = "ddMetrics"
 
-
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error

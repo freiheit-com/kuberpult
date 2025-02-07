@@ -158,7 +158,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						prod: "manifest",
 					},
-					Team: "test-team",
+					Team:    "test-team",
 					Version: 1,
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
@@ -180,8 +180,8 @@ func TestBatchServiceWorks(t *testing.T) {
 				},
 			},
 
-			Batch:   getBatchActions(),
-			svc:     &BatchServer{},
+			Batch: getBatchActions(),
+			svc:   &BatchServer{},
 		},
 		{
 			Name: "testing Dex setup with permissions",
@@ -195,7 +195,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
-					Team: "test-team",
+					Team:    "test-team",
 					Version: 1,
 				},
 				&repository.CreateEnvironmentLock{
@@ -216,7 +216,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Message:     "TeamLock",
 				},
 			},
-			Batch:   getBatchActions(),
+			Batch: getBatchActions(),
 			svc: &BatchServer{
 				RBACConfig: auth.RBACConfig{
 					DexEnabled: true,
@@ -256,7 +256,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			user.DexAuthContext = &auth.DexAuthContext{
 				Role: []string{"developer"},
-			} 
+			}
 			ctx = auth.WriteUserToContext(ctx, *user)
 
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -267,7 +267,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				return nil
 			})
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				
+
 				tc.svc.Repository = repo
 				resp, err := tc.svc.ProcessBatch(
 					ctx,
@@ -356,7 +356,6 @@ func TestBatchServiceWorks(t *testing.T) {
 				}
 				return nil
 			})
-
 
 		})
 	}
@@ -690,7 +689,7 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 		CommitterEmail:      "kuberpult@freiheit.com",
 		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
-		DisableQueue: true,
+		DisableQueue:        true,
 	}
 	if dbConfig != nil {
 		dbConfig.DbHost = dir

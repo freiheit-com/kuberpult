@@ -252,7 +252,7 @@ func TestGenerateManifest(t *testing.T) {
 				if err2 != nil {
 					return err2
 				}
-				
+
 				return nil
 			})
 			// These two values change every run:

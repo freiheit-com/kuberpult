@@ -20,8 +20,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 
 	"testing"
@@ -262,7 +262,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						"development-1": "",
 						"staging-1":     "",
 					},
-					Team: "sre-team",
+					Team:    "sre-team",
 					Version: 1,
 				},
 				&rp.CreateApplicationVersion{
@@ -271,7 +271,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						"development-1": "",
 						"staging-1":     "",
 					},
-					Team: "sre-team",
+					Team:    "sre-team",
 					Version: 2,
 				},
 				&rp.DeployApplicationVersion{
@@ -444,7 +444,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 				if err2 != nil {
 					return err2
 				}
-				
+
 				return nil
 			})
 			if err != nil {

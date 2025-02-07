@@ -18,12 +18,12 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"database/sql"
-	"os"
 	"errors"
+	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"os"
 	"os/exec"
 	"path"
 	"testing"
@@ -396,7 +396,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			Manifests: map[string]string{
 				"production": "manifest",
 			},
-			Version: 1,
+			Version:             1,
 			TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
 		},
 		&CreateApplicationVersion{
@@ -404,7 +404,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			Manifests: map[string]string{
 				"production": "manifest2",
 			},
-			Version: 2,
+			Version:             2,
 			TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
 		},
 	}
@@ -445,26 +445,26 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
-					App: "test",
+					App:           "test",
 					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
 						"production": "manifest2",
-					},},
+					}},
 				})
 				if err != nil {
 					t.Fatalf("could not create release 1 for app test: %v", err)
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 2,
-					App: "test",
+					App:           "test",
 					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
 						"production": "manifest2",
-					},},
+					}},
 				})
 				if err != nil {
 					t.Fatalf("could not create release 1 for app test: %v", err)
 				}
-				for _, transformer := range transformers{
-					_,  applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
+				for _, transformer := range transformers {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
 					if applyErr != nil && applyErr.TransformerError != nil {
 						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
 					}

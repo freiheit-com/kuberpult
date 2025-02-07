@@ -60,7 +60,6 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
-
 func TestGetTagsNoTags(t *testing.T) {
 	name := "No tags to be returned at all"
 

@@ -2993,7 +2993,7 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 		if version == nil {
-			return "", fmt.Errorf("could not find version %d for app %s", c.Version, c.Application) 
+			return "", fmt.Errorf("could not find version %d for app %s", c.Version, c.Application)
 		}
 		manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 	} else {

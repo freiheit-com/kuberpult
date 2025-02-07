@@ -80,9 +80,9 @@ func TestVersion(t *testing.T) {
 			},
 			ExpectedVersions: []expectedVersion{
 				{
-					Environment:        "development",
-					Application:        "test",
-					ExpectedVersion:    1,
+					Environment:     "development",
+					Application:     "test",
+					ExpectedVersion: 1,
 				},
 			},
 		},
@@ -148,7 +148,7 @@ func TestVersion(t *testing.T) {
 				if err2 != nil {
 					return err2
 				}
-				
+
 				return nil
 			})
 			if err != nil {
@@ -234,7 +234,7 @@ func TestGetManifests(t *testing.T) {
 			Release: &api.Release{
 				Version:        release.Version,
 				SourceCommitId: release.SourceCommitId,
-				Environments: []string{"development", "staging"},
+				Environments:   []string{"development", "staging"},
 			},
 			Manifests: map[string]*api.Manifest{
 				"development": {
@@ -336,7 +336,7 @@ func TestGetManifests(t *testing.T) {
 				if err2 != nil {
 					return err2
 				}
-				
+
 				return nil
 			})
 			got, err := sv.GetManifests(context.Background(), tc.req)

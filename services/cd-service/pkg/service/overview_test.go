@@ -489,7 +489,7 @@ func TestOverviewService(t *testing.T) {
 	}{
 		{
 			Name: "A stream overview works",
-			DB: true,
+			DB:   true,
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",

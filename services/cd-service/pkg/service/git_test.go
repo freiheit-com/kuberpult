@@ -30,7 +30,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 
-
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
