@@ -18,8 +18,10 @@ package service
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/google/go-cmp/cmp"
 
 	"testing"
@@ -172,6 +174,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						"development-1": "",
 						"staging-1":     "",
 					},
+					Version: 1,
 				},
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
@@ -179,6 +182,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						"development-1": "",
 						"staging-1":     "",
 					},
+					Version: 2,
 				},
 				&rp.DeployApplicationVersion{
 					Environment: "development-1",
@@ -259,6 +263,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						"staging-1":     "",
 					},
 					Team: "sre-team",
+					Version: 1,
 				},
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
@@ -267,6 +272,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						"staging-1":     "",
 					},
 					Team: "sre-team",
+					Version: 2,
 				},
 				&rp.DeployApplicationVersion{
 					Environment: "development-1",
@@ -346,6 +352,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						"development-1": "",
 						"staging-1":     "",
 					},
+					Version: 1,
 				},
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
@@ -353,6 +360,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						"development-1": "",
 						"staging-1":     "",
 					},
+					Version: 2,
 				},
 				&rp.DeployApplicationVersion{
 					Environment: "development-1",
@@ -412,16 +420,33 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err := setupRepositoryTestWithDB(t, dbConfig)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
+			ctx := testutil.MakeTestContext()
 
-			err = repo.Apply(testutil.MakeTestContext(), environmentSetup...)
-			if err != nil {
-				t.Fatalf("error during setup, error: %v", err)
-			}
-			err = repo.Apply(testutil.MakeTestContext(), tc.Setup...)
+			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, environmentSetup...)
+				if err2 != nil {
+					return err2
+				}
+				_, _, _, err2 = repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Setup...)
+				if err2 != nil {
+					return err2
+				}
+				
+				return nil
+			})
 			if err != nil {
 				t.Fatalf("error during setup, error: %v", err)
 			}

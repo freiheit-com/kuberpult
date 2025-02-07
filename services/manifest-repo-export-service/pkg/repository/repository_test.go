@@ -19,6 +19,9 @@ package repository
 import (
 	"context"
 	"fmt"
+	"database/sql"
+	"os"
+	"errors"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os/exec"
@@ -27,6 +30,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	git "github.com/libgit2/git2go/v34"
@@ -372,6 +376,114 @@ func TestGetTags(t *testing.T) {
 				}
 				iter += 1
 			}
+		})
+	}
+}
+
+func TestArgoCDFileGeneration(t *testing.T) {
+	transformers := []Transformer{
+		&CreateEnvironment{
+			Environment: "production",
+			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Server: "development",
+				},
+			}},
+			TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest",
+			},
+			Version: 1,
+			TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest2",
+			},
+			Version: 2,
+			TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+		},
+	}
+	tcs := []struct {
+		Name                string
+		shouldGenerateFiles bool
+	}{
+		{
+			Name:                "ArgoCD files should NOT be generated",
+			shouldGenerateFiles: false,
+		},
+		{
+			Name:                "Argo CD files should be generated",
+			shouldGenerateFiles: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			repo.config.ArgoCdGenerateFiles = tc.shouldGenerateFiles
+			state := repo.State()
+			ctx := testutil.MakeTestContext()
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{Team: "test"})
+				if err != nil {
+					t.Fatalf("could not create app test: %v", err)
+				}
+				err = dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Server: "development",
+					},
+				}}, []string{"test"})
+				if err != nil {
+					t.Fatalf("could not create environment production: %v", err)
+				}
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App: "test",
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production": "manifest2",
+					},},
+				})
+				if err != nil {
+					t.Fatalf("could not create release 1 for app test: %v", err)
+				}
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 2,
+					App: "test",
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production": "manifest2",
+					},},
+				})
+				if err != nil {
+					t.Fatalf("could not create release 1 for app test: %v", err)
+				}
+				for _, transformer := range transformers{
+					_,  applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
+					if applyErr != nil && applyErr.TransformerError != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+				}
+				return nil
+			})
+
+			state = repo.State() //update state
+
+			if _, err := state.Filesystem.Stat("argocd"); errors.Is(err, os.ErrNotExist) {
+				if tc.shouldGenerateFiles {
+					t.Fatalf("Expected ArgoCD directory, but none was found. %v\n", err)
+				}
+			} else { //Argo CD dir exists
+				if !tc.shouldGenerateFiles {
+					t.Fatalf("ArgoCD files should not have been generated. Found ArgoCD directory.")
+				}
+			}
+
 		})
 	}
 }

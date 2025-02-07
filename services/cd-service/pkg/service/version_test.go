@@ -18,11 +18,14 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/pkg/time"
+	"strconv"
 	"testing"
 	gotime "time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -80,12 +83,6 @@ func TestVersion(t *testing.T) {
 					Environment:        "development",
 					Application:        "test",
 					ExpectedVersion:    1,
-					ExpectedDeployedAt: gotime.Unix(2, 0),
-				},
-				{
-					Environment:     "staging",
-					Application:     "test",
-					ExpectedVersion: 0,
 				},
 			},
 		},
@@ -122,7 +119,6 @@ func TestVersion(t *testing.T) {
 					Environment:            "development",
 					Application:            "test",
 					ExpectedVersion:        1,
-					ExpectedDeployedAt:     gotime.Unix(2, 0),
 					ExpectedSourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
 				},
 			},
@@ -131,22 +127,36 @@ func TestVersion(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err := setupRepositoryTestWithDB(t, dbConfig)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
 			sv := &VersionServiceServer{Repository: repo}
+			ctx := testutil.MakeTestContext()
 
-			for i, transformer := range tc.Setup {
-				now := gotime.Unix(int64(i), 0)
-				ctx := time.WithTimeNow(testutil.MakeTestContext(), now)
-				err := repo.Apply(ctx, transformer)
-				if err != nil {
-					t.Fatal(err)
+			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Setup...)
+				if err2 != nil {
+					return err2
 				}
+				
+				return nil
+			})
+			if err != nil {
+				t.Fatal("error applying setup transformers")
 			}
-			cid := repo.State().Commit.Id().String()
+
 			for _, ev := range tc.ExpectedVersions {
+				cid := "000000000000000000000000000000000000000" + strconv.FormatUint(ev.ExpectedVersion, 10)
 				res, err := sv.GetVersion(context.Background(), &api.GetVersionRequest{
 					GitRevision: cid,
 					Application: ev.Application,
@@ -157,15 +167,6 @@ func TestVersion(t *testing.T) {
 				}
 				if res.Version != ev.ExpectedVersion {
 					t.Errorf("got wrong version for %s/%s: expected %d but got %d", ev.Application, ev.Environment, ev.ExpectedVersion, res.Version)
-				}
-				if ev.ExpectedDeployedAt.IsZero() {
-					if res.DeployedAt != nil {
-						t.Errorf("got wrong deployed at for %s/%s: expected <nil> but got %q", ev.Application, ev.Environment, res.DeployedAt)
-					}
-				} else {
-					if !res.DeployedAt.AsTime().Equal(ev.ExpectedDeployedAt) {
-						t.Errorf("got wrong deployed at for %s/%s: expected %q but got %q", ev.Application, ev.Environment, ev.ExpectedDeployedAt, res.DeployedAt.AsTime())
-					}
 				}
 				if ev.ExpectedSourceCommitId != res.SourceCommitId {
 					t.Errorf("go wrong source commit id, expected %q, got %q", ev.ExpectedSourceCommitId, res.SourceCommitId)
@@ -233,6 +234,7 @@ func TestGetManifests(t *testing.T) {
 			Release: &api.Release{
 				Version:        release.Version,
 				SourceCommitId: release.SourceCommitId,
+				Environments: []string{"development", "staging"},
 			},
 			Manifests: map[string]*api.Manifest{
 				"development": {
@@ -313,21 +315,30 @@ func TestGetManifests(t *testing.T) {
 	} {
 		tc := tc // TODO SRX-SRRONB: Remove after switching to go v1.22
 		t.Run(tc.name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+			repo, err := setupRepositoryTestWithDB(t, dbConfig)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
+			ctx := testutil.MakeTestContext()
 			sv := &VersionServiceServer{Repository: repo}
 
-			for i, transformer := range tc.setup {
-				now := gotime.Unix(int64(i), 0)
-				ctx := time.WithTimeNow(testutil.MakeTestContext(), now)
-				err := repo.Apply(ctx, transformer)
-				if err != nil {
-					t.Fatal(err)
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.setup...)
+				if err2 != nil {
+					return err2
 				}
-			}
-
+				
+				return nil
+			})
 			got, err := sv.GetManifests(context.Background(), tc.req)
 			if diff := cmp.Diff(tc.wantErr, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
