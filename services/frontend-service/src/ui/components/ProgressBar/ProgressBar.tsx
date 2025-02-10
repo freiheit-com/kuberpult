@@ -13,7 +13,16 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-.compliance-content > * {
-    margin-right: 20px;
-    margin-bottom: 20px;
-}
+import React from 'react';
+
+export type ProgressBarProps = {
+    max: number;
+    value: number;
+};
+
+export const ProgressBar: React.FC<ProgressBarProps> = ({ max, value }) => (
+    <div className="progress-bar">
+        <span>{value}%</span>
+        <progress max={max} value={value} />
+    </div>
+);
