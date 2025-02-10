@@ -63,7 +63,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 ],
             },
             expectedEslsTable: {
-                head: ['EslVersion:', 'Date:', 'Event Type:', 'Json:', 'Reason:', 'TransformerEslVersion:'],
+                head: ['EslVersion:', 'Date:', 'Event Type:', 'Json:', 'Reason:', 'TransformerEslVersion:', 'Retry:'],
                 body: [
                     [
                         '1',
@@ -72,6 +72,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         '{"version": 1, "app": "test-app-name"}',
                         '',
                         '12',
+                        'Retry',
                     ],
                     [
                         '2',
@@ -80,6 +81,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         '{"app": "test-app-name", "environment": "dev"}',
                         'unexpected error',
                         '17',
+                        'Retry',
                     ],
                 ],
             },
@@ -99,7 +101,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 ],
             },
             expectedEslsTable: {
-                head: ['EslVersion:', 'Date:', 'Event Type:', 'Json:', 'Reason:', 'TransformerEslVersion:'],
+                head: ['EslVersion:', 'Date:', 'Event Type:', 'Json:', 'Reason:', 'TransformerEslVersion:', 'Retry:'],
                 body: [
                     [
                         '1',
@@ -108,6 +110,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         '{"version": 1, "app": "test-app-name"}',
                         'unknown error',
                         '9',
+                        'Retry',
                     ],
                 ],
             },
