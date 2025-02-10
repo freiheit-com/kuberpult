@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -43,12 +42,9 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testssh"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	git "github.com/libgit2/git2go/v34"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -62,259 +58,6 @@ func (e errMatcher) Error() string {
 
 func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
-}
-
-func TestNew(t *testing.T) {
-	tcs := []struct {
-		Name   string
-		Branch string
-		Setup  func(t *testing.T, remoteDir, localDir string)
-		Test   func(t *testing.T, repo Repository, remoteDir string)
-	}{
-		{
-			Name:  "new in empty directory works",
-			Setup: func(_ *testing.T, _, _ string) {},
-		},
-		{
-			Name: "new in initialized repository works",
-			Setup: func(t *testing.T, remoteDir, localDir string) {
-				// run the initialization code once
-				_, err := New(
-					testutil.MakeTestContext(),
-					RepositoryConfig{
-						URL:                 "file://" + remoteDir,
-						Path:                localDir,
-						ArgoCdGenerateFiles: true,
-					},
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-			Test: func(t *testing.T, repo Repository, remoteDir string) {
-				state := repo.State()
-				entries, err := state.Filesystem.ReadDir("")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(entries) > 0 {
-					t.Errorf("repository is not empty but contains %d entries", len(entries))
-				}
-			},
-		},
-		{
-			Name: "new in initialized repository with data works",
-			Setup: func(t *testing.T, remoteDir, localDir string) {
-				// run the initialization code once
-				repo, err := New(
-					testutil.MakeTestContext(),
-					RepositoryConfig{
-						URL:                 remoteDir,
-						Path:                localDir,
-						ArgoCdGenerateFiles: true,
-					},
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-				err = repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
-					Application: "foo",
-					Manifests: map[string]string{
-						"development": "foo",
-					},
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-			Test: func(t *testing.T, repo Repository, remoteDir string) {
-				state := repo.State()
-				entries, err := state.Filesystem.ReadDir("applications/foo/releases")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(entries) != 1 {
-					t.Errorf("applications/foo/releases doesn't contain 1 but %d entries", len(entries))
-				}
-			},
-		},
-		{
-			Name: "new with empty repository but non-empty remote works",
-			Setup: func(t *testing.T, remoteDir, localDir string) {
-				// run the initialization code once
-				repo, err := New(
-					testutil.MakeTestContext(),
-					RepositoryConfig{
-						URL:                 remoteDir,
-						Path:                t.TempDir(),
-						ArgoCdGenerateFiles: true,
-					},
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-				err = repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
-					Application: "foo",
-					Manifests: map[string]string{
-						"development": "foo",
-					},
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-			Test: func(t *testing.T, repo Repository, remoteDir string) {
-				state := repo.State()
-				entries, err := state.Filesystem.ReadDir("applications/foo/releases")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(entries) != 1 {
-					t.Errorf("applications/foo/releases doesn't contain 1 but %d entries", len(entries))
-				}
-			},
-		},
-		{
-			Name:   "new with changed branch works",
-			Branch: "not-master",
-			Setup:  func(t *testing.T, remoteDir, localDir string) {},
-			Test: func(t *testing.T, repo Repository, remoteDir string) {
-				err := repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
-					Application: "foo",
-					Manifests: map[string]string{
-						"development": "foo",
-					},
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-				cmd := exec.Command("git", "--git-dir="+remoteDir, "rev-parse", "not-master")
-				out, err := cmd.Output()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						t.Logf("stderr: %s\n", exitErr.Stderr)
-					}
-					t.Fatal(err)
-				}
-				state := repo.State()
-				localRev := state.Commit.Id().String()
-				if diff := cmp.Diff(localRev, strings.TrimSpace(string(out))); diff != "" {
-					t.Errorf("mismatched revision (-want, +got):\n%s", diff)
-				}
-			},
-		},
-		{
-			Name:   "old with changed branch works",
-			Branch: "master",
-			Setup:  func(t *testing.T, remoteDir, localDir string) {},
-			Test: func(t *testing.T, repo Repository, remoteDir string) {
-				workdir := t.TempDir()
-				cmd := exec.Command("git", "clone", remoteDir, workdir) // Clone git dir
-				out, err := cmd.Output()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						t.Logf("stderr: %s\n", exitErr.Stderr)
-					}
-					t.Fatal(err)
-				}
-
-				if err := os.WriteFile(filepath.Join(workdir, "hello.txt"), []byte("hello"), 0666); err != nil {
-					t.Fatal(err)
-				}
-				cmd = exec.Command("git", "add", "hello.txt") // Add a new file to git
-				cmd.Dir = workdir
-				out, err = cmd.Output()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						t.Logf("stderr: %s\n", exitErr.Stderr)
-					}
-					t.Fatal(err)
-				}
-				cmd = exec.Command("git", "commit", "-m", "new-file") // commit the new file
-				cmd.Dir = workdir
-				cmd.Env = []string{
-					"GIT_AUTHOR_NAME=kuberpult",
-					"GIT_COMMITTER_NAME=kuberpult",
-					"EMAIL=test@kuberpult.com",
-				}
-				out, err = cmd.Output()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						t.Logf("stderr: %s\n", exitErr.Stderr)
-					}
-					t.Fatal(err)
-				}
-				cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
-				cmd.Dir = workdir
-				out, err = cmd.Output()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						t.Logf("stderr: %s\n", exitErr.Stderr)
-					}
-					t.Fatal(err)
-				}
-				err = repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
-					Application: "foo",
-					Manifests: map[string]string{
-						"development": "foo",
-					},
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-				cmd = exec.Command("git", "--git-dir="+remoteDir, "rev-parse", "master")
-				out, err = cmd.Output()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						t.Logf("stderr: %s\n", exitErr.Stderr)
-					}
-					t.Fatal(err)
-				}
-				state := repo.State()
-				localRev := state.Commit.Id().String()
-				if diff := cmp.Diff(localRev, strings.TrimSpace(string(out))); diff != "" {
-					t.Errorf("mismatched revision (-want, +got):\n%s", diff)
-				}
-
-				content, err := util.ReadFile(state.Filesystem, "hello.txt")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if diff := cmp.Diff("hello", string(content)); diff != "" {
-					t.Errorf("mismatched file content (-want, +got):\n%s", diff)
-				}
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			tc.Setup(t, remoteDir, localDir)
-			repo, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                 "file://" + remoteDir,
-					Path:                localDir,
-					Branch:              tc.Branch,
-					ArgoCdGenerateFiles: true,
-				},
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
-			if tc.Test != nil {
-				tc.Test(t, repo, remoteDir)
-			}
-		})
-	}
 }
 
 func TestGetTagsNoTags(t *testing.T) {
@@ -462,143 +205,6 @@ func TestGetTags(t *testing.T) {
 	}
 }
 
-func TestConfigReload(t *testing.T) {
-	configFiles := []struct {
-		ConfigContent string
-		ErrorExpected bool
-	}{
-		{
-			ConfigContent: "{\"upstream\": {\"latest\": true }}",
-			ErrorExpected: false,
-		},
-		{
-			ConfigContent: "{\"upstream\": \"latest\": true }}",
-			ErrorExpected: true,
-		},
-		{
-			ConfigContent: "{\"upstream\": {\"latest\": true }}",
-			ErrorExpected: false,
-		},
-	}
-	t.Run("Config file reload on change", func(t *testing.T) {
-		t.Parallel()
-		// create a remote
-		workdir := t.TempDir()
-		remoteDir := path.Join(workdir, "remote")
-		cmd := exec.Command("git", "init", "--bare", remoteDir)
-		cmd.Start()
-		cmd.Wait()
-
-		workdir = t.TempDir()
-		cmd = exec.Command("git", "clone", remoteDir, workdir) // Clone git dir
-		_, err := cmd.Output()
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				t.Logf("stderr: %s\n", exitErr.Stderr)
-			}
-			t.Fatal(err)
-		}
-		cmd = exec.Command("git", "config", "pull.rebase", "false") // Add a new file to git
-		cmd.Dir = workdir
-		_, err = cmd.Output()
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				t.Logf("stderr: %s\n", exitErr.Stderr)
-			}
-			t.Fatal(err)
-		}
-
-		if err := os.MkdirAll(path.Join(workdir, "environments", "development"), 0700); err != nil {
-			t.Fatal(err)
-		}
-
-		updateConfigFile := func(configFileContent string) error {
-			configFilePath := path.Join(workdir, "environments", "development", "config.json")
-			if err := os.WriteFile(configFilePath, []byte(configFileContent), 0666); err != nil {
-				return err
-			}
-			cmd = exec.Command("git", "add", configFilePath) // Add a new file to git
-			cmd.Dir = workdir
-			_, err = cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				return err
-			}
-			cmd = exec.Command("git", "commit", "-m", "valid config") // commit the new file
-			cmd.Dir = workdir
-			cmd.Env = []string{
-				"GIT_AUTHOR_NAME=kuberpult",
-				"GIT_COMMITTER_NAME=kuberpult",
-				"EMAIL=test@kuberpult.com",
-			}
-			out, err := cmd.Output()
-			fmt.Println(string(out))
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-					t.Logf("stderr: %s\n", err)
-				}
-				return err
-			}
-			cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
-			cmd.Dir = workdir
-			_, err = cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				return err
-			}
-			return nil
-		}
-
-		repo, err := New(
-			testutil.MakeTestContext(),
-			RepositoryConfig{
-				URL:                 remoteDir,
-				Path:                t.TempDir(),
-				ArgoCdGenerateFiles: true,
-			},
-		)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for _, configFile := range configFiles {
-			err = updateConfigFile(configFile.ConfigContent)
-			if err != nil {
-				t.Fatal(err)
-			}
-			err := repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
-				Application: "foo",
-				Manifests: map[string]string{
-					"development": "foo",
-				},
-			})
-			if configFile.ErrorExpected {
-				if err == nil {
-					t.Errorf("Apply gave no error even though config.json was incorrect")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Initialization failed with valid config.json: %s", err.Error())
-				}
-				cmd = exec.Command("git", "pull") // Add a new file to git
-				cmd.Dir = workdir
-				_, err = cmd.Output()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						t.Logf("stderr: %s\n", exitErr.Stderr)
-					}
-					t.Fatal(err)
-				}
-			}
-		}
-	})
-}
 func TestConfigValidity(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -1265,25 +871,8 @@ func TestApplyQueue(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			repo, err := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                   "file://" + remoteDir,
-					Path:                  localDir,
-					MaximumCommitsPerPush: 10,
-					ArgoCdGenerateFiles:   true,
-				},
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
 			repoInternal := repo.(*repository)
 			// Block the worker so that we have multiple items in the queue
 			finished := make(chan struct{})
@@ -1323,10 +912,13 @@ func TestApplyQueue(t *testing.T) {
 					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
 				}
 			}
-			releases, _ := repo.State().Releases("foo")
-			if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
-				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
-			}
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				releases, _ := repo.State().GetAllApplicationReleases(ctx, transaction, "foo")
+				if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
+					t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
+				}
+				return nil
+			})
 
 		})
 	}
@@ -1639,41 +1231,6 @@ func TestProcessQueueOnce(t *testing.T) {
 			},
 			ExpectedError: nil,
 		},
-		{
-			Name: "failure because DefaultPushUpdate is wrong (branch protection)",
-			PushUpdateFunc: func(s string, success *bool) git.PushUpdateReferenceCallback {
-				*success = false
-				return nil
-			},
-			PushActionFunc: DefaultPushActionCallback,
-			Element: transformerBatch{
-				ctx: testutil.MakeTestContext(),
-				transformers: []Transformer{
-					&EmptyTransformer{},
-				},
-				result: make(chan error, 1),
-			},
-			ExpectedError: errMatcher{"failed to push - this indicates that branch protection is enabled in 'file://$DIR/remote' on branch 'master'"},
-		},
-		{
-			Name: "failure because error is returned in push (ssh key has read only access)",
-			PushUpdateFunc: func(s string, success *bool) git.PushUpdateReferenceCallback {
-				return nil
-			},
-			PushActionFunc: func(options git.PushOptions, r *repository) PushActionFunc {
-				return func() error {
-					return git.MakeGitError(1)
-				}
-			},
-			Element: transformerBatch{
-				ctx: testutil.MakeTestContext(),
-				transformers: []Transformer{
-					&EmptyTransformer{},
-				},
-				result: make(chan error, 1),
-			},
-			ExpectedError: errMatcher{"rpc error: code = InvalidArgument desc = error: could not push to manifest repository 'file://$DIR/remote' on branch 'master' - this indicates that the ssh key does not have write access"},
-		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -1682,27 +1239,12 @@ func TestProcessQueueOnce(t *testing.T) {
 
 			// create a remote
 			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			repo, actualError := New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                 "file://" + remoteDir,
-					Path:                localDir,
-					ArgoCdGenerateFiles: true,
-				},
-			)
-			if actualError != nil {
-				t.Fatalf("new: expected no error, got '%e'", actualError)
-			}
+			repo := SetupRepositoryTestWithDB(t)
 			repoInternal := repo.(*repository)
 			repoInternal.ProcessQueueOnce(testutil.MakeTestContext(), tc.Element, tc.PushUpdateFunc, tc.PushActionFunc)
 
 			result := tc.Element.result
-			actualError = <-result
+			actualError := <-result
 
 			var expectedError error
 			if tc.ExpectedError != nil {
@@ -1877,75 +1419,6 @@ func TestApplyTransformerBatch(t *testing.T) {
 	}
 }
 
-func TestGitPushDoesntGetStuck(t *testing.T) {
-	tcs := []struct {
-		Name string
-	}{
-		{
-			Name: "it doesnt get stuck",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Run()
-			ts := testssh.New(remoteDir)
-			defer ts.Close()
-			repo, err := New(
-				ctx,
-				RepositoryConfig{
-					URL: ts.Url,
-					Certificates: Certificates{
-						KnownHostsFile: ts.KnownHosts,
-					},
-					Credentials: Credentials{
-						SshKey: ts.ClientKey,
-					},
-					Path:                localDir,
-					NetworkTimeout:      time.Second,
-					ArgoCdGenerateFiles: true,
-				},
-			)
-			if err != nil {
-				t.Errorf("expected no error, got %q ( %#v )", err, err)
-			}
-			err = repo.Apply(testutil.MakeTestContext(),
-				&CreateEnvironment{Environment: "dev"},
-			)
-			if err != nil {
-				t.Errorf("expected no error, got %q ( %#v )", err, err)
-			}
-			// This will prevent the next push from working
-			ts.DelayExecs(15 * time.Second)
-			err = repo.Apply(testutil.MakeTestContext(),
-				&CreateEnvironment{Environment: "stg"},
-			)
-			if err == nil {
-				t.Errorf("expected an error, but didn't get one")
-			}
-			if status.Code(err) != codes.Canceled {
-				t.Errorf("expected status code cancelled, but got %q", status.Code(err))
-			}
-			// This will make the next push work
-			ts.DelayExecs(0 * time.Second)
-			err = repo.Apply(testutil.MakeTestContext(),
-				&CreateEnvironment{Environment: "stg"},
-			)
-			if err != nil {
-				t.Errorf("expected no error, got %q ( %#v )", err, err)
-			}
-		})
-	}
-}
-
 type TestWebhookResolver struct {
 	t        *testing.T
 	rec      *httptest.ResponseRecorder
@@ -2060,78 +1533,6 @@ func TestLimit(t *testing.T) {
 			if expectedErrorNumber > 0 && expectedErrorNumber != actualErrorNumber {
 				t.Errorf("error number mismatch expected: %d, got %d", expectedErrorNumber, actualErrorNumber)
 			}
-		})
-	}
-}
-
-func TestArgoCDFileGeneration(t *testing.T) {
-	transformers := []Transformer{
-		&CreateEnvironment{
-			Environment: "production",
-			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
-				Destination: config.ArgoCdDestination{
-					Server: "development",
-				},
-			}},
-		},
-		&CreateApplicationVersion{
-			Application: "test",
-			Manifests: map[string]string{
-				"production": "manifest",
-			},
-		},
-		&CreateApplicationVersion{
-			Application: "test",
-			Manifests: map[string]string{
-				"production": "manifest2",
-			},
-		},
-	}
-	tcs := []struct {
-		Name                string
-		shouldGenerateFiles bool
-	}{
-		{
-			Name:                "ArgoCD files should NOT be generated",
-			shouldGenerateFiles: false,
-		},
-		{
-			Name:                "Argo CD files should be generated",
-			shouldGenerateFiles: true,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			cfg := RepositoryConfig{
-				MaximumCommitsPerPush: 5,
-				ArgoCdGenerateFiles:   tc.shouldGenerateFiles,
-			}
-			repo, err := setupRepository(t, cfg)
-			state := repo.State()
-			ctx := testutil.MakeTestContext()
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			_, applyErr := repo.(*repository).ApplyTransformers(ctx, nil, transformers...)
-
-			state = repo.State() //update state
-			if applyErr != nil {
-				t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
-			}
-
-			if _, err := state.Filesystem.Stat("argocd"); errors.Is(err, os.ErrNotExist) {
-				if tc.shouldGenerateFiles {
-					t.Fatalf("Expected ArgoCD directory, but none was found. %v\n", err)
-				}
-			} else { //Argo CD dir exists
-				if !tc.shouldGenerateFiles {
-					t.Fatalf("ArgoCD files should not have been generated. Found ArgoCD directory.")
-				}
-			}
-
 		})
 	}
 }

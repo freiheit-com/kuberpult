@@ -489,6 +489,7 @@ func TestOverviewService(t *testing.T) {
 	}{
 		{
 			Name: "A stream overview works",
+			DB:   true,
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",
@@ -499,12 +500,14 @@ func TestOverviewService(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "v1",
 					},
+					Version: 1,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						"development": "v2",
 					},
+					Version: 2,
 				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
@@ -1690,176 +1693,6 @@ func TestDeriveUndeploySummary(t *testing.T) {
 			if !cmp.Equal(tc.ExpectedResult, actualResult) {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult, actualResult))
 			}
-		})
-	}
-}
-
-func TestOverviewServiceFromCommit(t *testing.T) {
-	type step struct {
-		Transformer repository.Transformer
-	}
-	tcs := []struct {
-		Name  string
-		Steps []step
-	}{
-		{
-			Name: "A simple overview works",
-			Steps: []step{
-				{
-					Transformer: &repository.CreateEnvironment{
-						Environment: "development",
-						Config:      config.EnvironmentConfig{},
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironment{
-						Environment: "staging",
-						Config: config.EnvironmentConfig{
-							Upstream: &config.EnvironmentConfigUpstream{
-								Latest: true,
-							},
-						},
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironment{
-						Environment: "production",
-						Config: config.EnvironmentConfig{
-							Upstream: &config.EnvironmentConfigUpstream{
-								Environment: "staging",
-							},
-						},
-					},
-				},
-				{
-					Transformer: &repository.CreateApplicationVersion{
-						Application: "test",
-						Manifests: map[string]string{
-							"development": "dev",
-						},
-
-						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-						SourceMessage:  "changed something (#678)",
-					},
-				},
-				{
-					Transformer: &repository.CreateApplicationVersion{
-						Application: "test-with-team",
-						Manifests: map[string]string{
-							"development": "dev",
-						},
-						Team: "test-team",
-					},
-				},
-				{
-					Transformer: &repository.CreateApplicationVersion{
-						Application: "test-with-incorrect-pr-number",
-						Manifests: map[string]string{
-							"development": "dev",
-						},
-						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-						SourceMessage:  "changed something (#678",
-					},
-				},
-				{
-					Transformer: &repository.CreateApplicationVersion{
-						Application: "test-with-only-pr-number",
-						Manifests: map[string]string{
-							"development": "dev",
-						},
-						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-						SourceMessage:  "(#678)",
-					},
-				},
-				{
-					Transformer: &repository.DeployApplicationVersion{
-						Application: "test",
-						Environment: "development",
-						Version:     1,
-					},
-				},
-				{
-					Transformer: &repository.DeployApplicationVersion{
-						Application: "test-with-team",
-						Environment: "development",
-						Version:     1,
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironmentLock{
-						Environment: "development",
-						LockId:      "manual",
-						Message:     "please",
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironmentApplicationLock{
-						Environment: "production",
-						Application: "test",
-						LockId:      "manual",
-						Message:     "no",
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironmentTeamLock{
-						Environment: "production",
-						Team:        "test-team",
-						LockId:      "manual",
-						Message:     "no",
-					},
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			shutdown := make(chan struct{}, 1)
-			repo, err := setupRepositoryTest(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-			ctx := testutil.MakeTestContext()
-			svc := &OverviewServiceServer{
-				Repository: repo,
-				Shutdown:   shutdown,
-				Context:    ctx,
-			}
-
-			ov, err := svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
-			if err != nil {
-				t.Errorf("expected no error, got %s", err)
-			}
-			if ov.GitRevision != "" {
-				t.Errorf("expected git revision to be empty, got %q", ov.GitRevision)
-			}
-			revisions := map[string]*api.GetOverviewResponse{}
-			for _, tr := range tc.Steps {
-				if err := repo.Apply(testutil.MakeTestContext(), tr.Transformer); err != nil {
-					t.Fatal(err)
-				}
-				ov, err = svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
-				if err != nil {
-					t.Errorf("expected no error, got %s", err)
-				}
-				if ov.GitRevision == "" {
-					t.Errorf("expected git revision to be non-empty")
-				}
-				revisions[ov.GitRevision] = ov
-			}
-			for rev := range revisions {
-				ov, err = svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{GitRevision: rev})
-				if err != nil {
-					t.Errorf("expected no error, got %s", err)
-				}
-				if ov.GitRevision != rev {
-					t.Errorf("expected git revision to be %q, but got %q", rev, ov.GitRevision)
-				}
-			}
-			close(shutdown)
 		})
 	}
 }

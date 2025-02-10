@@ -68,8 +68,6 @@ type contextKey string
 
 const DdMetricsKey contextKey = "ddMetrics"
 
-var gitMutexLock sync.Mutex
-
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
@@ -962,7 +960,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
 	defer span.Finish()
 
-	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
+	_, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
 	}
@@ -970,71 +968,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
-	gitSpan, ctx := tracer.StartSpanFromContext(ctx, "GitCommitCreation")
-	defer gitSpan.Finish()
-	gitMutexLock.Lock()
-	defer gitMutexLock.Unlock()
-	if state.DBHandler.ShouldUseOtherTables() {
-		var err error
-		state, err = r.StateAt(nil)
-		if err != nil {
-			return nil, &TransformerBatchApplyError{TransformerError: err, Index: -1}
-		}
-	}
-	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-	if insertError != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
-	}
-	committer := &git.Signature{
-		Name:  r.config.CommitterName,
-		Email: r.config.CommitterEmail,
-		When:  time.Now(),
-	}
-
-	user, readUserErr := auth.ReadUserFromContext(ctx)
-
-	if readUserErr != nil {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: readUserErr,
-			Index:            -1,
-		}
-	}
-
-	author := &git.Signature{
-		Name:  user.Name,
-		Email: user.Email,
-		When:  time.Now(),
-	}
-
-	var rev *git.Oid
-	// the commit can be nil, if it's the first commit in the repo
-	if state.Commit != nil {
-		rev = state.Commit.Id()
-	}
-	oldCommitId := rev
-
-	newCommitId, createErr := r.repository.CreateCommitFromIds(
-		fmt.Sprintf("refs/heads/%s", r.config.Branch),
-		author,
-		committer,
-		strings.Join(commitMsg, "\n"),
-		treeId,
-		rev,
-	)
-	if createErr != nil {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
-			Index:            -1,
-		}
-	}
 	result := CombineArray(changes)
-	result.Commits = &CommitIds{
-		Current:  newCommitId,
-		Previous: nil,
-	}
-	if oldCommitId != nil {
-		result.Commits.Previous = oldCommitId
-	}
 	return result, nil
 }
 

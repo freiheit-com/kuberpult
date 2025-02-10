@@ -129,7 +129,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			Name: "CreateApplicationVersion",
 			Transformer: &CreateApplicationVersion{
 				Authentication:  Authentication{},
-				Version:         0,
+				Version:         1,
 				Application:     "dummy",
 				Manifests:       nil,
 				SourceCommitId:  "",
@@ -300,7 +300,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, true)
+			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			r := repo.(*repository)
 			row := &db.EslEventRow{}
 			err = repo.Apply(ctx, setupTransformers...)

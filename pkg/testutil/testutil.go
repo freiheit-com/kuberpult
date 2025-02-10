@@ -168,6 +168,8 @@ func NewIncrementalUUIDGeneratorForPageSizeTest() uuid.GenerateUUIDs {
 			"e15d9a99-4f41-11ef-9ae5-00e04c684024",
 			"e3276e62-4f41-11ef-8788-00e04c684024",
 			"e4f13c8b-4f41-11ef-9735-00e04c684024",
+			"e4f13c8b-4f41-11ef-9735-00e04c684025",
+			"e4f13c8b-4f41-11ef-9735-00e04c684026",
 		},
 	}
 	fakeGen := IncrementalUUIDForPageSizeTest{
