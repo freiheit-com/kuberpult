@@ -1334,7 +1334,7 @@ func TestRetryEvent(t *testing.T) {
 			},
 			initialFailedEslEvents: []*db.EslFailedEventRow{
 				{
-					EslVersion:            1,
+					EslVersion:            0, //Esl Version is not used with separation between current and history
 					EventType:             testEventType,
 					EventJson:             "{}",
 					Reason:                "some-reason",
@@ -1416,7 +1416,7 @@ func TestRetryEvent(t *testing.T) {
 			},
 			expectedFailedEvents: []*db.EslFailedEventRow{
 				{
-					EslVersion:            1,
+					EslVersion:            0, //Esl Version is not used with separation between current and history
 					EventType:             testEventType,
 					EventJson:             "{}",
 					Reason:                "some-reason",
@@ -1467,7 +1467,7 @@ func TestRetryEvent(t *testing.T) {
 					}
 				}
 				for _, in := range tc.initialFailedEslEvents {
-					err := repo.State().DBHandler.DBWriteFailedEslEvent(ctx, transaction, in)
+					err := repo.State().DBHandler.DBInsertNewFailedESLEvent(ctx, transaction, in)
 					if err != nil {
 						return err
 					}

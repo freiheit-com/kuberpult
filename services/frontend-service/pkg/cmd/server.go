@@ -852,5 +852,5 @@ func (p *GrpcProxy) SkipEslEvent(ctx context.Context, in *api.SkipEslEventReques
 	if p.RolloutServiceClient != nil {
 		return nil, status.Error(codes.Unimplemented, "rollout service is enabled.")
 	}
-	return p.EslServiceClient.SkipEslEvent(ctx, in)
+	return p.ManifestExportServiceGitClient.SkipEslEvent(ctx, in)
 }
