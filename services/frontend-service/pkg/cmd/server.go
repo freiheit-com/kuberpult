@@ -710,6 +710,12 @@ func (p *GrpcProxy) GetGitSyncStatus(
 	return p.GitClient.GetGitSyncStatus(ctx, in)
 }
 
+func (p *GrpcProxy) RetryFailedEvent(
+	ctx context.Context,
+	in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
+	return p.ManifestExportServiceGitClient.RetryFailedEvent(ctx, in)
+}
+
 func (p *GrpcProxy) StreamGitSyncStatus(
 	in *api.GetGitSyncStatusRequest,
 	stream api.GitService_StreamGitSyncStatusServer) error {
@@ -840,4 +846,11 @@ func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.Releas
 		return nil, status.Error(codes.Internal, "release train prognosis service not configured")
 	}
 	return p.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(ctx, in)
+}
+
+func (p *GrpcProxy) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
+	if p.RolloutServiceClient != nil {
+		return nil, status.Error(codes.Unimplemented, "rollout service is enabled.")
+	}
+	return p.ManifestExportServiceGitClient.SkipEslEvent(ctx, in)
 }

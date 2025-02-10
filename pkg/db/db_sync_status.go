@@ -148,6 +148,54 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	return allCombinations, nil
 }
 
+func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) ([]EnvApp, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadAllAppsForTransfomerID")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, onErr(fmt.Errorf("DBReadAllAppsForTransfomerID: no transaction provided"))
+	}
+
+	selectQuery := h.AdaptQuery("SELECT appName, envName FROM git_sync_status WHERE transformerid = ? ORDER BY created DESC;")
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		id,
+	)
+	if err != nil {
+		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w\n", err))
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	allCombinations := make([]EnvApp, 0)
+	var currApp string
+	var currEnv string
+	for rows.Next() {
+		err := rows.Scan(&currApp, &currEnv)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, onErr(fmt.Errorf("Error table for next eslVersion. Error: %w\n", err))
+		}
+		allCombinations = append(allCombinations, EnvApp{
+			AppName: currApp,
+			EnvName: currEnv,
+		})
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, onErr(err)
+	}
+	return allCombinations, nil
+}
+
 func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id TransformerID, status SyncStatus) error {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBBulkUpdateUnsyncedApps")
 	defer span.Finish()
@@ -172,6 +220,32 @@ func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id
 	}
 
 	return h.executeBulkInsert(ctx, tx, allCombs, *now, id, status, BULK_INSERT_BATCH_SIZE)
+}
+
+func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID, status SyncStatus) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBBulkUpdateAllApps")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return onErr(fmt.Errorf("DBBulkUpdateAllApps: no transaction provided"))
+	}
+
+	allCombs, err := h.DBReadAllAppsForTransfomerID(ctx, tx, oldId)
+	if err != nil {
+		return onErr(fmt.Errorf("DBBulkUpdateAllApps unable to read apps: %w", err))
+	}
+	if len(allCombs) == 0 {
+		logger.FromContext(ctx).Sugar().Info("Could not update all apps. Did not find any unsynced apps.")
+		return nil
+	}
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return onErr(fmt.Errorf("DBBulkUpdateAllApps unable to get transaction timestamp: %w", err))
+	}
+
+	return h.executeBulkInsert(ctx, tx, allCombs, *now, newId, status, BULK_INSERT_BATCH_SIZE)
 }
 
 func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) ([]GitSyncData, error) {

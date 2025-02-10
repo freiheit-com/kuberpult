@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"path"
 	"slices"
 	"strings"
@@ -320,6 +322,35 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		*now,
 		eventType,
 		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eventType EventType, data string) error {
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
+
+	now, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("DBWriteEslEventInternal unable to get transaction timestamp: %w", err)
+	}
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		*now,
+		eventType,
+		data)
 
 	if err != nil {
 		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
@@ -1914,7 +1945,7 @@ func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (m
 	return envsApps, nil
 }
 
-func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
+func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table string, eslEvent *EslFailedEventRow) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
 	defer span.Finish()
 	if h == nil {
@@ -1924,7 +1955,7 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 		return fmt.Errorf("DBWriteFailedEslEvent: no transaction provided")
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light_failed (created, event_type, json, reason, transformerEslVersion)  VALUES (?, ?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery(fmt.Sprintf("INSERT INTO %s (created, event_type, json, reason, transformerEslVersion)  VALUES (?, ?, ?, ?, ?);", table))
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("DBWriteFailedEslEvent unable to get transaction timestamp: %w", err)
@@ -1944,6 +1975,29 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 	return nil
 }
 
+func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBDeleteFailedEslEvent")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return onErr(fmt.Errorf("DBDeleteFailedEslEvent: no transaction provided"))
+	}
+
+	deleteQuery := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformereslversion=?;")
+	span.SetTag("query", deleteQuery)
+	_, err := tx.ExecContext(
+		ctx,
+		deleteQuery,
+		eslEvent.TransformerEslVersion)
+
+	if err != nil {
+		return onErr(fmt.Errorf("could not delete failed esl event from DB. Error: %w\n", err))
+	}
+	return nil
+}
+
 func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslFailedEventRow, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
 	defer span.Finish()
@@ -1954,7 +2008,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json, reason, transformerEslVersion FROM event_sourcing_light_failed ORDER BY eslVersion DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT created, event_type, json, reason, transformerEslVersion FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
@@ -1972,14 +2026,14 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 
 	for rows.Next() {
 		row := &EslFailedEventRow{
-			EslVersion:            0,
+			EslVersion:            0, //No esl version for currently failed events
 			Created:               time.Unix(0, 0),
 			EventType:             "",
 			EventJson:             "",
 			Reason:                "",
 			TransformerEslVersion: 0,
 		}
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
+		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
 		if err != nil {
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
 		}
@@ -1991,6 +2045,142 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 	}
 
 	return failedEsls, nil
+}
+
+func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *sql.Tx, eslVersion uint64) (*EslFailedEventRow, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslFailedEventFromTransformerId")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBReadEslFailedEventFromTransformerId: no transaction provided")
+	}
+
+	query := h.AdaptQuery(
+		`SELECT created, event_type, json, reason, transformerEslVersion
+	 FROM event_sourcing_light_failed WHERE transformerEslVersion=? ORDER BY created DESC LIMIT 1;`)
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(ctx, query, eslVersion)
+	if err != nil {
+		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	var row *EslFailedEventRow
+
+	if rows.Next() {
+		row = &EslFailedEventRow{
+			EslVersion:            0,
+			Created:               time.Unix(0, 0),
+			EventType:             "",
+			EventJson:             "",
+			Reason:                "",
+			TransformerEslVersion: 0,
+		}
+		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
+		if err != nil {
+			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+		}
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+	}
+
+	return row, nil
+}
+
+func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslEventRow, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadLastEslEvents")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, onErr(fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided"))
+	}
+
+	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w\n", err))
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	failedEsls := make([]*EslEventRow, 0)
+
+	for rows.Next() {
+		row := &EslEventRow{
+			EslVersion: 0,
+			Created:    time.Unix(0, 0),
+			EventType:  "",
+			EventJson:  "",
+		}
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		if err != nil {
+			return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w\n", err))
+		}
+		failedEsls = append(failedEsls, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, onErr(fmt.Errorf("could not close rows. Error: %w\n", err))
+	}
+
+	return failedEsls, nil
+}
+
+func (h *DBHandler) DBInsertNewFailedESLEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBInsertNewFailedESLEvent")
+	defer span.Finish()
+	err := h.DBWriteFailedEslEvent(ctx, tx, "event_sourcing_light_failed", eslEvent)
+	if err != nil {
+		return onErr(err)
+	}
+	err = h.DBWriteFailedEslEvent(ctx, tx, "event_sourcing_light_failed_history", eslEvent)
+	if err != nil {
+		return onErr(err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transformerEslVersion TransformerID) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSkipFailedEslEvent")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return onErr(fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided"))
+	}
+
+	query := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformerEslVersion = ?;")
+	span.SetTag("query", query)
+
+	result, err := tx.ExecContext(ctx, query, transformerEslVersion)
+
+	if result == nil {
+		return onErr(grpc.FailedPrecondition(ctx, fmt.Errorf("could not find failed esl event where transformer esl version is %d", transformerEslVersion)))
+	}
+	if err != nil {
+		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err))
+	}
+	return nil
 }
 
 func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) (*time.Time, error) {

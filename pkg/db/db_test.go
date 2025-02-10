@@ -3058,7 +3058,7 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 				}
 
 				for _, event := range tc.Events {
-					err := dbHandler.DBWriteFailedEslEvent(ctx, transaction, &event)
+					err := dbHandler.DBWriteFailedEslEvent(ctx, transaction, "event_sourcing_light_failed_history", &event)
 					if err != nil {
 						return err
 					}
