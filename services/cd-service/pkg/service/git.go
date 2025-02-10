@@ -507,3 +507,7 @@ func (s *GitServer) StreamGitSyncStatus(_ *api.GetGitSyncStatusRequest,
 		}
 	}
 }
+
+func (s *GitServer) RetryFailedEvent(ctx context.Context, _ *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented.  cd-service")
+}

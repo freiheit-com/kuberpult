@@ -710,6 +710,12 @@ func (p *GrpcProxy) GetGitSyncStatus(
 	return p.GitClient.GetGitSyncStatus(ctx, in)
 }
 
+func (p *GrpcProxy) RetryFailedEvent(
+	ctx context.Context,
+	in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
+	return p.ManifestExportServiceGitClient.RetryFailedEvent(ctx, in)
+}
+
 func (p *GrpcProxy) StreamGitSyncStatus(
 	in *api.GetGitSyncStatusRequest,
 	stream api.GitService_StreamGitSyncStatusServer) error {
