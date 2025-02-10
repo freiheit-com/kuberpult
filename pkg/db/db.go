@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"path"
 	"slices"
 	"strings"
@@ -327,7 +328,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	return nil
 }
 
-func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, eventType EventType, tx *sql.Tx, data string) error {
+func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eventType EventType, data string) error {
 	if h == nil {
 		return nil
 	}
@@ -2056,7 +2057,7 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 
 	query := h.AdaptQuery(
 		`SELECT eslVersion, created, event_type, json, reason, transformerEslVersion
-	 FROM event_sourcing_light_failed WHERE eslVersion=? ORDER BY eslVersion DESC LIMIT 1;`)
+	 FROM event_sourcing_light_failed WHERE transformerEslVersion=? ORDER BY eslVersion DESC LIMIT 1;`)
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, eslVersion)
 	if err != nil {
@@ -2092,6 +2093,53 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 	}
 
 	return row, nil
+}
+
+func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslEventRow, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadLastEslEvents")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, onErr(fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided"))
+	}
+
+	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
+	span.SetTag("query", query)
+	rows, err := tx.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w\n", err))
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	failedEsls := make([]*EslEventRow, 0)
+
+	for rows.Next() {
+		row := &EslEventRow{
+			EslVersion: 0,
+			Created:    time.Unix(0, 0),
+			EventType:  "",
+			EventJson:  "",
+		}
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		if err != nil {
+			return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w\n", err))
+		}
+		failedEsls = append(failedEsls, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, onErr(fmt.Errorf("could not close rows. Error: %w\n", err))
+	}
+
+	return failedEsls, nil
 }
 
 func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) (*time.Time, error) {

@@ -222,7 +222,7 @@ func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id
 	return h.executeBulkInsert(ctx, tx, allCombs, *now, id, status, BULK_INSERT_BATCH_SIZE)
 }
 
-func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, id TransformerID, status SyncStatus) error {
+func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID, status SyncStatus) error {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBBulkUpdateAllApps")
 	defer span.Finish()
 	if h == nil {
@@ -232,7 +232,7 @@ func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, id Tran
 		return onErr(fmt.Errorf("DBBulkUpdateAllApps: no transaction provided"))
 	}
 
-	allCombs, err := h.DBReadAllAppsForTransfomerID(ctx, tx, id)
+	allCombs, err := h.DBReadAllAppsForTransfomerID(ctx, tx, oldId)
 	if err != nil {
 		return onErr(fmt.Errorf("DBBulkUpdateAllApps unable to read apps: %w", err))
 	}
@@ -245,7 +245,7 @@ func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, id Tran
 		return onErr(fmt.Errorf("DBBulkUpdateAllApps unable to get transaction timestamp: %w", err))
 	}
 
-	return h.executeBulkInsert(ctx, tx, allCombs, *now, id, status, BULK_INSERT_BATCH_SIZE)
+	return h.executeBulkInsert(ctx, tx, allCombs, *now, newId, status, BULK_INSERT_BATCH_SIZE)
 }
 
 func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) ([]GitSyncData, error) {

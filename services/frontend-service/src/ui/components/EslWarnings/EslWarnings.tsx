@@ -28,8 +28,6 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
     const api = useApi;
     const onClickRetry = useCallback(() => {
-        // eslint-disable-next-line no-console
-        console.log(eslVersion);
         if (authReady) {
             api.gitService()
                 .RetryFailedEvent({ eslversion: eslVersion }, authHeader)
