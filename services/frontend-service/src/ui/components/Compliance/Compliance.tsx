@@ -17,6 +17,7 @@ import React, { ChangeEvent, useCallback, useState } from 'react';
 import { Button } from '../button';
 import { useApi } from '../../utils/GrpcApi';
 import { showSnackbarError, useEnvironmentGroups } from '../../utils/store';
+import { ProgressBar } from '../ProgressBar/ProgressBar';
 
 export type ComplianceProps = {
     saveFile: (lines: string[]) => void;
@@ -27,6 +28,8 @@ export const Compliance: React.FC<ComplianceProps> = ({ saveFile }) => {
     const [startDate, setStartDate] = useState<Date>();
     const [endDate, setEndDate] = useState<Date>();
     const [environment, setEnvironment] = useState('default');
+    const [progress, setProgress] = useState(0);
+    const [downloading, setDownloading] = useState(false);
 
     const onClick = useCallback(() => {
         if (environment === 'default') {
@@ -41,17 +44,28 @@ export const Compliance: React.FC<ComplianceProps> = ({ saveFile }) => {
             showSnackbarError('Cannot have an end date that happens before the start date.');
             return;
         }
+        if (downloading) {
+            showSnackbarError('Cannot start a new download before the previous download finishes.');
+            return;
+        }
 
         const content: string[] = [];
+        setProgress(0);
+        setDownloading(true);
+
         api.overviewService()
             .StreamDeploymentHistory({ startDate, endDate, environment: environment.split('/')[1] })
             .subscribe({
                 next: (res) => {
+                    setProgress(res.progress);
                     content.push(res.deployment);
                 },
-                complete: () => saveFile(content),
+                complete: () => {
+                    saveFile(content);
+                    setDownloading(false);
+                },
             });
-    }, [api, endDate, startDate, saveFile, environment]);
+    }, [api, endDate, startDate, saveFile, environment, downloading]);
 
     const onStartDateChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
         setStartDate(e.target.valueAsDate ?? undefined);
@@ -104,6 +118,8 @@ export const Compliance: React.FC<ComplianceProps> = ({ saveFile }) => {
                     label="Download Deployment History CSV"
                     highlightEffect={false}
                 />
+
+                {downloading && <ProgressBar value={progress} max={100} />}
             </main>
         </div>
     );
