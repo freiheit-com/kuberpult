@@ -209,6 +209,31 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 	return result, nil
 }
 
+func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.Tx, envSelector string, startDate time.Time, endDate time.Time) (uint64, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistoryCount")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`
+		SELECT COUNT(*) FROM deployments_history
+		WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?);
+	`)
+
+	span.SetTag("query", selectQuery)
+	var result uint64
+	err := tx.QueryRowContext(
+		ctx,
+		selectQuery,
+		startDate,
+		endDate,
+		envSelector,
+	).Scan(&result)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
+}
+
 func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
 	defer span.Finish()
