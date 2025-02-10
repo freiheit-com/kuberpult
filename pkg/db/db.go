@@ -1975,23 +1975,24 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEv
 }
 
 func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteFailedEslEvent")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBDeleteFailedEslEvent")
 	defer span.Finish()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("DBDeleteFailedEslEvent: no transaction provided")
+		return onErr(fmt.Errorf("DBDeleteFailedEslEvent: no transaction provided"))
 	}
 
 	deleteQuery := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE eslversion=?;")
 	span.SetTag("query", deleteQuery)
-	_, err := tx.Exec(
+	_, err := tx.ExecContext(
+		ctx,
 		deleteQuery,
 		eslEvent.EslVersion)
 
 	if err != nil {
-		return fmt.Errorf("could not delete failed esl event from DB. Error: %w\n", err)
+		return onErr(fmt.Errorf("could not delete failed esl event from DB. Error: %w\n", err))
 	}
 	return nil
 }
