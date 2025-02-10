@@ -158,7 +158,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                                         <td>{eslItem.reason}</td>
                                         <td>{eslItem.transformerEslVersion}</td>
                                         <td>
-                                            <RetryButton eslVersion={eslItem.eslVersion}></RetryButton>
+                                            <RetryButton eslVersion={eslItem.transformerEslVersion}></RetryButton>
                                         </td>
                                     </tr>
                                 );

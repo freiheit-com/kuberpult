@@ -338,7 +338,6 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 		internal, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
 		if err != nil {
 			return err
-
 		}
 		err = dbHandler.DBDeleteFailedEslEvent(ctx, transaction, failedEvent)
 		if err != nil {
