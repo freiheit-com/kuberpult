@@ -340,10 +340,17 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 		if err != nil {
 			return err
 		}
+		fmt.Println(failedEvent)
+		ev, _ := dbHandler.DBReadLastFailedEslEvents(ctx, transaction, 10)
+
+		fmt.Println(ev)
 		err = dbHandler.DBDeleteFailedEslEvent(ctx, transaction, failedEvent)
 		if err != nil {
 			return err
 		}
+		ev, _ = dbHandler.DBReadLastFailedEslEvents(ctx, transaction, 10)
+
+		fmt.Println(ev)
 		err = dbHandler.DBBulkUpdateAllApps(ctx, transaction, db.TransformerID(internal.EslVersion), db.TransformerID(failedEvent.TransformerEslVersion), db.UNSYNCED)
 		if err != nil {
 			return err
@@ -351,4 +358,16 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 		return nil
 	})
 	return response, onErr(err)
+}
+
+func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "SkipEslEvent")
+	defer span.Finish()
+
+	dbHandler := s.Repository.State().DBHandler
+
+	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+		return dbHandler.DBSkipFailedEslEvent(ctx, transaction, db.TransformerID(in.EventEslVersion))
+	})
+	return &api.SkipEslEventResponse{}, onErr(err)
 }

@@ -1985,12 +1985,12 @@ func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslE
 		return onErr(fmt.Errorf("DBDeleteFailedEslEvent: no transaction provided"))
 	}
 
-	deleteQuery := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE eslversion=?;")
+	deleteQuery := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformereslversion=?;")
 	span.SetTag("query", deleteQuery)
 	_, err := tx.ExecContext(
 		ctx,
 		deleteQuery,
-		eslEvent.EslVersion)
+		eslEvent.TransformerEslVersion)
 
 	if err != nil {
 		return onErr(fmt.Errorf("could not delete failed esl event from DB. Error: %w\n", err))
@@ -2058,8 +2058,8 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 	}
 
 	query := h.AdaptQuery(
-		`SELECT eslVersion, created, event_type, json, reason, transformerEslVersion
-	 FROM event_sourcing_light_failed WHERE transformerEslVersion=? ORDER BY eslVersion DESC LIMIT 1;`)
+		`SELECT created, event_type, json, reason, transformerEslVersion
+	 FROM event_sourcing_light_failed WHERE transformerEslVersion=? ORDER BY created DESC LIMIT 1;`)
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, eslVersion)
 	if err != nil {
@@ -2084,7 +2084,7 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 			Reason:                "",
 			TransformerEslVersion: 0,
 		}
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
+		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
 		if err != nil {
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
 		}

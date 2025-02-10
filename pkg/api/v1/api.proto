@@ -15,6 +15,7 @@ service GitService {
   rpc GetGitSyncStatus(GetGitSyncStatusRequest) returns(GetGitSyncStatusResponse) {}
   rpc StreamGitSyncStatus(GetGitSyncStatusRequest) returns(stream GetGitSyncStatusResponse) {}
   rpc RetryFailedEvent(RetryFailedEventRequest) returns(RetryFailedEventResponse) {}
+  rpc SkipEslEvent(SkipEslEventRequest) returns (SkipEslEventResponse) {}
 }
 
 message GetGitTagsRequest {
@@ -805,7 +806,6 @@ message QueueDeploymentResponse {}
 
 service EslService {
   rpc GetFailedEsls (GetFailedEslsRequest) returns (GetFailedEslsResponse) {}
-  rpc SkipEslEvent(SkipEslEventRequest) returns (SkipEslEventResponse) {}
 }
 
 message GetFailedEslsRequest {}
