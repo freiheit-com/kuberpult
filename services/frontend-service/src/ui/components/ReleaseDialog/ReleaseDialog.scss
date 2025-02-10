@@ -36,7 +36,7 @@ Copyright freiheit.com*/
     }
 
     .content-right {
-        max-width: 40%;
+        max-width: 45%;
         margin-left: auto;
         display: flex;
     }
@@ -214,10 +214,6 @@ button.mdc-button.env-card-deploy-btn {
     &.button-main.deploy-button-cancel {
         background-color: var(--mdc-theme-error);
     }
-
-    &.deploy-button-cancel:not(.button-main) {
-        color: var(--mdc-theme-error);
-    }
 }
 button.mdc-button.env-card-lock-btn {
     border-radius: $release-dialog-inner-border-radius;
@@ -354,5 +350,5 @@ button.mdc-button.env-card-lock-btn {
     }
 }
 .env-group-expand-button {
-    margin-left: 85px;
+    margin-right: 15px;
 }

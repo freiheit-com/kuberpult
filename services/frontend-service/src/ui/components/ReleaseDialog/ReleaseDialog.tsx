@@ -47,7 +47,7 @@ import {
 } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
-import { ExpandButton } from '../button/ExpandButton';
+import { DeployLockButtons } from '../button/DeployLockButtons';
 import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
 
@@ -157,12 +157,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             action.action.createEnvironmentApplicationLock.application === app &&
             action.action.createEnvironmentApplicationLock.environment === env.name
     );
-    const unlockAlreadyPlanned = actions.some(
-        (action) =>
-            action.action?.$case === 'deleteEnvironmentApplicationLock' &&
-            action.action.deleteEnvironmentApplicationLock.application === app &&
-            action.action.deleteEnvironmentApplicationLock.environment === env.name
-    );
     const alreadyPlanned = lockAlreadyPlanned && deployAlreadyPlanned;
 
     const queueInfo =
@@ -206,10 +200,27 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
     const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
 
+    const plannedLockRemovals = actions
+        .filter(
+            (action) =>
+                action.action?.$case === 'deleteEnvironmentApplicationLock' &&
+                action.action.deleteEnvironmentApplicationLock.application === app &&
+                action.action.deleteEnvironmentApplicationLock.environment === env.name
+        )
+        .flatMap((action) =>
+            action.action?.$case === 'deleteEnvironmentApplicationLock'
+                ? [action.action.deleteEnvironmentApplicationLock.lockId]
+                : []
+        );
+    const unlockAlreadyPlanned = plannedLockRemovals.length === appEnvLocks.length && appEnvLocks.length > 0;
+
     const createAppLock = useCallback(
         (lockOnly = true) => {
             if (appEnvLocks.length > 0 && lockOnly && !lockAlreadyPlanned) {
-                appEnvLocks.forEach((lock) =>
+                const locks = unlockAlreadyPlanned
+                    ? appEnvLocks
+                    : appEnvLocks.filter((lock) => !plannedLockRemovals.includes(lock.lockId));
+                locks.forEach((lock) =>
                     addAction({
                         action: {
                             $case: 'deleteEnvironmentApplicationLock',
@@ -236,7 +247,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 });
             }
         },
-        [app, env.name, appEnvLocks, lockAlreadyPlanned]
+        [app, env.name, appEnvLocks, lockAlreadyPlanned, unlockAlreadyPlanned, plannedLockRemovals]
     );
     const deployAndLockClick = useCallback(
         (shouldLockToo: boolean) => {
@@ -307,9 +318,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         return <div>same version</div>;
     };
 
-    const defaultLabel =
-        releaseDifference < 0 ? 'Update & Lock' : releaseDifference === 0 ? 'Deploy & Lock' : 'Rollback & Lock';
-
     return (
         <li key={env.name} className={classNames('env-card')}>
             <div className="env-card-header">
@@ -374,12 +382,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             title={
                                 'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
                             }>
-                            <ExpandButton
+                            <DeployLockButtons
                                 onClickSubmit={deployAndLockClick}
                                 onClickLock={createAppLock}
-                                defaultButtonLabel={
-                                    lockAlreadyPlanned && deployAlreadyPlanned ? `Cancel ${defaultLabel}` : defaultLabel
-                                }
                                 releaseDifference={releaseDifference}
                                 disabled={!allowDeployment}
                                 deployAlreadyPlanned={deployAlreadyPlanned}
@@ -533,6 +538,7 @@ export const EnvironmentGroupLane: React.FC<{
                     action.action.createEnvironmentApplicationLock.environment === env.name
             )
     );
+    const envsWithPlannedLocks = environmentGroup.environments.filter((env) => !envsWithoutPlannedLocks.includes(env));
     const envsWithPlannedDeploysLocks = environmentGroup.environments.filter(
         (env) => !envsWithoutPlannedDeployments.includes(env) && !envsWithoutPlannedLocks.includes(env)
     );
@@ -554,7 +560,8 @@ export const EnvironmentGroupLane: React.FC<{
     const alreadyPlanned = deploysAlreadyPlanned && locksAlreadyPlanned;
 
     const createEnvGroupLock = React.useCallback(() => {
-        environmentGroup.environments.forEach((environment) => {
+        const envs = locksAlreadyPlanned ? envsWithPlannedLocks : environmentGroup.environments;
+        envs.forEach((environment) => {
             addAction({
                 action: {
                     $case: 'createEnvironmentApplicationLock',
@@ -568,7 +575,7 @@ export const EnvironmentGroupLane: React.FC<{
                 },
             });
         });
-    }, [environmentGroup, app]);
+    }, [environmentGroup, app, envsWithPlannedLocks, locksAlreadyPlanned]);
     const deployAndLockClick = React.useCallback(
         (shouldLockToo: boolean) => {
             const envsWithoutPlans = new Set([...envsWithoutPlannedDeployments, ...envsWithoutPlannedLocks]);
@@ -691,10 +698,9 @@ export const EnvironmentGroupLane: React.FC<{
                         title={
                             'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
                         }>
-                        <ExpandButton
+                        <DeployLockButtons
                             onClickSubmit={deployAndLockClick}
                             onClickLock={createEnvGroupLock}
-                            defaultButtonLabel={alreadyPlanned ? 'Cancel Deploy & Lock' : 'Deploy & Lock'}
                             disabled={!allowGroupDeployment}
                             releaseDifference={0}
                             deployAlreadyPlanned={deploysAlreadyPlanned}
