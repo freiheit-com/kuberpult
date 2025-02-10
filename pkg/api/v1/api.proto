@@ -14,9 +14,17 @@ service GitService {
   rpc GetCommitInfo(GetCommitInfoRequest) returns(GetCommitInfoResponse) {}
   rpc GetGitSyncStatus(GetGitSyncStatusRequest) returns(GetGitSyncStatusResponse) {}
   rpc StreamGitSyncStatus(GetGitSyncStatusRequest) returns(stream GetGitSyncStatusResponse) {}
+  rpc RetryFailedEvent(RetryFailedEventRequest) returns(RetryFailedEventResponse) {}
 }
 
 message GetGitTagsRequest {
+}
+
+message RetryFailedEventRequest {
+  uint64 eslversion = 1;
+}
+
+message RetryFailedEventResponse {
 }
 
 message GetGitTagsResponse {

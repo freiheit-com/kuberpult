@@ -13,8 +13,51 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { GetFailedEslsResponse } from '../../../api/api';
+import { Button } from '../button';
+import classNames from 'classnames';
+import { useApi } from '../../utils/GrpcApi';
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
+import { getFailedEsls, showSnackbarError } from '../../utils/store';
+
+type RetryButtonProps = {
+    eslVersion: number;
+};
+export const RetryButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
+    const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
+    const api = useApi;
+    const onClickRetry = useCallback(() => {
+        // eslint-disable-next-line no-console
+        console.log(eslVersion);
+        if (authReady) {
+            api.gitService()
+                .RetryFailedEvent({ eslversion: eslVersion }, authHeader)
+                .then(() => {
+                    getFailedEsls(authHeader);
+                })
+                .catch((e) => {
+                    // eslint-disable-next-line no-console
+                    console.error('error in retry request: ', e);
+                    const GrpcErrorPermissionDenied = 7;
+                    if (e.code === GrpcErrorPermissionDenied) {
+                        showSnackbarError(e.message);
+                    } else {
+                        showSnackbarError('retry not successful. Please try again');
+                    }
+                });
+        }
+    }, [api, authHeader, authReady, eslVersion]);
+    return (
+        <Button
+            onClick={onClickRetry}
+            className={classNames('button-main', 'mdc-button--unelevated')}
+            key={'button-first-key'}
+            label="Retry"
+            highlightEffect={false}
+        />
+    );
+};
 
 type EslWarningsProps = {
     failedEsls: GetFailedEslsResponse | undefined;
@@ -102,6 +145,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                                 <th className={'Json'}>Json:</th>
                                 <th className={'Reason'}>Reason:</th>
                                 <th className={'TransformerEslVersion'}>TransformerEslVersion:</th>
+                                <th className={'Retry'}>Retry:</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -115,6 +159,9 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                                         <td>{eslItem.json}</td>
                                         <td>{eslItem.reason}</td>
                                         <td>{eslItem.transformerEslVersion}</td>
+                                        <td>
+                                            <RetryButton eslVersion={eslItem.eslVersion}></RetryButton>
+                                        </td>
                                     </tr>
                                 );
                             })}

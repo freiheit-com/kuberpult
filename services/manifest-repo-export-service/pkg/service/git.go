@@ -317,3 +317,33 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 		}
 	}
 }
+
+func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "RetryFailedEvent")
+	defer span.Finish()
+	dbHandler := s.Repository.State().DBHandler
+	response := &api.RetryFailedEventResponse{}
+	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+		failedEvent, err := dbHandler.DBReadEslFailedEventFromEslVersion(ctx, transaction, in.Eslversion)
+		if err != nil {
+			return err
+		}
+		if failedEvent == nil {
+			return fmt.Errorf("Couldn't find failed event with eslVersion: %d", in.Eslversion)
+		}
+		err = dbHandler.DBWriteEslEventWithJson(ctx, failedEvent.EventType, transaction, failedEvent.EventJson)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBDeleteFailedEslEvent(ctx, transaction, failedEvent)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBBulkUpdateAllApps(ctx, transaction, db.TransformerID(failedEvent.TransformerEslVersion), db.UNSYNCED)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return response, onErr(err)
+}
