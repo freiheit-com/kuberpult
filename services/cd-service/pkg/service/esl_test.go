@@ -40,7 +40,7 @@ func TestGetFailedEslsService(t *testing.T) {
 			Name: "One failed Esl",
 			FailedEsls: []*db.EslFailedEventRow{
 				{
-					EslVersion:            1,
+					EslVersion:            0,
 					EventJson:             `{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					EventType:             db.EvtCreateApplicationVersion,
 					Created:               time.Now(),
@@ -51,7 +51,7 @@ func TestGetFailedEslsService(t *testing.T) {
 			ExpectedResponse: &api.GetFailedEslsResponse{
 				FailedEsls: []*api.EslFailedItem{
 					{
-						EslVersion:            1,
+						EslVersion:            0,
 						CreatedAt:             timestamppb.New(time.Now()),
 						EventType:             string(db.EvtCreateApplicationVersion),
 						Json:                  `{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
@@ -65,7 +65,7 @@ func TestGetFailedEslsService(t *testing.T) {
 			Name: "Multiple failed Esls",
 			FailedEsls: []*db.EslFailedEventRow{
 				{
-					EslVersion:            1,
+					EslVersion:            0,
 					EventJson:             `{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					EventType:             db.EvtCreateApplicationVersion,
 					Created:               time.Now(),
@@ -73,18 +73,18 @@ func TestGetFailedEslsService(t *testing.T) {
 					Reason:                "unexpected error",
 				},
 				{
-					EslVersion:            2,
+					EslVersion:            0,
 					EventJson:             `{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
 					EventType:             db.EvtCreateEnvironment,
 					Created:               time.Now(),
-					TransformerEslVersion: 0,
+					TransformerEslVersion: 1,
 					Reason:                "unexpected error",
 				},
 			},
 			ExpectedResponse: &api.GetFailedEslsResponse{
 				FailedEsls: []*api.EslFailedItem{
 					{
-						EslVersion:            2,
+						EslVersion:            0,
 						CreatedAt:             timestamppb.New(time.Now()),
 						EventType:             string(db.EvtCreateEnvironment),
 						Json:                  `{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
@@ -92,11 +92,11 @@ func TestGetFailedEslsService(t *testing.T) {
 						Reason:                "unexpected error",
 					},
 					{
-						EslVersion:            1,
+						EslVersion:            0,
 						CreatedAt:             timestamppb.New(time.Now()),
 						EventType:             string(db.EvtCreateApplicationVersion),
 						Json:                  `{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`,
-						TransformerEslVersion: 0,
+						TransformerEslVersion: 1,
 						Reason:                "unexpected error",
 					},
 				},
@@ -134,9 +134,12 @@ func TestGetFailedEslsService(t *testing.T) {
 				if err != nil {
 					return err
 				}
-
+				err = repo.State().DBHandler.DBWriteEslEventWithJson(ctx, transaction, "some-event", "{}") //Some event so that _history has a transformer to hang on to
+				if err != nil {
+					return err
+				}
 				for _, failedEsl := range tc.FailedEsls {
-					err := repo.State().DBHandler.DBWriteFailedEslEvent(ctx, transaction, "event_sourcing_light_failed", failedEsl)
+					err := repo.State().DBHandler.DBInsertNewFailedESLEvent(ctx, transaction, failedEsl)
 					if err != nil {
 						return err
 					}
