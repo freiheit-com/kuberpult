@@ -326,7 +326,7 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 		failedEvent, err := dbHandler.DBReadEslFailedEventFromEslVersion(ctx, transaction, in.Eslversion)
 		if err != nil {
-			return onErr(err)
+			return err
 		}
 		if failedEvent == nil {
 			return fmt.Errorf("Couldn't find failed event with eslVersion: %d", in.Eslversion)
@@ -334,21 +334,20 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 		err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, failedEvent.EventType, failedEvent.EventJson)
 
 		if err != nil {
-			return onErr(err)
+			return err
 		}
 		internal, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
 		if err != nil {
-			if err != nil {
-				return onErr(err)
-			}
+			return err
+
 		}
 		err = dbHandler.DBDeleteFailedEslEvent(ctx, transaction, failedEvent)
 		if err != nil {
-			return onErr(err)
+			return err
 		}
 		err = dbHandler.DBBulkUpdateAllApps(ctx, transaction, db.TransformerID(internal.EslVersion), db.TransformerID(failedEvent.TransformerEslVersion), db.UNSYNCED)
 		if err != nil {
-			return onErr(err)
+			return err
 		}
 		return nil
 	})
