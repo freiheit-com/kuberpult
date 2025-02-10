@@ -1595,7 +1595,7 @@ func TestSkipEvent(t *testing.T) {
 			},
 			initialFailedEslEvents: []*db.EslFailedEventRow{
 				{
-					EslVersion:            1,
+					EslVersion:            0,
 					EventType:             testEventType,
 					EventJson:             "{}",
 					Reason:                "some-reason",
@@ -1642,14 +1642,14 @@ func TestSkipEvent(t *testing.T) {
 			},
 			initialFailedEslEvents: []*db.EslFailedEventRow{
 				{
-					EslVersion:            1,
+					EslVersion:            0,
 					EventType:             testEventType,
 					EventJson:             "{}",
 					Reason:                "some-reason",
 					TransformerEslVersion: 1,
 				},
 				{
-					EslVersion:            2,
+					EslVersion:            0,
 					EventType:             testEventType,
 					EventJson:             "{}",
 					Reason:                "some-reason",
@@ -1658,7 +1658,7 @@ func TestSkipEvent(t *testing.T) {
 			},
 			expectedFailedEvents: []*db.EslFailedEventRow{
 				{
-					EslVersion:            1,
+					EslVersion:            0,
 					EventType:             testEventType,
 					EventJson:             "{}",
 					Reason:                "some-reason",
