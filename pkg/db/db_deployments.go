@@ -22,9 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type DBDeployment struct {
@@ -210,7 +212,7 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 }
 
 func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.Tx, envSelector string, startDate time.Time, endDate time.Time) (uint64, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistoryCount")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectDeploymentHistoryCount")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT COUNT(*) FROM deployments_history
@@ -228,7 +230,7 @@ func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.
 	).Scan(&result)
 
 	if err != nil {
-		return 0, err
+		return 0, onErr(err)
 	}
 
 	return result, nil
