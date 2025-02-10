@@ -2599,7 +2599,19 @@ func TestDeploymentHistory(t *testing.T) {
 			}()
 
 			var got []string
+			expectedLineCount := len(tc.ExpectedCsvLines)
+			if expectedLineCount == 0 {
+				expectedLineCount = 1
+			}
+
+			line := 1
 			for res := range ch {
+				expectedProgress := uint32(line * 100 / expectedLineCount)
+				if res.Progress != expectedProgress {
+					t.Errorf("deployment history progress mismatch: expected %d and got %d", expectedProgress, res.Progress)
+				}
+
+				line++
 				got = append(got, res.Deployment)
 			}
 

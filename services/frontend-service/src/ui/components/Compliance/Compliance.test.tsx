@@ -18,6 +18,7 @@ import { SnackbarStatus, UpdateSnackbar } from '../../utils/store';
 import { Compliance } from './Compliance';
 import { fireEvent, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
+import { act } from 'react';
 
 const mockStreamDeploymentHistory = Spy('StreamDeploymentHistory');
 const mockSaveFile = jest.fn();
@@ -39,7 +40,9 @@ describe('Compliance', () => {
     it('shows an error with no environment', () => {
         const { container } = getWrapper();
         const downloadButton = container.querySelector('button');
-        downloadButton?.click();
+        act(() => {
+            downloadButton?.click();
+        });
         expect(UpdateSnackbar.get().show).toBe(true);
         expect(UpdateSnackbar.get().status).toBe(SnackbarStatus.ERROR);
         expect(UpdateSnackbar.get().content).toBe(
@@ -52,8 +55,10 @@ describe('Compliance', () => {
         const downloadButton = container.querySelector('button');
         const environmentSelect = container.querySelector('select');
 
-        if (environmentSelect) fireEvent.change(environmentSelect, { target: { value: 'test/test' } });
-        downloadButton?.click();
+        act(() => {
+            if (environmentSelect) fireEvent.change(environmentSelect, { target: { value: 'test/test' } });
+            downloadButton?.click();
+        });
 
         expect(UpdateSnackbar.get().show).toBe(true);
         expect(UpdateSnackbar.get().status).toBe(SnackbarStatus.ERROR);
@@ -67,11 +72,13 @@ describe('Compliance', () => {
         const endDate = container.querySelector('input#end-date');
         const environmentSelect = container.querySelector('select');
 
-        if (environmentSelect) fireEvent.change(environmentSelect, { target: { value: 'test/test' } });
-        if (endDate instanceof HTMLInputElement) fireEvent.change(endDate, { target: { value: '2001-12-09' } });
-        if (startDate instanceof HTMLInputElement) fireEvent.change(startDate, { target: { value: '2025-01-20' } });
+        act(() => {
+            if (environmentSelect) fireEvent.change(environmentSelect, { target: { value: 'test/test' } });
+            if (endDate instanceof HTMLInputElement) fireEvent.change(endDate, { target: { value: '2001-12-09' } });
+            if (startDate instanceof HTMLInputElement) fireEvent.change(startDate, { target: { value: '2025-01-20' } });
 
-        downloadButton?.click();
+            downloadButton?.click();
+        });
 
         expect(UpdateSnackbar.get().show).toBe(true);
         expect(UpdateSnackbar.get().status).toBe(SnackbarStatus.ERROR);
@@ -88,11 +95,13 @@ describe('Compliance', () => {
         const content = ['test', 'test2'];
         mockStreamDeploymentHistory.returns(from(content.map((line) => ({ deployment: line }))));
 
-        if (environmentSelect) fireEvent.change(environmentSelect, { target: { value: 'test/test' } });
-        if (endDate instanceof HTMLInputElement) fireEvent.change(endDate, { target: { value: '2025-01-21' } });
-        if (startDate instanceof HTMLInputElement) fireEvent.change(startDate, { target: { value: '2025-01-20' } });
+        act(() => {
+            if (environmentSelect) fireEvent.change(environmentSelect, { target: { value: 'test/test' } });
+            if (endDate instanceof HTMLInputElement) fireEvent.change(endDate, { target: { value: '2025-01-21' } });
+            if (startDate instanceof HTMLInputElement) fireEvent.change(startDate, { target: { value: '2025-01-20' } });
 
-        downloadButton?.click();
+            downloadButton?.click();
+        });
 
         expect(mockSaveFile).toHaveBeenCalledWith(content);
     });

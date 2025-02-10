@@ -471,6 +471,7 @@ message DeploymentHistoryRequest {
 
 message DeploymentHistoryResponse {
   string deployment = 1;
+  uint32 progress = 2;
 }
 
 message AllTeamLocks {

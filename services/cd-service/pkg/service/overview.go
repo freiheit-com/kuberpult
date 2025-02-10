@@ -760,12 +760,20 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 		return onErr(fmt.Errorf("end date (%s) happens before start date (%s)", providedEndDate.Format(time.DateOnly), startDate.Format(time.DateOnly)))
 	}
 
-	err := stream.Send(&api.DeploymentHistoryResponse{Deployment: "time,app,environment,deployed release version,previous release version\n"})
-	if err != nil {
-		return onErr(err)
-	}
+	err := o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		count, err := o.DBHandler.DBSelectDeploymentHistoryCount(ctx, transaction, in.Environment, startDate, endDate)
+		if err != nil {
+			return err
+		}
 
-	err = o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		err = stream.Send(&api.DeploymentHistoryResponse{
+			Deployment: "time,app,environment,deployed release version,previous release version\n",
+			Progress:   uint32(100 / (count + 1)),
+		})
+		if err != nil {
+			return err
+		}
+
 		query := o.DBHandler.AdaptQuery(`
 			SELECT created, releaseversion, appname, envname FROM deployments_history
 			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?)
@@ -784,7 +792,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 		previousReleaseVersions := make(map[AppEnvPair]uint64)
 
 		defer rows.Close()
-		for rows.Next() {
+		for i := uint64(2); rows.Next(); i++ {
 			var created time.Time
 			var releaseVersion uint64
 			var appName string
@@ -805,7 +813,10 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 				line = fmt.Sprintf("%s,%s,%s,%d,nil\n", created.Format(time.RFC3339), appName, envName, releaseVersion)
 			}
 
-			err = stream.Send(&api.DeploymentHistoryResponse{Deployment: line})
+			err = stream.Send(&api.DeploymentHistoryResponse{
+				Deployment: line,
+				Progress:   uint32(100 * i / (count + 1)),
+			})
 			if err != nil {
 				return err
 			}
