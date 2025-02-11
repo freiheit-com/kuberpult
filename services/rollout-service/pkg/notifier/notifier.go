@@ -67,7 +67,9 @@ func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application st
 			Refresh: conversion.FromString(string(argoappv1.RefreshTypeNormal)),
 		})
 		if err != nil {
-			if !strings.HasPrefix(err.Error(), "rpc error: code = DeadlineExceeded") && !strings.HasPrefix(err.Error(), "rpc error: code = Unknown desc = application refresh deadline exceeded") {
+			if !strings.Contains(err.Error(), "DeadlineExceeded") ||
+				!strings.Contains(err.Error(), "deadline exceeded") ||
+				!strings.Contains(err.Error(), "context canceled") {
 				l.Error("argocd.refresh", zap.Error(err))
 			}
 		}

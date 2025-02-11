@@ -365,7 +365,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				sleepDuration.Reset()
 				d := sleepDuration.NextBackOff()
 				measurePushes(ddMetrics, log, false)
-				logger.FromContext(ctx).Sugar().Warnf("event processing skipped, will try again in %v", d)
+				logger.FromContext(ctx).Sugar().Debug("event processing skipped, will try again in %v", d)
 				time.Sleep(d)
 				continue
 			}
@@ -501,7 +501,7 @@ func readEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *db.EslVe
 		}
 		return esl, nil
 	} else {
-		log.Warnf("cutoff found, starting at t>cutoff: %d", *eslVersion)
+		log.Debugf("cutoff found, starting at t>cutoff: %d", *eslVersion)
 		esl, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, *eslVersion)
 		if err != nil {
 			return nil, err
