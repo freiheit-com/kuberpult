@@ -1,4 +1,5 @@
--- rename deployments table to deployments_history if it doesn't exist
+-- rename event_sourcing_light_failed table to event_sourcing_light_failed if it doesn't exist
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 DO $$
 BEGIN
     IF EXISTS (
@@ -23,7 +24,7 @@ CREATE TABLE IF NOT EXISTS event_sourcing_light_failed(
   CONSTRAINT fk_transformerEslVersion_transformer_id FOREIGN key(transformereslversion) REFERENCES event_sourcing_light(eslversion)
 );
 
--- insert data into deployments table from deployments_history table if there's no data inside it
+-- insert data into event_sourcing_light_failed table from event_sourcing_light_failed_history table if there's no data inside it
 DO $$
 BEGIN
     IF EXISTS (
