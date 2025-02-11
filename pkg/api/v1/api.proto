@@ -15,6 +15,7 @@ service GitService {
   rpc GetGitSyncStatus(GetGitSyncStatusRequest) returns(GetGitSyncStatusResponse) {}
   rpc StreamGitSyncStatus(GetGitSyncStatusRequest) returns(stream GetGitSyncStatusResponse) {}
   rpc RetryFailedEvent(RetryFailedEventRequest) returns(RetryFailedEventResponse) {}
+  rpc SkipEslEvent(SkipEslEventRequest) returns (SkipEslEventResponse) {}
 }
 
 message GetGitTagsRequest {
@@ -80,6 +81,13 @@ message GetGitSyncStatusResponse {
 message EnvApp {
   string application_name = 1;
   string environment_name = 2;
+}
+
+message SkipEslEventRequest {
+  uint64 event_esl_version = 1;
+}
+
+message SkipEslEventResponse {
 }
 
 message Event {

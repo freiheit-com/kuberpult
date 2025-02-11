@@ -351,3 +351,22 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 	})
 	return response, onErr(err)
 }
+
+func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "SkipEslEvent")
+	defer span.Finish()
+
+	dbHandler := s.Repository.State().DBHandler
+
+	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+		failedEvent, err := dbHandler.DBReadEslFailedEventFromEslVersion(ctx, transaction, in.EventEslVersion)
+		if err != nil {
+			return err
+		}
+		if failedEvent == nil {
+			return fmt.Errorf("Couldn't find failed event with eslVersion: %d", in.EventEslVersion)
+		}
+		return dbHandler.DBSkipFailedEslEvent(ctx, transaction, db.TransformerID(in.EventEslVersion))
+	})
+	return &api.SkipEslEventResponse{}, onErr(err)
+}
