@@ -80,8 +80,7 @@ spec:
           # following flag to have the proxy connect over private IP
           - "--private-ip"
 
-          # Enable structured logging with LogEntry format:
-          - "--structured-logs"
+          - "--quiet"
 
           # Replace DB_PORT with the port the proxy should listen on
 

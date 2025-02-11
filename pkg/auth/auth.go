@@ -176,7 +176,7 @@ func useDexDefaultRole(ctx context.Context, dexDefaultRoleEnabled bool, u *User)
 		u.DexAuthContext = &DexAuthContext{
 			Role: []string{"default"},
 		}
-		logger.FromContext(ctx).Warn("role undefined but dex is enabled. Default user role enabled. Proceeding with default role.")
+		logger.FromContext(ctx).Info("role undefined but dex is enabled. Default user role enabled. Proceeding with default role.")
 		return u, nil
 	}
 	return nil, grpc.AuthError(ctx, fmt.Errorf("extract: role undefined but dex is enabled"))
