@@ -23,6 +23,7 @@ import { getFailedEsls, showSnackbarError } from '../../utils/store';
 
 type RetryButtonProps = {
     eslVersion: number;
+    onClick?: { (): void };
 };
 export const RetryButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
@@ -57,6 +58,39 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
     );
 };
 
+export const SkipButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
+    const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
+    const api = useApi;
+    const onClickSkip = useCallback(() => {
+        if (authReady) {
+            api.gitService()
+                .SkipEslEvent({ eventEslVersion: eslVersion }, authHeader)
+                .then(() => {
+                    getFailedEsls(authHeader);
+                })
+                .catch((e) => {
+                    // eslint-disable-next-line no-console
+                    console.error('error in retry request: ', e);
+                    const GrpcErrorPermissionDenied = 7;
+                    if (e.code === GrpcErrorPermissionDenied) {
+                        showSnackbarError(e.message);
+                    } else {
+                        showSnackbarError('skip not successful. Please try again');
+                    }
+                });
+        }
+    }, [api, authHeader, authReady, eslVersion]);
+    return (
+        <Button
+            onClick={onClickSkip}
+            className={classNames('button-main', 'mdc-button--unelevated')}
+            key={'button-first-key'}
+            label="Skip"
+            highlightEffect={false}
+        />
+    );
+};
+
 type EslWarningsProps = {
     failedEsls: GetFailedEslsResponse | undefined;
 };
@@ -65,6 +99,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
     const failedEslsResponse = props.failedEsls;
     const [timezone, setTimezone] = useState<'UTC' | 'local'>('UTC');
     const localTimezone = Intl.DateTimeFormat()?.resolvedOptions()?.timeZone ?? 'Europe/Berlin';
+
     const handleChangeTimezone = React.useCallback(
         (event: React.ChangeEvent<HTMLSelectElement>) => {
             if (event.target.value === 'local' || event.target.value === 'UTC') {
@@ -144,6 +179,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                                 <th className={'Reason'}>Reason:</th>
                                 <th className={'TransformerEslVersion'}>TransformerEslVersion:</th>
                                 <th className={'Retry'}>Retry:</th>
+                                <th className={'Skip'}>Skip:</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -159,6 +195,9 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                                         <td>{eslItem.transformerEslVersion}</td>
                                         <td>
                                             <RetryButton eslVersion={eslItem.transformerEslVersion}></RetryButton>
+                                        </td>
+                                        <td>
+                                            <SkipButton eslVersion={eslItem.transformerEslVersion}></SkipButton>
                                         </td>
                                     </tr>
                                 );
