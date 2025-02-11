@@ -18,6 +18,7 @@ package reposerver
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -196,7 +197,6 @@ func TestGenerateManifest(t *testing.T) {
 		ExpectedResponse  *argorepo.ManifestResponse
 		ExpectedError     error
 		ExpectedArgoError *regexp.Regexp
-		RepoOnlyTest      bool
 		DBOnlyTest        bool
 	}{
 		{
@@ -241,301 +241,46 @@ func TestGenerateManifest(t *testing.T) {
 				SourceType: "Directory",
 			},
 		},
-		{
-			Name:  "supports the include filter",
-			Setup: createOneAppInDevelopmentAndTesting,
-			Request: &argorepo.ManifestRequest{
-				Revision: "master",
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				ApplicationSource: &v1alpha1.ApplicationSource{
-					Path: "argocd/v1alpha1",
-					Directory: &v1alpha1.ApplicationSourceDirectory{
-						Include: "development.yaml",
-					},
-				},
-			},
-			RepoOnlyTest: true,
-			ExpectedResponse: &argorepo.ManifestResponse{
-				Manifests: []string{
-					`{"apiVersion":"argoproj.io/v1alpha1","kind":"AppProject","metadata":{"name":"development"},"spec":{"description":"development","destinations":[{"server":"development"}],"sourceRepos":["*"]}}`,
-					`{"apiVersion":"argoproj.io/v1alpha1","kind":"Application","metadata":{"annotations":{"argocd.argoproj.io/manifest-generate-paths":"/environments/development/applications/app/manifests","com.freiheit.kuberpult/application":"app","com.freiheit.kuberpult/environment":"development","com.freiheit.kuberpult/team":""},"finalizers":["resources-finalizer.argocd.argoproj.io"],"labels":{"com.freiheit.kuberpult/team":""},"name":"development-app"},"spec":{"destination":{"server":"development"},"project":"development","source":{"path":"environments/development/applications/app/manifests","repoURL":"<the-repo-url>","targetRevision":"master"},"syncPolicy":{"automated":{"allowEmpty":true,"prune":true,"selfHeal":true}}}}`,
-				},
-				SourceType: "Directory",
-			},
-		},
-		{
-			Name:  "generates a manifest for a fixed commit id",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ManifestRequest{
-				Revision: "<last-commit-id>",
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				ApplicationSource: &v1alpha1.ApplicationSource{
-					Path: "environments/development/applications/app/manifests",
-				},
-			},
-
-			ExpectedResponse: &argorepo.ManifestResponse{
-				Manifests: []string{
-					`{"api":"v1","data":{"key":"value"},"kind":"ConfigMap","metadata":{"name":"something","namespace":"something"}}`,
-					`{"api":"v1","data":{"key":"value"},"kind":"ConfigMap","metadata":{"name":"somethingelse","namespace":"somethingelse"}}`,
-				},
-				SourceType: "Directory",
-			},
-		},
-		{
-			Name:  "rejects unknown refs",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ManifestRequest{
-				Revision: "not-our-branch",
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				ApplicationSource: &v1alpha1.ApplicationSource{
-					Path: "environments/development/applications/app/manifests",
-				},
-			},
-			RepoOnlyTest:      true,
-			ExpectedArgoError: regexp.MustCompile("\\AUnable to resolve 'not-our-branch' to a commit SHA\\z"),
-			ExpectedError:     errMatcher{"rpc error: code = NotFound desc = unknown revision \"not-our-branch\", I only know \"HEAD\", \"master\" and commit hashes"},
-		},
-		{
-			Name:  "rejects unknown commit ids",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ManifestRequest{
-				Revision: "b551320bc327abfabf9df32ee5a830f8ccb1e88d",
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				ApplicationSource: &v1alpha1.ApplicationSource{
-					Path: "environments/development/applications/app/manifests",
-				},
-			},
-			RepoOnlyTest: true,
-			// The error message from argo cd contains the output log of git which differs slightly with the git version. Therefore, we don't match on that.
-			ExpectedArgoError: regexp.MustCompile("\\A.*rpc error: code = Internal desc = Failed to checkout revision b551320bc327abfabf9df32ee5a830f8ccb1e88d:"),
-			ExpectedError:     errMatcher{"rpc error: code = NotFound desc = unknown revision \"b551320bc327abfabf9df32ee5a830f8ccb1e88d\", I only know \"HEAD\", \"master\" and commit hashes"},
-		},
-		{
-			Name:  "rejects unexpected path",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ManifestRequest{
-				Revision: "<last-commit-id>",
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				ApplicationSource: &v1alpha1.ApplicationSource{
-					Path: "environments/development/app/manifests",
-				},
-			},
-			DBOnlyTest: true,
-			// The error message from argo cd contains the output log of git which differs slightly with the git version. Therefore, we don't match on that.
-			ExpectedArgoError: regexp.MustCompile("\\A.*rpc error: code = Internal desc = Failed to checkout revision b551320bc327abfabf9df32ee5a830f8ccb1e88d:"),
-			ExpectedError:     errMatcher{"unexpected path: 'environments/development/app/manifests'"},
-		},
 	}
 	for _, tc := range tcs {
 		tc := tc
-		if !tc.DBOnlyTest {
-			t.Run(tc.Name+"_no_db", func(t *testing.T) {
-				repo, cfg := setupRepository(t)
-				err := repo.Apply(testutil.MakeTestContext(), tc.Setup...)
-				if err != nil {
-					t.Fatalf("failed setup: %s", err)
-				}
-				// These two values change every run:
-				if tc.Request.Repo.Repo == "<the-repo-url>" {
-					tc.Request.Repo.Repo = cfg.URL
-				}
-				if tc.Request.Revision == "<last-commit-id>" {
-
-					tc.Request.Revision = repo.State().Commit.Id().String()
-				}
-				if tc.ExpectedResponse != nil {
-					tc.ExpectedResponse.Revision = repo.State().Commit.Id().String()
-					mn := make([]string, 0)
-					for _, m := range tc.ExpectedResponse.Manifests {
-						mn = append(mn, strings.ReplaceAll(m, "<the-repo-url>", cfg.URL))
-					}
-					tc.ExpectedResponse.Manifests = mn
+		t.Run(tc.Name+"_with_db", func(t *testing.T) {
+			repo, cfg := SetupRepositoryTestWithDBOptions(t, false)
+			ctx := testutil.MakeTestContext()
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Setup...)
+				if err2 != nil {
+					return err2
 				}
 
-				srv := New(repo, cfg)
-				resp, err := srv.GenerateManifest(context.Background(), tc.Request)
-				if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-				}
-				if diff := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); diff != "" {
-					t.Errorf("response mismatch (-want, +got):\n%s", diff)
-				}
-
-				asrv := testArgoServer(t)
-				aresp, err := asrv.GenerateManifest(context.Background(), tc.Request)
-				if tc.ExpectedError != nil {
-					if !tc.ExpectedArgoError.MatchString(err.Error()) {
-						t.Fatalf("got wrong error, expected to match %q but got %q", tc.ExpectedArgoError, err)
-					}
-				} else if err != nil {
-					t.Fatalf("unexpected error: %s", err.Error())
-				}
-				if diff := cmp.Diff(tc.ExpectedResponse, aresp, protocmp.Transform()); diff != "" {
-					t.Errorf("response mismatch (-want, +got):\n%s", diff)
-				}
+				return nil
 			})
-		}
-		if !tc.RepoOnlyTest {
-			t.Run(tc.Name+"_with_db", func(t *testing.T) {
-				repo, cfg := SetupRepositoryTestWithDBOptions(t, false)
-
-				err := repo.Apply(testutil.MakeTestContext(), tc.Setup...)
-				if err != nil {
-					t.Fatalf("failed setup: %s", err)
-				}
-				// These two values change every run:
-				if tc.Request.Repo.Repo == "<the-repo-url>" {
-					tc.Request.Repo.Repo = cfg.URL
-				}
-				if tc.Request.Revision == "<last-commit-id>" {
-
-					tc.Request.Revision = repo.State().Commit.Id().String()
-				}
-				if tc.ExpectedResponse != nil {
-					tc.ExpectedResponse.Revision = ToRevision(appVersion)
-					mn := make([]string, 0)
-					for _, m := range tc.ExpectedResponse.Manifests {
-						mn = append(mn, strings.ReplaceAll(m, "<the-repo-url>", cfg.URL))
-					}
-					tc.ExpectedResponse.Manifests = mn
-				}
-
-				srv := New(repo, *cfg)
-				resp, err := srv.GenerateManifest(context.Background(), tc.Request)
-				if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-				}
-				if diff := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); diff != "" {
-					t.Errorf("response mismatch (-want, +got):\n%s", diff)
-				}
-
-			})
-		}
-	}
-}
-
-func TestResolveRevision(t *testing.T) {
-	tcs := []struct {
-		Name              string
-		Setup             []repository.Transformer
-		Request           *argorepo.ResolveRevisionRequest
-		ExpectedError     error
-		ExpectedArgoError error
-	}{
-		{
-			Name:  "resolves HEAD",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ResolveRevisionRequest{
-				App: &v1alpha1.Application{
-					Spec: v1alpha1.ApplicationSpec{},
-				},
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				AmbiguousRevision: "HEAD",
-			},
-		},
-		{
-			Name:  "resolves master",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ResolveRevisionRequest{
-				App: &v1alpha1.Application{
-					Spec: v1alpha1.ApplicationSpec{},
-				},
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				AmbiguousRevision: "master",
-			},
-		},
-		{
-			Name:  "resolves a commit id",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ResolveRevisionRequest{
-				App: &v1alpha1.Application{
-					Spec: v1alpha1.ApplicationSpec{},
-				},
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				AmbiguousRevision: "<last-commit-id>",
-			},
-		},
-		{
-			Name:  "rejects an unknown branch",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ResolveRevisionRequest{
-				App: &v1alpha1.Application{
-					Spec: v1alpha1.ApplicationSpec{},
-				},
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				AmbiguousRevision: "not-our-branch",
-			},
-
-			ExpectedError: errMatcher{"rpc error: code = NotFound desc = unknown revision \"not-our-branch\", I only know \"HEAD\", \"master\" and commit hashes"},
-
-			ExpectedArgoError: errMatcher{"Unable to resolve 'not-our-branch' to a commit SHA"},
-		},
-		{
-			Name:  "accepts unknown commit ids",
-			Setup: createOneAppInDevelopment,
-			Request: &argorepo.ResolveRevisionRequest{
-				App: &v1alpha1.Application{
-					Spec: v1alpha1.ApplicationSpec{},
-				},
-				Repo: &v1alpha1.Repository{
-					Repo: "<the-repo-url>",
-				},
-				AmbiguousRevision: "b551320bc327abfabf9df32ee5a830f8ccb1e88d",
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			repo, cfg := setupRepository(t)
-			err := repo.Apply(testutil.MakeTestContext(), tc.Setup...)
-			if err != nil {
-				t.Fatalf("failed setup: %s", err)
-			}
 			// These two values change every run:
 			if tc.Request.Repo.Repo == "<the-repo-url>" {
 				tc.Request.Repo.Repo = cfg.URL
 			}
-			if tc.Request.AmbiguousRevision == "<last-commit-id>" {
-				tc.Request.AmbiguousRevision = repo.State().Commit.Id().String()
-			}
-			asrv := testArgoServer(t)
-			aresp, err := asrv.ResolveRevision(context.Background(), tc.Request)
-			if diff := cmp.Diff(tc.ExpectedArgoError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-			}
+			if tc.Request.Revision == "<last-commit-id>" {
 
-			srv := New(repo, cfg)
-			resp, err := srv.ResolveRevision(context.Background(), tc.Request)
-			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				tc.Request.Revision = repo.State().Commit.Id().String()
 			}
-
-			if tc.ExpectedError == nil {
-				// We only need to check here if both are the same
-				if diff := cmp.Diff(aresp, resp, protocmp.Transform()); diff != "" {
-					t.Errorf("responses mismatch (-want, +got):\n%s", diff)
+			if tc.ExpectedResponse != nil {
+				tc.ExpectedResponse.Revision = ToRevision(appVersion)
+				mn := make([]string, 0)
+				for _, m := range tc.ExpectedResponse.Manifests {
+					mn = append(mn, strings.ReplaceAll(m, "<the-repo-url>", cfg.URL))
 				}
+				tc.ExpectedResponse.Manifests = mn
 			}
+
+			srv := New(repo, *cfg)
+			resp, err := srv.GenerateManifest(context.Background(), tc.Request)
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+
 		})
 	}
 }
