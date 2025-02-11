@@ -120,7 +120,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                     'Reason:',
                     'TransformerEslVersion:',
                     'Retry:',
-                    'Skip',
+                    'Skip:',
                 ],
                 body: [
                     [
