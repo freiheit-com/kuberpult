@@ -63,7 +63,16 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 ],
             },
             expectedEslsTable: {
-                head: ['EslVersion:', 'Date:', 'Event Type:', 'Json:', 'Reason:', 'TransformerEslVersion:', 'Retry:'],
+                head: [
+                    'EslVersion:',
+                    'Date:',
+                    'Event Type:',
+                    'Json:',
+                    'Reason:',
+                    'TransformerEslVersion:',
+                    'Retry:',
+                    'Skip:',
+                ],
                 body: [
                     [
                         '1',
@@ -73,6 +82,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         '',
                         '12',
                         'Retry',
+                        'Skip',
                     ],
                     [
                         '2',
@@ -82,6 +92,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         'unexpected error',
                         '17',
                         'Retry',
+                        'Skip',
                     ],
                 ],
             },
@@ -101,7 +112,16 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 ],
             },
             expectedEslsTable: {
-                head: ['EslVersion:', 'Date:', 'Event Type:', 'Json:', 'Reason:', 'TransformerEslVersion:', 'Retry:'],
+                head: [
+                    'EslVersion:',
+                    'Date:',
+                    'Event Type:',
+                    'Json:',
+                    'Reason:',
+                    'TransformerEslVersion:',
+                    'Retry:',
+                    'Skip',
+                ],
                 body: [
                     [
                         '1',
@@ -111,6 +131,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         'unknown error',
                         '9',
                         'Retry',
+                        'Skip',
                     ],
                 ],
             },
