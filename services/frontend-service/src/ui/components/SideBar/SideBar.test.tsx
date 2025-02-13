@@ -25,8 +25,10 @@ import {
     deleteAllActions,
     appendAction,
     DisplayLock,
+    UpdateSnackbar,
+    SnackbarStatus,
 } from '../../utils/store';
-import { ActionDetails, ActionTypes, getActionDetails, SideBar } from './SideBar';
+import { ActionDetails, ActionTypes, getActionDetails, showFailedActionMessage, SideBar } from './SideBar';
 
 describe('Sidebar shows list of actions', () => {
     interface dataT {
@@ -750,6 +752,109 @@ describe('Action details', () => {
                 }
                 expect(container.getElementsByClassName('sub-headline1')[0].textContent).toBe(expected);
             });
+        });
+    });
+});
+
+describe('Action failed after applying ', () => {
+    interface TestError {
+        code: number;
+        message: string;
+        reason?: string;
+    }
+
+    const fakeTransformerBatchError = (index: number, reason: string): TestError => ({
+        code: 1,
+        reason,
+        message: `error at index ${index} of transformer batch: ${reason}`,
+    });
+
+    interface dataT {
+        name: string;
+        actions: BatchAction[];
+        envLocks?: DisplayLock[];
+        appLocks?: DisplayLock[];
+        teamLocks?: DisplayLock[];
+        error: TestError;
+        expectedMessage: string;
+    }
+
+    const data: dataT[] = [
+        {
+            name: 'test one action',
+            actions: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    },
+                },
+            ],
+            error: fakeTransformerBatchError(0, 'it failed'),
+            expectedMessage: 'Create new environment lock on foo failed: it failed. Please try again',
+        },
+        {
+            name: 'test multiple actions',
+            actions: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    },
+                },
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: {
+                            environment: 'bar',
+                            lockId: 'ui-v1-1337',
+                            message: 'foo',
+                            ciLink: '',
+                        },
+                    },
+                },
+            ],
+            error: fakeTransformerBatchError(1, 'it failed'),
+            expectedMessage: 'Create new environment lock on bar failed: it failed. Please try again',
+        },
+        {
+            name: 'test permission denied error',
+            actions: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    },
+                },
+            ],
+            error: { code: 7, message: 'permission denied' },
+            expectedMessage: 'permission denied',
+        },
+        {
+            name: 'test error message not matching regex',
+            actions: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    },
+                },
+            ],
+            error: { code: 1, message: 'something' },
+            expectedMessage: 'Actions were not applied. Please try again',
+        },
+    ];
+
+    describe.each(data)('', (testcase) => {
+        it(testcase.name, () => {
+            const envLocks = testcase.envLocks || [];
+            const appLocks = testcase.appLocks || [];
+            const teamLocks = testcase.teamLocks || [];
+            showFailedActionMessage(testcase.error, testcase.actions, appLocks, envLocks, teamLocks);
+
+            expect(UpdateSnackbar.get().show).toBe(true);
+            expect(UpdateSnackbar.get().status).toBe(SnackbarStatus.ERROR);
+            expect(UpdateSnackbar.get().content).toBe(testcase.expectedMessage);
         });
     });
 });
