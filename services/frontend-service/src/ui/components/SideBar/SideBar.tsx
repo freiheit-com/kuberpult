@@ -299,6 +299,31 @@ export const getActionDetails = (
     }
 };
 
+export const showFailedActionMessage = (
+    e: any,
+    actions: BatchAction[],
+    appLocks: DisplayLock[],
+    envLocks: DisplayLock[],
+    teamLocks: DisplayLock[]
+): void => {
+    const GrpcErrorPermissionDenied = 7;
+    if (e.code === GrpcErrorPermissionDenied) {
+        showSnackbarError(e.message);
+    } else {
+        const regex = /error at index (\d+) of transformer batch: (.*)/;
+        const match = regex.exec(e.message);
+        if (match && match.length === 3) {
+            const errorMessage = match[2];
+            const failedActionIndex = parseInt(match[1], 10);
+            const failedAction = actions[failedActionIndex];
+            const details = getActionDetails(failedAction, envLocks, appLocks, teamLocks);
+            showSnackbarError(`${details.summary} failed: ${errorMessage}. Please try again`);
+        } else {
+            showSnackbarError('Actions were not applied. Please try again');
+        }
+    }
+};
+
 type SideBarListItemProps = {
     children: BatchAction;
 };
@@ -424,6 +449,7 @@ export const SideBarList = (): JSX.Element => {
 
 export const SideBar: React.FC<{ className?: string }> = (props) => {
     const className = 'mdc-drawer-sidebar--displayed'; //props;
+    const { environmentLocks, appLocks, teamLocks } = useAllLocks();
     const actions = useActions();
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
@@ -512,12 +538,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 .catch((e) => {
                     // eslint-disable-next-line no-console
                     console.error('error in batch request: ', e);
-                    const GrpcErrorPermissionDenied = 7;
-                    if (e.code === GrpcErrorPermissionDenied) {
-                        showSnackbarError(e.message);
-                    } else {
-                        showSnackbarError('Actions were not applied. Please try again');
-                    }
+                    showFailedActionMessage(e, actions, appLocks, environmentLocks, teamLocks);
                 })
                 .finally(() => {
                     appNamesToInvalidate.forEach((appName) => invalidateAppDetailsForApp(appName));
@@ -525,7 +546,18 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 });
             setDialogState({ showConfirmationDialog: false });
         }
-    }, [actions, api, authHeader, authReady, lockCreationList, lockMessage, allApps]);
+    }, [
+        actions,
+        api,
+        authHeader,
+        authReady,
+        lockCreationList,
+        lockMessage,
+        allApps,
+        environmentLocks,
+        appLocks,
+        teamLocks,
+    ]);
 
     const showDialog = useCallback(() => {
         setDialogState({ showConfirmationDialog: true });
