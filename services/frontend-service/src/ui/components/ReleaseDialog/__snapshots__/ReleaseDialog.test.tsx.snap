@@ -165,7 +165,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                         <span
                           class="mdc-evolution-chip__text-name"
                         >
-                          <span>
+                          <span
+                            class="env-card-header-name"
+                          >
                             prod
                           </span>
                         </span>
@@ -469,7 +471,9 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                         <span
                           class="mdc-evolution-chip__text-name"
                         >
-                          <span>
+                          <span
+                            class="env-card-header-name"
+                          >
                             prod
                           </span>
                         </span>
@@ -773,7 +777,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         <span
                           class="mdc-evolution-chip__text-name"
                         >
-                          <span>
+                          <span
+                            class="env-card-header-name"
+                          >
                             prod
                           </span>
                         </span>
@@ -922,7 +928,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         <span
                           class="mdc-evolution-chip__text-name"
                         >
-                          <span>
+                          <span
+                            class="env-card-header-name"
+                          >
                             dev
                           </span>
                         </span>

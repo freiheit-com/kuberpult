@@ -73,7 +73,9 @@ describe('EnvironmentChip', () => {
                 <span
                   class="mdc-evolution-chip__text-name"
                 >
-                  <span>
+                  <span
+                    class="env-card-header-name"
+                  >
                     Test Me
                   </span>
                 </span>

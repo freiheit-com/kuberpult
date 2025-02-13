@@ -15,8 +15,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import React from 'react';
-import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl } from './store';
+import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl, useGitSyncStatus } from './store';
 import classNames from 'classnames';
+import { Argo } from '../../images';
 
 export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): string | undefined => {
     if (baseUrl) {
@@ -120,17 +121,19 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string; namespace: str
 ): JSX.Element => {
     const { app, env, namespace } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
-    if (!argoBaseUrl) {
-        // just render as text, because we do not have a base url:
-        return <span>{env}</span>;
-    }
+    const gitSyncStatusEnabled = useGitSyncStatus((getter) => getter.isEnabled());
     return (
-        <a
-            title={'Opens the app in ArgoCd for this environment'}
-            className={classNames('env-card-link')}
-            href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
-            {env}
-        </a>
+        <>
+            <span className={classNames('env-card-header-name')}>{env}</span>
+            {argoBaseUrl && !gitSyncStatusEnabled && (
+                <a
+                    title={'Opens the app in ArgoCd for this environment'}
+                    className={classNames('env-card-link')}
+                    href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
+                    <Argo className={classNames('argo-logo')}></Argo>
+                </a>
+            )}
+        </>
     );
 };
 
