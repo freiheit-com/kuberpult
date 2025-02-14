@@ -192,3 +192,129 @@ describe('Esl Warnings page tests', () => {
         });
     });
 });
+
+describe('Esl Warnings page tests with LoadMore', () => {
+    type TestCase = {
+        name: string;
+        fakeLoadEverything: boolean;
+        enableDex: boolean;
+        enableDexValidToken: boolean;
+        failedEslsStoreData:
+            | {
+                  failedEslsReady: FailedEslsState;
+                  response: GetFailedEslsResponse | undefined;
+              }[]
+            | undefined;
+        expectedSpinnerCount: number;
+        expectedMainContentCount: number;
+        expectedText: string;
+    };
+
+    const testCases: TestCase[] = [
+        {
+            name: 'Some main content exists when the page is done loading',
+            fakeLoadEverything: true,
+            enableDex: false,
+            enableDexValidToken: false,
+            expectedSpinnerCount: 0,
+            expectedMainContentCount: 1,
+            expectedText:
+                'Failed ESL Event List: This page shows all events that could not be processed, and therefore were never written to the manifest repo. Any operation in kuberpult is an event, like creating a lock or running a release',
+            failedEslsStoreData: [
+                {
+                    failedEslsReady: FailedEslsState.READY,
+                    response: {
+                        failedEsls: [
+                            {
+                                eslVersion: 1,
+                                createdAt: new Date('2024-02-09T11:20:00Z'),
+                                eventType: 'EvtCreateApplicationVersion',
+                                json: '{"version": 1, "app": "test-app-name"}',
+                                reason: '',
+                                transformerEslVersion: 0,
+                            },
+                        ],
+                        loadMore: false,
+                    },
+                },
+            ],
+        },
+        {
+            name: 'Load more appears',
+            fakeLoadEverything: true,
+            enableDex: true,
+            enableDexValidToken: true,
+            expectedSpinnerCount: 0,
+            expectedMainContentCount: 1,
+            expectedText:
+                'Failed ESL Event List: This page shows all events that could not be processed, and therefore were never written to the manifest repo. Any operation in kuberpult is an event, like creating a lock or running a release',
+            failedEslsStoreData: [
+                {
+                    failedEslsReady: FailedEslsState.READY,
+                    response: {
+                        failedEsls: [
+                            {
+                                eslVersion: 1,
+                                createdAt: new Date('2024-02-09T11:20:00Z'),
+                                eventType: 'EvtCreateApplicationVersion',
+                                json: '{"version": 1, "app": "test-app-name"}',
+                                reason: '',
+                                transformerEslVersion: 0,
+                            },
+                        ],
+                        loadMore: true,
+                    },
+                },
+                {
+                    failedEslsReady: FailedEslsState.READY,
+                    response: {
+                        failedEsls: [
+                            {
+                                eslVersion: 0,
+                                createdAt: new Date('2024-02-09T11:20:00Z'),
+                                eventType: 'EvtCreateApplicationVersion',
+                                json: '{"version": 1, "app": "test-app-name"}',
+                                reason: '',
+                                transformerEslVersion: 2,
+                            },
+                            {
+                                eslVersion: 0,
+                                createdAt: new Date('2024-02-10T11:20:00Z'),
+                                eventType: 'EvtCreateApplicationVersion',
+                                json: '{"version": 1, "app": "test-app-name"}',
+                                reason: '',
+                                transformerEslVersion: 2,
+                            },
+                        ],
+                        loadMore: false,
+                    },
+                },
+            ],
+        },
+    ];
+    describe.each(testCases)('', (tc) => {
+        test(tc.name, () => {
+            fakeLoadEverything(tc.fakeLoadEverything);
+            if (tc.failedEslsStoreData !== undefined) updateFailedEsls.set(tc.failedEslsStoreData[0]);
+            if (tc.enableDex) {
+                enableDexAuth(tc.enableDexValidToken);
+            }
+
+            const { container } = render(
+                <MemoryRouter initialEntries={['/ui/eslWarnings/']}>
+                    <Routes>
+                        <Route path={'/ui/eslWarnings/'} element={<EslWarningsPage />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            expect(container.getElementsByClassName('spinner')).toHaveLength(tc.expectedSpinnerCount);
+            expect(container.getElementsByClassName('main-content esl-warnings-page')).toHaveLength(
+                tc.expectedMainContentCount
+            );
+
+            expect(container.getElementsByClassName('load-more-button-container')).toHaveLength(1);
+            expect(container.textContent).toContain(tc.expectedText);
+        });
+    });
+});
