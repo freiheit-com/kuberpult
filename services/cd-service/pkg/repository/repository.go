@@ -20,10 +20,8 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"io"
 	"net/http"
 	"os"
@@ -34,6 +32,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -1851,10 +1851,7 @@ func (s *State) GetAllEnvironmentNames(ctx context.Context, transaction *sql.Tx)
 }
 
 func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
-	}
-	return s.GetAllEnvironmentConfigsFromManifest()
+	return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 }
 
 func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
@@ -1910,23 +1907,6 @@ func (s *State) GetAllDeploymentsForAppFromManifest(ctx context.Context, appName
 	return result, nil
 }
 
-func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
-	envs, err := s.Filesystem.ReadDir("environments")
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]config.EnvironmentConfig{}
-	for _, env := range envs {
-		c, err := s.GetEnvironmentConfigFromManifest(env.Name())
-		if err != nil {
-			return nil, err
-
-		}
-		result[env.Name()] = *c
-	}
-	return result, nil
-}
-
 func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
 	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 	if err != nil {
@@ -1947,21 +1927,7 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 }
 
 func (s *State) GetEnvironmentConfig(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentConfigFromDB(ctx, transaction, environmentName)
-	}
-	return s.GetEnvironmentConfigFromManifest(environmentName)
-}
-
-func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*config.EnvironmentConfig, error) {
-	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
-	var config config.EnvironmentConfig
-	if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("%s : %w", fileName, InvalidJson)
-		}
-	}
-	return &config, nil
+	return s.GetEnvironmentConfigFromDB(ctx, transaction, environmentName)
 }
 
 func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
@@ -2149,27 +2115,8 @@ func extractPrNumber(sourceMessage string) string {
 }
 
 func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version uint64) (bool, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
-		return release.Metadata.UndeployVersion, err
-	} else {
-		return s.IsUndeployVersionFromManifest(application, version)
-	}
-}
-
-func (s *State) IsUndeployVersionFromManifest(application string, version uint64) (bool, error) {
-	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
-	_, err := s.Filesystem.Stat(base)
-	if err != nil {
-		return false, wrapFileError(err, base, "could not call stat")
-	}
-	if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "undeploy")); err != nil {
-		if !os.IsNotExist(err) {
-			return false, err
-		}
-		return false, nil
-	}
-	return true, nil
+	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
+	return release.Metadata.UndeployVersion, err
 }
 
 func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.Tx, application string, versions []uint64) ([]*Release, error) {
@@ -2210,216 +2157,74 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 }
 
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
-		if err != nil {
-			return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
-		}
-		if env == nil {
-			return nil, nil
-		}
-		return &Release{
-			Version:         env.ReleaseNumber,
-			UndeployVersion: env.Metadata.UndeployVersion,
-			SourceAuthor:    env.Metadata.SourceAuthor,
-			SourceCommitId:  env.Metadata.SourceCommitId,
-			SourceMessage:   env.Metadata.SourceMessage,
-			CreatedAt:       env.Created,
-			DisplayVersion:  env.Metadata.DisplayVersion,
-			IsMinor:         env.Metadata.IsMinor,
-			IsPrepublish:    env.Metadata.IsPrepublish,
-			Environments:    env.Environments,
-		}, nil
-	} else {
-		return s.GetApplicationReleaseFromManifest(application, version)
-	}
-}
-
-func (s *State) GetApplicationReleaseFromManifest(application string, version uint64) (*Release, error) {
-	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
-	_, err := s.Filesystem.Stat(base)
+	env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 	if err != nil {
-		return nil, wrapFileError(err, base, "could not call stat")
+		return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
 	}
-	release := Release{
-		Version:         version,
-		UndeployVersion: false,
-		SourceAuthor:    "",
-		SourceCommitId:  "",
-		SourceMessage:   "",
-		CreatedAt:       time.Time{},
-		DisplayVersion:  "",
-		IsMinor:         false,
-		IsPrepublish:    false,
-		Environments:    []string{},
+	if env == nil {
+		return nil, nil
 	}
-	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		release.SourceCommitId = string(cnt)
-	}
-	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_author")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		release.SourceAuthor = string(cnt)
-	}
-	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_message")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		release.SourceMessage = string(cnt)
-	}
-	if displayVersion, err := readFile(s.Filesystem, s.Filesystem.Join(base, "display_version")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-		release.DisplayVersion = ""
-	} else {
-		release.DisplayVersion = string(displayVersion)
-	}
-	isUndeploy, err := s.IsUndeployVersionFromManifest(application, version)
-	if err != nil {
-		return nil, err
-	}
-	release.UndeployVersion = isUndeploy
-	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "created_at")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		if releaseTime, err := time.Parse(time.RFC3339, strings.TrimSpace(string(cnt))); err != nil {
-			return nil, err
-		} else {
-			release.CreatedAt = releaseTime
-		}
-	}
-	return &release, nil
+	return &Release{
+		Version:         env.ReleaseNumber,
+		UndeployVersion: env.Metadata.UndeployVersion,
+		SourceAuthor:    env.Metadata.SourceAuthor,
+		SourceCommitId:  env.Metadata.SourceCommitId,
+		SourceMessage:   env.Metadata.SourceMessage,
+		CreatedAt:       env.Created,
+		DisplayVersion:  env.Metadata.DisplayVersion,
+		IsMinor:         env.Metadata.IsMinor,
+		IsPrepublish:    env.Metadata.IsPrepublish,
+		Environments:    env.Environments,
+	}, nil
 }
 
 func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application string, version uint64) (map[string]*api.Manifest, error) {
 	manifests := map[string]*api.Manifest{}
-	if s.DBHandler.ShouldUseOtherTables() {
-		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
-		if err != nil {
-			return nil, fmt.Errorf("could not get release for app %s with version %v: %w", application, version, err)
-		}
-		for index, mani := range release.Manifests.Manifests {
-			manifests[index] = &api.Manifest{
-				Environment: index,
-				Content:     mani,
-			}
-		}
-		return manifests, nil
-	} else {
-		return s.GetApplicationReleaseManifestsFromManifest(application, version)
-	}
-}
-
-func (s *State) GetApplicationReleaseManifestsFromManifest(application string, version uint64) (map[string]*api.Manifest, error) {
-	manifests := map[string]*api.Manifest{}
-	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
-
-	entries, err := s.Filesystem.ReadDir(dir)
+	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 	if err != nil {
-		return nil, fmt.Errorf("reading manifest directory: %w", err)
+		return nil, fmt.Errorf("could not get release for app %s with version %v: %w", application, version, err)
 	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		manifestPath := filepath.Join(dir, entry.Name(), "manifests.yaml")
-		file, err := s.Filesystem.Open(manifestPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open %s: %w", manifestPath, err)
-		}
-		content, err := io.ReadAll(file)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", manifestPath, err)
-		}
-
-		manifests[entry.Name()] = &api.Manifest{
-			Environment: entry.Name(),
-			Content:     string(content),
+	for index, mani := range release.Manifests.Manifests {
+		manifests[index] = &api.Manifest{
+			Environment: index,
+			Content:     mani,
 		}
 	}
 	return manifests, nil
 }
 
 func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
-		if err != nil {
-			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
-		}
-		if app == nil {
-			return "", fmt.Errorf("could not get team of app %s - could not find app", application)
-		}
-		return app.Metadata.Team, nil
-	} else {
-		return s.GetApplicationTeamOwnerFromManifest(application)
+	app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
+	if err != nil {
+		return "", fmt.Errorf("could not get team of app %s: %v", application, err)
 	}
+	if app == nil {
+		return "", fmt.Errorf("could not get team of app %s - could not find app", application)
+	}
+	return app.Metadata.Team, nil
 }
 
 func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx) (map[string]string, error) {
 	result := make(map[string]string)
-	if s.DBHandler.ShouldUseOtherTables() {
-		apps, err := s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
-		if err != nil {
-			return result, fmt.Errorf("could not get team of all apps: %w", err)
-		}
-		for _, app := range apps {
-			result[app.App] = app.Metadata.Team
-		}
-		return result, nil
-	} else {
-		apps, err := s.GetApplications(ctx, transaction)
-		if err != nil {
-			return result, err
-		}
-		for _, app := range apps {
-			teamOwner, err := s.GetApplicationTeamOwnerFromManifest(app)
-			if err != nil {
-				return result, err
-			}
-			result[app] = teamOwner
-		}
-		return result, nil
+	apps, err := s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
+	if err != nil {
+		return result, fmt.Errorf("could not get team of all apps: %w", err)
 	}
+	for _, app := range apps {
+		result[app.App] = app.Metadata.Team
+	}
+	return result, nil
 }
 
 func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transaction *sql.Tx, application string, ts time.Time) (string, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		app, err := s.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, application, ts)
-		if err != nil {
-			return "", fmt.Errorf("could not get team of app %s: %v", application, err)
-		}
-		if app == nil {
-			return "", fmt.Errorf("could not get team of app %s - could not find app", application)
-		}
-		return app.Metadata.Team, nil
-	} else {
-		return s.GetApplicationTeamOwnerFromManifest(application)
+	app, err := s.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, application, ts)
+	if err != nil {
+		return "", fmt.Errorf("could not get team of app %s: %v", application, err)
 	}
-}
-
-func (s *State) GetApplicationTeamOwnerFromManifest(application string) (string, error) {
-	appDir := applicationDirectory(s.Filesystem, application)
-	appTeam := s.Filesystem.Join(appDir, "team")
-
-	if team, err := readFile(s.Filesystem, appTeam); err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		} else {
-			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
-		}
-	} else {
-		return string(team), nil
+	if app == nil {
+		return "", fmt.Errorf("could not get team of app %s - could not find app", application)
 	}
+	return app.Metadata.Team, nil
 }
 
 func names(fs billy.Filesystem, path string) ([]string, error) {
@@ -2432,16 +2237,6 @@ func names(fs billy.Filesystem, path string) ([]string, error) {
 		result = append(result, app.Name())
 	}
 	return result, nil
-}
-
-func decodeJsonFile(fs billy.Filesystem, path string, out interface{}) error {
-	if file, err := fs.Open(path); err != nil {
-		return wrapFileError(err, path, "could not decode json file")
-	} else {
-		defer file.Close()
-		dec := json.NewDecoder(file)
-		return dec.Decode(out)
-	}
 }
 
 func readFile(fs billy.Filesystem, path string) ([]byte, error) {
@@ -2483,7 +2278,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 	return queueDeploymentMessage, nil
 }
 
-func (s *State) ProcessQueueAllApps(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment string) (string, error) {
+func (s *State) ProcessQueueAllApps(ctx context.Context, transaction *sql.Tx, environment string) (string, error) {
 	queuedVersions, err := s.GetQueuedVersionOfAllApps(ctx, transaction, environment)
 	if err != nil {
 		return "", err

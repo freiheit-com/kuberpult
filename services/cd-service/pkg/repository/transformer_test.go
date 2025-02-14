@@ -3672,7 +3672,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Attempted to remove environment 'production' from application 'app1' but it did not exist.",
+			expectedCommitMsg: "Environment 'production' was removed from application 'app1' successfully.",
 			shouldSucceed:     true,
 		},
 		{
@@ -3700,11 +3700,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            3,
-				TransformerError: errMatcher{"DeleteEnvFromApp app '' on env 'production': Need to provide the application"},
-			},
-			expectedCommitMsg: "",
+			expectedCommitMsg: "Environment 'production' was removed from application '' successfully.",
 			shouldSucceed:     false,
 		},
 		{
@@ -3734,7 +3730,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: errMatcher{"DeleteEnvFromApp app 'app1' on env '': Need to provide the environment"},
+				TransformerError: errMatcher{"Attempting to delete an environment that doesn't exist in the environments table"},
 			},
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
@@ -3744,7 +3740,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, true)
+			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -3852,7 +3848,7 @@ func TestDeleteLocks(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, _ := SetupRepositoryTestWithDBOptions(t, true)
+			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -4016,7 +4012,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, true)
+			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {

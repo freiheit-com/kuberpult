@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -34,12 +33,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/freiheit-com/kuberpult/pkg/setup"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testssh"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-cmp/cmp"
@@ -58,253 +52,6 @@ func (e errMatcher) Error() string {
 
 func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
-}
-
-func TestGetTagsNoTags(t *testing.T) {
-	name := "No tags to be returned at all"
-
-	t.Run(name, func(t *testing.T) {
-		t.Parallel()
-		dir := t.TempDir()
-		remoteDir := path.Join(dir, "remote")
-		localDir := path.Join(dir, "local")
-		repoConfig := RepositoryConfig{
-			StorageBackend:      0,
-			URL:                 "file://" + remoteDir,
-			Path:                localDir,
-			Branch:              "master",
-			ArgoCdGenerateFiles: true,
-		}
-		cmd := exec.Command("git", "init", "--bare", remoteDir)
-		cmd.Start()
-		cmd.Wait()
-		_, err := New(
-			testutil.MakeTestContext(),
-			repoConfig,
-		)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-		tags, err := GetTags(
-			repoConfig,
-			localDir,
-			testutil.MakeTestContext(),
-		)
-		if err != nil {
-			t.Fatalf("new: expected no error, got '%e'", err)
-		}
-		if len(tags) != 0 {
-			t.Fatalf("expected %v tags but got %v", 0, len(tags))
-		}
-	})
-
-}
-
-func TestGetTags(t *testing.T) {
-	tcs := []struct {
-		Name         string
-		expectedTags []api.TagData
-		tagsToAdd    []string
-	}{
-		{
-			Name:         "Tags added to be returned",
-			tagsToAdd:    []string{"v1.0.0"},
-			expectedTags: []api.TagData{{Tag: "refs/tags/v1.0.0", CommitId: ""}},
-		},
-		{
-			Name:         "Tags added in opposite order and are sorted",
-			tagsToAdd:    []string{"v1.0.1", "v0.0.1"},
-			expectedTags: []api.TagData{{Tag: "refs/tags/v0.0.1", CommitId: ""}, {Tag: "refs/tags/v1.0.1", CommitId: ""}},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			repoConfig := RepositoryConfig{
-				StorageBackend:      0,
-				URL:                 "file://" + remoteDir,
-				Path:                localDir,
-				Branch:              "master",
-				ArgoCdGenerateFiles: true,
-			}
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			_, err := New(
-				testutil.MakeTestContext(),
-				repoConfig,
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			repo, err := git.OpenRepository(localDir)
-			if err != nil {
-				t.Fatal(err)
-			}
-			idx, err := repo.Index()
-			if err != nil {
-				t.Fatal(err)
-			}
-			treeId, err := idx.WriteTree()
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			tree, err := repo.LookupTree(treeId)
-			if err != nil {
-				t.Fatal(err)
-			}
-			oid, err := repo.CreateCommit("HEAD", &git.Signature{Name: "SRE", Email: "testing@gmail"}, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing", tree)
-			if err != nil {
-				t.Fatal(err)
-			}
-			commit, err := repo.LookupCommit(oid)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var expectedCommits []api.TagData
-			for addTag := range tc.tagsToAdd {
-				commit, err := repo.Tags.Create(tc.tagsToAdd[addTag], commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
-				expectedCommits = append(expectedCommits, api.TagData{Tag: tc.tagsToAdd[addTag], CommitId: commit.String()})
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-			tags, err := GetTags(
-				repoConfig,
-				localDir,
-				testutil.MakeTestContext(),
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
-			if len(tags) != len(tc.expectedTags) {
-				t.Fatalf("expected %v tags but got %v", len(tc.expectedTags), len(tags))
-			}
-
-			iter := 0
-			for _, tagData := range tags {
-				for commit := range expectedCommits {
-					if tagData.Tag != expectedCommits[commit].Tag {
-						if tagData.CommitId == expectedCommits[commit].CommitId {
-							t.Fatalf("expected [%v] for TagList commit but got [%v]", expectedCommits[commit].CommitId, tagData.CommitId)
-						}
-					}
-				}
-				if tagData.Tag != tc.expectedTags[iter].Tag {
-					t.Fatalf("expected [%v] for TagList tag but got [%v] with tagList %v", tc.expectedTags[iter].Tag, tagData.Tag, tags)
-				}
-				iter += 1
-			}
-		})
-	}
-}
-
-func TestConfigValidity(t *testing.T) {
-	tcs := []struct {
-		Name          string
-		ConfigContent string
-		ErrorExpected bool
-	}{
-		{
-			Name:          "Initialization with valid config.json file works",
-			ConfigContent: "{\"upstream\": {\"latest\": true }}",
-			ErrorExpected: false,
-		},
-		{
-			Name:          "Initialization with invalid config.json file throws error",
-			ConfigContent: "{\"upstream\": \"latest\": true }}",
-			ErrorExpected: true,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			// create a remote
-			workdir := t.TempDir()
-			remoteDir := path.Join(workdir, "remote")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-
-			workdir = t.TempDir()
-			cmd = exec.Command("git", "clone", remoteDir, workdir) // Clone git dir
-			_, err := cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				t.Fatal(err)
-			}
-
-			if err := os.MkdirAll(path.Join(workdir, "environments", "development"), 0700); err != nil {
-				t.Fatal(err)
-			}
-
-			configFilePath := path.Join(workdir, "environments", "development", "config.json")
-			if err := os.WriteFile(configFilePath, []byte(tc.ConfigContent), 0666); err != nil {
-				t.Fatal(err)
-			}
-			cmd = exec.Command("git", "add", configFilePath) // Add a new file to git
-			cmd.Dir = workdir
-			_, err = cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				t.Fatal(err)
-			}
-			cmd = exec.Command("git", "commit", "-m", "valid config") // commit the new file
-			cmd.Dir = workdir
-			cmd.Env = []string{
-				"GIT_AUTHOR_NAME=kuberpult",
-				"GIT_COMMITTER_NAME=kuberpult",
-				"EMAIL=test@kuberpult.com",
-			}
-			_, err = cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				t.Fatal(err)
-			}
-			cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
-			cmd.Dir = workdir
-			_, err = cmd.Output()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					t.Logf("stderr: %s\n", exitErr.Stderr)
-				}
-				t.Fatal(err)
-			}
-
-			_, err = New(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                 remoteDir,
-					Path:                t.TempDir(),
-					ArgoCdGenerateFiles: true,
-				},
-			)
-
-			if tc.ErrorExpected {
-				if err == nil {
-					t.Errorf("Initialized even though config.json was incorrect")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Initialization failed with valid config.json")
-				}
-			}
-
-		})
-	}
 }
 
 func TestRetrySsh(t *testing.T) {
@@ -924,82 +671,6 @@ func TestApplyQueue(t *testing.T) {
 	}
 }
 
-func TestMaximumCommitsPerPush(t *testing.T) {
-	tcs := []struct {
-		NumberOfCommits       uint
-		MaximumCommitsPerPush uint
-		ExpectedAtLeastPushes uint
-	}{
-		{
-			NumberOfCommits:       7,
-			MaximumCommitsPerPush: 5,
-			ExpectedAtLeastPushes: 2,
-		},
-		{
-			NumberOfCommits:       5,
-			MaximumCommitsPerPush: 0,
-			ExpectedAtLeastPushes: 5,
-		},
-		{
-			NumberOfCommits:       5,
-			MaximumCommitsPerPush: 10,
-			ExpectedAtLeastPushes: 1,
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(fmt.Sprintf("with %d commits and %d per push", tc.NumberOfCommits, tc.MaximumCommitsPerPush), func(t *testing.T) {
-			// create a remote
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Run()
-			ts := testssh.New(remoteDir)
-			defer ts.Close()
-			repo, processor, err := New2(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:  ts.Url,
-					Path: localDir,
-					Certificates: Certificates{
-						KnownHostsFile: ts.KnownHosts,
-					},
-					Credentials: Credentials{
-						SshKey: ts.ClientKey,
-					},
-
-					MaximumCommitsPerPush: tc.MaximumCommitsPerPush,
-					ArgoCdGenerateFiles:   true,
-				},
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
-			var eg errgroup.Group
-			for i := uint(0); i < tc.NumberOfCommits; i++ {
-				eg.Go(func() error {
-					return repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
-						Application: "foo",
-						Manifests:   map[string]string{"development": "foo"},
-					})
-				})
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			go func() {
-				processor(ctx, nil)
-			}()
-			eg.Wait()
-			if ts.Pushes < tc.ExpectedAtLeastPushes {
-				t.Errorf("expected at least %d pushes, but %d happened", tc.ExpectedAtLeastPushes, ts.Pushes)
-			}
-
-		})
-	}
-}
-
 func getTransformer(i int) (Transformer, error) {
 	transformerType := i % 5
 	switch transformerType {
@@ -1448,12 +1119,14 @@ func TestLimit(t *testing.T) {
 			Manifests: map[string]string{
 				"production": "manifest",
 			},
+			Version: 1,
 		},
 		&CreateApplicationVersion{
 			Application: "test",
 			Manifests: map[string]string{
 				"production": "manifest2",
 			},
+			Version: 2,
 		},
 	}
 	tcs := []struct {
@@ -1485,11 +1158,8 @@ func TestLimit(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 
-			repo, err := setupRepositoryTestAux(t, 3)
+			repo := SetupRepositoryTestWithDB(t)
 			ctx := testutil.MakeTestContext()
-			if err != nil {
-				t.Fatal(err)
-			}
 			for _, tr := range tc.Setup {
 				errCh := repo.(*repository).applyDeferred(ctx, tr)
 				select {
