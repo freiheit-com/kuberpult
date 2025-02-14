@@ -30,14 +30,16 @@ type EslServiceServer struct {
 	Repository repository.Repository
 }
 
+const pageSize = 25 // Number of failed esls per page
+
 func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailedEslsRequest) (*api.GetFailedEslsResponse, error) {
 	state := s.Repository.State()
-	var response *api.GetFailedEslsResponse = &api.GetFailedEslsResponse{
+	var response = &api.GetFailedEslsResponse{
 		FailedEsls: make([]*api.EslFailedItem, 0),
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-			failedEslRows, err := s.Repository.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 20)
+			failedEslRows, err := s.Repository.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, pageSize, int(req.PageNumber))
 			if err != nil {
 				return err
 			}

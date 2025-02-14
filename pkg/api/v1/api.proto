@@ -813,7 +813,9 @@ service EslService {
   rpc GetFailedEsls (GetFailedEslsRequest) returns (GetFailedEslsResponse) {}
 }
 
-message GetFailedEslsRequest {}
+message GetFailedEslsRequest {
+  int64 page_number = 1;
+}
 
 message EslItem {
   int64 esl_version = 1;
