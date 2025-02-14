@@ -4546,7 +4546,10 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 				t.Fatalf("Error fetching deployments: %v", err)
 			}
 
-			if diff := cmp.Diff(tc.ExpectedDeployments, *deployments, cmpopts.IgnoreFields(db.Deployment{}, "Created", "Metadata")); diff != "" {
+			cmpDeployments := func(d1, d2 db.Deployment) bool {
+				return d1.Env < d2.Env
+			}
+			if diff := cmp.Diff(tc.ExpectedDeployments, *deployments, cmpopts.SortSlices(cmpDeployments), cmpopts.IgnoreFields(db.Deployment{}, "Created", "Metadata")); diff != "" {
 				t.Errorf("result mismatch (-want, +got):\n%s", diff)
 			}
 		})
