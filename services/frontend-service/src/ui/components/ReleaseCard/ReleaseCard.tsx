@@ -27,10 +27,10 @@ import {
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { RolloutStatus } from '../../../api/api';
+import { RolloutStatus, GitSyncStatus } from '../../../api/api';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
-import { GitSyncStatus, GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
+import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
 import { Git, Argo } from '../../../images';
 
 export type ReleaseCardProps = {
@@ -59,11 +59,11 @@ const RolloutStatusIcon: React.FC<{ status: RolloutStatus }> = (props) => {
 const GitSyncStatusIcon: React.FC<{ status: GitSyncStatus }> = (props) => {
     const { status } = props;
     switch (status) {
-        case GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL:
+        case GitSyncStatus.GIT_SYNC_STATUS_SYNCED:
             return <span className="rollout__icon_successful">✓</span>;
-        case GitSyncStatus.GIT_SYNC_STATUS_SYNCING:
+        case GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED:
             return <span className="rollout__icon_progressing">↻</span>;
-        case GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR:
+        case GitSyncStatus.GIT_SYNC_STATUS_ERROR:
             return <span className="rollout__icon_error">!</span>;
     }
     return <span className="rollout__icon_unknown">?</span>;
@@ -88,9 +88,9 @@ const rolloutStatusPriority = [
 ];
 
 const gitSyncStatusPriority = [
-    GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR,
-    GitSyncStatus.GIT_SYNC_STATUS_SYNCING,
-    GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL,
+    GitSyncStatus.GIT_SYNC_STATUS_ERROR,
+    GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+    GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
 ];
 
 const getStatusPriority = (status: number, priorities: number[]): number => {
@@ -183,7 +183,7 @@ const useSyncStatusForDeployment = (
                 }
                 return cur;
             }, undefined);
-            groups[envGroup.environmentGroupName] = status ?? GitSyncStatus.GIT_SYNC_STATUS_UNRECOGNIZED;
+            groups[envGroup.environmentGroupName] = status ?? GitSyncStatus.GIT_SYNC_STATUS_UNKNOWN;
         });
         return groups;
     });

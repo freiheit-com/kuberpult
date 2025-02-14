@@ -237,36 +237,45 @@ func findCommitID(
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
 	defer span.Finish()
-	//Query for UNSYNCED
+
 	dbHandler := s.Repository.State().DBHandler
 	response := &api.GetGitSyncStatusResponse{
-		Unsynced:   make([]*api.EnvApp, 0),
-		SyncFailed: make([]*api.EnvApp, 0),
+		AppStatuses: make(map[string]*api.EnvSyncStatus),
 	}
 	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
-		statuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
+		unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
 		if err != nil {
 			return err
 		}
-		response.Unsynced = toApiStatuses(statuses)
 
-		statuses, err = dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
+		syncFailedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
 		if err != nil {
 			return err
 		}
-		response.SyncFailed = toApiStatuses(statuses)
+		response.AppStatuses = toApiStatuses(append(unsyncedStatuses, syncFailedStatuses...))
 		return nil
 	})
 	return response, onErr(err)
 }
 
-func toApiStatuses(statuses []db.GitSyncData) []*api.EnvApp {
-	toFill := make([]*api.EnvApp, 0)
+func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
+	toFill := make(map[string]*api.EnvSyncStatus)
 	for _, currStatus := range statuses {
-		toFill = append(toFill, &api.EnvApp{
-			ApplicationName: currStatus.AppName,
-			EnvironmentName: currStatus.EnvName,
-		})
+		if _, exists := toFill[currStatus.AppName]; !exists {
+			toFill[currStatus.AppName] = &api.EnvSyncStatus{
+				EnvStatus: make(map[string]api.GitSyncStatus),
+			}
+		}
+		var statusToWrite api.GitSyncStatus
+		if currStatus.SyncStatus == db.SYNC_FAILED {
+			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_ERROR
+		} else if currStatus.SyncStatus == db.UNSYNCED {
+			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED
+		} else {
+			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
+		}
+
+		toFill[currStatus.AppName].EnvStatus[currStatus.EnvName] = statusToWrite
 	}
 	return toFill
 }
