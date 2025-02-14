@@ -53,13 +53,13 @@ import {
     Priority,
     ReleaseTrainRequest_TargetType,
     RolloutStatus,
+    GitSyncStatus,
     StreamStatusResponse,
     UndeploySummary,
 } from '../../api/api';
 import { makeDisplayLock, makeLock } from '../../setupTests';
 import { BrowserRouter } from 'react-router-dom';
 import { ReactNode } from 'react';
-import { GitSyncStatus } from '../components/GitSyncStatusDescription/GitSyncStatusDescription';
 
 describe('Test useLocksSimilarTo', () => {
     type TestDataStore = {
@@ -552,13 +552,13 @@ describe('Git Sync Status', () => {
             name: 'updates one app',
             events: [
                 {
-                    unsynced: [
-                        {
-                            environmentName: 'env1',
-                            applicationName: 'app1',
+                    appStatuses: {
+                        app1: {
+                            envStatus: {
+                                env1: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                            },
                         },
-                    ],
-                    syncFailed: [],
+                    },
                 },
             ],
 
@@ -567,7 +567,7 @@ describe('Git Sync Status', () => {
                     application: 'app1',
                     environment: 'env1',
 
-                    gitSynStatus: GitSyncStatus.GIT_SYNC_STATUS_SYNCING,
+                    gitSynStatus: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
                 },
             ],
         },
@@ -575,17 +575,16 @@ describe('Git Sync Status', () => {
             name: 'keep the latest entry per app and environment',
             events: [
                 {
-                    unsynced: [
-                        {
-                            environmentName: 'env1',
-                            applicationName: 'app1',
+                    appStatuses: {
+                        app1: {
+                            envStatus: {
+                                env1: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                            },
                         },
-                    ],
-                    syncFailed: [],
+                    },
                 },
                 {
-                    unsynced: [],
-                    syncFailed: [],
+                    appStatuses: {},
                 },
             ],
 
@@ -593,7 +592,7 @@ describe('Git Sync Status', () => {
                 {
                     application: 'app1',
                     environment: 'env1',
-                    gitSynStatus: GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL,
+                    gitSynStatus: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
                 },
             ],
         },
@@ -601,13 +600,16 @@ describe('Git Sync Status', () => {
             name: 'flushes the state',
             events: [
                 {
-                    unsynced: [
-                        {
-                            environmentName: 'env1',
-                            applicationName: 'app1',
+                    appStatuses: {
+                        test1: {
+                            envStatus: {
+                                staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                            },
                         },
-                    ],
-                    syncFailed: [],
+                    },
+                },
+                {
+                    appStatuses: {},
                 },
                 { error: true },
             ],

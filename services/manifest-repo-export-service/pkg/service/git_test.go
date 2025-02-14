@@ -1042,12 +1042,9 @@ func TestGetSyncData(t *testing.T) {
 
 	tcs := []TestCase{
 		{
-			name:    "No data",
-			dbInput: []TestSyncData{},
-			expectedResponse: &api.GetGitSyncStatusResponse{
-				Unsynced:   make([]*api.EnvApp, 0),
-				SyncFailed: make([]*api.EnvApp, 0),
-			},
+			name:             "No data",
+			dbInput:          []TestSyncData{},
+			expectedResponse: &api.GetGitSyncStatusResponse{},
 		},
 		{
 			name: "One Unsynced app",
@@ -1059,13 +1056,13 @@ func TestGetSyncData(t *testing.T) {
 				},
 			},
 			expectedResponse: &api.GetGitSyncStatusResponse{
-				Unsynced: []*api.EnvApp{
-					{
-						ApplicationName: appName,
-						EnvironmentName: envName,
+				AppStatuses: map[string]*api.EnvSyncStatus{
+					appName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName: api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED,
+						},
 					},
 				},
-				SyncFailed: make([]*api.EnvApp, 0),
 			},
 		},
 		{
@@ -1078,13 +1075,13 @@ func TestGetSyncData(t *testing.T) {
 				},
 			},
 			expectedResponse: &api.GetGitSyncStatusResponse{
-				SyncFailed: []*api.EnvApp{
-					{
-						ApplicationName: appName,
-						EnvironmentName: envName,
+				AppStatuses: map[string]*api.EnvSyncStatus{
+					appName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName: api.GitSyncStatus_GIT_SYNC_STATUS_ERROR,
+						},
 					},
 				},
-				Unsynced: make([]*api.EnvApp, 0),
 			},
 		},
 		{
@@ -1102,17 +1099,18 @@ func TestGetSyncData(t *testing.T) {
 				},
 			},
 			expectedResponse: &api.GetGitSyncStatusResponse{
-				Unsynced: []*api.EnvApp{
-					{
-						ApplicationName: appName,
-						EnvironmentName: envName,
+				AppStatuses: map[string]*api.EnvSyncStatus{
+					appName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName: api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED,
+						},
 					},
-					{
-						ApplicationName: anotherAppName,
-						EnvironmentName: envName,
+					anotherAppName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName: api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED,
+						},
 					},
 				},
-				SyncFailed: make([]*api.EnvApp, 0),
 			},
 		},
 		{
@@ -1140,20 +1138,17 @@ func TestGetSyncData(t *testing.T) {
 				},
 			},
 			expectedResponse: &api.GetGitSyncStatusResponse{
-				Unsynced: []*api.EnvApp{
-					{
-						ApplicationName: appName,
-						EnvironmentName: envName,
+				AppStatuses: map[string]*api.EnvSyncStatus{
+					appName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName:        api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED,
+							anotherEnvName: api.GitSyncStatus_GIT_SYNC_STATUS_ERROR,
+						},
 					},
-				},
-				SyncFailed: []*api.EnvApp{
-					{
-						ApplicationName: appName,
-						EnvironmentName: anotherEnvName,
-					},
-					{
-						ApplicationName: anotherAppName,
-						EnvironmentName: anotherEnvName,
+					anotherAppName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							anotherEnvName: api.GitSyncStatus_GIT_SYNC_STATUS_ERROR,
+						},
 					},
 				},
 			},
@@ -1182,10 +1177,7 @@ func TestGetSyncData(t *testing.T) {
 					status:  db.SYNCED,
 				},
 			},
-			expectedResponse: &api.GetGitSyncStatusResponse{
-				Unsynced:   make([]*api.EnvApp, 0),
-				SyncFailed: make([]*api.EnvApp, 0),
-			},
+			expectedResponse: &api.GetGitSyncStatusResponse{},
 		},
 	}
 	for _, tc := range tcs {

@@ -19,7 +19,6 @@ import {
     AllTeamLocks,
     BatchAction,
     BatchRequest,
-    EnvApp,
     Environment,
     EnvironmentGroup,
     GetAppDetailsResponse,
@@ -36,6 +35,7 @@ import {
     Priority,
     Release,
     RolloutStatus,
+    GitSyncStatus,
     StreamStatusResponse,
     Warning,
 } from '../../api/api';
@@ -47,7 +47,6 @@ import { useApi } from './GrpcApi';
 import { AuthHeader } from './AzureAuthProvider';
 import { isTokenValid, LoginPage } from '../utils/DexAuthProvider';
 import { LoadingStateSpinner } from '../utils/LoadingStateSpinner';
-import { GitSyncStatus } from '../components/GitSyncStatusDescription/GitSyncStatusDescription';
 
 // see maxBatchActions in batch.go
 export const maxBatchActions = 100;
@@ -1269,7 +1268,7 @@ export const FlushRolloutStatus = (): void => {
 };
 
 export const FlushGitSyncStatus = (): void => {
-    gitSyncStatus.set({ enabled: false, sync_failed: [], unsyced: [] });
+    gitSyncStatus.set({ enabled: false, response: undefined });
 };
 
 export const GetEnvironmentConfigPretty = (environmentName: string): Promise<string> =>
@@ -1287,23 +1286,21 @@ export const useArgoCDNamespace = (): string | undefined => useFrontendConfig((c
 
 type GitSyncStatusStore = {
     enabled: boolean;
-    unsyced: EnvApp[];
-    sync_failed: EnvApp[];
+    response: GetGitSyncStatusResponse | undefined;
 };
 
 export const useGitSyncStatus = <T,>(f: (getter: GitSyncStatusGetter) => T): T =>
-    useEntireGitSyncStatus((data) => f(new GitSyncStatusGetter(data)));
+    useEntireGitSyncStatus((data: GitSyncStatusStore) => f(new GitSyncStatusGetter(data)));
+
 export const [useEntireGitSyncStatus, gitSyncStatus] = createStore<GitSyncStatusStore>({
     enabled: false,
-    sync_failed: [],
-    unsyced: [],
+    response: undefined,
 });
 
 export const UpdateGitSyncStatus = (ev: GetGitSyncStatusResponse): void => {
     gitSyncStatus.set({
         enabled: true,
-        unsyced: ev.unsynced,
-        sync_failed: ev.syncFailed,
+        response: ev,
     });
 };
 
@@ -1322,23 +1319,12 @@ class GitSyncStatusGetter {
         return this.store.enabled;
     }
 
-    getAppStatus(application: string, environment: string): number | undefined {
+    getAppStatus(application: string, environment: string): GitSyncStatus | undefined {
         if (!this.store.enabled) {
             return undefined;
         }
+        const status = this.store.response?.appStatuses[application]?.envStatus[environment];
 
-        let status = this.store.unsyced.find(
-            (val) => val.applicationName === application && val.environmentName === environment
-        );
-        if (status) {
-            return GitSyncStatus.GIT_SYNC_STATUS_SYNCING;
-        }
-        status = this.store.sync_failed.find(
-            (val) => val.applicationName === application && val.environmentName === environment
-        );
-        if (status) {
-            return GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR;
-        }
-        return GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL;
+        return status ? status : GitSyncStatus.GIT_SYNC_STATUS_SYNCED; //Synced by default
     }
 }

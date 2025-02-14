@@ -73,14 +73,19 @@ message GetGitSyncStatusRequest {
 
 }
 
-message GetGitSyncStatusResponse {
-  repeated EnvApp unsynced = 1;
-  repeated EnvApp sync_failed = 2;
+enum GitSyncStatus {
+  GIT_SYNC_STATUS_UNKNOWN = 0;
+  GIT_SYNC_STATUS_SYNCED = 1;
+  GIT_SYNC_STATUS_UNSYNCED = 2;
+  GIT_SYNC_STATUS_ERROR = 3;
 }
 
-message EnvApp {
-  string application_name = 1;
-  string environment_name = 2;
+message GetGitSyncStatusResponse {
+  map<string, EnvSyncStatus> app_statuses = 1; //AppName -> map[EnvName] GitSyncStatus
+}
+
+message EnvSyncStatus {
+  map<string, GitSyncStatus> env_status = 1; //EnvName -> SyncStatus
 }
 
 message SkipEslEventRequest {

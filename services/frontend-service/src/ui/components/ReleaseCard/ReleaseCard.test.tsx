@@ -32,10 +32,10 @@ import {
     Release,
     RolloutStatus,
     StreamStatusResponse,
+    GitSyncStatus,
     UndeploySummary,
 } from '../../../api/api';
 import { Spy } from 'spy4js';
-import { GitSyncStatus } from '../GitSyncStatusDescription/GitSyncStatusDescription';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 
@@ -670,11 +670,11 @@ const rolloutStatusName = (status: RolloutStatus): string => {
 
 const gitSyncStatusNames = (status: GitSyncStatus): string => {
     switch (status) {
-        case GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL:
+        case GitSyncStatus.GIT_SYNC_STATUS_SYNCED:
             return 'successful';
-        case GitSyncStatus.GIT_SYNC_STATUS_SYNCING:
+        case GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED:
             return 'progressing';
-        case GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR:
+        case GitSyncStatus.GIT_SYNC_STATUS_ERROR:
             return 'error';
         default:
             return 'unknown';
@@ -697,7 +697,7 @@ describe('Release Card Git Sync Status', () => {
         };
         rels: Release[];
         environmentGroups: EnvironmentGroup[];
-        gitSyncStatus: GetGitSyncStatusResponse[];
+        gitSyncStatus: GetGitSyncStatusResponse;
         expectedStatusIcon: GitSyncStatus;
         expectedGitSyncStatusDetails: { [name: string]: GitSyncStatus };
         appDetails: { [key: string]: AppDetailsResponse };
@@ -753,17 +753,14 @@ describe('Release Card Git Sync Status', () => {
                     distanceToUpstream: 0,
                 },
             ],
-            gitSyncStatus: [
-                {
-                    unsynced: [],
-                    syncFailed: [],
-                },
-            ],
+            gitSyncStatus: {
+                appStatuses: {},
+            },
 
-            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL,
+            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
             expectedGitSyncStatusDetails: {
-                dev: GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL,
-                staging: GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL,
+                dev: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+                staging: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
             },
         },
         {
@@ -816,22 +813,20 @@ describe('Release Card Git Sync Status', () => {
                     distanceToUpstream: 0,
                 },
             ],
-            gitSyncStatus: [
-                {
-                    unsynced: [
-                        {
-                            environmentName: 'staging',
-                            applicationName: 'test1',
+            gitSyncStatus: {
+                appStatuses: {
+                    test1: {
+                        envStatus: {
+                            staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
                         },
-                    ],
-                    syncFailed: [],
+                    },
                 },
-            ],
+            },
 
-            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_SYNCING,
+            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
             expectedGitSyncStatusDetails: {
-                dev: GitSyncStatus.GIT_SYNC_STATUS_STATUS_SUCCESSFULL,
-                staging: GitSyncStatus.GIT_SYNC_STATUS_SYNCING,
+                dev: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+                staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
             },
         },
         {
@@ -884,27 +879,21 @@ describe('Release Card Git Sync Status', () => {
                     distanceToUpstream: 0,
                 },
             ],
-            gitSyncStatus: [
-                {
-                    unsynced: [
-                        {
-                            environmentName: 'staging',
-                            applicationName: 'test1',
+            gitSyncStatus: {
+                appStatuses: {
+                    test1: {
+                        envStatus: {
+                            staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                            development: GitSyncStatus.GIT_SYNC_STATUS_ERROR,
                         },
-                    ],
-                    syncFailed: [
-                        {
-                            environmentName: 'development',
-                            applicationName: 'test1',
-                        },
-                    ],
+                    },
                 },
-            ],
+            },
 
-            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR,
+            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_ERROR,
             expectedGitSyncStatusDetails: {
-                dev: GitSyncStatus.GIT_SYNC_STATUS_SYNC_ERROR,
-                staging: GitSyncStatus.GIT_SYNC_STATUS_SYNCING,
+                dev: GitSyncStatus.GIT_SYNC_STATUS_ERROR,
+                staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
             },
         },
     ];
@@ -919,7 +908,7 @@ describe('Release Card Git Sync Status', () => {
             });
             updateAppDetails.set(testcase.appDetails);
 
-            testcase.gitSyncStatus.forEach(UpdateGitSyncStatus);
+            UpdateGitSyncStatus(testcase.gitSyncStatus);
             const { container } = getWrapper(testcase.props);
             // then
             expect(container.querySelector('.release__status')).not.toBeNull();
