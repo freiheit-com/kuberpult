@@ -426,7 +426,7 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 }
 
 func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatusResponse, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "ReadSyncStatuses")
 	defer span.Finish()
 
 	dbHandler := s.Config.DBHandler
