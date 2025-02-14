@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"math"
 	"net/url"
-	"os"
 	"reflect"
 	"regexp"
 	"slices"
@@ -59,7 +58,6 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
-	git "github.com/libgit2/git2go/v34"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -2459,52 +2457,37 @@ type Overview struct {
 	Version uint64
 }
 
-func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
-	oid, err := git.NewOid(commitHash)
+func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, upstreamEnvName string, state *State) (resp []Overview, err error) {
+	dbHandler := state.DBHandler
+	ts, err := dbHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating new oid for commitHash %s: %w", commitHash, err)
+		return nil, fmt.Errorf("unable to get manifest repo timestamp that corresponds to provided commit Hash %v", err)
+	} else if ts == nil {
+		return nil, fmt.Errorf("could not find timestamp that corresponds to the given commit hash")
 	}
-	s, err := repo.StateAt(oid)
-	if err != nil {
-		var gerr *git.GitError
-		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrorCodeNotFound {
-				return nil, fmt.Errorf("ErrNotFound: %w", err)
-			}
-		}
-		return nil, fmt.Errorf("unable to get oid: %w", err)
-	}
-	envs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
-	}
-	for envName, config := range envs {
-		var groupName = mapper.DeriveGroupName(config, envName)
-		if upstreamEnvName != envName && groupName != envName {
-			continue
-		}
-		apps, err := s.GetEnvironmentApplications(ctx, transaction, envName)
-		if err != nil {
-			return nil, fmt.Errorf("unable to get EnvironmentApplication for env %s: %w", envName, err)
-		}
-		for _, appName := range apps {
-			version, err := s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				return nil, fmt.Errorf("unable to get EnvironmentApplicationVersion for %s: %w", appName, err)
-			}
-			if version == nil {
-				continue
-			}
 
-			resp = append(resp, Overview{App: appName, Version: *version})
+	apps, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, upstreamEnvName, *ts)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get EnvironmentApplication for env %s: %w", upstreamEnvName, err)
+	}
+
+	for _, appName := range apps {
+		currentAppDeployments, err := state.GetAllDeploymentsForAppAtTimestamp(ctx, transaction, appName, *ts)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
+		}
+
+		if version, ok := currentAppDeployments[upstreamEnvName]; ok {
+			resp = append(resp, Overview{App: appName, Version: uint64(version)})
 		}
 	}
+
 	return resp, nil
 }
 
 func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sql.Tx, upstreamLatest bool, state *State, upstreamEnvName, source, commitHash string, targetEnv string) (apps []string, appVersions []Overview, err error) {
 	if commitHash != "" {
-		appVersions, err := getOverrideVersions(ctx, transaction, c.CommitHash, upstreamEnvName, c.Repo)
+		appVersions, err := getOverrideVersions(ctx, transaction, c.CommitHash, upstreamEnvName, state)
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get app version for commitHash %s for %s: %w", c.CommitHash, c.Target, err))
 		}
