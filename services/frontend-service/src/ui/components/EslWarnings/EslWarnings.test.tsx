@@ -61,6 +61,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         transformerEslVersion: 17,
                     },
                 ],
+                loadMore: false,
             },
             expectedEslsTable: {
                 head: [
@@ -110,6 +111,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         transformerEslVersion: 9,
                     },
                 ],
+                loadMore: false,
             },
             expectedEslsTable: {
                 head: [

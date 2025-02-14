@@ -835,6 +835,7 @@ message EslFailedItem {
 
 message GetFailedEslsResponse {
   repeated EslFailedItem failed_esls = 1;
+  bool load_more = 2; //True if there are more events to load
 }
 
 enum CommitDeploymentStatus {
