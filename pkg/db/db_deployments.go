@@ -87,7 +87,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsForApplication")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
-		SELECT created, appname, releaseVersion, envName, metadata
+		SELECT created, appname, releaseVersion, envName, metadata, transformereslversion
 		FROM deployments
 		WHERE deployments.appname = (?) AND deployments.releaseVersion IS NOT NULL;
 	`)
@@ -557,7 +557,7 @@ func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, e
 		}
 		var releaseVersion sql.NullInt64
 		var jsonMetadata string
-		err := rows.Scan(&curr.Created, &curr.App, &releaseVersion, &curr.Env, &jsonMetadata)
+		err := rows.Scan(&curr.Created, &curr.App, &releaseVersion, &curr.Env, &jsonMetadata, &curr.TransformerID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
