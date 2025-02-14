@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"os"
 	"reflect"
 	"regexp"
 	"slices"
@@ -58,6 +59,7 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
+	git "github.com/libgit2/git2go/v34"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -2457,7 +2459,69 @@ type Overview struct {
 	Version uint64
 }
 
+func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
+	oid, err := git.NewOid(commitHash)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating new oid for commitHash %s: %w", commitHash, err)
+	}
+	s, err := repo.StateAt(oid)
+	if err != nil {
+		var gerr *git.GitError
+		if errors.As(err, &gerr) {
+			if gerr.Code == git.ErrorCodeNotFound {
+				return nil, fmt.Errorf("ErrNotFound: %w", err)
+			}
+		}
+		return nil, fmt.Errorf("unable to get oid: %w", err)
+	}
+	envs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
+	}
+	for envName, config := range envs {
+		var groupName = mapper.DeriveGroupName(config, envName)
+		if upstreamEnvName != envName && groupName != envName {
+			continue
+		}
+		apps, err := s.GetEnvironmentApplications(ctx, transaction, envName)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get EnvironmentApplication for env %s: %w", envName, err)
+		}
+		for _, appName := range apps {
+			version, err := s.GetEnvironmentApplicationVersion(ctx, transaction, envName, appName)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("unable to get EnvironmentApplicationVersion for %s: %w", appName, err)
+			}
+			if version == nil {
+				continue
+			}
+
+			resp = append(resp, Overview{App: appName, Version: *version})
+		}
+	}
+	return resp, nil
+}
+
 func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sql.Tx, upstreamLatest bool, state *State, upstreamEnvName, source, commitHash string, targetEnv string) (apps []string, appVersions []Overview, err error) {
+	if commitHash != "" {
+		appVersions, err := getOverrideVersions(ctx, transaction, c.CommitHash, upstreamEnvName, c.Repo)
+		if err != nil {
+			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get app version for commitHash %s for %s: %w", c.CommitHash, c.Target, err))
+		}
+		// check that commit hash is not older than 20 commits in the past
+		for _, app := range appVersions {
+			apps = append(apps, app.App)
+			versions, err := findOldApplicationVersions(ctx, transaction, state, app.App)
+			if err != nil {
+				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("unable to find findOldApplicationVersions for app %s: %w", app.App, err))
+			}
+			if len(versions) > 0 && versions[0] > app.Version {
+				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("Version for app %s is older than 20 commits when running release train to commitHash %s: %w", app.App, c.CommitHash, err))
+			}
+
+		}
+		return apps, appVersions, nil
+	}
 	if upstreamLatest {
 		// For "upstreamlatest" we cannot get the source environment, because it's not a real environment
 		// but since we only care about the names of the apps, we can just get the apps for the target env.
