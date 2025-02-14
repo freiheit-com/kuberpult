@@ -1998,7 +1998,7 @@ func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslE
 	return nil
 }
 
-func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslFailedEventRow, error) {
+func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, pageSize, pageNumber int) ([]*EslFailedEventRow, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
 	defer span.Finish()
 	if h == nil {
@@ -2008,9 +2008,9 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, l
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT created, event_type, json, reason, transformerEslVersion FROM event_sourcing_light_failed ORDER BY created DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT created, event_type, json, reason, transformerEslVersion FROM event_sourcing_light_failed ORDER BY created ASC LIMIT (?) OFFSET (?);")
 	span.SetTag("query", query)
-	rows, err := tx.QueryContext(ctx, query, limit)
+	rows, err := tx.QueryContext(ctx, query, pageSize+1, pageNumber*pageSize)
 	if err != nil {
 		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
 	}

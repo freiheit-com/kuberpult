@@ -813,7 +813,9 @@ service EslService {
   rpc GetFailedEsls (GetFailedEslsRequest) returns (GetFailedEslsResponse) {}
 }
 
-message GetFailedEslsRequest {}
+message GetFailedEslsRequest {
+  int64 page_number = 1;
+}
 
 message EslItem {
   int64 esl_version = 1;
@@ -833,6 +835,7 @@ message EslFailedItem {
 
 message GetFailedEslsResponse {
   repeated EslFailedItem failed_esls = 1;
+  bool load_more = 2; //True if there are more events to load
 }
 
 enum CommitDeploymentStatus {

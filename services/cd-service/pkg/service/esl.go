@@ -30,17 +30,26 @@ type EslServiceServer struct {
 	Repository repository.Repository
 }
 
+const PAGESIZE = 25 // Number of failed esls per page
+
 func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailedEslsRequest) (*api.GetFailedEslsResponse, error) {
 	state := s.Repository.State()
-	var response *api.GetFailedEslsResponse = &api.GetFailedEslsResponse{
+	var response = &api.GetFailedEslsResponse{
 		FailedEsls: make([]*api.EslFailedItem, 0),
+		LoadMore:   false,
 	}
 	if state.DBHandler.ShouldUseOtherTables() {
 		err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-			failedEslRows, err := s.Repository.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 20)
+			failedEslRows, err := s.Repository.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, PAGESIZE, int(req.PageNumber))
 			if err != nil {
 				return err
 			}
+
+			if len(failedEslRows) > PAGESIZE {
+				response.LoadMore = true
+				failedEslRows = failedEslRows[:len(failedEslRows)-1]
+			}
+
 			failedEslItems := make([]*api.EslFailedItem, len(failedEslRows))
 			for i, failedEslRow := range failedEslRows {
 				failedEslItems[i] = &api.EslFailedItem{
@@ -52,10 +61,7 @@ func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailed
 					TransformerEslVersion: int64(failedEslRow.TransformerEslVersion),
 				}
 			}
-			response = &api.GetFailedEslsResponse{
-				FailedEsls: failedEslItems,
-			}
-
+			response.FailedEsls = failedEslItems
 			return nil
 		})
 		if err != nil {
