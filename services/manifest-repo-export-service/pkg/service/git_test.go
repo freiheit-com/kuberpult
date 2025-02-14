@@ -1482,7 +1482,7 @@ func TestRetryEvent(t *testing.T) {
 			}
 
 			err = repo.State().DBHandler.WithTransactionR(ctx, 0, true, func(ctx context.Context, transaction *sql.Tx) error {
-				actualFailedEvents, err := repo.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 10)
+				actualFailedEvents, err := repo.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 25, 0)
 				if err != nil {
 					return err
 				}
@@ -1719,7 +1719,7 @@ func TestSkipEvent(t *testing.T) {
 			}
 
 			err = repo.State().DBHandler.WithTransactionR(ctx, 0, true, func(ctx context.Context, transaction *sql.Tx) error {
-				actualFailedEvents, err := repo.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 10)
+				actualFailedEvents, err := repo.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 25, 0)
 				if err != nil {
 					return err
 				}

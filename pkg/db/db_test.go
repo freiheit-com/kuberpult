@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 	"os"
 	"os/exec"
 	"path"
@@ -3064,7 +3065,7 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 					}
 				}
 
-				actualEvents, err := dbHandler.DBReadLastFailedEslEvents(ctx, transaction, tc.Limit)
+				actualEvents, err := dbHandler.DBReadLastFailedEslEvents(ctx, transaction, 25, 0)
 				if err != nil {
 					return err
 				}
