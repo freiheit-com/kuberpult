@@ -19,7 +19,7 @@ import { Button } from '../button';
 import classNames from 'classnames';
 import { useApi } from '../../utils/GrpcApi';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
-import { getFailedEsls, showSnackbarError } from '../../utils/store';
+import { removeFromFailedEsls, showSnackbarError, useFailedEsls } from '../../utils/store';
 
 type RetryButtonProps = {
     eslVersion: number;
@@ -32,12 +32,8 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
         if (authReady) {
             api.gitService()
                 .RetryFailedEvent({ eslversion: eslVersion }, authHeader)
-                .then(() => {
-                    getFailedEsls(authHeader);
-                })
+                .then(() => removeFromFailedEsls(eslVersion))
                 .catch((e) => {
-                    // eslint-disable-next-line no-console
-                    console.error('error in retry request: ', e);
                     const GrpcErrorPermissionDenied = 7;
                     if (e.code === GrpcErrorPermissionDenied) {
                         showSnackbarError(e.message);
@@ -65,12 +61,8 @@ export const SkipButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
         if (authReady) {
             api.gitService()
                 .SkipEslEvent({ eventEslVersion: eslVersion }, authHeader)
-                .then(() => {
-                    getFailedEsls(authHeader);
-                })
+                .then(() => removeFromFailedEsls(eslVersion))
                 .catch((e) => {
-                    // eslint-disable-next-line no-console
-                    console.error('error in retry request: ', e);
                     const GrpcErrorPermissionDenied = 7;
                     if (e.code === GrpcErrorPermissionDenied) {
                         showSnackbarError(e.message);
@@ -93,13 +85,16 @@ export const SkipButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
 
 type EslWarningsProps = {
     failedEsls: GetFailedEslsResponse | undefined;
+    onClick?: { (): void };
 };
 
 export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
     const failedEslsResponse = props.failedEsls;
+    const onClick = props.onClick;
     const [timezone, setTimezone] = useState<'UTC' | 'local'>('UTC');
     const localTimezone = Intl.DateTimeFormat()?.resolvedOptions()?.timeZone ?? 'Europe/Berlin';
-
+    // eslint-disable-next-line no-console
+    console.log('2');
     const handleChangeTimezone = React.useCallback(
         (event: React.ChangeEvent<HTMLSelectElement>) => {
             if (event.target.value === 'local' || event.target.value === 'UTC') {
@@ -154,7 +149,15 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
         }
         return dateToString(date, 'UTC');
     };
-
+    const loadMoreButton = failedEslsResponse.response?.loadMore ? (
+        <div className="load-more-button-container">
+            <button className="mdc-button button-main env-card-deploy-btn mdc-button--unelevated" onClick={onClick}>
+                Load more
+            </button>
+        </div>
+    ) : (
+        <div></div>
+    );
     return (
         <div>
             <main className="main-content esl-warnings-page">
@@ -183,10 +186,10 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {failedEslsResponse.failedEsls.map((eslItem, _) => {
+                            {failedEslsResponse.response?.failedEsls.map((eslItem, _) => {
                                 const createdAt = formatDate(eslItem.createdAt);
                                 return (
-                                    <tr key={eslItem.eslVersion}>
+                                    <tr key={eslItem.transformerEslVersion}>
                                         <td>{eslItem.eslVersion}</td>
                                         <td>{createdAt}</td>
                                         <td>{eslItem.eventType}</td>
@@ -205,6 +208,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                         </tbody>
                     </table>
                 </div>
+                {loadMoreButton}
             </main>
         </div>
     );

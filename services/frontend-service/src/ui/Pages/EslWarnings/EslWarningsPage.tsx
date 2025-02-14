@@ -14,7 +14,13 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-import { getFailedEsls, useFailedEsls, useGlobalLoadingState, FailedEslsState } from '../../utils/store';
+import {
+    getFailedEsls,
+    useFailedEsls,
+    useGlobalLoadingState,
+    FailedEslsState,
+    updateFailedEsls,
+} from '../../utils/store';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { Spinner } from '../../components/Spinner/Spinner';
 import React from 'react';
@@ -23,10 +29,21 @@ import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export const EslWarningsPage: React.FC = () => {
     const { authHeader } = useAzureAuthSub((auth) => auth);
-
+    const [pageNumber, setPageNumber] = React.useState(0);
+    const [firstRender, setFirstRender] = React.useState(true);
+    // eslint-disable-next-line no-console
+    console.log('1');
     React.useEffect(() => {
-        getFailedEsls(authHeader);
-    }, [authHeader]);
+        if (!firstRender) {
+            getFailedEsls(authHeader, pageNumber);
+        }
+        setFirstRender(false);
+    }, [authHeader, firstRender, pageNumber]);
+
+    const onClick = React.useCallback(() => {
+        updateFailedEsls.set({ failedEslsReady: FailedEslsState.LOADING });
+        setPageNumber(pageNumber + 1);
+    }, [pageNumber]);
 
     const failedEsls = useFailedEsls((res) => res);
 
@@ -58,7 +75,7 @@ export const EslWarningsPage: React.FC = () => {
             return (
                 <div>
                     <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
-                    <EslWarnings failedEsls={failedEsls.response} />;
+                    <EslWarnings failedEsls={failedEsls.response} onClick={onClick} />
                 </div>
             );
     }
