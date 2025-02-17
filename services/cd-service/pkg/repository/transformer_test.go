@@ -4078,12 +4078,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 							"staging":    "some staging manifest 2",
 						},
 						WriteCommitData: true,
-						Version:         1,
+						Version:         uint64(versionOne),
 					},
 					&DeployApplicationVersion{
 						Environment:     "staging",
 						Application:     appName,
-						Version:         1,
+						Version:         uint64(versionOne),
 						WriteCommitData: true,
 					},
 				},
@@ -4137,12 +4137,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 							"staging":    "some staging manifest 2",
 						},
 						WriteCommitData: true,
-						Version:         1,
+						Version:         uint64(versionOne),
 					},
 					&DeployApplicationVersion{
 						Environment:     "staging",
 						Application:     appName,
-						Version:         1,
+						Version:         uint64(versionOne),
 						WriteCommitData: true,
 					},
 				},
@@ -4155,12 +4155,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 							"staging":    "some staging manifest 2",
 						},
 						WriteCommitData: true,
-						Version:         2,
+						Version:         uint64(versionTwo),
 					},
 					&DeployApplicationVersion{
 						Environment:     "staging",
 						Application:     appName,
-						Version:         2,
+						Version:         uint64(versionTwo),
 						WriteCommitData: true,
 					},
 				},
@@ -4214,12 +4214,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 							"staging":    "some staging manifest 2",
 						},
 						WriteCommitData: true,
-						Version:         1,
+						Version:         uint64(versionOne),
 					},
 					&DeployApplicationVersion{
 						Environment:     "staging",
 						Application:     appName,
-						Version:         1,
+						Version:         uint64(versionOne),
 						WriteCommitData: true,
 					},
 				},
@@ -4232,12 +4232,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 							"staging":    "some staging manifest 2",
 						},
 						WriteCommitData: true,
-						Version:         2,
+						Version:         uint64(versionTwo),
 					},
 					&DeployApplicationVersion{
 						Environment:     "staging",
 						Application:     appName,
-						Version:         2,
+						Version:         uint64(versionTwo),
 						WriteCommitData: true,
 					},
 				},
@@ -4300,12 +4300,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 							"development": "some development manifest 2",
 						},
 						WriteCommitData: true,
-						Version:         1,
+						Version:         uint64(versionOne),
 					},
 					&DeployApplicationVersion{
 						Environment:     "development",
 						Application:     appName,
-						Version:         1,
+						Version:         uint64(versionOne),
 						WriteCommitData: true,
 					},
 				},
@@ -4337,7 +4337,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 		},
 		{
-			Name: "Trigger no deployments with a release train with a commit hash due to locks",
+			Name: "Trigger no deployments with a release train with a commit hash due to locks created afterwards",
 			SetupStages: [][]Transformer{
 				{
 					&CreateEnvironment{
@@ -4365,14 +4365,16 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 							"staging":    "some staging manifest 2",
 						},
 						WriteCommitData: true,
-						Version:         1,
+						Version:         uint64(versionOne),
 					},
 					&DeployApplicationVersion{
 						Environment:     "staging",
 						Application:     appName,
-						Version:         1,
+						Version:         uint64(versionOne),
 						WriteCommitData: true,
 					},
+				},
+				{
 					&CreateEnvironmentApplicationLock{
 						Environment: "production",
 						Application: appName,
@@ -4392,6 +4394,78 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					Env:           "staging",
 					Version:       &versionOne,
 					TransformerID: 4,
+				},
+			},
+		},
+		{
+			Name: "Trigger deployments with a release train with a commit hash that had locks deleted afterwards",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[string]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+					&CreateEnvironmentApplicationLock{
+						Environment: "production",
+						Application: appName,
+						LockId:      "22133",
+						Message:     "test",
+					},
+				},
+				{
+					&DeleteEnvironmentApplicationLock{
+						Environment: "production",
+						Application: appName,
+						LockId:      "22133",
+					},
+				},
+			},
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App:           "app",
+					Env:           "staging",
+					Version:       &versionOne,
+					TransformerID: 4,
+				},
+				{
+					App:           "app",
+					Env:           "production",
+					Version:       &versionOne,
+					TransformerID: 7,
 				},
 			},
 		},
@@ -4435,12 +4509,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 							"staging":     "some staging manifest 2",
 						},
 						WriteCommitData: true,
-						Version:         1,
+						Version:         uint64(versionOne),
 					},
 					&DeployApplicationVersion{
 						Environment:     "staging",
 						Application:     appName,
-						Version:         1,
+						Version:         uint64(versionOne),
 						WriteCommitData: true,
 					},
 				},
