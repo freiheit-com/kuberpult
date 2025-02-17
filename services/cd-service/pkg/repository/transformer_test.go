@@ -21,6 +21,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -4030,6 +4032,600 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				}
 				return nil
 			})
+		})
+	}
+}
+
+func TestReleaseTrainsWithCommitHash(t *testing.T) {
+	appName := "app"
+	groupName := "prodgroup"
+	versionOne := int64(1)
+	versionTwo := int64(2)
+
+	tcs := []struct {
+		Name                string
+		SetupStages         [][]Transformer
+		CommitHashIndex     uint
+		ReleaseTrain        ReleaseTrain
+		ExpectedDeployments []db.Deployment
+	}{
+		{
+			Name: "Trigger a deployment with a release train with a commit hash",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[string]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+				},
+			},
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App:           "app",
+					Env:           "production",
+					Version:       &versionOne,
+					TransformerID: 5,
+				},
+				{
+					App:           "app",
+					Env:           "staging",
+					Version:       &versionOne,
+					TransformerID: 4,
+				},
+			},
+		},
+		{
+			Name: "Trigger a deployment with a release train with an older commit hash",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[string]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+				},
+				{
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+						Manifests: map[string]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionTwo),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionTwo),
+						WriteCommitData: true,
+					},
+				},
+			},
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App:           "app",
+					Env:           "production",
+					Version:       &versionOne,
+					TransformerID: 7,
+				},
+				{
+					App:           "app",
+					Env:           "staging",
+					Version:       &versionTwo,
+					TransformerID: 6,
+				},
+			},
+		},
+		{
+			Name: "Trigger a deployment with a release train with a newer commit hash",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[string]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+				},
+				{
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+						Manifests: map[string]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionTwo),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionTwo),
+						WriteCommitData: true,
+					},
+				},
+			},
+			CommitHashIndex: 1,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App:           "app",
+					Env:           "production",
+					Version:       &versionTwo,
+					TransformerID: 7,
+				},
+				{
+					App:           "app",
+					Env:           "staging",
+					Version:       &versionTwo,
+					TransformerID: 6,
+				},
+			},
+		},
+		{
+			Name: "Trigger no deployments with a release train with a commit hash",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "development",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "development",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "development",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[string]string{
+							"production":  "some production manifest 2",
+							"staging":     "some staging manifest 2",
+							"development": "some development manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "development",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+				},
+				{
+					&ReleaseTrain{
+						Target:          "staging",
+						WriteCommitData: true,
+					},
+				},
+			},
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App:           "app",
+					Env:           "development",
+					Version:       &versionOne,
+					TransformerID: 5,
+				},
+				{
+					App:           "app",
+					Env:           "staging",
+					Version:       &versionOne,
+					TransformerID: 6,
+				},
+			},
+		},
+		{
+			Name: "Trigger no deployments with a release train with a commit hash due to locks created afterwards",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[string]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+				},
+				{
+					&CreateEnvironmentApplicationLock{
+						Environment: "production",
+						Application: appName,
+						LockId:      "22133",
+						Message:     "test",
+					},
+				},
+			},
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App:           "app",
+					Env:           "staging",
+					Version:       &versionOne,
+					TransformerID: 4,
+				},
+			},
+		},
+		{
+			Name: "Trigger deployments with a release train with a commit hash that had locks deleted afterwards",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[string]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+					&CreateEnvironmentApplicationLock{
+						Environment: "production",
+						Application: appName,
+						LockId:      "22133",
+						Message:     "test",
+					},
+				},
+				{
+					&DeleteEnvironmentApplicationLock{
+						Environment: "production",
+						Application: appName,
+						LockId:      "22133",
+					},
+				},
+			},
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App:           "app",
+					Env:           "staging",
+					Version:       &versionOne,
+					TransformerID: 4,
+				},
+				{
+					App:           "app",
+					Env:           "production",
+					Version:       &versionOne,
+					TransformerID: 7,
+				},
+			},
+		},
+		{
+			Name: "Trigger a deployment with a release train for a group with a commit hash",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production1",
+						Config: config.EnvironmentConfig{
+							EnvironmentGroup: &groupName,
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "production2",
+						Config: config.EnvironmentConfig{
+							EnvironmentGroup: &groupName,
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[string]string{
+							"production1": "some production manifest 2",
+							"production2": "some production manifest 2",
+							"staging":     "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+				},
+			},
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          groupName,
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App:           "app",
+					Env:           "production1",
+					Version:       &versionOne,
+					TransformerID: 6,
+				},
+				{
+					App:           "app",
+					Env:           "production2",
+					Version:       &versionOne,
+					TransformerID: 6,
+				},
+				{
+					App:           "app",
+					Env:           "staging",
+					Version:       &versionOne,
+					TransformerID: 5,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var err error = nil
+			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
+
+			var commitHashes []string
+			for idx, steps := range tc.SetupStages {
+				err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					//Apply the setup transformers
+					for _, transformer := range steps {
+						_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, transformer)
+						if err != nil {
+							return err
+						}
+					}
+
+					ts, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+					if err != nil {
+						return err
+					}
+
+					currentCommitHash := strings.Repeat(strconv.Itoa(idx), 40)
+					commitHashes = append(commitHashes, currentCommitHash)
+
+					//Register these timestamps. Essentially we are 'tagging' every step so that we can use them in the release train
+					err = dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, currentCommitHash, ts.UTC())
+					return err
+				})
+
+				if err != nil {
+					t.Fatalf("Error applying transformers step %d: %v", idx, err)
+				}
+
+				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on sqlite do not collide when multiple stages are involved.
+			}
+
+			// Run the Release Train
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				releaseTrain := tc.ReleaseTrain
+				releaseTrain.CommitHash = commitHashes[tc.CommitHashIndex]
+				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, &releaseTrain)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error applying the release train transformer: '%v'", err)
+			}
+
+			deployments, err := db.WithTransactionT[[]db.Deployment](dbHandler, ctx, 0, true, func(ctx context.Context, tx *sql.Tx) (*[]db.Deployment, error) {
+				var deployments []db.Deployment
+				latestDeployments, err := dbHandler.DBSelectAllLatestDeploymentsForApplication(ctx, tx, appName)
+				if err != nil {
+					return nil, err
+				}
+
+				for _, deployment := range latestDeployments {
+					deployments = append(deployments, deployment)
+				}
+
+				return &deployments, nil
+			})
+			if err != nil {
+				t.Fatalf("Error fetching deployments: %v", err)
+			}
+
+			cmpDeployments := func(d1, d2 db.Deployment) bool {
+				return d1.Env < d2.Env
+			}
+			if diff := cmp.Diff(tc.ExpectedDeployments, *deployments, cmpopts.SortSlices(cmpDeployments), cmpopts.IgnoreFields(db.Deployment{}, "Created", "Metadata")); diff != "" {
+				t.Errorf("result mismatch (-want, +got):\n%s", diff)
+			}
 		})
 	}
 }
