@@ -2463,12 +2463,12 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash, u
 	if err != nil {
 		return nil, fmt.Errorf("unable to get manifest repo timestamp that corresponds to provided commit Hash %v", err)
 	} else if ts == nil {
-		return nil, fmt.Errorf("could not find timestamp that corresponds to the given commit hash")
+		return nil, fmt.Errorf("timestamp for the provided commit hash %q does not exist.", commitHash)
 	}
 
 	apps, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, upstreamEnvName, *ts)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get EnvironmentApplication for env %s: %w", upstreamEnvName, err)
+		return nil, fmt.Errorf("unable to get applications for environment %s at timestamp %s: %w", upstreamEnvName, *ts, err)
 	}
 
 	for _, appName := range apps {
