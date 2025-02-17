@@ -455,11 +455,11 @@ func measureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface,
 			return err
 		}
 
-		if err := ddMetrics.Gauge("git_sync_failed", float64(results[0]), []string{}, 1); err != nil {
+		if err := ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
 			return err
 		}
 
-		if err := ddMetrics.Gauge("git_sync_unsynced", float64(results[1]), []string{}, 1); err != nil {
+		if err := ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
 			return err
 		}
 	}
