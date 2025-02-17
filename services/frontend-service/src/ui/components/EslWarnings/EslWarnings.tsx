@@ -19,7 +19,7 @@ import { Button } from '../button';
 import classNames from 'classnames';
 import { useApi } from '../../utils/GrpcApi';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
-import { removeFromFailedEsls, showSnackbarError, useFailedEsls } from '../../utils/store';
+import { removeFromFailedEsls, showSnackbarError } from '../../utils/store';
 
 type RetryButtonProps = {
     eslVersion: number;
@@ -93,8 +93,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
     const onClick = props.onClick;
     const [timezone, setTimezone] = useState<'UTC' | 'local'>('UTC');
     const localTimezone = Intl.DateTimeFormat()?.resolvedOptions()?.timeZone ?? 'Europe/Berlin';
-    // eslint-disable-next-line no-console
-    console.log('2');
+
     const handleChangeTimezone = React.useCallback(
         (event: React.ChangeEvent<HTMLSelectElement>) => {
             if (event.target.value === 'local' || event.target.value === 'UTC') {
@@ -149,7 +148,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
         }
         return dateToString(date, 'UTC');
     };
-    const loadMoreButton = failedEslsResponse.response?.loadMore ? (
+    const loadMoreButton = failedEslsResponse.loadMore ? (
         <div className="load-more-button-container">
             <button className="mdc-button button-main env-card-deploy-btn mdc-button--unelevated" onClick={onClick}>
                 Load more
@@ -158,6 +157,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
     ) : (
         <div></div>
     );
+
     return (
         <div>
             <main className="main-content esl-warnings-page">
@@ -186,7 +186,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {failedEslsResponse.response?.failedEsls.map((eslItem, _) => {
+                            {failedEslsResponse.failedEsls.map((eslItem, _) => {
                                 const createdAt = formatDate(eslItem.createdAt);
                                 return (
                                     <tr key={eslItem.transformerEslVersion}>

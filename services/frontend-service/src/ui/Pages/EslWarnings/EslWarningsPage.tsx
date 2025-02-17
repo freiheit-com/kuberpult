@@ -31,8 +31,7 @@ export const EslWarningsPage: React.FC = () => {
     const { authHeader } = useAzureAuthSub((auth) => auth);
     const [pageNumber, setPageNumber] = React.useState(0);
     const [firstRender, setFirstRender] = React.useState(true);
-    // eslint-disable-next-line no-console
-    console.log('1');
+
     React.useEffect(() => {
         if (!firstRender) {
             getFailedEsls(authHeader, pageNumber);
