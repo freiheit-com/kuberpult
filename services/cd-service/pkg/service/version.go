@@ -19,16 +19,12 @@ package service
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"os"
 	"strconv"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -41,43 +37,7 @@ type VersionServiceServer struct {
 func (o *VersionServiceServer) GetVersion(
 	ctx context.Context,
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "GetVersion")
-	defer span.Finish()
-	span.SetTag("GitRevision", in.GitRevision)
-	span.SetTag("Environment", in.Environment)
-	span.SetTag("Application", in.Application)
-
-	state := o.Repository.State()
-	dbHandler := state.DBHandler
-	// The gitRevision field is actually not a proper git revision.
-	// Instead, it has the release number stored with leading zeroes.
-	releaseVersion, err := reposerver.FromRevision(in.GitRevision)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse GitRevision '%s' for app '%s' in env '%s': %w",
-			in.GitRevision, in.Application, in.Environment, err)
-	}
-	res, err := db.WithTransactionT[api.GetVersionResponse](dbHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
-		deployment, err := dbHandler.DBSelectSpecificDeployment(ctx, tx, in.Environment, in.Application, releaseVersion)
-		if err != nil || deployment == nil {
-			return nil, fmt.Errorf("no deployment found for env='%s' and app='%s': %w", in.Environment, in.Application, err)
-		}
-		release, err := state.GetApplicationRelease(ctx, tx, in.Application, releaseVersion)
-		if err != nil {
-			return nil, err
-		}
-		if release == nil {
-			return nil, fmt.Errorf("no release found for env='%s' and app='%s'", in.Environment, in.Application)
-		}
-		return &api.GetVersionResponse{
-			Version:        releaseVersion,
-			DeployedAt:     timestamppb.New(deployment.Created),
-			SourceCommitId: release.SourceCommitId,
-		}, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
