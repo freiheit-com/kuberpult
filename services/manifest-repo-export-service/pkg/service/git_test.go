@@ -26,6 +26,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	git "github.com/libgit2/git2go/v34"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -1749,5 +1750,77 @@ func TestSkipEvent(t *testing.T) {
 			})
 
 		})
+	}
+}
+
+func TestGetGitTags(t *testing.T) {
+	// When making this test with multiple test cases, the tags from both test cases
+	// were returning when the repository wasn't the same. In a production environment these
+	// tags wouldn't be created by kuberpult, but manually by a person. Trying to insert these
+	// tags properly wasn't possible, as such, a single test case is used to prevent the aforementioned
+	// issue.
+	//
+	// This endpoint only returns the tags from repository.GetTags, which has its own unit test with more
+	// than one test case. If that function is working properly then so will this one.
+	tagsToAdd := []string{"v1.0.1", "v0.0.1"}
+	expectedTags := []*api.TagData{&api.TagData{Tag: "refs/tags/v0.0.1", CommitId: ""}, &api.TagData{Tag: "refs/tags/v1.0.1", CommitId: ""}}
+
+	repo, remoteDir := setupRepositoryTestWithPath(t)
+	config := rp.RepositoryConfig{
+		ArgoCdGenerateFiles:  true,
+		DBHandler:            repo.State().DBHandler,
+		MinimizeExportedData: false,
+		URL:                  "file://" + remoteDir,
+		Path:                 remoteDir,
+		CommitterEmail:       "kuberpult@freiheit.com",
+		CommitterName:        "kuberpult",
+		Branch:               "master",
+	}
+	sv := &GitServer{
+		Repository: repo,
+		Config:     config,
+		PageSize:   uint64(100),
+	}
+
+	gitRepo, err := git.OpenRepository(config.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	idx, err := gitRepo.Index()
+	if err != nil {
+		t.Fatal(err)
+	}
+	treeId, err := idx.WriteTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, err := gitRepo.LookupTree(treeId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oid, err := gitRepo.CreateCommit("HEAD", &git.Signature{Name: "SRE", Email: "testing@gmail"}, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing", tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit, err := gitRepo.LookupCommit(oid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for addTag := range tagsToAdd {
+		_, err := gitRepo.Tags.Create(tagsToAdd[addTag], commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	res, err := sv.GetGitTags(testutil.MakeTestContext(), &api.GetGitTagsRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := cmp.Diff(expectedTags, res.TagData, cmpopts.IgnoreUnexported(api.TagData{}), cmpopts.IgnoreFields(api.TagData{}, "CommitId")); diff != "" {
+		t.Fatalf("tags mismatch (-want, +got):\n%s", diff)
 	}
 }

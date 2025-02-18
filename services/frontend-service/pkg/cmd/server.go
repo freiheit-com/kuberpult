@@ -683,7 +683,7 @@ func (p *GrpcProxy) GetAllEnvTeamLocks(
 func (p *GrpcProxy) GetGitTags(
 	ctx context.Context,
 	in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	return p.GitClient.GetGitTags(ctx, in)
+	return p.ManifestExportServiceGitClient.GetGitTags(ctx, in)
 }
 
 func (p *GrpcProxy) GetProductSummary(

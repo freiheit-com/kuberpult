@@ -57,12 +57,7 @@ type GitServer struct {
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
-	}
-
-	return &api.GetGitTagsResponse{TagData: tags}, nil
+	return nil, status.Error(codes.Unimplemented, "not implemented.  cd-service")
 }
 
 func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
