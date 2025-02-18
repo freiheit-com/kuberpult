@@ -158,10 +158,6 @@ spec:
           value: {{ .Values.db.migrations }}
         - name: KUBERPULT_DB_AUTH_PROXY_PORT
           value: "{{ .Values.db.authProxyPort }}"
-        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
-          value: "{{ .Values.db.connections.manifestRepoExport.maxOpen }}"
-        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
-          value: "{{ .Values.db.connections.manifestRepoExport.maxIdle }}"
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:
@@ -242,9 +238,9 @@ spec:
               name: kuberpult-db
               key: password
         - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
-          value: "{{ .Values.db.connections.cd.maxOpen }}"
+          value: "{{ .Values.db.connections.rollout.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
-          value: "{{ .Values.db.connections.cd.maxIdle }}"
+          value: "{{ .Values.db.connections.rollout.maxIdle }}"
 {{- end }}
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
