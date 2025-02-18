@@ -16,7 +16,7 @@ Copyright freiheit.com*/
 import { jwtDecode } from 'jwt-decode';
 import { Textfield } from '../textfield';
 import React, { useCallback } from 'react';
-import { SideBar } from '../SideBar/SideBar';
+
 import { useSearchParams } from 'react-router-dom';
 import { TeamsFilterDropdown, FiltersDropdown } from '../dropdown/dropdown';
 import classNames from 'classnames';
@@ -35,6 +35,8 @@ import {
     KuberpultGitHubLink,
     setHideWithoutWarnings,
 } from '../../utils/Links';
+import { GeneralGitSyncStatus } from '../GeneralGitSyncStatus/GeneralSyncStatus';
+import { SideBar } from '../SideBar/SideBar';
 
 export type TopAppBarProps = {
     showAppFilter: boolean;
@@ -140,7 +142,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             </span>
         </div>
     ) : (
-        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--wide-filter"></div>
+        <div></div>
     );
     return (
         <div className="mdc-top-app-bar">
@@ -157,6 +159,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                         {renderedWarningsFilter}
                         {renderedWarnings}
                         {renderedUser}
+                        {<GeneralGitSyncStatus enabled={true}></GeneralGitSyncStatus>}
                     </div>
                 </div>
                 <div className="top-app-bar__sidebarsection">

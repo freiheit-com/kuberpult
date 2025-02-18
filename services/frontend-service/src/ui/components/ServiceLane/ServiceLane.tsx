@@ -271,7 +271,7 @@ export const LoadingServiceLane: React.FC<{
         <div className="service-lane__header">
             <div className="service-lane-wrapper">
                 <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
-                <SmallSpinner appName={props.application.name} key={props.application.name} />
+                <SmallSpinner appName={props.application.name} key={props.application.name} size={10} />
             </div>
         </div>
         <div className="service__releases" key={props.application.name + '-' + props.application.team}></div>

@@ -28,7 +28,7 @@ Copyright freiheit.com*/
     .top-app-bar__sidebarrow {
         display: flex;
         flex-flow: row;
-
+        width: calc(100vw - 20em - 200px);
         .top-app-bar__mainsection {
             max-width: calc(100vw - 20em - 100px);
         }
@@ -39,6 +39,7 @@ Copyright freiheit.com*/
     }
     .mdc-top-app-bar__row {
         display: flex;
+        width: calc(100vw - 20em - 200px);
         flex-flow: wrap;
         align-items: stretch;
 
