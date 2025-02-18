@@ -248,12 +248,15 @@ export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>
     commitInfoReady: CommitInfoState.LOADING,
 });
 
-export const getFailedEsls = (authHeader: AuthHeader): void => {
+export const getFailedEsls = (authHeader: AuthHeader, pageNumber: number): void => {
     useApi
         .eslService()
-        .GetFailedEsls({}, authHeader)
+        .GetFailedEsls({ pageNumber: pageNumber }, authHeader)
         .then((result: GetFailedEslsResponse) => {
-            updateFailedEsls.set({ response: result, failedEslsReady: FailedEslsState.READY });
+            const requestResult: GetFailedEslsResponse = structuredClone(result);
+            const oldEvents = updateFailedEsls.get().response?.failedEsls.slice() ?? [];
+            requestResult.failedEsls = oldEvents.concat(requestResult.failedEsls).slice();
+            updateFailedEsls.set({ response: requestResult, failedEslsReady: FailedEslsState.READY });
         })
         .catch((e) => {
             const GrpcErrorNotFound = 3;
@@ -265,6 +268,24 @@ export const getFailedEsls = (authHeader: AuthHeader): void => {
             }
         });
 };
+
+export const removeFromFailedEsls = (eslversion: number): void => {
+    const r = updateFailedEsls.get();
+
+    const newFailed = updateFailedEsls
+        .get()
+        .response?.failedEsls.filter((curr) => curr.transformerEslVersion !== eslversion);
+    if (!r.response || !newFailed) {
+        return;
+    }
+
+    const newResponse: GetFailedEslsResponse = {
+        failedEsls: newFailed,
+        loadMore: r.response.loadMore,
+    };
+    updateFailedEsls.set({ failedEslsReady: r.failedEslsReady, response: newResponse });
+};
+
 export const [useFailedEsls, updateFailedEsls] = createStore<FailedEslsResponse>({
     response: undefined,
     failedEslsReady: FailedEslsState.LOADING,
