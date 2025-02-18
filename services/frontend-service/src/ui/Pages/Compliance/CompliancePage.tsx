@@ -30,7 +30,12 @@ export const CompliancePage: React.FC = () => {
 
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+            <TopAppBar
+                showAppFilter={false}
+                showTeamFilter={false}
+                showWarningFilter={false}
+                showGitSyncStatus={false}
+            />
             <Compliance saveFile={saveFile} />
         </div>
     );

@@ -28,7 +28,12 @@ export const LoginPage: React.FC = () => {
 
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+            <TopAppBar
+                showAppFilter={false}
+                showTeamFilter={false}
+                showWarningFilter={false}
+                showGitSyncStatus={false}
+            />
             <main className="main-content">
                 <h1 className="environment_name">{'Log in to Dex'}</h1>
                 <h3 className="page_description">{'You are currently not logged in. Please log in to continue.'}</h3>

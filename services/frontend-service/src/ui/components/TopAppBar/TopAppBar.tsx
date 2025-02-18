@@ -42,6 +42,7 @@ export type TopAppBarProps = {
     showAppFilter: boolean;
     showTeamFilter: boolean;
     showWarningFilter: boolean;
+    showGitSyncStatus: boolean;
 };
 
 export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
@@ -144,6 +145,12 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     ) : (
         <div></div>
     );
+
+    const renderedGeneralGitSyncStatus = props.showGitSyncStatus ? (
+        <GeneralGitSyncStatus enabled={true}></GeneralGitSyncStatus>
+    ) : (
+        <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
+    );
     return (
         <div className="mdc-top-app-bar">
             <div className="top-app-bar__sidebarrow">
@@ -159,7 +166,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                         {renderedWarningsFilter}
                         {renderedWarnings}
                         {renderedUser}
-                        {<GeneralGitSyncStatus enabled={true}></GeneralGitSyncStatus>}
+                        {renderedGeneralGitSyncStatus}
                     </div>
                 </div>
                 <div className="top-app-bar__sidebarsection">

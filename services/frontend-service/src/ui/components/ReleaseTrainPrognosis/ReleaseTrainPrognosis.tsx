@@ -35,7 +35,12 @@ export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (prop
     if (releaseTrainPrognosis === undefined) {
         return (
             <div>
-                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                <TopAppBar
+                    showAppFilter={false}
+                    showTeamFilter={false}
+                    showWarningFilter={false}
+                    showGitSyncStatus={false}
+                />
                 <main className="main-content commit-page">Backend returned empty response</main>
             </div>
         );
@@ -49,7 +54,12 @@ export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (prop
 
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+            <TopAppBar
+                showAppFilter={false}
+                showTeamFilter={false}
+                showWarningFilter={false}
+                showGitSyncStatus={false}
+            />
             <main className="main-content commit-page">
                 {Object.entries(envPrognoses)
                     .sort(([envName1, _1], [envName2, _2]) => envName1.localeCompare(envName2))

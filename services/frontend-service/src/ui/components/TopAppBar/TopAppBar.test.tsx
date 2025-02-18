@@ -49,7 +49,12 @@ describe('TopAppBar', () => {
             document.cookie = tc.cookie;
             const { container } = render(
                 <MemoryRouter>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <TopAppBar
+                        showAppFilter={false}
+                        showTeamFilter={false}
+                        showWarningFilter={false}
+                        showGitSyncStatus={false}
+                    />
                 </MemoryRouter>
             );
             const message = container.getElementsByClassName('welcome-message');

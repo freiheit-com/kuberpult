@@ -47,7 +47,12 @@ export const ReleaseTrainPage: React.FC = () => {
     if (envName === undefined) {
         return (
             <div>
-                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                <TopAppBar
+                    showAppFilter={false}
+                    showTeamFilter={false}
+                    showWarningFilter={false}
+                    showGitSyncStatus={false}
+                />
                 <main className="main-content">Environment name not provided</main>
             </div>
         );
@@ -59,14 +64,24 @@ export const ReleaseTrainPage: React.FC = () => {
         case ReleaseTrainPrognosisState.ERROR:
             return (
                 <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <TopAppBar
+                        showAppFilter={false}
+                        showTeamFilter={false}
+                        showWarningFilter={false}
+                        showGitSyncStatus={false}
+                    />
                     <main className="main-content">Backend error</main>
                 </div>
             );
         case ReleaseTrainPrognosisState.NOTFOUND:
             return (
                 <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <TopAppBar
+                        showAppFilter={false}
+                        showTeamFilter={false}
+                        showWarningFilter={false}
+                        showGitSyncStatus={false}
+                    />
                     <main className="main-content">
                         The provided environment name {envName} was not found in the manifest repository.
                     </main>
