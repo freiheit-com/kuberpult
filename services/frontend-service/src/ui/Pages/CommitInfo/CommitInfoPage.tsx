@@ -56,7 +56,12 @@ export const CommitInfoPage: React.FC = () => {
     if (commitHash === undefined) {
         return (
             <div>
-                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                <TopAppBar
+                    showAppFilter={false}
+                    showTeamFilter={false}
+                    showWarningFilter={false}
+                    showGitSyncStatus={false}
+                />
                 <main className="main-content commit-page">commit ID not provided</main>
             </div>
         );
@@ -67,7 +72,12 @@ export const CommitInfoPage: React.FC = () => {
         case CommitInfoState.ERROR:
             return (
                 <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <TopAppBar
+                        showAppFilter={false}
+                        showTeamFilter={false}
+                        showWarningFilter={false}
+                        showGitSyncStatus={false}
+                    />
                     <main className="main-content commit-page">Backend error</main>
                 </div>
             );

@@ -30,12 +30,12 @@ import {
     GetGitTagsResponse,
     GetOverviewResponse,
     GetReleaseTrainPrognosisResponse,
+    GitSyncStatus,
     Locks,
     OverviewApplication,
     Priority,
     Release,
     RolloutStatus,
-    GitSyncStatus,
     StreamStatusResponse,
     Warning,
 } from '../../api/api';
@@ -1329,6 +1329,21 @@ export const EnableGitSyncStatus = (): void => {
     gitSyncStatus.set({ enabled: true });
 };
 
+const gitSyncStatusPriority = [
+    GitSyncStatus.GIT_SYNC_STATUS_ERROR,
+    GitSyncStatus.GIT_SYNC_STATUS_UNKNOWN,
+    GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+    GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+];
+
+export const getStatusPriority = (status: number, priorities: number[]): number => {
+    const idx = priorities.indexOf(status);
+    if (idx === -1) {
+        return priorities.length;
+    }
+    return idx;
+};
+
 class GitSyncStatusGetter {
     private readonly store: GitSyncStatusStore;
 
@@ -1347,5 +1362,35 @@ class GitSyncStatusGetter {
         const status = this.store.response?.appStatuses[application]?.envStatus[environment];
 
         return status ? status : GitSyncStatus.GIT_SYNC_STATUS_SYNCED; //Synced by default
+    }
+
+    getHighestPriorityGitStatus(): GitSyncStatus | undefined {
+        if (!this.store.enabled) {
+            return GitSyncStatus.GIT_SYNC_STATUS_UNKNOWN;
+        }
+
+        const statuses = this.store.response?.appStatuses;
+
+        if (!this.store.response || !statuses) {
+            return undefined;
+        }
+
+        let mostInteresting = GitSyncStatus.GIT_SYNC_STATUS_SYNCED;
+
+        for (const [, currentEnvSyncStatus] of Object.entries(this.store.response?.appStatuses)) {
+            for (const [, value] of Object.entries(currentEnvSyncStatus.envStatus)) {
+                if (
+                    getStatusPriority(value, gitSyncStatusPriority) <
+                    getStatusPriority(mostInteresting, gitSyncStatusPriority)
+                ) {
+                    mostInteresting = value;
+                    if (mostInteresting === gitSyncStatusPriority[0]) {
+                        //At least one error, we know this is the most interesting
+                        return mostInteresting;
+                    }
+                }
+            }
+        }
+        return mostInteresting;
     }
 }

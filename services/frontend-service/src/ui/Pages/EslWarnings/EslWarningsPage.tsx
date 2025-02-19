@@ -57,14 +57,24 @@ export const EslWarningsPage: React.FC = () => {
         case FailedEslsState.ERROR:
             return (
                 <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <TopAppBar
+                        showAppFilter={false}
+                        showTeamFilter={false}
+                        showWarningFilter={false}
+                        showGitSyncStatus={false}
+                    />
                     <main className="main-content esl-warnings-page">Backend error</main>
                 </div>
             );
         case FailedEslsState.NOTFOUND:
             return (
                 <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <TopAppBar
+                        showAppFilter={false}
+                        showTeamFilter={false}
+                        showWarningFilter={false}
+                        showGitSyncStatus={false}
+                    />
                     <main className="main-content esl-warnings-page">
                         <p>All events were processed successfully</p>
                     </main>
@@ -73,7 +83,12 @@ export const EslWarningsPage: React.FC = () => {
         case FailedEslsState.READY:
             return (
                 <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <TopAppBar
+                        showAppFilter={false}
+                        showTeamFilter={false}
+                        showWarningFilter={false}
+                        showGitSyncStatus={false}
+                    />
                     <EslWarnings failedEsls={failedEsls.response} onClick={onClick} />
                 </div>
             );

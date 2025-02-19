@@ -29,13 +29,13 @@ export const Spinner: React.FC<{ message: string }> = (props): JSX.Element => {
     );
 };
 
-export const SmallSpinner: React.FC<{ appName: string }> = (props): JSX.Element => (
+export const SmallSpinner: React.FC<{ appName: string; size: number }> = (props): JSX.Element => (
     <div className={'spinner-small'}>
         <div className={'spinner-animation'}>
             <PacmanLoader
                 color={'var(--mdc-theme-background)'}
                 loading={true}
-                size={10}
+                size={props.size}
                 speedMultiplier={1}
                 key={props.appName}
             />

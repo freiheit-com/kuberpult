@@ -36,7 +36,7 @@ export const Home: React.FC = () => {
 
     return (
         <div>
-            <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={true} />
+            <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={true} showGitSyncStatus={true} />
             <main className="main-content">
                 {apps.map((app) => (
                     <ServiceLane application={app} hideMinors={hideMinors(params)} key={app.name} />

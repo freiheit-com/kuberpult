@@ -1,0 +1,56 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MIT License for more details.
+
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+Copyright freiheit.com*/
+@use '@material/notched-outline/mdc-notched-outline';
+@use '@material/notched-outline';
+
+.general-status {
+    background-color: var(--mdc-theme-primary);
+    max-height: $top-app-bar-height;
+    z-index: 4;
+    display: flex;
+    flex-direction: row;
+    font-size: xxx-large;
+    color: var(--mdc-theme-on-primary);
+    justify-content: space-around;
+    align-items: center;
+    font-size: xxx-large;
+    border-radius: 6px;
+}
+
+.general-status__synced {
+    @extend .general-status;
+    background-color: var(--mdc-theme-success);
+}
+.general-status__unsynced {
+    @extend .general-status;
+    background-color: var(--mdc-theme-primary);
+}
+
+.general-status__error {
+    @extend .general-status;
+    background-color: var(--mdc-theme-error);
+}
+
+.general-status__unknown {
+    @extend .general-status;
+    background-color: var(--mdc-theme-on-surface);
+}
+
+.logo {
+    width: 40%;
+    filter: invert(100%) sepia(100%) saturate(0%) hue-rotate(305deg) brightness(102%) contrast(102%);
+    height: auto;
+}

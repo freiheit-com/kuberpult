@@ -89,10 +89,10 @@ const rolloutStatusPriority = [
 
 const gitSyncStatusPriority = [
     GitSyncStatus.GIT_SYNC_STATUS_ERROR,
+    GitSyncStatus.GIT_SYNC_STATUS_UNKNOWN,
     GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
     GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
 ];
-
 const getStatusPriority = (status: number, priorities: number[]): number => {
     const idx = priorities.indexOf(status);
     if (idx === -1) {
