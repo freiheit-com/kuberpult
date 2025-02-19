@@ -20,6 +20,7 @@ import { useGitSyncStatus } from '../../utils/store';
 import { GitSyncStatus } from '../../../api/api';
 import { SmallSpinner } from '../Spinner/Spinner';
 import { Git } from '../../../images';
+import { useNavigate } from 'react-router-dom';
 
 export type GeneralGitSyncStatusProps = {
     enabled: boolean;
@@ -28,6 +29,14 @@ export type GeneralGitSyncStatusProps = {
 export const GeneralGitSyncStatus: React.FC<GeneralGitSyncStatusProps> = (props) => {
     const gitSyncStatus = useGitSyncStatus((m) => m);
     let label;
+    const navigate = useNavigate();
+
+    const routeChange = React.useCallback((): void => {
+        const path = `/ui/failedEvents`;
+        navigate(path);
+        navigate(0); // refresh
+    }, [navigate]);
+
     switch (gitSyncStatus.getHighestPriorityGitStatus()) {
         case GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED:
             label = <UnsyncedGeneralSynStatus></UnsyncedGeneralSynStatus>;
@@ -41,19 +50,24 @@ export const GeneralGitSyncStatus: React.FC<GeneralGitSyncStatusProps> = (props)
         default:
             label = <UnknownGeneralSynStatus></UnknownGeneralSynStatus>;
     }
-    return <div className={'mdc-top-app-bar__section top-app-bar--narrow-filter'}> {props.enabled ? label : ''}</div>;
+    return (
+        <div onClick={routeChange} className={'mdc-top-app-bar__section top-app-bar--narrow-filter'}>
+            {' '}
+            {props.enabled ? label : ''}
+        </div>
+    );
 };
 
 export const SyncedGeneralSynStatus: React.FC = () => (
     <div className="top-app-bar-search-field general-status__synced">
         <Git className="logo" />
-        <span className="welcome-message">✓</span>
+        <span>✓</span>
     </div>
 );
 export const UnknownGeneralSynStatus: React.FC = () => (
     <div className="top-app-bar-search-field general-status__unknown">
         <Git className="logo" />
-        <span className="welcome-message">?</span>
+        <span>?</span>
     </div>
 );
 export const UnsyncedGeneralSynStatus: React.FC = () => (
@@ -65,6 +79,6 @@ export const UnsyncedGeneralSynStatus: React.FC = () => (
 export const ErrorGeneralSynStatus: React.FC = () => (
     <div className="top-app-bar-search-field general-status__error">
         <Git className="logo" />
-        <span className="welcome-message">!</span>
+        <span>!</span>
     </div>
 );
