@@ -15,6 +15,11 @@ do
         continue
     fi
 
+    if [[ $shell_script =~ .*\.git.* ]];
+    then
+        continue
+    fi
+
     if ! shellcheck -f "$format" "$shell_script"
     then
         RET_CODE=1

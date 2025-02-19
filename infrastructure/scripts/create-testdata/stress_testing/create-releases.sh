@@ -47,14 +47,6 @@ echo "2: ${msgs[$index]}" >> "${commit_message_file}"
 
 ls "${commit_message_file}"
 
-release_version=''
-# shellcheck disable=SC2034
-case "${RELEASE_VERSION:-}" in
-	*[!0-9]*) echo "Please set the env variable RELEASE_VERSION to a number"; exit 1;;
-	*) release_version='--form-string '"version=${RELEASE_VERSION:-}";;
-esac
-
-
 qaEnvs=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
 search_dir=environments

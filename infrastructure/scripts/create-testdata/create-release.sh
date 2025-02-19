@@ -51,13 +51,13 @@ echo "2: ${msgs[$index]}" >> "${commit_message_file}"
 
 ls "${commit_message_file}"
 
-release_version=''
+release_version=()
 case "${RELEASE_VERSION:-}" in
 	*[!0-9]*) echo "Please set the env variable RELEASE_VERSION to a number"; exit 1;;
-	*) release_version='--form-string '"version=${RELEASE_VERSION:-}";;
+	*) release_version+=('--form-string' "version=${RELEASE_VERSION:-}");;
 esac
 
-echo "release version:" "${release_version}"
+echo "release version:" "${release_version[@]}"
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
@@ -77,7 +77,7 @@ metadata:
 data:
   key: value
   random: "${randomValue}"
-  releaseVersion: "${release_version}"
+  releaseVersion: "${release_version[@]}"
 ---
 EOF
   echo "wrote file ${file}"
@@ -110,7 +110,7 @@ curl http://localhost:${FRONTEND_PORT}/api/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \
-  "${release_version}" \
+  "${release_version[@]}" \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
