@@ -143,7 +143,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             </span>
         </div>
     ) : (
-        <div></div>
+        <div className="mdc-top-app-bar__section mdc-top-app-bar__section--wide-filter"></div>
     );
 
     const renderedGeneralGitSyncStatus = props.showGitSyncStatus ? (
