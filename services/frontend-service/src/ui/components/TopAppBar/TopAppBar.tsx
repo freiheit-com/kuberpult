@@ -165,8 +165,8 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                         {renderedTeamsFilter}
                         {renderedWarningsFilter}
                         {renderedWarnings}
-                        {renderedUser}
                         {renderedGeneralGitSyncStatus}
+                        {renderedUser}
                     </div>
                 </div>
                 <div className="top-app-bar__sidebarsection">
