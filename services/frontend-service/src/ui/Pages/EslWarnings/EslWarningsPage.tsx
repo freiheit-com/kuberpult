@@ -89,7 +89,6 @@ export const EslWarningsPage: React.FC = () => {
                         showWarningFilter={false}
                         showGitSyncStatus={false}
                     />
-                    <EslWarnings failedEsls={failedEsls.response} />;
                     <EslWarnings failedEsls={failedEsls.response} onClick={onClick} />
                 </div>
             );
