@@ -103,4 +103,4 @@ earthly +chart-tarball
 
 
 helm uninstall kuberpult-local || print kuberpult was not installed
-helm install --values vals.yaml kuberpult-local kuberpult-$VERSION.tgz
+helm install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz

@@ -42,7 +42,7 @@ print "setting up manifest repo"
 waitForDeployment "git" "app.kubernetes.io/name=server"
 portForwardAndWait "git" "deployment/server" "$SSH_HOST_PORT" "22"
 
-git clone ssh://git@localhost:$SSH_HOST_PORT/git/repos/manifests
+git clone ssh://git@localhost:"$SSH_HOST_PORT"/git/repos/manifests
 
 cp -r environments manifests/
 

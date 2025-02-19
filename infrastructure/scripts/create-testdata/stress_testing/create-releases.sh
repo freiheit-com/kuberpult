@@ -20,8 +20,8 @@ authors[5]="Ahmed"
 authors[6]="João"
 authors[7]="Leandro"
 sizeAuthors=${#authors[@]}
-index=$(($RANDOM % $sizeAuthors))
-echo ${authors[$index]}
+index=$((RANDOM % sizeAuthors))
+echo "${authors[$index]}"
 author="${authors[$index]}"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
@@ -39,20 +39,13 @@ msgs[8]="Change renovate schedule"
 msgs[9]="Fix bug in distanceToUpstream calculation"
 msgs[10]="Allow deleting locks on locks page"
 sizeMsgs=${#msgs[@]}
-index=$(($RANDOM % $sizeMsgs))
+index=$((RANDOM % sizeMsgs))
 echo $index
 echo -e "${msgs[$index]}\n" > "${commit_message_file}"
 echo "1: ${msgs[$index]}" >> "${commit_message_file}"
 echo "2: ${msgs[$index]}" >> "${commit_message_file}"
 
 ls "${commit_message_file}"
-
-release_version=''
-case "${RELEASE_VERSION:-}" in
-	*[!0-9]*) echo "Please set the env variable RELEASE_VERSION to a number"; exit 1;;
-	*) release_version='--form-string '"version=${RELEASE_VERSION:-}";;
-esac
-
 
 qaEnvs=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
@@ -70,9 +63,10 @@ FRONTEND_PORT=8081 # see docker-compose.yml
 
 for (( c=1; c<=NUMBER_RELEASES; c++ ))
 do
-  deployments=$(($RANDOM % $sizeAuthors))
-  n_deployments=$((10 + $deployments +1))
-  run_release_train=$(($RANDOM % $n_deployments))
+  deployments=$((RANDOM % sizeAuthors))
+  n_deployments=$((10 + deployments +1))
+  # shellcheck disable=SC2034
+  run_release_train=$((RANDOM % n_deployments))
   app=$BASE_APP_NAME-$c
   for (( d=1; d<=n_deployments; d++ ))
   do
@@ -90,6 +84,7 @@ do
       env=$(echo "$env" | awk '{print tolower($0)}')
       signatureFile=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
       file=$(mktemp "${x:-/tmp}/$env.XXXXXX")
+      # shellcheck disable=SC2034
       randomValue=$(head -c 20 /dev/urandom | sha1sum | awk '{print $1}' | head -c 12)
     cat <<EOF > "${file}"
 ---
@@ -150,9 +145,9 @@ EOF
     commit_message=$(head -c 8192 /dev/urandom | base64 | awk '{print $1}' | head -c 128)
     displayVersion=
     if ((RANDOM % 2)); then
-      displayVersion=$(( $RANDOM % 100)).$(( $RANDOM % 100)).$(( $RANDOM % 100))
+      displayVersion=$(( RANDOM % 100)).$(( RANDOM % 100)).$(( RANDOM % 100))
     fi
-    index=$(($RANDOM % $sizeAuthors))
+    index=$((RANDOM % sizeAuthors))
     author="${authors[$index]}"
       time curl http://localhost:${FRONTEND_PORT}/release \
         -H "author-email:${EMAIL}" \

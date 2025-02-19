@@ -6,6 +6,7 @@ set -eou pipefail # protection
 echo --------------------Releases------------------------------
 for app in applications/* # $(find applications  -maxdepth 1 -mindepth 1 -type d)
 do
+  # shellcheck disable=SC2012
   echo Adding metadata to "$(ls "$app"/releases | wc -l)" releases in "$app"
   find "$app"/releases  -maxdepth 1 -mindepth 1 -type d -print0 | while IFS= read -r -d '' release
   do

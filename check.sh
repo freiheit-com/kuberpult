@@ -37,16 +37,16 @@ YAML_COPY_RIGHT="# This file is part of kuberpult.
 # Copyright freiheit.com"
 
 RET_CODE=0
-set eu -pipefail
+set -eu pipefail
 
 check_file() {
-    x=$(head -n 15 $1 | wc -l)
-    if [ $x -lt 15 ];
+    x=$(head -n 15 "$1" | wc -l)
+    if [ "$x" -lt 15 ];
     then
         return 1
     fi
     # check the first 15 lines
-    lines=$(head -n 15 $1 )
+    lines=$(head -n 15 "$1" )
     if [[ $2 -eq 1 ]];
     then
         if [ "$lines" = "$GO_COPY_RIGHT" ];
@@ -63,17 +63,16 @@ check_file() {
 }
 
 # Read all go files
-go_files=$(find . -type f -name *.go)
+go_files=$(find . -type f -name "*.go")
 
 
 fix_file() {
-    check_file $1 1
-    if [ $? -ne 0 ];
+    if ! check_file "$1" 1
     then
         echo "error in file $1"
         RET_CODE=1
-        FILE=$(cat $1)
-        cat > $1 <<- EOF
+        FILE=$(cat "$1")
+        cat > "$1" <<- EOF
 $GO_COPY_RIGHT
 $FILE
 EOF
@@ -81,13 +80,12 @@ EOF
 }
 
 fix_file_yaml_make() {
-    check_file $1 2
-    if [ $? -ne 0 ];
+    if ! check_file "$1" 2
     then
         echo "error in file $1"
         RET_CODE=1
-        FILE=$(cat $1)
-        cat > $1 <<- EOF
+        FILE=$(cat "$1")
+        cat > "$1" <<- EOF
 $YAML_COPY_RIGHT
 $FILE
 EOF
@@ -147,7 +145,7 @@ do
       then
           continue
     fi
-    fix_file_yaml_make $yaml_file
+    fix_file_yaml_make "$yaml_file"
 done
 
 # Read all c/h files
