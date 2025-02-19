@@ -7,7 +7,7 @@ PHOME=/${PUSR}
 PCONFIG=${PHOME}/sshd_config
 PKEYSHOST=${PHOME}/keys-host
 PKEYS=${PHOME}/keys
-PREPOS=${PHOME}/repos
+# PREPOS=${PHOME}/repos
 
 # Minimum UID/GID allowed
 ID_MIN_ALLOWED=1000
@@ -44,8 +44,8 @@ fi
 # named `git-shell-commands` in the user’s home directory.
 # [More info](https://git-scm.com/docs/git-shell)
 # Set a (dummy) password, otherwise SSH login fails.
-addgroup -g ${PGID} ${PUSR}
-adduser -D -h ${PHOME}/ -G ${PUSR} -u ${PUID} -s ${PSHELL} ${PUSR}
+addgroup -g "${PGID}" ${PUSR}
+adduser -D -h ${PHOME}/ -G ${PUSR} -u "${PUID}" -s ${PSHELL} ${PUSR}
 echo "${PUSR}:dummyPassword" | chpasswd
 chown -R ${PUSR}:${PUSR} ${PHOME}/ > /dev/null 2>&1
 
@@ -54,7 +54,7 @@ if [ -z "$(ls -A ${PKEYSHOST}/)" ]; then
     mkdir -p ${PKEYSHOST}/etc/ssh/ && \
     ssh-keygen -A -f ./keys-host && \
     mv ${PKEYSHOST}/etc/ssh/* ${PKEYSHOST}/ && \
-    rm -rf ${PKEYSHOST}/etc/
+    rm -rf ${PKEYSHOST:?}/etc/
     chown -R ${PUSR}:${PUSR} ${PKEYSHOST}/
 fi
 

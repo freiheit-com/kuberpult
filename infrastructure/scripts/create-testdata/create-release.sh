@@ -21,14 +21,14 @@ authors[5]="Ahmed"
 authors[6]="João"
 authors[7]="Leandro"
 sizeAuthors=${#authors[@]}
-index=$(($RANDOM % $sizeAuthors))
-echo ${authors[$index]}
+index=$((RANDOM % sizeAuthors))
+echo "${authors[$index]}"
 author="${authors[$index]}"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
 displayVersion=
 if ((RANDOM % 2)); then
-  displayVersion=$(( $RANDOM % 100)).$(( $RANDOM % 100)).$(( $RANDOM % 100))
+  displayVersion=$(( RANDOM % 100)).$(( RANDOM % 100)).$(( RANDOM % 100))
 fi
 
 msgs[0]="Added new eslint rule"
@@ -43,7 +43,7 @@ msgs[8]="Change renovate schedule"
 msgs[9]="Fix bug in distanceToUpstream calculation"
 msgs[10]="Allow deleting locks on locks page"
 sizeMsgs=${#msgs[@]}
-index=$(($RANDOM % $sizeMsgs))
+index=$((RANDOM % sizeMsgs))
 echo $index
 echo -e "${msgs[$index]}\n" > "${commit_message_file}"
 echo "1: ${msgs[$index]}" >> "${commit_message_file}"
@@ -110,7 +110,7 @@ curl http://localhost:${FRONTEND_PORT}/api/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \
-  ${release_version} \
+  "${release_version}" \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
