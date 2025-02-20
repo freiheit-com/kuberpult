@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
 import { useSearchParams } from 'react-router-dom';
-import { useApplicationsFilteredAndSorted, useGlobalLoadingState } from '../../utils/store';
+import { useApplicationsFilteredAndSorted, useGitSyncStatus, useGlobalLoadingState } from '../../utils/store';
 import React from 'react';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { hideWithoutWarnings, hideMinors } from '../../utils/Links';
@@ -29,6 +29,8 @@ export const Home: React.FC = () => {
 
     const apps = Object.values(searchedApp);
 
+    const syncStatusEnabled = useGitSyncStatus((m) => m).isEnabled();
+
     const element = useGlobalLoadingState();
     if (element) {
         return element;
@@ -36,7 +38,12 @@ export const Home: React.FC = () => {
 
     return (
         <div>
-            <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={true} showGitSyncStatus={true} />
+            <TopAppBar
+                showAppFilter={true}
+                showTeamFilter={true}
+                showWarningFilter={true}
+                showGitSyncStatus={syncStatusEnabled}
+            />
             <main className="main-content">
                 {apps.map((app) => (
                     <ServiceLane application={app} hideMinors={hideMinors(params)} key={app.name} />
