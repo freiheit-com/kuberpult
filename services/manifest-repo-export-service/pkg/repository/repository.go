@@ -2264,13 +2264,13 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		}
 	}
 
-	//fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-
+	fetchSpec := "refs/tags/*:refs/tags/*"
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
 		CredentialsCallback:      credentials.CredentialsCallback(ctx),
 		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
 	}
+	
 	fetchOptions := git.FetchOptions{
 		Prune:           git.FetchPruneUnspecified,
 		UpdateFetchhead: false,
@@ -2286,7 +2286,7 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	if err != nil {
 		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
 	}
-	err = remote.Fetch([]string{"refs/tags/*:refs/tags/*"}, &fetchOptions, "fetching")
+	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	if err != nil {
 		return nil, fmt.Errorf("failure to fetch: %v", err)
 	}
