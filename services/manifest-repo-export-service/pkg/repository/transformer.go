@@ -141,9 +141,11 @@ func (t *TransformerMetadata) GetMetadata() *TransformerMetadata {
 	return t
 }
 
+const NoOpMessage = "Empty Commit\nNo files changed in"
+
 func GetNoOpMessage(t Transformer) (string, error) {
 	evt := t.GetDBEventType()
-	return fmt.Sprintf("Empty Commit\nNo files changed in %s", evt), nil
+	return fmt.Sprintf("%s %s", NoOpMessage, evt), nil
 }
 
 func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx, minimizeExportedData bool) (string, *TransformerResult, error) {
@@ -1926,7 +1928,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	// group locks are handled on the cd-service, and split into environment locks
-	return "empty commit for group lock creation", nil
+	return GetNoOpMessage(c)
 }
 
 type DeleteEnvironmentGroupLock struct {
@@ -1954,7 +1956,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	// group locks are handled on the cd-service, and split into environment locks
-	return "empty commit for group lock deletion", nil
+	return GetNoOpMessage(c)
 }
 
 type DeleteEnvironment struct {
