@@ -236,14 +236,13 @@ func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.
 	return result, nil
 }
 
-func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
+func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID) ([]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion
 		FROM deployments
-		WHERE transformereslVersion=?
-		LIMIT ?;
+		WHERE transformereslVersion=?;
 	`)
 
 	span.SetTag("query", selectQuery)
@@ -251,7 +250,6 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 		ctx,
 		selectQuery,
 		transformerID,
-		limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployments by transformer id from DB. Error: %w\n", err)
