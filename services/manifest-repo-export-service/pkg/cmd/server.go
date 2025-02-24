@@ -323,7 +323,19 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		var transformer repository.Transformer = nil
 		var esl *db.EslEventRow = nil
 		const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
-		err := dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
+
+		// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation.
+		// This means that there is a possibility that two transaction timestamps collide with the same git hash.
+		// As such, before executing any transformer, we get the current commit hash so that we can then compare it with the
+		// (possibly) new commit hash
+		oldCommitId, err := repo.GetHeadCommitId()
+		if err != nil {
+			d := sleepDuration.NextBackOff()
+			logger.FromContext(ctx).Sugar().Warnf("error getting current commid ID, will try again in %v", d)
+			time.Sleep(d)
+			continue
+		}
+		err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			var err2 error
 			transformer, esl, err2 = handleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
 			return err2
@@ -391,7 +403,11 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				if err != nil {
 					return err
 				}
-				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
+
+				if oldCommitId.String() != commitId.String() { // We only want to write a transaction timestamp if it resulted in a new commit.
+					return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
+				}
+				return nil
 			})
 			if err != nil {
 				//If we fail to push to repo or to update the cutoff, we say that SYNC has failed
