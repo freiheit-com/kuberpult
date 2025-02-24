@@ -487,3 +487,748 @@ func TestArgoCDFileGeneration(t *testing.T) {
 		})
 	}
 }
+
+func TestMinimizeCommitsGeneration(t *testing.T) {
+	var group = "dev"
+	tcs := []struct {
+		Name               string
+		setup              []Transformer
+		targetTransformers []Transformer
+		shouldCreateCommit bool
+		databasePopulation func(ctx context.Context, transaction *sql.Tx, handler *db.DBHandler) error
+	}{
+		{
+			Name: "No-operation should not create new commits (Control)",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Server: "development",
+						},
+					}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				return nil
+			},
+		},
+		{
+			Name: "Delete environment Locks do not create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Server: "development",
+						},
+					}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&DeleteEnvironmentLock{
+					Environment:           "production",
+					LockId:                "my-lock",
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				return dbHandler.DBWriteEnvironmentLock(ctx, transaction, "my-lock", "production", db.LockMetadata{})
+			},
+		},
+		{
+			Name: "Create Environment Application Locks does not create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: false}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateEnvironmentApplicationLock{
+					Environment:           "production",
+					LockId:                "my-lock",
+					Application:           "test",
+					Message:               "my-lock-message",
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBWriteApplicationLock(ctx, transaction, "my-lock", "production", "test", db.LockMetadata{})
+			},
+		},
+		{
+			Name: "Delete Environment Application Locks does not create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: false}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment:           "production",
+					LockId:                "my-lock",
+					Application:           "test",
+					Message:               "my-lock-message",
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&DeleteEnvironmentApplicationLock{
+					Environment:           "production",
+					LockId:                "my-lock",
+					Application:           "test",
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBWriteApplicationLock(ctx, transaction, "my-lock", "production", "test", db.LockMetadata{})
+			},
+		},
+		{
+			Name: "CreateEnvironmentTeamLock does not create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: false}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateEnvironmentTeamLock{
+					Environment:           "production",
+					LockId:                "my-lock",
+					Team:                  "team-123",
+					Message:               "my-lock-message",
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBWriteTeamLock(ctx, transaction, "my-lock", "production", "team-123", db.LockMetadata{})
+			},
+		},
+		{
+			Name: "DeleteEnvironmentTeamLock does not create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: false}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateEnvironmentTeamLock{
+					Environment:           "production",
+					LockId:                "my-lock",
+					Team:                  "team-123",
+					Message:               "my-lock-message",
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&DeleteEnvironmentTeamLock{
+					Environment:           "production",
+					LockId:                "my-lock",
+					Team:                  "team-123",
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBWriteTeamLock(ctx, transaction, "my-lock", "production", "team-123", db.LockMetadata{})
+			},
+		},
+		{
+			Name: "Migration transformer creates new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&MigrationTransformer{
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				return nil
+			},
+		},
+		{
+			Name: "Delete Env From App creates new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateEnvironment{
+					Environment:         "development",
+					Config:              config.EnvironmentConfig{},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					},
+					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&DeleteEnvFromApp{
+					Application:         "test",
+					Environment:         "development",
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					}},
+				})
+			},
+		},
+		{
+			Name: "CreateUndeployApplicationVersion creates new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateEnvironment{
+					Environment:         "development",
+					Config:              config.EnvironmentConfig{},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					},
+					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateUndeployApplicationVersion{
+					Application:         "test",
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					}},
+				})
+			},
+		},
+		{
+			Name: "CreateEnvironmentGroupLock does not create new commits",
+			setup: []Transformer{
+
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						EnvironmentGroup: &group,
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateEnvironmentGroupLock{
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				return nil
+			},
+		},
+		{
+			Name: "DeleteEnvironmentGroupLock does not create new commits",
+			setup: []Transformer{
+
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						EnvironmentGroup: &group,
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&DeleteEnvironmentGroupLock{
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				return nil
+			},
+		},
+		{
+			Name: "UndeployApplication creates new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateEnvironment{
+					Environment:         "development",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					},
+					Team:                "team-123",
+					Version:             0,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateUndeployApplicationVersion{
+					Application:         "test",
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&UndeployApplication{
+					Application:         "test",
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					}},
+				})
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					}},
+					Metadata: db.DBReleaseMetaData{
+						UndeployVersion: true,
+					},
+				})
+				return err
+			},
+		},
+		{
+			Name: "UndeployApplication creates new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateEnvironment{
+					Environment:         "development",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					},
+					Team:                "team-123",
+					Version:             0,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateUndeployApplicationVersion{
+					Application:         "test",
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&UndeployApplication{
+					Application:         "test",
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					}},
+				})
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production":  "manifest",
+						"development": "manifest",
+					}},
+					Metadata: db.DBReleaseMetaData{
+						UndeployVersion: true,
+					},
+				})
+				return err
+			},
+		},
+		{
+			Name: "Create Application Version creates new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Server: "development",
+						},
+					}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production": "manifest",
+					}},
+				})
+			},
+		},
+		{
+			Name: "Deployments should create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production": "manifest",
+					}},
+				})
+			},
+		},
+		{
+			Name: "Create environment should not create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment:         "staging",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: false,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				return nil
+			},
+		},
+		{
+			Name: "Deleting environemnts should create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&DeleteEnvironment{
+					Environment:         "production",
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				return dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{}, []string{})
+			},
+		},
+		{
+			Name: "Mixed should create new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment:         "production",
+					Config:              config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+					Team:                "team",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateEnvironmentLock{
+					Environment:           "production",
+					LockId:                "my-lock",
+					Message:               "my lock message",
+					TransformerEslVersion: 0,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team",
+				})
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBWriteEnvironmentLock(ctx, transaction, "my-lock", "production", db.LockMetadata{})
+				if err != nil {
+					return err
+				}
+				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: 1,
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production": "manifest",
+					}},
+				})
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+
+			ctx := testutil.MakeTestContext()
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := tc.databasePopulation(ctx, transaction, dbHandler)
+				if err != nil {
+					t.Fatalf("Unexpected error populating the database. Error: %v", err)
+				}
+				for _, transformer := range tc.setup {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
+					if applyErr != nil && applyErr.TransformerError != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+				}
+				return nil
+			})
+			repo.config.MinimizeExportedData = true
+
+			initialCommitId, err := repo.GetHeadCommitId()
+			if err != nil {
+				t.Fatalf("Could not retrieve commit: Error: %v", err)
+			}
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, transformer := range tc.targetTransformers {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
+					if applyErr != nil && applyErr.TransformerError != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+				}
+				return nil
+			})
+			finalCommitId, err := repo.GetHeadCommitId()
+			if err != nil {
+				t.Fatalf("Could not retrieve commit: Error: %v", err)
+			}
+			if initialCommitId.String() == finalCommitId.String() == tc.shouldCreateCommit {
+				t.Fatalf("commit check failed. commits same: %v want: %v", initialCommitId.String() == finalCommitId.String(), tc.shouldCreateCommit)
+			}
+		})
+	}
+}

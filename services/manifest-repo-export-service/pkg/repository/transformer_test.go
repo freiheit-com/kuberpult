@@ -460,7 +460,6 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 	for _, contentRequirement := range required {
 		if _, err := fs.Stat(contentRequirement.path); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				fmt.Printf("%s does not exists but is expected \n", contentRequirement.path)
 				return nil
 			}
 			return fmt.Errorf("Error on Stat for file %s: %v\n", contentRequirement.path, err)

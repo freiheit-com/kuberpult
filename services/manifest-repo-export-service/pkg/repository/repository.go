@@ -606,65 +606,83 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
-	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-	if insertError != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
-	}
-	committer := &git.Signature{
-		Name:  r.config.CommitterName,
-		Email: r.config.CommitterEmail,
-		When:  time.Now(),
-	}
-
-	transformerMetadata := transformer.GetMetadata()
-	if transformerMetadata.AuthorEmail == "" || transformerMetadata.AuthorName == "" {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: fmt.Errorf("transformer metadata is empty"),
-			Index:            -1,
-		}
-	}
-	user := auth.User{
-		Email:          transformerMetadata.AuthorEmail,
-		Name:           transformerMetadata.AuthorName,
-		DexAuthContext: nil,
-	}
-
-	author := &git.Signature{
-		Name:  user.Name,
-		Email: user.Email,
-		When:  time.Now(),
-	}
-
-	var rev *git.Oid
-	// the commit can be nil, if it's the first commit in the repo
-	if state.Commit != nil {
-		rev = state.Commit.Id()
-	}
-	oldCommitId := rev
-
-	newCommitId, createErr := r.repository.CreateCommitFromIds(
-		fmt.Sprintf("refs/heads/%s", r.config.Branch),
-		author,
-		committer,
-		strings.Join(commitMsg, "\n"),
-		treeId,
-		rev,
-	)
-	if createErr != nil {
-		return nil, &TransformerBatchApplyError{
-			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
-			Index:            -1,
-		}
-	}
 	result := CombineArray(changes)
-	result.Commits = &CommitIds{
-		Current:  newCommitId,
-		Previous: nil,
+
+	if r.shouldCreateNewCommit(commitMsg) {
+		treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+		if insertError != nil {
+			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
+		}
+
+		committer := &git.Signature{
+			Name:  r.config.CommitterName,
+			Email: r.config.CommitterEmail,
+			When:  time.Now(),
+		}
+
+		transformerMetadata := transformer.GetMetadata()
+		if transformerMetadata.AuthorEmail == "" || transformerMetadata.AuthorName == "" {
+			return nil, &TransformerBatchApplyError{
+				TransformerError: fmt.Errorf("transformer metadata is empty"),
+				Index:            -1,
+			}
+		}
+		user := auth.User{
+			Email:          transformerMetadata.AuthorEmail,
+			Name:           transformerMetadata.AuthorName,
+			DexAuthContext: nil,
+		}
+
+		author := &git.Signature{
+			Name:  user.Name,
+			Email: user.Email,
+			When:  time.Now(),
+		}
+
+		var rev *git.Oid
+		// the commit can be nil, if it's the first commit in the repo
+		if state.Commit != nil {
+			rev = state.Commit.Id()
+		}
+		oldCommitId := rev
+
+		newCommitId, createErr := r.repository.CreateCommitFromIds(
+			fmt.Sprintf("refs/heads/%s", r.config.Branch),
+			author,
+			committer,
+			strings.Join(commitMsg, "\n"),
+			treeId,
+			rev,
+		)
+		if createErr != nil {
+			return nil, &TransformerBatchApplyError{
+				TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
+				Index:            -1,
+			}
+		}
+
+		result.Commits = &CommitIds{
+			Current:  newCommitId,
+			Previous: nil,
+		}
+		if oldCommitId != nil {
+			result.Commits.Previous = oldCommitId
+		}
 	}
-	if oldCommitId != nil {
-		result.Commits.Previous = oldCommitId
-	}
+
 	return result, nil
+}
+
+func (r *repository) shouldCreateNewCommit(commitMessages []string) bool {
+	if !r.config.MinimizeExportedData {
+		return true
+	}
+	for _, currCommitMessage := range commitMessages {
+		if !strings.Contains(currCommitMessage, NoOpMessage) { //Transformers that generate no commits always return a message beginning with $NoOpMessage
+			return true
+		}
+	}
+	return false
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
