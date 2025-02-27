@@ -53,7 +53,7 @@ func argsValidDeleteEnvironment(cmdArgs *DeleteEnvironmentCommandLineArguments) 
 }
 
 func readDeleteEnvironmentArgs(args []string) (*DeleteEnvironmentCommandLineArguments, error) {
-	cmdArgs := DeleteEnvironmentCommandLineArguments{}
+	cmdArgs := DeleteEnvironmentCommandLineArguments{} //exhaustruct:ignore
 
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
