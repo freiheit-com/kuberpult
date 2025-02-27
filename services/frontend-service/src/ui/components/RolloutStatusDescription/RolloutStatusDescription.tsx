@@ -24,9 +24,9 @@ const ROLLOUT_STATUS_SUCCESFUL_DESCRIPTION = 'ArgoCD has successfully synced thi
 const ROLLOUT_STATUS_PROGRESSING_DESCRIPTION =
     'ArgoCD has picked up these changes for this application on this environment, but has not applied them yet. This process might take a while.';
 const ROLLOUT_STATUS_PENDING_DESCRIPTION = 'ArgoCD has not yet picked up these changes.';
-const ROLLOUT_STATUS_ERROR_DESCRIPTION = 'ArgoCD has applied these changes, but some error has occurred';
+const ROLLOUT_STATUS_ERROR_DESCRIPTION = 'ArgoCD has applied these changes, but some error has occurred.';
 const ROLLOUT_STATUS_UNHEALTHY_DESCRIPTION =
-    'ArgoCD applied the changes successfully, but the application is unhealthy';
+    'ArgoCD applied the changes successfully, but the application is unhealthy.';
 
 export const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) => {
     const { status } = props;

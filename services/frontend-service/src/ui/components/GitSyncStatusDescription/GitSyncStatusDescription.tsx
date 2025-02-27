@@ -24,8 +24,8 @@ const GIT_SYNC_STATUS_SYNCED_DESCRIPTION =
 const GIT_SYNC_STATUS_UNSYNCED_DESCRIPTION =
     'There are some changes to this app and environment that have been processed by Kuberpult, but are yet to be committed to the manifest repository.';
 const GIT_SYNC_STATUS_FAILED_DESCRIPTION =
-    "There are some changes to this app and environment that have been processed by Kuberpult, but it wasn't possible to push the changes to the manifest repository\nThis requires manual intervention.";
-const GIT_SYNC_STATUS_UNKOWN_DESCRIPTION = 'Kuberpult could not find the git sync status for this app and environment';
+    "There are some changes to this app and environment that have been processed by Kuberpult, but it wasn't possible to push the changes to the manifest repository. This requires manual intervention.";
+const GIT_SYNC_STATUS_UNKOWN_DESCRIPTION = 'Kuberpult could not find the git sync status for this app and environment.';
 export const GitSyncStatusDescription: React.FC<{ status: number | undefined }> = (props) => {
     const { status } = props;
     let span = <span className="rollout__description_unknown">? Unknown</span>;
