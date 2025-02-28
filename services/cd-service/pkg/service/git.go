@@ -35,8 +35,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
-	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
@@ -266,66 +264,6 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 		return nil, err
 	}
 	return eventmod.ToProto(eventId, event), nil
-}
-
-// findCommitID checks if the "commits" directory in the given
-// filesystem contains a commit with the given prefix. Returns the
-// full hash of the commit, if a unique one can be found. Returns a
-// gRPC error that can be directly returned to the client.
-func findCommitID(
-	ctx context.Context,
-	fs billy.Filesystem,
-	commitPrefix string,
-) (string, error) {
-	if !valid.SHA1CommitIDPrefix(commitPrefix) {
-		return "", status.Error(codes.InvalidArgument,
-			"not a valid commit_hash")
-	}
-	commitPrefix = strings.ToLower(commitPrefix)
-	if len(commitPrefix) == valid.SHA1CommitIDLength {
-		// the easy case: the commit has been requested in
-		// full length, so we simply check if the file exist
-		// and are done.
-		commitPath := fs.Join("commits", commitPrefix[:2], commitPrefix[2:])
-
-		if _, err := fs.Stat(commitPath); err != nil {
-			return "", grpcErrors.NotFoundError(ctx,
-				fmt.Errorf("commit %s was not found in the manifest repo", commitPrefix))
-		}
-
-		return commitPrefix, nil
-	}
-	if len(commitPrefix) < 7 {
-		return "", status.Error(codes.InvalidArgument,
-			"commit_hash too short (must be at least 7 characters)")
-	}
-	// the dir we're looking in
-	commitDir := fs.Join("commits", commitPrefix[:2])
-	files, err := fs.ReadDir(commitDir)
-	if err != nil {
-		return "", grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
-	}
-	// the prefix of the file we're looking for
-	filePrefix := commitPrefix[2:]
-	var commitID string
-	for _, file := range files {
-		fileName := file.Name()
-		if !strings.HasPrefix(fileName, filePrefix) {
-			continue
-		}
-		if commitID != "" {
-			// another commit has already been found
-			return "", status.Error(codes.InvalidArgument,
-				"commit_hash is not unique, provide the complete hash (or a longer prefix)")
-		}
-		commitID = commitPrefix[:2] + fileName
-	}
-	if commitID == "" {
-		return "", grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
-	}
-	return commitID, nil
 }
 
 // Implements api.GitServer.GetGitSyncStatus

@@ -22,7 +22,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -1145,55 +1144,6 @@ type Lock struct {
 	CreatedAt time.Time
 }
 
-func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
-	lock := &Lock{
-		Message: "",
-		CreatedBy: Actor{
-			Name:  "",
-			Email: "",
-		},
-		CreatedAt: time.Time{},
-	}
-
-	if cnt, err := readFile(fs, fs.Join(lockDir, "message")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		lock.Message = string(cnt)
-	}
-
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_by_email")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		lock.CreatedBy.Email = string(cnt)
-	}
-
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_by_name")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		lock.CreatedBy.Name = string(cnt)
-	}
-
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_at")); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		if createdAt, err := time.Parse(time.RFC3339, strings.TrimSpace(string(cnt))); err != nil {
-			return nil, err
-		} else {
-			lock.CreatedAt = createdAt
-		}
-	}
-
-	return lock, nil
-}
-
 func (s *State) GetEnvironmentLocks(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
 	if transaction == nil {
 		return nil, fmt.Errorf("GetEnvironmentLocks: No transaction provided")
@@ -1808,27 +1758,6 @@ func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transact
 		return "", fmt.Errorf("could not get team of app %s - could not find app", application)
 	}
 	return app.Metadata.Team, nil
-}
-
-func names(fs billy.Filesystem, path string) ([]string, error) {
-	files, err := fs.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]string, 0, len(files))
-	for _, app := range files {
-		result = append(result, app.Name())
-	}
-	return result, nil
-}
-
-func readFile(fs billy.Filesystem, path string) ([]byte, error) {
-	if file, err := fs.Open(path); err != nil {
-		return nil, err
-	} else {
-		defer file.Close()
-		return io.ReadAll(file)
-	}
 }
 
 // ProcessQueue checks if there is something in the queue
