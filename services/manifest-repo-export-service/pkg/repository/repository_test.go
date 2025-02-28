@@ -114,6 +114,150 @@ func TestRetrySsh(t *testing.T) {
 	}
 }
 
+func createGitWithCommit(remote string, local string, t *testing.B) {
+	cmd := exec.Command("git", "init", "--bare", remote)
+	cmd.Start()
+	cmd.Wait()
+
+	cmd = exec.Command("git", "clone", remote, local) // Clone git dir
+	_, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command("touch", "a") // Add a new file to git
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command("git", "add", "a") // Add a new file to git
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "adding") // commit the new file
+	cmd.Dir = local
+	cmd.Env = []string{
+		"GIT_AUTHOR_NAME=kuberpult",
+		"GIT_COMMITTER_NAME=kuberpult",
+		"EMAIL=test@kuberpult.com",
+	}
+	_, err = cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Logf("stderr: %s\n", exitErr.Stderr)
+			t.Logf("stderr: %s\n", err)
+		}
+		t.Fatal(err)
+	}
+	cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func getTransformer(i int) (Transformer, error) {
+	// transformerType := i % 5
+	// switch transformerType {
+	// case 0:
+	// case 1:
+	// case 2:
+	return &CreateApplicationVersion{
+		Application: "foo",
+		Manifests: map[string]string{
+			"development": fmt.Sprintf("%d", i),
+		},
+		Version: uint64(i + 1),
+	}, nil
+	// case 3:
+	// 	return &ErrorTransformer{}, TransformerError
+	// case 4:
+	// 	return &InvalidJsonTransformer{}, InvalidJson
+	// }
+	// return &ErrorTransformer{}, TransformerError
+}
+
+func convertToSet(list []uint64) map[int]bool {
+	set := make(map[int]bool)
+	for _, i := range list {
+		set[int(i)] = true
+	}
+	return set
+}
+
+func BenchmarkApplyQueue(t *testing.B) {
+	t.StopTimer()
+	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &db.DBConfig{
+		MigrationsPath: migrationsPath,
+		DriverName:     "sqlite3",
+	}
+
+	dbHandler, err := db.Connect(context.Background(), *dbConfig)
+	if err != nil {
+		t.Fatalf("new: expected no error, got '%e'", err)
+	}
+
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	createGitWithCommit(remoteDir, localDir, t)
+
+	repo, err := New(
+		testutil.MakeTestContext(),
+		RepositoryConfig{
+			URL:                 "file://" + remoteDir,
+			Path:                localDir,
+			ArgoCdGenerateFiles: true,
+			DBHandler:           dbHandler,
+		},
+	)
+
+	if err != nil {
+		t.Fatalf("new: expected no error, got '%e'", err)
+	}
+	repoInternal := repo.(*repository)
+	// The worker go routine is now blocked. We can move some items into the queue now.
+	results := make([]error, t.N)
+	expectedResults := make([]error, t.N)
+	expectedReleases := make(map[int]bool, t.N)
+	tf, _ := getTransformer(0)
+	ctx := testutil.MakeTestContext()
+
+	dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		repoInternal.Apply(ctx, transaction, tf)
+
+		t.StartTimer()
+		for i := 0; i < t.N; i++ {
+			tf, expectedResult := getTransformer(i)
+			results[i] = repoInternal.Apply(ctx, transaction, tf)
+			expectedResults[i] = expectedResult
+			if expectedResult == nil {
+				expectedReleases[i+1] = true
+			}
+		}
+
+		return nil
+	})
+
+	for i := 0; i < t.N; i++ {
+		if results[i] != expectedResults[i] {
+			t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], err)
+		}
+	}
+	releases, _ := repo.State().Releases("foo")
+	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
+		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
+	}
+}
+
 func TestPushUpdate(t *testing.T) {
 	tcs := []struct {
 		Name            string

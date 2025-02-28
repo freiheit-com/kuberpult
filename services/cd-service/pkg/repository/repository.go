@@ -28,7 +28,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,11 +37,9 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 
-	// "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -59,7 +56,6 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v34"
 )
 
@@ -959,13 +955,13 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
 	defer span.Finish()
 
-	_, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
+	_, _, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
 	}
-	if err := r.afterTransform(ctx, *state, transaction); err != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
-	}
+	// if err := r.afterTransform(ctx, *state, transaction); err != nil {
+	// 	return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
+	// }
 
 	result := CombineArray(changes)
 	return result, nil
@@ -1107,93 +1103,6 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	)
 }
 
-func (r *repository) afterTransform(ctx context.Context, state State, transaction *sql.Tx) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
-	defer span.Finish()
-
-	if state.DBHandler.ShouldUseOtherTables() {
-		// if the DB is enabled fully, the manifest-export service takes care to update the argo apps
-		return nil
-	}
-
-	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	for env, config := range configs {
-		if config.ArgoCd != nil {
-			err := r.updateArgoCdApps(ctx, &state, env, config, transaction)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig, transaction *sql.Tx) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
-	defer span.Finish()
-	if !r.config.ArgoCdGenerateFiles {
-		return nil
-	}
-	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(ctx, transaction, env); err != nil {
-		return err
-	} else {
-		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
-		defer spanCollectData.Finish()
-		appData := []argocd.AppData{}
-		sort.Strings(apps)
-		for _, appName := range apps {
-			if err != nil {
-				return err
-			}
-			team, err := state.GetApplicationTeamOwner(ctx, transaction, appName)
-			if err != nil {
-				return err
-			}
-			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					// if the app does not exist, we skip it
-					// (It may not exist at all, or just hasn't been deployed to this environment yet)
-					continue
-				}
-				return err
-			}
-			if version == nil || *version == 0 {
-				// if nothing is deployed, ignore it
-				continue
-			}
-			appData = append(appData, argocd.AppData{
-				AppName:  appName,
-				TeamName: team,
-			})
-		}
-		spanCollectData.Finish()
-
-		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-		defer spanRenderAndWrite.Finish()
-		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
-			return err
-		} else {
-			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
-			defer spanWrite.Finish()
-			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-					return err
-				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func (r *repository) State() *State {
 	s, err := r.StateAt(nil)
 	if err != nil {
@@ -1203,41 +1112,7 @@ func (r *repository) State() *State {
 }
 
 func (r *repository) StateAt(oid *git.Oid) (*State, error) {
-	var commit *git.Commit
-	// if oid == nil {
-	// 	if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
-	// 		var gerr *git.GitError
-	// 		if errors.As(err, &gerr) {
-	// 			if gerr.Code == git.ErrorCodeNotFound {
-	// 				return &State{
-	// 					Commit:               nil,
-	// 					Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
-	// 					ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
-	// 					MinorRegexes:         r.config.MinorRegexes,
-	// 					MaxNumThreads:        int(r.config.MaxNumThreads),
-	// 					DBHandler:            r.DB,
-	// 					CloudRunClient:       r.config.CloudRunClient,
-	// 				}, nil
-	// 			}
-	// 		}
-	// 		return nil, err
-	// 	} else {
-	// 		commit, err = obj.AsCommit()
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 	}
-	// } else {
-	// 	var err error
-	// 	commit, err = r.repository.LookupCommit(oid)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-	//exhaustruct:ignore
 	return &State{
-		// Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-		Commit:               commit,
 		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
 		MinorRegexes:         r.config.MinorRegexes,
 		MaxNumThreads:        int(r.config.MaxNumThreads),
@@ -1251,30 +1126,12 @@ func (r *repository) Notify() *notify.Notify {
 }
 
 type State struct {
-	Filesystem           billy.Filesystem
-	Commit               *git.Commit
 	ReleaseVersionsLimit uint
 	MinorRegexes         []*regexp.Regexp
 	MaxNumThreads        int
 	// DbHandler will be nil if the DB is disabled
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
-}
-
-func (s *State) Releases(application string) ([]uint64, error) {
-	if entries, err := s.Filesystem.ReadDir(s.Filesystem.Join("applications", application, "releases")); err != nil {
-		return nil, err
-	} else {
-		result := make([]uint64, 0, len(entries))
-		for _, e := range entries {
-			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
-				// just skip
-			} else {
-				result = append(result, i)
-			}
-		}
-		return result, nil
-	}
 }
 
 type Actor struct {
@@ -1337,24 +1194,9 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 	return lock, nil
 }
 
-func (s *State) GetEnvLocksDir(environment string) string {
-	return s.Filesystem.Join("environments", environment, "locks")
-}
-
-func (s *State) GetEnvLockDir(environment string, lockId string) string {
-	return s.Filesystem.Join(s.GetEnvLocksDir(environment), lockId)
-}
-
-func (s *State) GetAppLocksDir(environment string, application string) string {
-	return s.Filesystem.Join("environments", environment, "applications", application, "locks")
-}
-func (s *State) GetTeamLocksDir(environment string, team string) string {
-	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
-}
-
-func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentLocks(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
 	if transaction == nil {
-		return nil, fmt.Errorf("GetEnvironmentLocksFromDB: No transaction provided")
+		return nil, fmt.Errorf("GetEnvironmentLocks: No transaction provided")
 	}
 	allActiveLockIds, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
 	if err != nil {
@@ -1384,38 +1226,8 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	return result, nil
 }
 
-func (s *State) GetEnvironmentLocks(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentLocksFromDB(ctx, transaction, environment)
-	}
-	return s.GetEnvironmentLocksFromManifest(environment)
-}
-
-func (s *State) GetEnvironmentLocksFromManifest(environment string) (map[string]Lock, error) {
-	base := s.GetEnvLocksDir(environment)
-	if entries, err := s.Filesystem.ReadDir(base); err != nil {
-		return nil, err
-	} else {
-		result := make(map[string]Lock, len(entries))
-		for _, e := range entries {
-			if !e.IsDir() {
-				return nil, fmt.Errorf("error getting environment locks: found file in the locks directory. run migration script to generate correct metadata")
-			}
-			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
-				return nil, err
-			} else {
-				result[e.Name()] = *lock
-			}
-		}
-		return result, nil
-	}
-}
-
 func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentApplicationLocksFromDB(ctx, transaction, environment, application)
-	}
-	return s.GetEnvironmentApplicationLocksFromManifest(environment, application)
+	return s.GetEnvironmentApplicationLocksFromDB(ctx, transaction, environment, application)
 }
 
 func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, application string) (map[string]Lock, error) {
@@ -1446,31 +1258,8 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 	return result, nil
 }
 
-func (s *State) GetEnvironmentApplicationLocksFromManifest(environment, application string) (map[string]Lock, error) {
-	base := s.GetAppLocksDir(environment, application)
-	if entries, err := s.Filesystem.ReadDir(base); err != nil {
-		return nil, err
-	} else {
-		result := make(map[string]Lock, len(entries))
-		for _, e := range entries {
-			if !e.IsDir() {
-				return nil, fmt.Errorf("error getting application locks: found file in the locks directory. run migration script to generate correct metadata")
-			}
-			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
-				return nil, err
-			} else {
-				result[e.Name()] = *lock
-			}
-		}
-		return result, nil
-	}
-}
-
 func (s *State) GetEnvironmentTeamLocks(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentTeamLocksFromDB(ctx, transaction, environment, team)
-	}
-	return s.GetEnvironmentTeamLocksFromManifest(environment, team)
+	return s.GetEnvironmentTeamLocksFromDB(ctx, transaction, environment, team)
 }
 
 func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
@@ -1502,84 +1291,15 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 	return result, nil
 }
 
-func (s *State) GetEnvironmentTeamLocksFromManifest(environment, team string) (map[string]Lock, error) {
-	base := s.GetTeamLocksDir(environment, team)
-	if entries, err := s.Filesystem.ReadDir(base); err != nil {
-		return nil, err
-	} else {
-		result := make(map[string]Lock, len(entries))
-		for _, e := range entries {
-			if !e.IsDir() {
-				return nil, fmt.Errorf("error getting team locks: found file in the locks directory. run migration script to generate correct metadata")
-			}
-			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
-				return nil, err
-			} else {
-				result[e.Name()] = *lock
-			}
-		}
-		return result, nil
-	}
-}
 func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, environment, application string) (string, time.Time, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		result, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
-		if err != nil {
-			return "", time.Time{}, err
-		}
-		if result != nil {
-			return result.Metadata.DeployedByEmail, result.Created, nil
-		}
-		return "", time.Time{}, err
-	}
-	return s.GetDeploymentMetaDataFromRepo(environment, application)
-}
-
-func (s *State) GetDeploymentMetaDataFromRepo(environment, application string) (string, time.Time, error) {
-	base := s.Filesystem.Join("environments", environment, "applications", application)
-	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			// for backwards compatibility, we do not return an error here
-			return "", time.Time{}, nil
-		} else {
-			return "", time.Time{}, err
-		}
-	}
-
-	time_utc, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_at_utc"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return string(author), time.Time{}, nil
-		} else {
-			return "", time.Time{}, err
-		}
-	}
-
-	deployedAt, err := time.Parse("2006-01-02 15:04:05 -0700 MST", strings.TrimSpace(string(time_utc)))
+	result, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 	if err != nil {
 		return "", time.Time{}, err
 	}
-
-	return string(author), deployedAt, nil
-}
-
-func (s *State) DeleteTeamLockIfEmpty(_ context.Context, environment string, team string) error {
-	dir := s.GetTeamLocksDir(environment, team)
-	_, err := s.DeleteDirIfEmpty(dir)
-	return err
-}
-
-func (s *State) DeleteAppLockIfEmpty(_ context.Context, environment string, application string) error {
-	dir := s.GetAppLocksDir(environment, application)
-	_, err := s.DeleteDirIfEmpty(dir)
-	return err
-}
-
-func (s *State) DeleteEnvLockIfEmpty(_ context.Context, environment string) error {
-	dir := s.GetEnvLocksDir(environment)
-	_, err := s.DeleteDirIfEmpty(dir)
-	return err
+	if result != nil {
+		return result.Metadata.DeployedByEmail, result.Created, nil
+	}
+	return "", time.Time{}, err
 }
 
 type SuccessReason int64
@@ -1589,29 +1309,6 @@ const (
 	DirDoesNotExist
 	DirNotEmpty
 )
-
-// DeleteDirIfEmpty if it's empty. If the dir does not exist or is not empty, nothing happens.
-// Errors are only returned if the read or delete operations fail.
-// Returns SuccessReason for unit testing.
-func (s *State) DeleteDirIfEmpty(directoryName string) (SuccessReason, error) {
-	fileInfos, err := s.Filesystem.ReadDir(directoryName)
-	if err != nil {
-		return NoReason, fmt.Errorf("DeleteDirIfEmpty: failed to read directory %q: %w", directoryName, err)
-	}
-	if fileInfos == nil {
-		// directory does not exist, nothing to do
-		return DirDoesNotExist, nil
-	}
-	if len(fileInfos) == 0 {
-		// directory exists, and is empty: delete it
-		err = s.Filesystem.Remove(directoryName)
-		if err != nil {
-			return NoReason, fmt.Errorf("DeleteDirIfEmpty: failed to delete directory %q: %w", directoryName, err)
-		}
-		return NoReason, nil
-	}
-	return DirNotEmpty, nil
-}
 
 func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
 	queuedDeployment, err := s.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, environment, application)
@@ -1650,32 +1347,10 @@ func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *
 }
 
 func (s *State) GetQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
-	}
-	return s.GetQueuedVersionFromManifest(environment, application)
+	return s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
 }
 func (s *State) GetQueuedVersionOfAllApps(ctx context.Context, transaction *sql.Tx, environment string) (map[string]*uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetQueuedVersionAllAppsFromDB(ctx, transaction, environment)
-	}
-	result := map[string]*uint64{}
-	apps, err := s.GetEnvironmentApplications(ctx, transaction, environment)
-	if err != nil {
-		return result, fmt.Errorf("environment applications for %q not found: %v", environment, err.Error())
-	}
-	for _, appName := range apps {
-		version, err := s.GetQueuedVersionFromManifest(environment, appName)
-		if err != nil {
-			return result, err
-		}
-		result[appName] = version
-	}
-	return result, nil
-}
-
-func (s *State) GetQueuedVersionFromManifest(environment string, application string) (*uint64, error) {
-	return s.readSymlink(environment, application, queueFileName)
+	return s.GetQueuedVersionAllAppsFromDB(ctx, transaction, environment)
 }
 
 func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
@@ -1683,11 +1358,7 @@ func (s *State) DeleteQueuedVersionFromDB(ctx context.Context, transaction *sql.
 }
 
 func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.DeleteQueuedVersionFromDB(ctx, transaction, environment, application)
-	}
-	queuedVersion := s.Filesystem.Join("environments", environment, "applications", application, queueFileName)
-	return s.Filesystem.Remove(queuedVersion)
+	return s.DeleteQueuedVersionFromDB(ctx, transaction, environment, application)
 }
 
 func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment string, application string) error {
@@ -1742,44 +1413,15 @@ func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, a
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
-		if err != nil {
-			return nil, err
-		}
-		if depl == nil || depl.Version == nil {
-			return nil, nil
-		}
-		var v = uint64(*depl.Version)
-		return &v, nil
-	} else {
-		return s.GetEnvironmentApplicationVersionFromManifest(environment, application)
+	depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
+	if err != nil {
+		return nil, err
 	}
-}
-
-func (s *State) GetEnvironmentApplicationVersionFromManifest(environment string, application string) (*uint64, error) {
-	return s.readSymlink(environment, application, "version")
-}
-
-// returns nil if there is no file
-func (s *State) readSymlink(environment string, application string, symlinkName string) (*uint64, error) {
-	version := s.Filesystem.Join("environments", environment, "applications", application, symlinkName)
-	if lnk, err := s.Filesystem.Readlink(version); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			// if the link does not exist, we return nil
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed reading symlink %q: %w", version, err)
-	} else {
-		target := s.Filesystem.Join("environments", environment, "applications", application, lnk)
-		if stat, err := s.Filesystem.Stat(target); err != nil {
-			// if the file that the link points to does not exist, that's an error
-			return nil, fmt.Errorf("failed stating %q: %w", target, err)
-		} else {
-			res, err := strconv.ParseUint(stat.Name(), 10, 64)
-			return &res, err
-		}
+	if depl == nil || depl.Version == nil {
+		return nil, nil
 	}
+	var v = uint64(*depl.Version)
+	return &v, nil
 }
 
 func (s *State) GetTeamName(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
@@ -1855,10 +1497,7 @@ func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.T
 }
 
 func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
-	}
-	return s.GetAllDeploymentsForAppFromManifest(ctx, appName)
+	return s.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
 }
 func (s *State) GetAllDeploymentsForAppAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
 	if s.DBHandler.ShouldUseOtherTables() {
@@ -1885,24 +1524,6 @@ func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, tr
 	}
 	if result == nil {
 		return map[string]int64{}, nil
-	}
-	return result, nil
-}
-
-func (s *State) GetAllDeploymentsForAppFromManifest(ctx context.Context, appName string) (map[string]int64, error) {
-	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]int64{}
-	for env := range envConfigs {
-		version, err := s.GetEnvironmentApplicationVersion(ctx, nil, env, appName)
-		if err != nil {
-			return nil, err
-		}
-		if version != nil {
-			result[env] = int64(*version)
-		}
 	}
 	return result, nil
 }
@@ -1963,10 +1584,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 }
 
 func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
-	if s.DBHandler.ShouldUseOtherTables() && transaction != nil {
-		return s.GetEnvironmentApplicationsFromDB(ctx, transaction, environment)
-	}
-	return s.GetEnvironmentApplicationsFromManifest(environment)
+	return s.GetEnvironmentApplicationsFromDB(ctx, transaction, environment)
 }
 
 func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, environment string, ts time.Time) ([]string, error) {
@@ -1974,11 +1592,6 @@ func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, trans
 		return s.GetEnvironmentApplicationsFromDBAtTimestamp(ctx, transaction, environment, ts)
 	}
 	return nil, fmt.Errorf("GetEnvironmentApplicationsAtTimestamp is only available for DB uses")
-}
-
-func (s *State) GetEnvironmentApplicationsFromManifest(environment string) ([]string, error) {
-	appDir := s.Filesystem.Join("environments", environment, "applications")
-	return names(s.Filesystem, appDir)
 }
 
 func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
@@ -2009,58 +1622,28 @@ func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context,
 	return envInfo.Applications, nil
 }
 
-// GetApplicationsFromFile returns all apps that exist in any env
-func (s *State) GetApplicationsFromFile() ([]string, error) {
-	return names(s.Filesystem, "applications")
-}
-
 // GetApplications returns all apps that exist in any env
 func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
-		if err != nil {
-			return nil, err
-		}
-		if applications == nil {
-			return make([]string, 0), nil
-		}
-		return applications, nil
-	} else {
-		return s.GetApplicationsFromFile()
+	applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
+	if err != nil {
+		return nil, err
 	}
+	if applications == nil {
+		return make([]string, 0), nil
+	}
+	return applications, nil
 }
 
 func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
-		if err != nil {
-			return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
-		}
-		if releases == nil {
-			return nil, fmt.Errorf("could not get all releases of app %s (nil)", application)
-		}
-		res := conversion.ToUint64Slice(releases)
-		return res, nil
-	} else {
-		return s.GetAllApplicationReleasesFromManifest(application)
+	releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
+	if err != nil {
+		return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
 	}
-}
-
-func (s *State) GetAllApplicationReleasesFromManifest(application string) ([]uint64, error) {
-	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
-		return nil, err
-	} else {
-		result := make([]uint64, 0, len(ns))
-		for _, n := range ns {
-			if i, err := strconv.ParseUint(n, 10, 64); err == nil {
-				result = append(result, i)
-			}
-		}
-		sort.Slice(result, func(i, j int) bool {
-			return result[i] < result[j]
-		})
-		return result, nil
+	if releases == nil {
+		return nil, fmt.Errorf("could not get all releases of app %s (nil)", application)
 	}
+	res := conversion.ToUint64Slice(releases)
+	return res, nil
 }
 
 type Release struct {

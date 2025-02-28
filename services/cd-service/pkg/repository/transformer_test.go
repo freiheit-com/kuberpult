@@ -3471,10 +3471,7 @@ type injectErr struct {
 }
 
 func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
-	original := state.Filesystem
-	state.Filesystem = i.collector.WithError(state.Filesystem, i.operation, i.filename, i.err)
 	s, err := i.Transformer.Transform(ctx, state, t, transaction)
-	state.Filesystem = original
 	return s, err
 }
 

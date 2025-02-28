@@ -19,17 +19,16 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
-	"sync"
 
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,7 +39,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -206,92 +204,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
-	if !s.Config.WriteCommitData {
-		return nil, status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable")
-	}
-
-	fs := s.OverviewService.Repository.State().Filesystem
-
-	commitIDPrefix, pageNumber := in.CommitHash, in.PageNumber
-
-	commitID, err := findCommitID(ctx, fs, commitIDPrefix)
-	if err != nil {
-		return nil, err
-	}
-
-	commitPath := fs.Join("commits", commitID[:2], commitID[2:])
-
-	sourceMessagePath := fs.Join(commitPath, "source_message")
-	var commitMessage string
-	if dat, err := util.ReadFile(fs, sourceMessagePath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, status.Error(codes.NotFound, "commit info does not exist")
-		}
-		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err)
-	} else {
-		commitMessage = string(dat)
-	}
-
-	var previousCommitMessagePath = fs.Join(commitPath, "previousCommit")
-	var previousCommitId string
-	if data, err := util.ReadFile(fs, previousCommitMessagePath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("could not open the previous commit file at %s, err: %w", previousCommitMessagePath, err)
-		}
-	} else {
-		previousCommitId = string(data)
-	}
-
-	var nextCommitMessagePath = fs.Join(commitPath, "nextCommit")
-	var nextCommitId string
-	if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("could not open the next commit file at %s, err: %w", nextCommitMessagePath, err)
-		} //If no file exists, there is no next commit
-	} else {
-		nextCommitId = string(data)
-	}
-
-	commitApplicationsDirPath := fs.Join(commitPath, "applications")
-	dirs, err := fs.ReadDir(commitApplicationsDirPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not read the applications directory at %s, error: %w", commitApplicationsDirPath, err)
-	}
-	touchedApps := make([]string, 0)
-	for _, dir := range dirs {
-		touchedApps = append(touchedApps, dir.Name())
-	}
-	sort.Strings(touchedApps)
-	var events []*api.Event
-	loadMore := false
-	if s.OverviewService.Repository.State().DBHandler.ShouldUseOtherTables() {
-		events, err = db.WithTransactionMultipleEntriesT(s.OverviewService.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-			return s.GetEvents(ctx, transaction, fs, commitPath, pageNumber)
-		})
-		if len(events) > int(s.PageSize) {
-			loadMore = true
-			events = events[:len(events)-1]
-		}
-	} else {
-		events, err = s.GetEvents(ctx, nil, fs, commitPath, pageNumber)
-		if len(events) > int(s.PageSize) {
-			loadMore = true
-		}
-		events = events[pageNumber*s.PageSize : min(len(events), int((pageNumber+1)*s.PageSize))]
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &api.GetCommitInfoResponse{
-		CommitHash:         commitID,
-		CommitMessage:      commitMessage,
-		TouchedApps:        touchedApps,
-		Events:             events,
-		PreviousCommitHash: previousCommitId,
-		NextCommitHash:     nextCommitId,
-		LoadMore:           loadMore,
-	}, nil
+	return nil, status.Error(codes.Unimplemented, "not implemented.  cd-service")
 }
 
 func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string, pageNumber uint64) ([]*api.Event, error) {

@@ -259,10 +259,6 @@ func TestGenerateManifest(t *testing.T) {
 			if tc.Request.Repo.Repo == "<the-repo-url>" {
 				tc.Request.Repo.Repo = cfg.URL
 			}
-			if tc.Request.Revision == "<last-commit-id>" {
-
-				tc.Request.Revision = repo.State().Commit.Id().String()
-			}
 			if tc.ExpectedResponse != nil {
 				tc.ExpectedResponse.Revision = ToRevision(appVersion)
 				mn := make([]string, 0)
