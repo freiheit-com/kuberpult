@@ -42,7 +42,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	// "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -52,7 +52,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/sqlitestore"
 	"go.uber.org/zap"
@@ -417,58 +416,58 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 		}
 	}
 
-	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
-		return nil, nil, err
-	} else {
-		// configure remotes
-		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
-			return nil, nil, err
-		} else {
-			result := &repository{
-				headLock:        sync.Mutex{},
-				notify:          notify.Notify{},
-				writeLock:       sync.Mutex{},
-				config:          &cfg,
-				credentials:     credentials,
-				certificates:    certificates,
-				repository:      repo2,
-				queue:           makeQueueN(cfg.MaximumQueueSize),
-				backOffProvider: defaultBackOffProvider,
-				DB:              cfg.DBHandler,
-			}
-			result.headLock.Lock()
-
-			defer result.headLock.Unlock()
-			//We need fetch when not using the database
-			if !cfg.DBHandler.ShouldUseOtherTables() {
-				if err := ConfigureAndPull(ctx, cfg, remote, repo2, credentials, certificates); err != nil {
-					return nil, nil, err
-				}
-			}
-
-			// check that we can build the current state
-			state, err := result.StateAt(nil)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			// Check configuration for errors and abort early if any:
-			if state.DBHandler.ShouldUseOtherTables() {
-				_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
-					ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
-					return &ret, err
-				})
-			} else {
-				_, err = state.GetEnvironmentConfigsAndValidate(ctx, nil)
-			}
-
-			if err != nil {
-				return nil, nil, err
-			}
-
-			return result, result.ProcessQueue, nil
-		}
+	// if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
+	// 	return nil, nil, err
+	// } else {
+	// configure remotes
+	// if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
+	// 	return nil, nil, err
+	// } else {
+	result := &repository{
+		headLock:        sync.Mutex{},
+		notify:          notify.Notify{},
+		writeLock:       sync.Mutex{},
+		config:          &cfg,
+		credentials:     credentials,
+		certificates:    certificates,
+		repository:      nil,
+		queue:           makeQueueN(cfg.MaximumQueueSize),
+		backOffProvider: defaultBackOffProvider,
+		DB:              cfg.DBHandler,
 	}
+	result.headLock.Lock()
+
+	defer result.headLock.Unlock()
+	//We need fetch when not using the database
+	// if !cfg.DBHandler.ShouldUseOtherTables() {
+	// if err := ConfigureAndPull(ctx, cfg, remote, repo2, credentials, certificates); err != nil {
+	// 	return nil, nil, err
+	// }
+	// }
+
+	// check that we can build the current state
+	state, err := result.StateAt(nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Check configuration for errors and abort early if any:
+	if state.DBHandler.ShouldUseOtherTables() {
+		_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+			ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
+			return &ret, err
+		})
+	} else {
+		_, err = state.GetEnvironmentConfigsAndValidate(ctx, nil)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return result, result.ProcessQueue, nil
+	// 	}
+	// }
 }
 
 func ConfigureAndPull(ctx context.Context, cfg RepositoryConfig, remote *git.Remote, repo2 *git.Repository, credentials *credentialsStore, certificates *certificateStore) error {
@@ -687,7 +686,7 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
 func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
-	logger := logger.FromContext(ctx)
+	// logger := logger.FromContext(ctx)
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
 	defer span.Finish()
 	/**
@@ -723,60 +722,60 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	// Try to fetch more items from the queue in order to push more things together
 	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
 
-	var pushSuccess = true
+	// var pushSuccess = true
 
 	//exhaustruct:ignore
-	RemoteCallbacks := git.RemoteCallbacks{
-		CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
-		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
-		PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
-	}
-	pushOptions := git.PushOptions{
-		PbParallelism: 0,
-		Headers:       nil,
-		ProxyOptions: git.ProxyOptions{
-			Type: git.ProxyTypeNone,
-			Url:  "",
-		},
-		RemoteCallbacks: RemoteCallbacks,
-	}
+	// RemoteCallbacks := git.RemoteCallbacks{
+	// 	CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
+	// 	CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
+	// 	PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
+	// }
+	// pushOptions := git.PushOptions{
+	// 	PbParallelism: 0,
+	// 	Headers:       nil,
+	// 	ProxyOptions: git.ProxyOptions{
+	// 		Type: git.ProxyTypeNone,
+	// 		Url:  "",
+	// 	},
+	// 	RemoteCallbacks: RemoteCallbacks,
+	// }
 
 	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
 	if len(transformerBatches) == 0 {
 		return
 	}
 
-	if !r.DB.ShouldUseOtherTables() {
-		logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
-		// Try pushing once
-		err = r.Push(e.ctx, pushAction(pushOptions, r))
-		if err != nil {
-			gerr, ok := err.(*git.GitError)
-			// If it doesn't work because the branch diverged, try reset and apply again.
-			if ok && gerr.Code == git.ErrorCodeNonFastForward {
-				err = r.FetchAndReset(e.ctx)
-				if err != nil {
-					return
-				}
-				transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
-				if err != nil || len(transformerBatches) == 0 {
-					return
-				}
-				if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
-					err = pushErr
-				}
-			} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-				err = grpc.CanceledError(ctx, err)
-			} else {
-				logger.Error(fmt.Sprintf("error while pushing: %s", err))
-				err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
-			}
-		} else {
-			if !pushSuccess {
-				err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
-			}
-		}
-	}
+	// if !r.DB.ShouldUseOtherTables() {
+	// 	logger.Sugar().Infof("applyTransformerBatches: Attempting to push %d transformer batches to manifest repo.\n", len(transformerBatches))
+	// 	// Try pushing once
+	// 	err = r.Push(e.ctx, pushAction(pushOptions, r))
+	// 	if err != nil {
+	// 		gerr, ok := err.(*git.GitError)
+	// 		// If it doesn't work because the branch diverged, try reset and apply again.
+	// 		if ok && gerr.Code == git.ErrorCodeNonFastForward {
+	// 			err = r.FetchAndReset(e.ctx)
+	// 			if err != nil {
+	// 				return
+	// 			}
+	// 			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
+	// 			if err != nil || len(transformerBatches) == 0 {
+	// 				return
+	// 			}
+	// 			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
+	// 				err = pushErr
+	// 			}
+	// 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+	// 			err = grpc.CanceledError(ctx, err)
+	// 		} else {
+	// 			logger.Error(fmt.Sprintf("error while pushing: %s", err))
+	// 			err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
+	// 		}
+	// 	} else {
+	// 		if !pushSuccess {
+	// 			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
+	// 		}
+	// 	}
+	// }
 
 	r.notify.Notify()
 	r.notifyChangedApps(changes)
@@ -1205,38 +1204,39 @@ func (r *repository) State() *State {
 
 func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 	var commit *git.Commit
-	if oid == nil {
-		if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
-			var gerr *git.GitError
-			if errors.As(err, &gerr) {
-				if gerr.Code == git.ErrorCodeNotFound {
-					return &State{
-						Commit:               nil,
-						Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
-						ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
-						MinorRegexes:         r.config.MinorRegexes,
-						MaxNumThreads:        int(r.config.MaxNumThreads),
-						DBHandler:            r.DB,
-						CloudRunClient:       r.config.CloudRunClient,
-					}, nil
-				}
-			}
-			return nil, err
-		} else {
-			commit, err = obj.AsCommit()
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		var err error
-		commit, err = r.repository.LookupCommit(oid)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// if oid == nil {
+	// 	if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
+	// 		var gerr *git.GitError
+	// 		if errors.As(err, &gerr) {
+	// 			if gerr.Code == git.ErrorCodeNotFound {
+	// 				return &State{
+	// 					Commit:               nil,
+	// 					Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
+	// 					ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
+	// 					MinorRegexes:         r.config.MinorRegexes,
+	// 					MaxNumThreads:        int(r.config.MaxNumThreads),
+	// 					DBHandler:            r.DB,
+	// 					CloudRunClient:       r.config.CloudRunClient,
+	// 				}, nil
+	// 			}
+	// 		}
+	// 		return nil, err
+	// 	} else {
+	// 		commit, err = obj.AsCommit()
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 	}
+	// } else {
+	// 	var err error
+	// 	commit, err = r.repository.LookupCommit(oid)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+	//exhaustruct:ignore
 	return &State{
-		Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
+		// Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
 		Commit:               commit,
 		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
 		MinorRegexes:         r.config.MinorRegexes,

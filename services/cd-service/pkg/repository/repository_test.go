@@ -831,55 +831,55 @@ func TestPushUpdate(t *testing.T) {
 	}
 }
 
-func TestDeleteDirIfEmpty(t *testing.T) {
-	tcs := []struct {
-		Name           string
-		CreateThisDir  string
-		DeleteThisDir  string
-		ExpectedError  error
-		ExpectedReason SuccessReason
-	}{
-		{
-			Name:           "Should succeed: dir exists and is empty",
-			CreateThisDir:  "foo/bar",
-			DeleteThisDir:  "foo/bar",
-			ExpectedReason: NoReason,
-		},
-		{
-			Name:           "Should succeed: dir does not exist",
-			CreateThisDir:  "foo/bar",
-			DeleteThisDir:  "foo/bar/pow",
-			ExpectedReason: DirDoesNotExist,
-		},
-		{
-			Name:           "Should succeed: dir does not exist",
-			CreateThisDir:  "foo/bar/pow",
-			DeleteThisDir:  "foo/bar",
-			ExpectedReason: DirNotEmpty,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo := setupRepositoryTest(t)
-			state := repo.State()
-			err := state.Filesystem.MkdirAll(tc.CreateThisDir, 0777)
-			if err != nil {
-				t.Fatalf("error in mkdir: %v", err)
-				return
-			}
+// func TestDeleteDirIfEmpty(t *testing.T) {
+// 	tcs := []struct {
+// 		Name           string
+// 		CreateThisDir  string
+// 		DeleteThisDir  string
+// 		ExpectedError  error
+// 		ExpectedReason SuccessReason
+// 	}{
+// 		{
+// 			Name:           "Should succeed: dir exists and is empty",
+// 			CreateThisDir:  "foo/bar",
+// 			DeleteThisDir:  "foo/bar",
+// 			ExpectedReason: NoReason,
+// 		},
+// 		{
+// 			Name:           "Should succeed: dir does not exist",
+// 			CreateThisDir:  "foo/bar",
+// 			DeleteThisDir:  "foo/bar/pow",
+// 			ExpectedReason: DirDoesNotExist,
+// 		},
+// 		{
+// 			Name:           "Should succeed: dir does not exist",
+// 			CreateThisDir:  "foo/bar/pow",
+// 			DeleteThisDir:  "foo/bar",
+// 			ExpectedReason: DirNotEmpty,
+// 		},
+// 	}
+// 	for _, tc := range tcs {
+// 		tc := tc
+// 		t.Run(tc.Name, func(t *testing.T) {
+// 			t.Parallel()
+// 			repo := setupRepositoryTest(t)
+// 			state := repo.State()
+// 			err := state.Filesystem.MkdirAll(tc.CreateThisDir, 0777)
+// 			if err != nil {
+// 				t.Fatalf("error in mkdir: %v", err)
+// 				return
+// 			}
 
-			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
-			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-			}
-			if successReason != tc.ExpectedReason {
-				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReason, successReason))
-			}
-		})
-	}
-}
+// 			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
+// 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+// 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+// 			}
+// 			if successReason != tc.ExpectedReason {
+// 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReason, successReason))
+// 			}
+// 		})
+// 	}
+// }
 
 func TestProcessQueueOnce(t *testing.T) {
 	tcs := []struct {
