@@ -448,14 +448,7 @@ func (o *OverviewServiceServer) getOverview(
 ) (*api.GetOverviewResponse, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "CalculateOverview")
 	defer span.Finish()
-	var rev string
-	if s.DBHandler.ShouldUseOtherTables() {
-		rev = "0000000000000000000000000000000000000000"
-	} else {
-		if s.Commit != nil {
-			rev = s.Commit.Id().String()
-		}
-	}
+	rev := "0000000000000000000000000000000000000000"
 	result := api.GetOverviewResponse{
 		Branch:            "",
 		ManifestRepoUrl:   "",

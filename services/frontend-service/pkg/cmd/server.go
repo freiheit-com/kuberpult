@@ -695,7 +695,7 @@ func (p *GrpcProxy) GetProductSummary(
 func (p *GrpcProxy) GetCommitInfo(
 	ctx context.Context,
 	in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
-	return p.GitClient.GetCommitInfo(ctx, in)
+	return p.ManifestExportServiceGitClient.GetCommitInfo(ctx, in)
 }
 
 func (p *GrpcProxy) GetEnvironmentConfig(
