@@ -205,50 +205,21 @@ func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy
 	parts := strings.Split(commitPath, "/")
 	commitID := parts[len(parts)-2] + parts[len(parts)-1]
 
-	if s.Config.DBHandler.ShouldUseOtherTables() {
-		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID, pageNumber, s.PageSize)
+	events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID, pageNumber, s.PageSize)
+	if err != nil {
+		return nil, fmt.Errorf("could not read events from DB: %v", err)
+	}
+	for _, currEvent := range events {
+		ev, err := eventmod.UnMarshallEvent(currEvent.EventType, currEvent.EventJson)
 		if err != nil {
-			return nil, fmt.Errorf("could not read events from DB: %v", err)
+			return nil, fmt.Errorf("error processing event from DB: %v", err)
 		}
-		for _, currEvent := range events {
-			ev, err := eventmod.UnMarshallEvent(currEvent.EventType, currEvent.EventJson)
-			if err != nil {
-				return nil, fmt.Errorf("error processing event from DB: %v", err)
-			}
-			rawUUID, err := timeuuid.ParseUUID(currEvent.Uuid)
-			if err != nil {
-				return nil, fmt.Errorf("could not parse UUID: '%s'. Error: %v", currEvent.Uuid, err)
-			}
-
-			result = append(result, eventmod.ToProto(rawUUID, ev.EventData))
-		}
-	} else {
-		allEventsPath := fs.Join(commitPath, "events")
-		potentialEventDirs, err := fs.ReadDir(allEventsPath)
+		rawUUID, err := timeuuid.ParseUUID(currEvent.Uuid)
 		if err != nil {
-			return nil, fmt.Errorf("could not read events directory '%s': %v", allEventsPath, err)
+			return nil, fmt.Errorf("could not parse UUID: '%s'. Error: %v", currEvent.Uuid, err)
 		}
-		for i := range potentialEventDirs {
-			oneEventDir := potentialEventDirs[i]
-			if oneEventDir.IsDir() {
-				fileName := oneEventDir.Name()
-				rawUUID, err := timeuuid.ParseUUID(fileName)
-				if err != nil {
-					return nil, fmt.Errorf("could not read event directory '%s' not a UUID: %v", fs.Join(allEventsPath, fileName), err)
-				}
 
-				var event *api.Event
-				event, err = s.ReadEvent(ctx, fs, fs.Join(allEventsPath, fileName), rawUUID)
-				if err != nil {
-					return nil, fmt.Errorf("could not read events %v", err)
-				}
-				result = append(result, event)
-			}
-		}
-		// NOTE: We only sort when using the manifest repo because the db already sorts
-		sort.Slice(result, func(i, j int) bool {
-			return result[i].CreatedAt.AsTime().UnixNano() < result[j].CreatedAt.AsTime().UnixNano()
-		})
+		result = append(result, eventmod.ToProto(rawUUID, ev.EventData))
 	}
 	return result, nil
 }

@@ -75,9 +75,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		Deployments: make(map[string]*api.Deployment),
 		TeamLocks:   make(map[string]*api.Locks),
 	}
-	if !o.DBHandler.ShouldUseOtherTables() {
-		panic("DB")
-	}
 	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
 		var rels []int64
 		var result = &api.Application{
@@ -402,21 +399,18 @@ func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
 
-	if s.DBHandler.ShouldUseOtherTables() {
-		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
-			var err2 error
-			response, err2 := o.getOverview(ctx, s, transaction)
-			if err2 != nil {
-				return nil, err2
-			}
-			return response, nil
-		})
-		if err != nil {
-			return nil, err
+	response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
+		var err2 error
+		response, err2 := o.getOverview(ctx, s, transaction)
+		if err2 != nil {
+			return nil, err2
 		}
 		return response, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	return o.getOverview(ctx, s, nil)
+	return response, nil
 }
 
 func (o *OverviewServiceServer) getOverview(
@@ -426,8 +420,7 @@ func (o *OverviewServiceServer) getOverview(
 ) (*api.GetOverviewResponse, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "CalculateOverview")
 	defer span.Finish()
-	var rev string
-	rev = "0000000000000000000000000000000000000000"
+	rev := "0000000000000000000000000000000000000000"
 	result := api.GetOverviewResponse{
 		Branch:            "",
 		ManifestRepoUrl:   "",

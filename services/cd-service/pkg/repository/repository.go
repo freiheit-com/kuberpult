@@ -137,9 +137,9 @@ const (
 
 type repository struct {
 	// Mutex gurading the writer
-	writeLock    sync.Mutex
-	queue        queue
-	config       *RepositoryConfig
+	writeLock sync.Mutex
+	queue     queue
+	config    *RepositoryConfig
 
 	// Mutex guarding head
 	headLock sync.Mutex
@@ -276,14 +276,10 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	}
 
 	// Check configuration for errors and abort early if any:
-	if state.DBHandler.ShouldUseOtherTables() {
-		_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
-			ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
-			return &ret, err
-		})
-	} else {
-		_, err = state.GetEnvironmentConfigsAndValidate(ctx, nil)
-	}
+	_, err = db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+		ret, err := state.GetEnvironmentConfigsAndValidate(ctx, transaction)
+		return &ret, err
+	})
 
 	if err != nil {
 		return nil, nil, err
@@ -462,49 +458,47 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				AuthorEmail: user.Email,
 			}
 			transfomerId := db.EslVersion(0)
-			if r.DB.ShouldUseEslTable() {
-				err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
-				if err != nil {
-					return nil, nil, nil, &TransformerBatchApplyError{
-						TransformerError: err,
-						Index:            i,
-					}
+			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
+			if err != nil {
+				return nil, nil, nil, &TransformerBatchApplyError{
+					TransformerError: err,
+					Index:            i,
 				}
-				// read the last written event, so we can get the primary key (eslVersion):
-				internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
-				if err != nil {
-					return nil, nil, nil, &TransformerBatchApplyError{
-						TransformerError: err,
-						Index:            i,
-					}
-				}
-				if internal == nil {
-					return nil, nil, nil, &TransformerBatchApplyError{
-						TransformerError: fmt.Errorf("could not find esl event that was just inserted with event type %v", t.GetDBEventType()),
-						Index:            i,
-					}
-				}
-				t.SetEslVersion(db.TransformerID(internal.EslVersion))
-
-				if r.DB != nil && r.DB.WriteEslOnly {
-					// if we were previously running with `db.writeEslTableOnly=true`, but now are running with
-					// `db.writeEslTableOnly=false` (which is the recommended way to enable the database),
-					// then we would have many events in the event_sourcing_light table that have not been processed.
-					// So, we write the cutoff if we are only writing to the esl table. Then, when the database is fully
-					// enabled, the cutoff is found and determined to be the latest transformer. When this happens,
-					// the export service takes over the duties of writing the cutoff
-
-					err = db.DBWriteCutoff(r.DB, ctx, transaction, internal.EslVersion)
-					if err != nil {
-						applyErr := TransformerBatchApplyError{
-							TransformerError: err,
-							Index:            i,
-						}
-						return nil, nil, nil, &applyErr
-					}
-				}
-				transfomerId = internal.EslVersion
 			}
+			// read the last written event, so we can get the primary key (eslVersion):
+			internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
+			if err != nil {
+				return nil, nil, nil, &TransformerBatchApplyError{
+					TransformerError: err,
+					Index:            i,
+				}
+			}
+			if internal == nil {
+				return nil, nil, nil, &TransformerBatchApplyError{
+					TransformerError: fmt.Errorf("could not find esl event that was just inserted with event type %v", t.GetDBEventType()),
+					Index:            i,
+				}
+			}
+			t.SetEslVersion(db.TransformerID(internal.EslVersion))
+
+			if r.DB != nil && r.DB.WriteEslOnly {
+				// if we were previously running with `db.writeEslTableOnly=true`, but now are running with
+				// `db.writeEslTableOnly=false` (which is the recommended way to enable the database),
+				// then we would have many events in the event_sourcing_light table that have not been processed.
+				// So, we write the cutoff if we are only writing to the esl table. Then, when the database is fully
+				// enabled, the cutoff is found and determined to be the latest transformer. When this happens,
+				// the export service takes over the duties of writing the cutoff
+
+				err = db.DBWriteCutoff(r.DB, ctx, transaction, internal.EslVersion)
+				if err != nil {
+					applyErr := TransformerBatchApplyError{
+						TransformerError: err,
+						Index:            i,
+					}
+					return nil, nil, nil, &applyErr
+				}
+			}
+			transfomerId = internal.EslVersion
 
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
@@ -607,7 +601,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 }
 
 func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
-	if r.config.DisableQueue && r.DB.ShouldUseOtherTables() {
+	if r.config.DisableQueue {
 		changes, err := db.WithTransactionT(r.DB, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
 			subChanges, applyErr := r.ApplyTransformers(ctx, transaction, transformers...)
 			if applyErr != nil {
@@ -876,44 +870,11 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
 func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment string, allApps []string) (map[string]*int64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
-	} else {
-		var result = make(map[string]*int64)
-		for _, appName := range allApps {
-			currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, appName)
-			if err != nil {
-				return nil, err
-			}
-			var v int64
-			if currentlyDeployedVersion != nil {
-				v = int64(*currentlyDeployedVersion)
-			}
-			result[appName] = &v
-		}
-		return result, nil
-	}
+	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
 func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, allApps []string) (map[string][]int64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
-	} else {
-		var result = make(map[string][]int64)
-		for _, appName := range allApps {
-			releases, err := s.GetAllApplicationReleases(ctx, transaction, appName)
-			if err != nil {
-				return nil, err
-			}
-			//conver to int64
-			var toAdd []int64
-			for _, val := range releases {
-				toAdd = append(toAdd, int64(val))
-			}
-			result[appName] = toAdd
-		}
-		return result, nil
-	}
+	return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment string, application string) (*uint64, error) {
@@ -1001,16 +962,10 @@ func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.T
 }
 
 func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
-	}
-	return s.GetAllDeploymentsForAppFromManifest(ctx, appName)
+	return s.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
 }
 func (s *State) GetAllDeploymentsForAppAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, appName, ts)
-	}
-	return nil, fmt.Errorf("GetAllDeploymentsForAppAtTimestamp is only available if DB is enable")
+	return s.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, appName, ts)
 }
 
 func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[string]int64, error) {
@@ -1031,24 +986,6 @@ func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, tr
 	}
 	if result == nil {
 		return map[string]int64{}, nil
-	}
-	return result, nil
-}
-
-func (s *State) GetAllDeploymentsForAppFromManifest(ctx context.Context, appName string) (map[string]int64, error) {
-	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]int64{}
-	for env := range envConfigs {
-		version, err := s.GetEnvironmentApplicationVersion(ctx, nil, env, appName)
-		if err != nil {
-			return nil, err
-		}
-		if version != nil {
-			result[env] = int64(*version)
-		}
 	}
 	return result, nil
 }
@@ -1113,10 +1050,7 @@ func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql
 }
 
 func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, environment string, ts time.Time) ([]string, error) {
-	if s.DBHandler.ShouldUseOtherTables() {
-		return s.GetEnvironmentApplicationsFromDBAtTimestamp(ctx, transaction, environment, ts)
-	}
-	return nil, fmt.Errorf("GetEnvironmentApplicationsAtTimestamp is only available for DB uses")
+	return s.GetEnvironmentApplicationsFromDBAtTimestamp(ctx, transaction, environment, ts)
 }
 
 func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {

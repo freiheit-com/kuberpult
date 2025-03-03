@@ -781,11 +781,9 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 		Environments: envMap,
 	}
 	var writeError error
-	if h.ShouldUseEslTable() {
-		gen := getGenerator(ctx)
-		eventUuid := gen.Generate()
-		writeError = state.DBHandler.DBWriteNewReleaseEvent(ctx, transaction, transformerEslVersion, releaseVersion, eventUuid, sourceCommitId, ev)
-	}
+	gen := getGenerator(ctx)
+	eventUuid := gen.Generate()
+	writeError = state.DBHandler.DBWriteNewReleaseEvent(ctx, transaction, transformerEslVersion, releaseVersion, eventUuid, sourceCommitId, ev)
 
 	if writeError != nil {
 		return fmt.Errorf("error while writing event: %v", writeError)

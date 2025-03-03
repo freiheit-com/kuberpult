@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
-	"path"
 	"strings"
 	"testing"
 	"time"
@@ -212,23 +211,42 @@ func TestApplyQueuePanic(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			// create a remote
+			ctx := testutil.MakeTestContext()
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatalf("CreateMigrationsPath error: %v", err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+
 			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
+
+			repoCfg := RepositoryConfig{
+				ArgoCdGenerateFiles:   true,
+				MaximumCommitsPerPush: 3,
+			}
+			dbConfig.DbHost = dir
+
+			migErr := db.RunDBMigrations(ctx, *dbConfig)
+			if migErr != nil {
+				t.Fatal(migErr)
+			}
+
+			dbHandler, err := db.Connect(ctx, *dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			repoCfg.DBHandler = dbHandler
+
 			repo, processQueue, err := New2(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                   "file://" + remoteDir,
-					Path:                  localDir,
-					MaximumCommitsPerPush: 3,
-					ArgoCdGenerateFiles:   true,
-				},
+				ctx,
+				repoCfg,
 			)
 			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
+				t.Fatal(err)
 			}
 			// The worker go routine is not started. We can move some items into the queue now.
 			results := make([]<-chan error, len(tc.Actions))
@@ -288,25 +306,47 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
+			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			if err != nil {
+				t.Fatalf("CreateMigrationsPath error: %v", err)
+			}
+			dbConfig := &db.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: migrationsPath,
+				WriteEslOnly:   false,
+			}
+
 			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
+
+			repoCfg := RepositoryConfig{
+				ArgoCdGenerateFiles:   true,
+				MaximumCommitsPerPush: 3,
+				NetworkTimeout:        networkTimeout,
+			}
+			dbConfig.DbHost = dir
+
+			migErr := db.RunDBMigrations(ctx, *dbConfig)
+			if migErr != nil {
+				t.Fatal(migErr)
+			}
+
+			dbHandler, err := db.Connect(ctx, *dbConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			repoCfg.DBHandler = dbHandler
+
 			repo, processQueue, err := New2(
-				testutil.MakeTestContext(),
-				RepositoryConfig{
-					URL:                 "file://" + remoteDir,
-					Path:                localDir,
-					NetworkTimeout:      networkTimeout,
-					ArgoCdGenerateFiles: true,
-				},
+				ctx,
+				repoCfg,
 			)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err != nil {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}
-			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
 
 			mc := mockClock{}
 			hlth := &setup.HealthServer{}
@@ -973,54 +1013,4 @@ func TestLimit(t *testing.T) {
 			}
 		})
 	}
-}
-
-func setupRepository(t *testing.T, config RepositoryConfig) (Repository, error) {
-	//t.Parallel()
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
-
-	config.URL = remoteDir
-	config.Path = localDir
-	config.CommitterEmail = "kuberpult@freiheit.com"
-	config.CommitterName = "kuberpult"
-	t.Logf("test created dir: %s", localDir)
-	repo, _, err := New2(
-		testutil.MakeTestContext(),
-		config,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, nil
-}
-
-func setupRepositoryTestAux(t *testing.T, commits uint) (Repository, error) {
-	t.Parallel()
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
-	t.Logf("test created dir: %s", localDir)
-	repo, _, err := New2(
-		testutil.MakeTestContext(),
-		RepositoryConfig{
-			URL:                   remoteDir,
-			Path:                  localDir,
-			CommitterEmail:        "kuberpult@freiheit.com",
-			CommitterName:         "kuberpult",
-			MaximumCommitsPerPush: commits,
-			ArgoCdGenerateFiles:   true,
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, nil
 }
