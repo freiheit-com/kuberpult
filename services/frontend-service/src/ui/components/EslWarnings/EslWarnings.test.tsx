@@ -99,7 +99,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
         expect(actualHeaders).toHaveLength(1); // there should be 1 header line
 
         const actualHeadersRows = actualHeaders[0].getElementsByTagName('tr');
-        expect(actualHeadersRows).toHaveLength(2); // there should be 1 row in the header line
+        expect(actualHeadersRows).toHaveLength(2); // there should be 2 row in the header line (1 for name of table and another for the column names)
 
         const actualHeaderFields = actualHeadersRows[1].getElementsByClassName('mdc-data-indicator-field');
 
