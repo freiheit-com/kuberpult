@@ -678,3 +678,16 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 	}
 	return deployments, nil
 }
+
+func (h *DBHandler) MapEnvNamesToDeployment(ctx context.Context, transaction *sql.Tx, id TransformerID) (map[string]Deployment, error) {
+	deployments, err := h.DBSelectDeploymentsByTransformerID(ctx, transaction, id)
+	if err != nil {
+		return nil, err
+	}
+	deploymentsMap := make(map[string]Deployment)
+
+	for _, currentDeployment := range deployments {
+		deploymentsMap[currentDeployment.Env] = currentDeployment
+	}
+	return deploymentsMap, nil
+}

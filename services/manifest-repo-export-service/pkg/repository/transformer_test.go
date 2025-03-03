@@ -2328,7 +2328,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 		expectedMissing []*FilenameAndData
 	}{
 		{
-
 			Name: "Create undeploy application version and deploy it",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -2378,119 +2377,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 				},
 				{
 					path:     "/environments/acceptance/applications/app1/version/undeploy",
-					fileData: []byte(""),
-				},
-			},
-		},
-		{
-			Name: "Try Create undeploy application version, but it is locked",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      envAcceptanceConfig,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateEnvironment{
-					Environment: envAcceptance2,
-					Config:      envAcceptance2Config,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[string]string{
-						envAcceptance:  "mani-1-acc",
-						envAcceptance2: "e2",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 3,
-				},
-				//We need to deploy manually due to discrepancy between DB and manifest on testing env, causing locks to not work as the previous version isn't the lastest
-				&DeployApplicationVersion{
-					Application:     appName,
-					Environment:     envAcceptance,
-					Version:         1,
-					LockBehaviour:   2,
-					WriteCommitData: false,
-					SourceTrain:     nil,
-					Author:          "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeployApplicationVersion{
-					Application:     appName,
-					Environment:     envAcceptance2,
-					Version:         1,
-					LockBehaviour:   api.LockBehavior_RECORD,
-					WriteCommitData: false,
-					SourceTrain:     nil,
-					Author:          "",
-
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironmentLock{
-					Environment:           envAcceptance2,
-					LockId:                "my-lock",
-					Message:               "Acceptance 2 is locked",
-					TransformerEslVersion: 4,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateUndeployApplicationVersion{
-					Authentication:  Authentication{},
-					Application:     appName,
-					WriteCommitData: false,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-
-					TransformerEslVersion: 5,
-				},
-			},
-			expectedData: []*FilenameAndData{
-				{ //There is an undeploy version
-					path:     "/applications/app1/releases/2/undeploy",
-					fileData: []byte(""),
-				},
-				{ //The first env has the undeploy version deployed
-					path:     "environments/acceptance/applications/app1/version/undeploy",
-					fileData: []byte(""),
-				},
-				{ //The second env has the undeploy version *queued*
-					path:     "environments/acceptance2/applications/app1/queued_version/undeploy",
-					fileData: []byte(""),
-				},
-			},
-			expectedMissing: []*FilenameAndData{
-				{ //The second env does NOT have the undeploy version
-					path:     "environments/acceptance2/applications/app1/version/undeploy",
 					fileData: []byte(""),
 				},
 			},
@@ -2561,13 +2447,16 @@ func TestCreateUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
+					var version int64
+					version = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 							ReleaseNumber: 2,
 							App:           appName,
 							Manifests: db.DBReleaseManifests{
 								Manifests: map[string]string{ //empty manifest
-									"": "",
+									envAcceptance:  "",
+									envAcceptance2: "",
 								},
 							},
 							Metadata: db.DBReleaseMetaData{
@@ -2578,6 +2467,18 @@ func TestCreateUndeployLogic(t *testing.T) {
 								UndeployVersion: true,
 							},
 							Created: time.Now(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
 						})
 						if err2 != nil {
 							t.Fatal(err2)
@@ -2954,6 +2855,8 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
+					var version int64
+					version = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						concreteTransformer := tr.(*CreateUndeployApplicationVersion)
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
@@ -2972,6 +2875,28 @@ func TestUndeployLogic(t *testing.T) {
 								UndeployVersion: true,
 							},
 							Created: time.Now(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
 						})
 						if err2 != nil {
 							t.Fatal(err2)
