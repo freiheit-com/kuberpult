@@ -208,11 +208,20 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                     <div
                       class="env-card-locks"
                     >
-                      <span
-                        class="rollout__description_pending"
+                      <div
+                        class="tooltip-container"
+                        data-tooltip-delay-hide="50"
+                        data-tooltip-html="<div class=\\"mdc-tooltip__title_ release__details\\">ArgoCD has not yet picked up these changes.</div>"
+                        data-tooltip-id="kuberpult-tooltip"
+                        data-tooltip-place="bottom"
+                        id="tooltip"
                       >
-                        ⧖ Pending
-                      </span>
+                        <span
+                          class="rollout__description_pending"
+                        >
+                          ⧖ Pending
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div
@@ -514,11 +523,20 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                     <div
                       class="env-card-locks"
                     >
-                      <span
-                        class="rollout__description_pending"
+                      <div
+                        class="tooltip-container"
+                        data-tooltip-delay-hide="50"
+                        data-tooltip-html="<div class=\\"mdc-tooltip__title_ release__details\\">ArgoCD has not yet picked up these changes.</div>"
+                        data-tooltip-id="kuberpult-tooltip"
+                        data-tooltip-place="bottom"
+                        id="tooltip"
                       >
-                        ⧖ Pending
-                      </span>
+                        <span
+                          class="rollout__description_pending"
+                        >
+                          ⧖ Pending
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div
@@ -820,11 +838,20 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     <div
                       class="env-card-locks"
                     >
-                      <span
-                        class="rollout__description_pending"
+                      <div
+                        class="tooltip-container"
+                        data-tooltip-delay-hide="50"
+                        data-tooltip-html="<div class=\\"mdc-tooltip__title_ release__details\\">ArgoCD has not yet picked up these changes.</div>"
+                        data-tooltip-id="kuberpult-tooltip"
+                        data-tooltip-place="bottom"
+                        id="tooltip"
                       >
-                        ⧖ Pending
-                      </span>
+                        <span
+                          class="rollout__description_pending"
+                        >
+                          ⧖ Pending
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div
@@ -993,11 +1020,20 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           </button>
                         </div>
                       </div>
-                      <span
-                        class="rollout__description_progressing"
+                      <div
+                        class="tooltip-container"
+                        data-tooltip-delay-hide="50"
+                        data-tooltip-html="<div class=\\"mdc-tooltip__title_ release__details\\">ArgoCD has picked up these changes for this application on this environment, but has not applied them yet. This process might take a while.</div>"
+                        data-tooltip-id="kuberpult-tooltip"
+                        data-tooltip-place="bottom"
+                        id="tooltip"
                       >
-                        ↻ In progress
-                      </span>
+                        <span
+                          class="rollout__description_progressing"
+                        >
+                          ↻ In progress
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div
