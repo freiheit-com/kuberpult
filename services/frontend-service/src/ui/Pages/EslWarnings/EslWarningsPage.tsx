@@ -40,6 +40,10 @@ export const EslWarningsPage: React.FC = () => {
     }, [authHeader, firstRender, pageNumber]);
 
     const onClick = React.useCallback(() => {
+        sessionStorage.setItem(
+            'scrollPosition',
+            String(document.getElementsByClassName('mdc-drawer-app-content')[0].scrollTop)
+        );
         updateFailedEsls.set({ failedEslsReady: FailedEslsState.LOADING });
         setPageNumber(pageNumber + 1);
     }, [pageNumber]);
@@ -47,6 +51,7 @@ export const EslWarningsPage: React.FC = () => {
     const failedEsls = useFailedEsls((res) => res);
 
     const element = useGlobalLoadingState();
+
     if (element) {
         return element;
     }
