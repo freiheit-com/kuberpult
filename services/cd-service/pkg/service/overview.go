@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -30,16 +29,12 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	git "github.com/libgit2/git2go/v34"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -79,9 +74,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		AppLocks:    make(map[string]*api.Locks),
 		Deployments: make(map[string]*api.Deployment),
 		TeamLocks:   make(map[string]*api.Locks),
-	}
-	if !o.DBHandler.ShouldUseOtherTables() {
-		panic("DB")
 	}
 	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
 		var rels []int64
@@ -294,23 +286,6 @@ func (o *OverviewServiceServer) GetOverview(
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetOverview")
 	defer span.Finish()
 
-	if in.GitRevision != "" {
-		oid, err := git.NewOid(in.GitRevision)
-		if err != nil {
-			return nil, grpc.PublicError(ctx, fmt.Errorf("getOverview: could not find revision %v: %v", in.GitRevision, err))
-		}
-		state, err := o.Repository.StateAt(oid)
-		if err != nil {
-			var gerr *git.GitError
-			if errors.As(err, &gerr) {
-				if gerr.Code == git.ErrorCodeNotFound {
-					return nil, status.Error(codes.NotFound, "not found")
-				}
-			}
-			return nil, err
-		}
-		return o.getOverviewDB(ctx, state)
-	}
 	return o.getOverviewDB(ctx, o.Repository.State())
 }
 
@@ -424,21 +399,18 @@ func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
 
-	if s.DBHandler.ShouldUseOtherTables() {
-		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
-			var err2 error
-			response, err2 := o.getOverview(ctx, s, transaction)
-			if err2 != nil {
-				return nil, err2
-			}
-			return response, nil
-		})
-		if err != nil {
-			return nil, err
+	response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
+		var err2 error
+		response, err2 := o.getOverview(ctx, s, transaction)
+		if err2 != nil {
+			return nil, err2
 		}
 		return response, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	return o.getOverview(ctx, s, nil)
+	return response, nil
 }
 
 func (o *OverviewServiceServer) getOverview(
@@ -448,14 +420,7 @@ func (o *OverviewServiceServer) getOverview(
 ) (*api.GetOverviewResponse, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "CalculateOverview")
 	defer span.Finish()
-	var rev string
-	if s.DBHandler.ShouldUseOtherTables() {
-		rev = "0000000000000000000000000000000000000000"
-	} else {
-		if s.Commit != nil {
-			rev = s.Commit.Id().String()
-		}
-	}
+	rev := "0000000000000000000000000000000000000000"
 	result := api.GetOverviewResponse{
 		Branch:            "",
 		ManifestRepoUrl:   "",

@@ -3378,26 +3378,8 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Reposito
 	}
 
 	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("error starting %v", err)
-		return nil, nil
-	}
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("error waiting %v", err)
-		return nil, nil
-	}
-	t.Logf("test created dir: %s", localDir)
 
 	repoCfg := RepositoryConfig{
-		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
 	}
 	dbConfig.DbHost = dir
@@ -3471,10 +3453,7 @@ type injectErr struct {
 }
 
 func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
-	original := state.Filesystem
-	state.Filesystem = i.collector.WithError(state.Filesystem, i.operation, i.filename, i.err)
 	s, err := i.Transformer.Transform(ctx, state, t, transaction)
-	state.Filesystem = original
 	return s, err
 }
 

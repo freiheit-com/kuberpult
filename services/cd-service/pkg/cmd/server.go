@@ -311,17 +311,11 @@ func RunServer() {
 		}
 
 		cfg := repository.RepositoryConfig{
-			WebhookResolver: nil,
-			URL:             c.GitUrl,
-			Path:            "./repository",
-			CommitterEmail:  c.GitCommitterEmail,
-			CommitterName:   c.GitCommitterName,
-			Credentials: repository.Credentials{
-				SshKey: c.GitSshKey,
-			},
-			Certificates: repository.Certificates{
-				KnownHostsFile: c.GitSshKnownHosts,
-			},
+			WebhookResolver:       nil,
+			URL:                   c.GitUrl,
+			Path:                  "./repository",
+			CommitterEmail:        c.GitCommitterEmail,
+			CommitterName:         c.GitCommitterName,
 			MinorRegexes:          minorRegexes,
 			MaxNumThreads:         c.MaxNumberOfThreads,
 			Branch:                c.GitBranch,
