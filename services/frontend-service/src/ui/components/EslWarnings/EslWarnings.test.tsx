@@ -64,7 +64,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 loadMore: true,
             },
             expectedEslsTable: {
-                head: ['Date', 'ID', 'Type', 'Reason', '', ''],
+                head: ['Date', 'ID', 'Type', 'Reason', 'Retry', 'Skip'],
                 body: [
                     ['2024-02-09T09:46:00', '12', 'EvtCreateApplicationVersion', 'unexpected error', '', ''],
                     ['2024-02-10T09:46:00', '17', 'EvtDeployApplication', 'unexpected error', '', ''],
@@ -87,7 +87,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 loadMore: true,
             },
             expectedEslsTable: {
-                head: ['Date', 'ID', 'Type', 'Reason', '', ''],
+                head: ['Date', 'ID', 'Type', 'Reason', 'Retry', 'Skip'],
                 body: [['2024-02-09T12:20:00', '9', 'EvtCreateApplicationVersion', 'unknown error', '', '']],
             },
         },

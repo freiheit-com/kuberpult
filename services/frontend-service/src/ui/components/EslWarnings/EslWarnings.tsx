@@ -96,7 +96,7 @@ type EslWarningsProps = {
     onClick?: { (): void };
 };
 
-const headers = ['Date', 'ID', 'Type', 'Reason', '', ''];
+const headers = ['Date', 'ID', 'Type', 'Reason', 'Retry', 'Skip'];
 
 export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
     const failedEslsResponse = props.failedEsls;
