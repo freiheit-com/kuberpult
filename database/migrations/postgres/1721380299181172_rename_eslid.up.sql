@@ -43,6 +43,9 @@ BEGIN
   IF EXISTS(SELECT *
     FROM information_schema.columns
     WHERE table_name='commit_events' and column_name='transformereslid')
+  AND NOT EXISTS(SELECT 1
+    FROM information_schema.columns
+    WHERE table_name='commit_events' and column_name='transformereslversion')
   THEN
       ALTER TABLE commit_events RENAME COLUMN transformereslid TO transformereslVersion;
   END IF;
