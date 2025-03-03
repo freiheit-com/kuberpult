@@ -1831,7 +1831,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil { //Undeploy version does not exist if we minimize git data
 			if errors.Is(err, os.ErrNotExist) {
 				if t.ShouldMaximizeGitData() {
-					logger.FromContext(ctx).Sugar().Warnf("Maximize git data is enabled but could not find undeploy file %q for application %q on environment %q: ", undeployFile, u.Application, env)
+					logger.FromContext(ctx).Sugar().Warnf("Maximize git data is enabled but could not find undeploy file %q for application %q on environment %q.", undeployFile, u.Application, env)
 				}
 			} else {
 				return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release on '%v' is not un-deployed: '%v'. Error: %w", u.Application, env, undeployFile, err)
