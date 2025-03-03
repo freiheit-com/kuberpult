@@ -364,7 +364,7 @@ func (c *DeployApplicationVersion) Transform(
 		return "", fmt.Errorf("release of app %s with version %v not found", c.Application, c.Version)
 	}
 	var manifestContent = []byte(version.Manifests.Manifests[c.Environment])
-	
+
 	applicationDir := fsys.Join("environments", c.Environment, "applications", c.Application)
 	// Create a symlink to the release
 	if err := fsys.MkdirAll(applicationDir, 0777); err != nil {
