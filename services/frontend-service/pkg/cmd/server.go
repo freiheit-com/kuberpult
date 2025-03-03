@@ -695,7 +695,7 @@ func (p *GrpcProxy) GetProductSummary(
 func (p *GrpcProxy) GetCommitInfo(
 	ctx context.Context,
 	in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
-	return p.GitClient.GetCommitInfo(ctx, in)
+	return p.ManifestExportServiceGitClient.GetCommitInfo(ctx, in)
 }
 
 func (p *GrpcProxy) GetEnvironmentConfig(
@@ -707,7 +707,7 @@ func (p *GrpcProxy) GetEnvironmentConfig(
 func (p *GrpcProxy) GetGitSyncStatus(
 	ctx context.Context,
 	in *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
-	return p.GitClient.GetGitSyncStatus(ctx, in)
+	return p.ManifestExportServiceGitClient.GetGitSyncStatus(ctx, in)
 }
 
 func (p *GrpcProxy) RetryFailedEvent(

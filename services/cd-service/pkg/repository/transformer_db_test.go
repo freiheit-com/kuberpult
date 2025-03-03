@@ -4069,7 +4069,6 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 					},
 				},
 				DeletedRootApps: nil,
-				Commits:         nil,
 			},
 			expectedEvents: []statsd.Event{
 				{
@@ -4133,7 +4132,6 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 					},
 				},
 				DeletedRootApps: nil,
-				Commits:         nil,
 			},
 			expectedEvents: []statsd.Event{
 				{
@@ -4259,12 +4257,9 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			},
 			expectedGauges: []Gauge{
 				makeGauge("request_queue_size", 0, []string{}, 1),
-				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
 				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app1"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
 			},
@@ -4301,26 +4296,20 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			},
 			expectedGauges: []Gauge{
 				makeGauge("request_queue_size", 0, []string{}, 1),
-				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
 				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app1"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
-				makeGauge("env_lock_count", 0, []string{"env:envB"}, 1),
 				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envB"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envB"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app1"}, 1),
 
 				// 10:
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envB"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
 
 				// 12:
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
 
 				// 14:
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envB"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app2"}, 1),
 
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),

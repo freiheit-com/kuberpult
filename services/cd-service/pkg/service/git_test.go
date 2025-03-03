@@ -548,9 +548,6 @@ func TestGetProductDBFailureCases(t *testing.T) {
 				DBHandler:           repo.State().DBHandler,
 			}
 			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
-			if !sv.Config.DBHandler.ShouldUseOtherTables() {
-				t.Fatal("database is not setup correctly")
-			}
 			for _, transformer := range tc.Setup {
 				err := repo.Apply(testutil.MakeTestContext(), transformer)
 				if err != nil {
