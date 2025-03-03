@@ -365,6 +365,58 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	var manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 
+	if c.LockBehaviour != api.LockBehavior_IGNORE {
+		// Check that the environment is not locked
+		var (
+			appLocks, envLocks, teamLocks map[string]Lock
+			err                           error
+		)
+		envLocks, err = state.GetEnvironmentLocksFromDB(ctx, transaction, c.Environment)
+		if err != nil {
+			return "", err
+		}
+		appLocks, err = state.GetEnvironmentApplicationLocksFromDB(ctx, transaction, c.Environment, c.Application)
+		if err != nil {
+			return "", err
+		}
+
+		app, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, c.Application)
+		if err != nil {
+			return "", err
+		}
+		var teamName = ""
+		if app != nil && app.Metadata.Team != "" {
+			teamName = app.Metadata.Team
+		}
+
+		teamLocks, err = state.GetEnvironmentTeamLocksFromDB(ctx, transaction, c.Environment, teamName)
+		if err != nil {
+			return "", err
+		}
+
+		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
+			switch c.LockBehaviour {
+			case api.LockBehavior_RECORD:
+				q := QueueApplicationVersion{
+					Environment:           c.Environment,
+					Application:           c.Application,
+					Version:               c.Version,
+					TransformerEslVersion: c.TransformerEslVersion,
+				}
+				return q.Transform(ctx, state, tCtx, transaction)
+			case api.LockBehavior_FAIL:
+				return "", &LockedError{
+					EnvironmentApplicationLocks: appLocks,
+					EnvironmentLocks:            envLocks,
+					TeamLocks:                   teamLocks,
+				}
+			}
+		}
+	}
+=======
+
+>>>>>>> Stashed changes
+>>>>>>> 30e9d3b3 (merging)
 	applicationDir := fsys.Join("environments", c.Environment, "applications", c.Application)
 	// Create a symlink to the release
 	if err := fsys.MkdirAll(applicationDir, 0777); err != nil {
