@@ -90,12 +90,13 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	}
 
 	repoCfg := RepositoryConfig{
-		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
-		ArgoCdGenerateFiles: true,
-		ReleaseVersionLimit: 2,
+		URL:                  remoteDir,
+		Path:                 localDir,
+		CommitterEmail:       "kuberpult@freiheit.com",
+		CommitterName:        "kuberpult",
+		ArgoCdGenerateFiles:  true,
+		ReleaseVersionLimit:  2,
+		MinimizeExportedData: false,
 	}
 
 	if dbConfig != nil {
@@ -2381,6 +2382,114 @@ func TestCreateUndeployLogic(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Try Create undeploy application version, but it is locked",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptanceConfig,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance2,
+					Config:      envAcceptance2Config,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        1,
+					Application:    appName,
+					Manifests: map[string]string{
+						envAcceptance:  "mani-1-acc",
+						envAcceptance2: "e2",
+					},
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					Team:            "team-123",
+					DisplayVersion:  "",
+					WriteCommitData: false,
+					PreviousCommit:  "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 3,
+				},
+				//We need to deploy manually due to discrepancy between DB and manifest on testing env, causing locks to not work as the previous version isn't the lastest
+				&DeployApplicationVersion{
+					Application:     appName,
+					Environment:     envAcceptance,
+					Version:         1,
+					LockBehaviour:   2,
+					WriteCommitData: false,
+					SourceTrain:     nil,
+					Author:          "",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Application:     appName,
+					Environment:     envAcceptance2,
+					Version:         1,
+					LockBehaviour:   api.LockBehavior_RECORD,
+					WriteCommitData: false,
+					SourceTrain:     nil,
+					Author:          "",
+
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment:           envAcceptance2,
+					LockId:                "my-lock",
+					Message:               "Acceptance 2 is locked",
+					TransformerEslVersion: 4,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Authentication:  Authentication{},
+					Application:     appName,
+					WriteCommitData: false,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+
+					TransformerEslVersion: 5,
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{ //There is an undeploy version
+					path:     "/applications/app1/releases/2/undeploy",
+					fileData: []byte(""),
+				},
+				{ //The first env has the undeploy version deployed
+					path:     "environments/acceptance/applications/app1/version/undeploy",
+					fileData: []byte(""),
+				},
+				{ //The second env still has an undeploy, event with a lock
+					path:     "environments/acceptance2/applications/app1/version/undeploy",
+					fileData: []byte(""),
+				},
+			},
+			expectedMissing: []*FilenameAndData{},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -2476,6 +2585,14 @@ func TestCreateUndeployLogic(t *testing.T) {
 							Version:       &version,
 							App:           appName,
 							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
+						})
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance2,
 							Metadata:      db.DeploymentMetadata{},
 							Created:       time.Now(),
 							TransformerID: tr.GetEslVersion(),
