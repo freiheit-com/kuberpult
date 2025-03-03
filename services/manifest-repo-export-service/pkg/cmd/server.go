@@ -435,7 +435,6 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		repo.Notify().Notify() // Notify git sync status
 
 		err = repository.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler)
-
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
 		}
